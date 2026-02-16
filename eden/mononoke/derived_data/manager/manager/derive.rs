@@ -49,6 +49,7 @@ use super::DerivationAssignment;
 use super::DerivedDataManager;
 use crate::context::DerivationContext;
 use crate::derivable::BonsaiDerivable;
+use crate::derivable::DerivableUntopologically;
 use crate::derivable::DerivationDependencies;
 use crate::error::DerivationError;
 use crate::error::SharedDerivationError;
@@ -370,16 +371,16 @@ impl DerivedDataManager {
         }
     }
 
-    /// Derive or retrieve derived data for a changeset using other derived data types
-    /// without requiring data to be derived for the parents of the changeset.
-    pub async fn derive_from_predecessor<Derivable>(
+    /// Derive or retrieve derived data for a changeset without requiring data to be
+    /// derived for the parents of the changeset.
+    pub async fn unsafe_derive_untopologically<Derivable>(
         &self,
         ctx: &CoreContext,
         csid: ChangesetId,
         rederivation: Option<Arc<dyn Rederivation>>,
     ) -> Result<Derivable, DerivationError>
     where
-        Derivable: BonsaiDerivable,
+        Derivable: DerivableUntopologically,
     {
         if let Some(value) = self.fetch_derived(ctx, csid, rederivation.clone()).await? {
             return Ok(value);
@@ -419,7 +420,7 @@ impl DerivedDataManager {
         };
 
         let (derive_stats, derived) =
-            Derivable::derive_from_predecessor(&ctx, &derivation_ctx, bonsai)
+            Derivable::unsafe_derive_untopologically(&ctx, &derivation_ctx, bonsai)
                 .timed()
                 .await;
         derivation_ctx.flush(&ctx).await?;

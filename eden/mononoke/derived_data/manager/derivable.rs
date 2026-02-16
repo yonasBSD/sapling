@@ -12,7 +12,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use anyhow::Result;
-use anyhow::anyhow;
 use async_trait::async_trait;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
@@ -24,6 +23,7 @@ use futures::stream::TryStreamExt;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
 use mononoke_types::DerivableType;
+use mononoke_types::DerivableUntopologicallyVariant;
 
 use crate::DerivedDataManager;
 use crate::Rederivation;
@@ -58,18 +58,6 @@ pub trait BonsaiDerivable: Sized + Send + Sync + Clone + Debug + 'static {
     ///
     /// Use the `dependencies!` macro to populate this type.
     type Dependencies: DerivationDependencies;
-
-    /// Types of derived data types which this derived data type
-    /// can use as predecessors for the "predecessors optimization".
-    ///
-    /// This is a technique where you can derive a type from a "predecessor"
-    /// type, which allows to parallelize backfilling of the latter type
-    /// by using the predecessor type to start deriving future commits before
-    /// we have backfilled the latter type.
-    /// Example: SkeletonManifest can be used as a predecessor for BSSM.
-    ///
-    /// Use the `dependencies!` macro to populate this type.
-    type PredecessorDependencies: DerivationDependencies;
 
     /// The underlying type of the value of the derived data. This is used
     /// by the `fetch_direct` method to fetch the derived data value directly
@@ -128,24 +116,6 @@ pub trait BonsaiDerivable: Sized + Send + Sync + Clone + Debug + 'static {
             res.insert(csid, derived);
         }
         Ok(res)
-    }
-
-    /// Derive data for a changeset using other derived data types without
-    /// requiring data to be derived for the parents of the changeset.
-    ///
-    /// Can be used to parallelize backfilling derived data by slicing the commits
-    /// of a repository, deriving data for the boundaries of the slices using
-    /// this method, and then deriving data for the rest of the commits for all
-    /// slices in parallel using the normal derivation path.
-    async fn derive_from_predecessor(
-        _ctx: &CoreContext,
-        _derivation_ctx: &DerivationContext,
-        _bonsai: BonsaiChangeset,
-    ) -> Result<Self> {
-        Err(anyhow!(
-            "derive_from_predecessor is not implemented for {}",
-            Self::NAME
-        ))
     }
 
     /// Store this derived data as the mapped value for a given changeset.
@@ -215,6 +185,38 @@ pub trait BonsaiDerivable: Sized + Send + Sync + Clone + Debug + 'static {
     fn from_thrift(_data: DerivedData) -> Result<Self>;
 
     fn into_thrift(_data: Self) -> Result<DerivedData>;
+}
+
+/// Traits for derived data types that can be derived without requiring
+/// data to be derived for the parents of the changeset.
+///
+/// This trait should only be used for backfilling derived data types, as
+/// the general assumption is that if data is derived for a changeset, then
+/// data for its parents has already been derived.
+#[async_trait]
+pub trait DerivableUntopologically: BonsaiDerivable {
+    const DERIVABLE_UNTOPOLOGICALLY_VARIANT: DerivableUntopologicallyVariant;
+    /// Derived data types that this type depends on to derive out of order.
+    /// Usually this is a type that has the same "data" as the type that is
+    /// being derived in a different format (e.g. an unsharded version
+    /// of the same type).
+    /// Example: SkeletonManifest can be used as a predecessor for BSSM.
+    ///
+    /// Use the `dependencies!` macro to populate this type.
+    type PredecessorDependencies: DerivationDependencies;
+
+    /// Derive data for a changeset using other derived data types without
+    /// requiring data to be derived for the parents of the changeset.
+    ///
+    /// Can be used to parallelize backfilling derived data by slicing the commits
+    /// of a repository, deriving data for the boundaries of the slices using
+    /// this method, and then deriving data for the rest of the commits for all
+    /// slices in parallel using the normal derivation path.
+    async fn unsafe_derive_untopologically(
+        _ctx: &CoreContext,
+        _derivation_ctx: &DerivationContext,
+        _bonsai: BonsaiChangeset,
+    ) -> Result<Self>;
 }
 
 #[async_trait]

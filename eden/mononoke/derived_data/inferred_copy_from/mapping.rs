@@ -16,6 +16,7 @@ use blobstore::BlobstoreGetData;
 use context::CoreContext;
 use derived_data_manager::BonsaiDerivable;
 use derived_data_manager::DerivableType;
+use derived_data_manager::DerivableUntopologically;
 use derived_data_manager::DerivationContext;
 use derived_data_manager::dependencies;
 use derived_data_service_if as thrift;
@@ -26,6 +27,7 @@ use futures::stream;
 use mononoke_types::BlobstoreBytes;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
+use mononoke_types::DerivableUntopologicallyVariant;
 use mononoke_types::InferredCopyFromId;
 use mononoke_types::ThriftConvert;
 
@@ -74,7 +76,6 @@ impl BonsaiDerivable for RootInferredCopyFromId {
     const VARIANT: DerivableType = DerivableType::InferredCopyFrom;
 
     type Dependencies = dependencies![RootFsnodeId, RootBssmV3DirectoryId];
-    type PredecessorDependencies = dependencies![];
 
     async fn derive_single(
         ctx: &CoreContext,
@@ -82,14 +83,6 @@ impl BonsaiDerivable for RootInferredCopyFromId {
         bonsai: BonsaiChangeset,
         _parents: Vec<Self>,
         _known: Option<&HashMap<ChangesetId, Self>>,
-    ) -> Result<Self> {
-        derive_impl(ctx, derivation_ctx, &bonsai).await
-    }
-
-    async fn derive_from_predecessor(
-        ctx: &CoreContext,
-        derivation_ctx: &DerivationContext,
-        bonsai: BonsaiChangeset,
     ) -> Result<Self> {
         derive_impl(ctx, derivation_ctx, &bonsai).await
     }
@@ -152,5 +145,20 @@ impl BonsaiDerivable for RootInferredCopyFromId {
         Ok(thrift::DerivedData::inferred_copy_from(
             thrift::DerivedDataInferredCopyFrom::root_inferred_copy_from_id(data.0.into_thrift()),
         ))
+    }
+}
+
+#[async_trait]
+impl DerivableUntopologically for RootInferredCopyFromId {
+    const DERIVABLE_UNTOPOLOGICALLY_VARIANT: DerivableUntopologicallyVariant =
+        DerivableUntopologicallyVariant::InferredCopyFrom;
+    type PredecessorDependencies = dependencies![];
+
+    async fn unsafe_derive_untopologically(
+        ctx: &CoreContext,
+        derivation_ctx: &DerivationContext,
+        bonsai: BonsaiChangeset,
+    ) -> Result<Self> {
+        derive_impl(ctx, derivation_ctx, &bonsai).await
     }
 }

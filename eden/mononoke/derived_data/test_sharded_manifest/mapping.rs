@@ -15,12 +15,14 @@ use blobstore::BlobstoreGetData;
 use context::CoreContext;
 use derived_data_manager::BonsaiDerivable;
 use derived_data_manager::DerivableType;
+use derived_data_manager::DerivableUntopologically;
 use derived_data_manager::DerivationContext;
 use derived_data_manager::dependencies;
 use derived_data_service_if as thrift;
 use mononoke_types::BlobstoreBytes;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
+use mononoke_types::DerivableUntopologicallyVariant;
 use mononoke_types::ThriftConvert;
 use mononoke_types::test_sharded_manifest::TestShardedManifestDirectory;
 use test_manifest::RootTestManifestDirectory;
@@ -69,7 +71,6 @@ impl BonsaiDerivable for RootTestShardedManifestDirectory {
     const VARIANT: DerivableType = DerivableType::TestShardedManifests;
 
     type Dependencies = dependencies![];
-    type PredecessorDependencies = dependencies![RootTestManifestDirectory];
 
     async fn derive_single(
         ctx: &CoreContext,
@@ -79,18 +80,6 @@ impl BonsaiDerivable for RootTestShardedManifestDirectory {
         known: Option<&HashMap<ChangesetId, Self>>,
     ) -> Result<Self> {
         derive_single(ctx, derivation_ctx, bonsai, parents, known).await
-    }
-
-    async fn derive_from_predecessor(
-        ctx: &CoreContext,
-        derivation_ctx: &DerivationContext,
-        bonsai: BonsaiChangeset,
-    ) -> Result<Self> {
-        let csid = bonsai.get_changeset_id();
-        let test_manifest = derivation_ctx
-            .fetch_dependency::<RootTestManifestDirectory>(ctx, csid)
-            .await?;
-        derive_from_predecessor(ctx, derivation_ctx, test_manifest).await
     }
 
     async fn store_mapping(
@@ -137,5 +126,24 @@ impl BonsaiDerivable for RootTestShardedManifestDirectory {
                 data.0.into_thrift(),
             ),
         ))
+    }
+}
+
+#[async_trait]
+impl DerivableUntopologically for RootTestShardedManifestDirectory {
+    const DERIVABLE_UNTOPOLOGICALLY_VARIANT: DerivableUntopologicallyVariant =
+        DerivableUntopologicallyVariant::TestShardedManifests;
+    type PredecessorDependencies = dependencies![RootTestManifestDirectory];
+
+    async fn unsafe_derive_untopologically(
+        ctx: &CoreContext,
+        derivation_ctx: &DerivationContext,
+        bonsai: BonsaiChangeset,
+    ) -> Result<Self> {
+        let csid = bonsai.get_changeset_id();
+        let test_manifest = derivation_ctx
+            .fetch_dependency::<RootTestManifestDirectory>(ctx, csid)
+            .await?;
+        derive_from_predecessor(ctx, derivation_ctx, test_manifest).await
     }
 }

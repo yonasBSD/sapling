@@ -21,6 +21,7 @@ use cloned::cloned;
 use context::CoreContext;
 use derived_data_manager::BonsaiDerivable;
 use derived_data_manager::DerivableType;
+use derived_data_manager::DerivableUntopologically;
 use derived_data_manager::DerivationContext;
 use derived_data_manager::dependencies;
 use derived_data_service_if as thrift;
@@ -38,6 +39,7 @@ use metaconfig_types::GitDeltaManifestV3Config;
 use mononoke_macros::mononoke;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
+use mononoke_types::DerivableUntopologicallyVariant;
 use mononoke_types::ThriftConvert;
 use mononoke_types::path::MPath;
 
@@ -381,7 +383,6 @@ impl BonsaiDerivable for RootGitDeltaManifestV3Id {
     const VARIANT: DerivableType = DerivableType::GitDeltaManifestsV3;
 
     type Dependencies = dependencies![MappedGitCommitId];
-    type PredecessorDependencies = dependencies![];
     type Value = GitDeltaManifestV3;
 
     async fn derive_single(
@@ -419,14 +420,6 @@ impl BonsaiDerivable for RootGitDeltaManifestV3Id {
             .try_collect::<Vec<_>>()
             .await?;
         Ok(output.into_iter().collect())
-    }
-
-    async fn derive_from_predecessor(
-        ctx: &CoreContext,
-        derivation_ctx: &DerivationContext,
-        bonsai: BonsaiChangeset,
-    ) -> Result<Self> {
-        derive_single(ctx, derivation_ctx, bonsai).await
     }
 
     async fn store_mapping(
@@ -486,6 +479,21 @@ impl BonsaiDerivable for RootGitDeltaManifestV3Id {
                 ..Default::default()
             },
         ))
+    }
+}
+
+#[async_trait]
+impl DerivableUntopologically for RootGitDeltaManifestV3Id {
+    const DERIVABLE_UNTOPOLOGICALLY_VARIANT: DerivableUntopologicallyVariant =
+        DerivableUntopologicallyVariant::GitDeltaManifestsV3;
+    type PredecessorDependencies = dependencies![];
+
+    async fn unsafe_derive_untopologically(
+        ctx: &CoreContext,
+        derivation_ctx: &DerivationContext,
+        bonsai: BonsaiChangeset,
+    ) -> Result<Self> {
+        derive_single(ctx, derivation_ctx, bonsai).await
     }
 }
 

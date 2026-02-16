@@ -197,7 +197,7 @@ Expected fallback (tree_aux_data is not returned)
     "tree_aux_data": None}]
 
 Expected for tree_aux_data to be returned.
-  $ mononoke_admin derived-data -R repo derive --derived-data-types hg_augmented_manifests -i $HG_ID_1 -i $HG_ID_2 --from-predecessor
+  $ mononoke_admin derived-data -R repo derive --derived-data-types hg_augmented_manifests -i $HG_ID_1 -i $HG_ID_2 --unsafe-derive-untopologically
   $ hg debugapi mono:repo -e trees -f keys -f attrs --sort
   [{"key": {"node": bin("b3930c8a2f6a25b56d20ed48ce1d30cd98026792"),
             "path": ""},

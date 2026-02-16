@@ -22,6 +22,7 @@ use deleted_manifest::RootDeletedManifestV2Id;
 use derivation_queue_thrift::DerivationPriority;
 use derived_data_manager::BonsaiDerivable;
 use derived_data_manager::DerivableType;
+use derived_data_manager::DerivableUntopologically;
 use derived_data_manager::DerivationError;
 use derived_data_manager::DerivedDataManager;
 use derived_data_manager::Rederivation;
@@ -43,6 +44,7 @@ use mercurial_derivation::MappedHgChangesetId;
 use mercurial_derivation::RootHgAugmentedManifestId;
 use mononoke_macros::mononoke;
 use mononoke_types::ChangesetId;
+use mononoke_types::DerivableUntopologicallyVariant;
 use skeleton_manifest::RootSkeletonManifestId;
 use skeleton_manifest_v2::RootSkeletonManifestV2Id;
 use test_manifest::RootTestManifestDirectory;
@@ -150,9 +152,9 @@ pub trait BulkDerivation {
         derived_data_type: DerivableType,
     ) -> Result<u64, DerivationError>;
 
-    /// Derive the given derived data type for the given changeset id, using its
-    /// predecessor derived data types.
-    async fn derive_from_predecessor(
+    /// Derive the given derived data type for the given changeset id, without
+    /// depending on derived data for its parents.
+    async fn unsafe_derive_untopologically(
         &self,
         ctx: &CoreContext,
         csid: ChangesetId,
@@ -227,13 +229,6 @@ trait SingleTypeDerivation: Send + Sync {
         csid: ChangesetId,
         rederivation: Option<Arc<dyn Rederivation>>,
     ) -> Result<u64, DerivationError>;
-
-    async fn derive_from_predecessor(
-        &self,
-        ctx: &CoreContext,
-        csid: ChangesetId,
-        rederivation: Option<Arc<dyn Rederivation>>,
-    ) -> Result<(), DerivationError>;
 
     async fn derive(
         &self,
@@ -341,18 +336,6 @@ impl<T: BonsaiDerivable> SingleTypeDerivation for SingleTypeManager<T> {
             .await
     }
 
-    async fn derive_from_predecessor(
-        &self,
-        ctx: &CoreContext,
-        csid: ChangesetId,
-        rederivation: Option<Arc<dyn Rederivation>>,
-    ) -> Result<(), DerivationError> {
-        self.manager
-            .derive_from_predecessor::<T>(ctx, csid, rederivation)
-            .await?;
-        Ok(())
-    }
-
     async fn derive(
         &self,
         ctx: &CoreContext,
@@ -361,6 +344,31 @@ impl<T: BonsaiDerivable> SingleTypeDerivation for SingleTypeManager<T> {
     ) -> Result<(), SharedDerivationError> {
         self.manager
             .derive::<T>(ctx, csid, rederivation, DerivationPriority::LOW)
+            .await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+trait SingleTypeUntopologicalDerivation: Send + Sync {
+    async fn unsafe_derive_untopologically(
+        &self,
+        ctx: &CoreContext,
+        csid: ChangesetId,
+        rederivation: Option<Arc<dyn Rederivation>>,
+    ) -> Result<(), DerivationError>;
+}
+
+#[async_trait]
+impl<T: DerivableUntopologically> SingleTypeUntopologicalDerivation for SingleTypeManager<T> {
+    async fn unsafe_derive_untopologically(
+        &self,
+        ctx: &CoreContext,
+        csid: ChangesetId,
+        rederivation: Option<Arc<dyn Rederivation>>,
+    ) -> Result<(), DerivationError> {
+        self.manager
+            .unsafe_derive_untopologically::<T>(ctx, csid, rederivation)
             .await?;
         Ok(())
     }
@@ -416,6 +424,33 @@ fn manager_for_type(
             Arc::new(SingleTypeManager::<RootTestManifestDirectory>::new(manager))
         }
         DerivableType::TestShardedManifests => Arc::new(SingleTypeManager::<
+            RootTestShardedManifestDirectory,
+        >::new(manager)),
+    }
+}
+
+fn manager_for_derivable_untopologically_variant(
+    manager: &DerivedDataManager,
+    variant: DerivableUntopologicallyVariant,
+) -> Arc<dyn SingleTypeUntopologicalDerivation + Send + Sync + 'static> {
+    let manager = manager.clone();
+    match variant {
+        DerivableUntopologicallyVariant::HgAugmentedManifests => {
+            Arc::new(SingleTypeManager::<RootHgAugmentedManifestId>::new(manager))
+        }
+        DerivableUntopologicallyVariant::SkeletonManifestsV2 => {
+            Arc::new(SingleTypeManager::<RootSkeletonManifestV2Id>::new(manager))
+        }
+        DerivableUntopologicallyVariant::Ccsm => {
+            Arc::new(SingleTypeManager::<RootCaseConflictSkeletonManifestId>::new(manager))
+        }
+        DerivableUntopologicallyVariant::GitDeltaManifestsV3 => {
+            Arc::new(SingleTypeManager::<RootGitDeltaManifestV3Id>::new(manager))
+        }
+        DerivableUntopologicallyVariant::InferredCopyFrom => {
+            Arc::new(SingleTypeManager::<RootInferredCopyFromId>::new(manager))
+        }
+        DerivableUntopologicallyVariant::TestShardedManifests => Arc::new(SingleTypeManager::<
             RootTestShardedManifestDirectory,
         >::new(manager)),
     }
@@ -554,16 +589,17 @@ impl BulkDerivation for DerivedDataManager {
         manager.count_underived(ctx, csid, rederivation).await
     }
 
-    async fn derive_from_predecessor(
+    async fn unsafe_derive_untopologically(
         &self,
         ctx: &CoreContext,
         csid: ChangesetId,
         rederivation: Option<Arc<dyn Rederivation>>,
         derived_data_type: DerivableType,
     ) -> Result<(), DerivationError> {
-        let manager = manager_for_type(self, derived_data_type);
+        let variant = derived_data_type.into_derivable_untopologically_variant()?;
+        let manager = manager_for_derivable_untopologically_variant(self, variant);
         manager
-            .derive_from_predecessor(ctx, csid, rederivation)
+            .unsafe_derive_untopologically(ctx, csid, rederivation)
             .await
     }
 }

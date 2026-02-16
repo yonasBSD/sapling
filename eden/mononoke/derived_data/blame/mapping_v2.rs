@@ -53,7 +53,6 @@ impl BonsaiDerivable for RootBlameV2 {
     const VARIANT: DerivableType = DerivableType::BlameV2;
 
     type Dependencies = dependencies![RootUnodeManifestId];
-    type PredecessorDependencies = dependencies![];
 
     async fn derive_single(
         ctx: &CoreContext,

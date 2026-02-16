@@ -133,15 +133,16 @@ async fn derive_boundaries(
             async move {
                 mononoke::spawn_task(async move {
                     debug!("deriving csid {}", csid);
-                    let (derive_boundary_stats, ()) = BulkDerivation::derive_from_predecessor(
-                        &manager,
-                        &ctx,
-                        csid,
-                        rederivation,
-                        derived_data_type,
-                    )
-                    .try_timed()
-                    .await?;
+                    let (derive_boundary_stats, ()) =
+                        BulkDerivation::unsafe_derive_untopologically(
+                            &manager,
+                            &ctx,
+                            csid,
+                            rederivation,
+                            derived_data_type,
+                        )
+                        .try_timed()
+                        .await?;
 
                     let completed_count = completed.fetch_add(1, Ordering::SeqCst) + 1;
                     debug!(

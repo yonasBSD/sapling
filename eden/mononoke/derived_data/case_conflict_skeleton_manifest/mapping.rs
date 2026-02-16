@@ -15,6 +15,7 @@ use blobstore::BlobstoreGetData;
 use context::CoreContext;
 use derived_data_manager::BonsaiDerivable;
 use derived_data_manager::DerivableType;
+use derived_data_manager::DerivableUntopologically;
 use derived_data_manager::DerivationContext;
 use derived_data_manager::dependencies;
 use derived_data_service_if as thrift;
@@ -22,6 +23,7 @@ use mononoke_types::BlobstoreBytes;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::CaseConflictSkeletonManifestId;
 use mononoke_types::ChangesetId;
+use mononoke_types::DerivableUntopologicallyVariant;
 use mononoke_types::ThriftConvert;
 use skeleton_manifest::RootSkeletonManifestId;
 
@@ -72,7 +74,6 @@ impl BonsaiDerivable for RootCaseConflictSkeletonManifestId {
     const VARIANT: DerivableType = DerivableType::Ccsm;
 
     type Dependencies = dependencies![];
-    type PredecessorDependencies = dependencies![RootSkeletonManifestId];
 
     async fn derive_single(
         ctx: &CoreContext,
@@ -82,18 +83,6 @@ impl BonsaiDerivable for RootCaseConflictSkeletonManifestId {
         _known: Option<&HashMap<ChangesetId, Self>>,
     ) -> Result<Self> {
         derive_single(ctx, derivation_ctx, bonsai, parents).await
-    }
-
-    async fn derive_from_predecessor(
-        ctx: &CoreContext,
-        derivation_ctx: &DerivationContext,
-        bonsai: BonsaiChangeset,
-    ) -> Result<Self> {
-        let csid = bonsai.get_changeset_id();
-        let skeleton_manifest = derivation_ctx
-            .fetch_dependency::<RootSkeletonManifestId>(ctx, csid)
-            .await?;
-        derive_from_predecessor(ctx, derivation_ctx, skeleton_manifest).await
     }
 
     async fn store_mapping(
@@ -135,5 +124,24 @@ impl BonsaiDerivable for RootCaseConflictSkeletonManifestId {
         Ok(thrift::DerivedData::ccsm(
             thrift::DerivedDataCcsm::root_ccsm_id(data.0.into_thrift()),
         ))
+    }
+}
+
+#[async_trait]
+impl DerivableUntopologically for RootCaseConflictSkeletonManifestId {
+    const DERIVABLE_UNTOPOLOGICALLY_VARIANT: DerivableUntopologicallyVariant =
+        DerivableUntopologicallyVariant::Ccsm;
+    type PredecessorDependencies = dependencies![RootSkeletonManifestId];
+
+    async fn unsafe_derive_untopologically(
+        ctx: &CoreContext,
+        derivation_ctx: &DerivationContext,
+        bonsai: BonsaiChangeset,
+    ) -> Result<Self> {
+        let csid = bonsai.get_changeset_id();
+        let skeleton_manifest = derivation_ctx
+            .fetch_dependency::<RootSkeletonManifestId>(ctx, csid)
+            .await?;
+        derive_from_predecessor(ctx, derivation_ctx, skeleton_manifest).await
     }
 }

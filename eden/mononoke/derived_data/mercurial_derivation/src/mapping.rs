@@ -28,6 +28,7 @@ use derived_data::batch::split_bonsais_in_linear_stacks;
 use derived_data::prefetch_content_metadata;
 use derived_data_manager::BonsaiDerivable;
 use derived_data_manager::DerivableType;
+use derived_data_manager::DerivableUntopologically;
 use derived_data_manager::DerivationContext;
 use derived_data_manager::dependencies;
 use futures::TryStreamExt;
@@ -39,6 +40,7 @@ use mercurial_types::HgAugmentedManifestId;
 use mercurial_types::HgChangesetId;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
+use mononoke_types::DerivableUntopologicallyVariant;
 use mononoke_types::RepoPath;
 use restricted_paths::ArcRestrictedPaths;
 use restricted_paths::ManifestType;
@@ -77,7 +79,6 @@ impl BonsaiDerivable for MappedHgChangesetId {
     const VARIANT: DerivableType = DerivableType::HgChangesets;
 
     type Dependencies = dependencies![];
-    type PredecessorDependencies = dependencies![];
 
     async fn derive_single(
         ctx: &CoreContext,
@@ -428,7 +429,6 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
     const VARIANT: DerivableType = DerivableType::HgAugmentedManifests;
 
     type Dependencies = dependencies![MappedHgChangesetId];
-    type PredecessorDependencies = dependencies![MappedHgChangesetId];
 
     async fn derive_single(
         ctx: &CoreContext,
@@ -472,39 +472,6 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
             .await?;
 
         Ok(Self(root_hg_aug_mfid))
-    }
-
-    async fn derive_from_predecessor(
-        ctx: &CoreContext,
-        derivation_ctx: &DerivationContext,
-        bonsai: BonsaiChangeset,
-    ) -> Result<Self> {
-        let hg_changeset_id = derivation_ctx
-            .fetch_dependency::<MappedHgChangesetId>(ctx, bonsai.get_changeset_id())
-            .await?
-            .hg_changeset_id();
-        let hg_manifest_id = hg_changeset_id
-            .load(ctx, derivation_ctx.blobstore())
-            .await?
-            .manifestid();
-        let root = crate::derive_hg_augmented_manifest::derive_from_full_hg_manifest(
-            ctx.clone(),
-            Arc::clone(derivation_ctx.blobstore()),
-            hg_manifest_id,
-        )
-        .await?;
-
-        // Track restricted paths for the derived HgAugmentedManifest
-        track_all_restricted_paths(
-            ctx,
-            derivation_ctx.restricted_paths(),
-            hg_changeset_id,
-            root,
-            Arc::clone(derivation_ctx.blobstore()),
-        )
-        .await?;
-
-        Ok(Self(root))
     }
 
     async fn store_mapping(
@@ -555,6 +522,46 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
                 data.0.into_thrift(),
             ),
         ))
+    }
+}
+
+#[async_trait]
+impl DerivableUntopologically for RootHgAugmentedManifestId {
+    const DERIVABLE_UNTOPOLOGICALLY_VARIANT: DerivableUntopologicallyVariant =
+        DerivableUntopologicallyVariant::HgAugmentedManifests;
+    type PredecessorDependencies = dependencies![MappedHgChangesetId];
+
+    async fn unsafe_derive_untopologically(
+        ctx: &CoreContext,
+        derivation_ctx: &DerivationContext,
+        bonsai: BonsaiChangeset,
+    ) -> Result<Self> {
+        let hg_changeset_id = derivation_ctx
+            .fetch_dependency::<MappedHgChangesetId>(ctx, bonsai.get_changeset_id())
+            .await?
+            .hg_changeset_id();
+        let hg_manifest_id = hg_changeset_id
+            .load(ctx, derivation_ctx.blobstore())
+            .await?
+            .manifestid();
+        let root = crate::derive_hg_augmented_manifest::derive_from_full_hg_manifest(
+            ctx.clone(),
+            Arc::clone(derivation_ctx.blobstore()),
+            hg_manifest_id,
+        )
+        .await?;
+
+        // Track restricted paths for the derived HgAugmentedManifest
+        track_all_restricted_paths(
+            ctx,
+            derivation_ctx.restricted_paths(),
+            hg_changeset_id,
+            root,
+            Arc::clone(derivation_ctx.blobstore()),
+        )
+        .await?;
+
+        Ok(Self(root))
     }
 }
 

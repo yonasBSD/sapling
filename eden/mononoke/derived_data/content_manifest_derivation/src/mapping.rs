@@ -69,7 +69,6 @@ impl BonsaiDerivable for RootContentManifestId {
     const VARIANT: DerivableType = DerivableType::ContentManifests;
 
     type Dependencies = dependencies![];
-    type PredecessorDependencies = dependencies![];
 
     async fn derive_single(
         ctx: &CoreContext,

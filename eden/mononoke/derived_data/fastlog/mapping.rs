@@ -80,7 +80,6 @@ impl BonsaiDerivable for RootFastlog {
     const VARIANT: DerivableType = DerivableType::Fastlog;
 
     type Dependencies = dependencies![RootUnodeManifestId];
-    type PredecessorDependencies = dependencies![];
 
     async fn derive_single(
         ctx: &CoreContext,

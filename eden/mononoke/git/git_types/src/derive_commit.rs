@@ -71,7 +71,6 @@ impl BonsaiDerivable for MappedGitCommitId {
     const VARIANT: DerivableType = DerivableType::GitCommits;
 
     type Dependencies = dependencies![];
-    type PredecessorDependencies = dependencies![];
 
     /// Derives a Git commit for a given Bonsai changeset. The mapping is recorded in bonsai_git_mapping and as a result
     /// imported Mononoke commits from Git repos will by default be marked as having their Git commits derived. This method

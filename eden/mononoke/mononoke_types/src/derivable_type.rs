@@ -62,6 +62,18 @@ pub enum DerivableType {
     ContentManifests,
 }
 
+/// Enum which consolidates all derived data types that can
+/// be derived without having data derived for their parents.
+#[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq)]
+pub enum DerivableUntopologicallyVariant {
+    Ccsm,
+    HgAugmentedManifests,
+    GitDeltaManifestsV3,
+    InferredCopyFrom,
+    SkeletonManifestsV2,
+    TestShardedManifests,
+}
+
 impl DerivableType {
     pub fn from_name(s: &str) -> Result<Self> {
         // We need the duplication here to make it a `const fn` so it can be used in
@@ -169,6 +181,51 @@ impl DerivableType {
             // file should prevent you from forgetting at diff time.
         }
     }
+    pub fn into_derivable_untopologically_variant(self) -> Result<DerivableUntopologicallyVariant> {
+        match self {
+            DerivableType::Ccsm => Ok(DerivableUntopologicallyVariant::Ccsm),
+            DerivableType::HgAugmentedManifests => {
+                Ok(DerivableUntopologicallyVariant::HgAugmentedManifests)
+            }
+            DerivableType::GitDeltaManifestsV3 => {
+                Ok(DerivableUntopologicallyVariant::GitDeltaManifestsV3)
+            }
+            DerivableType::InferredCopyFrom => {
+                Ok(DerivableUntopologicallyVariant::InferredCopyFrom)
+            }
+            DerivableType::SkeletonManifestsV2 => {
+                Ok(DerivableUntopologicallyVariant::SkeletonManifestsV2)
+            }
+            DerivableType::TestShardedManifests => {
+                Ok(DerivableUntopologicallyVariant::TestShardedManifests)
+            }
+            _ => bail!(
+                "{} is not an untopologically derived data type",
+                self.name()
+            ),
+        }
+    }
+}
+
+impl DerivableUntopologicallyVariant {
+    pub fn into_derivable_type(self) -> DerivableType {
+        match self {
+            DerivableUntopologicallyVariant::Ccsm => DerivableType::Ccsm,
+            DerivableUntopologicallyVariant::HgAugmentedManifests => {
+                DerivableType::HgAugmentedManifests
+            }
+            DerivableUntopologicallyVariant::GitDeltaManifestsV3 => {
+                DerivableType::GitDeltaManifestsV3
+            }
+            DerivableUntopologicallyVariant::InferredCopyFrom => DerivableType::InferredCopyFrom,
+            DerivableUntopologicallyVariant::SkeletonManifestsV2 => {
+                DerivableType::SkeletonManifestsV2
+            }
+            DerivableUntopologicallyVariant::TestShardedManifests => {
+                DerivableType::TestShardedManifests
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -177,6 +234,7 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use super::DerivableType;
+    use super::DerivableUntopologicallyVariant;
 
     #[mononoke::test]
     fn thrift_derived_data_type_conversion_must_be_bidirectional() {
@@ -196,6 +254,19 @@ mod tests {
                 DerivableType::from_name(variant.name()).expect(
                     "Failed to convert back to DerivableType from its string representation with DerivableType::name"
                 )
+            );
+        }
+    }
+
+    #[mononoke::test]
+    fn derivable_untopologically_variant_into_derivable_type_is_bidirectional() {
+        for variant in DerivableUntopologicallyVariant::iter() {
+            assert_eq!(
+                variant,
+                variant
+                    .into_derivable_type()
+                    .into_derivable_untopologically_variant()
+                    .expect("Failed to convert back to DerivableUntopologicallyVariant from DerivableType")
             );
         }
     }

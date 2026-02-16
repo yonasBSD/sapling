@@ -35,9 +35,10 @@ pub(super) struct DeriveArgs {
     /// Whether the changesets need to be rederived or not
     #[clap(long)]
     pub(crate) rederive: bool,
-    /// Whether to derive from the predecessor of this derived data type
+    /// Whether to derive the type without deriving its parents. Usable
+    /// only with types that implement DerivableUntopologically.
     #[clap(long)]
-    from_predecessor: bool,
+    unsafe_derive_untopologically: bool,
     /// Batch size to use for derivation
     #[clap(long)]
     batch_size: Option<u64>,
@@ -73,10 +74,10 @@ pub(super) async fn derive(
         Default::default()
     };
 
-    if args.from_predecessor {
+    if args.unsafe_derive_untopologically {
         for derived_data_type in derived_data_types {
             for csid in csids {
-                derive_from_predecessor(
+                unsafe_derive_untopologically(
                     ctx,
                     manager,
                     derived_data_type,
@@ -106,7 +107,7 @@ pub(super) async fn derive(
     Ok(())
 }
 
-async fn derive_from_predecessor(
+async fn unsafe_derive_untopologically(
     ctx: &CoreContext,
     manager: &DerivedDataManager,
     derived_data_type: DerivableType,
@@ -114,7 +115,7 @@ async fn derive_from_predecessor(
     rederivation: Arc<dyn Rederivation>,
 ) -> Result<()> {
     trace!("deriving {} from predecessors", csid);
-    let (stats, res) = BulkDerivation::derive_from_predecessor(
+    let (stats, res) = BulkDerivation::unsafe_derive_untopologically(
         manager,
         ctx,
         csid,

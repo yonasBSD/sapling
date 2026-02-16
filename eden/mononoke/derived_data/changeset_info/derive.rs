@@ -33,7 +33,6 @@ impl BonsaiDerivable for ChangesetInfo {
     const VARIANT: DerivableType = DerivableType::ChangesetInfo;
 
     type Dependencies = dependencies![];
-    type PredecessorDependencies = dependencies![];
 
     async fn derive_single(
         _ctx: &CoreContext,

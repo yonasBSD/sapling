@@ -363,7 +363,6 @@ impl BonsaiDerivable for RootGitDeltaManifestV2Id {
     const VARIANT: DerivableType = DerivableType::GitDeltaManifestsV2;
 
     type Dependencies = dependencies![MappedGitCommitId];
-    type PredecessorDependencies = dependencies![];
 
     async fn derive_single(
         ctx: &CoreContext,
@@ -400,14 +399,6 @@ impl BonsaiDerivable for RootGitDeltaManifestV2Id {
             .try_collect::<Vec<_>>()
             .await?;
         Ok(output.into_iter().collect())
-    }
-
-    async fn derive_from_predecessor(
-        ctx: &CoreContext,
-        derivation_ctx: &DerivationContext,
-        bonsai: BonsaiChangeset,
-    ) -> Result<Self> {
-        derive_single(ctx, derivation_ctx, bonsai).await
     }
 
     async fn store_mapping(
