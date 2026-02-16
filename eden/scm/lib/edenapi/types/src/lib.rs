@@ -283,4 +283,7 @@ impl SaplingRemoteApiServerError {
 pub enum SaplingRemoteApiServerErrorKind {
     #[error("SaplingRemoteAPI server returned an error with message: {0}")]
     OpaqueError(String),
+    // TODO(T248658346): define an authorization error with all the information
+    // needed to display a user-friendly error message, e.g. permission group,
+    // ACLs, etc.
 }

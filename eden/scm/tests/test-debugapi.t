@@ -99,6 +99,7 @@ Test APIs:
                                                     "content_blake3": bin("5ad3ba58a716e5fc04296ac9af7a1420f726b401fdf16d270beb5b6b30bc0cda"),
                                                     "content_sha256": bin("0000000000000000000000000000000000000000000000000000000000000000"),
                                                     "file_header_metadata": b""}}}}],
+    "is_restricted": None,
     "tree_aux_data": {"augmented_manifest_id": bin("f0aef0c3978f2947b763a1f87ff5c68611125192cca9d0e95cb18787740eae3b"),
                       "augmented_manifest_size": 204}}]
 
@@ -115,6 +116,7 @@ Test APIs:
                                                     "content_blake3": bin("5ad3ba58a716e5fc04296ac9af7a1420f726b401fdf16d270beb5b6b30bc0cda"),
                                                     "content_sha256": bin("0000000000000000000000000000000000000000000000000000000000000000"),
                                                     "file_header_metadata": b""}}}}],
+    "is_restricted": None,
     "tree_aux_data": None}]
 
 Works outside repo

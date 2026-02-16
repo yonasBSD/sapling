@@ -156,6 +156,8 @@ async fn fetch_git_object_as_tree<R: MononokeRepo>(
         parents: None,
         children: None,
         tree_aux_data: None,
+        // TODO(T248658346): populate is_restricted field
+        is_restricted: None,
     })
 }
 
@@ -247,6 +249,8 @@ async fn fetch_tree<R: MononokeRepo>(
                                             .augmented_manifest_size
                                             .clone(),
                                     },
+                                    // TODO(T248658346): populate is_restricted field
+                                    None,
                                 ))
                             }
                         })

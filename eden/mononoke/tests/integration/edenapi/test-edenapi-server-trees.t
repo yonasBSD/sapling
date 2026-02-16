@@ -83,6 +83,7 @@ Create and send tree request.
                                                     "content_blake3": bin("7e9a0ce0d68016f0502ac50ff401830c7e2e9c894b43b242439f90f99af8835a"),
                                                     "content_sha256": bin("0000000000000000000000000000000000000000000000000000000000000000"),
                                                     "file_header_metadata": b""}}}}],
+    "is_restricted": None,
     "tree_aux_data": None},
    {"key": {"node": bin("dfe7fab71e1f96a0f0f53b0c76725c01d79b244d"),
             "path": ""},
@@ -120,6 +121,7 @@ Create and send tree request.
                                                     "content_blake3": bin("7e9a0ce0d68016f0502ac50ff401830c7e2e9c894b43b242439f90f99af8835a"),
                                                     "content_sha256": bin("0000000000000000000000000000000000000000000000000000000000000000"),
                                                     "file_header_metadata": b""}}}}],
+    "is_restricted": None,
     "tree_aux_data": None}]
 
   $ cat > attrs << EOF
@@ -153,6 +155,7 @@ Expected fallback (tree_aux_data is not returned)
                                                     "content_blake3": bin("7e9a0ce0d68016f0502ac50ff401830c7e2e9c894b43b242439f90f99af8835a"),
                                                     "content_sha256": bin("0000000000000000000000000000000000000000000000000000000000000000"),
                                                     "file_header_metadata": b""}}}}],
+    "is_restricted": None,
     "tree_aux_data": None},
    {"key": {"node": bin("dfe7fab71e1f96a0f0f53b0c76725c01d79b244d"),
             "path": ""},
@@ -190,6 +193,7 @@ Expected fallback (tree_aux_data is not returned)
                                                     "content_blake3": bin("7e9a0ce0d68016f0502ac50ff401830c7e2e9c894b43b242439f90f99af8835a"),
                                                     "content_sha256": bin("0000000000000000000000000000000000000000000000000000000000000000"),
                                                     "file_header_metadata": b""}}}}],
+    "is_restricted": None,
     "tree_aux_data": None}]
 
 Expected for tree_aux_data to be returned.
@@ -215,6 +219,7 @@ Expected for tree_aux_data to be returned.
                                                     "content_blake3": bin("7e9a0ce0d68016f0502ac50ff401830c7e2e9c894b43b242439f90f99af8835a"),
                                                     "content_sha256": bin("0000000000000000000000000000000000000000000000000000000000000000"),
                                                     "file_header_metadata": b""}}}}],
+    "is_restricted": None,
     "tree_aux_data": {"augmented_manifest_id": bin("3fa0541cdf451ab034a94a5006399bde88da365896ed364798106c5757248d41"),
                       "augmented_manifest_size": 373}},
    {"key": {"node": bin("dfe7fab71e1f96a0f0f53b0c76725c01d79b244d"),
@@ -253,6 +258,7 @@ Expected for tree_aux_data to be returned.
                                                     "content_blake3": bin("7e9a0ce0d68016f0502ac50ff401830c7e2e9c894b43b242439f90f99af8835a"),
                                                     "content_sha256": bin("0000000000000000000000000000000000000000000000000000000000000000"),
                                                     "file_header_metadata": b""}}}}],
+    "is_restricted": None,
     "tree_aux_data": {"augmented_manifest_id": bin("0692535594cfc449a55b4c4b1a0c2ce290dd6bae40e188805f97ff6b9e88b79d"),
                       "augmented_manifest_size": 826}}]
 

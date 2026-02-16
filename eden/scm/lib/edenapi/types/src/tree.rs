@@ -76,6 +76,7 @@ pub struct TreeEntry {
     pub parents: Option<Parents>,
     pub children: Option<Vec<Result<TreeChildEntry, SaplingRemoteApiServerError>>>,
     pub tree_aux_data: Option<TreeAuxData>,
+    pub is_restricted: Option<bool>,
 }
 
 impl TreeEntry {
@@ -106,6 +107,11 @@ impl TreeEntry {
 
     pub fn with_tree_aux_data<'a>(&'a mut self, tree_aux_data: TreeAuxData) -> &'a mut Self {
         self.tree_aux_data = Some(tree_aux_data);
+        self
+    }
+
+    pub fn with_is_restricted<'a>(&'a mut self, is_restricted: bool) -> &'a mut Self {
+        self.is_restricted = Some(is_restricted);
         self
     }
 
@@ -189,6 +195,7 @@ pub struct TreeChildDirectoryEntry {
     // See above comment warning about using a RepoPathBuf to represent a PathComponent.
     pub key: Key,
     pub tree_aux_data: Option<TreeAuxData>,
+    pub is_restricted: Option<bool>,
 }
 
 impl TreeChildEntry {
@@ -199,10 +206,15 @@ impl TreeChildEntry {
         })
     }
 
-    pub fn new_directory_entry(key: Key, aux_data: TreeAuxData) -> Self {
+    pub fn new_directory_entry(
+        key: Key,
+        aux_data: TreeAuxData,
+        is_restricted: Option<bool>,
+    ) -> Self {
         TreeChildEntry::Directory(TreeChildDirectoryEntry {
             key,
             tree_aux_data: Some(aux_data),
+            is_restricted,
         })
     }
 }
@@ -256,6 +268,8 @@ impl TryFrom<AugmentedTree> for TreeEntry {
                                 ),
                                 augmented_manifest_size: tree.augmented_manifest_size,
                             },
+                            // TODO(T248658346): populate is_restricted field
+                            None,
                         ))
                     }
                 })
@@ -294,6 +308,8 @@ impl Arbitrary for TreeEntry {
             // Recursive TreeEntry in children causes stack overflow in QuickCheck
             children: None,
             tree_aux_data: None,
+            // TODO(T248658346): populate is_restricted field
+            is_restricted: None,
         }
     }
 }
