@@ -386,3 +386,346 @@ async fn find_next_log_ids(
     }
     Ok((txn, next_ids))
 }
+
+#[cfg(test)]
+mod tests {
+    use bookmarks::BookmarkKey;
+    use bookmarks::BookmarkUpdateLog;
+    use bookmarks::BookmarkUpdateLogId;
+    use bookmarks::BookmarkUpdateReason;
+    use bookmarks::Bookmarks;
+    use bookmarks::Freshness;
+    use context::CoreContext;
+    use dbbookmarks::SqlBookmarksBuilder;
+    use dbbookmarks::store::SqlBookmarks;
+    use fbinit::FacebookInit;
+    use futures::stream::TryStreamExt;
+    use mononoke_macros::mononoke;
+    use mononoke_types::RepositoryId;
+    use mononoke_types_mocks::changesetid::ONES_CSID;
+    use mononoke_types_mocks::changesetid::THREES_CSID;
+    use mononoke_types_mocks::changesetid::TWOS_CSID;
+    use sql_construct::SqlConstruct;
+
+    use super::*;
+
+    /// Test fixture providing two repos that share the same underlying DB.
+    struct TwoRepoFixture {
+        ctx: CoreContext,
+        conn: Connection,
+        repo_id_1: RepositoryId,
+        repo_id_2: RepositoryId,
+        bookmarks_1: SqlBookmarks,
+        bookmarks_2: SqlBookmarks,
+    }
+
+    impl TwoRepoFixture {
+        fn new(fb: FacebookInit) -> Result<Self> {
+            let ctx = CoreContext::test_mock(fb);
+            let repo_id_1 = RepositoryId::new(1);
+            let repo_id_2 = RepositoryId::new(2);
+            let builder = SqlBookmarksBuilder::with_sqlite_in_memory()?;
+            let bookmarks_1 = builder.clone().with_repo_id(repo_id_1);
+            let bookmarks_2 = builder.with_repo_id(repo_id_2);
+            let conn = bookmarks_1.write_connection().clone();
+            Ok(Self {
+                ctx,
+                conn,
+                repo_id_1,
+                repo_id_2,
+                bookmarks_1,
+                bookmarks_2,
+            })
+        }
+
+        fn multi_txn(&self) -> MultiRepoBookmarksTransaction {
+            MultiRepoBookmarksTransaction::new(self.ctx.clone(), self.conn.clone())
+        }
+
+        /// Create a bookmark in the given repo via a standard single-repo transaction.
+        async fn set_bookmark(
+            &self,
+            bookmarks: &SqlBookmarks,
+            key: &BookmarkKey,
+            cs_id: ChangesetId,
+        ) -> Result<()> {
+            let mut txn = bookmarks.create_transaction(self.ctx.clone());
+            txn.force_set(key, cs_id, BookmarkUpdateReason::TestMove)?;
+            assert!(txn.commit().await.unwrap().is_some());
+            Ok(())
+        }
+
+        /// Read a bookmark value from the given repo.
+        async fn get_bookmark(
+            &self,
+            bookmarks: &SqlBookmarks,
+            key: &BookmarkKey,
+        ) -> Result<Option<ChangesetId>> {
+            bookmarks
+                .get(self.ctx.clone(), key, Freshness::MostRecent)
+                .await
+        }
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_multi_repo_update_success(fb: FacebookInit) -> Result<()> {
+        let f = TwoRepoFixture::new(fb)?;
+        let bookmark = BookmarkKey::new("master")?;
+
+        f.set_bookmark(&f.bookmarks_1, &bookmark, ONES_CSID).await?;
+        f.set_bookmark(&f.bookmarks_2, &bookmark, ONES_CSID).await?;
+
+        let mut txn = f.multi_txn();
+        txn.update(
+            f.repo_id_1,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        txn.update(
+            f.repo_id_2,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+
+        let result = txn.commit().await?;
+        assert!(result.is_success());
+
+        assert_eq!(
+            f.get_bookmark(&f.bookmarks_1, &bookmark).await?,
+            Some(TWOS_CSID)
+        );
+        assert_eq!(
+            f.get_bookmark(&f.bookmarks_2, &bookmark).await?,
+            Some(TWOS_CSID)
+        );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_cas_failure_rolls_back_all(fb: FacebookInit) -> Result<()> {
+        let f = TwoRepoFixture::new(fb)?;
+        let bookmark = BookmarkKey::new("master")?;
+
+        f.set_bookmark(&f.bookmarks_1, &bookmark, ONES_CSID).await?;
+        f.set_bookmark(&f.bookmarks_2, &bookmark, ONES_CSID).await?;
+
+        // R1: correct old value, R2: wrong old value (THREES instead of ONES)
+        let mut txn = f.multi_txn();
+        txn.update(
+            f.repo_id_1,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        txn.update(
+            f.repo_id_2,
+            &bookmark,
+            TWOS_CSID,
+            THREES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+
+        let result = txn.commit().await?;
+        assert!(!result.is_success());
+
+        // Both should be unchanged
+        assert_eq!(
+            f.get_bookmark(&f.bookmarks_1, &bookmark).await?,
+            Some(ONES_CSID)
+        );
+        assert_eq!(
+            f.get_bookmark(&f.bookmarks_2, &bookmark).await?,
+            Some(ONES_CSID)
+        );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_rejects_duplicate_bookmark_in_same_repo(fb: FacebookInit) -> Result<()> {
+        let f = TwoRepoFixture::new(fb)?;
+        let bookmark = BookmarkKey::new("master")?;
+
+        let mut txn = f.multi_txn();
+        txn.update(
+            f.repo_id_1,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+
+        let result = txn.update(
+            f.repo_id_1,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        );
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_same_bookmark_name_different_repos(fb: FacebookInit) -> Result<()> {
+        let f = TwoRepoFixture::new(fb)?;
+        let bookmark = BookmarkKey::new("master")?;
+
+        let mut txn = f.multi_txn();
+        txn.update(
+            f.repo_id_1,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        txn.update(
+            f.repo_id_2,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        // Both accepted — different repo IDs
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_update_log_written_for_all_repos(fb: FacebookInit) -> Result<()> {
+        let f = TwoRepoFixture::new(fb)?;
+        let bookmark = BookmarkKey::new("master")?;
+
+        f.set_bookmark(&f.bookmarks_1, &bookmark, ONES_CSID).await?;
+        f.set_bookmark(&f.bookmarks_2, &bookmark, ONES_CSID).await?;
+
+        let mut txn = f.multi_txn();
+        txn.update(
+            f.repo_id_1,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        txn.update(
+            f.repo_id_2,
+            &bookmark,
+            THREES_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        assert!(txn.commit().await?.is_success());
+
+        // force_set created log entry 1, multi-repo update created log entry 2
+        let log_1: Vec<_> = f
+            .bookmarks_1
+            .read_next_bookmark_log_entries(
+                f.ctx.clone(),
+                BookmarkUpdateLogId(1),
+                10,
+                Freshness::MostRecent,
+            )
+            .try_collect()
+            .await?;
+        assert_eq!(log_1.len(), 1);
+        assert_eq!(log_1[0].from_changeset_id, Some(ONES_CSID));
+        assert_eq!(log_1[0].to_changeset_id, Some(TWOS_CSID));
+        assert_eq!(log_1[0].repo_id, f.repo_id_1);
+
+        let log_2: Vec<_> = f
+            .bookmarks_2
+            .read_next_bookmark_log_entries(
+                f.ctx.clone(),
+                BookmarkUpdateLogId(1),
+                10,
+                Freshness::MostRecent,
+            )
+            .try_collect()
+            .await?;
+        assert_eq!(log_2.len(), 1);
+        assert_eq!(log_2[0].from_changeset_id, Some(ONES_CSID));
+        assert_eq!(log_2[0].to_changeset_id, Some(THREES_CSID));
+        assert_eq!(log_2[0].repo_id, f.repo_id_2);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_mixed_create_update_delete(fb: FacebookInit) -> Result<()> {
+        let f = TwoRepoFixture::new(fb)?;
+        let master = BookmarkKey::new("master")?;
+        let release = BookmarkKey::new("release")?;
+        let feature = BookmarkKey::new("feature")?;
+
+        f.set_bookmark(&f.bookmarks_1, &master, ONES_CSID).await?;
+        f.set_bookmark(&f.bookmarks_2, &release, ONES_CSID).await?;
+
+        let mut txn = f.multi_txn();
+        txn.update(
+            f.repo_id_1,
+            &master,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        txn.create(
+            f.repo_id_2,
+            &feature,
+            THREES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        txn.delete(
+            f.repo_id_2,
+            &release,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        assert!(txn.commit().await?.is_success());
+
+        assert_eq!(
+            f.get_bookmark(&f.bookmarks_1, &master).await?,
+            Some(TWOS_CSID)
+        );
+        assert_eq!(
+            f.get_bookmark(&f.bookmarks_2, &feature).await?,
+            Some(THREES_CSID)
+        );
+        assert_eq!(f.get_bookmark(&f.bookmarks_2, &release).await?, None);
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_create_failure_rolls_back(fb: FacebookInit) -> Result<()> {
+        let f = TwoRepoFixture::new(fb)?;
+        let bookmark = BookmarkKey::new("master")?;
+
+        f.set_bookmark(&f.bookmarks_1, &bookmark, ONES_CSID).await?;
+        f.set_bookmark(&f.bookmarks_2, &bookmark, ONES_CSID).await?;
+
+        // Update R1 + create R2 "master" (already exists) => should roll back both
+        let mut txn = f.multi_txn();
+        txn.update(
+            f.repo_id_1,
+            &bookmark,
+            TWOS_CSID,
+            ONES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+        txn.create(
+            f.repo_id_2,
+            &bookmark,
+            THREES_CSID,
+            BookmarkUpdateReason::TestMove,
+        )?;
+
+        assert!(!txn.commit().await?.is_success());
+        assert_eq!(
+            f.get_bookmark(&f.bookmarks_1, &bookmark).await?,
+            Some(ONES_CSID)
+        );
+        Ok(())
+    }
+}
