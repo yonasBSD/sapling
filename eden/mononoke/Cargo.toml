@@ -321,6 +321,7 @@ members = [
   "repo_attributes/bookmarks/bookmarks_movement",
   "repo_attributes/bookmarks/bookmarks_types",
   "repo_attributes/bookmarks/dbbookmarks",
+  "repo_attributes/bookmarks/multi_repo_bookmarks_transaction",
   "repo_attributes/bookmarks/warm_bookmarks_cache",
   "repo_attributes/commit_graph/buffered_commit_graph_storage",
   "repo_attributes/commit_graph/caching_commit_graph_storage",

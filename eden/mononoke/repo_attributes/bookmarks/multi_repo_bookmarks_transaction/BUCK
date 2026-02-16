@@ -1,0 +1,14 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("scm_server_infra")
+
+rust_library(
+    name = "multi_repo_bookmarks_transaction",
+    srcs = glob(["src/**/*.rs"]),
+    autocargo = {"cargo_toml_dir": "."},
+    deps = [
+        "//eden/mononoke/common/rust/sql_ext:sql_ext",
+        "//eden/mononoke/mononoke_types:mononoke_types",
+        "//eden/mononoke/repo_attributes/bookmarks:bookmarks",
+    ],
+)
