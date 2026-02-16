@@ -9,7 +9,7 @@ import bindings
 
 from . import bookmarks as bookmod, changelog2, error, streamclone, util
 from .i18n import _
-from .node import hex
+from .node import bin, hex
 
 
 def _slapi_streaming_clone(repo, source) -> None:
@@ -128,31 +128,29 @@ def emergencyclone(source, repo) -> None:
         )
 
         repo.ui.status(_("resolving %s\n") % mainbookmark)
-        with repo.conn(source) as conn:
-            peer = conn.peer
-            mainnode = peer.lookup(mainbookmark)
+        fetchedbookmarks = repo.edenapi.bookmarks([mainbookmark])
+        mainnode = fetchedbookmarks.get(mainbookmark)
+        if mainnode is None:
+            raise error.RepoLookupError(_("unknown revision %r") % mainbookmark)
+        mainnode = bin(mainnode)
 
-            # Write a DAG with one commit.
-            cl = changelog2.changelog.opensegments(repo, repo.ui.uiconfig())
-            # Pretend the "mainnode" does not have parents.
-            cl.inner.addgraphnodes([(mainnode, [])])
-            # Write to the "master" group.
-            cl.inner.flush([mainnode])
+        # Write a DAG with one commit.
+        cl = changelog2.changelog.opensegments(repo, repo.ui.uiconfig())
+        # Pretend the "mainnode" does not have parents.
+        cl.inner.addgraphnodes([(mainnode, [])])
+        # Write to the "master" group.
+        cl.inner.flush([mainnode])
 
-            # Update references
-            remote = bookmod.remotenameforurl(
-                repo.ui, repo.ui.paths.getpath(source).rawloc
-            )
-            fullname = "%s/%s" % (remote, mainbookmark)
-            repo.svfs.write(
-                "remotenames", bookmod.encoderemotenames({fullname: mainnode})
-            )
-            repo.svfs.write("tip", mainnode)
+        # Update references
+        remote = bookmod.remotenameforurl(repo.ui, repo.ui.paths.getpath(source).rawloc)
+        fullname = "%s/%s" % (remote, mainbookmark)
+        repo.svfs.write("remotenames", bookmod.encoderemotenames({fullname: mainnode}))
+        repo.svfs.write("tip", mainnode)
 
-            repo.ui.status(_("added %s: %s\n") % (mainbookmark, hex(mainnode)))
+        repo.ui.status(_("added %s: %s\n") % (mainbookmark, hex(mainnode)))
 
-            repo.invalidate()
-            repo.invalidatechangelog()
+        repo.invalidate()
+        repo.invalidatechangelog()
 
 
 def segmentsclone(source, repo) -> None:
