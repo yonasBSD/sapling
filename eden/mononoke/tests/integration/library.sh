@@ -97,6 +97,11 @@ function land_service_address {
   echo -n "$(mononoke_host):$LAND_SERVICE_PORT"
 }
 
+function multi_repo_land_service_address {
+  # shellcheck disable=SC2119
+  echo -n "$(mononoke_host):$MULTI_REPO_LAND_SERVICE_PORT"
+}
+
 function mononoke_git_service_address {
   echo -n "$(mononoke_host):$MONONOKE_GIT_SERVICE_PORT"
 }
@@ -831,6 +836,49 @@ function start_and_wait_for_scs_server {
 function start_and_wait_for_land_service {
   land_service "$@"
   wait_for_land_service
+}
+
+function multi_repo_land_service {
+  rm -f "$TESTTMP/multi_repo_land_service_addr.txt"
+  GLOG_minloglevel=5 \
+    THRIFT_TLS_SRV_CERT="$TEST_CERTDIR/localhost.crt" \
+    THRIFT_TLS_SRV_KEY="$TEST_CERTDIR/localhost.key" \
+    THRIFT_TLS_CL_CA_PATH="$TEST_CERTDIR/root-ca.crt" \
+    THRIFT_TLS_TICKETS="$TEST_CERTDIR/server.pem.seeds" \
+    "$MULTI_REPO_LAND_SERVICE" "$@" \
+    --host "$LOCALIP" \
+    --port 0 \
+    --log-level DEBUG \
+    --mononoke-config-path "$TESTTMP/mononoke-config" \
+    --bound-address-file "$TESTTMP/multi_repo_land_service_addr.txt" \
+    --tracing-test-format \
+    "${CACHE_ARGS[@]}" \
+    "${COMMON_ARGS[@]}" >> "$TESTTMP/multi_repo_land_service.out" 2>&1 &
+  export MULTI_REPO_LAND_SERVICE_PID=$!
+  echo "$MULTI_REPO_LAND_SERVICE_PID" >> "$DAEMON_PIDS"
+}
+
+MONONOKE_MULTI_REPO_LAND_SERVICE_DEFAULT_START_TIMEOUT=60
+
+function wait_for_multi_repo_land_service {
+  export MULTI_REPO_LAND_SERVICE_PORT
+  wait_for_server "Multi-repo land service" MULTI_REPO_LAND_SERVICE_PORT "$TESTTMP/multi_repo_land_service.out" \
+    "${MONONOKE_MULTI_REPO_LAND_SERVICE_START_TIMEOUT:-"$MONONOKE_MULTI_REPO_LAND_SERVICE_DEFAULT_START_TIMEOUT"}" "$TESTTMP/multi_repo_land_service_addr.txt" \
+    sleep 5
+}
+
+function start_and_wait_for_multi_repo_land_service {
+  multi_repo_land_service "$@"
+  wait_for_multi_repo_land_service
+}
+
+function multi_repo_land_service_client {
+  THRIFT_TLS_CL_CERT_PATH="$TEST_CERTDIR/client0.crt" \
+  THRIFT_TLS_CL_KEY_PATH="$TEST_CERTDIR/client0.key" \
+  THRIFT_TLS_CL_CA_PATH="$TEST_CERTDIR/root-ca.crt" \
+  "$MONONOKE_MULTI_REPO_LAND_SERVICE_CLIENT" \
+    --host "$(multi_repo_land_service_address)" \
+    "$@"
 }
 
 function _megarepo_async_worker_cmd {
