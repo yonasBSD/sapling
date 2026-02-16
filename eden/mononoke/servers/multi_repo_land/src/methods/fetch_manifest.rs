@@ -24,7 +24,6 @@ use repo_derived_data::RepoDerivedDataRef;
 use crate::service::MultiRepoLandServiceImpl;
 
 impl MultiRepoLandServiceImpl {
-    #[allow(dead_code)]
     pub async fn repo_fetch_manifest_content(
         &self,
         ctx: CoreContext,

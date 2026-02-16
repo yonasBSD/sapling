@@ -6,11 +6,13 @@
  */
 
 use bonsai_git_mapping::BonsaiGitMapping;
+use bonsai_hg_mapping::BonsaiHgMapping;
 use bookmarks::BookmarkUpdateLog;
 use bookmarks::Bookmarks;
 use commit_graph::CommitGraph;
 use commit_graph::CommitGraphWriter;
 use dbbookmarks::store::SqlBookmarks;
+use filestore::FilestoreConfig;
 use hook_manager::HookManager;
 use metaconfig_types::RepoConfig;
 use phases::Phases;
@@ -72,8 +74,14 @@ pub struct Repo {
     bonsai_git_mapping: dyn BonsaiGitMapping,
 
     #[facet]
+    bonsai_hg_mapping: dyn BonsaiHgMapping,
+
+    #[facet]
     phases: dyn Phases,
 
     #[facet]
     pushrebase_mutation_mapping: dyn PushrebaseMutationMapping,
+
+    #[facet]
+    filestore_config: FilestoreConfig,
 }

@@ -6,3 +6,6 @@
  */
 
 pub mod fetch_manifest;
+pub mod manifest_commit;
+pub mod multi_repo_modify;
+pub mod rebase;
