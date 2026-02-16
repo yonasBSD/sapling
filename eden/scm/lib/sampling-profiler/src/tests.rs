@@ -23,7 +23,6 @@ fn test_stress_concurrent_profilers() {
     };
 
     let handles: Vec<_> = (0..jobs)
-        .into_iter()
         .map(|i| {
             thread::spawn(move || {
                 for j in 0..iterations {
