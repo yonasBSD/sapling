@@ -21,12 +21,10 @@ use repo_blobstore::RepoBlobstoreRef;
 
 use crate::repo::Repo;
 
-#[allow(dead_code)]
 pub struct RebaseResult {
     pub rebased_cs_id: ChangesetId,
 }
 
-#[allow(dead_code)]
 pub enum RebaseOutcome {
     Success(RebaseResult),
     /// The rebase could not complete because files in the changeset conflict
@@ -39,7 +37,6 @@ pub enum RebaseOutcome {
 /// Performs a simple parent-swap: the changeset's file changes are preserved
 /// but its parent is replaced. If any files changed by the changeset also
 /// changed in old_parent..new_parent, returns `Conflict` instead.
-#[allow(dead_code)]
 pub async fn rebase_changeset(
     ctx: &CoreContext,
     repo: &Repo,

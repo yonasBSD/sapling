@@ -29,7 +29,6 @@ use crate::repo::Repo;
 /// The commit is stored in the blobstore but no bookmark points to it yet.
 /// The caller is responsible for moving the bookmark as part of the atomic
 /// multi-repo transaction.
-#[allow(dead_code)]
 pub async fn create_manifest_commit(
     ctx: &CoreContext,
     repo: &Repo,
