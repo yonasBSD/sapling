@@ -49,7 +49,6 @@
 
 #![feature(trait_alias)]
 
-use std::cmp::Ordering;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -99,6 +98,7 @@ use mononoke_types::GitLfs;
 use mononoke_types::MPath;
 use mononoke_types::Timestamp;
 use mononoke_types::check_case_conflicts;
+use mononoke_types::find_path_conflicts;
 use pushrebase_hook::PushrebaseCommitHook;
 use pushrebase_hook::PushrebaseHook;
 use pushrebase_hook::PushrebaseTransactionHook;
@@ -779,42 +779,10 @@ fn find_subtree_changes(changesets: &[BonsaiChangeset]) -> Result<Vec<MPath>, Pu
 /// `left` and `right` are considerered to be conflict free, if none of the element from `left`
 /// is prefix of element from `right`, and vice versa.
 fn intersect_changed_files(left: Vec<MPath>, right: Vec<MPath>) -> Result<(), PushrebaseError> {
-    let mut left = {
-        let mut left = left;
-        left.sort_unstable();
-        left.into_iter()
-    };
-    let mut right = {
-        let mut right = right;
-        right.sort_unstable();
-        right.into_iter()
-    };
-
-    let mut conflicts = Vec::new();
-    let mut state = (left.next(), right.next());
-    loop {
-        state = match state {
-            (Some(l), Some(r)) => match l.cmp(&r) {
-                Ordering::Equal => {
-                    conflicts.push(PushrebaseConflict::new(l.clone(), r.clone()));
-                    (left.next(), right.next())
-                }
-                Ordering::Less => {
-                    if l.is_prefix_of(&r) {
-                        conflicts.push(PushrebaseConflict::new(l.clone(), r.clone()));
-                    }
-                    (left.next(), Some(r))
-                }
-                Ordering::Greater => {
-                    if r.is_prefix_of(&l) {
-                        conflicts.push(PushrebaseConflict::new(l.clone(), r.clone()));
-                    }
-                    (Some(l), right.next())
-                }
-            },
-            _ => break,
-        };
-    }
+    let conflicts: Vec<PushrebaseConflict> = find_path_conflicts(left, right)
+        .into_iter()
+        .map(|(l, r)| PushrebaseConflict::new(l, r))
+        .collect();
 
     if conflicts.is_empty() {
         Ok(())

@@ -92,6 +92,7 @@ pub use path::NonRootMPath;
 pub use path::PrefixTrie;
 pub use path::RepoPath;
 pub use path::check_case_conflicts;
+pub use path::find_path_conflicts;
 pub use path::mpath_element::MPathElement;
 pub use path::mpath_element::MPathElementPrefix;
 pub use path::mpath_element_iter;
