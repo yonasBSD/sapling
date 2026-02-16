@@ -6,7 +6,6 @@
  */
 
 mod derive;
-mod derive_from_predecessor;
 mod mapping;
 mod ops;
 mod path;
