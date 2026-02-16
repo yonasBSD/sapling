@@ -56,7 +56,7 @@ mononoke_queries! {
         "REPLACE INTO bookmarks (repo_id, log_id, name, category, changeset_id) VALUES {values}"
     }
 
-    write InsertBookmarks(
+    pub write InsertBookmarks(
         values: (repo_id: RepositoryId, log_id: Option<u64>, name: BookmarkName, category: BookmarkCategory, changeset_id: ChangesetId, kind: BookmarkKind)
     ) {
         insert_or_ignore,
@@ -71,7 +71,7 @@ mononoke_queries! {
         sqlite("INSERT INTO bookmarks (repo_id, log_id, name, category, changeset_id, hg_kind) VALUES {values} ON CONFLICT (repo_id, name, category) DO UPDATE SET changeset_id = EXCLUDED.changeset_id, hg_kind = EXCLUDED.hg_kind")
     }
 
-    write UpdateBookmark(
+    pub write UpdateBookmark(
         repo_id: RepositoryId,
         log_id: Option<u64>,
         name: BookmarkName,
@@ -98,7 +98,7 @@ mononoke_queries! {
            AND category = {category}"
     }
 
-    write DeleteBookmarkIf(repo_id: RepositoryId, name: BookmarkName, category: BookmarkCategory, changeset_id: ChangesetId) {
+    pub write DeleteBookmarkIf(repo_id: RepositoryId, name: BookmarkName, category: BookmarkCategory, changeset_id: ChangesetId) {
         none,
         "DELETE FROM bookmarks
          WHERE repo_id = {repo_id}
@@ -107,11 +107,11 @@ mononoke_queries! {
            AND changeset_id = {changeset_id}"
     }
 
-    read FindMaxBookmarkLogId(repo_id: RepositoryId) -> (Option<u64>) {
+    pub read FindMaxBookmarkLogId(repo_id: RepositoryId) -> (Option<u64>) {
         "SELECT MAX(id) FROM bookmarks_update_log WHERE repo_id = {repo_id}"
     }
 
-    write AddBookmarkLog(
+    pub write AddBookmarkLog(
         values: (
             id: u64,
             repo_id: RepositoryId,

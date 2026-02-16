@@ -8,6 +8,9 @@ edition = "2024"
 license = "GPLv2+"
 
 [dependencies]
+anyhow = "1.0.98"
 bookmarks = { version = "0.1.0", path = ".." }
+context = { version = "0.1.0", path = "../../../servers/slapi/slapi_server/context" }
+dbbookmarks = { version = "0.1.0", path = "../dbbookmarks" }
 mononoke_types = { version = "0.1.0", path = "../../../mononoke_types" }
 sql_ext = { version = "0.1.0", path = "../../../common/rust/sql_ext" }

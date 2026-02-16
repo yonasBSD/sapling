@@ -312,6 +312,10 @@ impl SqlBookmarks {
         }
     }
 
+    pub fn write_connection(&self) -> &Connection {
+        &self.connections.write_connection
+    }
+
     pub fn connection(&self, ctx: &CoreContext, freshness: Freshness) -> &Connection {
         match freshness {
             Freshness::MaybeStale => {
