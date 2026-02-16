@@ -13,6 +13,7 @@ use fbinit::FacebookInit;
 use mononoke_app::MononokeAppBuilder;
 use mononoke_app::args::ShutdownTimeoutArgs;
 
+mod methods;
 mod repo;
 mod service;
 

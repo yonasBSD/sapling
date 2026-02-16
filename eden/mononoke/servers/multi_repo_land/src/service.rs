@@ -13,7 +13,7 @@ use crate::repo::Repo;
 
 pub struct MultiRepoLandServiceImpl {
     #[allow(dead_code)]
-    repos_mgr: Arc<MononokeReposManager<Repo>>,
+    pub(crate) repos_mgr: Arc<MononokeReposManager<Repo>>,
 }
 
 impl MultiRepoLandServiceImpl {
