@@ -1,0 +1,18 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
+
+oncall("scm_server_infra")
+
+cpp_library(
+    name = "dummy_lib",
+    srcs = ["dummy_lib.cpp"],
+    headers = ["dummy_lib.h"],
+    labels = [ci.skip_target()],
+)
+
+cpp_binary(
+    name = "dummy",
+    srcs = ["dummy.cpp"],
+    labels = [ci.skip_target()],
+)
