@@ -283,7 +283,13 @@ impl SaplingRemoteApiServerError {
 pub enum SaplingRemoteApiServerErrorKind {
     #[error("SaplingRemoteAPI server returned an error with message: {0}")]
     OpaqueError(String),
-    // TODO(T248658346): define an authorization error with all the information
-    // needed to display a user-friendly error message, e.g. permission group,
-    // ACLs, etc.
+    #[error(
+        "Unauthorized access to manifest under restricted path: {tree_id}. Request access via ACL {request_acl}."
+    )]
+    RestrictedPathPermissionError {
+        /// ID of the tree to which the user does not have access.
+        tree_id: HgId,
+        /// ACL to direct users for access requests.
+        request_acl: String,
+    },
 }

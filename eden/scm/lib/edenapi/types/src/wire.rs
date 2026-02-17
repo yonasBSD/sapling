@@ -368,6 +368,12 @@ pub enum WireSaplingRemoteApiServerError {
     #[serde(rename = "1")]
     OpaqueError(String),
 
+    #[serde(rename = "2")]
+    RestrictedPathPermissionError {
+        tree_id: WireHgId,
+        request_acl: String,
+    },
+
     #[serde(other, rename = "0")]
     Unknown,
 }
@@ -379,6 +385,13 @@ impl ToWire for SaplingRemoteApiServerErrorKind {
         use SaplingRemoteApiServerErrorKind::*;
         match self {
             OpaqueError(s) => WireSaplingRemoteApiServerError::OpaqueError(s),
+            RestrictedPathPermissionError {
+                tree_id,
+                request_acl,
+            } => WireSaplingRemoteApiServerError::RestrictedPathPermissionError {
+                tree_id: tree_id.to_wire(),
+                request_acl,
+            },
         }
     }
 }
@@ -396,6 +409,13 @@ impl ToApi for WireSaplingRemoteApiServerError {
                 ));
             }
             OpaqueError(s) => SaplingRemoteApiServerErrorKind::OpaqueError(s),
+            RestrictedPathPermissionError {
+                tree_id,
+                request_acl,
+            } => SaplingRemoteApiServerErrorKind::RestrictedPathPermissionError {
+                tree_id: tree_id.to_api()?,
+                request_acl,
+            },
         })
     }
 }
