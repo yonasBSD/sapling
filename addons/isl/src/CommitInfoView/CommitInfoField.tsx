@@ -11,10 +11,13 @@ import type {FieldConfig} from './types';
 import {Icon} from 'isl-components/Icon';
 import {extractTokens, TokensList} from 'isl-components/Tokens';
 import {DOCUMENTATION_DELAY, Tooltip} from 'isl-components/Tooltip';
+import {useAtomValue} from 'jotai';
 import {Fragment} from 'react';
 import {tracker} from '../analytics';
 import {Copyable} from '../Copyable';
 import {T} from '../i18n';
+import {copyFromParentCommit, parentCommitContextAtom} from './CommitInfoState';
+import {isFieldNonEmpty} from './CommitMessageFields';
 import {RenderMarkup} from './RenderMarkup';
 import {SeeMoreContainer} from './SeeMoreContainer';
 import {CommitInfoTextArea} from './TextArea';
@@ -29,7 +32,6 @@ export function CommitInfoField({
   editedField,
   startEditingField,
   setEditedField,
-  copyFromParent,
   extra,
   autofocus,
 }: {
@@ -40,10 +42,12 @@ export function CommitInfoField({
   content?: string | Array<string>;
   editedField: string | Array<string> | undefined;
   setEditedField: (value: string) => unknown;
-  copyFromParent?: () => void;
   extra?: JSX.Element;
   autofocus?: boolean;
 }): JSX.Element | null {
+  const parentFields = useAtomValue(parentCommitContextAtom)?.parentFields;
+  const showCopyFromParent =
+    !readonly && parentFields != null && isFieldNonEmpty(parentFields[field.key]);
   const editedFieldContent =
     editedField == null ? '' : Array.isArray(editedField) ? editedField.join(', ') : editedField;
   if (field.type === 'title') {
@@ -73,9 +77,9 @@ export function CommitInfoField({
             </ClickToEditField>
             <div className="commit-info-field-buttons">
               {readonly ? null : <EditFieldButton onClick={startEditingField} />}
-              {readonly || copyFromParent == null ? null : (
-                <CopyFromParentButton onClick={copyFromParent} />
-              )}
+              {showCopyFromParent ? (
+                <CopyFromParentButton onClick={() => copyFromParentCommit(field.key)} />
+              ) : null}
             </div>
           </div>
         )}
@@ -129,7 +133,6 @@ export function CommitInfoField({
                 autoFocus={autofocus ?? false}
                 editedMessage={editedFieldContent}
                 setEditedField={setEditedField}
-                copyFromParent={copyFromParent}
               />
             )}
             {extra}
@@ -187,9 +190,9 @@ export function CommitInfoField({
             <T>{field.key}</T>
             <div className="commit-info-field-buttons">
               {readonly ? null : <EditFieldButton onClick={startEditingField} />}
-              {readonly || copyFromParent == null ? null : (
-                <CopyFromParentButton onClick={copyFromParent} />
-              )}
+              {showCopyFromParent ? (
+                <CopyFromParentButton onClick={() => copyFromParentCommit(field.key)} />
+              ) : null}
             </div>
           </SmallCapsTitle>
           <ClickToEditField

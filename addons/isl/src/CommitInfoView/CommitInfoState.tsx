@@ -293,3 +293,54 @@ export const commitInfoViewCurrentCommits = atom(get => {
     return selected.length > 1 ? selected : [commit];
   }
 });
+
+/**
+ * Derived atom that reactively computes the parent commit context and parsed fields.
+ * Returns undefined if there is no eligible parent commit.
+ */
+export const parentCommitContextAtom = atom(get => {
+  const currentCommits = get(commitInfoViewCurrentCommits);
+  const mode = get(commitMode);
+  const commit = currentCommits?.length === 1 ? currentCommits[0] : undefined;
+  if (!commit) {
+    return undefined;
+  }
+  const isCommitMode = mode === 'commit';
+  const parentCommit = get(dagWithPreviews).get(isCommitMode ? commit.hash : commit.parents[0]);
+  if (!parentCommit || parentCommit.phase === 'public') {
+    return undefined;
+  }
+  const schema = get(commitMessageFieldsSchema);
+  const parentFields = parseCommitMessageFields(
+    schema,
+    parentCommit.title,
+    parentCommit.description,
+  );
+  return {commit, isCommitMode, parentFields};
+});
+
+/**
+ * Copy a field's value from the parent commit into the current commit's edited message.
+ */
+export function copyFromParentCommit(fieldKey: string): void {
+  const ctx = readAtom(parentCommitContextAtom);
+  if (!ctx) {
+    return;
+  }
+  const {commit, isCommitMode, parentFields} = ctx;
+  const parentVal = parentFields[fieldKey];
+  if (!parentVal) {
+    return;
+  }
+
+  tracker.track('CopyCommitFieldsFromParent');
+  const schema = readAtom(commitMessageFieldsSchema);
+  const field = schema.find(f => f.key === fieldKey);
+  const hashOrHead = isCommitMode ? 'head' : commit.hash;
+  const val = Array.isArray(parentVal) ? parentVal.join(',') : parentVal;
+  const newVal = field?.type === 'field' ? val + ',' : val;
+  writeAtom(editedCommitMessages(hashOrHead), prev => ({
+    ...prev,
+    [fieldKey]: field?.type === 'field' ? newVal.split(',') : newVal,
+  }));
+}

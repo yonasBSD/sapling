@@ -11,6 +11,7 @@ import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {TextArea} from 'isl-components/TextArea';
 import {Tooltip} from 'isl-components/Tooltip';
+import {useAtomValue} from 'jotai';
 import {useEffect, useRef} from 'react';
 import {InternalFieldName} from 'shared/constants';
 import {
@@ -20,6 +21,8 @@ import {
   useUploadFilesCallback,
 } from '../ImageUpload';
 import {Internal} from '../Internal';
+import {copyFromParentCommit, parentCommitContextAtom} from './CommitInfoState';
+import {isFieldNonEmpty} from './CommitMessageFields';
 import {MinHeightTextField} from './MinHeightTextField';
 import {convertFieldNameToKey} from './utils';
 
@@ -33,14 +36,12 @@ export function CommitInfoTextArea({
   autoFocus,
   editedMessage,
   setEditedField,
-  copyFromParent,
 }: {
   kind: 'title' | 'textarea' | 'field';
   name: string;
   autoFocus: boolean;
   editedMessage: string;
   setEditedField: (fieldValue: string) => unknown;
-  copyFromParent?: () => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -98,7 +99,6 @@ export function CommitInfoTextArea({
         fieldName={name}
         uploadFiles={supportsImageUpload ? uploadFiles : undefined}
         textAreaRef={ref}
-        copyFromParent={copyFromParent}
       />
     </div>
   );
@@ -116,12 +116,10 @@ export function EditorToolbar({
   fieldName,
   textAreaRef,
   uploadFiles,
-  copyFromParent,
 }: {
   fieldName: string;
   uploadFiles?: (files: Array<File>) => unknown;
   textAreaRef: RefObject<HTMLTextAreaElement>;
-  copyFromParent?: () => void;
 }) {
   const parts: Array<ReactNode> = [];
   if (uploadFiles != null) {
@@ -135,10 +133,15 @@ export function EditorToolbar({
   if (fieldName === InternalFieldName.Summary && Internal.GenerateSummaryButton) {
     parts.push(<Internal.GenerateSummaryButton key="generate-summary" />);
   }
-  if (copyFromParent != null) {
+  const parentFields = useAtomValue(parentCommitContextAtom)?.parentFields;
+  if (
+    parentFields &&
+    isFieldNonEmpty(parentFields[fieldName]) &&
+    (fieldName === InternalFieldName.Summary || fieldName === InternalFieldName.TestPlan)
+  ) {
     parts.push(
       <Tooltip title="Copy from previous commit" key="copy-parent">
-        <Button icon onClick={copyFromParent}>
+        <Button icon onClick={() => copyFromParentCommit(fieldName)}>
           <Icon icon="clippy" />
         </Button>
       </Tooltip>,
