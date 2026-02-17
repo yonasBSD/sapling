@@ -386,7 +386,7 @@ impl FileStore {
         FetchResults::new(Box::new(found_rx.into_iter()))
     }
 
-    fn write_lfsptr(&self, key: Key, bytes: Bytes) -> Result<()> {
+    pub(crate) fn write_lfsptr(&self, key: Key, bytes: Bytes) -> Result<()> {
         if !self.allow_write_lfs_ptrs {
             ensure!(
                 std::env::var("TESTTMP").is_ok(),
@@ -409,7 +409,7 @@ impl FileStore {
         lfs_local.add_pointer(lfs_pointer)
     }
 
-    fn write_lfs(&self, key: Key, bytes: Bytes) -> Result<()> {
+    pub(crate) fn write_lfs(&self, key: Key, bytes: Bytes) -> Result<()> {
         let lfs_local = self
             .lfs_client
             .as_ref()

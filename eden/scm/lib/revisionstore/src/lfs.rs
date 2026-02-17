@@ -91,6 +91,7 @@ use types::FetchContext;
 use types::HgId;
 use types::Key;
 use types::RepoPath;
+use types::RepoPathBuf;
 use types::Sha256;
 use url::Url;
 use util::path::create_dir;
@@ -852,6 +853,12 @@ impl LfsStore {
         repair_str += &LfsIndexedLogBlobsStore::repair(get_lfs_blobs_path(path)?)?;
 
         Ok(repair_str)
+    }
+
+    /// Check if a pointer exists for the given HgId.
+    pub fn contains_pointer(&self, id: &HgId) -> Result<bool> {
+        let key = StoreKey::HgId(Key::new(RepoPathBuf::new(), *id));
+        Ok(self.pointers.entry(&key)?.is_some())
     }
 
     fn blob_impl(&self, key: StoreKey) -> Result<StoreResult<(LfsPointersEntry, Bytes)>> {

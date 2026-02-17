@@ -27,6 +27,7 @@ use types::Key;
 use types::RepoPath;
 use types::hgid::NULL_ID;
 
+use crate::Metadata;
 use crate::scmstore::FileAttributes;
 use crate::scmstore::FileStore;
 
@@ -75,18 +76,47 @@ impl storemodel::KeyStore for ArcFileStore {
     fn insert_data(&self, opts: InsertOpts, path: &RepoPath, data: &[u8]) -> anyhow::Result<HgId> {
         let id = sha1_digest(&opts, data, self.format());
 
-        if opts.read_before_write
-            && let Some(l) = &self.0.indexedlog_local
-        {
-            if l.contains(&id)? {
-                return Ok(id);
+        // Check if this should be written as LFS based on hg_flags or size threshold
+        let is_lfs_flag = (opts.hg_flags & Metadata::LFS_FLAG as u32) != 0;
+        let exceeds_threshold = self
+            .0
+            .lfs_threshold_bytes
+            .is_some_and(|threshold| data.len() as u64 > threshold);
+        let is_lfs = (is_lfs_flag && self.0.lfs_threshold_bytes.is_some()) || exceeds_threshold;
+
+        // Check if data already exists (read_before_write optimization)
+        if opts.read_before_write {
+            if is_lfs {
+                // For LFS, check if the pointer already exists
+                if let Some(lfs_client) = &self.0.lfs_client {
+                    if let Some(lfs_local) = &lfs_client.local {
+                        if lfs_local.contains_pointer(&id)? {
+                            return Ok(id);
+                        }
+                    }
+                }
+            } else if let Some(l) = &self.0.indexedlog_local {
+                // For non-LFS, check indexedlog
+                if l.contains(&id)? {
+                    return Ok(id);
+                }
             }
         }
 
         let key = Key::new(path.to_owned(), id);
         // PERF: Ideally, there is no need to copy `data`.
         let data = Bytes::copy_from_slice(data);
-        self.0.write_nonlfs(key, data, Default::default())?;
+
+        if is_lfs_flag && self.0.lfs_threshold_bytes.is_some() {
+            // Data is already an LFS pointer
+            self.0.write_lfsptr(key, data)?;
+        } else if exceeds_threshold {
+            // Data exceeds LFS threshold, write as LFS blob
+            self.0.write_lfs(key, data)?;
+        } else {
+            // Regular non-LFS write
+            self.0.write_nonlfs(key, data, Default::default())?;
+        }
         Ok(id)
     }
 
@@ -169,11 +199,15 @@ mod tests {
     use types::RepoPathBuf;
 
     use super::*;
+    use crate::StoreType;
     use crate::ToKeys;
     use crate::indexedlogdatastore::IndexedLogHgIdDataStore;
     use crate::indexedlogdatastore::IndexedLogHgIdDataStoreConfig;
-    use crate::indexedlogutil::StoreType;
+    use crate::lfs::LfsClient;
+    use crate::lfs::LfsStore;
     use crate::scmstore::FileStore;
+    use crate::scmstore::file::FileStoreMetrics;
+    use crate::testutil::make_lfs_config;
 
     #[test]
     fn test_insert_data_read_before_write() {
@@ -233,5 +267,203 @@ mod tests {
 
         // Now there should be 2 entries (duplicate was written)
         assert_eq!(indexedlog.to_keys().len(), 2);
+    }
+
+    fn make_file_store_with_lfs(dir: &TempDir, lfs_threshold: Option<u64>) -> Result<FileStore> {
+        let config = IndexedLogHgIdDataStoreConfig {
+            max_log_count: None,
+            max_bytes_per_log: None,
+            max_bytes: None,
+            btrfs_compression: false,
+        };
+        let indexedlog_local = Arc::new(IndexedLogHgIdDataStore::new(
+            &BTreeMap::<&str, &str>::new(),
+            dir.path(),
+            &config,
+            StoreType::Rotated,
+            SerializationFormat::Hg,
+        )?);
+
+        let lfs_client = if lfs_threshold.is_some() {
+            let server = mockito::Server::new();
+            let lfs_config = make_lfs_config(&server, dir, "test");
+            let lfs_store = Arc::new(LfsStore::rotated(dir.path(), &lfs_config)?);
+            Some(LfsClient::new(
+                lfs_store.clone(),
+                Some(lfs_store),
+                &lfs_config,
+            )?)
+        } else {
+            None
+        };
+
+        Ok(FileStore {
+            lfs_threshold_bytes: lfs_threshold,
+            verify_hash: true,
+            edenapi_retries: 0,
+            allow_write_lfs_ptrs: true,
+            compute_aux_data: false,
+            indexedlog_local: Some(indexedlog_local),
+            indexedlog_cache: None,
+            edenapi: None,
+            lfs_client,
+            metrics: FileStoreMetrics::new(),
+            activity_logger: None,
+            aux_cache: None,
+            flush_on_drop: false,
+            format: SerializationFormat::Hg,
+            progress_bar: progress_model::AggregatingProgressBar::new("", ""),
+            unbounded_queue: false,
+            lfs_buffer_in_memory: false,
+        })
+    }
+
+    #[test]
+    fn test_insert_data_nonlfs() -> Result<()> {
+        let dir = TempDir::new()?;
+        let store = make_file_store_with_lfs(&dir, None)?;
+        let arc_store = ArcFileStore(Arc::new(store));
+
+        let path = RepoPathBuf::from_string("test/file.txt".to_string())?;
+        let data = b"small data";
+        let opts = InsertOpts::default();
+
+        let id = arc_store.insert_data(opts, &path, data)?;
+
+        // Verify data was written to indexedlog
+        let content = arc_store.get_local_content(&path, id)?;
+        assert!(content.is_some());
+        assert_eq!(content.unwrap().into_vec(), data.to_vec());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_insert_data_lfs_threshold() -> Result<()> {
+        let dir = TempDir::new()?;
+        // Set threshold to 10 bytes
+        let store = make_file_store_with_lfs(&dir, Some(10))?;
+        let arc_store = ArcFileStore(Arc::new(store));
+
+        let path = RepoPathBuf::from_string("test/large_file.txt".to_string())?;
+        // Data larger than threshold (10 bytes)
+        let data = b"this is a large file that exceeds the threshold";
+        let opts = InsertOpts::default();
+
+        let id = arc_store.insert_data(opts, &path, data)?;
+
+        // The id should be computed correctly
+        assert!(!id.is_null());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_insert_data_below_lfs_threshold() -> Result<()> {
+        let dir = TempDir::new()?;
+        // Set threshold to 100 bytes
+        let store = make_file_store_with_lfs(&dir, Some(100))?;
+        let arc_store = ArcFileStore(Arc::new(store));
+
+        let path = RepoPathBuf::from_string("test/small_file.txt".to_string())?;
+        // Data smaller than threshold
+        let data = b"small";
+        let opts = InsertOpts::default();
+
+        let id = arc_store.insert_data(opts, &path, data)?;
+
+        // Verify data was written to indexedlog (non-LFS path)
+        let content = arc_store.get_local_content(&path, id)?;
+        assert!(content.is_some());
+        assert_eq!(content.unwrap().into_vec(), data.to_vec());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_insert_data_lfs_flag() -> Result<()> {
+        let dir = TempDir::new()?;
+        let store = make_file_store_with_lfs(&dir, Some(100))?;
+        let arc_store = ArcFileStore(Arc::new(store));
+
+        let path = RepoPathBuf::from_string("test/lfs_pointer.txt".to_string())?;
+        // Create a valid LFS pointer
+        let lfs_pointer = b"version https://git-lfs.github.com/spec/v1\n\
+oid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\n\
+size 12345\n\
+x-is-binary 0\n";
+
+        let opts = InsertOpts {
+            hg_flags: Metadata::LFS_FLAG as u32,
+            ..Default::default()
+        };
+
+        let id = arc_store.insert_data(opts, &path, lfs_pointer)?;
+
+        // The id should be computed correctly
+        assert!(!id.is_null());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_insert_data_read_before_write_nonlfs() -> Result<()> {
+        let dir = TempDir::new()?;
+        let store = make_file_store_with_lfs(&dir, None)?;
+        let arc_store = ArcFileStore(Arc::new(store));
+
+        let path = RepoPathBuf::from_string("test/file.txt".to_string())?;
+        let data = b"test data for read_before_write";
+
+        // First insert
+        let opts1 = InsertOpts {
+            read_before_write: true,
+            ..Default::default()
+        };
+        let id1 = arc_store.insert_data(opts1, &path, data)?;
+
+        // Second insert with same data should return same id without re-writing
+        let opts2 = InsertOpts {
+            read_before_write: true,
+            ..Default::default()
+        };
+        let id2 = arc_store.insert_data(opts2, &path, data)?;
+
+        assert_eq!(id1, id2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_insert_data_read_before_write_lfs() -> Result<()> {
+        let dir = TempDir::new()?;
+        // Set threshold to 10 bytes
+        let store = make_file_store_with_lfs(&dir, Some(10))?;
+        let arc_store = ArcFileStore(Arc::new(store));
+
+        let path = RepoPathBuf::from_string("test/large_file.txt".to_string())?;
+        // Data larger than threshold
+        let data = b"this is a large file that exceeds the threshold";
+
+        // First insert
+        let opts1 = InsertOpts {
+            read_before_write: true,
+            ..Default::default()
+        };
+        let id1 = arc_store.insert_data(opts1, &path, data)?;
+
+        // Flush to ensure data is written
+        arc_store.flush()?;
+
+        // Second insert with same data should return same id without re-writing
+        let opts2 = InsertOpts {
+            read_before_write: true,
+            ..Default::default()
+        };
+        let id2 = arc_store.insert_data(opts2, &path, data)?;
+
+        assert_eq!(id1, id2);
+
+        Ok(())
     }
 }
