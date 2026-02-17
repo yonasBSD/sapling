@@ -44,3 +44,16 @@ struct DirectoryBranchClusterManifest {
   /// If this directory is a cluster secondary, the path it was copied FROM
   3: optional path.MPath primary;
 }
+
+@rust.Exhaustive
+struct DirectoryBranchClusterManifestFile {
+  /// If this directory is a cluster primary, lists its secondaries (paths copied FROM this directory)
+  2: optional list<path.MPath> secondaries;
+  /// If this directory is a cluster secondary, the path it was copied FROM
+  3: optional path.MPath primary;
+}
+
+union DirectoryBranchClusterManifestEntry {
+  1: DirectoryBranchClusterManifestFile file;
+  2: DirectoryBranchClusterManifest directory;
+}

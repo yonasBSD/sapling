@@ -306,9 +306,7 @@ async fn find_deleted_cluster_paths(
     let paths_added: Vec<NonRootMPath> = bonsai
         .file_changes()
         .filter_map(|(path, change)| match change {
-            FileChange::Change(_) | FileChange::UntrackedChange(_) => {
-                NonRootMPath::try_from(path.clone()).ok()
-            }
+            FileChange::Change(_) | FileChange::UntrackedChange(_) => Some(path.clone()),
             _ => None,
         })
         .collect();
@@ -647,13 +645,13 @@ mod tests {
     use fbinit::FacebookInit;
     use filestore::FilestoreConfig;
     use mononoke_macros::mononoke;
+    use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestEntry;
     use mononoke_types::sharded_map_v2::ShardedMapV2Node;
     use repo_blobstore::RepoBlobstore;
     use repo_blobstore::RepoBlobstoreRef;
     use repo_derived_data::RepoDerivedData;
     use repo_derived_data::RepoDerivedDataRef;
     use repo_identity::RepoIdentity;
-    use test_repo_factory;
     use tests_utils::drawdag::changes;
     use tests_utils::drawdag::create_from_dag_with_changes;
 
@@ -1333,7 +1331,10 @@ mod tests {
                 secondaries,
             };
 
-            root_entries.push((elements[0].clone().to_smallvec(), dir));
+            root_entries.push((
+                elements[0].clone().to_smallvec(),
+                DirectoryBranchClusterManifestEntry::Directory(dir),
+            ));
         }
 
         // Build the root manifest from entries

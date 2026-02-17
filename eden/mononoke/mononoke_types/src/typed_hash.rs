@@ -39,6 +39,7 @@ use crate::content_manifest::ContentManifestEntry;
 use crate::content_metadata_v2::ContentMetadataV2;
 use crate::deleted_manifest_v2::DeletedManifestV2;
 use crate::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
+use crate::directory_branch_cluster_manifest::DirectoryBranchClusterManifestEntry;
 use crate::fastlog_batch::FastlogBatch;
 use crate::file_contents::FileContents;
 use crate::fsnode::Fsnode;
@@ -700,7 +701,7 @@ impl_typed_hash! {
 impl_typed_hash! {
     hash_type => ShardedMapV2NodeDbcmId,
     thrift_hash_type => thrift::id::ShardedMapV2NodeId,
-    value_type => ShardedMapV2Node<DirectoryBranchClusterManifest>,
+    value_type => ShardedMapV2Node<DirectoryBranchClusterManifestEntry>,
     context_type => ShardedMapV2NodeDbcmContext,
     context_key => "dbcm.map2node",
 }

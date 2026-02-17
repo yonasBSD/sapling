@@ -64,7 +64,10 @@ use mononoke_types::ChangesetId;
 use mononoke_types::MPath;
 use mononoke_types::MPathElement;
 use mononoke_types::TrieMap;
+use mononoke_types::directory_branch_cluster_manifest::ClusterMember;
 use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
+use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestEntry;
+use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestFile;
 use mononoke_types::sharded_map_v2::ShardedMapV2Node;
 use mononoke_types::typed_hash::DirectoryBranchClusterManifestId;
 
@@ -131,9 +134,12 @@ fn merge_manifests_recursive<'a>(
                 .into_subentries(ctx, blobstore)
                 .try_collect()
                 .await?;
-            for (elem, dir) in parent_entries {
-                child_elements.insert(elem.clone());
-                parent_child_entries.entry(elem).or_default().push(dir);
+            for (elem, entry) in parent_entries {
+                if let DirectoryBranchClusterManifestEntry::Directory(dir) = entry {
+                    child_elements.insert(elem.clone());
+                    parent_child_entries.entry(elem).or_default().push(dir);
+                }
+                // Files don't have subentries, so we skip them during merge
             }
         }
 
@@ -160,7 +166,12 @@ fn merge_manifests_recursive<'a>(
         // Build the final manifest at this level
         let subentries_trie: TrieMap<_> = entries
             .into_iter()
-            .map(|(name, dir)| (name.to_smallvec(), itertools::Either::Left(dir)))
+            .map(|(name, dir)| {
+                (
+                    name.to_smallvec(),
+                    itertools::Either::Left(DirectoryBranchClusterManifestEntry::Directory(dir)),
+                )
+            })
             .collect();
 
         let subentries =
@@ -193,6 +204,60 @@ fn merge_manifests_recursive<'a>(
 }
 
 /// Recursively apply cluster changes to a manifest.
+///
+/// This function traverses the manifest tree and applies cluster updates at each path where
+/// changes are needed. It handles both existing entries (from the base manifest) and new
+/// entries (from cluster changes).
+///
+/// # Algorithm Overview
+///
+/// For each level in the tree, we:
+/// 1. Collect `child_elements` - the set of path elements we need to process at this level
+/// 2. For each child element, determine if we need to:
+///    - Recurse deeper (if there are nested changes below this path)
+///    - Apply a direct update (if there's a change at exactly this path)
+///    - Copy through unchanged (if the entry exists but has no changes)
+///
+/// # Key Data Structures
+///
+/// - `base_child_dirs` / `base_child_files`: Existing entries from the base manifest at this
+///   level. These are the entries we're modifying.
+/// - `child_elements`: The union of all path elements we need to process - both from existing
+///   entries AND from the cluster changes. This ensures we create new entries for paths that
+///   don't exist yet.
+/// - `result_entries`: The final set of entries to include in the output manifest at this level.
+///
+/// # Example
+///
+/// Given a base manifest with structure:
+/// ```text
+///   root
+///   └── a/
+///       └── b/  (primary: None, secondaries: None)
+/// ```
+///
+/// And cluster changes:
+/// ```text
+///   "a/b" -> ClusterUpdate { set_primary: Some("x/y"), ... }
+///   "a/c" -> ClusterUpdate { set_primary: Some("x/z"), ... }  // new path!
+/// ```
+///
+/// At the root level:
+/// - `child_elements` = {"a"} (from base) ∪ {"a"} (from changes) = {"a"}
+/// - We recurse into "a" because it has nested changes
+///
+/// At the "a" level:
+/// - `child_elements` = {"b"} (from base) ∪ {"b", "c"} (from changes) = {"b", "c"}
+/// - For "b": apply the update to the existing directory
+/// - For "c": create a new directory with the cluster info (since it doesn't exist in base)
+///
+/// Result:
+/// ```text
+///   root
+///   └── a/
+///       ├── b/  (primary: "x/y", secondaries: None)
+///       └── c/  (primary: "x/z", secondaries: None)  // newly created
+/// ```
 fn apply_changes_recursive<'a>(
     ctx: &'a CoreContext,
     blobstore: &'a Arc<dyn KeyedBlobstore>,
@@ -205,17 +270,26 @@ fn apply_changes_recursive<'a>(
         let mut child_elements: std::collections::HashSet<MPathElement> =
             std::collections::HashSet::new();
 
-        // Collect existing children from base
+        // Collect existing children from base (both files and directories)
         let base_entries: Vec<_> = base
             .clone()
             .into_subentries(ctx, blobstore)
             .try_collect()
             .await?;
-        let mut base_child_entries: HashMap<MPathElement, DirectoryBranchClusterManifest> =
+        let mut base_child_dirs: HashMap<MPathElement, DirectoryBranchClusterManifest> =
             HashMap::new();
-        for (elem, dir) in base_entries {
+        let mut base_child_files: HashMap<MPathElement, DirectoryBranchClusterManifestFile> =
+            HashMap::new();
+        for (elem, entry) in base_entries {
             child_elements.insert(elem.clone());
-            base_child_entries.insert(elem, dir);
+            match entry {
+                DirectoryBranchClusterManifestEntry::Directory(dir) => {
+                    base_child_dirs.insert(elem, dir);
+                }
+                DirectoryBranchClusterManifestEntry::File(file) => {
+                    base_child_files.insert(elem, file);
+                }
+            }
         }
 
         // Collect children from cluster changes that apply at this level or below
@@ -234,11 +308,13 @@ fn apply_changes_recursive<'a>(
         }
 
         // Build entries for each child
-        let mut entries: HashMap<MPathElement, DirectoryBranchClusterManifest> = HashMap::new();
+        let mut result_entries: HashMap<MPathElement, DirectoryBranchClusterManifestEntry> =
+            HashMap::new();
 
         for elem in child_elements {
             let child_path = current_path.join_element(Some(&elem));
-            let base_entry = base_child_entries.remove(&elem);
+            let base_dir = base_child_dirs.remove(&elem);
+            let base_file = base_child_files.remove(&elem);
             let direct_update = changes.get(&child_path);
 
             // If the path is marked as deleted, skip it entirely
@@ -256,8 +332,8 @@ fn apply_changes_recursive<'a>(
             });
 
             if has_nested_changes {
-                // Need to recurse to apply nested changes
-                let child_base = base_entry.unwrap_or_else(DirectoryBranchClusterManifest::empty);
+                // Need to recurse to apply nested changes - this must be a directory
+                let child_base = base_dir.unwrap_or_else(DirectoryBranchClusterManifest::empty);
 
                 let mut child_manifest =
                     apply_changes_recursive(ctx, blobstore, child_base, changes, child_path)
@@ -267,24 +343,42 @@ fn apply_changes_recursive<'a>(
                     apply_cluster_update(&mut child_manifest, update);
                 }
 
-                entries.insert(elem, child_manifest);
+                result_entries.insert(
+                    elem,
+                    DirectoryBranchClusterManifestEntry::Directory(child_manifest),
+                );
             } else if let Some(update) = direct_update {
-                // Direct update at this path
-                let mut child_manifest =
-                    base_entry.unwrap_or_else(DirectoryBranchClusterManifest::empty);
-
-                apply_cluster_update(&mut child_manifest, update);
-                entries.insert(elem, child_manifest);
-            } else if let Some(existing_entry) = base_entry {
-                // No changes - just copy through
-                entries.insert(elem, existing_entry);
+                // Direct update at this path - could be file or directory
+                if let Some(mut dir) = base_dir {
+                    // Existing directory
+                    apply_cluster_update(&mut dir, update);
+                    result_entries
+                        .insert(elem, DirectoryBranchClusterManifestEntry::Directory(dir));
+                } else if let Some(mut file) = base_file {
+                    // Existing file
+                    apply_cluster_update(&mut file, update);
+                    result_entries.insert(elem, DirectoryBranchClusterManifestEntry::File(file));
+                } else {
+                    // New entry - create as a directory by default for cluster updates
+                    // (files would typically come from parent manifests or explicit file changes)
+                    let mut dir = DirectoryBranchClusterManifest::empty();
+                    apply_cluster_update(&mut dir, update);
+                    result_entries
+                        .insert(elem, DirectoryBranchClusterManifestEntry::Directory(dir));
+                }
+            } else if let Some(dir) = base_dir {
+                // No changes - just copy through directory
+                result_entries.insert(elem, DirectoryBranchClusterManifestEntry::Directory(dir));
+            } else if let Some(file) = base_file {
+                // No changes - just copy through file
+                result_entries.insert(elem, DirectoryBranchClusterManifestEntry::File(file));
             }
         }
 
         // Build the final manifest at this level
-        let subentries_trie: TrieMap<_> = entries
+        let subentries_trie: TrieMap<_> = result_entries
             .into_iter()
-            .map(|(name, dir)| (name.to_smallvec(), itertools::Either::Left(dir)))
+            .map(|(name, entry)| (name.to_smallvec(), itertools::Either::Left(entry)))
             .collect();
 
         let subentries =
@@ -299,26 +393,26 @@ fn apply_changes_recursive<'a>(
     })
 }
 
-fn apply_cluster_update(dir: &mut DirectoryBranchClusterManifest, update: &ClusterUpdate) {
+fn apply_cluster_update<T: ClusterMember>(member: &mut T, update: &ClusterUpdate) {
     if update.clear_primary {
-        dir.primary = None;
+        *member.primary_mut() = None;
     } else if let Some(ref new_primary) = update.set_primary {
-        dir.primary = Some(new_primary.clone());
+        *member.primary_mut() = Some(new_primary.clone());
     }
 
     if !update.add_secondaries.is_empty() {
-        let mut secondaries = dir.secondaries.take().unwrap_or_default();
+        let mut secondaries = member.secondaries_mut().take().unwrap_or_default();
         secondaries.extend(update.add_secondaries.iter().cloned());
         secondaries.sort();
         secondaries.dedup();
-        dir.secondaries = Some(secondaries);
+        *member.secondaries_mut() = Some(secondaries);
     }
 
     if !update.delete_secondaries.is_empty() {
-        if let Some(ref mut secondaries) = dir.secondaries {
+        if let Some(secondaries) = member.secondaries_mut() {
             secondaries.retain(|s| !update.delete_secondaries.contains(s));
             if secondaries.is_empty() {
-                dir.secondaries = None;
+                *member.secondaries_mut() = None;
             }
         }
     }
@@ -438,8 +532,10 @@ mod tests {
         // Parse the path into components and traverse the tree
         let mpath = MPath::new(path)?;
         let mut current_manifest = manifest.clone();
+        let elements: Vec<_> = mpath.into_iter().collect();
+        let last_idx = elements.len() - 1;
 
-        for elem in mpath.into_iter() {
+        for (idx, elem) in elements.into_iter().enumerate() {
             // Get subentries at current level
             let entries: BTreeMap<_, _> = current_manifest
                 .clone()
@@ -447,8 +543,25 @@ mod tests {
                 .try_collect()
                 .await?;
 
-            if let Some(dir) = entries.get(&elem) {
-                current_manifest = dir.clone();
+            if let Some(entry) = entries.get(&elem) {
+                match entry {
+                    DirectoryBranchClusterManifestEntry::Directory(dir) => {
+                        if idx == last_idx {
+                            // This is the final path element - return its cluster info
+                            return Ok((dir.primary.clone(), dir.secondaries.clone()));
+                        }
+                        // More path elements to traverse
+                        current_manifest = dir.clone();
+                    }
+                    DirectoryBranchClusterManifestEntry::File(file) => {
+                        if idx == last_idx {
+                            // This is the final path element - return the file's cluster info
+                            return Ok((file.primary.clone(), file.secondaries.clone()));
+                        }
+                        // Can't traverse into a file - path doesn't exist
+                        return Ok((None, None));
+                    }
+                }
             } else {
                 return Ok((None, None));
             }

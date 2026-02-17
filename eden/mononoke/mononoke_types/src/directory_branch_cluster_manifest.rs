@@ -30,18 +30,71 @@ use crate::typed_hash::IdContext;
 use crate::typed_hash::ShardedMapV2NodeDbcmContext;
 pub use crate::typed_hash::ShardedMapV2NodeDbcmId;
 
-/// Directory Branch Cluster Manifest - tracks cluster relationships between directories.
-///
-/// Unlike other manifests, DBCM only stores directories (no files). It tracks which
-/// directories are copies/branches of each other via subtree operations, enabling
-/// Code Search to deduplicate results across directory branches.
+/// Trait for types that can be members of a cluster (have primary/secondaries fields).
+/// This allows common operations on cluster membership to be shared between
+/// DirectoryBranchClusterManifest and DirectoryBranchClusterManifestFile.
+pub trait ClusterMember {
+    /// Returns a reference to the primary path (path this entry was copied FROM), if any
+    fn primary(&self) -> Option<&MPath>;
+
+    /// Returns a mutable reference to the primary field
+    fn primary_mut(&mut self) -> &mut Option<MPath>;
+
+    /// Returns a reference to the secondaries (paths copied FROM this entry), if any
+    fn secondaries(&self) -> Option<&[MPath]>;
+
+    /// Returns a mutable reference to the secondaries field
+    fn secondaries_mut(&mut self) -> &mut Option<Vec<MPath>>;
+
+    /// Returns true if this entry is part of a cluster (is a primary or secondary)
+    fn is_clustered(&self) -> bool {
+        self.secondaries().is_some_and(|m| !m.is_empty()) || self.primary().is_some()
+    }
+}
+
+#[derive(ThriftConvert, Debug, Clone, PartialEq, Eq, Hash)]
+#[thrift(thrift::directory_branch_cluster_manifest::DirectoryBranchClusterManifestEntry)]
+pub enum DirectoryBranchClusterManifestEntry {
+    File(DirectoryBranchClusterManifestFile),
+    Directory(DirectoryBranchClusterManifest),
+}
+
+/// A file entry in the directory branch cluster manifest.
+/// Files are leaf nodes and have no subentries, only cluster membership info.
+#[derive(ThriftConvert, Debug, Clone, PartialEq, Eq, Hash)]
+#[thrift(thrift::directory_branch_cluster_manifest::DirectoryBranchClusterManifestFile)]
+pub struct DirectoryBranchClusterManifestFile {
+    /// If this file is a cluster primary, lists its secondaries (paths copied FROM this file)
+    pub secondaries: Option<Vec<MPath>>,
+    /// If this file is a cluster secondary, the path it was copied FROM
+    pub primary: Option<MPath>,
+}
+
+impl ClusterMember for DirectoryBranchClusterManifestFile {
+    fn primary(&self) -> Option<&MPath> {
+        self.primary.as_ref()
+    }
+
+    fn primary_mut(&mut self) -> &mut Option<MPath> {
+        &mut self.primary
+    }
+
+    fn secondaries(&self) -> Option<&[MPath]> {
+        self.secondaries.as_deref()
+    }
+
+    fn secondaries_mut(&mut self) -> &mut Option<Vec<MPath>> {
+        &mut self.secondaries
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DirectoryBranchClusterManifest {
-    /// Subdirectories (no files - DBCM only tracks directories)
-    pub subentries: ShardedMapV2Node<DirectoryBranchClusterManifest>,
-    /// If this directory is a cluster primary, lists its secondaries (paths copied FROM this directory)
+    /// Subentries (subdirectories and files with cluster membership)
+    pub subentries: ShardedMapV2Node<DirectoryBranchClusterManifestEntry>,
+    /// If this entry is a cluster primary, lists its secondaries (paths copied FROM this entry)
     pub secondaries: Option<Vec<MPath>>,
-    /// If this directory is a cluster secondary, the path it was copied FROM
+    /// If this entry is a cluster secondary, the path it was copied FROM
     pub primary: Option<MPath>,
 }
 
@@ -58,7 +111,7 @@ impl Loadable for DirectoryBranchClusterManifest {
     }
 }
 
-impl ShardedMapV2Value for DirectoryBranchClusterManifest {
+impl ShardedMapV2Value for DirectoryBranchClusterManifestEntry {
     type NodeId = ShardedMapV2NodeDbcmId;
     type Context = ShardedMapV2NodeDbcmContext;
     type RollupData = ();
@@ -70,9 +123,12 @@ impl ShardedMapV2Value for DirectoryBranchClusterManifest {
     // should be propagated to make sure each sharded map blob stays
     // within the weight limit.
     fn weight(&self) -> usize {
-        // The `1 +` is needed to offset the extra space required for
-        // the bytes that represent the path element to this directory.
-        1 + self.subentries.weight()
+        match self {
+            Self::File(_) => 1,
+            // This `1 +` is needed to offset the extra space required for
+            // the bytes that represent the path element to this directory.
+            Self::Directory(dir) => 1 + dir.subentries.weight(),
+        }
     }
 }
 
@@ -115,6 +171,24 @@ impl ThriftConvert for DirectoryBranchClusterManifest {
     }
 }
 
+impl ClusterMember for DirectoryBranchClusterManifest {
+    fn primary(&self) -> Option<&MPath> {
+        self.primary.as_ref()
+    }
+
+    fn primary_mut(&mut self) -> &mut Option<MPath> {
+        &mut self.primary
+    }
+
+    fn secondaries(&self) -> Option<&[MPath]> {
+        self.secondaries.as_deref()
+    }
+
+    fn secondaries_mut(&mut self) -> &mut Option<Vec<MPath>> {
+        &mut self.secondaries
+    }
+}
+
 impl DirectoryBranchClusterManifest {
     pub fn empty() -> Self {
         Self {
@@ -129,7 +203,7 @@ impl DirectoryBranchClusterManifest {
         ctx: &CoreContext,
         blobstore: &impl KeyedBlobstore,
         name: &MPathElement,
-    ) -> Result<Option<DirectoryBranchClusterManifest>> {
+    ) -> Result<Option<DirectoryBranchClusterManifestEntry>> {
         self.subentries.lookup(ctx, blobstore, name.as_ref()).await
     }
 
@@ -137,7 +211,7 @@ impl DirectoryBranchClusterManifest {
         self,
         ctx: &'a CoreContext,
         blobstore: &'a impl KeyedBlobstore,
-    ) -> BoxStream<'a, Result<(MPathElement, DirectoryBranchClusterManifest)>> {
+    ) -> BoxStream<'a, Result<(MPathElement, DirectoryBranchClusterManifestEntry)>> {
         self.subentries
             .into_entries(ctx, blobstore)
             .and_then(|(k, v)| async move { anyhow::Ok((MPathElement::from_smallvec(k)?, v)) })
@@ -149,7 +223,7 @@ impl DirectoryBranchClusterManifest {
         ctx: &'a CoreContext,
         blobstore: &'a impl KeyedBlobstore,
         skip: usize,
-    ) -> BoxStream<'a, Result<(MPathElement, DirectoryBranchClusterManifest)>> {
+    ) -> BoxStream<'a, Result<(MPathElement, DirectoryBranchClusterManifestEntry)>> {
         self.subentries
             .into_entries_skip(ctx, blobstore, skip)
             .and_then(|(k, v)| async move { anyhow::Ok((MPathElement::from_smallvec(k)?, v)) })
@@ -161,7 +235,7 @@ impl DirectoryBranchClusterManifest {
         ctx: &'a CoreContext,
         blobstore: &'a impl KeyedBlobstore,
         prefix: &'a [u8],
-    ) -> BoxStream<'a, Result<(MPathElement, DirectoryBranchClusterManifest)>> {
+    ) -> BoxStream<'a, Result<(MPathElement, DirectoryBranchClusterManifestEntry)>> {
         self.subentries
             .into_prefix_entries(ctx, blobstore, prefix)
             .map(|res| res.and_then(|(k, v)| anyhow::Ok((MPathElement::from_smallvec(k)?, v))))

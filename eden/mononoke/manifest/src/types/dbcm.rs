@@ -14,27 +14,31 @@ use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use mononoke_types::MPathElement;
 use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
+use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestEntry;
+use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestFile;
 use mononoke_types::sharded_map_v2::LoadableShardedMapV2Node;
 
 use super::Entry;
 use super::Manifest;
 
-/// Convert a DBCM subdirectory to a manifest entry.
+/// Convert a DBCM entry to a manifest entry.
 ///
-/// DBCM only stores directories (no files), so this always returns `Entry::Tree`.
+/// Files are leaves (containing cluster info) and directories are trees.
 pub(crate) fn dbcm_to_mf_entry(
-    dir: DirectoryBranchClusterManifest,
-) -> Entry<DirectoryBranchClusterManifest, ()> {
-    Entry::Tree(dir)
+    entry: DirectoryBranchClusterManifestEntry,
+) -> Entry<DirectoryBranchClusterManifest, DirectoryBranchClusterManifestFile> {
+    match entry {
+        DirectoryBranchClusterManifestEntry::File(file) => Entry::Leaf(file),
+        DirectoryBranchClusterManifestEntry::Directory(dir) => Entry::Tree(dir),
+    }
 }
 
 #[async_trait]
 impl<Store: KeyedBlobstore> Manifest<Store> for DirectoryBranchClusterManifest {
     type TreeId = DirectoryBranchClusterManifest;
-    /// DBCM has no leaves (files) - it only tracks directories.
-    /// The Leaf type is `()` but no Leaf entries are ever returned.
-    type Leaf = ();
-    type TrieMapType = LoadableShardedMapV2Node<DirectoryBranchClusterManifest>;
+    /// DBCM file entries contain cluster membership info.
+    type Leaf = DirectoryBranchClusterManifestFile;
+    type TrieMapType = LoadableShardedMapV2Node<DirectoryBranchClusterManifestEntry>;
 
     async fn list(
         &self,
@@ -45,7 +49,7 @@ impl<Store: KeyedBlobstore> Manifest<Store> for DirectoryBranchClusterManifest {
         anyhow::Ok(
             self.clone()
                 .into_subentries(ctx, blobstore)
-                .map_ok(|(path, dir)| (path, dbcm_to_mf_entry(dir)))
+                .map_ok(|(path, entry)| (path, dbcm_to_mf_entry(entry)))
                 .boxed(),
         )
     }
@@ -60,7 +64,7 @@ impl<Store: KeyedBlobstore> Manifest<Store> for DirectoryBranchClusterManifest {
         anyhow::Ok(
             self.clone()
                 .into_prefix_subentries(ctx, blobstore, prefix)
-                .map_ok(|(path, dir)| (path, dbcm_to_mf_entry(dir)))
+                .map_ok(|(path, entry)| (path, dbcm_to_mf_entry(entry)))
                 .boxed(),
         )
     }
@@ -75,7 +79,7 @@ impl<Store: KeyedBlobstore> Manifest<Store> for DirectoryBranchClusterManifest {
         anyhow::Ok(
             self.clone()
                 .into_subentries_skip(ctx, blobstore, skip)
-                .map_ok(|(path, dir)| (path, dbcm_to_mf_entry(dir)))
+                .map_ok(|(path, entry)| (path, dbcm_to_mf_entry(entry)))
                 .boxed(),
         )
     }

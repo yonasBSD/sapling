@@ -23,6 +23,8 @@ use mononoke_types::case_conflict_skeleton_manifest::CcsmEntry;
 use mononoke_types::content_manifest::ContentManifestEntry;
 use mononoke_types::content_manifest::ContentManifestFile;
 use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
+use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestEntry;
+use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestFile;
 use mononoke_types::sharded_map_v2::LoadableShardedMapV2Node;
 use mononoke_types::skeleton_manifest_v2::SkeletonManifestV2;
 use mononoke_types::skeleton_manifest_v2::SkeletonManifestV2Entry;
@@ -286,15 +288,16 @@ impl<Store: KeyedBlobstore> TrieMapOps<Store, Entry<ContentManifestId, ContentMa
 }
 
 #[async_trait]
-impl<Store: KeyedBlobstore> TrieMapOps<Store, Entry<DirectoryBranchClusterManifest, ()>>
-    for LoadableShardedMapV2Node<DirectoryBranchClusterManifest>
+impl<Store: KeyedBlobstore>
+    TrieMapOps<Store, Entry<DirectoryBranchClusterManifest, DirectoryBranchClusterManifestFile>>
+    for LoadableShardedMapV2Node<DirectoryBranchClusterManifestEntry>
 {
     async fn expand(
         self,
         ctx: &CoreContext,
         blobstore: &Store,
     ) -> Result<(
-        Option<Entry<DirectoryBranchClusterManifest, ()>>,
+        Option<Entry<DirectoryBranchClusterManifest, DirectoryBranchClusterManifestFile>>,
         Vec<(u8, Self)>,
     )> {
         let (entry, children) = self.expand(ctx, blobstore).await?;
@@ -310,7 +313,7 @@ impl<Store: KeyedBlobstore> TrieMapOps<Store, Entry<DirectoryBranchClusterManife
             'async_trait,
             Result<(
                 SmallVec<[u8; 24]>,
-                Entry<DirectoryBranchClusterManifest, ()>,
+                Entry<DirectoryBranchClusterManifest, DirectoryBranchClusterManifestFile>,
             )>,
         >,
     > {

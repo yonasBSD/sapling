@@ -157,6 +157,8 @@ async fn collect_manifest_clusters(
     manifest: DirectoryBranchClusterManifest,
     current_path: MPath,
 ) -> Result<Vec<DirectoryBranchCluster>, MononokeError> {
+    use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestEntry;
+
     let mut clusters = Vec::new();
 
     // Check if this directory is a cluster primary (has secondaries)
@@ -169,19 +171,22 @@ async fn collect_manifest_clusters(
         }
     }
 
-    // Recursively traverse child directories
+    // Recursively traverse child directories (skip file entries)
     let mut subentries = manifest.into_subentries(ctx, blobstore);
     while let Some(result) = subentries.next().await {
-        let (name, child_manifest) = result.map_err(MononokeError::from)?;
-        let child_path = current_path.join_element(Some(&name));
-        let child_clusters = Box::pin(collect_manifest_clusters(
-            ctx,
-            blobstore,
-            child_manifest,
-            child_path,
-        ))
-        .await?;
-        clusters.extend(child_clusters);
+        let (name, entry) = result.map_err(MononokeError::from)?;
+        // Only recurse into directories, skip file entries
+        if let DirectoryBranchClusterManifestEntry::Directory(child_manifest) = entry {
+            let child_path = current_path.join_element(Some(&name));
+            let child_clusters = Box::pin(collect_manifest_clusters(
+                ctx,
+                blobstore,
+                child_manifest,
+                child_path,
+            ))
+            .await?;
+            clusters.extend(child_clusters);
+        }
     }
 
     Ok(clusters)
