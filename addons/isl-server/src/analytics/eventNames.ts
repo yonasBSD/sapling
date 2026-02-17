@@ -48,6 +48,7 @@ export type TrackEventName =
   | 'ClickGotoTimeButton'
   | 'ClickPullButton'
   | 'ClickSuggestedRebase'
+  | 'ClickRebaseOntoSuccessor'
   | 'ClickedConfigureExternalMergeTool'
   | 'DevmateFillCommitMessage'
   | 'DevmateResolveAllConflicts'
@@ -229,4 +230,5 @@ export type TrackErrorName =
   | 'SplitSuggestionError'
   | 'FileReadError'
   | 'WatchmanError'
-  | 'AICodeReviewError';
+  | 'AICodeReviewError'
+  | 'RebaseOntoSuccessorError';

@@ -18,6 +18,7 @@ import {Row} from './ComponentUtils';
 import {shouldShowSubmitStackConfirmation, useShowConfirmSubmitStack} from './ConfirmSubmitStack';
 import {HighlightCommitsWhileHovering} from './HighlightedCommits';
 import {OperationDisabledButton} from './OperationDisabledButton';
+import {RebaseOrphanedStackButton} from './RebaseOntoSuccessor';
 import {showSuggestedRebaseForStack, SuggestedRebaseButton} from './SuggestedRebase';
 import {allDiffSummaries, codeReviewProvider} from './codeReview/CodeReviewInfo';
 import {SyncStatus, syncStatusAtom} from './codeReview/syncStatus';
@@ -236,6 +237,8 @@ export function StackActions({hash}: {hash: Hash}): React.ReactElement | null {
     // FIXME: Support optimistic commits, requires CommitInfo instead of just Hash
     actions.push(<SuggestedRebaseButton key="suggested-rebase" source={succeedableRevset(hash)} />);
   }
+
+  actions.push(<RebaseOrphanedStackButton key="rebase-orphaned" hash={hash} />);
 
   if (actions.length === 0) {
     return null;
