@@ -101,7 +101,6 @@ Check that a push which doesn't move a bookmark is allowed
   preparing listkeys for "bookmarks"
   sending listkeys command
   received listkey for "bookmarks": 57 bytes
-  sending known command
   no changes found
   preparing listkeys for "bookmarks" with pattern "['master_bookmark']"
   sending listkeyspatterns command

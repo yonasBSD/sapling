@@ -59,6 +59,7 @@ from sapling.bookmarks import (
     selectivepullbookmarknames,
     splitremotename,
 )
+from sapling.eagerpeer import unwrap
 from sapling.ext.commitcloud import util as ccutil
 from sapling.i18n import _
 from sapling.node import bin, hex, short
@@ -584,7 +585,15 @@ def expushdiscoverybookmarks(pushop):
             # aborting error causing the connection to close
             anonheads = []
             revs = sorted(revs)
-            knownlist = pushop.remote.known(revs)
+            edenapi = repo.nullableedenapi
+            if edenapi is not None:
+                knownresponse = edenapi.commitknown(revs)
+                knownnodes = {
+                    res["hgid"] for res in knownresponse if unwrap(res["known"])
+                }
+                knownlist = [n in knownnodes for n in revs]
+            else:
+                knownlist = pushop.remote.known(revs)
             for node, known in zip(revs, knownlist):
                 ctx = repo[node]
                 if (
