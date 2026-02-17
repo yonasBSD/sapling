@@ -310,47 +310,44 @@ async fn get_unode_entry(
 async fn get_csids_that_added_path(
     ctx: &CoreContext,
     repo: &impl Repo,
-    csid: ChangesetId,
+    mut csid: ChangesetId,
     path: &NonRootMPath,
 ) -> Result<Vec<ChangesetId>, BlameError> {
-    let unode_entry = get_unode_entry(ctx, repo, csid, path).await?;
-    let fastlog_batch =
-        fetch_fastlog_batch_by_unode_id(ctx, repo.repo_blobstore(), &unode_entry).await?;
+    loop {
+        let unode_entry = get_unode_entry(ctx, repo, csid, path).await?;
+        let fastlog_batch =
+            fetch_fastlog_batch_by_unode_id(ctx, repo.repo_blobstore(), &unode_entry).await?;
 
-    if let Some(fastlog_batch) = fastlog_batch {
-        let flattened = fetch_flattened(&fastlog_batch, ctx, repo.repo_blobstore()).await?;
-        // Find changesets with empty parents
-        let root_csids = flattened
-            .iter()
-            .filter_map(|(csid, parents)| {
-                if parents.is_empty() {
-                    Some(csid.clone())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        if !root_csids.is_empty() {
-            return Ok(root_csids);
-        }
-
-        // If there's no changeset with empty parents, there might be more fastlog to fetch
-        let csid_with_unknown_parent = flattened.iter().find(|(_, parents)| {
-            parents
+        if let Some(fastlog_batch) = fastlog_batch {
+            let flattened = fetch_flattened(&fastlog_batch, ctx, repo.repo_blobstore()).await?;
+            // Find changesets with empty parents
+            let root_csids = flattened
                 .iter()
-                .any(|parent| matches!(parent, FastlogParent::Unknown))
-        });
-        if let Some((next_csid, _)) = csid_with_unknown_parent {
-            return Box::pin(get_csids_that_added_path(
-                ctx,
-                repo,
-                next_csid.clone(),
-                path,
-            ))
-            .await;
+                .filter_map(|(csid, parents)| {
+                    if parents.is_empty() {
+                        Some(csid.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            if !root_csids.is_empty() {
+                return Ok(root_csids);
+            }
+
+            // If there's no changeset with empty parents, there might be more fastlog to fetch
+            let csid_with_unknown_parent = flattened.iter().find(|(_, parents)| {
+                parents
+                    .iter()
+                    .any(|parent| matches!(parent, FastlogParent::Unknown))
+            });
+            if let Some((next_csid, _)) = csid_with_unknown_parent {
+                csid = *next_csid;
+                continue;
+            }
         }
+        return Ok(vec![]);
     }
-    Ok(vec![])
 }
 
 /// Fetch inferred_copy_from derived data for csid with destination path
