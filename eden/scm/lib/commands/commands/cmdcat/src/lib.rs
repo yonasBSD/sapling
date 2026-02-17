@@ -5,13 +5,11 @@
  * GNU General Public License version 2.
  */
 
-use std::collections::HashMap;
 use std::fs::create_dir_all;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::thread;
@@ -28,18 +26,16 @@ use cmdutil::IO;
 use cmdutil::Result;
 use cmdutil::WalkOpts;
 use cmdutil::define_flags;
-use manifest::FileMetadata;
+use filewalk::FileResult;
+use filewalk::walk_and_fetch;
 use manifest::FileType;
-use manifest::FsNodeMetadata;
 use manifest_tree::TreeManifest;
 use parking_lot::Mutex;
 use pathmatcher::DynMatcher;
 use pathmatcher::IntersectMatcher;
 use repo::CoreRepo;
 use storemodel::FileStore;
-use types::FetchContext;
 use types::HgId;
-use types::Key;
 use types::RepoPath;
 use types::RepoPathBuf;
 use vfs::UpdateFlag;
@@ -66,59 +62,8 @@ define_flags! {
     }
 }
 
-const BATCH_SIZE: usize = 1000;
-const CONCURRENT_FETCHES: usize = 5;
 const VFS_WORKERS: usize = 16;
 const VFS_QUEUE_SIZE: usize = 1000;
-
-/// FirstError helps propagate the first error seen in parallel operations. It also provides a
-/// "has_error" method to aid in cancellation.
-struct FirstError {
-    tx: flume::Sender<anyhow::Error>,
-    rx: flume::Receiver<anyhow::Error>,
-    has_error: Arc<AtomicBool>,
-}
-
-impl Clone for FirstError {
-    fn clone(&self) -> Self {
-        FirstError {
-            tx: self.tx.clone(),
-            rx: self.rx.clone(),
-            has_error: self.has_error.clone(),
-        }
-    }
-}
-
-impl FirstError {
-    fn new() -> Self {
-        let (tx, rx) = flume::bounded(1);
-        FirstError {
-            tx,
-            rx,
-            has_error: Arc::new(AtomicBool::new(false)),
-        }
-    }
-
-    /// Store error (if first).
-    fn send_error(&self, err: anyhow::Error) {
-        self.has_error.store(true, Ordering::Relaxed);
-        let _ = self.tx.try_send(err);
-    }
-
-    /// Return whether an error has been stored. Useful for cancellation.
-    fn has_error(&self) -> bool {
-        self.has_error.load(Ordering::Relaxed)
-    }
-
-    /// Wait for all copies this FirstError to be dropped, and then yield the first error, if any.
-    fn wait(self) -> anyhow::Result<()> {
-        drop(self.tx);
-        match self.rx.try_recv() {
-            Ok(err) => Err(err),
-            Err(_) => Ok(()),
-        }
-    }
-}
 
 enum Outputter {
     Disk {
@@ -283,13 +228,9 @@ fn fetch_and_output<M: 'static + pathmatcher::Matcher + Sync + Send>(
     file_store: &Arc<dyn FileStore>,
     outputter: Outputter,
 ) -> Result<usize> {
-    let first_error = FirstError::new();
     let output_count = Arc::new(AtomicUsize::new(0));
 
-    let file_node_rx = manifest.iter(matcher);
-
-    let (fetch_content_tx, fetch_content_rx) =
-        flume::bounded::<Vec<(RepoPathBuf, FileMetadata)>>(CONCURRENT_FETCHES);
+    let (file_rx, first_error) = walk_and_fetch(manifest, matcher, file_store);
 
     let mut handles: Vec<thread::JoinHandle<()>> = Vec::new();
 
@@ -306,48 +247,24 @@ fn fetch_and_output<M: 'static + pathmatcher::Matcher + Sync + Send>(
         }));
     }
 
-    // Spawn fetch threads
-    for _ in 0..CONCURRENT_FETCHES {
-        let fetch_content_rx = fetch_content_rx.clone();
-        let file_store = file_store.clone();
-        let outputter = outputter.clone();
+    // Spawn output thread
+    {
         let first_error = first_error.clone();
         let output_count = output_count.clone();
-
         handles.push(thread::spawn(move || {
             let run = || -> anyhow::Result<()> {
-                while let Ok(batch) = fetch_content_rx.recv() {
+                while let Ok(file_result) = file_rx.recv() {
                     if first_error.has_error() {
                         return Ok(());
                     }
 
-                    let keys: Vec<Key> = batch
-                        .iter()
-                        .map(|(path, meta)| Key::new(path.clone(), meta.hgid))
-                        .collect();
-
-                    let iter =
-                        file_store.get_content_iter(FetchContext::sapling_default(), keys)?;
-
-                    let file_info = batch
-                        .into_iter()
-                        .map(|(path, meta)| (Key::new(path, meta.hgid), meta.file_type))
-                        .collect::<HashMap<_, _>>();
-
-                    for result in iter {
-                        if first_error.has_error() {
-                            return Ok(());
-                        }
-
-                        let (key, data) = result?;
-
-                        let file_type = file_info
-                            .get(&key)
-                            .ok_or_else(|| anyhow!("missing file info for {}", key.hgid))?;
-
-                        outputter.output_file(&key.path, data, *file_type)?;
-                        output_count.fetch_add(1, Ordering::Relaxed);
-                    }
+                    let FileResult {
+                        path,
+                        data,
+                        file_type,
+                    } = file_result;
+                    outputter.output_file(&path, data, file_type)?;
+                    output_count.fetch_add(1, Ordering::Relaxed);
                 }
                 Ok(())
             };
@@ -357,52 +274,6 @@ fn fetch_and_output<M: 'static + pathmatcher::Matcher + Sync + Send>(
             }
         }));
     }
-
-    drop(fetch_content_rx);
-    drop(outputter);
-
-    let mut current_batch = Vec::new();
-
-    loop {
-        if first_error.has_error() {
-            break;
-        }
-
-        match file_node_rx.recv() {
-            Ok(result_batch) => {
-                for result in result_batch {
-                    let (path, metadata) = match result {
-                        Ok(v) => v,
-                        Err(e) => {
-                            first_error.send_error(e);
-                            break;
-                        }
-                    };
-                    if let FsNodeMetadata::File(file_meta) = metadata {
-                        current_batch.push((path, file_meta));
-
-                        if current_batch.len() >= BATCH_SIZE {
-                            if fetch_content_tx
-                                .send(std::mem::take(&mut current_batch))
-                                .is_err()
-                            {
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            Err(_) => {
-                // Channel disconnected, flush remaining batch
-                if !current_batch.is_empty() {
-                    let _ = fetch_content_tx.send(current_batch);
-                }
-                break;
-            }
-        }
-    }
-
-    drop(fetch_content_tx);
 
     // Wait for all threads
     for handle in handles {

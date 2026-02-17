@@ -108,6 +108,7 @@ members = [
   "lib/edenfs_ffi",
   "lib/encoding",
   "lib/exchange",
+  "lib/filewalk",
   "lib/filters",
   "lib/formatter",
   "lib/fsinfo",
