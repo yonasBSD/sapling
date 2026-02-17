@@ -71,6 +71,7 @@ use manifest::get_implicit_deletes;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::MPath;
 use mononoke_types::NonRootMPath;
+use mononoke_types::directory_branch_cluster_manifest::ClusterMember;
 use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
 use mononoke_types::subtree_change::SubtreeChange;
 use skeleton_manifest_v2::RootSkeletonManifestV2Id;
@@ -350,10 +351,14 @@ async fn find_deleted_cluster_paths(
         .collect();
 
     // Phase 1b: Collect candidate directories from explicit file deletions
+    let mut deleted_files: HashSet<MPath> = HashSet::new();
     let mut explicit_delete_candidates: HashSet<MPath> = HashSet::new();
     for (path, change) in bonsai.file_changes() {
         match change {
             FileChange::Deletion | FileChange::UntrackedDeletion => {
+                // Add the file itself to deleted paths
+                deleted_files.insert(MPath::from(path.clone()));
+
                 // Add all ancestor directories of deleted files as candidates
                 let mut current = MPath::from(path.clone());
                 while let Some((parent_path, _)) = current.split_dirname() {
@@ -420,32 +425,38 @@ async fn find_deleted_cluster_paths(
     };
 
     // Phase 3: Combine implicit and explicit deleted directories
-    let all_deleted_dirs: HashSet<MPath> = implicit_deleted_dirs
+    let all_deleted_paths: HashSet<MPath> = implicit_deleted_dirs
         .into_iter()
         .chain(verified_explicit_deletes)
+        .chain(deleted_files)
         .collect();
 
-    if all_deleted_dirs.is_empty() {
+    if all_deleted_paths.is_empty() {
         return Ok(deleted_paths);
     }
 
-    // Phase 4: Extract cluster info from parent DBCM for each deleted directory
+    // Phase 4: Extract cluster info from parent DBCM for each deleted path (dirs and files)
     // No nested expansion needed - implicit deletes already gave us all nested paths
-    for deleted_dir in all_deleted_dirs {
-        if let Some(Entry::Tree(dir)) = parent
-            .find_entry(ctx.clone(), blobstore.clone(), deleted_dir.clone())
+    for deleted_path in all_deleted_paths {
+        let cluster_info = match parent
+            .find_entry(ctx.clone(), blobstore.clone(), deleted_path.clone())
             .await?
         {
-            let has_cluster_info =
-                dir.primary.is_some() || dir.secondaries.as_ref().is_some_and(|s| !s.is_empty());
-
-            if has_cluster_info {
-                deleted_paths.push(DeletedClusterPath {
-                    path: deleted_dir,
-                    primary: dir.primary.clone(),
-                    secondaries: dir.secondaries.clone(),
-                });
+            Some(Entry::Tree(dir)) if dir.is_clustered() => {
+                Some((dir.primary.clone(), dir.secondaries.clone()))
             }
+            Some(Entry::Leaf(file)) if file.is_clustered() => {
+                Some((file.primary.clone(), file.secondaries.clone()))
+            }
+            _ => None,
+        };
+
+        if let Some((primary, secondaries)) = cluster_info {
+            deleted_paths.push(DeletedClusterPath {
+                path: deleted_path,
+                primary,
+                secondaries,
+            });
         }
     }
 
