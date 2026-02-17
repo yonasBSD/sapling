@@ -17,6 +17,7 @@ eden/mononoke/mononoke_types/serialization/content.thrift mercurial_thrift->mono
 eden/mononoke/mononoke_types/serialization/content_manifest.thrift mercurial_thrift->mononoke_types_serialization //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/data.thrift mercurial_thrift->mononoke_types_serialization //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/deleted_manifest.thrift mercurial_thrift->mononoke_types_serialization //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
+eden/mononoke/mononoke_types/serialization/directory_branch_cluster_manifest.thrift mercurial_thrift->mononoke_types_serialization //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/fastlog.thrift mercurial_thrift->mononoke_types_serialization //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/fsnodes.thrift mercurial_thrift->mononoke_types_serialization //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/id.thrift mercurial_thrift->mononoke_types_serialization //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust

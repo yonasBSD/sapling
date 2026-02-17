@@ -23,6 +23,7 @@ context = { version = "0.1.0", path = "../../servers/slapi/slapi_server/context"
 deleted_manifest = { version = "0.1.0", path = "../deleted_manifest" }
 derivation_queue_thrift = { version = "0.1.0", path = "../../repo_attributes/repo_derivation_queues/if" }
 derived_data_manager = { version = "0.1.0", path = "../manager" }
+directory_branch_cluster_manifest = { version = "0.1.0", path = "../directory_branch_cluster_manifest" }
 fastlog = { version = "0.1.0", path = "../fastlog" }
 filenodes_derivation = { version = "0.1.0", path = "../filenodes_derivation" }
 fsnodes = { version = "0.1.0", path = "../fsnodes" }

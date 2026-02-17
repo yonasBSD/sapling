@@ -1204,6 +1204,7 @@ mod tests {
             DerivableType::TestShardedManifests,
             DerivableType::BssmV3,
             DerivableType::Ccsm,
+            DerivableType::DirectoryBranchClusterManifest,
             DerivableType::HgAugmentedManifests,
             DerivableType::SkeletonManifestsV2,
             DerivableType::ContentManifests,

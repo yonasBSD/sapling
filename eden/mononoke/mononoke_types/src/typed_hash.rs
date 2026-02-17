@@ -38,6 +38,7 @@ use crate::content_manifest::ContentManifest;
 use crate::content_manifest::ContentManifestEntry;
 use crate::content_metadata_v2::ContentMetadataV2;
 use crate::deleted_manifest_v2::DeletedManifestV2;
+use crate::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
 use crate::fastlog_batch::FastlogBatch;
 use crate::file_contents::FileContents;
 use crate::fsnode::Fsnode;
@@ -192,6 +193,14 @@ pub struct CaseConflictSkeletonManifestId(Blake2);
 /// An identifier for a sharded map node used in case conflicts skeleton manifest
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub struct ShardedMapV2NodeCcsmId(Blake2);
+
+/// An identifier for directory branch cluster manifest
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
+pub struct DirectoryBranchClusterManifestId(Blake2);
+
+/// An identifier for a sharded map node used in directory branch cluster manifest
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
+pub struct ShardedMapV2NodeDbcmId(Blake2);
 
 /// An identifier for an fsnode
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
@@ -681,6 +690,22 @@ impl_typed_hash! {
 }
 
 impl_typed_hash! {
+    hash_type => DirectoryBranchClusterManifestId,
+    thrift_hash_type => thrift::id::DirectoryBranchClusterManifestId,
+    value_type => DirectoryBranchClusterManifest,
+    context_type => DirectoryBranchClusterManifestContext,
+    context_key => "dbcm",
+}
+
+impl_typed_hash! {
+    hash_type => ShardedMapV2NodeDbcmId,
+    thrift_hash_type => thrift::id::ShardedMapV2NodeId,
+    value_type => ShardedMapV2Node<DirectoryBranchClusterManifest>,
+    context_type => ShardedMapV2NodeDbcmContext,
+    context_key => "dbcm.map2node",
+}
+
+impl_typed_hash! {
     hash_type => FsnodeId,
     thrift_hash_type => thrift::id::FsnodeId,
     value_type => Fsnode,
@@ -912,6 +937,12 @@ mod test {
         let id = ShardedMapV2NodeCcsmId::from_byte_array([1; 32]);
         assert_eq!(id.blobstore_key(), format!("ccsm.map2node.blake2.{}", id));
 
+        let id = DirectoryBranchClusterManifestId::from_byte_array([1; 32]);
+        assert_eq!(id.blobstore_key(), format!("dbcm.blake2.{}", id));
+
+        let id = ShardedMapV2NodeDbcmId::from_byte_array([1; 32]);
+        assert_eq!(id.blobstore_key(), format!("dbcm.map2node.blake2.{}", id));
+
         let id = ShardedMapV2NodeTestShardedManifestId::from_byte_array([1; 32]);
         assert_eq!(
             id.blobstore_key(),
@@ -1047,6 +1078,11 @@ mod test {
         assert_eq!(id, deserialized);
 
         let id = CaseConflictSkeletonManifestId::from_byte_array([1; 32]);
+        let serialized = serde_json::to_string(&id).unwrap();
+        let deserialized = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(id, deserialized);
+
+        let id = DirectoryBranchClusterManifestId::from_byte_array([1; 32]);
         let serialized = serde_json::to_string(&id).unwrap();
         let deserialized = serde_json::from_str(&serialized).unwrap();
         assert_eq!(id, deserialized);

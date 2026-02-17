@@ -22,6 +22,7 @@ use mononoke_types::case_conflict_skeleton_manifest::CaseConflictSkeletonManifes
 use mononoke_types::case_conflict_skeleton_manifest::CcsmEntry;
 use mononoke_types::content_manifest::ContentManifestEntry;
 use mononoke_types::content_manifest::ContentManifestFile;
+use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
 use mononoke_types::sharded_map_v2::LoadableShardedMapV2Node;
 use mononoke_types::skeleton_manifest_v2::SkeletonManifestV2;
 use mononoke_types::skeleton_manifest_v2::SkeletonManifestV2Entry;
@@ -276,6 +277,48 @@ impl<Store: KeyedBlobstore> TrieMapOps<Store, Entry<ContentManifestId, ContentMa
             .await?
             .into_entries(ctx, blobstore)
             .map_ok(|(k, v)| (k, crate::types::convert_content_manifest(v)))
+            .boxed())
+    }
+
+    fn is_empty(&self) -> bool {
+        self.size() == 0
+    }
+}
+
+#[async_trait]
+impl<Store: KeyedBlobstore> TrieMapOps<Store, Entry<DirectoryBranchClusterManifest, ()>>
+    for LoadableShardedMapV2Node<DirectoryBranchClusterManifest>
+{
+    async fn expand(
+        self,
+        ctx: &CoreContext,
+        blobstore: &Store,
+    ) -> Result<(
+        Option<Entry<DirectoryBranchClusterManifest, ()>>,
+        Vec<(u8, Self)>,
+    )> {
+        let (entry, children) = self.expand(ctx, blobstore).await?;
+        Ok((entry.map(crate::types::dbcm_to_mf_entry), children))
+    }
+
+    async fn into_stream(
+        self,
+        ctx: &CoreContext,
+        blobstore: &Store,
+    ) -> Result<
+        BoxStream<
+            'async_trait,
+            Result<(
+                SmallVec<[u8; 24]>,
+                Entry<DirectoryBranchClusterManifest, ()>,
+            )>,
+        >,
+    > {
+        Ok(self
+            .load(ctx, blobstore)
+            .await?
+            .into_entries(ctx, blobstore)
+            .map_ok(|(k, v)| (k, crate::types::dbcm_to_mf_entry(v)))
             .boxed())
     }
 

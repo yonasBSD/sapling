@@ -21,6 +21,7 @@ pub mod debug;
 pub mod deleted_manifest_common;
 pub mod deleted_manifest_v2;
 pub mod derivable_type;
+pub mod directory_branch_cluster_manifest;
 pub mod errors;
 pub mod fastlog_batch;
 pub mod file_change;
@@ -144,6 +145,7 @@ pub mod thrift {
     pub use mononoke_types_serialization::content_manifest;
     pub use mononoke_types_serialization::data;
     pub use mononoke_types_serialization::deleted_manifest;
+    pub use mononoke_types_serialization::directory_branch_cluster_manifest;
     pub use mononoke_types_serialization::fastlog;
     pub use mononoke_types_serialization::fsnodes;
     pub use mononoke_types_serialization::id;

@@ -97,6 +97,7 @@ union DerivedData {
   22: DerivedDataContentManifest content_manifest;
   23: DerivedDataInferredCopyFrom inferred_copy_from;
   24: DerivedDataGitDeltaManifestV3 git_delta_manifest_v3;
+  25: DerivedDataDirectoryBranchClusterManifest directory_branch_cluster_manifest;
 }
 
 union DerivedDataFsnode {
@@ -190,6 +191,10 @@ union DerivedDataContentManifest {
 
 union DerivedDataInferredCopyFrom {
   1: id.InferredCopyFromId root_inferred_copy_from_id;
+}
+
+union DerivedDataDirectoryBranchClusterManifest {
+  1: id.DirectoryBranchClusterManifestId root_directory_branch_cluster_manifest_id;
 }
 
 @rust.Exhaustive

@@ -29,6 +29,7 @@ use derived_data_manager::Rederivation;
 use derived_data_manager::SharedDerivationError;
 use derived_data_manager::VisitedDerivableTypesMap;
 use derived_data_manager::VisitedDerivableTypesMapStatic;
+use directory_branch_cluster_manifest::RootDirectoryBranchClusterManifestId;
 use fastlog::RootFastlog;
 use filenodes_derivation::FilenodesOnlyPublic;
 use fsnodes::RootFsnodeId;
@@ -420,6 +421,9 @@ fn manager_for_type(
             Arc::new(SingleTypeManager::<RootInferredCopyFromId>::new(manager))
         }
         DerivableType::BssmV3 => Arc::new(SingleTypeManager::<RootBssmV3DirectoryId>::new(manager)),
+        DerivableType::DirectoryBranchClusterManifest => {
+            Arc::new(SingleTypeManager::<RootDirectoryBranchClusterManifestId>::new(manager))
+        }
         DerivableType::TestManifests => {
             Arc::new(SingleTypeManager::<RootTestManifestDirectory>::new(manager))
         }

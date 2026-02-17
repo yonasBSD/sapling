@@ -60,6 +60,7 @@ pub enum DerivableType {
     TestShardedManifests,
     Unodes,
     ContentManifests,
+    DirectoryBranchClusterManifest,
 }
 
 /// Enum which consolidates all derived data types that can
@@ -99,6 +100,7 @@ impl DerivableType {
             "test_sharded_manifests" => DerivableType::TestShardedManifests,
             "unodes" => DerivableType::Unodes,
             "content_manifests" => DerivableType::ContentManifests,
+            "directory_branch_cluster_manifest" => DerivableType::DirectoryBranchClusterManifest,
             _ => bail!("invalid name for DerivedDataType: {}", s),
         })
     }
@@ -126,6 +128,7 @@ impl DerivableType {
             DerivableType::TestShardedManifests => "test_sharded_manifests",
             DerivableType::Unodes => "unodes",
             DerivableType::ContentManifests => "content_manifests",
+            DerivableType::DirectoryBranchClusterManifest => "directory_branch_cluster_manifest",
         }
     }
     pub fn from_thrift(other: thrift::DerivedDataType) -> Result<Self> {
@@ -150,6 +153,9 @@ impl DerivableType {
             thrift::DerivedDataType::TEST_SHARDED_MANIFEST => Self::TestShardedManifests,
             thrift::DerivedDataType::UNODE => Self::Unodes,
             thrift::DerivedDataType::CONTENT_MANIFEST => Self::ContentManifests,
+            thrift::DerivedDataType::DIRECTORY_BRANCH_CLUSTER_MANIFEST => {
+                Self::DirectoryBranchClusterManifest
+            }
             _ => bail!("invalid thrift value for DerivedDataType: {:?}", other),
         })
     }
@@ -175,10 +181,12 @@ impl DerivableType {
             Self::TestShardedManifests => thrift::DerivedDataType::TEST_SHARDED_MANIFEST,
             Self::Unodes => thrift::DerivedDataType::UNODE,
             Self::ContentManifests => thrift::DerivedDataType::CONTENT_MANIFEST,
-            // If the compiler reminds you to add something here, please don't forget to also
-            // update the `from_thrift` implementation above.
-            // The unit test: `thrift_derived_data_type_conversion_must_be_bidirectional` in this
-            // file should prevent you from forgetting at diff time.
+            Self::DirectoryBranchClusterManifest => {
+                thrift::DerivedDataType::DIRECTORY_BRANCH_CLUSTER_MANIFEST
+            } // If the compiler reminds you to add something here, please don't forget to also
+              // update the `from_thrift` implementation above.
+              // The unit test: `thrift_derived_data_type_conversion_must_be_bidirectional` in this
+              // file should prevent you from forgetting at diff time.
         }
     }
     pub fn into_derivable_untopologically_variant(self) -> Result<DerivableUntopologicallyVariant> {

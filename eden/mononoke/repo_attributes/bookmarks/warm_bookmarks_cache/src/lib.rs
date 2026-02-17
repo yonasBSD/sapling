@@ -488,6 +488,7 @@ impl WarmBookmarksCacheBuilder {
                     vec![WarmerTag::Hg, WarmerTag::Git],
                 ))
             }
+            DerivableType::DirectoryBranchClusterManifest => None,
             DerivableType::TestManifests => None,
             DerivableType::TestShardedManifests => None,
         }

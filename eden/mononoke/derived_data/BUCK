@@ -56,6 +56,7 @@ rust_library(
         ":changeset_info",
         ":deleted_manifest",
         ":derived_data_manager",
+        ":directory_branch_cluster_manifest",
         ":fastlog",
         ":fsnodes",
         ":inferred_copy_from",
@@ -565,6 +566,21 @@ rust_library(
         "//eden/mononoke/derived_data:skeleton_manifest",
         "//eden/mononoke/derived_data/remote/if:derived_data_service_if-rust",
         "//eden/mononoke/manifest:manifest",
+        "//eden/mononoke/mononoke_types:mononoke_types",
+        "//eden/mononoke/servers/slapi/slapi_server/context:context",
+    ],
+)
+
+rust_library(
+    name = "directory_branch_cluster_manifest",
+    srcs = glob(["directory_branch_cluster_manifest/*.rs"]),
+    autocargo = {"cargo_toml_dir": "directory_branch_cluster_manifest"},
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "//eden/mononoke/blobstore:blobstore",
+        "//eden/mononoke/derived_data:derived_data_manager",
+        "//eden/mononoke/derived_data/remote/if:derived_data_service_if-rust",
         "//eden/mononoke/mononoke_types:mononoke_types",
         "//eden/mononoke/servers/slapi/slapi_server/context:context",
     ],

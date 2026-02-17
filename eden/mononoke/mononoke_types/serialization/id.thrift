@@ -75,6 +75,8 @@ typedef Id DeletedManifestId
 @rust.NewType
 typedef Id DeletedManifestV2Id
 @rust.NewType
+typedef Id DirectoryBranchClusterManifestId
+@rust.NewType
 typedef Id FastlogBatchId
 @rust.NewType
 typedef Id FileUnodeId
