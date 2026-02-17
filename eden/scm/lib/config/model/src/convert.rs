@@ -7,6 +7,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::fmt;
 use std::hash::Hash;
 #[cfg(feature = "convert-path")]
 use std::path::PathBuf;
@@ -194,6 +195,35 @@ impl FromConfigValue for ByteCount {
             "'{:?}' cannot be parsed as a byte size",
             value
         )))
+    }
+}
+
+impl fmt::Display for ByteCount {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const KB: u64 = 1024;
+        const MB: u64 = KB * 1024;
+        const GB: u64 = MB * 1024;
+        const TB: u64 = GB * 1024;
+
+        let bytes = self.0;
+        let (value, unit) = if bytes >= TB {
+            (bytes as f64 / TB as f64, "TB")
+        } else if bytes >= GB {
+            (bytes as f64 / GB as f64, "GB")
+        } else if bytes >= MB {
+            (bytes as f64 / MB as f64, "MB")
+        } else if bytes >= KB {
+            (bytes as f64 / KB as f64, "KB")
+        } else {
+            return write!(f, "{} bytes", bytes);
+        };
+
+        // Show decimal only if there's a fractional part
+        if value.fract() == 0.0 {
+            write!(f, "{} {}", value as u64, unit)
+        } else {
+            write!(f, "{:.1} {}", value, unit)
+        }
     }
 }
 
@@ -572,5 +602,55 @@ mod tests {
         assert!(m.matches_file(RepoPath::from_str("zzz")?)?);
         assert!(!m.matches_file(RepoPath::from_str("bz")?)?);
         Ok(())
+    }
+
+    #[test]
+    fn test_byte_count_display() {
+        // Test bytes (less than 1 KB)
+        assert_eq!(format!("{}", ByteCount::from(0)), "0 bytes");
+        assert_eq!(format!("{}", ByteCount::from(1)), "1 bytes");
+        assert_eq!(format!("{}", ByteCount::from(512)), "512 bytes");
+        assert_eq!(format!("{}", ByteCount::from(1023)), "1023 bytes");
+
+        // Test KB (1024 bytes to 1 MB)
+        assert_eq!(format!("{}", ByteCount::from(1024)), "1 KB");
+        assert_eq!(format!("{}", ByteCount::from(1536)), "1.5 KB");
+        assert_eq!(format!("{}", ByteCount::from(10 * 1024)), "10 KB");
+        assert_eq!(format!("{}", ByteCount::from(1024 * 1024 - 1)), "1024.0 KB");
+
+        // Test MB (1 MB to 1 GB)
+        assert_eq!(format!("{}", ByteCount::from(1024 * 1024)), "1 MB");
+        assert_eq!(
+            format!("{}", ByteCount::from(1024 * 1024 + 512 * 1024)),
+            "1.5 MB"
+        );
+        assert_eq!(format!("{}", ByteCount::from(100 * 1024 * 1024)), "100 MB");
+
+        // Test GB (1 GB to 1 TB)
+        assert_eq!(format!("{}", ByteCount::from(1024 * 1024 * 1024)), "1 GB");
+        assert_eq!(
+            format!(
+                "{}",
+                ByteCount::from(1024 * 1024 * 1024 + 512 * 1024 * 1024)
+            ),
+            "1.5 GB"
+        );
+        assert_eq!(
+            format!("{}", ByteCount::from(10 * 1024 * 1024 * 1024)),
+            "10 GB"
+        );
+
+        // Test TB
+        assert_eq!(
+            format!("{}", ByteCount::from(1024_u64 * 1024 * 1024 * 1024)),
+            "1 TB"
+        );
+        assert_eq!(
+            format!(
+                "{}",
+                ByteCount::from(1024_u64 * 1024 * 1024 * 1024 + 512 * 1024 * 1024 * 1024)
+            ),
+            "1.5 TB"
+        );
     }
 }
