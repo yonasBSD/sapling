@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -66,6 +67,7 @@ use crate::filesystem::FileSystemType;
 use crate::filesystem::PendingChange;
 use crate::filesystem::PhysicalFileSystem;
 use crate::filesystem::WatchmanFileSystem;
+use crate::manifest::apply_status;
 use crate::status::compute_status;
 use crate::util::added_files;
 use crate::util::fast_path_wdir_parents;
@@ -401,6 +403,45 @@ impl WorkingCopy {
             .lock()
             .sparse_matcher(&manifests, self.ident.dot_dir())?;
         Ok(sparse_matcher)
+    }
+
+    /// Returns a manifest representing the current working copy state.
+    ///
+    /// This combines the p1 manifest with uncommitted changes from status to produce
+    /// a manifest that reflects the current working directory contents.
+    ///
+    /// # Arguments
+    /// * `ctx` - The core context for the operation
+    /// * `matcher` - Matcher for filtering which files to include in status
+    pub fn working_manifest(&self, ctx: &CoreContext, matcher: DynMatcher) -> Result<TreeManifest> {
+        // Get the current parent manifests.
+        let manifests =
+            WorkingCopy::current_manifests(&self.treestate.lock(), &self.tree_resolver)?;
+
+        // Clone the p1 manifest as our base.
+        let mut manifest = (*manifests[0]).clone();
+
+        // Get the status of uncommitted changes.
+        let status = self.status(ctx, matcher.clone(), false)?;
+
+        // Get the copymap and convert to HashMap.
+        let copymap: HashMap<RepoPathBuf, RepoPathBuf> =
+            self.copymap(matcher)?.into_iter().collect();
+
+        // Build the list of parent manifest references for apply_status.
+        let parent_refs: Vec<&TreeManifest> = manifests.iter().map(|m| m.as_ref()).collect();
+
+        // Apply the status changes to the manifest.
+        apply_status(
+            &mut manifest,
+            &status,
+            &self.vfs,
+            &self.filestore,
+            &parent_refs,
+            copymap,
+        )?;
+
+        Ok(manifest)
     }
 
     pub fn status_internal(
