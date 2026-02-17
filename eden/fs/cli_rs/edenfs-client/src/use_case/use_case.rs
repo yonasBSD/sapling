@@ -193,6 +193,9 @@ impl UseCase {
             return Some(std::thread::spawn(move || {
                 get_remote_configs::<C>(
                     is_pub,
+                    // Use-case fetching doesn't run on cloud environments, so we'll never add a
+                    // service user to the x2p headers
+                    false,
                     remote_url,
                     limit,
                     http_config,
