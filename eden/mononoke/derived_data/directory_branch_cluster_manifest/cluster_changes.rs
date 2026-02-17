@@ -1612,4 +1612,187 @@ mod tests {
 
         Ok(())
     }
+
+    // =========================================================================
+    // File cluster tests
+    // =========================================================================
+
+    /// Build a DirectoryBranchClusterManifest with both directory and file entries for testing.
+    /// `dir_entries`: (path, primary, secondaries) for directories
+    /// `file_entries`: (path, primary, secondaries) for files
+    async fn build_test_manifest_with_files(
+        ctx: &CoreContext,
+        blobstore: &Arc<dyn KeyedBlobstore>,
+        dir_entries: Vec<(MPath, Option<MPath>, Option<Vec<MPath>>)>,
+        file_entries: Vec<(MPath, Option<MPath>, Option<Vec<MPath>>)>,
+    ) -> Result<DirectoryBranchClusterManifest> {
+        use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestFile;
+
+        let mut root_entries = Vec::new();
+
+        // Add directory entries
+        for (path, primary, secondaries) in dir_entries {
+            let elements: Vec<_> = path.into_iter().collect();
+            if elements.is_empty() {
+                continue;
+            }
+
+            let dir = DirectoryBranchClusterManifest {
+                subentries: ShardedMapV2Node::default(),
+                primary,
+                secondaries,
+            };
+
+            root_entries.push((
+                elements[0].clone().to_smallvec(),
+                DirectoryBranchClusterManifestEntry::Directory(dir),
+            ));
+        }
+
+        // Add file entries
+        for (path, primary, secondaries) in file_entries {
+            let elements: Vec<_> = path.into_iter().collect();
+            if elements.is_empty() {
+                continue;
+            }
+
+            let file = DirectoryBranchClusterManifestFile {
+                secondaries,
+                primary,
+            };
+
+            root_entries.push((
+                elements[0].clone().to_smallvec(),
+                DirectoryBranchClusterManifestEntry::File(file),
+            ));
+        }
+
+        let subentries = if root_entries.is_empty() {
+            ShardedMapV2Node::default()
+        } else {
+            ShardedMapV2Node::from_entries(ctx, blobstore, root_entries).await?
+        };
+
+        Ok(DirectoryBranchClusterManifest {
+            subentries,
+            secondaries: None,
+            primary: None,
+        })
+    }
+
+    #[mononoke::test]
+    fn test_file_cluster_simple_copy() {
+        // Copy file A → B (source has no existing cluster members)
+        // This tests that file clusters are created correctly
+        let ops = vec![copy_op("a.txt", "b.txt", None, vec![])];
+
+        let changes = process_subtree_ops(ops);
+
+        // a.txt should have b.txt in secondaries (a.txt was copied TO b.txt)
+        let update_a = changes.get(&mpath("a.txt")).unwrap();
+        assert_eq!(update_a.add_secondaries, vec![mpath("b.txt")]);
+        assert!(update_a.set_primary.is_none()); // a.txt is the source, not a copy
+
+        // b.txt should have primary = a.txt (b.txt was copied FROM a.txt)
+        let update_b = changes.get(&mpath("b.txt")).unwrap();
+        assert_eq!(update_b.set_primary, Some(mpath("a.txt")));
+        assert!(update_b.add_secondaries.is_empty()); // b.txt has no secondaries yet
+    }
+
+    #[mononoke::test]
+    fn test_file_cluster_extend() {
+        // Extend an existing file cluster: a.txt already has b.txt as secondary,
+        // now copy a.txt → c.txt
+        let ops = vec![copy_op("a.txt", "c.txt", None, vec!["b.txt"])];
+
+        let changes = process_subtree_ops(ops);
+
+        // a.txt should have c.txt added to secondaries
+        let update_a = changes.get(&mpath("a.txt")).unwrap();
+        assert_eq!(update_a.add_secondaries, vec![mpath("c.txt")]);
+        assert!(update_a.set_primary.is_none());
+
+        // c.txt should have primary = a.txt
+        let update_c = changes.get(&mpath("c.txt")).unwrap();
+        assert_eq!(update_c.set_primary, Some(mpath("a.txt")));
+
+        // b.txt is not affected (existing secondary, not part of this operation)
+        assert!(!changes.contains_key(&mpath("b.txt")));
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_and_process_file_deletions(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: TestRepo = test_repo_factory::build_empty(fb).await?;
+
+        // Create a commit with a file, then delete it
+        let changesets = create_from_dag_with_changes(
+            &ctx,
+            &repo,
+            "A-B",
+            changes! {
+                "A" => |c| c.add_file("x", "content"),
+                "B" => |c| c.delete_file("x"),
+            },
+        )
+        .await?;
+
+        let _parent_cs_id = changesets["A"];
+        let child_cs_id = changesets["B"];
+
+        // Derive skeleton_manifest_v2 for child
+        repo.repo_derived_data()
+            .derive::<RootSkeletonManifestV2Id>(&ctx, child_cs_id, DerivationPriority::LOW)
+            .await?;
+
+        // Build parent manifest: file "x" is a primary with secondaries [y, z]
+        let blobstore: Arc<dyn KeyedBlobstore> = Arc::new(repo.repo_blobstore().clone());
+        let parent_manifest = build_test_manifest_with_files(
+            &ctx,
+            &blobstore,
+            vec![], // no directories
+            vec![(
+                MPath::new("x")?,
+                None,
+                Some(vec![MPath::new("y")?, MPath::new("z")?]),
+            )],
+        )
+        .await?;
+
+        // Get derivation context and bonsai
+        let derivation_ctx = repo.repo_derived_data().manager().derivation_context(None);
+        let bonsai = child_cs_id.load(&ctx, repo.repo_blobstore()).await?;
+
+        // Find deleted paths
+        let subtree_destinations = HashSet::new();
+        let deleted = find_deleted_cluster_paths(
+            &ctx,
+            &derivation_ctx,
+            &blobstore,
+            &bonsai,
+            &parent_manifest,
+            &subtree_destinations,
+        )
+        .await?;
+
+        // Process deletions
+        let mut cluster_changes = HashMap::new();
+        process_deletions(&deleted, &subtree_destinations, &mut cluster_changes);
+
+        // Verify:
+        // - x is marked as deleted
+        // - y becomes new primary (first secondary promoted)
+        // - z is reassigned to y
+        let update_x = cluster_changes.get(&MPath::new("x")?).unwrap();
+        assert!(update_x.is_deleted);
+
+        let update_y = cluster_changes.get(&MPath::new("y")?).unwrap();
+        assert!(update_y.clear_primary); // y is now the root
+        assert_eq!(update_y.add_secondaries, vec![MPath::new("z")?]);
+
+        let update_z = cluster_changes.get(&MPath::new("z")?).unwrap();
+        assert_eq!(update_z.set_primary, Some(MPath::new("y")?));
+
+        Ok(())
+    }
 }
