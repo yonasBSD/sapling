@@ -142,7 +142,7 @@ pub trait KeyStore: Send + Sync {
         &self,
         _opts: InsertOpts,
         _path: &RepoPath,
-        _data: &[u8],
+        _data: Blob,
     ) -> anyhow::Result<HgId> {
         anyhow::bail!("store {} is read-only", self.type_name())
     }
@@ -275,7 +275,7 @@ pub trait FileStore: KeyStore + 'static {
         &self,
         mut opts: InsertOpts,
         path: &RepoPath,
-        data: &[u8],
+        data: Blob,
     ) -> anyhow::Result<HgId> {
         opts.kind = Kind::File;
         KeyStore::insert_data(self, opts, path, data)
@@ -468,7 +468,7 @@ pub trait TreeStore: KeyStore {
     ) -> anyhow::Result<Id20> {
         opts.kind = Kind::Tree;
         let data = basic_serialize_tree(items, self.format())?;
-        KeyStore::insert_data(self, opts, path, &data)
+        KeyStore::insert_data(self, opts, path, data.into())
     }
 
     /// Obtains a snapshot of the store state.

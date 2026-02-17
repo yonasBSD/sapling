@@ -244,18 +244,10 @@ impl KeyStore for TestHistory {
         }
     }
 
-    fn insert_data(
-        &self,
-        _opts: InsertOpts,
-        _path: &RepoPath,
-        data: &[u8],
-    ) -> anyhow::Result<HgId> {
-        let hgid = compute_sha1(data);
-        self.inner
-            .lock()
-            .unwrap()
-            .trees
-            .insert(hgid, Bytes::copy_from_slice(data));
+    fn insert_data(&self, _opts: InsertOpts, _path: &RepoPath, data: Blob) -> anyhow::Result<HgId> {
+        let data = data.to_bytes();
+        let hgid = compute_sha1(data.as_ref());
+        self.inner.lock().unwrap().trees.insert(hgid, data);
         Ok(hgid)
     }
 

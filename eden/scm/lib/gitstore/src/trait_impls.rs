@@ -70,12 +70,13 @@ impl KeyStore for GitStore {
         Ok(())
     }
 
-    fn insert_data(&self, opts: InsertOpts, path: &RepoPath, data: &[u8]) -> anyhow::Result<HgId> {
+    fn insert_data(&self, opts: InsertOpts, path: &RepoPath, data: Blob) -> anyhow::Result<HgId> {
         let kind = match opts.kind {
             Kind::File => ObjectType::Blob,
             Kind::Tree => ObjectType::Tree,
         };
-        let id = self.write_obj(kind, data)?;
+        let data = data.to_bytes();
+        let id = self.write_obj(kind, &data)?;
         if let Some(forced_id) = opts.forced_id {
             if forced_id.as_ref() != &id {
                 anyhow::bail!("hash mismatch when writing {}@{}", path, forced_id);

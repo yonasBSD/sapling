@@ -141,7 +141,7 @@ fn insert_file<P: Manifest>(
         read_before_write: true,
         ..Default::default()
     };
-    let hgid = file_store.insert_file(opts, path, &content)?;
+    let hgid = file_store.insert_file(opts, path, content.into())?;
 
     Ok(FileMetadata::new(hgid, file_type))
 }

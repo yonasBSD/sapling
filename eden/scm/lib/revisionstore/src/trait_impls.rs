@@ -14,7 +14,6 @@ use blob::Blob;
 use edenapi_types::FileAuxData;
 use format_util::git_sha1_digest;
 use format_util::hg_sha1_digest;
-use minibytes::Bytes;
 use storemodel::BoxIterator;
 use storemodel::InsertOpts;
 use storemodel::KeyStore;
@@ -73,15 +72,17 @@ impl storemodel::KeyStore for ArcFileStore {
         self.0.format
     }
 
-    fn insert_data(&self, opts: InsertOpts, path: &RepoPath, data: &[u8]) -> anyhow::Result<HgId> {
-        let id = sha1_digest(&opts, data, self.format());
+    fn insert_data(&self, opts: InsertOpts, path: &RepoPath, data: Blob) -> anyhow::Result<HgId> {
+        let data_bytes = data.to_bytes();
+
+        let id = sha1_digest(&opts, &data_bytes, self.format());
 
         // Check if this should be written as LFS based on hg_flags or size threshold
         let is_lfs_flag = (opts.hg_flags & Metadata::LFS_FLAG as u32) != 0;
         let exceeds_threshold = self
             .0
             .lfs_threshold_bytes
-            .is_some_and(|threshold| data.len() as u64 > threshold);
+            .is_some_and(|threshold| data_bytes.len() as u64 > threshold);
         let is_lfs = (is_lfs_flag && self.0.lfs_threshold_bytes.is_some()) || exceeds_threshold;
 
         // Check if data already exists (read_before_write optimization)
@@ -104,18 +105,16 @@ impl storemodel::KeyStore for ArcFileStore {
         }
 
         let key = Key::new(path.to_owned(), id);
-        // PERF: Ideally, there is no need to copy `data`.
-        let data = Bytes::copy_from_slice(data);
 
         if is_lfs_flag && self.0.lfs_threshold_bytes.is_some() {
             // Data is already an LFS pointer
-            self.0.write_lfsptr(key, data)?;
+            self.0.write_lfsptr(key, data_bytes)?;
         } else if exceeds_threshold {
             // Data exceeds LFS threshold, write as LFS blob
-            self.0.write_lfs(key, data)?;
+            self.0.write_lfs(key, data_bytes)?;
         } else {
             // Regular non-LFS write
-            self.0.write_nonlfs(key, data, Default::default())?;
+            self.0.write_nonlfs(key, data_bytes, Default::default())?;
         }
         Ok(id)
     }
@@ -234,11 +233,13 @@ mod tests {
         let arc_file_store = ArcFileStore(Arc::new(file_store));
 
         let path = RepoPathBuf::from_string("test/file.txt".to_string()).unwrap();
-        let data = b"test content";
+        let data: &'static [u8] = b"test content";
 
         // First insert without read_before_write
         let opts = InsertOpts::default();
-        let id1 = arc_file_store.insert_data(opts, &path, data).unwrap();
+        let id1 = arc_file_store
+            .insert_data(opts, &path, data.into())
+            .unwrap();
 
         // Verify the data is in the store
         assert!(indexedlog.contains(&id1).unwrap());
@@ -249,7 +250,9 @@ mod tests {
             read_before_write: true,
             ..Default::default()
         };
-        let id2 = arc_file_store.insert_data(opts, &path, data).unwrap();
+        let id2 = arc_file_store
+            .insert_data(opts, &path, data.into())
+            .unwrap();
 
         // Should return the same id
         assert_eq!(id1, id2);
@@ -262,7 +265,9 @@ mod tests {
             read_before_write: false,
             ..Default::default()
         };
-        let id3 = arc_file_store.insert_data(opts, &path, data).unwrap();
+        let id3 = arc_file_store
+            .insert_data(opts, &path, data.into())
+            .unwrap();
         assert_eq!(id1, id3);
 
         // Now there should be 2 entries (duplicate was written)
@@ -325,15 +330,15 @@ mod tests {
         let arc_store = ArcFileStore(Arc::new(store));
 
         let path = RepoPathBuf::from_string("test/file.txt".to_string())?;
-        let data = b"small data";
+        let data = Blob::from_static(b"small data");
         let opts = InsertOpts::default();
 
-        let id = arc_store.insert_data(opts, &path, data)?;
+        let id = arc_store.insert_data(opts, &path, data.clone())?;
 
         // Verify data was written to indexedlog
         let content = arc_store.get_local_content(&path, id)?;
         assert!(content.is_some());
-        assert_eq!(content.unwrap().into_vec(), data.to_vec());
+        assert_eq!(content.unwrap(), data);
 
         Ok(())
     }
@@ -347,7 +352,7 @@ mod tests {
 
         let path = RepoPathBuf::from_string("test/large_file.txt".to_string())?;
         // Data larger than threshold (10 bytes)
-        let data = b"this is a large file that exceeds the threshold";
+        let data = Blob::from_static(b"this is a large file that exceeds the threshold");
         let opts = InsertOpts::default();
 
         let id = arc_store.insert_data(opts, &path, data)?;
@@ -367,15 +372,15 @@ mod tests {
 
         let path = RepoPathBuf::from_string("test/small_file.txt".to_string())?;
         // Data smaller than threshold
-        let data = b"small";
+        let data = Blob::from_static(b"small");
         let opts = InsertOpts::default();
 
-        let id = arc_store.insert_data(opts, &path, data)?;
+        let id = arc_store.insert_data(opts, &path, data.clone())?;
 
         // Verify data was written to indexedlog (non-LFS path)
         let content = arc_store.get_local_content(&path, id)?;
         assert!(content.is_some());
-        assert_eq!(content.unwrap().into_vec(), data.to_vec());
+        assert_eq!(content.unwrap(), data);
 
         Ok(())
     }
@@ -388,10 +393,12 @@ mod tests {
 
         let path = RepoPathBuf::from_string("test/lfs_pointer.txt".to_string())?;
         // Create a valid LFS pointer
-        let lfs_pointer = b"version https://git-lfs.github.com/spec/v1\n\
+        let lfs_pointer = Blob::from_static(
+            b"version https://git-lfs.github.com/spec/v1\n\
 oid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\n\
 size 12345\n\
-x-is-binary 0\n";
+x-is-binary 0\n",
+        );
 
         let opts = InsertOpts {
             hg_flags: Metadata::LFS_FLAG as u32,
@@ -413,14 +420,14 @@ x-is-binary 0\n";
         let arc_store = ArcFileStore(Arc::new(store));
 
         let path = RepoPathBuf::from_string("test/file.txt".to_string())?;
-        let data = b"test data for read_before_write";
+        let data = Blob::from_static(b"test data for read_before_write");
 
         // First insert
         let opts1 = InsertOpts {
             read_before_write: true,
             ..Default::default()
         };
-        let id1 = arc_store.insert_data(opts1, &path, data)?;
+        let id1 = arc_store.insert_data(opts1, &path, data.clone())?;
 
         // Second insert with same data should return same id without re-writing
         let opts2 = InsertOpts {
@@ -443,14 +450,14 @@ x-is-binary 0\n";
 
         let path = RepoPathBuf::from_string("test/large_file.txt".to_string())?;
         // Data larger than threshold
-        let data = b"this is a large file that exceeds the threshold";
+        let data = Blob::from_static(b"this is a large file that exceeds the threshold");
 
         // First insert
         let opts1 = InsertOpts {
             read_before_write: true,
             ..Default::default()
         };
-        let id1 = arc_store.insert_data(opts1, &path, data)?;
+        let id1 = arc_store.insert_data(opts1, &path, data.clone())?;
 
         // Flush to ensure data is written
         arc_store.flush()?;

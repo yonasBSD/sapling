@@ -690,10 +690,15 @@ mod test {
         let exclude_dir: RepoPathBuf = "excludeme".to_string().try_into()?;
 
         // Insert a few files into the file store.
-        let foo_hgid = file_store.insert_data(Default::default(), &foo_path, b"foo content")?;
-        let bar_hgid = file_store.insert_data(Default::default(), &bar_path, b"bar content")?;
-        let exclude_hgid =
-            file_store.insert_data(Default::default(), &exclude_path, b"excluded content")?;
+        let foo_hgid =
+            file_store.insert_data(Default::default(), &foo_path, b"foo content".into())?;
+        let bar_hgid =
+            file_store.insert_data(Default::default(), &bar_path, b"bar content".into())?;
+        let exclude_hgid = file_store.insert_data(
+            Default::default(),
+            &exclude_path,
+            b"excluded content".into(),
+        )?;
 
         let mut mf = TreeManifest::ephemeral(store.clone());
 
@@ -823,10 +828,15 @@ mod test {
         let exclude_dir: RepoPathBuf = "excludeme".to_string().try_into()?;
 
         // Insert a few files into the file store.
-        let foo_hgid = file_store.insert_data(Default::default(), &foo_path, b"foo content")?;
-        let bar_hgid = file_store.insert_data(Default::default(), &bar_path, b"bar content")?;
-        let exclude_hgid =
-            file_store.insert_data(Default::default(), &exclude_path, b"excluded content")?;
+        let foo_hgid =
+            file_store.insert_data(Default::default(), &foo_path, b"foo content".into())?;
+        let bar_hgid =
+            file_store.insert_data(Default::default(), &bar_path, b"bar content".into())?;
+        let exclude_hgid = file_store.insert_data(
+            Default::default(),
+            &exclude_path,
+            b"excluded content".into(),
+        )?;
 
         let mut mf = TreeManifest::ephemeral(store.clone());
 
@@ -849,7 +859,7 @@ mod test {
         // Finalize and store tree data, capturing tree hgids by path
         let mut tree_hgids: HashMap<RepoPathBuf, HgId> = HashMap::new();
         for (path, id, text, _p1, _p2) in mf.finalize(Vec::new())? {
-            store.insert_data(Default::default(), &path, text.as_ref())?;
+            store.insert_data(Default::default(), &path, text.into())?;
             tree_hgids.insert(path, id);
         }
         let root_hgid = *tree_hgids
@@ -989,17 +999,20 @@ mod test {
 
         // Insert a few files into the file store.
         let dir1_foo_hgid =
-            file_store.insert_data(Default::default(), &dir1_foo_path, b"foo content")?;
+            file_store.insert_data(Default::default(), &dir1_foo_path, b"foo content".into())?;
         let dir1_bar_hgid =
-            file_store.insert_data(Default::default(), &dir1_bar_path, b"bar content")?;
+            file_store.insert_data(Default::default(), &dir1_bar_path, b"bar content".into())?;
         let dir2_foo_hgid =
-            file_store.insert_data(Default::default(), &dir2_foo_path, b"foo content!")?;
+            file_store.insert_data(Default::default(), &dir2_foo_path, b"foo content!".into())?;
         let dir2_bar_hgid =
-            file_store.insert_data(Default::default(), &dir2_bar_path, b"bar content!")?;
+            file_store.insert_data(Default::default(), &dir2_bar_path, b"bar content!".into())?;
         let dir3_foo_hgid =
-            file_store.insert_data(Default::default(), &dir3_foo_path, b"foo content!!")?;
-        let exclude_hgid =
-            file_store.insert_data(Default::default(), &exclude_path, b"excluded content")?;
+            file_store.insert_data(Default::default(), &dir3_foo_path, b"foo content!!".into())?;
+        let exclude_hgid = file_store.insert_data(
+            Default::default(),
+            &exclude_path,
+            b"excluded content".into(),
+        )?;
 
         let mut mf = TreeManifest::ephemeral(tree_store.clone());
 
@@ -1037,7 +1050,7 @@ mod test {
         // Finalize and store tree data
         let mut root_hgid = None;
         for (path, id, text, _p1, _p2) in mf.finalize(Vec::new())? {
-            tree_store.insert_data(Default::default(), &path, text.as_ref())?;
+            tree_store.insert_data(Default::default(), &path, text.into())?;
             if path.is_empty() {
                 root_hgid = Some(id);
             }
@@ -1145,8 +1158,10 @@ mod test {
         let foo_path: RepoPathBuf = "dir1/foo".to_string().try_into()?;
         let bar_path: RepoPathBuf = "dir2/bar".to_string().try_into()?;
 
-        let foo_hgid = file_store.insert_data(Default::default(), &foo_path, b"foo content")?;
-        let bar_hgid = file_store.insert_data(Default::default(), &bar_path, b"bar content")?;
+        let foo_hgid =
+            file_store.insert_data(Default::default(), &foo_path, b"foo content".into())?;
+        let bar_hgid =
+            file_store.insert_data(Default::default(), &bar_path, b"bar content".into())?;
 
         let mut mf = TreeManifest::ephemeral(tree_store.clone());
 
@@ -1164,7 +1179,7 @@ mod test {
         // Finalize and store tree data, capturing tree hgids by path
         let mut tree_hgids: HashMap<RepoPathBuf, HgId> = HashMap::new();
         for (path, id, text, _p1, _p2) in mf.finalize(Vec::new())? {
-            tree_store.insert_data(Default::default(), &path, text.as_ref())?;
+            tree_store.insert_data(Default::default(), &path, text.into())?;
             tree_hgids.insert(path, id);
         }
         let root_hgid = *tree_hgids

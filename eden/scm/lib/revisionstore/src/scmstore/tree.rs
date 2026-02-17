@@ -861,12 +861,12 @@ impl storemodel::KeyStore for TreeStore {
         TreeStore::flush(self)
     }
 
-    fn insert_data(&self, opts: InsertOpts, path: &RepoPath, data: &[u8]) -> anyhow::Result<HgId> {
-        let id = sha1_digest(&opts, data, self.format());
+    fn insert_data(&self, opts: InsertOpts, path: &RepoPath, data: Blob) -> anyhow::Result<HgId> {
+        let data = data.to_bytes();
+        let id = sha1_digest(&opts, &data, self.format());
 
         // PERF: Ideally there is no need to clone path or data.
         let key = Key::new(path.to_owned(), id);
-        let data = Bytes::copy_from_slice(data);
         self.write_batch(std::iter::once((key, data, Default::default())))?;
         Ok(id)
     }

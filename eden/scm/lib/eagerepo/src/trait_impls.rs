@@ -46,20 +46,21 @@ impl KeyStore for EagerRepoStore {
         }
     }
 
-    fn insert_data(&self, opts: InsertOpts, _path: &RepoPath, data: &[u8]) -> anyhow::Result<HgId> {
+    fn insert_data(&self, opts: InsertOpts, _path: &RepoPath, data: Blob) -> anyhow::Result<HgId> {
+        let data = data.to_bytes();
         let sha1_data = match self.format() {
             SerializationFormat::Hg => {
                 let mut iter = opts.parents.iter();
                 let p1 = iter.next().copied().unwrap_or_else(|| *HgId::null_id());
                 let p2 = iter.next().copied().unwrap_or_else(|| *HgId::null_id());
-                hg_sha1_serialize(data, &p1, &p2)
+                hg_sha1_serialize(&data, &p1, &p2)
             }
             SerializationFormat::Git => {
                 let type_str = match opts.kind {
                     Kind::File => "blob",
                     Kind::Tree => "tree",
                 };
-                git_sha1_serialize(data, type_str)
+                git_sha1_serialize(&data, type_str)
             }
         };
 

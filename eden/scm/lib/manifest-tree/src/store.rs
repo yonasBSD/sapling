@@ -60,7 +60,7 @@ impl InnerStore {
                 kind: Kind::Tree,
                 ..Default::default()
             };
-            let id = self.tree_store.insert_data(opts, path, entry.0.as_ref())?;
+            let id = self.tree_store.insert_data(opts, path, entry.0.into())?;
             Ok(id)
         })
     }

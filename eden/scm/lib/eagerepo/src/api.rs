@@ -1323,7 +1323,7 @@ impl SaplingRemoteApi for EagerRepo {
                             kind: Kind::Tree,
                             ..Default::default()
                         };
-                        repo.store.insert_data(insert_opts, &path, &raw)?;
+                        repo.store.insert_data(insert_opts, &path, raw.into())?;
                         if path.is_empty() {
                             manifest_id = Some(hgid);
                         }

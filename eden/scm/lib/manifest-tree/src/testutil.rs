@@ -130,19 +130,20 @@ impl KeyStore for TestStore {
         Ok(result.map(Blob::Bytes))
     }
 
-    fn insert_data(&self, opts: InsertOpts, _path: &RepoPath, data: &[u8]) -> anyhow::Result<HgId> {
+    fn insert_data(&self, opts: InsertOpts, _path: &RepoPath, data: Blob) -> anyhow::Result<HgId> {
         let mut inner = self.inner.write();
         inner.insert_count.fetch_add(1, Ordering::Relaxed);
         let underlying = &mut inner.entries;
+        let data_bytes = data.to_bytes();
         let hgid = match opts.forced_id {
             Some(id) => *id,
             None => {
                 let p1 = opts.parents.first().unwrap_or(HgId::null_id());
                 let p2 = opts.parents.get(1).unwrap_or(HgId::null_id());
-                format_util::hg_sha1_digest(data, p1, p2)
+                format_util::hg_sha1_digest(&data_bytes, p1, p2)
             }
         };
-        underlying.insert(hgid, Bytes::copy_from_slice(data));
+        underlying.insert(hgid, data_bytes);
         Ok(hgid)
     }
 

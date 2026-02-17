@@ -971,7 +971,7 @@ mod tests {
                 forced_id: Some(Box::new(hgid)),
                 ..Default::default()
             };
-            self.insert_data(opts, path, data.as_ref())?;
+            self.insert_data(opts, path, data.into())?;
             Ok(())
         }
     }

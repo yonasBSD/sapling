@@ -136,6 +136,18 @@ impl From<Vec<u8>> for Blob {
     }
 }
 
+impl From<&'static [u8]> for Blob {
+    fn from(value: &'static [u8]) -> Self {
+        Self::from_static(value)
+    }
+}
+
+impl<const N: usize> From<&'static [u8; N]> for Blob {
+    fn from(value: &'static [u8; N]) -> Self {
+        Self::from_static(value)
+    }
+}
+
 #[cfg(fbcode_build)]
 fn iobuf_from_bytes(bytes: minibytes::Bytes) -> iobuf::IOBufShared {
     unsafe { iobuf::IOBufShared::from_owner(bytes) }

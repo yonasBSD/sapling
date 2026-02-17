@@ -177,7 +177,7 @@ py_class!(pub class FileStore |py| {
         let inner = self.inner(py);
         let path = RepoPath::from_str(path).map_pyerr(py)?;
         let data = data.data(py);
-        let id = py.allow_threads(|| inner.insert_file(opts.0, path, data)).map_pyerr(py)?;
+        let id = py.allow_threads(|| inner.insert_file(opts.0, path, data.to_vec().into())).map_pyerr(py)?;
         Ok(Serde(id))
     }
 
@@ -281,7 +281,7 @@ py_class!(pub class TreeStore |py| {
         let path = RepoPath::from_str(path).map_pyerr(py)?;
         let data = data.data(py);
         let inner = self.inner(py);
-        let id = py.allow_threads(|| inner.insert_data(opts, path, data)).map_pyerr(py)?;
+        let id = py.allow_threads(|| inner.insert_data(opts, path, data.to_vec().into())).map_pyerr(py)?;
         Ok(Serde(id))
     }
 
