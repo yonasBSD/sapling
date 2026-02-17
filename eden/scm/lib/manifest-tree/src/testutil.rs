@@ -136,7 +136,11 @@ impl KeyStore for TestStore {
         let underlying = &mut inner.entries;
         let hgid = match opts.forced_id {
             Some(id) => *id,
-            None => compute_sha1(data),
+            None => {
+                let p1 = opts.parents.first().unwrap_or(HgId::null_id());
+                let p2 = opts.parents.get(1).unwrap_or(HgId::null_id());
+                format_util::hg_sha1_digest(data, p1, p2)
+            }
         };
         underlying.insert(hgid, Bytes::copy_from_slice(data));
         Ok(hgid)
