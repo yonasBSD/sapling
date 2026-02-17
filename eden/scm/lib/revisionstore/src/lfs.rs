@@ -293,7 +293,7 @@ impl LfsPointersStore {
     }
 
     fn add(&self, entry: LfsPointersEntry) -> Result<()> {
-        self.0.append(serialize(&entry)?)
+        self.0.append_direct(|buf| Ok(serialize_into(buf, &entry)?))
     }
 }
 
@@ -456,8 +456,8 @@ impl LfsIndexedLogBlobsStore {
         });
 
         for entry in chunks {
-            let serialized = serialize(&entry)?;
-            self.inner.append(serialized)?;
+            self.inner
+                .append_direct(|buf| Ok(serialize_into(buf, &entry)?))?;
         }
 
         Ok(())
