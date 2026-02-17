@@ -23,6 +23,7 @@ use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
 use mononoke_types::ThriftConvert;
 use mononoke_types::typed_hash::DirectoryBranchClusterManifestId;
+use skeleton_manifest_v2::RootSkeletonManifestV2Id;
 
 use crate::derive::derive_single;
 
@@ -69,7 +70,7 @@ impl RootDirectoryBranchClusterManifestId {
 impl BonsaiDerivable for RootDirectoryBranchClusterManifestId {
     const VARIANT: DerivableType = DerivableType::DirectoryBranchClusterManifest;
 
-    type Dependencies = dependencies![];
+    type Dependencies = dependencies![RootSkeletonManifestV2Id];
     type PredecessorDependencies = dependencies![];
 
     async fn derive_single(

@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+mod cluster_changes;
 mod derive;
 mod mapping;
 
