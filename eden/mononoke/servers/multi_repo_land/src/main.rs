@@ -89,12 +89,19 @@ struct MultiRepoLandServiceArgs {
 
 #[fbinit::main]
 fn main(fb: FacebookInit) -> Result<()> {
-    let app = MononokeAppBuilder::new(fb).build::<MultiRepoLandServiceArgs>()?;
+    let app = MononokeAppBuilder::new(fb)
+        .with_default_scuba_dataset("mononoke_multi_repo_land")
+        .build::<MultiRepoLandServiceArgs>()?;
 
     let args: MultiRepoLandServiceArgs = app.args()?;
+    let env = app.environment();
     let runtime = app.runtime();
     let repos_mgr = Arc::new(runtime.block_on(app.open_managed_repos::<repo::Repo>(None))?);
-    let service = Arc::new(MultiRepoLandServiceImpl::new(fb, repos_mgr));
+    let service = Arc::new(MultiRepoLandServiceImpl::new(
+        fb,
+        repos_mgr,
+        env.scuba_sample_builder.clone(),
+    ));
 
     let will_exit = Arc::new(AtomicBool::new(false));
 
