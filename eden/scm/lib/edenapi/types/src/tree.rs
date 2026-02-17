@@ -76,7 +76,7 @@ pub struct TreeEntry {
     pub parents: Option<Parents>,
     pub children: Option<Vec<Result<TreeChildEntry, SaplingRemoteApiServerError>>>,
     pub tree_aux_data: Option<TreeAuxData>,
-    pub is_restricted: Option<bool>,
+    pub has_acl: Option<bool>,
 }
 
 impl TreeEntry {
@@ -110,8 +110,8 @@ impl TreeEntry {
         self
     }
 
-    pub fn with_is_restricted<'a>(&'a mut self, is_restricted: bool) -> &'a mut Self {
-        self.is_restricted = Some(is_restricted);
+    pub fn with_has_acl<'a>(&'a mut self, has_acl: bool) -> &'a mut Self {
+        self.has_acl = Some(has_acl);
         self
     }
 
@@ -195,7 +195,7 @@ pub struct TreeChildDirectoryEntry {
     // See above comment warning about using a RepoPathBuf to represent a PathComponent.
     pub key: Key,
     pub tree_aux_data: Option<TreeAuxData>,
-    pub is_restricted: Option<bool>,
+    pub has_acl: Option<bool>,
 }
 
 impl TreeChildEntry {
@@ -206,15 +206,11 @@ impl TreeChildEntry {
         })
     }
 
-    pub fn new_directory_entry(
-        key: Key,
-        aux_data: TreeAuxData,
-        is_restricted: Option<bool>,
-    ) -> Self {
+    pub fn new_directory_entry(key: Key, aux_data: TreeAuxData, has_acl: Option<bool>) -> Self {
         TreeChildEntry::Directory(TreeChildDirectoryEntry {
             key,
             tree_aux_data: Some(aux_data),
-            is_restricted,
+            has_acl,
         })
     }
 }
@@ -268,7 +264,7 @@ impl TryFrom<AugmentedTree> for TreeEntry {
                                 ),
                                 augmented_manifest_size: tree.augmented_manifest_size,
                             },
-                            // TODO(T248658346): populate is_restricted field
+                            // TODO(T248658346): populate has_acl field
                             None,
                         ))
                     }
@@ -308,8 +304,8 @@ impl Arbitrary for TreeEntry {
             // Recursive TreeEntry in children causes stack overflow in QuickCheck
             children: None,
             tree_aux_data: None,
-            // TODO(T248658346): populate is_restricted field
-            is_restricted: None,
+            // TODO(T248658346): populate has_acl field
+            has_acl: None,
         }
     }
 }

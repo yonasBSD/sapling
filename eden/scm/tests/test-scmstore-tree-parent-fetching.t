@@ -39,7 +39,7 @@ We can fetch tree parents:
                       ),
                       children: None,
                       tree_aux_data: None,
-                      is_restricted: None,
+                      has_acl: None,
                   },
                   true,
               ),

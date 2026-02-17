@@ -98,8 +98,8 @@ impl ToApi for WireTreeEntry {
                 parents: self.parents.to_api()?,
                 children: self.children.to_api()?,
                 tree_aux_data: self.tree_aux_data.to_api()?,
-                // TODO(T248658346): populate is_restricted field
-                is_restricted: None,
+                // TODO(T248658346): populate has_acl field
+                has_acl: None,
             })
         })
     }
@@ -172,8 +172,8 @@ impl ToApi for WireTreeChildEntry {
                             .to_api()?
                             .ok_or(WireToApiConversionError::CannotPopulateRequiredField("key"))?,
                         tree_aux_data: self.tree_aux_data.to_api()?,
-                        // TODO(T248658346): populate is_restricted field
-                        is_restricted: None,
+                        // TODO(T248658346): populate has_acl field
+                        has_acl: None,
                     })
                 },
             )
