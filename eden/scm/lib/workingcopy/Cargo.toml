@@ -24,6 +24,7 @@ sapling-async-runtime = { version = "0.1.0", path = "../async-runtime" }
 sapling-configmodel = { version = "0.1.0", path = "../config/model", features = ["convert-path"] }
 sapling-context = { version = "0.1.0", path = "../context" }
 sapling-edenfs-client = { version = "0.1.0", path = "../edenfs-client", optional = true }
+sapling-format-util = { version = "0.1.0", path = "../util/format-util" }
 sapling-gitcompat = { version = "0.1.0", path = "../gitcompat" }
 sapling-hgplain = { version = "0.1.0", path = "../util/hgplain" }
 sapling-hgtime = { version = "0.1.0", path = "../hgtime" }
@@ -55,7 +56,6 @@ whoami = "1.5"
 [dev-dependencies]
 async-trait = "0.1.86"
 blob = { version = "0.1.0", path = "../blob" }
-sapling-format-util = { version = "0.1.0", path = "../util/format-util" }
 tempfile = "3.22"
 
 [features]
