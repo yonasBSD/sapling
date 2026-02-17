@@ -29,6 +29,8 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tempfile",
         "//eden/scm/lib/blob:blob",
+        "//eden/scm/lib/manifest-tree:manifest-tree",
+        "//eden/scm/lib/util/format-util:format-util",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

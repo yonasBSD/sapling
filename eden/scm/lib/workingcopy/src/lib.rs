@@ -9,6 +9,7 @@ pub mod client;
 mod errors;
 mod filechangedetector;
 pub mod filesystem;
+pub mod manifest;
 pub mod metadata;
 pub mod sparse;
 pub mod status;
