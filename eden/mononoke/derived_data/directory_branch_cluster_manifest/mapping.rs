@@ -77,7 +77,6 @@ impl BonsaiDerivable for RootDirectoryBranchClusterManifestId {
     const VARIANT: DerivableType = DerivableType::DirectoryBranchClusterManifest;
 
     type Dependencies = dependencies![RootSkeletonManifestV2Id];
-    type PredecessorDependencies = dependencies![];
 
     async fn derive_single(
         ctx: &CoreContext,
