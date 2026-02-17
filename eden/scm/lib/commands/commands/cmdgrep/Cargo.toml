@@ -10,7 +10,6 @@ repository = "https://github.com/facebook/sapling"
 license = "GPL-2.0-only"
 
 [dependencies]
-anyhow = "1.0.98"
 cmdutil = { version = "0.1.0", path = "../../cmdutil" }
 filewalk = { version = "0.1.0", path = "../../../filewalk" }
 grep = "0.4.1"
