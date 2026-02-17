@@ -498,6 +498,10 @@ pub struct InsertOpts {
     /// Hg flags to use. Used for legacy LFS support.
     #[serde(default)]
     pub hg_flags: u32,
+
+    /// Avoid insert if data is already in store.
+    #[serde(default)]
+    pub read_before_write: bool,
 }
 
 /// Distinguish between a file and a tree.

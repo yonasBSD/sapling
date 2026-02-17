@@ -74,6 +74,15 @@ impl storemodel::KeyStore for ArcFileStore {
 
     fn insert_data(&self, opts: InsertOpts, path: &RepoPath, data: &[u8]) -> anyhow::Result<HgId> {
         let id = sha1_digest(&opts, data, self.format());
+
+        if opts.read_before_write
+            && let Some(l) = &self.0.indexedlog_local
+        {
+            if l.contains(&id)? {
+                return Ok(id);
+            }
+        }
+
         let key = Key::new(path.to_owned(), id);
         // PERF: Ideally, there is no need to copy `data`.
         let data = Bytes::copy_from_slice(data);
@@ -147,5 +156,82 @@ pub(crate) fn sha1_digest(opts: &InsertOpts, data: &[u8], format: SerializationF
             };
             git_sha1_digest(data, kind)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+
+    use storemodel::KeyStore;
+    use tempfile::TempDir;
+    use types::RepoPathBuf;
+
+    use super::*;
+    use crate::ToKeys;
+    use crate::indexedlogdatastore::IndexedLogHgIdDataStore;
+    use crate::indexedlogdatastore::IndexedLogHgIdDataStoreConfig;
+    use crate::indexedlogutil::StoreType;
+    use crate::scmstore::FileStore;
+
+    #[test]
+    fn test_insert_data_read_before_write() {
+        let tempdir = TempDir::new().unwrap();
+        let config = IndexedLogHgIdDataStoreConfig {
+            max_log_count: None,
+            max_bytes_per_log: None,
+            max_bytes: None,
+            btrfs_compression: false,
+        };
+        let indexedlog = Arc::new(
+            IndexedLogHgIdDataStore::new(
+                &BTreeMap::<&str, &str>::new(),
+                &tempdir,
+                &config,
+                StoreType::Rotated,
+                SerializationFormat::Hg,
+            )
+            .unwrap(),
+        );
+
+        let mut file_store = FileStore::empty();
+        file_store.indexedlog_local = Some(indexedlog.clone());
+        let arc_file_store = ArcFileStore(Arc::new(file_store));
+
+        let path = RepoPathBuf::from_string("test/file.txt".to_string()).unwrap();
+        let data = b"test content";
+
+        // First insert without read_before_write
+        let opts = InsertOpts::default();
+        let id1 = arc_file_store.insert_data(opts, &path, data).unwrap();
+
+        // Verify the data is in the store
+        assert!(indexedlog.contains(&id1).unwrap());
+        assert_eq!(indexedlog.to_keys().len(), 1);
+
+        // Second insert with read_before_write=true should return same id without writing again
+        let opts = InsertOpts {
+            read_before_write: true,
+            ..Default::default()
+        };
+        let id2 = arc_file_store.insert_data(opts, &path, data).unwrap();
+
+        // Should return the same id
+        assert_eq!(id1, id2);
+
+        // Crucially, there should still be only 1 entry (no duplicate write)
+        assert_eq!(indexedlog.to_keys().len(), 1);
+
+        // Verify that without read_before_write, we would get a duplicate
+        let opts = InsertOpts {
+            read_before_write: false,
+            ..Default::default()
+        };
+        let id3 = arc_file_store.insert_data(opts, &path, data).unwrap();
+        assert_eq!(id1, id3);
+
+        // Now there should be 2 entries (duplicate was written)
+        assert_eq!(indexedlog.to_keys().len(), 2);
     }
 }
