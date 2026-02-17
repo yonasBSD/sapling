@@ -137,20 +137,9 @@ export function RebaseOrphanedStackButton({hash}: {hash: Hash}) {
       },
     });
     for (const {orphanedChild, successorHash} of rebaseEntries) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        await runOperation(
-          new RebaseOperation(succeedableRevset(orphanedChild), succeedableRevset(successorHash)),
-        );
-      } catch (err: unknown) {
-        tracker.error('ClickRebaseOntoSuccessor', 'RebaseOntoSuccessorError', err as Error, {
-          extras: {
-            source: orphanedChild,
-            dest: successorHash,
-            numOrphans: allOrphaned.length,
-          },
-        });
-      }
+      runOperation(
+        new RebaseOperation(succeedableRevset(orphanedChild), succeedableRevset(successorHash)),
+      );
     }
   };
 

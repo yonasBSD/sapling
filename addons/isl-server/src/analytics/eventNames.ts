@@ -230,5 +230,4 @@ export type TrackErrorName =
   | 'SplitSuggestionError'
   | 'FileReadError'
   | 'WatchmanError'
-  | 'AICodeReviewError'
-  | 'RebaseOntoSuccessorError';
+  | 'AICodeReviewError';
