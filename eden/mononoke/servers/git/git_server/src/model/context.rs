@@ -79,6 +79,8 @@ pub struct GitServerContextInner {
     tls_args: Option<TLSArgs>,
     // ACL provider for checking group membership
     acl_provider: Arc<dyn AclProvider>,
+    // Optional address (host:port) for the RL Land Service
+    multi_repo_land_service_address: Option<String>,
 }
 
 impl GitServerContextInner {
@@ -88,6 +90,7 @@ impl GitServerContextInner {
         upstream_lfs_server: Option<String>,
         tls_args: Option<TLSArgs>,
         acl_provider: Arc<dyn AclProvider>,
+        multi_repo_land_service_address: Option<String>,
     ) -> Self {
         Self {
             repos,
@@ -95,6 +98,7 @@ impl GitServerContextInner {
             upstream_lfs_server,
             tls_args,
             acl_provider,
+            multi_repo_land_service_address,
         }
     }
 }
@@ -111,6 +115,7 @@ impl GitServerContext {
         upstream_lfs_server: Option<String>,
         tls_args: Option<TLSArgs>,
         acl_provider: Arc<dyn AclProvider>,
+        multi_repo_land_service_address: Option<String>,
     ) -> Self {
         let inner = Arc::new(RwLock::new(GitServerContextInner::new(
             repos,
@@ -118,6 +123,7 @@ impl GitServerContext {
             upstream_lfs_server,
             tls_args,
             acl_provider,
+            multi_repo_land_service_address,
         )));
         Self { inner }
     }
@@ -250,6 +256,14 @@ impl GitServerContext {
             .read()
             .expect("poisoned lock in git server context");
         Ok(inner.tls_args.clone())
+    }
+
+    pub fn multi_repo_land_service_address(&self) -> Option<String> {
+        self.inner
+            .read()
+            .expect("poisoned lock in git server context")
+            .multi_repo_land_service_address
+            .clone()
     }
 
     pub fn repo_as_mononoke_api(&self) -> Result<Mononoke<mononoke_api::Repo>> {

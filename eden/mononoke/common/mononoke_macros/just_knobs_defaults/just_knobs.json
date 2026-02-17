@@ -27,6 +27,7 @@
     "scm/mononoke:static-backend": false,
     "scm/mononoke:use_optimized_git_packfile_stream": true,
     "scm/mononoke:disable_running_hooks_in_pushredirected_repo": false,
+    "scm/mononoke:divert_aosp_push_to_rl_land_service": false,
     "scm/mononoke:xrepo_disable_forward_sync_over_mapping_change": false,
     "scm/mononoke:bookmarks_movement_use_precise_boundary": true,
     "scm/mononoke:enable_hooks_on_service_pushrebase": false,

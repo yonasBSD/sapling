@@ -6,5 +6,7 @@
  */
 
 mod receive_pack;
+#[cfg(fbcode_build)]
+pub(crate) mod rl_land_service_diversion;
 
 pub use receive_pack::receive_pack;

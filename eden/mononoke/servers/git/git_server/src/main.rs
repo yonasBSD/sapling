@@ -147,6 +147,12 @@ struct GitServerArgs {
     /// before deciding that the file is missing.
     #[clap(long, default_value_t = 5)]
     lfs_import_max_attempts: u32,
+    /// Address (host:port) of the RL Land Service for AOSP push
+    /// diversion. When set, pushes to repos starting with "aosp/" will be
+    /// diverted to this service instead of the normal bookmark movement path.
+    /// If not set, SMC tier lookup is used in production.
+    #[clap(long)]
+    multi_repo_land_service_address: Option<String>,
 }
 
 #[derive(Clone)]
@@ -285,6 +291,7 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
                 args.upstream_lfs_server,
                 tls_args,
                 acl_provider.clone(),
+                args.multi_repo_land_service_address,
             );
 
             let router = build_router(git_server_context);

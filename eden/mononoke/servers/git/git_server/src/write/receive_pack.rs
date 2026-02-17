@@ -207,12 +207,16 @@ async fn push(
             ref_map,
         ));
 
+        // Get the RL land service address if configured (for AOSP push diversion)
+        let multi_repo_land_service_address = git_ctx.multi_repo_land_service_address();
+
         let updated_refs = refs_update(
             ref_updates,
             request_context.clone(),
             git_bonsai_mapping_store.clone(),
             object_store.clone(),
             settings.atomic,
+            multi_repo_land_service_address,
         )
         .try_timed()
         .await?
@@ -265,7 +269,26 @@ async fn refs_update(
     git_bonsai_mapping_store: Arc<GitMappingsStore>,
     object_store: Arc<GitObjectStore>,
     atomic_update: bool,
+    _multi_repo_land_service_address: Option<String>,
 ) -> anyhow::Result<Vec<(RefUpdate, anyhow::Result<()>)>> {
+    // Check if this push should be diverted to the RL Land Service.
+    // AOSP repos (repos whose name starts with "aosp/") are diverted when the
+    // JustKnob is enabled, allowing the RL Land Service to coordinate atomic
+    // cross-repo bookmark movements.
+    #[cfg(fbcode_build)]
+    {
+        if super::rl_land_service_diversion::should_divert_to_rl_land_service(&request_context)? {
+            return super::rl_land_service_diversion::divert_to_rl_land_service(
+                ref_updates,
+                request_context,
+                git_bonsai_mapping_store,
+                object_store,
+                _multi_repo_land_service_address,
+            )
+            .await;
+        }
+    }
+
     if atomic_update {
         atomic_refs_update(
             ref_updates,
