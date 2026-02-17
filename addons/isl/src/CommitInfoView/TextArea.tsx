@@ -7,7 +7,10 @@
 
 import type {ReactNode, RefObject} from 'react';
 
+import {Button} from 'isl-components/Button';
+import {Icon} from 'isl-components/Icon';
 import {TextArea} from 'isl-components/TextArea';
+import {Tooltip} from 'isl-components/Tooltip';
 import {useEffect, useRef} from 'react';
 import {InternalFieldName} from 'shared/constants';
 import {
@@ -30,12 +33,14 @@ export function CommitInfoTextArea({
   autoFocus,
   editedMessage,
   setEditedField,
+  copyFromParent,
 }: {
   kind: 'title' | 'textarea' | 'field';
   name: string;
   autoFocus: boolean;
   editedMessage: string;
   setEditedField: (fieldValue: string) => unknown;
+  copyFromParent?: () => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -93,6 +98,7 @@ export function CommitInfoTextArea({
         fieldName={name}
         uploadFiles={supportsImageUpload ? uploadFiles : undefined}
         textAreaRef={ref}
+        copyFromParent={copyFromParent}
       />
     </div>
   );
@@ -110,10 +116,12 @@ export function EditorToolbar({
   fieldName,
   textAreaRef,
   uploadFiles,
+  copyFromParent,
 }: {
   fieldName: string;
   uploadFiles?: (files: Array<File>) => unknown;
   textAreaRef: RefObject<HTMLTextAreaElement>;
+  copyFromParent?: () => void;
 }) {
   const parts: Array<ReactNode> = [];
   if (uploadFiles != null) {
@@ -126,6 +134,15 @@ export function EditorToolbar({
   }
   if (fieldName === InternalFieldName.Summary && Internal.GenerateSummaryButton) {
     parts.push(<Internal.GenerateSummaryButton key="generate-summary" />);
+  }
+  if (copyFromParent != null) {
+    parts.push(
+      <Tooltip title="Copy from previous commit" key="copy-parent">
+        <Button icon onClick={copyFromParent}>
+          <Icon icon="clippy" />
+        </Button>
+      </Tooltip>,
+    );
   }
   if (uploadFiles != null) {
     parts.push(<FilePicker key="picker" uploadFiles={uploadFiles} />);

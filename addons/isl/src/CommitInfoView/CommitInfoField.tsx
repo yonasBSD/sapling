@@ -129,6 +129,7 @@ export function CommitInfoField({
                 autoFocus={autofocus ?? false}
                 editedMessage={editedFieldContent}
                 setEditedField={setEditedField}
+                copyFromParent={copyFromParent}
               />
             )}
             {extra}
