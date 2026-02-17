@@ -15,6 +15,7 @@ use format_util::prepend_hg_file_metadata;
 use manifest::FileMetadata;
 use manifest::FileType;
 use manifest::Manifest;
+use rayon::prelude::*;
 use status::Status;
 use storemodel::FileStore;
 use storemodel::InsertOpts;
@@ -33,7 +34,7 @@ use crate::metadata::Metadata;
 /// This function takes a base manifest and a Status instance (as returned by
 /// `WorkingCopy::status()`), reads file content from the VFS, computes file nodes
 /// by inserting into the file store, and updates the manifest.
-pub fn apply_status<M: Manifest, P: Manifest>(
+pub fn apply_status<M: Manifest, P: Manifest + Sync>(
     manifest: &mut M,
     status: &Status,
     vfs: &VFS,
@@ -47,11 +48,23 @@ pub fn apply_status<M: Manifest, P: Manifest>(
         manifest.remove(path)?;
     }
 
-    // Process added and modified files.
-    for path in status.added().chain(status.modified()) {
-        let copy_from = copymap.remove(path);
-        let metadata = insert_file(path, vfs, file_store, copy_from, parent_manifests)?;
-        manifest.insert(path.clone(), metadata)?;
+    // Process added and modified files in parallel, then apply to manifest sequentially.
+    let paths_to_insert: Vec<_> = status
+        .added()
+        .chain(status.modified())
+        .map(|p| (p, copymap.remove(p)))
+        .collect();
+
+    let results: Vec<_> = paths_to_insert
+        .into_par_iter()
+        .map(|(path, copy_from)| -> Result<_> {
+            let metadata = insert_file(path, vfs, file_store, copy_from, parent_manifests)?;
+            Ok(((*path).clone(), metadata))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    for (path, metadata) in results {
+        manifest.insert(path, metadata)?;
     }
 
     Ok(())
