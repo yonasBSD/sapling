@@ -303,8 +303,6 @@ Test extension help:
        amend         extends the existing commit amend functionality
        arcdiff       (no help text available)
        blackbox      log repository events to a blackbox for debugging
-       checkserverbookmark
-                     (no help text available)
        chistedit
        clienttelemetry
                      provide information about the client in server telemetry
@@ -1123,14 +1121,14 @@ Test -e / -c / -k combinations
   Commands:
   $ hg help -e|grep -E '^[A-Z].*:|^ debug'
   Extensions:
-   debugnetwork        test network connections to the server
-   debugshell          a python shell with repo, changelog & manifest objects
+   debugnetwork    test network connections to the server
+   debugshell      a python shell with repo, changelog & manifest objects
   $ hg help -k|grep -E '^[A-Z].*:|^ debug'
   Topics:
   Commands:
   Extensions:
-   debugnetwork        test network connections to the server
-   debugshell          a python shell with repo, changelog & manifest objects
+   debugnetwork    test network connections to the server
+   debugshell      a python shell with repo, changelog & manifest objects
   Extension Commands:
   $ hg help -c -k dates |grep -E '^(Topics|Extensions|Commands):'
   Commands:
