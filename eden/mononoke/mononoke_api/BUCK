@@ -68,6 +68,7 @@ rust_library(
         "//eden/mononoke/derived_data:deleted_manifest",
         "//eden/mononoke/derived_data:derived_data",
         "//eden/mononoke/derived_data:derived_data_manager",
+        "//eden/mononoke/derived_data:directory_branch_cluster_manifest",
         "//eden/mononoke/derived_data:fsnodes",
         "//eden/mononoke/derived_data:skeleton_manifest",
         "//eden/mononoke/derived_data:skeleton_manifest_v2",

@@ -64,6 +64,12 @@ impl RootDirectoryBranchClusterManifestId {
     pub fn inner_id(&self) -> &DirectoryBranchClusterManifestId {
         &self.0
     }
+    pub fn directory_branch_cluster_manifest_id(&self) -> &DirectoryBranchClusterManifestId {
+        &self.0
+    }
+    pub fn into_directory_branch_cluster_manifest_id(self) -> DirectoryBranchClusterManifestId {
+        self.0
+    }
 }
 
 #[async_trait]
