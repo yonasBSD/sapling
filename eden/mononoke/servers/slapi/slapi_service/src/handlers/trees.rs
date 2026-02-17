@@ -12,6 +12,8 @@ use bytes::Bytes;
 use context::PerfCounterType;
 use edenapi_types::AnyId;
 use edenapi_types::Batch;
+use edenapi_types::CheckPermissionRequest;
+use edenapi_types::CheckPermissionResponse;
 use edenapi_types::FileAuxData;
 use edenapi_types::SaplingRemoteApiServerError;
 use edenapi_types::TreeAttributes;
@@ -429,5 +431,51 @@ impl SaplingRemoteApiHandler for UploadTreesHandler {
         Ok(stream::iter(tokens)
             .buffer_unordered(MAX_CONCURRENT_UPLOAD_TREES_PER_REQUEST)
             .boxed())
+    }
+}
+
+pub struct CheckPermissionHandler;
+
+#[async_trait]
+impl SaplingRemoteApiHandler for CheckPermissionHandler {
+    type Request = CheckPermissionRequest;
+    type Response = CheckPermissionResponse;
+
+    const HTTP_METHOD: hyper::Method = hyper::Method::POST;
+    const API_METHOD: SaplingRemoteApiMethod = SaplingRemoteApiMethod::CheckPermission;
+    const ENDPOINT: &'static str = "/check_permission";
+
+    async fn handler(
+        ectx: SaplingRemoteApiContext<Self::PathExtractor, Self::QueryStringExtractor, Repo>,
+        request: Self::Request,
+    ) -> HandlerResult<'async_trait, Self::Response> {
+        let _repo = ectx.repo();
+
+        // TODO(T248658346): implement check_permission
+        // For each manifest_id in request.manifest_ids:
+        // 1. Fetch HgAugmentedManifest for this manifest_id
+        // 2. Get acl_manifest_directory_id pointer
+        //    - If None: unrestricted, return has_access: true
+        // 3. Fetch AclManifestDirectory using the pointer
+        // 4. Extract ACL names from the directory entry
+        // 5. Check caller's identity against ACLs
+        // 6. If denied, get request_acl from ACL config
+        // 7. Return CheckPermissionResponse
+        //
+        // Use buffer_unordered for concurrent ACL checks.
+        // Gate behind JustKnob scm/mononoke:enable_server_side_path_acls
+        // with switch value "check_permission".
+        // When disabled, return has_access: true for all entries.
+
+        Ok(
+            stream::iter(request.manifest_ids.into_iter().map(|manifest_id| {
+                Ok(CheckPermissionResponse {
+                    manifest_id,
+                    has_access: true,
+                    request_acl: None,
+                })
+            }))
+            .boxed(),
+        )
     }
 }

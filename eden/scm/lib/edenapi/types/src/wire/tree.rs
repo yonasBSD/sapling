@@ -20,6 +20,8 @@ use crate::tree::TreeChildEntry;
 use crate::tree::TreeChildFileEntry;
 use crate::tree::TreeEntry;
 use crate::tree::TreeRequest;
+pub use crate::tree::WireCheckPermissionRequest;
+pub use crate::tree::WireCheckPermissionResponse;
 pub use crate::tree::WireUploadTreeEntry;
 pub use crate::tree::WireUploadTreeRequest;
 pub use crate::tree::WireUploadTreeResponse;
@@ -312,6 +314,8 @@ mod tests {
         WireTreeAttributesRequest,
         WireTreeRequest,
         WireTreeEntry,
-        WireUploadTreeResponse
+        WireUploadTreeResponse,
+        WireCheckPermissionRequest,
+        WireCheckPermissionResponse
     );
 }

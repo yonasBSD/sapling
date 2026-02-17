@@ -30,6 +30,7 @@ define_stats! {
     blame_duration_ms: histogram(100, 0, 5000, Average, Sum, Count; P 50; P 75; P 95; P 99),
     bookmarks2_duration_ms: histogram(10, 0, 500, Average, Sum, Count; P 50; P 75; P 95; P 99),
     capabilities_duration_ms: histogram(100, 0, 5000, Average, Sum, Count; P 50; P 75; P 95; P 99),
+    check_permission_duration_ms: histogram(100, 0, 5000, Average, Sum, Count; P 50; P 75; P 95; P 99),
     cloud_historical_versions_duration_ms: histogram(100, 0, 5000, Average, Sum, Count; P 50; P 75; P 95; P 99),
     cloud_other_repo_workspaces_duration_ms: histogram(100, 0, 5000, Average, Sum, Count; P 50; P 75; P 95; P 99),
     cloud_references_duration_ms: histogram(100, 0, 5000, Average, Sum, Count; P 50; P 75; P 95; P 99),
@@ -108,6 +109,7 @@ fn log_stats(state: &mut State, status: StatusCode) -> Option<()> {
                 Blame => STATS::blame_duration_ms.add_value(dur_ms),
                 Bookmarks2 => STATS::bookmarks2_duration_ms.add_value(dur_ms),
                 Capabilities => STATS::capabilities_duration_ms.add_value(dur_ms),
+                CheckPermission => STATS::check_permission_duration_ms.add_value(dur_ms),
                 CloudHistoricalVersions => {
                     STATS::cloud_historical_versions_duration_ms.add_value(dur_ms)
                 }

@@ -402,3 +402,25 @@ pub struct UploadTreeResponse {
     #[id(1)]
     pub token: UploadToken,
 }
+
+#[auto_wire]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "for-tests"), derive(Arbitrary))]
+pub struct CheckPermissionRequest {
+    #[id(1)]
+    pub manifest_ids: Vec<HgId>,
+}
+
+#[auto_wire]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "for-tests"), derive(Arbitrary))]
+pub struct CheckPermissionResponse {
+    #[id(1)]
+    pub manifest_id: HgId,
+    /// Whether the caller has access to this manifest.
+    #[id(2)]
+    pub has_access: bool,
+    /// ACL to request access through. Present when has_access is false.
+    #[id(3)]
+    pub request_acl: Option<String>,
+}
