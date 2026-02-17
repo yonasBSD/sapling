@@ -578,6 +578,8 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:itertools",
         "//eden/mononoke/blobstore:blobstore",
         "//eden/mononoke/derived_data:derived_data_manager",
         "//eden/mononoke/derived_data/remote/if:derived_data_service_if-rust",
