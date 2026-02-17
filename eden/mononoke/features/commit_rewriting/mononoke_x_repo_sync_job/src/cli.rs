@@ -8,7 +8,6 @@
 use anyhow::Result;
 use clap::Args;
 use clap::Parser;
-use clap::command;
 use executor_lib::args::ShardedExecutorArgs;
 use fbinit::FacebookInit;
 use mononoke_app::MononokeApp;

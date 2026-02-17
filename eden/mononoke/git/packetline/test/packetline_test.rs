@@ -17,7 +17,6 @@ use packetline::encode::write_data_channel;
 use packetline::encode::write_text_packetline;
 use pin_project::pin_project;
 use tokio::io::AsyncWrite;
-use tokio::pin;
 use tokio::time;
 use tokio::time::Duration;
 use tokio::time::Sleep;
