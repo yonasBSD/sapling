@@ -45,6 +45,7 @@ cmddebugtop = { version = "0.1.0", path = "debugcommands/cmddebugtop" }
 cmddebugwait = { version = "0.1.0", path = "debugcommands/cmddebugwait" }
 cmddebugwalkdetector = { version = "0.1.0", path = "debugcommands/cmddebugwalkdetector" }
 cmdgoto = { version = "0.1.0", path = "commands/cmdgoto" }
+cmdgrep = { version = "0.1.0", path = "commands/cmdgrep" }
 cmdpy = { version = "0.1.0", path = "cmdpy" }
 cmdroot = { version = "0.1.0", path = "commands/cmdroot" }
 cmdstatus = { version = "0.1.0", path = "commands/cmdstatus" }

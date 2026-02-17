@@ -2882,16 +2882,9 @@ def _makegraftmessage(to_repo, ctx, opts, from_paths, to_paths, from_repo):
             _("PATTERN"),
         ),
     ],
-    "[OPTION]... PATTERN [FILE]...",
     inferrepo=True,
 )
 def grep(ui, repo, pattern, *pats, **opts):
-    """search for a pattern in tracked files in the working directory
-
-    The default regexp style is POSIX basic regexps. If no FILE parameters are
-    passed in, the current directory and its subdirectories will be searched.
-
-    For the old '@prog@ grep', which searches through history, see 'histgrep'."""
     # Copy match specific options
     match_opts = {}
     for k in ("include", "exclude"):

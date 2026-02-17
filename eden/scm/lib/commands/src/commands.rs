@@ -34,6 +34,7 @@ external_commands![
     cmdconfig,
     cmdconfigfile,
     cmdgoto,
+    cmdgrep,
     cmdroot,
     cmdstatus,
     cmdversion,
