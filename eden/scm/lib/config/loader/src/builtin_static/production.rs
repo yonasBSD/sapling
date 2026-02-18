@@ -80,6 +80,10 @@ ssl.review=#f7923b:color214:brightyellow bold
 ssl.revision=#f21395:color199:brightmagenta bold
 ssl.unpublished=#8d949e:color248:none
 ssl.landfailed=red
+ssl.landenqueued=brightcyan
+ssl.landscheduled=green
+ssl.landonhold=yellow
+ssl.landcancelled=red
 ssl.finalreview=#8036cc:color92:magenta
 ssl.unsync=brightred bold
 ssl.syncdraft = #8d949e:color248:none
@@ -335,6 +339,10 @@ phab_sl_difflabel="{case(phabstatus,
  'Unpublished', 'ssl.unpublished',
  'Committing', 'ssl.landing',
  'Recently Failed to Land', 'ssl.landfailed',
+ 'Land Enqueued', 'ssl.landenqueued',
+ 'Land Scheduled', 'ssl.landscheduled',
+ 'Land On Hold', 'ssl.landonhold',
+ 'Land Cancelled', 'ssl.landcancelled',
  'Needs Final Review', 'ssl.finalreview',
  'sl.diff'
  )}"

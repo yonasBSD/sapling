@@ -109,6 +109,58 @@ If the diff recently failed to land, show "Recently Failed to Land"
   $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
   Recently Failed to Land
 
+If the diff is enqueued for landing, show "Land Enqueued"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": true,
+  >    "land_job_status": "LAND_ENQUEUED",
+  >    "needs_final_review_status": "NOT_NEEDED"}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Land Enqueued
+
+If the diff is scheduled for landing, show "Land Scheduled"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": true,
+  >    "land_job_status": "LAND_SCHEDULED",
+  >    "needs_final_review_status": "NOT_NEEDED"}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Land Scheduled
+
+If the diff land is on hold, show "Land On Hold"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": true,
+  >    "land_job_status": "LAND_ON_HOLD",
+  >    "needs_final_review_status": "NOT_NEEDED"}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Land On Hold
+
+If the diff land was cancelled, show "Land Cancelled"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "LAND_CANCELLED",
+  >    "needs_final_review_status": "NOT_NEEDED"}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Land Cancelled
+
 If the diff needs a final review, show "Needs Final Review"
 
   $ cat > $TESTTMP/mockduit << EOF

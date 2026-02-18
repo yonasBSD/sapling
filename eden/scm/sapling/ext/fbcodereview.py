@@ -337,6 +337,14 @@ def showphabstatus(repo, ctx, templ, **args):
             return "Committing"
         elif landstatus == "LAND_RECENTLY_FAILED":
             return "Recently Failed to Land"
+        elif landstatus == "LAND_ENQUEUED":
+            return "Land Enqueued"
+        elif landstatus == "LAND_SCHEDULED":
+            return "Land Scheduled"
+        elif landstatus == "LAND_ON_HOLD":
+            return "Land On Hold"
+        elif landstatus == "LAND_CANCELLED":
+            return "Land Cancelled"
         elif finalreviewstatus == "NEEDED":
             return "Needs Final Review"
         else:
