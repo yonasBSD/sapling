@@ -295,6 +295,14 @@ impl SourceControlServiceImpl {
                 .collect::<ScubaValue>(),
         );
 
+        scuba.add(
+            "client_identities_typed",
+            identities
+                .iter()
+                .map(|id| id.to_typed_string())
+                .collect::<ScubaValue>(),
+        );
+
         Ok(scuba)
     }
 

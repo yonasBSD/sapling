@@ -125,6 +125,7 @@ impl CommonServerData {
 pub struct CommonMetadata {
     pub session_uuid: String,
     pub client_identities: Vec<String>,
+    pub client_identities_typed: Vec<String>,
     pub client_identity_variant: Option<String>,
     pub source_hostname: Option<String>,
     pub client_ip: Option<String>,
@@ -155,6 +156,11 @@ impl CommonMetadata {
                 .identities()
                 .iter()
                 .map(|i| i.to_string())
+                .collect(),
+            client_identities_typed: metadata
+                .identities()
+                .iter()
+                .map(|i| i.to_typed_string())
                 .collect(),
             fetch_from_cas_attempted: metadata.fetch_from_cas_attempted(),
             ..Default::default()

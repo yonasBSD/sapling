@@ -293,6 +293,15 @@ impl MononokeScubaSampleBuilder {
                 .collect::<Vec<_>>(),
         );
 
+        self.inner.add(
+            "client_identities_typed",
+            metadata
+                .identities()
+                .iter()
+                .map(|i| i.to_typed_string())
+                .collect::<Vec<_>>(),
+        );
+
         self.inner.add_opt(
             "client_identity_variant",
             metadata.identities().first().map(|i| i.variant()),

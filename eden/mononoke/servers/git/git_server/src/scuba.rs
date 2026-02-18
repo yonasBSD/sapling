@@ -43,6 +43,7 @@ pub enum MononokeGitScubaKey {
     NWants,
     ClientMainId,
     ClientIdentities,
+    ClientIdentitiesTyped,
 }
 
 impl AsRef<str> for MononokeGitScubaKey {
@@ -67,6 +68,7 @@ impl AsRef<str> for MononokeGitScubaKey {
             Self::NHaves => "n_haves",
             Self::ClientMainId => "client_main_id",
             Self::ClientIdentities => "client_identities",
+            Self::ClientIdentitiesTyped => "client_identities_typed",
         }
     }
 }
@@ -207,6 +209,13 @@ impl MononokeGitScubaHandler {
         scuba.add(
             MononokeGitScubaKey::ClientIdentities,
             identities.iter().map(|i| i.to_string()).collect::<Vec<_>>(),
+        );
+        scuba.add(
+            MononokeGitScubaKey::ClientIdentitiesTyped,
+            identities
+                .iter()
+                .map(|i| i.to_typed_string())
+                .collect::<Vec<_>>(),
         );
         scuba.add("log_tag", "MononokeGit Request Rejected");
         scuba.unsampled();

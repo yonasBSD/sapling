@@ -91,6 +91,10 @@ impl MononokeIdentity {
     pub fn is_of_type(&self, id_type: &str) -> bool {
         self.id_type() == id_type
     }
+
+    pub fn to_typed_string(&self) -> String {
+        format!("{}:{}:{}", self.id_type(), self.id_data(), self.variant())
+    }
 }
 
 impl fmt::Display for MononokeIdentity {

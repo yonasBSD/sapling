@@ -73,6 +73,8 @@ pub enum HttpScubaKey {
     ClientIp,
     /// The client identities received for the client, if any.
     ClientIdentities,
+    /// The client identities with variant type appended, if any.
+    ClientIdentitiesTyped,
     /// Alias of the sandcastle job, if any.
     SandcastleAlias,
     /// Nonce of the sandcastle job, if any.
@@ -132,6 +134,7 @@ impl AsRef<str> for HttpScubaKey {
             ResponseContentEncoding => "response_content_encoding",
             ClientIp => "client_ip",
             ClientIdentities => "client_identities",
+            ClientIdentitiesTyped => "client_identities_typed",
             SandcastleAlias => "sandcastle_alias",
             SandcastleNonce => "sandcastle_nonce",
             SandcastleVCS => "sandcastle_vcs",
@@ -322,8 +325,10 @@ fn populate_scuba(scuba: &mut MononokeScubaSampleBuilder, state: &mut State) {
         }
         let identities = metadata.identities();
         scuba.sample_for_identities(identities);
+        let identities_typed: Vec<_> = identities.iter().map(|i| i.to_typed_string()).collect();
         let identities: Vec<_> = identities.iter().map(|i| i.to_string()).collect();
         scuba.add(HttpScubaKey::ClientIdentities, identities);
+        scuba.add(HttpScubaKey::ClientIdentitiesTyped, identities_typed);
 
         let client_identity_variant = metadata.identities().first().map(|i| i.variant());
         scuba.add_opt("client_identity_variant", client_identity_variant);

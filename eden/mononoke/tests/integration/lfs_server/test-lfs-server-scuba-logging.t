@@ -97,7 +97,8 @@
       "sandcastle_vcs": null
     },
     "normvector": {
-      "client_identities": []
+      "client_identities": [],
+      "client_identities_typed": []
     }
   }
   {
@@ -164,7 +165,8 @@
       "sandcastle_vcs": null
     },
     "normvector": {
-      "client_identities": []
+      "client_identities": [],
+      "client_identities_typed": []
     }
   }
   {
@@ -236,7 +238,8 @@
     },
     "normvector": {
       "batch_internal_missing_blobs": [],
-      "client_identities": []
+      "client_identities": [],
+      "client_identities_typed": []
     }
   }
   {
@@ -309,7 +312,8 @@
       "sandcastle_vcs": null
     },
     "normvector": {
-      "client_identities": []
+      "client_identities": [],
+      "client_identities_typed": []
     }
   }
   {
@@ -367,7 +371,8 @@
       "sandcastle_vcs": null
     },
     "normvector": {
-      "client_identities": []
+      "client_identities": [],
+      "client_identities_typed": []
     }
   }
 

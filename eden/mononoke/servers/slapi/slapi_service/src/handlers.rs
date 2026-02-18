@@ -435,8 +435,10 @@ where
         }
 
         let identities = metadata.identities();
+        let identities_typed: Vec<_> = identities.iter().map(|i| i.to_typed_string()).collect();
         let identities: Vec<_> = identities.iter().map(|i| i.to_string()).collect();
         base_scuba.add(HttpScubaKey::ClientIdentities, identities);
+        base_scuba.add(HttpScubaKey::ClientIdentitiesTyped, identities_typed);
     }
 
     let reporting_loop = async move {

@@ -202,6 +202,15 @@ impl<T: Blobstore> RedactedBlobstoreInner<T> {
                 .collect::<Vec<_>>(),
         );
 
+        scuba_builder.add(
+            "client_identities_typed",
+            ctx.metadata()
+                .identities()
+                .iter()
+                .map(|i| i.to_typed_string())
+                .collect::<Vec<_>>(),
+        );
+
         scuba_builder.log();
     }
 }

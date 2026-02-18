@@ -77,6 +77,7 @@
       "sandcastle_vcs": null
     },
     "normvector": {
-      "client_identities": []
+      "client_identities": [],
+      "client_identities_typed": []
     }
   }
