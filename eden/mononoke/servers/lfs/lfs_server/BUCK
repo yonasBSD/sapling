@@ -25,7 +25,7 @@ rust_binary(
         "fbsource//third-party/rust:futures-util",
         "fbsource//third-party/rust:gotham",
         "fbsource//third-party/rust:gotham_derive",
-        "fbsource//third-party/rust:http",
+        "fbsource//third-party/rust:http-0-2",
         "fbsource//third-party/rust:hyper-0-14",
         "fbsource//third-party/rust:hyper-openssl-0-9",
         "fbsource//third-party/rust:maplit",
