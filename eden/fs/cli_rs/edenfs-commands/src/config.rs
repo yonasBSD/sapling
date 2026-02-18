@@ -67,12 +67,12 @@ pub struct ReloadConfigCmd {
     )]
     local_telemetry: Option<PathBuf>,
 
-    #[clap(long, parse(from_str = expand_path), help = "Write filtered config file to custom location")]
+    #[clap(long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }, help = "Write filtered config file to custom location")]
     out: Option<PathBuf>,
 
     #[clap(
         long,
-        parse(from_str = expand_path),
+        value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) },
         help = "Read and write location of the raw config which will be used if Configerator sends back an `edenfs_uptodate` response"
     )]
     raw_out: Option<PathBuf>,
@@ -87,14 +87,14 @@ pub struct ReloadConfigCmd {
     #[clap(
         short = 'c',
         long,
-        parse(from_str = expand_path),
+        value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) },
         help = "Load configs from the given local configerator repo instead of reading from remote. This is useful for testing changes locally without having to push them to production"
     )]
     local_cfgr_root: Option<PathBuf>,
 
     #[clap(
         long,
-        parse(from_str = expand_path),
+        value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) },
         help = "Load configs from the given host instead of reading from remote. The specified host must have ran `arc canary` on itself prior to execution. This is useful for testing changes locally without having to push them to production"
     )]
     canary_host: Option<PathBuf>,

@@ -64,7 +64,7 @@ pub struct MinitopCmd {
         short,
         help = "Specify the rate (in seconds) at which eden top updates.",
         default_value = "1",
-        parse(from_str = parse_refresh_rate),
+        value_parser = |s: &str| -> Result<Duration, std::convert::Infallible> { Ok(parse_refresh_rate(s)) },
     )]
     refresh_rate: Duration,
 

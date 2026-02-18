@@ -63,7 +63,7 @@ pub struct DiskUsageCmd {
     #[clap(
         long,
         help = "Performs automated cleanup",
-        conflicts_with = "deep-clean",
+        conflicts_with = "deep_clean",
         conflicts_with = "json"
     )]
     clean: bool,
@@ -82,7 +82,7 @@ pub struct DiskUsageCmd {
         help = "Performs automated cleanup of the orphaned redirections. \
         This is a subset of --clean that is safe to run without affecting \
         running tools relying on redirections.",
-        conflicts_with = "deep-clean",
+        conflicts_with = "deep_clean",
         conflicts_with = "clean",
         conflicts_with = "json"
     )]
@@ -94,20 +94,20 @@ pub struct DiskUsageCmd {
         gives the user the option to purge it. Requires elevated permissions, \
         user will be prompted. Do not run with sudo as this will cause filepath issues. \
         Has no effect on non-APFS filesystems.",
-        conflicts_with = "deep-clean",
+        conflicts_with = "deep_clean",
         conflicts_with = "clean",
         conflicts_with = "json",
-        conflicts_with = "clean-orphaned"
+        conflicts_with = "clean_orphaned"
     )]
     purgeable: bool,
 
     #[clap(
         long,
         help = "Prints only the disk usage summary",
-        conflicts_with = "deep-clean",
+        conflicts_with = "deep_clean",
         conflicts_with = "clean",
         conflicts_with = "json",
-        conflicts_with = "clean-orphaned",
+        conflicts_with = "clean_orphaned",
         conflicts_with = "purgeable"
     )]
     fast: bool,

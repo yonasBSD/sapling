@@ -160,7 +160,7 @@ fn wrapper_main(telemetry_sample: &mut CliUsageSample) -> Result<i32> {
             // We failed to parse the command due to unknown argument/flag.
             // Print the clap-generated error message (which includes helpful usage info)
             // and exit with the same exit code that Python exits with for parse failures.
-            Err(e) if e.kind() == clap::ErrorKind::UnknownArgument => {
+            Err(e) if e.kind() == clap::error::ErrorKind::UnknownArgument => {
                 e.print().ok();
                 std::process::exit(PYTHON_EDENFSCTL_EX_USAGE)
             }
@@ -227,16 +227,16 @@ fn wrapper_main(telemetry_sample: &mut CliUsageSample) -> Result<i32> {
             // display the rust error. We still return the python error code 64 to differentiate from
             // edenfsctl errors(2)
             Err(e) => {
-                if e.kind() == clap::ErrorKind::DisplayHelp
-                    || e.kind() == clap::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+                if e.kind() == clap::error::ErrorKind::DisplayHelp
+                    || e.kind() == clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
                 {
                     if should_use_rust_help(std::env::args(), &None, &None).unwrap_or(false) {
                         e.exit()
                     } else {
                         fallback(Some(&e))
                     }
-                } else if e.kind() == clap::ErrorKind::UnknownArgument
-                    || e.kind() == clap::ErrorKind::InvalidSubcommand
+                } else if e.kind() == clap::error::ErrorKind::UnknownArgument
+                    || e.kind() == clap::error::ErrorKind::InvalidSubcommand
                 {
                     // Failed to parse the command. We should try to fallback to Python.
                     fallback(Some(&e))

@@ -24,7 +24,7 @@ pub(crate) struct CommonArgs {
         long,
         alias = "repo",
         help = "Specify path to mount point (default: root of cwd)",
-        parse(from_str = expand_path)
+        value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }
     )]
     pub(crate) mount_point: Option<PathBuf>,
 

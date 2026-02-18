@@ -29,7 +29,7 @@ use types::RemoveContext;
 #[clap(name = "remove", about = "Remove an EdenFS checkout")]
 pub struct RemoveCmd {
     #[clap(
-        multiple_values = true,
+        num_args = 1..,
         help = "The EdenFS checkout(s) to remove.",
         value_name = "PATH"
     )]
@@ -38,7 +38,7 @@ pub struct RemoveCmd {
     #[clap(
             short = 'y',
             long = "yes",
-            visible_aliases = &["--no-prompt"],
+            visible_aliases = &["no-prompt"],
             help = "Do not prompt for confirmation before removing the checkouts."
         )]
     skip_prompt: bool,
@@ -59,7 +59,7 @@ pub struct RemoveCmd {
     #[clap(long, hide = true)]
     preserve_mount_point: bool,
 
-    #[clap(long = "--no-force", hide = true)]
+    #[clap(long = "no-force", hide = true)]
     no_force: bool,
 }
 

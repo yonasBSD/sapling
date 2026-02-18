@@ -25,7 +25,6 @@ use edenfs_client::utils::get_config_dir;
 use edenfs_client::utils::get_etc_eden_dir;
 use edenfs_client::utils::get_home_dir;
 use hg_util::path::expand_path;
-use tracing::Level;
 use tracing::trace;
 
 mod config;
@@ -96,19 +95,19 @@ type ExitCode = i32;
 )]
 pub struct MainCommand {
     /// Path to directory where edenfs stores its internal state
-    #[clap(global = true, long, parse(from_str = expand_path))]
+    #[clap(global = true, long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) })]
     config_dir: Option<PathBuf>,
 
     /// Path to directory that holds the system configuration files
-    #[clap(global = true, long, parse(from_str = expand_path))]
+    #[clap(global = true, long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) })]
     etc_eden_dir: Option<PathBuf>,
 
     /// Path to directory where .edenrc config file is stored
-    #[clap(global = true, long, parse(from_str = expand_path))]
+    #[clap(global = true, long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) })]
     home_dir: Option<PathBuf>,
 
     /// Path to directory within a checkout
-    #[clap(global = true, long, parse(from_str = expand_path), hide = true)]
+    #[clap(global = true, long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }, hide = true)]
     checkout_dir: Option<PathBuf>,
 
     /// Enable debug mode (more verbose logging, traceback, etc..)

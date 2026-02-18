@@ -29,7 +29,7 @@ use crate::get_edenfs_instance;
 
 #[derive(Parser, Debug)]
 pub struct CommonOptions {
-    #[clap(long, parse(try_from_str = expand_path_or_cwd), default_value = "")]
+    #[clap(long, value_parser = |s: &str| -> Result<PathBuf, anyhow::Error> { expand_path_or_cwd(s) }, default_value = "")]
     /// Path to the mount point
     mount_point: PathBuf,
 

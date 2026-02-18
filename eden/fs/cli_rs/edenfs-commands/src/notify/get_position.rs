@@ -20,7 +20,7 @@ use crate::get_edenfs_instance;
 #[derive(Parser, Debug)]
 #[clap(about = "Returns the current EdenFS journal position")]
 pub struct GetPositionCmd {
-    #[clap(parse(from_str = expand_path))]
+    #[clap(value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) })]
     /// Path to the mount point
     mount_point: Option<PathBuf>,
 

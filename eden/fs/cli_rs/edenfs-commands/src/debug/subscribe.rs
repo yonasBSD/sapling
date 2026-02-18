@@ -108,7 +108,7 @@ impl From<JournalPosition> for SubscribeResponse {
 #[derive(Parser, Debug)]
 #[clap(about = "Subscribes to journal changes. Responses are in JSON format")]
 pub struct SubscribeCmd {
-    #[clap(parse(from_str = expand_path))]
+    #[clap(value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) })]
     /// Path to the mount point
     mount_point: Option<PathBuf>,
 

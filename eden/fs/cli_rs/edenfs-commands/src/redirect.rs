@@ -60,11 +60,11 @@ pub enum RedirectCmd {
     },
     #[clap(about = "Add or change a redirection")]
     Add {
-        #[clap(long, parse(from_str = expand_path), help = "The EdenFS mount point path.")]
+        #[clap(long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }, help = "The EdenFS mount point path.")]
         mount: Option<PathBuf>,
-        #[clap(parse(from_str = expand_path), index = 1, help = "The path in the repo which should be redirected")]
+        #[clap(value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }, index = 1, help = "The path in the repo which should be redirected")]
         repo_path: PathBuf,
-        #[clap(index = 2, help = "The type of the redirection", possible_values = ["bind", "symlink"])]
+        #[clap(index = 2, help = "The type of the redirection", value_parser = ["bind", "symlink"])]
         redir_type: String,
         #[clap(
             long,
@@ -89,7 +89,7 @@ pub enum RedirectCmd {
         so that a subsequent fixup will restore it"
     )]
     Unmount {
-        #[clap(long, parse(from_str = expand_path), help = "The EdenFS mount point path.")]
+        #[clap(long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }, help = "The EdenFS mount point path.")]
         mount: Option<PathBuf>,
         #[clap(
             long,
@@ -99,9 +99,9 @@ pub enum RedirectCmd {
     },
     #[clap(about = "Delete a redirection")]
     Del {
-        #[clap(long, parse(from_str = expand_path), help = "The EdenFS mount point path.")]
+        #[clap(long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }, help = "The EdenFS mount point path.")]
         mount: Option<PathBuf>,
-        #[clap(parse(from_str = expand_path), index = 1, help = "The path in the repo which should no longer be redirected")]
+        #[clap(value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }, index = 1, help = "The path in the repo which should no longer be redirected")]
         repo_path: PathBuf,
         #[clap(
             long,
@@ -114,7 +114,7 @@ pub enum RedirectCmd {
         remove things that should not be redirected"
     )]
     Fixup {
-        #[clap(long, parse(from_str = expand_path), help = "The EdenFS mount point path.")]
+        #[clap(long, value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) }, help = "The EdenFS mount point path.")]
         mount: Option<PathBuf>,
         #[clap(
             long,

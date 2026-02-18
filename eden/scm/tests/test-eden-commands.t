@@ -34,13 +34,12 @@ test rust-python command routing
   edenfsctl: error: unrecognized arguments: activate
   [64]
   $ eden prefetch-profile activate
-  error: The following required arguments were not provided:
-      <PROFILE_NAME>
+  error: the following required arguments were not provided:
+    <PROFILE_NAME>
   * (glob)
-  USAGE:
+  Usage: edenfsctl* prefetch-profile activate <PROFILE_NAME> (glob)
   * (glob)
-  * (glob)
-  For more information try --help
+  For more information, try '--help'.
   [64]
 
 

@@ -38,7 +38,7 @@ pub struct ActivationOptions {
     verbose: bool,
     #[clap(
         long,
-        parse(try_from_str = expand_path_or_cwd),
+        value_parser = |s: &str| -> Result<PathBuf, anyhow::Error> { expand_path_or_cwd(s) },
         default_value = "",
         help = "The checkout for which you want to activate this profile"
     )]
@@ -67,7 +67,7 @@ pub struct FetchOptions {
     foreground: bool,
     #[clap(
         long,
-        multiple_values = true,
+        num_args = 1..,
         help = "Commit hashes of the commits for which globs should be \
         evaluated. Note that the current commit in the checkout is used \
         if this is not specified. Note that the prefetch profiles are \
@@ -100,7 +100,7 @@ pub enum PrefetchProfileCmd {
     Finish {
         #[clap(
             long,
-            parse(from_str = expand_path),
+            value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) },
             default_value = "prefetch_profile.txt",
             help = "The output path to store the prefetch profile"
         )]
@@ -112,7 +112,7 @@ pub enum PrefetchProfileCmd {
     List {
         #[clap(
             long,
-            parse(try_from_str = expand_path_or_cwd),
+            value_parser = |s: &str| -> Result<PathBuf, anyhow::Error> { expand_path_or_cwd(s) },
             default_value = "",
             help = "The checkout for which you want to see all the profiles"
         )]

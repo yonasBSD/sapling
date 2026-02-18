@@ -40,7 +40,7 @@ pub struct ChangesSinceCmd {
     /// Journal position to start from
     position: Option<JournalPosition>,
 
-    #[clap(parse(from_str = expand_path))]
+    #[clap(value_parser = |s: &str| -> Result<PathBuf, std::convert::Infallible> { Ok(expand_path(s)) })]
     /// Path to the mount point
     mount_point: Option<PathBuf>,
 
