@@ -1511,4 +1511,383 @@ mod test {
 
         Ok(())
     }
+
+    #[mononoke::fbinit_test]
+    async fn test_dependency_blocks_dequeue(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let queue = SqlLongRunningRequestsQueue::with_sqlite_in_memory()?;
+        let repo_id = RepositoryId::new(0);
+
+        // Add a parent request (no dependencies)
+        let parent_id = queue
+            .add_request(
+                &ctx,
+                &RequestType("parent_type".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("parent_key".to_string()),
+            )
+            .await?;
+
+        // Add a child request that depends on the parent
+        let child_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("child_type".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("child_key".to_string()),
+                &[parent_id],
+            )
+            .await?;
+
+        // Both should be in 'new' status
+        let parent_entry = queue
+            .test_get_request_entry_by_id(&ctx, &parent_id)
+            .await?
+            .unwrap();
+        assert_eq!(parent_entry.status, RequestStatus::New);
+        let child_entry = queue
+            .test_get_request_entry_by_id(&ctx, &child_id)
+            .await?
+            .unwrap();
+        assert_eq!(child_entry.status, RequestStatus::New);
+
+        // Dequeue should return the parent (no unmet deps), not the child
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_some());
+        let claimed = claimed.unwrap();
+        assert_eq!(claimed.id, parent_id);
+
+        // Dequeue again — child should NOT be dequeued (parent is inprogress, not ready/polled)
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_none());
+
+        // Complete the parent (mark as ready)
+        let parent_req_id = RequestId(parent_id, RequestType("parent_type".to_string()));
+        queue
+            .mark_ready(&ctx, &parent_req_id, BlobstoreKey("result_key".to_string()))
+            .await?;
+
+        // Now dequeue should return the child
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_some());
+        let claimed = claimed.unwrap();
+        assert_eq!(claimed.id, child_id);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_failure_cascades_to_dependents(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let queue = SqlLongRunningRequestsQueue::with_sqlite_in_memory()?;
+        let repo_id = RepositoryId::new(0);
+
+        // Create parent request
+        let parent_id = queue
+            .add_request(
+                &ctx,
+                &RequestType("parent_type".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("parent_key".to_string()),
+            )
+            .await?;
+
+        // Create two children depending on parent
+        let child1_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("child_type".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("child1_key".to_string()),
+                &[parent_id],
+            )
+            .await?;
+
+        let child2_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("child_type".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("child2_key".to_string()),
+                &[parent_id],
+            )
+            .await?;
+
+        // Fail the parent with cascade
+        let failed = queue.mark_failed_with_cascade(&ctx, &parent_id).await?;
+        assert!(failed);
+
+        // Parent should be failed
+        let parent_entry = queue
+            .test_get_request_entry_by_id(&ctx, &parent_id)
+            .await?
+            .unwrap();
+        assert_eq!(parent_entry.status, RequestStatus::Failed);
+
+        // Both children should also be failed
+        let child1_entry = queue
+            .test_get_request_entry_by_id(&ctx, &child1_id)
+            .await?
+            .unwrap();
+        assert_eq!(child1_entry.status, RequestStatus::Failed);
+
+        let child2_entry = queue
+            .test_get_request_entry_by_id(&ctx, &child2_id)
+            .await?
+            .unwrap();
+        assert_eq!(child2_entry.status, RequestStatus::Failed);
+
+        // Nothing should be dequeueable
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_none());
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_serial_slice_chaining(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let queue = SqlLongRunningRequestsQueue::with_sqlite_in_memory()?;
+        let repo_id = RepositoryId::new(0);
+
+        // Create a chain: boundary -> slice1 -> slice2 -> slice3
+        let boundary_id = queue
+            .add_request(
+                &ctx,
+                &RequestType("derive_boundaries".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("boundary_key".to_string()),
+            )
+            .await?;
+
+        let slice1_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("derive_slice".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("slice1_key".to_string()),
+                &[boundary_id],
+            )
+            .await?;
+
+        let slice2_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("derive_slice".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("slice2_key".to_string()),
+                &[boundary_id, slice1_id],
+            )
+            .await?;
+
+        let slice3_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("derive_slice".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("slice3_key".to_string()),
+                &[boundary_id, slice2_id],
+            )
+            .await?;
+
+        // Verify dependencies were recorded correctly
+        let slice1_deps = queue.get_dependencies(&ctx, &slice1_id).await?;
+        assert_eq!(slice1_deps, vec![boundary_id]);
+
+        let slice2_deps = queue.get_dependencies(&ctx, &slice2_id).await?;
+        assert_eq!(slice2_deps.len(), 2);
+        assert!(slice2_deps.contains(&boundary_id));
+        assert!(slice2_deps.contains(&slice1_id));
+
+        let slice3_deps = queue.get_dependencies(&ctx, &slice3_id).await?;
+        assert_eq!(slice3_deps.len(), 2);
+        assert!(slice3_deps.contains(&boundary_id));
+        assert!(slice3_deps.contains(&slice2_id));
+
+        // Only boundary should be dequeueable initially
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_some());
+        assert_eq!(claimed.unwrap().id, boundary_id);
+
+        // No more dequeueable (boundary is inprogress, slices blocked)
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_none());
+
+        // Complete boundary
+        let boundary_req_id = RequestId(boundary_id, RequestType("derive_boundaries".to_string()));
+        queue
+            .mark_ready(
+                &ctx,
+                &boundary_req_id,
+                BlobstoreKey("boundary_result".to_string()),
+            )
+            .await?;
+
+        // Now slice1 should be dequeueable (boundary is ready)
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_some());
+        assert_eq!(claimed.unwrap().id, slice1_id);
+
+        // slice2 still blocked (slice1 is inprogress)
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_none());
+
+        // Complete slice1
+        let slice1_req_id = RequestId(slice1_id, RequestType("derive_slice".to_string()));
+        queue
+            .mark_ready(
+                &ctx,
+                &slice1_req_id,
+                BlobstoreKey("slice1_result".to_string()),
+            )
+            .await?;
+
+        // Now slice2 should be dequeueable
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_some());
+        assert_eq!(claimed.unwrap().id, slice2_id);
+
+        // Complete slice2
+        let slice2_req_id = RequestId(slice2_id, RequestType("derive_slice".to_string()));
+        queue
+            .mark_ready(
+                &ctx,
+                &slice2_req_id,
+                BlobstoreKey("slice2_result".to_string()),
+            )
+            .await?;
+
+        // Now slice3 should be dequeueable
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_some());
+        assert_eq!(claimed.unwrap().id, slice3_id);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_failure_cascade_multi_level(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let queue = SqlLongRunningRequestsQueue::with_sqlite_in_memory()?;
+        let repo_id = RepositoryId::new(0);
+
+        // Create the chain from backfill_enqueue:
+        // Boundary (no deps)
+        // Slice1 → [Boundary]
+        // Slice2 → [Boundary, Slice1]
+        // Slice3 → [Boundary, Slice2]
+        let boundary_id = queue
+            .add_request(
+                &ctx,
+                &RequestType("derive_boundaries".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("boundary_key".to_string()),
+            )
+            .await?;
+
+        let slice1_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("derive_slice".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("slice1_key".to_string()),
+                &[boundary_id],
+            )
+            .await?;
+
+        let slice2_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("derive_slice".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("slice2_key".to_string()),
+                &[boundary_id, slice1_id],
+            )
+            .await?;
+
+        let slice3_id = queue
+            .add_request_with_dependencies(
+                &ctx,
+                &RequestType("derive_slice".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("slice3_key".to_string()),
+                &[boundary_id, slice2_id],
+            )
+            .await?;
+
+        // Complete boundary so slice1 can be dequeued
+        let boundary_req_id = RequestId(boundary_id, RequestType("derive_boundaries".to_string()));
+        // Claim boundary first so we can mark it ready (needs inprogress status)
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert_eq!(claimed.unwrap().id, boundary_id);
+        queue
+            .mark_ready(
+                &ctx,
+                &boundary_req_id,
+                BlobstoreKey("boundary_result".to_string()),
+            )
+            .await?;
+
+        // Claim slice1 and then fail it with cascade
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert_eq!(claimed.unwrap().id, slice1_id);
+
+        // Fail slice1 — should cascade to slice2 (direct dependent)
+        // AND slice3 (transitive dependent via slice2)
+        let failed = queue.mark_failed_with_cascade(&ctx, &slice1_id).await?;
+        assert!(failed);
+
+        // Slice1 should be failed
+        let entry = queue
+            .test_get_request_entry_by_id(&ctx, &slice1_id)
+            .await?
+            .unwrap();
+        assert_eq!(entry.status, RequestStatus::Failed);
+
+        // Slice2 should be failed (direct dependent of slice1)
+        let entry = queue
+            .test_get_request_entry_by_id(&ctx, &slice2_id)
+            .await?
+            .unwrap();
+        assert_eq!(entry.status, RequestStatus::Failed);
+
+        // Slice3 should ALSO be failed (transitive dependent via slice2)
+        let entry = queue
+            .test_get_request_entry_by_id(&ctx, &slice3_id)
+            .await?
+            .unwrap();
+        assert_eq!(entry.status, RequestStatus::Failed);
+
+        // Nothing should be dequeueable
+        let claimed = queue
+            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .await?;
+        assert!(claimed.is_none());
+
+        Ok(())
+    }
 }
