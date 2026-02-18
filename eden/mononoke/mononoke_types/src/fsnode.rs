@@ -10,6 +10,7 @@ use anyhow::Result;
 use anyhow::bail;
 use fbthrift::compact_protocol;
 use sorted_vector_map::SortedVectorMap;
+use thrift_convert::ThriftConvert;
 
 use crate::blob::Blob;
 use crate::blob::BlobstoreValue;

@@ -18,6 +18,7 @@ use quickcheck::empty_shrinker;
 use quickcheck::single_shrinker;
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
+use thrift_convert::ThriftConvert;
 
 use crate::errors::MononokeTypeError;
 use crate::path::NonRootMPath;
@@ -506,8 +507,13 @@ impl FileType {
             GitSubmodule => [Regular, Executable, Symlink],
         }
     }
+}
 
-    pub fn from_thrift(ft: thrift::bonsai::FileType) -> Result<Self> {
+impl ThriftConvert for FileType {
+    const NAME: &'static str = "FileType";
+    type Thrift = thrift::bonsai::FileType;
+
+    fn from_thrift(ft: Self::Thrift) -> Result<Self> {
         let file_type = match ft {
             thrift::bonsai::FileType::Regular => FileType::Regular,
             thrift::bonsai::FileType::Executable => FileType::Executable,
@@ -521,7 +527,7 @@ impl FileType {
         Ok(file_type)
     }
 
-    pub fn into_thrift(self) -> thrift::bonsai::FileType {
+    fn into_thrift(self) -> Self::Thrift {
         match self {
             FileType::Regular => thrift::bonsai::FileType::Regular,
             FileType::Executable => thrift::bonsai::FileType::Executable,
