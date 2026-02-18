@@ -13,3 +13,6 @@ CREATE TABLE IF NOT EXISTS `long_running_request_dependencies` (
 
 CREATE INDEX IF NOT EXISTS `idx_depends_on`
   ON `long_running_request_dependencies` (`depends_on_request_id`);
+
+CREATE INDEX IF NOT EXISTS `idx_request_id`
+  ON `long_running_request_dependencies` (`request_id`);

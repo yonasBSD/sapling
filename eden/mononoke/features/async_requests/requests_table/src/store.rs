@@ -102,7 +102,7 @@ mononoke_queries! {
         WHERE id = {id} AND request_type = {request_type}"
     }
 
-    read GetOneNewRequestForGlobalQueue() -> (
+    read GetOneNewRequestForGlobalQueueWithDeps() -> (
         RowId,
         RequestType,
         Option<RepositoryId>,
@@ -118,47 +118,37 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
     ) {
-        mysql("SELECT id,
-            request_type,
-            repo_id,
-            args_blobstore_key,
-            result_blobstore_key,
-            created_at,
-            started_processing_at,
-            inprogress_last_updated_at,
-            ready_at,
-            polled_at,
-            status,
-            claimed_by,
-            num_retries,
-            failed_at
-        FROM long_running_request_queue
-        WHERE status = 'new' AND repo_id IS NULL
-        ORDER BY created_at ASC
-        LIMIT 1
-        ")
-        sqlite("SELECT id,
-            request_type,
-            repo_id,
-            args_blobstore_key,
-            result_blobstore_key,
-            created_at,
-            started_processing_at,
-            inprogress_last_updated_at,
-            ready_at,
-            polled_at,
-            status,
-            claimed_by,
-            num_retries,
-            failed_at
-        FROM long_running_request_queue
-        WHERE status = 'new' AND repo_id IS NULL
-        ORDER BY created_at ASC
-        LIMIT 1
-        ")
+        "SELECT
+           q.id,
+           q.request_type,
+           q.repo_id,
+           q.args_blobstore_key,
+           q.result_blobstore_key,
+           q.created_at,
+           q.started_processing_at,
+           q.inprogress_last_updated_at,
+           q.ready_at,
+           q.polled_at,
+           q.status,
+           q.claimed_by,
+           q.num_retries,
+           q.failed_at
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND q.repo_id IS NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent
+               ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id
+               AND parent.status NOT IN ('ready', 'polled')
+            )
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        "
     }
 
-    read GetOneNewRequestForRepos(>list supported_repo_ids: RepositoryId) -> (
+    read GetOneNewRequestForReposWithDeps(>list supported_repo_ids: RepositoryId) -> (
         RowId,
         RequestType,
         Option<RepositoryId>,
@@ -174,44 +164,34 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
     ) {
-        mysql("SELECT id,
-            request_type,
-            repo_id,
-            args_blobstore_key,
-            result_blobstore_key,
-            created_at,
-            started_processing_at,
-            inprogress_last_updated_at,
-            ready_at,
-            polled_at,
-            status,
-            claimed_by,
-            num_retries,
-            failed_at
-        FROM long_running_request_queue
-        WHERE status = 'new' AND repo_id IN {supported_repo_ids}
-        ORDER BY created_at ASC
-        LIMIT 1
-        ")
-        sqlite("SELECT id,
-            request_type,
-            repo_id,
-            args_blobstore_key,
-            result_blobstore_key,
-            created_at,
-            started_processing_at,
-            inprogress_last_updated_at,
-            ready_at,
-            polled_at,
-            status,
-            claimed_by,
-            num_retries,
-            failed_at
-        FROM long_running_request_queue
-        WHERE status = 'new' AND repo_id IN {supported_repo_ids}
-        ORDER BY created_at ASC
-        LIMIT 1
-        ")
+        "SELECT
+           q.id,
+           q.request_type,
+           q.repo_id,
+           q.args_blobstore_key,
+           q.result_blobstore_key,
+           q.created_at,
+           q.started_processing_at,
+           q.inprogress_last_updated_at,
+           q.ready_at,
+           q.polled_at,
+           q.status,
+           q.claimed_by,
+           q.num_retries,
+           q.failed_at
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND q.repo_id IN {supported_repo_ids}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent
+               ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id
+               AND parent.status NOT IN ('ready', 'polled')
+            )
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        "
     }
 
     write AddRequestWithRepo(request_type: RequestType, repo_id: RepositoryId, args_blobstore_key: BlobstoreKey, created_at: Timestamp) {
@@ -517,6 +497,39 @@ mononoke_queries! {
         GROUP BY repo_id, status
         "
     }
+
+    write AddDependency(
+        request_id: RowId,
+        depends_on_request_id: RowId,
+    ) {
+        none,
+        "INSERT INTO long_running_request_dependencies
+         (request_id, depends_on_request_id)
+         VALUES ({request_id}, {depends_on_request_id})
+        "
+    }
+
+    read GetDependencies(request_id: RowId) -> (RowId,) {
+        "SELECT depends_on_request_id
+         FROM long_running_request_dependencies
+         WHERE request_id = {request_id}
+        "
+    }
+
+    write FailRequestWithCascade(request_id: RowId, failed_at: Timestamp) {
+        none,
+        "WITH RECURSIVE to_fail(id) AS (
+             SELECT {request_id}
+             UNION
+             SELECT dep.request_id FROM long_running_request_dependencies dep
+             JOIN to_fail tf ON dep.depends_on_request_id = tf.id
+         )
+         UPDATE long_running_request_queue
+         SET status = 'failed', failed_at = {failed_at}
+         WHERE id IN (SELECT id FROM to_fail)
+           AND status IN ('new', 'inprogress')
+        "
+    }
 }
 
 fn row_to_entry(
@@ -624,37 +637,42 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
     ) -> Result<Option<LongRunningRequestEntry>> {
         // Spin until we win the race or there's nothing to do.
         loop {
-            let connection = &self.connections.read_master_connection; // reaching DB master improves our chances.
-            let rows = match supported_repos {
+            let txn = self
+                .connections
+                .write_connection
+                .start_transaction(ctx.sql_query_telemetry())
+                .await?;
+
+            let (txn, rows) = match supported_repos {
                 Some(repos) => {
-                    GetOneNewRequestForRepos::query(connection, ctx.sql_query_telemetry(), repos)
-                        .await
+                    GetOneNewRequestForReposWithDeps::query_with_transaction(txn, repos).await
                 }
-                None => {
-                    GetOneNewRequestForGlobalQueue::query(connection, ctx.sql_query_telemetry())
-                        .await
-                }
+                None => GetOneNewRequestForGlobalQueueWithDeps::query_with_transaction(txn).await,
             }
             .context("claiming new request")?;
             let mut entry = match rows.into_iter().next() {
                 None => {
+                    txn.rollback().await?;
                     return Ok(None);
                 }
                 Some(row) => row_to_entry(row),
             };
-            if self
-                .mark_in_progress(
-                    ctx,
-                    &RequestId(entry.id, entry.request_type.clone()),
-                    claimed_by,
-                )
-                .await?
-            {
-                // Success, we won the race!
+            let now = Timestamp::now();
+            let (txn, res) = MarkRequestInProgress::query_with_transaction(
+                txn,
+                &entry.id,
+                &entry.request_type,
+                &now,
+                claimed_by,
+            )
+            .await?;
+            if res.affected_rows() > 0 {
+                txn.commit().await?;
                 entry.status = RequestStatus::InProgress;
                 return Ok(Some(entry));
             }
-            // Failure, let's try again.
+            // Another worker claimed it between our SELECT and UPDATE, retry.
+            txn.rollback().await?;
         }
     }
 
@@ -1060,8 +1078,10 @@ async fn get_queue_age_by_repo(
 impl SqlConstruct for SqlLongRunningRequestsQueue {
     const LABEL: &'static str = "long_running_requests_queue";
 
-    const CREATION_QUERY: &'static str =
-        include_str!("../schemas/sqlite-long_running_requests_queue.sql");
+    const CREATION_QUERY: &'static str = concat!(
+        include_str!("../schemas/sqlite-long_running_requests_queue.sql"),
+        include_str!("../schemas/sqlite-long_running_request_dependencies.sql"),
+    );
 
     fn from_sql_connections(connections: SqlConnections) -> Self {
         Self { connections }
