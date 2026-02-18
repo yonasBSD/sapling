@@ -347,7 +347,7 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
             if let Some(executor) = args.sharded_executor_args.build_executor(
                 app.fb,
                 runtime.clone(),
-                || Arc::new(MononokeGitServerProcess::new(repos_mgr)),
+                || Arc::new(MononokeGitServerProcess::new(app.fb, repos_mgr)),
                 false, // disable shard (repo) level healing
                 SM_CLEANUP_TIMEOUT_SECS,
             )? {

@@ -105,6 +105,7 @@ members = [
   "cmdlib/scrubbing",
   "cmdlib/sharding",
   "cmdlib/sharding_ext",
+  "cmdlib/sharding_observability",
   "cmdlib/zk_leader_election",
   "common/acl_regions",
   "common/assembly_line",

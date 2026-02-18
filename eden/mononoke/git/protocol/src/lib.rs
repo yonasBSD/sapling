@@ -13,7 +13,6 @@ use bonsai_git_mapping::BonsaiGitMappingRef;
 use bonsai_tag_mapping::BonsaiTagMappingRef;
 use bookmarks::BookmarksRef;
 use bookmarks_cache::BookmarksCacheRef;
-use buffered_weighted::WeightObserver;
 use commit_graph::CommitGraphRef;
 use commit_graph::CommitGraphWriterRef;
 use filestore::FilestoreConfigRef;
@@ -25,6 +24,7 @@ use repo_blobstore::RepoBlobstoreArc;
 use repo_derived_data::RepoDerivedDataArc;
 use repo_derived_data::RepoDerivedDataRef;
 use repo_identity::RepoIdentityRef;
+use weight_observer::WeightObserver;
 
 pub mod bookmarks_provider;
 pub mod generator;

@@ -1,0 +1,14 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("scm_server_infra")
+
+rust_library(
+    name = "sharding_observability",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "//common/rust/shed/fbinit:fbinit",
+        "//common/rust/shed/stats:stats",
+        "//common/rust/shed/weight_observer:weight_observer",
+        "//eden/mononoke/cmdlib/sharding_ext:sharding_ext",
+    ],
+)

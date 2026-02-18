@@ -11,9 +11,11 @@ use anyhow::Context;
 use async_trait::async_trait;
 use executor_lib::RepoShardedProcess;
 use executor_lib::RepoShardedProcessExecutor;
+use fbinit::FacebookInit;
 use metaconfig_types::ShardedService;
 use mononoke_app::MononokeReposManager;
 use sharding_ext::RepoShard;
+use sharding_observability::WeightTracker;
 use tracing::info;
 
 use crate::Repo;
@@ -21,12 +23,13 @@ use crate::Repo;
 /// Struct representing the Mononoke Git Server process when sharding by
 /// repo.
 pub struct MononokeGitServerProcess {
+    fb: FacebookInit,
     repos_mgr: Arc<MononokeReposManager<Repo>>,
 }
 
 impl MononokeGitServerProcess {
-    pub fn new(repos_mgr: Arc<MononokeReposManager<Repo>>) -> Self {
-        Self { repos_mgr }
+    pub fn new(fb: FacebookInit, repos_mgr: Arc<MononokeReposManager<Repo>>) -> Self {
+        Self { fb, repos_mgr }
     }
 }
 
@@ -49,7 +52,9 @@ impl RepoShardedProcess for MononokeGitServerProcess {
         } else {
             info!("Repo {} is already setup in Mononoke Git Server", repo_name);
         }
+        WeightTracker::on_shard_added(self.fb, repo_name);
         Ok(Arc::new(MononokeGitServerExecutor {
+            fb: self.fb,
             repo_name: repo_name.to_string(),
             repos_mgr: self.repos_mgr.clone(),
         }))
@@ -59,6 +64,7 @@ impl RepoShardedProcess for MononokeGitServerProcess {
 /// Struct representing the execution of the Mononoke Git Server for a
 /// particular repo when sharding by repo.
 pub struct MononokeGitServerExecutor {
+    fb: FacebookInit,
     repo_name: String,
     repos_mgr: Arc<MononokeReposManager<Repo>>,
 }
@@ -90,6 +96,7 @@ impl RepoShardedProcessExecutor for MononokeGitServerExecutor {
             .unwrap_or(false);
         if is_deep_sharded {
             self.repos_mgr.remove_repo(&self.repo_name);
+            WeightTracker::on_shard_removed(self.fb, &self.repo_name);
             info!(
                 "No longer serving repo {} in Mononoke Git Server",
                 &self.repo_name,
