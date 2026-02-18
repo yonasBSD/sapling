@@ -158,6 +158,9 @@ impl AsyncMethodRequestQueue {
             .count_inprogress_by_types(ctx, &type_refs)
             .await?;
 
+        // We need to have dequeued the new request to know its type, so
+        // it will be included in the count. So this check is > rather than
+        // >= to allow for this.
         if current_count > max_concurrent {
             return Ok(true);
         }
@@ -598,7 +601,6 @@ mod tests {
     use crate::types::MegarepoChangeTargetConfig;
     use crate::types::MegarepoRemergeSource;
     use crate::types::MegarepoSyncChangeset;
-
     macro_rules! test_enqueue_dequeue_and_poll_once {
         {
             $fn_name: ident,
@@ -844,5 +846,218 @@ mod tests {
         assert_ne!(entry.failed_at, None);
 
         Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_concurrency_limit_grouped(fb: FacebookInit) -> Result<(), Error> {
+        let ctx = CoreContext::test_mock(fb);
+
+        // derive_boundaries and derive_slice share the "derive_backfill" switch,
+        // so they share a single concurrency limit.
+        with_just_knobs_async(
+            JustKnobsInMemory::new(hashmap! {
+                JK_MAX_CONCURRENT.to_string() => KnobVal::Int(3),
+            }),
+            test_concurrency_limit_grouped_impl(&ctx).boxed(),
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn test_concurrency_limit_grouped_impl(ctx: &CoreContext) -> Result<(), Error> {
+        let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
+        let repo_id = repo.repo_identity().id();
+        let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+        let claimed_by = ClaimedBy("tests".to_string());
+
+        let make_boundaries_params = || source_control::DeriveBoundariesParams {
+            repo_id: repo_id.id() as i64,
+            derived_data_type: "fsnodes".to_string(),
+            ..Default::default()
+        };
+
+        let make_slice_params = || source_control::DeriveSliceParams {
+            repo_id: repo_id.id() as i64,
+            derived_data_type: "fsnodes".to_string(),
+            ..Default::default()
+        };
+
+        // Enqueue a mix of derive_boundaries and derive_slice requests
+        let token1 = q
+            .enqueue(ctx, Some(&repo_id), make_boundaries_params())
+            .await?;
+        let token2 = q.enqueue(ctx, Some(&repo_id), make_slice_params()).await?;
+        let token3 = q
+            .enqueue(ctx, Some(&repo_id), make_boundaries_params())
+            .await?;
+        let token4 = q.enqueue(ctx, Some(&repo_id), make_slice_params()).await?;
+
+        let row_id1 = token1.to_db_id()?;
+        let entry1 = q
+            .table
+            .test_get_request_entry_by_id(ctx, &row_id1)
+            .await?
+            .expect("Request 1 is missing in the DB");
+        let req_id1 = RequestId(row_id1, entry1.request_type);
+
+        let row_id2 = token2.to_db_id()?;
+        let entry2 = q
+            .table
+            .test_get_request_entry_by_id(ctx, &row_id2)
+            .await?
+            .expect("Request 2 is missing in the DB");
+        let req_id2 = RequestId(row_id2, entry2.request_type);
+
+        let row_id3 = token3.to_db_id()?;
+        let entry3 = q
+            .table
+            .test_get_request_entry_by_id(ctx, &row_id3)
+            .await?
+            .expect("Request 3 is missing in the DB");
+        let req_id3 = RequestId(row_id3, entry3.request_type);
+
+        let row_id4 = token4.to_db_id()?;
+        let entry4 = q
+            .table
+            .test_get_request_entry_by_id(ctx, &row_id4)
+            .await?
+            .expect("Request 4 is missing in the DB");
+        let req_id4 = RequestId(row_id4, entry4.request_type);
+
+        let boundaries_type = RequestType("derive_boundaries".to_string());
+        let slice_type = RequestType("derive_slice".to_string());
+
+        // With no requests in progress, both types should pass
+        assert!(!q.concurrency_limit_reached(ctx, &boundaries_type).await?);
+        assert!(!q.concurrency_limit_reached(ctx, &slice_type).await?);
+
+        // Mark first request (derive_boundaries) as in-progress
+        q.table.mark_in_progress(ctx, &req_id1, &claimed_by).await?;
+
+        // 1 in group, limit 3 — should pass for both types
+        assert!(!q.concurrency_limit_reached(ctx, &boundaries_type).await?);
+        assert!(!q.concurrency_limit_reached(ctx, &slice_type).await?);
+
+        // Mark second request (derive_slice) as in-progress
+        q.table.mark_in_progress(ctx, &req_id2, &claimed_by).await?;
+
+        // 2 in group (1 boundaries + 1 slice), limit 3 — should still pass
+        assert!(!q.concurrency_limit_reached(ctx, &boundaries_type).await?);
+        assert!(!q.concurrency_limit_reached(ctx, &slice_type).await?);
+
+        // Mark third request (derive_boundaries) as in-progress
+        q.table.mark_in_progress(ctx, &req_id3, &claimed_by).await?;
+
+        // 3 in group (2 boundaries + 1 slice), at limit 3 — not exceeded yet
+        assert!(!q.concurrency_limit_reached(ctx, &boundaries_type).await?);
+        assert!(!q.concurrency_limit_reached(ctx, &slice_type).await?);
+
+        // Mark fourth request (derive_slice) as in-progress
+        q.table.mark_in_progress(ctx, &req_id4, &claimed_by).await?;
+
+        // 4 in group, limit 3 — exceeded
+        assert!(q.concurrency_limit_reached(ctx, &boundaries_type).await?);
+        assert!(q.concurrency_limit_reached(ctx, &slice_type).await?);
+
+        // Complete the first request — back to 3 in group, at limit but not over
+        let fake_result: AsynchronousRequestResult =
+            source_control::DeriveBoundariesResponse::default().into();
+        q.complete(ctx, &req_id1, fake_result).await?;
+        assert!(!q.concurrency_limit_reached(ctx, &boundaries_type).await?);
+        assert!(!q.concurrency_limit_reached(ctx, &slice_type).await?);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_concurrency_limit_ungrouped(fb: FacebookInit) -> Result<(), Error> {
+        let ctx = CoreContext::test_mock(fb);
+
+        // Ungrouped types use their own name as the switch and only count
+        // their own in-progress requests.
+        with_just_knobs_async(
+            JustKnobsInMemory::new(hashmap! {
+                JK_MAX_CONCURRENT.to_string() => KnobVal::Int(1),
+            }),
+            async {
+                let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
+                let repo_id = repo.repo_identity().id();
+                let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+                let claimed_by = ClaimedBy("tests".to_string());
+
+                let megarepo_type = RequestType("megarepo_sync_changeset".to_string());
+
+                // No in-progress requests — should pass
+                assert!(!q.concurrency_limit_reached(&ctx, &megarepo_type).await?);
+
+                // Enqueue and mark a megarepo request in-progress
+                let params = ThriftMegarepoSyncChangesetParams {
+                    target: ThriftMegarepoTarget {
+                        bookmark: "oculus".to_string(),
+                        repo: Some(RepoSpecifier {
+                            name: "test".to_string(),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                };
+                let token = q.enqueue(&ctx, Some(&repo_id), params.clone()).await?;
+                let row_id = token.to_db_id()?;
+                let entry = q
+                    .table
+                    .test_get_request_entry_by_id(&ctx, &row_id)
+                    .await?
+                    .expect("Request is missing in the DB");
+                let req_id = RequestId(row_id, entry.request_type);
+                q.table.mark_in_progress(&ctx, &req_id, &claimed_by).await?;
+
+                // 1 in-progress, at limit 1 — not exceeded yet
+                assert!(!q.concurrency_limit_reached(&ctx, &megarepo_type).await?);
+
+                // Enqueue and mark a second request in-progress
+                let token2 = q.enqueue(&ctx, Some(&repo_id), params).await?;
+                let row_id2 = token2.to_db_id()?;
+                let entry2 = q
+                    .table
+                    .test_get_request_entry_by_id(&ctx, &row_id2)
+                    .await?
+                    .expect("Request 2 is missing in the DB");
+                let req_id2 = RequestId(row_id2, entry2.request_type);
+                q.table
+                    .mark_in_progress(&ctx, &req_id2, &claimed_by)
+                    .await?;
+
+                // 2 in-progress, limit 1 — exceeded
+                assert!(q.concurrency_limit_reached(&ctx, &megarepo_type).await?);
+
+                Ok(())
+            }
+            .boxed(),
+        )
+        .await
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_concurrency_limit_zero_means_unlimited(fb: FacebookInit) -> Result<(), Error> {
+        let ctx = CoreContext::test_mock(fb);
+
+        with_just_knobs_async(
+            JustKnobsInMemory::new(hashmap! {
+                JK_MAX_CONCURRENT.to_string() => KnobVal::Int(0),
+            }),
+            async {
+                let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
+                let repo_id = repo.repo_identity().id();
+                let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+                let request_type = RequestType("derive_boundaries".to_string());
+
+                // Zero means unlimited — should always pass
+                assert!(!q.concurrency_limit_reached(&ctx, &request_type).await?);
+                Ok(())
+            }
+            .boxed(),
+        )
+        .await
     }
 }
