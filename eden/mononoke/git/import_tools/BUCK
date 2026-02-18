@@ -18,7 +18,7 @@ rust_library(
         "fbsource//third-party/rust:gix-object",
         "fbsource//third-party/rust:http",
         "fbsource//third-party/rust:hyper-0-14",
-        "fbsource//third-party/rust:hyper-openssl",
+        "fbsource//third-party/rust:hyper-openssl-0-9",
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:openssl",
         "fbsource//third-party/rust:rand",
