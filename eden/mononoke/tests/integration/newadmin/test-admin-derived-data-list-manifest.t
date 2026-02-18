@@ -83,7 +83,7 @@ Fsnodes from B's root path (recursive)
 
 Content manifests
   $ mononoke_admin derived-data -R repo list-manifest -p "a" -B main -t content-manifests --derive | sort
-  a/b/	6c6855704970b38c87329e762932ff95eebcfb2b60ec2e93150f6b5270b42e1f
+  a/b/	f422eaf3d8684d0116745ae3c9271b392a39921fa245d458b5c5ae6a1d0b55b9
   a/foo.txt	67f9f510b6a13f94986928ba0f270ec005b194edd77b22a13dec797471a4fe85	type=regular	size=5
 Content manifests from root path, recursive
   $ mononoke_admin derived-data -R repo list-manifest -p "" -B main -t content-manifests --recursive | sort

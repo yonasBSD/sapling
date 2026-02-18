@@ -18,6 +18,7 @@ use crate::ThriftConvert;
 use crate::blob::Blob;
 use crate::blob::BlobstoreValue;
 use crate::blob::ContentManifestBlob;
+use crate::sharded_map_v2::Rollup;
 use crate::sharded_map_v2::ShardedMapV2Node;
 use crate::sharded_map_v2::ShardedMapV2Value;
 use crate::thrift;
@@ -40,6 +41,7 @@ pub struct ContentManifestFile {
 #[thrift(thrift::content_manifest::ContentManifestDirectory)]
 pub struct ContentManifestDirectory {
     pub id: ContentManifestId,
+    pub rollup_data: ContentManifestRollupData,
 }
 
 #[derive(ThriftConvert, Debug, Clone, PartialEq, Eq, Hash)]
@@ -137,9 +139,75 @@ impl BlobstoreValue for ContentManifest {
 impl ShardedMapV2Value for ContentManifestEntry {
     type NodeId = ShardedMapV2NodeContentManifestId;
     type Context = ShardedMapV2NodeContentManifestContext;
-    type RollupData = ();
+    type RollupData = ContentManifestRollupData;
 
     const WEIGHT_LIMIT: usize = 2000;
+}
+
+#[derive(ThriftConvert, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[thrift(thrift::content_manifest::ContentManifestCounts)]
+pub struct ContentManifestCounts {
+    pub files_count: u64,
+    pub dirs_count: u64,
+    pub files_total_size: u64,
+}
+
+#[derive(ThriftConvert, Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[thrift(thrift::content_manifest::ContentManifestRollupData)]
+pub struct ContentManifestRollupData {
+    // Counts for the immediate children of this directory
+    pub child_counts: ContentManifestCounts,
+    // Counts for all descendants of this directory recursively
+    pub descendant_counts: ContentManifestCounts,
+}
+
+impl Rollup<ContentManifestEntry> for ContentManifestRollupData {
+    fn rollup(entry: Option<&ContentManifestEntry>, child_rollup_data: Vec<Self>) -> Self {
+        child_rollup_data.into_iter().fold(
+            ContentManifestRollupData {
+                child_counts: entry.map_or(Default::default(), |entry| match entry {
+                    ContentManifestEntry::File(f) => ContentManifestCounts {
+                        files_count: 1,
+                        dirs_count: 0,
+                        files_total_size: f.size,
+                    },
+                    ContentManifestEntry::Directory(_) => ContentManifestCounts {
+                        files_count: 0,
+                        dirs_count: 1,
+                        files_total_size: 0,
+                    },
+                }),
+                descendant_counts: entry.map_or(Default::default(), |entry| match entry {
+                    ContentManifestEntry::File(f) => ContentManifestCounts {
+                        files_count: 1,
+                        dirs_count: 0,
+                        files_total_size: f.size,
+                    },
+                    ContentManifestEntry::Directory(d) => ContentManifestCounts {
+                        files_count: d.rollup_data.descendant_counts.files_count,
+                        dirs_count: d.rollup_data.descendant_counts.dirs_count + 1,
+                        files_total_size: d.rollup_data.descendant_counts.files_total_size,
+                    },
+                }),
+            },
+            |acc, child| ContentManifestRollupData {
+                child_counts: ContentManifestCounts {
+                    files_count: acc.child_counts.files_count + child.child_counts.files_count,
+                    dirs_count: acc.child_counts.dirs_count + child.child_counts.dirs_count,
+                    files_total_size: acc.child_counts.files_total_size
+                        + child.child_counts.files_total_size,
+                },
+                descendant_counts: ContentManifestCounts {
+                    files_count: acc.descendant_counts.files_count
+                        + child.descendant_counts.files_count,
+                    dirs_count: acc.descendant_counts.dirs_count
+                        + child.descendant_counts.dirs_count,
+                    files_total_size: acc.descendant_counts.files_total_size
+                        + child.descendant_counts.files_total_size,
+                },
+            },
+        )
+    }
 }
 
 pub mod compat {
