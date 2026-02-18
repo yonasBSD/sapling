@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+mod backfill_enqueue;
 mod count_underived;
 mod derive;
 mod derive_slice;
@@ -34,6 +35,8 @@ use repo_derived_data::RepoDerivedDataRef;
 use repo_factory::RepoFactory;
 use repo_identity::RepoIdentity;
 
+use self::backfill_enqueue::BackfillEnqueueArgs;
+use self::backfill_enqueue::backfill_enqueue;
 use self::count_underived::CountUnderivedArgs;
 use self::count_underived::count_underived;
 use self::derive::DeriveArgs;
@@ -97,6 +100,8 @@ pub struct CommandArgs {
 
 #[derive(Subcommand)]
 enum DerivedDataSubcommand {
+    /// Enqueue derived data backfill work via async requests
+    BackfillEnqueue(BackfillEnqueueArgs),
     /// Count how many ancestors of a given commit weren't derived
     CountUnderived(CountUnderivedArgs),
     /// Actually derive data
@@ -118,6 +123,9 @@ enum DerivedDataSubcommand {
 pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
     let mut ctx = app.new_basic_context();
 
+    let bypass_redaction = args.bypass_redaction;
+    let config_name_for_enqueue = args.config_name.clone();
+
     let repo: Repo = match &args.subcommand {
         DerivedDataSubcommand::Exists(_)
         | DerivedDataSubcommand::Fetch(_)
@@ -130,7 +138,8 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
                 .context("Failed to open repo")?
         }
         DerivedDataSubcommand::Derive(DeriveArgs { rederive, .. })
-        | DerivedDataSubcommand::DeriveSlice(DeriveSliceArgs { rederive, .. }) => {
+        | DerivedDataSubcommand::DeriveSlice(DeriveSliceArgs { rederive, .. })
+        | DerivedDataSubcommand::BackfillEnqueue(BackfillEnqueueArgs { rederive, .. }) => {
             open_repo_for_derive(&app, &args.repo, *rederive, args.bypass_redaction)
                 .await
                 .context("Failed to open repo")?
@@ -144,6 +153,22 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
     };
 
     match args.subcommand {
+        DerivedDataSubcommand::BackfillEnqueue(args) => {
+            let queue = async_requests_client::build(ctx.fb, &app, None)
+                .await
+                .context("acquiring the async requests queue")?;
+            backfill_enqueue(
+                &ctx,
+                &app,
+                &repo,
+                manager,
+                queue,
+                args,
+                config_name_for_enqueue.as_deref(),
+                bypass_redaction,
+            )
+            .await?
+        }
         DerivedDataSubcommand::Exists(args) => exists(&ctx, &repo, manager, args).await?,
         DerivedDataSubcommand::Fetch(args) => fetch(&ctx, &repo, manager, args).await?,
         DerivedDataSubcommand::CountUnderived(args) => {
