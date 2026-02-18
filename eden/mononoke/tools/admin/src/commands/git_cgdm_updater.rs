@@ -292,6 +292,12 @@ async fn update_cgdm(
             {
                 parent_component_info.changeset_count += 1;
                 parent_component_info.total_inlined_size += gdm_size;
+
+                // Invalidate previously set CGDM ids as it indicates
+                // use of different component size/count parameters in a previous update.
+                parent_component_info.cgdm_id = None;
+                parent_component_info.cgdm_commits_id = None;
+
                 cgdm_components
                     .changeset_to_component_id
                     .insert(cs_id, parent_component_id);
