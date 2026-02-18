@@ -155,4 +155,23 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         req_id: &RequestId,
         max_retry_allowed: u8,
     ) -> Result<bool>;
+
+    /// Add a request with optional dependencies.
+    /// A request will remain in 'new' status until ALL of its dependencies reach 'ready' or 'polled' status.
+    async fn add_request_with_dependencies(
+        &self,
+        ctx: &CoreContext,
+        request_type: &RequestType,
+        repo_id: Option<&RepositoryId>,
+        args_blobstore_key: &BlobstoreKey,
+        depends_on: &[RowId],
+    ) -> Result<RowId>;
+
+    /// Get all dependency request IDs for a given request.
+    /// Returns the IDs of requests that must complete before this request becomes eligible for execution.
+    async fn get_dependencies(&self, ctx: &CoreContext, request_id: &RowId) -> Result<Vec<RowId>>;
+
+    /// Mark a request as failed and cascade the failure to all dependent requests.
+    /// First marks all dependent requests as failed, then marks the specified request as failed.
+    async fn mark_failed_with_cascade(&self, ctx: &CoreContext, req_id: &RowId) -> Result<bool>;
 }

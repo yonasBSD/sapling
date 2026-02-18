@@ -348,8 +348,10 @@ impl AsyncMethodRequestWorker {
                                         &req_id.0, err
                                     );
                                 } else {
+                                    // Retries exhausted — failure has been cascaded
+                                    // to any dependent requests atomically.
                                     info!(
-                                        "[{}] worker failed to process request, maximum retry attempts reached, will fail the request: {:?}",
+                                        "[{}] worker failed to process request, maximum retry attempts reached, failure cascaded: {:?}",
                                         &req_id.0, err
                                     );
                                 }

@@ -952,10 +952,9 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     RequestStatus::InProgress => {
                         let next_retry = entry.num_retries.unwrap_or(0) + 1;
                         if next_retry > max_retry_allowed {
-                            txn = MarkRequestFailed::query_with_transaction(
+                            txn = FailRequestWithCascade::query_with_transaction(
                                 txn,
                                 &req_id.0,
-                                &req_id.1,
                                 &Timestamp::now(),
                             )
                             .await?
@@ -983,6 +982,80 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         txn.commit().await?;
 
         will_retry
+    }
+
+    async fn add_request_with_dependencies(
+        &self,
+        ctx: &CoreContext,
+        request_type: &RequestType,
+        repo_id: Option<&RepositoryId>,
+        args_blobstore_key: &BlobstoreKey,
+        depends_on: &[RowId],
+    ) -> Result<RowId> {
+        let txn = self
+            .connections
+            .write_connection
+            .start_transaction(ctx.sql_query_telemetry())
+            .await?;
+
+        let now = Timestamp::now();
+        let (mut txn, res) = match &repo_id {
+            Some(repo_id) => {
+                AddRequestWithRepo::query_with_transaction(
+                    txn,
+                    request_type,
+                    repo_id,
+                    args_blobstore_key,
+                    &now,
+                )
+                .await?
+            }
+            None => {
+                AddRequest::query_with_transaction(txn, request_type, args_blobstore_key, &now)
+                    .await?
+            }
+        };
+
+        let row_id = match res.last_insert_id() {
+            Some(last_insert_id) if res.affected_rows() == 1 => RowId(last_insert_id),
+            _ => bail!("Failed to insert a new request of type {}", request_type),
+        };
+
+        for dep_id in depends_on {
+            txn = AddDependency::query_with_transaction(txn, &row_id, dep_id)
+                .await
+                .with_context(|| format!("adding dependency {:?} to request {:?}", dep_id, row_id))?
+                .0;
+        }
+
+        txn.commit().await?;
+
+        Ok(row_id)
+    }
+
+    async fn get_dependencies(&self, ctx: &CoreContext, request_id: &RowId) -> Result<Vec<RowId>> {
+        let rows = GetDependencies::query(
+            &self.connections.read_connection,
+            ctx.sql_query_telemetry(),
+            request_id,
+        )
+        .await
+        .context("getting dependencies")?;
+
+        Ok(rows.into_iter().map(|(dep_id,)| dep_id).collect())
+    }
+
+    async fn mark_failed_with_cascade(&self, ctx: &CoreContext, req_id: &RowId) -> Result<bool> {
+        let now = Timestamp::now();
+        let res = FailRequestWithCascade::query(
+            &self.connections.write_connection,
+            ctx.sql_query_telemetry(),
+            req_id,
+            &now,
+        )
+        .await
+        .context("marking request and dependents as failed")?;
+        Ok(res.affected_rows() > 0)
     }
 }
 

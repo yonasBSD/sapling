@@ -152,6 +152,54 @@ impl AsyncMethodRequestQueue {
         Ok(token)
     }
 
+    /// Enqueue a request with optional dependencies on other requests.
+    /// The request will remain in 'new' status until all dependencies reach 'ready' or 'polled'.
+    pub async fn enqueue_with_dependencies<P: ThriftParams>(
+        &self,
+        ctx: &CoreContext,
+        repo_id: Option<&RepositoryId>,
+        thrift_params: P,
+        depends_on: &[RowId],
+    ) -> Result<<P::R as Request>::Token, Error> {
+        STATS::enqueue_called.add_value(1);
+        let request_type = RequestType(P::R::NAME.to_owned());
+        let rust_params = thrift_params.into();
+        self.enqueue_with_dependencies_inner::<P>(
+            ctx,
+            repo_id,
+            request_type,
+            rust_params,
+            depends_on,
+        )
+        .await
+        .inspect(|_token| {
+            STATS::enqueue_success.add_value(1);
+        })
+        .inspect_err(|_err| {
+            STATS::enqueue_error.add_value(1);
+        })
+    }
+
+    async fn enqueue_with_dependencies_inner<P: ThriftParams>(
+        &self,
+        ctx: &CoreContext,
+        repo_id: Option<&RepositoryId>,
+        request_type: RequestType,
+        rust_params: AsynchronousRequestParams,
+        depends_on: &[RowId],
+    ) -> Result<<P::R as Request>::Token, Error> {
+        let params_object_id = rust_params.store(ctx, &self.blobstore).await?;
+        let blobstore_key = BlobstoreKey(params_object_id.blobstore_key());
+
+        let table_id = self
+            .table
+            .add_request_with_dependencies(ctx, &request_type, repo_id, &blobstore_key, depends_on)
+            .await?;
+
+        let token = <P::R as Request>::Token::from_db_id(table_id)?;
+        Ok(token)
+    }
+
     pub async fn dequeue(
         &self,
         ctx: &CoreContext,
@@ -273,6 +321,17 @@ impl AsyncMethodRequestQueue {
             Ok(res) => Ok(Some(res)),
             Err(e) => Err(PollError::Fatal(e)),
         }
+    }
+
+    /// Mark a request as failed and cascade the failure to all dependent requests.
+    /// This is safe to call for any request type — if there are no dependents,
+    /// the cascade is a no-op.
+    pub async fn mark_failed_with_cascade(
+        &self,
+        ctx: &CoreContext,
+        req_id: &RequestId,
+    ) -> Result<bool, Error> {
+        self.table.mark_failed_with_cascade(ctx, &req_id.0).await
     }
 
     pub async fn poll<T: Token>(
