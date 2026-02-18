@@ -161,7 +161,6 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
                 &ctx,
                 &app,
                 &repo,
-                manager,
                 queue,
                 args,
                 config_name_for_enqueue.as_deref(),
