@@ -776,6 +776,38 @@ impl_async_svc_method_types! {
     }
 }
 
+// Params and result types for derive_backfill
+
+impl_async_svc_method_types! {
+    method_name => "derive_backfill",
+    request_struct => DeriveBackfill,
+
+    params_value_thrift_type => DeriveBackfillParams,
+    params_union_variant => derive_backfill_params,
+
+    response_type => DeriveBackfillResponse,
+    result_union_variant => derive_backfill_result,
+
+    poll_response_type => DeriveBackfillPollResponse,
+    token_type => DeriveBackfillToken,
+    token_thrift_type => DeriveBackfillToken,
+
+    fn target(&self: ThriftParams) -> String {
+        let repo_ids: Vec<String> = self.repo_entries
+            .iter()
+            .map(|e| e.repo_id.to_string())
+            .collect();
+        let total_cs: usize = self.repo_entries
+            .iter()
+            .map(|e| e.cs_ids.len())
+            .sum();
+        format!(
+            "repos: [{}], type: {}, total_changesets: {}",
+            repo_ids.join(","), self.derived_data_type, total_cs
+        )
+    }
+}
+
 impl_async_svc_stored_type! {
     handle_type => AsynchronousRequestParamsId,
     handle_thrift_type => ThriftAsynchronousRequestParamsId,
@@ -836,6 +868,7 @@ impl AsynchronousRequestParams {
                 Ok(params.target())
             }
             ThriftAsynchronousRequestParams::derive_slice_params(params) => Ok(params.target()),
+            ThriftAsynchronousRequestParams::derive_backfill_params(params) => Ok(params.target()),
             ThriftAsynchronousRequestParams::UnknownField(union_tag) => {
                 Err(AsyncRequestsError::internal(anyhow!(
                     "this type of request (AsynchronousRequestParams tag {}) not supported by this worker!",

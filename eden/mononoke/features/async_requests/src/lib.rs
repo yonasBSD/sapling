@@ -19,6 +19,7 @@ pub use queue::PollError;
 pub use queue::RequestId;
 
 pub mod tokens {
+    pub use crate::types::DeriveBackfillToken;
     pub use crate::types::DeriveBoundariesToken;
     pub use crate::types::DeriveSliceToken;
     pub use crate::types::MegarepoAddBranchingTargetToken;

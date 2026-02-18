@@ -2852,6 +2852,42 @@ union DeriveSlicePollResponse {
   2: DeriveSliceResponse response;
 }
 
+/// Token for derive_backfill async request
+struct DeriveBackfillToken {
+  1: i64 id;
+}
+
+/// A single repo entry for backfill: repo_id + its changeset IDs.
+struct DeriveBackfillRepoEntry {
+  1: i64 repo_id;
+  2: list<binary> cs_ids;
+}
+
+/// Request to backfill derived data for one or more repositories.
+/// The worker will iterate over repo_entries, compute slices for each repo,
+/// and enqueue boundary/slice sub-requests tracked via root_request_id.
+struct DeriveBackfillParams {
+  1: string derived_data_type;
+  2: list<DeriveBackfillRepoEntry> repo_entries;
+  3: i64 slice_size;
+  4: i32 boundaries_concurrency;
+  5: bool rederive;
+  6: optional string config_name;
+}
+
+/// Result for derive_backfill request
+struct DeriveBackfillResponse {
+  /// Total number of sub-requests enqueued (boundaries + slices)
+  1: i64 total_sub_requests;
+  2: optional string error_message;
+}
+
+@hack.MigrationBlockingLegacyJSONSerialization
+union DeriveBackfillPollResponse {
+  1: PollPending poll_pending;
+  2: DeriveBackfillResponse response;
+}
+
 /// Exceptions
 
 enum RequestErrorKind {

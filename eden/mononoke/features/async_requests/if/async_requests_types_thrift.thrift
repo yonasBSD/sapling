@@ -61,6 +61,10 @@ typedef id.Id DeriveBoundariesResultId
 typedef id.Id DeriveSliceParamsId
 @rust.NewType
 typedef id.Id DeriveSliceResultId
+@rust.NewType
+typedef id.Id DeriveBackfillParamsId
+@rust.NewType
+typedef id.Id DeriveBackfillResultId
 
 @rust.NewType
 typedef id.Id AsynchronousRequestResultId
@@ -76,6 +80,7 @@ union AsynchronousRequestResult {
   9: source_control.CommitSparseProfileDeltaResponse commit_sparse_profile_delta_result;
   10: source_control.DeriveBoundariesResponse derive_boundaries_result;
   11: source_control.DeriveSliceResponse derive_slice_result;
+  12: source_control.DeriveBackfillResponse derive_backfill_result;
 }
 
 @rust.NewType
@@ -91,4 +96,5 @@ union AsynchronousRequestParams {
   8: source_control.CommitSparseProfileDeltaParamsV2 commit_sparse_profile_delta_params;
   9: source_control.DeriveBoundariesParams derive_boundaries_params;
   10: source_control.DeriveSliceParams derive_slice_params;
+  11: source_control.DeriveBackfillParams derive_backfill_params;
 }
