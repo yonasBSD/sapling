@@ -202,6 +202,11 @@ export const Commit = memo(
           onClick: () => clipboardCopy(commit.hash),
           loggingLabel: 'Copy Commit Hash',
         },
+        {
+          label: <T replace={{$hash: short(commit?.hash)}}>Copy Short Commit Hash "$hash"</T>,
+          onClick: () => clipboardCopy(short(commit.hash)),
+          loggingLabel: 'Copy Short Commit Hash',
+        },
       ];
       if (isPublic && readAtom(supportsBrowseUrlForHash)) {
         items.push({

@@ -38,4 +38,12 @@ describe('toasts', () => {
     expect(screen.getByText('Copied e')).toBeInTheDocument();
     expect(copySpy).toHaveBeenCalledWith('e', undefined);
   });
+
+  it('shows toast when copying short commit hash', () => {
+    const copySpy = jest.spyOn(platform, 'clipboardCopy').mockImplementation(() => {});
+    fireEvent.contextMenu(screen.getByTestId('commit-e'));
+    fireEvent.click(screen.getByText('Copy Short Commit Hash "e"'));
+    expect(screen.getByText('Copied e')).toBeInTheDocument();
+    expect(copySpy).toHaveBeenCalledWith('e', undefined);
+  });
 });
