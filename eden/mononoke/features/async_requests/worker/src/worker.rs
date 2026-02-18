@@ -295,6 +295,29 @@ impl AsyncMethodRequestWorker {
         let ctx = self.prepare_ctx(&ctx, &req_id, &target);
         log_start(&ctx);
 
+        // Check concurrency limit for this request type. If exceeded,
+        // requeue so another worker can try later when capacity frees up.
+        match self.queue.concurrency_limit_reached(&ctx, &req_id.1).await {
+            Ok(true) => {
+                let row_id = req_id.0;
+                info!(
+                    "[{}] Concurrency limit reached for {}, requeuing",
+                    &row_id, &req_id.1.0,
+                );
+                if let Err(requeue_err) = self.queue.requeue(&ctx, req_id).await {
+                    error!(
+                        "[{}] Failed to requeue request after concurrency limit: {:?}",
+                        &row_id, requeue_err
+                    );
+                }
+                return;
+            }
+            Err(e) => {
+                error!("[{}] Failed to check concurrency limit: {:?}", &req_id.0, e);
+            }
+            _ => {}
+        }
+
         // Do the actual work.
         STATS::requested.add_value(1);
         let work_fut =

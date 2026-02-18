@@ -530,6 +530,21 @@ mononoke_queries! {
            AND status IN ('new', 'inprogress')
         "
     }
+
+    read CountInProgressByTypes(>list request_types: RequestType) -> (i64,) {
+        mysql("
+            SELECT COUNT(*)
+            FROM long_running_request_queue
+            WHERE status = 'inprogress'
+              AND request_type IN {request_types}
+        ")
+        sqlite("
+            SELECT COUNT(*)
+            FROM long_running_request_queue
+            WHERE status = 'inprogress'
+              AND request_type IN {request_types}
+        ")
+    }
 }
 
 fn row_to_entry(
@@ -1056,6 +1071,24 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         .await
         .context("marking request and dependents as failed")?;
         Ok(res.affected_rows() > 0)
+    }
+
+    async fn count_inprogress_by_types(
+        &self,
+        ctx: &CoreContext,
+        request_types: &[&str],
+    ) -> Result<i64> {
+        let types: Vec<RequestType> = request_types
+            .iter()
+            .map(|t| RequestType(t.to_string()))
+            .collect();
+        let rows = CountInProgressByTypes::query(
+            &self.connections.read_connection,
+            ctx.sql_query_telemetry(),
+            &types[..],
+        )
+        .await?;
+        Ok(rows.first().map(|(count,)| *count).unwrap_or(0))
     }
 }
 

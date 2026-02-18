@@ -39,6 +39,8 @@ use stats::prelude::TimeseriesStatic;
 use crate::AsyncRequestsError;
 use crate::types::AsynchronousRequestParams;
 use crate::types::AsynchronousRequestResult;
+use crate::types::DeriveBoundaries;
+use crate::types::DeriveSlice;
 use crate::types::Request;
 use crate::types::ThriftParams;
 use crate::types::Token;
@@ -46,6 +48,23 @@ use crate::types::Token;
 const INITIAL_POLL_DELAY_MS: u64 = 1000;
 const MAX_POLL_DURATION: Duration = Duration::from_mins(1);
 const JK_RETRY_LIMIT: &str = "scm/mononoke:async_requests_retry_limit";
+
+/// JustKnob for maximum concurrent requests across all workers.
+/// The switch/entity determines the limit: types in a concurrency group
+/// share a switch (and thus a limit), while ungrouped types use their
+/// own name as the switch. A value <= 0 means no limit.
+const JK_MAX_CONCURRENT: &str = "scm/mononoke:async_requests_max_concurrent";
+
+/// Returns the JustKnob switch key and the request types to count for
+/// concurrency limiting. Grouped types share a switch and count across
+/// all members; ungrouped types use their own name.
+fn concurrency_key(request_type: &str) -> (&str, Vec<&str>) {
+    const DERIVE_BACKFILL: &[&str] = &[DeriveBoundaries::NAME, DeriveSlice::NAME];
+    match request_type {
+        DeriveBoundaries::NAME | DeriveSlice::NAME => ("derive_backfill", DERIVE_BACKFILL.to_vec()),
+        name => (name, vec![name]),
+    }
+}
 
 define_stats! {
     prefix = "async_requests.queue";
@@ -114,6 +133,36 @@ impl AsyncMethodRequestQueue {
             table,
             repos,
         })
+    }
+
+    /// Check if we're under the concurrency limit for the given request type.
+    /// Types in a concurrency group share a limit; ungrouped types have
+    /// their own.
+    /// Returns false if we're under the limit, true if we're over.
+    pub async fn concurrency_limit_reached(
+        &self,
+        ctx: &CoreContext,
+        request_type: &RequestType,
+    ) -> Result<bool, Error> {
+        let (switch, count_types) = concurrency_key(&request_type.0);
+
+        let max_concurrent = justknobs::get_as::<i64>(JK_MAX_CONCURRENT, Some(switch))?;
+
+        if max_concurrent <= 0 {
+            return Ok(false);
+        }
+
+        let type_refs: Vec<&str> = count_types.to_vec();
+        let current_count = self
+            .table
+            .count_inprogress_by_types(ctx, &type_refs)
+            .await?;
+
+        if current_count > max_concurrent {
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 
     pub async fn enqueue<P: ThriftParams>(

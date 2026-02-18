@@ -174,4 +174,11 @@ pub trait LongRunningRequestsQueue: Send + Sync {
     /// Mark a request as failed and cascade the failure to all dependent requests.
     /// First marks all dependent requests as failed, then marks the specified request as failed.
     async fn mark_failed_with_cascade(&self, ctx: &CoreContext, req_id: &RowId) -> Result<bool>;
+
+    /// Count in-progress requests for the given request types
+    async fn count_inprogress_by_types(
+        &self,
+        ctx: &CoreContext,
+        request_types: &[&str],
+    ) -> Result<i64>;
 }

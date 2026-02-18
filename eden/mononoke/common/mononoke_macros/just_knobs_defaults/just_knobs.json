@@ -150,6 +150,8 @@
     "scm/mononoke:scribe_backlog_for_metadata_cache_updater": 500,
     "scm/mononoke:manifold_weak_consistency_max_age_ms": 0,
     "scm/mononoke:modern_sync_edenapi_timeout": 300,
-    "scm/mononoke:blobstore_deduplicated_put_sampling_rate": 100000
+    "scm/mononoke:blobstore_deduplicated_put_sampling_rate": 100000,
+    "scm/mononoke:streaming_clone_chunk_aggregation_factor": 4,
+    "scm/mononoke:async_requests_max_concurrent": 0
   }
 }
