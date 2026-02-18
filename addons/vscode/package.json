@@ -222,6 +222,12 @@
         "key": "alt-shift-t",
         "mac": "alt-shift-t",
         "when": "isl.inlineCommentSidePanelEnabled"
+      },
+      {
+        "command": "sapling.open-isl",
+        "key": "ctrl-shift-i",
+        "mac": "cmd-shift-i",
+        "when": "isl.openInteractiveSmartlogShortcutEnabled"
       }
     ],
     "menus": {
