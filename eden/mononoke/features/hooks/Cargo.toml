@@ -64,7 +64,7 @@ fixtures = { version = "0.1.0", path = "../../tests/fixtures" }
 hook_manager_testlib = { version = "0.1.0", path = "../../repo_attributes/hook_manager/hook_manager_testlib" }
 mononoke_macros = { version = "0.1.0", path = "../../common/mononoke_macros" }
 mononoke_types-mocks = { version = "0.1.0", path = "../../mononoke_types/mocks" }
-pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }
+pretty_assertions = { version = "1.4.1", features = ["alloc"], default-features = false }
 repo_permission_checker = { version = "0.1.0", path = "../../repo_attributes/repo_permission_checker" }
 test_repo_factory = { version = "0.1.0", path = "../../repo_factory/test_repo_factory" }
 tests_utils = { version = "0.1.0", path = "../../tests/utils" }

@@ -31,7 +31,7 @@ uuid = { version = "1.17", features = ["rng-getrandom", "serde", "v4", "v5", "v6
 
 [dev-dependencies]
 itertools = "0.14.0"
-pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }
+pretty_assertions = { version = "1.4.1", features = ["alloc"], default-features = false }
 quickcheck = "1.0"
 rand = { version = "0.8", features = ["small_rng"] }
 rand_chacha = "0.3"

@@ -49,7 +49,7 @@ mercurial_types = { version = "0.1.0", path = "../../mercurial/types" }
 metadata = { version = "0.1.0", path = "../../common/metadata" }
 mononoke_api = { version = "0.1.0", path = "../../mononoke_api" }
 mononoke_api_hg = { version = "0.1.0", path = "../../mononoke_api_hg" }
-pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }
+pretty_assertions = { version = "1.4.1", features = ["alloc"], default-features = false }
 repo_blobstore = { version = "0.1.0", path = "../repo_blobstore" }
 repo_derived_data = { version = "0.1.0", path = "../repo_derived_data" }
 sapling-clientinfo = { version = "0.1.0", path = "../../../scm/lib/clientinfo" }

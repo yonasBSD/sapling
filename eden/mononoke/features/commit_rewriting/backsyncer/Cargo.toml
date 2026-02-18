@@ -61,7 +61,7 @@ maplit = "1.0"
 mercurial_derivation = { version = "0.1.0", path = "../../../derived_data/mercurial_derivation" }
 mercurial_types = { version = "0.1.0", path = "../../../mercurial/types" }
 movers = { version = "0.1.0", path = "../movers" }
-pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }
+pretty_assertions = { version = "1.4.1", features = ["alloc"], default-features = false }
 rendezvous = { version = "0.1.0", path = "../../../common/rendezvous" }
 sql_construct = { version = "0.1.0", path = "../../../common/sql_construct" }
 synced_commit_mapping = { version = "0.1.0", path = "../synced_commit_mapping" }
