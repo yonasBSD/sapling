@@ -112,6 +112,11 @@ python_library(
 )
 
 python_library(
+    name = "mp",
+    srcs = ["mp.py"],
+)
+
+python_library(
     name = "lib",
     srcs = [
         "buck.py",
@@ -171,6 +176,7 @@ python_library(
         "fbsource//third-party/pypi/toml:toml",
         "fbsource//third-party/pypi/tqdm:tqdm",
         ":hostname",
+        ":mp",
         ":proc_utils",
         ":telemetry",
         ":version",

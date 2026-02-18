@@ -7,6 +7,7 @@ python_library(
     srcs = glob(["*.py"]),
     deps = [
         "//eden/fs/cli:lib",
+        "//eden/fs/cli:mp",
         "//eden/fs/cli:version",
         "//eden/fs/cli/test/lib:lib",
         "//eden/fs/py/eden:dirstate",

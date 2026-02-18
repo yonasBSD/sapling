@@ -14,12 +14,12 @@ import sys
 import threading
 from contextlib import asynccontextmanager
 from enum import Enum
-from multiprocessing import Process
 from textwrap import dedent
 from threading import Thread
 from typing import AsyncGenerator, Dict, List, Optional, Set
 
 from eden.fs.cli import util
+from eden.fs.cli.mp import get_context
 from eden.fs.service.eden.thrift_types import (
     CheckoutMode,
     CheckOutRevisionParams,
@@ -547,13 +547,13 @@ class UpdateTest(EdenHgTestCase):
 
         async with self.block_checkout():
             # Run a checkout
-            p1 = Process(target=self.repo.update, args=(new_commit,))
+            p1 = get_context().Process(target=self.repo.update, args=(new_commit,))
             p1.start()
 
             # Ensure the checkout has started
             await self.wait_for_checkout_in_progress()
 
-            p2 = Process(target=self.eden.unmount, args=(self.mount,))
+            p2 = get_context().Process(target=self.eden.unmount, args=(self.mount,))
             p2.start()
 
             # Wait for the state to be shutting down

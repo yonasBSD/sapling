@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-
 import abc
 import asyncio
 import binascii

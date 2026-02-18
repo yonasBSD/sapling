@@ -5,15 +5,15 @@
 
 # pyre-strict
 
-import multiprocessing
+import multiprocessing.context
 import os
 import random
 import time
-from multiprocessing import Process
 from typing import Union
 
 from eden.fs.cli import mtab
 from eden.fs.cli.doctor.test.lib.fake_mount_table import FakeMountTable
+from eden.fs.cli.mp import get_context
 
 
 def lstat_process_hang(path: Union[bytes, str]) -> None:
@@ -29,8 +29,8 @@ class FakeHangMountTable(FakeMountTable):
     def create_lstat_process(
         self,
         path: bytes,
-    ) -> Process:
-        return multiprocessing.Process(
+    ) -> multiprocessing.context.Process:
+        return get_context().Process(
             target=lstat_process_hang,
             args=(os.path.join(path, hex(random.getrandbits(32))[2:].encode()),),
         )

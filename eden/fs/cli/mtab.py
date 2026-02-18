@@ -6,18 +6,18 @@
 
 # pyre-strict
 
-
 import abc
 import errno
 import logging
-import multiprocessing
+import multiprocessing.context
 import os
 import random
 import re
 import subprocess
 import sys
-from multiprocessing import Process
 from typing import List, NamedTuple, Union
+
+from .mp import get_context
 
 
 log: logging.Logger = logging.getLogger("eden.fs.cli.mtab")
@@ -69,13 +69,15 @@ class MountTable(abc.ABC):
     def create_lstat_process(
         self,
         path: bytes,
-    ) -> Process:
-        return multiprocessing.Process(
+    ) -> multiprocessing.context.Process:
+        return get_context().Process(
             target=lstat_process,
             args=(os.path.join(path, hex(random.getrandbits(32))[2:].encode()),),
         )
 
-    def close_hanging_process(self, proc: Process, error: OSError) -> None:
+    def close_hanging_process(
+        self, proc: multiprocessing.context.Process, error: OSError
+    ) -> None:
         """
         This method closes hanging process if the process hang
         It returns immediately if it doesn't hang
@@ -101,11 +103,7 @@ class MountTable(abc.ABC):
                 proc.close()
             raise error
 
-    def check_path_access(
-        self,
-        path: bytes,
-        mount_type: bytes,
-    ) -> None:
+    def check_path_access(self, path: bytes, mount_type: bytes) -> None:
         """\
         Attempts to stat the given directory, bypassing the kernel's caches.
         Raises OSError upon failure.

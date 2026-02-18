@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-
 import argparse
 import asyncio
 import concurrent
@@ -31,6 +30,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Type
 
+# Must import util before any module that imports thrift (like check_filesystems)
+# to set up Windows DLL directories for native module loading.
+from eden.fs.cli import util as _util_setup  # noqa: F401
 from eden.fs.cli.doctor.check_filesystems import check_disk_usage
 from eden.fs.cli.util import get_chef_log_path
 
