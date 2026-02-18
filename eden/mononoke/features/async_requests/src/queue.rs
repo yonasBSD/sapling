@@ -252,6 +252,58 @@ impl AsyncMethodRequestQueue {
         Ok(token)
     }
 
+    /// Enqueue a request with a root_request_id linking it to a parent request.
+    pub async fn enqueue_with_root<P: ThriftParams>(
+        &self,
+        ctx: &CoreContext,
+        repo_id: Option<&RepositoryId>,
+        thrift_params: P,
+        root_request_id: &RowId,
+    ) -> Result<<P::R as Request>::Token, Error> {
+        STATS::enqueue_called.add_value(1);
+        let request_type = RequestType(P::R::NAME.to_owned());
+        let rust_params = thrift_params.into();
+        let params_object_id = rust_params.store(ctx, &self.blobstore).await?;
+        let blobstore_key = BlobstoreKey(params_object_id.blobstore_key());
+        let table_id = self
+            .table
+            .add_request_with_root(ctx, &request_type, repo_id, &blobstore_key, root_request_id)
+            .await?;
+        let token = <P::R as Request>::Token::from_db_id(table_id)?;
+        STATS::enqueue_success.add_value(1);
+        Ok(token)
+    }
+
+    /// Enqueue a request with dependencies and a root_request_id.
+    pub async fn enqueue_with_dependencies_and_root<P: ThriftParams>(
+        &self,
+        ctx: &CoreContext,
+        repo_id: Option<&RepositoryId>,
+        thrift_params: P,
+        depends_on: &[RowId],
+        root_request_id: &RowId,
+    ) -> Result<<P::R as Request>::Token, Error> {
+        STATS::enqueue_called.add_value(1);
+        let request_type = RequestType(P::R::NAME.to_owned());
+        let rust_params = thrift_params.into();
+        let params_object_id = rust_params.store(ctx, &self.blobstore).await?;
+        let blobstore_key = BlobstoreKey(params_object_id.blobstore_key());
+        let table_id = self
+            .table
+            .add_request_with_dependencies_and_root(
+                ctx,
+                &request_type,
+                repo_id,
+                &blobstore_key,
+                depends_on,
+                root_request_id,
+            )
+            .await?;
+        let token = <P::R as Request>::Token::from_db_id(table_id)?;
+        STATS::enqueue_success.add_value(1);
+        Ok(token)
+    }
+
     pub async fn dequeue(
         &self,
         ctx: &CoreContext,
