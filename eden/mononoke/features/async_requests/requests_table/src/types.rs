@@ -120,6 +120,7 @@ pub struct LongRunningRequestEntry {
     pub claimed_by: Option<ClaimedBy>,
     pub num_retries: Option<u8>,
     pub failed_at: Option<Timestamp>,
+    pub root_request_id: Option<RowId>,
 }
 
 impl std::fmt::Display for RequestStatus {

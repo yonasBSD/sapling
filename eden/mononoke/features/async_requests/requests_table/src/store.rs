@@ -49,6 +49,7 @@ mononoke_queries! {
         Option<ClaimedBy>,
         Option<u8>,
         Option<Timestamp>,
+        Option<RowId>,
     ) {
         "SELECT id,
             request_type,
@@ -63,7 +64,8 @@ mononoke_queries! {
             status,
             claimed_by,
             num_retries,
-            failed_at
+            failed_at,
+            root_request_id
         FROM long_running_request_queue
         WHERE id = {id}"
     }
@@ -83,6 +85,7 @@ mononoke_queries! {
         Option<ClaimedBy>,
         Option<u8>,
         Option<Timestamp>,
+        Option<RowId>,
     ) {
         "SELECT id,
             request_type,
@@ -97,7 +100,8 @@ mononoke_queries! {
             status,
             claimed_by,
             num_retries,
-            failed_at
+            failed_at,
+            root_request_id
         FROM long_running_request_queue
         WHERE id = {id} AND request_type = {request_type}"
     }
@@ -117,6 +121,7 @@ mononoke_queries! {
         Option<ClaimedBy>,
         Option<u8>,
         Option<Timestamp>,
+        Option<RowId>,
     ) {
         "SELECT
            q.id,
@@ -132,7 +137,8 @@ mononoke_queries! {
            q.status,
            q.claimed_by,
            q.num_retries,
-           q.failed_at
+           q.failed_at,
+           q.root_request_id
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.repo_id IS NULL
@@ -163,6 +169,7 @@ mononoke_queries! {
         Option<ClaimedBy>,
         Option<u8>,
         Option<Timestamp>,
+        Option<RowId>,
     ) {
         "SELECT
            q.id,
@@ -178,7 +185,8 @@ mononoke_queries! {
            q.status,
            q.claimed_by,
            q.num_retries,
-           q.failed_at
+           q.failed_at,
+           q.root_request_id
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.repo_id IN {supported_repo_ids}
@@ -207,6 +215,22 @@ mononoke_queries! {
         "INSERT INTO long_running_request_queue
          (request_type, args_blobstore_key, status, created_at)
          VALUES ({request_type}, {args_blobstore_key}, 'new', {created_at})
+        "
+    }
+
+    write AddRequestWithRepoAndRoot(request_type: RequestType, repo_id: RepositoryId, args_blobstore_key: BlobstoreKey, created_at: Timestamp, root_request_id: RowId) {
+        none,
+        "INSERT INTO long_running_request_queue
+         (request_type, repo_id, args_blobstore_key, status, created_at, root_request_id)
+         VALUES ({request_type}, {repo_id}, {args_blobstore_key}, 'new', {created_at}, {root_request_id})
+        "
+    }
+
+    write AddRequestWithRoot(request_type: RequestType, args_blobstore_key: BlobstoreKey, created_at: Timestamp, root_request_id: RowId) {
+        none,
+        "INSERT INTO long_running_request_queue
+         (request_type, args_blobstore_key, status, created_at, root_request_id)
+         VALUES ({request_type}, {args_blobstore_key}, 'new', {created_at}, {root_request_id})
         "
     }
 
@@ -335,6 +359,7 @@ mononoke_queries! {
         Option<ClaimedBy>,
         Option<u8>,
         Option<Timestamp>,
+        Option<RowId>,
     ) {
        mysql( "SELECT id,
             request_type,
@@ -349,7 +374,8 @@ mononoke_queries! {
             status,
             claimed_by,
             num_retries,
-            failed_at
+            failed_at,
+            root_request_id
         FROM long_running_request_queue
         FORCE INDEX (list_requests_any)
         WHERE (
@@ -369,7 +395,8 @@ mononoke_queries! {
             status,
             claimed_by,
             num_retries,
-            failed_at
+            failed_at,
+            root_request_id
         FROM long_running_request_queue
         WHERE (
             inprogress_last_updated_at > {last_update_newer_than} OR
@@ -392,6 +419,7 @@ mononoke_queries! {
         Option<ClaimedBy>,
         Option<u8>,
         Option<Timestamp>,
+        Option<RowId>,
     ) {
         mysql("SELECT id,
             request_type,
@@ -406,7 +434,8 @@ mononoke_queries! {
             status,
             claimed_by,
             num_retries,
-            failed_at
+            failed_at,
+            root_request_id
         FROM long_running_request_queue
         FORCE INDEX (list_requests)
         WHERE repo_id IN {repo_ids} AND (
@@ -426,7 +455,8 @@ mononoke_queries! {
             status,
             claimed_by,
             num_retries,
-            failed_at
+            failed_at,
+            root_request_id
         FROM long_running_request_queue
         WHERE repo_id IN {repo_ids} AND (
             inprogress_last_updated_at > {last_update_newer_than} OR
@@ -563,6 +593,7 @@ fn row_to_entry(
         Option<ClaimedBy>,
         Option<u8>,
         Option<Timestamp>,
+        Option<RowId>,
     ),
 ) -> LongRunningRequestEntry {
     let (
@@ -580,6 +611,7 @@ fn row_to_entry(
         claimed_by,
         num_retries,
         failed_at,
+        root_request_id,
     ) = row;
     LongRunningRequestEntry {
         id,
@@ -596,6 +628,7 @@ fn row_to_entry(
         claimed_by,
         num_retries,
         failed_at,
+        root_request_id,
     }
 }
 
@@ -1089,6 +1122,104 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         )
         .await?;
         Ok(rows.first().map(|(count,)| *count).unwrap_or(0))
+    }
+
+    async fn add_request_with_root(
+        &self,
+        ctx: &CoreContext,
+        request_type: &RequestType,
+        repo_id: Option<&RepositoryId>,
+        args_blobstore_key: &BlobstoreKey,
+        root_request_id: &RowId,
+    ) -> Result<RowId> {
+        let now = Timestamp::now();
+        let res = match &repo_id {
+            Some(repo_id) => {
+                AddRequestWithRepoAndRoot::query(
+                    &self.connections.write_connection,
+                    ctx.sql_query_telemetry(),
+                    request_type,
+                    repo_id,
+                    args_blobstore_key,
+                    &now,
+                    root_request_id,
+                )
+                .await?
+            }
+            None => {
+                AddRequestWithRoot::query(
+                    &self.connections.write_connection,
+                    ctx.sql_query_telemetry(),
+                    request_type,
+                    args_blobstore_key,
+                    &now,
+                    root_request_id,
+                )
+                .await?
+            }
+        };
+
+        match res.last_insert_id() {
+            Some(last_insert_id) if res.affected_rows() == 1 => Ok(RowId(last_insert_id)),
+            _ => bail!("Failed to insert a new request of type {}", request_type),
+        }
+    }
+
+    async fn add_request_with_dependencies_and_root(
+        &self,
+        ctx: &CoreContext,
+        request_type: &RequestType,
+        repo_id: Option<&RepositoryId>,
+        args_blobstore_key: &BlobstoreKey,
+        depends_on: &[RowId],
+        root_request_id: &RowId,
+    ) -> Result<RowId> {
+        let txn = self
+            .connections
+            .write_connection
+            .start_transaction(ctx.sql_query_telemetry())
+            .await?;
+
+        let now = Timestamp::now();
+        let (mut txn, res) = match &repo_id {
+            Some(repo_id) => {
+                AddRequestWithRepoAndRoot::query_with_transaction(
+                    txn,
+                    request_type,
+                    repo_id,
+                    args_blobstore_key,
+                    &now,
+                    root_request_id,
+                )
+                .await?
+            }
+            None => {
+                AddRequestWithRoot::query_with_transaction(
+                    txn,
+                    request_type,
+                    args_blobstore_key,
+                    &now,
+                    root_request_id,
+                )
+                .await?
+            }
+        };
+
+        let row_id = match res.last_insert_id() {
+            Some(last_insert_id) if res.affected_rows() == 1 => RowId(last_insert_id),
+            _ => bail!("Failed to insert a new request of type {}", request_type),
+        };
+
+        for dep_id in depends_on {
+            txn = AddDependency::query_with_transaction(txn, &row_id, dep_id)
+                .await
+                .with_context(|| format!("adding dependency {:?} to request {:?}", dep_id, row_id))?
+                .0;
+        }
+
+        txn.commit().await?;
+
+        Ok(row_id)
     }
 }
 

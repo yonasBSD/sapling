@@ -181,4 +181,26 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         ctx: &CoreContext,
         request_types: &[&str],
     ) -> Result<i64>;
+
+    /// Schedule an execution of a request with a root_request_id linking it
+    /// to the top-level request that spawned it.
+    async fn add_request_with_root(
+        &self,
+        ctx: &CoreContext,
+        request_type: &RequestType,
+        repo_id: Option<&RepositoryId>,
+        args_blobstore_key: &BlobstoreKey,
+        root_request_id: &RowId,
+    ) -> Result<RowId>;
+
+    /// Add a request with dependencies and a root_request_id.
+    async fn add_request_with_dependencies_and_root(
+        &self,
+        ctx: &CoreContext,
+        request_type: &RequestType,
+        repo_id: Option<&RepositoryId>,
+        args_blobstore_key: &BlobstoreKey,
+        depends_on: &[RowId],
+        root_request_id: &RowId,
+    ) -> Result<RowId>;
 }
