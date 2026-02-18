@@ -316,6 +316,12 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
                 .await
                 .into())
         }
+        async_requests_types_thrift::AsynchronousRequestParams::derive_boundaries_params(params) => {
+            todo!()
+        }
+        async_requests_types_thrift::AsynchronousRequestParams::derive_slice_params(params) => {
+            todo!()
+        }
         async_requests_types_thrift::AsynchronousRequestParams::UnknownField(union_tag) => {
              bail!(
                 "this type of request (AsynchronousRequestParams tag {}) not supported by this worker!", union_tag

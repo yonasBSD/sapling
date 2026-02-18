@@ -76,6 +76,8 @@ pub async fn abort_request(
                     default_err
                 }
                 ThriftAsynchronousRequestParams::async_ping_params(_) => default_err,
+                ThriftAsynchronousRequestParams::derive_boundaries_params(_) => default_err,
+                ThriftAsynchronousRequestParams::derive_slice_params(_) => default_err,
                 ThriftAsynchronousRequestParams::UnknownField(_) => {
                     return Err(anyhow!("unknown request type!"));
                 }

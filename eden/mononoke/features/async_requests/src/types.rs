@@ -731,6 +731,51 @@ impl_async_svc_method_types! {
     }
 }
 
+// Params and result types for derive_boundaries
+
+impl_async_svc_method_types! {
+    method_name => "derive_boundaries",
+    request_struct => DeriveBoundaries,
+
+    params_value_thrift_type => DeriveBoundariesParams,
+    params_union_variant => derive_boundaries_params,
+
+    response_type => DeriveBoundariesResponse,
+    result_union_variant => derive_boundaries_result,
+
+    poll_response_type => DeriveBoundariesPollResponse,
+    token_type => DeriveBoundariesToken,
+    token_thrift_type => DeriveBoundariesToken,
+
+    fn target(&self: ThriftParams) -> String {
+        format!("repo_id: {}, type: {}", self.repo_id, self.derived_data_type)
+    }
+}
+
+// Params and result types for derive_slice
+
+impl_async_svc_method_types! {
+    method_name => "derive_slice",
+    request_struct => DeriveSlice,
+
+    params_value_thrift_type => DeriveSliceParams,
+    params_union_variant => derive_slice_params,
+
+    response_type => DeriveSliceResponse,
+    result_union_variant => derive_slice_result,
+
+    poll_response_type => DeriveSlicePollResponse,
+    token_type => DeriveSliceToken,
+    token_thrift_type => DeriveSliceToken,
+
+    fn target(&self: ThriftParams) -> String {
+        format!(
+            "repo_id: {}, type: {}, segments: {}",
+            self.repo_id, self.derived_data_type, self.segments.len()
+        )
+    }
+}
+
 impl_async_svc_stored_type! {
     handle_type => AsynchronousRequestParamsId,
     handle_thrift_type => ThriftAsynchronousRequestParamsId,
@@ -787,6 +832,10 @@ impl AsynchronousRequestParams {
             ThriftAsynchronousRequestParams::commit_sparse_profile_delta_params(params) => {
                 Ok(params.target())
             }
+            ThriftAsynchronousRequestParams::derive_boundaries_params(params) => {
+                Ok(params.target())
+            }
+            ThriftAsynchronousRequestParams::derive_slice_params(params) => Ok(params.target()),
             ThriftAsynchronousRequestParams::UnknownField(union_tag) => {
                 Err(AsyncRequestsError::internal(anyhow!(
                     "this type of request (AsynchronousRequestParams tag {}) not supported by this worker!",

@@ -53,6 +53,14 @@ typedef id.Id AsyncPingResultId
 typedef id.Id CommitSparseProfileSizeResultId
 @rust.NewType
 typedef id.Id CommitSparseProfileDeltaResultId
+@rust.NewType
+typedef id.Id DeriveBoundariesParamsId
+@rust.NewType
+typedef id.Id DeriveBoundariesResultId
+@rust.NewType
+typedef id.Id DeriveSliceParamsId
+@rust.NewType
+typedef id.Id DeriveSliceResultId
 
 @rust.NewType
 typedef id.Id AsynchronousRequestResultId
@@ -66,6 +74,8 @@ union AsynchronousRequestResult {
   7: source_control.CommitSparseProfileSizeResponse commit_sparse_profile_size_result;
   8: source_control.AsyncRequestError error;
   9: source_control.CommitSparseProfileDeltaResponse commit_sparse_profile_delta_result;
+  10: source_control.DeriveBoundariesResponse derive_boundaries_result;
+  11: source_control.DeriveSliceResponse derive_slice_result;
 }
 
 @rust.NewType
@@ -79,4 +89,6 @@ union AsynchronousRequestParams {
   6: source_control.AsyncPingParams async_ping_params;
   7: source_control.CommitSparseProfileSizeParamsV2 commit_sparse_profile_size_params;
   8: source_control.CommitSparseProfileDeltaParamsV2 commit_sparse_profile_delta_params;
+  9: source_control.DeriveBoundariesParams derive_boundaries_params;
+  10: source_control.DeriveSliceParams derive_slice_params;
 }

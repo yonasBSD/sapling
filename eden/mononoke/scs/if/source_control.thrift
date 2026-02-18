@@ -2796,6 +2796,62 @@ union AsyncPingPollResponse {
   2: AsyncPingResponse response;
 }
 
+/// Token for derive_boundaries async request
+struct DeriveBoundariesToken {
+  1: i64 id;
+}
+
+/// Request to derive boundary changesets
+struct DeriveBoundariesParams {
+  1: i64 repo_id;
+  2: string derived_data_type;
+  3: list<binary> boundary_cs_ids;
+  4: i32 concurrency;
+  5: bool use_predecessor_derivation;
+}
+
+/// Result for derive_boundaries request
+struct DeriveBoundariesResponse {
+  1: i64 derived_count;
+  2: optional string error_message;
+}
+
+@hack.MigrationBlockingLegacyJSONSerialization
+union DeriveBoundariesPollResponse {
+  1: PollPending poll_pending;
+  2: DeriveBoundariesResponse response;
+}
+
+/// Token for derive_slice async request
+struct DeriveSliceToken {
+  1: i64 id;
+}
+
+/// A segment within a slice (head..base range of commits)
+struct DeriveSliceSegment {
+  1: binary head;
+  2: binary base;
+}
+
+/// Request to derive a slice of commits
+struct DeriveSliceParams {
+  1: i64 repo_id;
+  2: string derived_data_type;
+  3: list<DeriveSliceSegment> segments;
+}
+
+/// Result for derive_slice request
+struct DeriveSliceResponse {
+  1: i64 derived_count;
+  2: optional string error_message;
+}
+
+@hack.MigrationBlockingLegacyJSONSerialization
+union DeriveSlicePollResponse {
+  1: PollPending poll_pending;
+  2: DeriveSliceResponse response;
+}
+
 /// Exceptions
 
 enum RequestErrorKind {
