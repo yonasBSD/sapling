@@ -1,0 +1,298 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This software may be used and distributed according to the terms of the
+ * GNU General Public License version 2.
+ */
+
+use std::sync::Arc;
+
+use anyhow::Result;
+use async_requests::AsyncMethodRequestQueue;
+use async_requests::AsyncRequestsError;
+use async_requests::types::RowId;
+use async_requests::types::Token;
+use bulk_derivation::BulkDerivation;
+use commit_graph::CommitGraphRef;
+use context::CoreContext;
+use futures_stats::TimedTryFutureExt;
+use mononoke_api::Mononoke;
+use mononoke_api::Repo;
+use mononoke_api::RepoContext;
+use mononoke_types::ChangesetId;
+use mononoke_types::DerivableType;
+use mononoke_types::RepositoryId;
+use repo_authorization::AuthorizationContext;
+use repo_derived_data::RepoDerivedDataRef;
+use source_control as thrift;
+use tracing::info;
+
+/// Returns true if this derived data type requires slices to be chained
+/// serially (each slice depends on the previous). Types that support
+/// derive_from_predecessor can derive boundaries independently, allowing
+/// parallel slice processing.
+fn requires_serial_slice_processing(derived_data_type: DerivableType) -> bool {
+    !derived_data_type
+        .into_derivable_untopologically_variant()
+        .is_ok()
+}
+
+/// Handles a DeriveBackfill request by iterating over repo_entries,
+/// computing slices for each repo, and enqueueing boundary/slice
+/// sub-requests with proper dependencies.
+pub(crate) async fn compute_derive_backfill(
+    ctx: &CoreContext,
+    mononoke: Arc<Mononoke<Repo>>,
+    queue: &AsyncMethodRequestQueue,
+    params: thrift::DeriveBackfillParams,
+    root_request_id: RowId,
+) -> Result<thrift::DeriveBackfillResponse, AsyncRequestsError> {
+    if params.repo_entries.is_empty() {
+        return Err(AsyncRequestsError::request(anyhow::anyhow!(
+            "repo_entries must not be empty"
+        )));
+    }
+
+    let derived_data_type =
+        DerivableType::from_name(&params.derived_data_type).map_err(AsyncRequestsError::request)?;
+
+    let slice_size = params.slice_size.max(1) as u64;
+    let mut total_sub_requests: i64 = 0;
+
+    for entry in &params.repo_entries {
+        let repo_id =
+            RepositoryId::new(entry.repo_id.try_into().map_err(|e| {
+                AsyncRequestsError::request(anyhow::anyhow!("Invalid repo_id: {}", e))
+            })?);
+
+        let repo = mononoke
+            .repo_by_id(ctx.clone(), repo_id)
+            .await
+            .map_err(AsyncRequestsError::internal)?
+            .ok_or_else(|| {
+                AsyncRequestsError::request(anyhow::anyhow!("Repo not found: {}", entry.repo_id))
+            })?
+            .with_authorization_context(AuthorizationContext::new_bypass_access_control())
+            .build()
+            .await
+            .map_err(AsyncRequestsError::internal)?;
+
+        let cs_ids: Vec<ChangesetId> = entry
+            .cs_ids
+            .iter()
+            .map(ChangesetId::from_bytes)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(AsyncRequestsError::request)?;
+
+        let sub_requests = process_repo_backfill(
+            ctx,
+            &repo,
+            queue,
+            derived_data_type,
+            cs_ids,
+            slice_size,
+            params.rederive,
+            params.boundaries_concurrency,
+            params.config_name.as_deref(),
+            &repo_id,
+            &root_request_id,
+        )
+        .await?;
+
+        total_sub_requests += sub_requests;
+    }
+
+    info!(
+        "DeriveBackfill complete: {} total sub-requests across {} repos",
+        total_sub_requests,
+        params.repo_entries.len(),
+    );
+
+    Ok(thrift::DeriveBackfillResponse {
+        total_sub_requests,
+        error_message: None,
+        ..Default::default()
+    })
+}
+
+/// Process backfill for a single repo: filter underived changesets, compute
+/// slices, and enqueue boundary/slice sub-requests.
+/// Returns the number of sub-requests enqueued for this repo.
+async fn process_repo_backfill(
+    ctx: &CoreContext,
+    repo: &RepoContext<Repo>,
+    queue: &AsyncMethodRequestQueue,
+    derived_data_type: DerivableType,
+    cs_ids: Vec<ChangesetId>,
+    slice_size: u64,
+    rederive: bool,
+    boundaries_concurrency: i32,
+    config_name: Option<&str>,
+    repo_id: &RepositoryId,
+    root_request_id: &RowId,
+) -> Result<i64, AsyncRequestsError> {
+    let inner_repo = repo.repo();
+    let manager = if let Some(config_name) = config_name {
+        inner_repo
+            .repo_derived_data()
+            .manager_for_config(config_name)
+            .map_err(AsyncRequestsError::request)?
+    } else {
+        inner_repo.repo_derived_data().manager()
+    };
+
+    info!(
+        "DeriveBackfill for repo {} type {:?}: {} changesets, slice_size {}",
+        repo_id.id(),
+        derived_data_type,
+        cs_ids.len(),
+        slice_size,
+    );
+
+    // Filter to only underived changesets (unless rederive is set)
+    let mut cs_ids = cs_ids;
+    if !rederive {
+        cs_ids = manager
+            .pending(ctx, &cs_ids, None, derived_data_type)
+            .await
+            .map_err(AsyncRequestsError::internal)?;
+        if cs_ids.is_empty() {
+            info!(
+                "All changesets already derived for repo {}, nothing to enqueue",
+                repo_id.id()
+            );
+            return Ok(0);
+        }
+        info!("{} changesets still underived", cs_ids.len());
+    }
+
+    // Find the derived frontier
+    let excluded_ancestors = if rederive {
+        vec![]
+    } else {
+        let (frontier_stats, frontier) = inner_repo
+            .commit_graph()
+            .ancestors_frontier_with(ctx, cs_ids.clone(), |cs_id| async move {
+                Ok(manager
+                    .is_derived(ctx, cs_id, None, derived_data_type)
+                    .await?)
+            })
+            .try_timed()
+            .await
+            .map_err(AsyncRequestsError::internal)?;
+        info!(
+            "Computed derived frontier ({} changesets) in {}ms",
+            frontier.len(),
+            frontier_stats.completion_time.as_millis(),
+        );
+        frontier
+    };
+
+    // Compute slices and boundary changesets
+    let (slices_stats, (slices, boundary_changesets)) = inner_repo
+        .commit_graph()
+        .segmented_slice_ancestors(ctx, cs_ids, excluded_ancestors, slice_size)
+        .try_timed()
+        .await
+        .map_err(AsyncRequestsError::internal)?;
+    info!(
+        "Computed {} slices with {} boundary changesets in {}ms",
+        slices.len(),
+        boundary_changesets.len(),
+        slices_stats.completion_time.as_millis(),
+    );
+
+    if slices.is_empty() && boundary_changesets.is_empty() {
+        info!("Nothing to enqueue for repo {}", repo_id.id());
+        return Ok(0);
+    }
+
+    // Enqueue boundary derivation request (no dependencies)
+    let boundary_cs_bytes: Vec<Vec<u8>> = boundary_changesets
+        .iter()
+        .map(|cs_id| cs_id.as_ref().to_vec())
+        .collect();
+
+    let boundary_params = thrift::DeriveBoundariesParams {
+        repo_id: repo_id.id() as i64,
+        derived_data_type: derived_data_type.name().to_string(),
+        boundary_cs_ids: boundary_cs_bytes,
+        concurrency: boundaries_concurrency,
+        use_predecessor_derivation: !requires_serial_slice_processing(derived_data_type),
+        ..Default::default()
+    };
+
+    let boundary_token = queue
+        .enqueue_with_root(ctx, Some(repo_id), boundary_params, root_request_id)
+        .await
+        .map_err(AsyncRequestsError::internal)?;
+    let boundary_row_id = boundary_token.id();
+    info!(
+        "Enqueued boundary derivation request (id={}, {} changesets)",
+        boundary_row_id.0,
+        boundary_changesets.len(),
+    );
+
+    // Enqueue slice derivation requests with dependency on boundaries
+    let serial_slices = requires_serial_slice_processing(derived_data_type);
+    let mut prev_slice_row_id: Option<RowId> = None;
+
+    for (i, slice) in slices.iter().enumerate() {
+        let segments: Vec<thrift::DeriveSliceSegment> = slice
+            .segments
+            .iter()
+            .map(|seg| thrift::DeriveSliceSegment {
+                head: seg.head.as_ref().to_vec(),
+                base: seg.base.as_ref().to_vec(),
+                ..Default::default()
+            })
+            .collect();
+
+        let slice_params = thrift::DeriveSliceParams {
+            repo_id: repo_id.id() as i64,
+            derived_data_type: derived_data_type.name().to_string(),
+            segments,
+            ..Default::default()
+        };
+
+        let mut depends_on = vec![boundary_row_id.clone()];
+        if serial_slices {
+            if let Some(prev_id) = &prev_slice_row_id {
+                depends_on.push(prev_id.clone());
+            }
+        }
+
+        let slice_token = queue
+            .enqueue_with_dependencies_and_root(
+                ctx,
+                Some(repo_id),
+                slice_params,
+                &depends_on,
+                root_request_id,
+            )
+            .await
+            .map_err(AsyncRequestsError::internal)?;
+        let slice_row_id = slice_token.id();
+        info!(
+            "Enqueued slice {}/{} (id={}, {} segments)",
+            i + 1,
+            slices.len(),
+            slice_row_id.0,
+            slice.segments.len(),
+        );
+
+        if serial_slices {
+            prev_slice_row_id = Some(slice_row_id);
+        }
+    }
+
+    let total = 1 + slices.len() as i64;
+    info!(
+        "Enqueued {} sub-requests for repo {} (1 boundary + {} slices)",
+        total,
+        repo_id.id(),
+        slices.len(),
+    );
+
+    Ok(total)
+}

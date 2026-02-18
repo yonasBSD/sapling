@@ -22,10 +22,12 @@ use std::sync::atomic::Ordering;
 use anyhow::Error;
 use anyhow::Result;
 use anyhow::bail;
+use async_requests::AsyncMethodRequestQueue;
 use async_requests::AsyncRequestsError;
 use async_requests::types::AsynchronousRequestParams;
 use async_requests::types::AsynchronousRequestResult;
 use async_requests::types::IntoConfigFormat;
+use async_requests::types::RowId;
 use bulk_derivation::BulkDerivation;
 use context::CoreContext;
 use derived_data_manager::DerivedDataManager;
@@ -466,6 +468,8 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
     ctx: &CoreContext,
     mononoke: Arc<Mononoke<Repo>>,
     megarepo_api: &MegarepoApi<R>,
+    queue: &AsyncMethodRequestQueue,
+    request_row_id: &RowId,
     params: AsynchronousRequestParams,
 ) -> Result<AsynchronousRequestResult> {
     match params.into() {
@@ -552,8 +556,13 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
                 .await
                 .into())
         }
-        async_requests_types_thrift::AsynchronousRequestParams::derive_backfill_params(_) => {
-             bail!("Implemented in a later diff")
+        async_requests_types_thrift::AsynchronousRequestParams::derive_backfill_params(params) => {
+            Ok(crate::backfill::compute_derive_backfill(ctx, mononoke, queue, params, request_row_id.clone())
+                .watched()
+                .with_max_poll(METHOD_MAX_POLL_TIME_MS)
+                .with_label("derive_backfill")
+                .await
+                .into())
         }
         async_requests_types_thrift::AsynchronousRequestParams::UnknownField(union_tag) => {
              bail!(

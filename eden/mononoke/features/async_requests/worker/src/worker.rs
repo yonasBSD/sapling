@@ -320,8 +320,15 @@ impl AsyncMethodRequestWorker {
 
         // Do the actual work.
         STATS::requested.add_value(1);
-        let work_fut =
-            megarepo_async_request_compute(&ctx, self.mononoke, &self.megarepo, params).timed();
+        let work_fut = megarepo_async_request_compute(
+            &ctx,
+            self.mononoke,
+            &self.megarepo,
+            &self.queue,
+            &req_id.0,
+            params,
+        )
+        .timed();
 
         // Start the loop that would keep saying that request is still being
         // processed

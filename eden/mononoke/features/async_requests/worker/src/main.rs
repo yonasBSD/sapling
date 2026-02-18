@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+mod backfill;
 mod methods;
 mod scuba;
 mod stats;
