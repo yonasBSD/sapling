@@ -85,7 +85,7 @@ fn jitter() -> Jitter {
 }
 
 impl<T: fmt::Debug + Send + Sync> ThrottledBlob<T> {
-    pub async fn new(blobstore: T, options: ThrottleOptions) -> Self {
+    pub fn new(blobstore: T, options: ThrottleOptions) -> Self {
         let qps_limiter =
             |qps: Option<NonZeroU32>| qps.map(|qps| RateLimiter::direct(Quota::per_second(qps)));
         let read_qps_limiter = qps_limiter(options.read_qps);

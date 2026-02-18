@@ -296,8 +296,10 @@ async fn open_blobstore(
     };
 
     // ThrottledBlob is a noop if no throttling requested
-    let blobstore =
-        Arc::new(ThrottledBlob::new(blobstore, blobstore_options.throttle_options).await);
+    let blobstore = Arc::new(ThrottledBlob::new(
+        blobstore,
+        blobstore_options.throttle_options,
+    ));
 
     Ok(blobstore)
 }

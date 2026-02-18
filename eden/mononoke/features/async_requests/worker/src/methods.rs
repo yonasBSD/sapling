@@ -13,6 +13,8 @@
 //! handling, enqueuing and polling should be done by the callers.
 
 use std::collections::HashMap;
+use std::num::NonZeroU32;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -26,6 +28,7 @@ use async_requests::types::AsynchronousRequestResult;
 use async_requests::types::IntoConfigFormat;
 use bulk_derivation::BulkDerivation;
 use context::CoreContext;
+use derived_data_manager::DerivedDataManager;
 use ephemeral_blobstore::BubbleId;
 use ephemeral_blobstore::RepoEphemeralStore;
 use futures::Future;
@@ -48,6 +51,7 @@ use mononoke_types::ChangesetId;
 use mononoke_types::DerivableType;
 use mononoke_types::RepositoryId;
 use repo_authorization::AuthorizationContext;
+use repo_blobstore::RepoBlobstore;
 use repo_derived_data::RepoDerivedDataRef;
 use scs_errors::ServiceErrorResultExt;
 #[cfg(fbcode_build)]
@@ -58,9 +62,53 @@ use scs_methods::from_request::FromRequest;
 use scs_methods::specifiers::SpecifierExt;
 use source_control as thrift;
 use source_control::CommitSpecifier;
+use throttledblob::ThrottleOptions;
+use throttledblob::ThrottledBlob;
 use tracing::info;
 
 const METHOD_MAX_POLL_TIME_MS: u64 = 100;
+
+/// JustKnob for write QPS throttling during backfill derivation
+const JK_BACKFILL_WRITE_QPS: &str = "scm/mononoke:derived_data_backfill_write_qps";
+/// JustKnob for write bytes/s throttling during backfill derivation
+const JK_BACKFILL_WRITE_BYTES_S: &str = "scm/mononoke:derived_data_backfill_write_bytes_s";
+/// JustKnob for read QPS throttling during backfill derivation
+const JK_BACKFILL_READ_QPS: &str = "scm/mononoke:derived_data_backfill_read_qps";
+/// JustKnob for read bytes/s throttling during backfill derivation
+const JK_BACKFILL_READ_BYTES_S: &str = "scm/mononoke:derived_data_backfill_read_bytes_s";
+
+/// Get a DerivedDataManager with optional read/write throttling applied.
+/// If JustKnobs are not set or are zero, returns the manager unchanged.
+fn get_throttled_manager(manager: &DerivedDataManager) -> Result<DerivedDataManager> {
+    let write_qps = justknobs::get_as::<i64>(JK_BACKFILL_WRITE_QPS, None)?;
+    let write_bytes = justknobs::get_as::<i64>(JK_BACKFILL_WRITE_BYTES_S, None)?;
+    let read_qps = justknobs::get_as::<i64>(JK_BACKFILL_READ_QPS, None)?;
+    let read_bytes = justknobs::get_as::<i64>(JK_BACKFILL_READ_BYTES_S, None)?;
+
+    if write_qps <= 0 && write_bytes <= 0 && read_qps <= 0 && read_bytes <= 0 {
+        return Ok(manager.clone());
+    }
+
+    let options = ThrottleOptions {
+        write_qps: NonZeroU32::new(write_qps.max(0) as u32),
+        write_bytes: NonZeroUsize::new(write_bytes.max(0) as usize),
+        read_qps: NonZeroU32::new(read_qps.max(0) as u32),
+        read_bytes: NonZeroUsize::new(read_bytes.max(0) as usize),
+        ..Default::default()
+    };
+
+    info!(
+        "Applying throttle: write_qps={:?}, write_bytes/s={:?}, read_qps={:?}, read_bytes/s={:?}",
+        options.write_qps, options.write_bytes, options.read_qps, options.read_bytes,
+    );
+
+    let repo_blobstore = manager.repo_blobstore().clone();
+    let throttled_blobstore =
+        RepoBlobstore::new_with_wrapped_inner_blobstore(repo_blobstore, |inner| {
+            Arc::new(ThrottledBlob::new(inner, options))
+        });
+    Ok(manager.with_replaced_blobstore(throttled_blobstore))
+}
 
 #[cfg(not(fbcode_build))]
 pub async fn commit_sparse_profile_delta_impl(
@@ -292,7 +340,8 @@ async fn compute_derive_boundaries(
     );
 
     let derived_count = Arc::new(AtomicUsize::new(0));
-    let manager = repo.repo().repo_derived_data().manager();
+    let manager = get_throttled_manager(repo.repo().repo_derived_data().manager())
+        .map_err(AsyncRequestsError::internal)?;
     let concurrency = params.concurrency.max(1) as usize;
     let use_predecessor = params.use_predecessor_derivation;
 
@@ -385,7 +434,8 @@ async fn compute_derive_slice(
         derived_data_type,
     );
 
-    let manager = repo.repo().repo_derived_data().manager();
+    let manager = get_throttled_manager(repo.repo().repo_derived_data().manager())
+        .map_err(AsyncRequestsError::internal)?;
 
     manager
         .derive_bulk_locally(
