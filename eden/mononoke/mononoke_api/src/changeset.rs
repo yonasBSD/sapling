@@ -1750,24 +1750,34 @@ impl<R: MononokeRepo> ChangesetContext<R> {
             .await?
             .into_skeleton_manifest_id();
 
-        let root_dbcm = self
-            .root_directory_branch_cluster_manifest_id()
-            .await?
-            .into_directory_branch_cluster_manifest_id()
-            .load(self.ctx(), self.repo_ctx().repo().repo_blobstore())
-            .await
-            .map_err(MononokeError::from)?;
+        let read_dbcm = justknobs::eval(
+            "scm/mononoke:dbcm_read_from_manifest",
+            None,
+            Some(self.repo_ctx().name()),
+        )?;
 
-        let blobstore = self.repo_ctx().repo().repo_blobstore().clone();
-        let ctx = self.ctx().clone();
-        let manifest_clusters =
-            collect_manifest_clusters(&ctx, &blobstore, root_dbcm, MPath::ROOT).await?;
+        let mut clusters_by_primary: HashMap<MPath, DirectoryBranchCluster> = if read_dbcm {
+            let root_dbcm = self
+                .root_directory_branch_cluster_manifest_id()
+                .await?
+                .into_directory_branch_cluster_manifest_id()
+                .load(self.ctx(), self.repo_ctx().repo().repo_blobstore())
+                .await
+                .map_err(MononokeError::from)?;
 
-        // Build a map of primary path -> cluster from manifest
-        let mut clusters_by_primary: HashMap<MPath, DirectoryBranchCluster> = manifest_clusters
-            .into_iter()
-            .map(|c| (c.cluster_primary.clone(), c))
-            .collect();
+            let blobstore = self.repo_ctx().repo().repo_blobstore().clone();
+            let ctx = self.ctx().clone();
+            let manifest_clusters =
+                collect_manifest_clusters(&ctx, &blobstore, root_dbcm, MPath::ROOT).await?;
+
+            // Build a map of primary path -> cluster from manifest
+            manifest_clusters
+                .into_iter()
+                .map(|c| (c.cluster_primary.clone(), c))
+                .collect()
+        } else {
+            HashMap::new()
+        };
 
         if let Some(fixed_config) = fixed_config {
             // Find which paths in the cluster config exist in this commit
