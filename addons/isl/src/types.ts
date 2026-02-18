@@ -171,12 +171,18 @@ export type DiffComment = {
 
 /**
  * Summary of CI test results for a Diff.
+ * 'running' if tests are in progress with no issues so far.
+ * 'running-warnings' if tests are in progress but have warnings.
+ * 'running-failed' if tests are in progress but have failures.
  * 'pass' if ALL signals succeed and not still running.
- * 'failed' if ANY signal doesn't succeed, even if some are still running.
+ * 'failed' if ANY signal doesn't succeed (finished).
+ * 'warning' if tests finished with warnings but no failures.
  * 'deferred' if tests are deferred and waiting to be started.
  */
 export type DiffSignalSummary =
   | 'running'
+  | 'running-warnings'
+  | 'running-failed'
   | 'pass'
   | 'failed'
   | 'warning'

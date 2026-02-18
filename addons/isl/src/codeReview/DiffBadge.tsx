@@ -21,8 +21,8 @@ import {Link} from '../Link';
 import {clipboardCopyLink, clipboardCopyText} from '../clipboard';
 import {useFeatureFlagSync} from '../featureFlags';
 import {T, t} from '../i18n';
-import {CircleEllipsisIcon} from '../icons/CircleEllipsisIcon';
 import {CircleExclamationIcon} from '../icons/CircleExclamationIcon';
+import {IconStack} from '../icons/IconStack';
 import {configBackedAtom, useAtomGet} from '../jotaiUtils';
 import {PullRevOperation} from '../operations/PullRevOperation';
 import {useRunOperation} from '../operationsState';
@@ -342,11 +342,33 @@ function DiffSignalSummary({diff}: {diff: DiffSummary}) {
   let tooltip;
   switch (diff.signalSummary) {
     case 'running':
-      icon = <CircleEllipsisIcon />;
+      icon = <Icon icon="sync" />;
       tooltip = t('Test Signals are still running for this Diff.');
       break;
+    case 'running-warnings':
+      icon = (
+        <IconStack>
+          <Icon icon="sync" />
+          <Icon icon="circle-filled" color="yellow" />
+        </IconStack>
+      );
+      tooltip = t(
+        'Test Signals are still running for this Diff, with warnings so far. See Diff for more details.',
+      );
+      break;
+    case 'running-failed':
+      icon = (
+        <IconStack>
+          <Icon icon="sync" />
+          <Icon icon="circle-filled" color="red" />
+        </IconStack>
+      );
+      tooltip = t(
+        'Test Signals are still running for this Diff, with failures so far. See Diff for more details.',
+      );
+      break;
     case 'pass':
-      icon = 'check';
+      icon = 'pass';
       tooltip = t('Test Signals completed successfully for this Diff.');
       break;
     case 'failed':
