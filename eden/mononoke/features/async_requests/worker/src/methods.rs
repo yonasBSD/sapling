@@ -14,19 +14,26 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
+use anyhow::Error;
 use anyhow::Result;
 use anyhow::bail;
 use async_requests::AsyncRequestsError;
 use async_requests::types::AsynchronousRequestParams;
 use async_requests::types::AsynchronousRequestResult;
 use async_requests::types::IntoConfigFormat;
+use bulk_derivation::BulkDerivation;
 use context::CoreContext;
 use ephemeral_blobstore::BubbleId;
 use ephemeral_blobstore::RepoEphemeralStore;
 use futures::Future;
 use futures::FutureExt;
+use futures::StreamExt;
+use futures::TryStreamExt;
 use futures::future::BoxFuture;
+use futures::stream;
 use futures::try_join;
 use futures_watchdog::WatchdogExt;
 use megarepo_api::MegarepoApi;
@@ -38,7 +45,10 @@ use mononoke_api::MononokeRepo;
 use mononoke_api::Repo;
 use mononoke_api::RepoContext;
 use mononoke_types::ChangesetId;
+use mononoke_types::DerivableType;
+use mononoke_types::RepositoryId;
 use repo_authorization::AuthorizationContext;
+use repo_derived_data::RepoDerivedDataRef;
 use scs_errors::ServiceErrorResultExt;
 #[cfg(fbcode_build)]
 use scs_methods::commit_sparse_profile_info::commit_sparse_profile_delta_impl;
@@ -48,6 +58,7 @@ use scs_methods::from_request::FromRequest;
 use scs_methods::specifiers::SpecifierExt;
 use source_control as thrift;
 use source_control::CommitSpecifier;
+use tracing::info;
 
 const METHOD_MAX_POLL_TIME_MS: u64 = 100;
 
@@ -238,6 +249,165 @@ pub async fn commit_sparse_profile_delta(
         .map_err(<scs_errors::ServiceError as Into<AsyncRequestsError>>::into)
 }
 
+/// Compute derive_boundaries request - derives boundary changesets using predecessor derivation
+async fn compute_derive_boundaries(
+    ctx: &CoreContext,
+    mononoke: Arc<Mononoke<Repo>>,
+    params: thrift::DeriveBoundariesParams,
+) -> Result<thrift::DeriveBoundariesResponse, AsyncRequestsError> {
+    let repo_id = RepositoryId::new(
+        params
+            .repo_id
+            .try_into()
+            .map_err(|e| AsyncRequestsError::request(anyhow::anyhow!("Invalid repo_id: {}", e)))?,
+    );
+
+    let repo = mononoke
+        .repo_by_id(ctx.clone(), repo_id)
+        .await
+        .map_err(AsyncRequestsError::internal)?
+        .ok_or_else(|| {
+            AsyncRequestsError::request(anyhow::anyhow!("Repo not found: {}", params.repo_id))
+        })?
+        .with_authorization_context(AuthorizationContext::new_bypass_access_control())
+        .build()
+        .await
+        .map_err(AsyncRequestsError::internal)?;
+
+    let derived_data_type =
+        DerivableType::from_name(&params.derived_data_type).map_err(AsyncRequestsError::request)?;
+
+    let boundary_cs_ids: Vec<ChangesetId> = params
+        .boundary_cs_ids
+        .iter()
+        .map(ChangesetId::from_bytes)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(AsyncRequestsError::request)?;
+
+    info!(
+        "Deriving {} boundary changesets for repo {} type {:?}",
+        boundary_cs_ids.len(),
+        params.repo_id,
+        derived_data_type,
+    );
+
+    let derived_count = Arc::new(AtomicUsize::new(0));
+    let manager = repo.repo().repo_derived_data().manager();
+    let concurrency = params.concurrency.max(1) as usize;
+    let use_predecessor = params.use_predecessor_derivation;
+
+    stream::iter(boundary_cs_ids)
+        .map(Ok::<_, Error>)
+        .try_for_each_concurrent(concurrency, |csid| {
+            let manager = manager.clone();
+            let ctx = ctx.clone();
+            let derived_count = derived_count.clone();
+            async move {
+                if use_predecessor {
+                    BulkDerivation::unsafe_derive_untopologically(
+                        &manager,
+                        &ctx,
+                        csid,
+                        None, // rederivation
+                        derived_data_type,
+                    )
+                    .await?;
+                } else {
+                    manager
+                        .derive_bulk_locally(
+                            &ctx,
+                            &[csid],
+                            None, // rederivation
+                            &[derived_data_type],
+                            None, // override_batch_size
+                        )
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{}", e))?;
+                }
+                derived_count.fetch_add(1, Ordering::SeqCst);
+                Ok::<_, Error>(())
+            }
+        })
+        .await
+        .map_err(AsyncRequestsError::internal)?;
+
+    let count = derived_count.load(Ordering::SeqCst) as i64;
+    info!("Derived {} boundary changesets", count);
+
+    Ok(thrift::DeriveBoundariesResponse {
+        derived_count: count,
+        error_message: None,
+        ..Default::default()
+    })
+}
+
+/// Compute derive_slice request - derives a slice of commits (segments defined by head..base ranges)
+async fn compute_derive_slice(
+    ctx: &CoreContext,
+    mononoke: Arc<Mononoke<Repo>>,
+    params: thrift::DeriveSliceParams,
+) -> Result<thrift::DeriveSliceResponse, AsyncRequestsError> {
+    let repo_id = RepositoryId::new(
+        params
+            .repo_id
+            .try_into()
+            .map_err(|e| AsyncRequestsError::request(anyhow::anyhow!("Invalid repo_id: {}", e)))?,
+    );
+
+    let repo = mononoke
+        .repo_by_id(ctx.clone(), repo_id)
+        .await
+        .map_err(AsyncRequestsError::internal)?
+        .ok_or_else(|| {
+            AsyncRequestsError::request(anyhow::anyhow!("Repo not found: {}", params.repo_id))
+        })?
+        .with_authorization_context(AuthorizationContext::new_bypass_access_control())
+        .build()
+        .await
+        .map_err(AsyncRequestsError::internal)?;
+
+    let derived_data_type =
+        DerivableType::from_name(&params.derived_data_type).map_err(AsyncRequestsError::request)?;
+
+    // Collect all segment heads - deriving each head will derive everything
+    // down to the base (which should already be derived as a boundary).
+    let head_cs_ids: Vec<ChangesetId> = params
+        .segments
+        .iter()
+        .map(|seg| ChangesetId::from_bytes(&seg.head))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(AsyncRequestsError::request)?;
+
+    info!(
+        "Deriving slice with {} segments for repo {} type {:?}",
+        head_cs_ids.len(),
+        params.repo_id,
+        derived_data_type,
+    );
+
+    let manager = repo.repo().repo_derived_data().manager();
+
+    manager
+        .derive_bulk_locally(
+            ctx,
+            &head_cs_ids,
+            None, // rederivation
+            &[derived_data_type],
+            None, // override_batch_size
+        )
+        .await
+        .map_err(|e| AsyncRequestsError::internal(anyhow::anyhow!("{}", e)))?;
+
+    let count = head_cs_ids.len() as i64;
+    info!("Derived slice with {} segments", count);
+
+    Ok(thrift::DeriveSliceResponse {
+        derived_count: count,
+        error_message: None,
+        ..Default::default()
+    })
+}
+
 /// Given the request params dispatches the request to the right processing
 /// function and returns the computation result. Both successful computation
 /// and error are part of the `AsynchronousRequestResult` structure. We only
@@ -317,10 +487,20 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
                 .into())
         }
         async_requests_types_thrift::AsynchronousRequestParams::derive_boundaries_params(params) => {
-            todo!()
+            Ok(compute_derive_boundaries(ctx, mononoke, params)
+                .watched()
+                .with_max_poll(METHOD_MAX_POLL_TIME_MS)
+                .with_label("derive_boundaries")
+                .await
+                .into())
         }
         async_requests_types_thrift::AsynchronousRequestParams::derive_slice_params(params) => {
-            todo!()
+            Ok(compute_derive_slice(ctx, mononoke, params)
+                .watched()
+                .with_max_poll(METHOD_MAX_POLL_TIME_MS)
+                .with_label("derive_slice")
+                .await
+                .into())
         }
         async_requests_types_thrift::AsynchronousRequestParams::UnknownField(union_tag) => {
              bail!(
