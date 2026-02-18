@@ -383,8 +383,8 @@ def get_chef_log_path(platform: str) -> Optional[str]:
 
 def get_home_dir() -> Path:
     # NOTE: Path.home() should work on all platforms, but we would want
-    # to be careful about making that change in case users have muddled with
-    # their HOME env var or if the resolution is weird in a containairzed
+    # careful about making that change in case users have muddled with
+    # their HOME env var or if the resolution is weird in a containerized
     # environment. It would be worth having some external logging to count
     # mismatches between the two approaches
     home_dir = None
@@ -699,7 +699,7 @@ def get_eden_mount_name(path_arg: str) -> str:
         except OSError as e:
             # WinError 369 is "The provider that supports file system
             # virtualization is temporarily unavailable". This usually
-            # indicates the path is leftover of a previous EdednFS mount.
+            # indicates the path is leftover of a previous EdenFS mount.
             if e.winerror == 369:
                 raise NotAnEdenMountError(path_arg)
             raise
@@ -814,7 +814,7 @@ def get_eden_cli_cmd(argv: List[str] = sys.argv) -> List[str]:
 
 
 # some processes like hg and arc are sensitive about their environments, we
-# clear variables that might make problems for their dynamic linking.
+# clear variables that might cause problems for their dynamic linking.
 # note buck is even more sensitive see buck.run_buck_command
 def get_environment_suitable_for_subprocess() -> Dict[str, str]:
     env = os.environ.copy()
@@ -1489,7 +1489,7 @@ def maybe_edensparse_migration(
             migration_exceptions.append(
                 f"Migration exception: {checkout.path}\n{traceback.format_exc()}"
             )
-            print("rollbacking changes...", file=sys.stderr)
+            print("rolling back changes...", file=sys.stderr)
 
             if step == EdensparseMigrationStep.POST_EDEN_START:
                 # Restore Step 1 backups if they exist (for cross-step rollback)
@@ -1560,7 +1560,7 @@ class NaiveFaultInjector:
     """
     A naive fault injector that injects faults by raising exceptions when needed.
 
-    Injector knows when to faise an exception by checking if a file with
+    Injector knows when to raise an exception by checking if a file with
     the specified key exists in the eden client state directory.
 
     Ideally this should only be used in tests:
