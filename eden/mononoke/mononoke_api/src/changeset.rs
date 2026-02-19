@@ -36,6 +36,7 @@ use deleted_manifest::RootDeletedManifestIdCommon;
 use deleted_manifest::RootDeletedManifestV2Id;
 use derivation_queue_thrift::DerivationPriority;
 use derived_data_manager::BonsaiDerivable;
+use derived_data_manager::DerivableType;
 use directory_branch_cluster_manifest::RootDirectoryBranchClusterManifestId;
 use fsnodes::RootFsnodeId;
 use futures::future::try_join;
@@ -1750,11 +1751,18 @@ impl<R: MononokeRepo> ChangesetContext<R> {
             .await?
             .into_skeleton_manifest_id();
 
-        let read_dbcm = justknobs::eval(
-            "scm/mononoke:dbcm_read_from_manifest",
-            None,
-            Some(self.repo_ctx().name()),
-        )?;
+        let dbcm_enabled = self
+            .repo_ctx()
+            .repo()
+            .repo_derived_data()
+            .config()
+            .is_enabled(DerivableType::DirectoryBranchClusterManifest);
+        let read_dbcm = dbcm_enabled
+            && justknobs::eval(
+                "scm/mononoke:dbcm_read_from_manifest",
+                None,
+                Some(self.repo_ctx().name()),
+            )?;
 
         let mut clusters_by_primary: HashMap<MPath, DirectoryBranchCluster> = if read_dbcm {
             let root_dbcm = self
