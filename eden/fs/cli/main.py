@@ -47,7 +47,7 @@ DEFAULT_STOP_TIMEOUT = 20
 AUX_PROCESSES_STOP_TIMEOUT = 60
 
 
-def _get_aux_processes_stop_timeout() -> float:
+def _get_aux_processes_stop_timeout() -> int:
     """Get the timeout for stopping aux processes.
 
     Can be overridden via EDENFS_AUX_PROCESSES_TIMEOUT_SECS environment variable for testing.
@@ -55,7 +55,7 @@ def _get_aux_processes_stop_timeout() -> float:
     env_timeout = os.environ.get("EDENFS_AUX_PROCESSES_TIMEOUT_SECS")
     if env_timeout:
         try:
-            return float(env_timeout)
+            return int(env_timeout)
         except ValueError:
             pass
     return AUX_PROCESSES_STOP_TIMEOUT
@@ -1791,6 +1791,7 @@ def remove_checkout_impl(
     skip_destroy: bool = False,
     debug: bool = False,
     proceed_on_unmount_failure: bool = True,
+    aux_timeout: Optional[int] = None,
 ) -> RemoveCheckoutResult:
     """
     Core checkout removal logic shared by remove commands.
@@ -1810,6 +1811,7 @@ def remove_checkout_impl(
         debug: If True, include debug info in cleanup_mount
         proceed_on_unmount_failure: If True, continue with destroy/cleanup even if unmount fails.
             If False, return early with unmount_error set.
+        aux_timeout: Timeout in seconds for stopping auxiliary processes. If None, uses the default.
     """
     result = RemoveCheckoutResult()
 
@@ -1818,9 +1820,15 @@ def remove_checkout_impl(
         # Step 1a: Stop aux processes (redirections, internal processes)
         try:
             output.write(f"Stopping aux processes for {path}...\n")
+            timeout = (
+                aux_timeout
+                if aux_timeout is not None
+                else _get_aux_processes_stop_timeout()
+            )
             stop_aux_processes_for_path(
                 path,
                 complain_about_failing_to_unmount_redirs=complain_about_redirections,
+                timeout=timeout,
             )
         except Exception as e:
             result.aux_process_error = e
@@ -1910,6 +1918,14 @@ class RemoveCmd(Subcmd):
             default=False,
             action="store_true",
             help=argparse.SUPPRESS,
+        )
+        parser.add_argument(
+            "--timeout",
+            type=int,
+            default=None,
+            metavar="SECONDS",
+            help="Timeout in seconds for stopping auxiliary processes (e.g., redirections). "
+            f"Defaults to {AUX_PROCESSES_STOP_TIMEOUT} seconds if not specified.",
         )
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -2042,6 +2058,11 @@ Do you still want to delete {path}?"""
 
             # Unmount and destroy everything
             exit_code = 0
+            aux_timeout = (
+                args.timeout
+                if args.timeout is not None
+                else _get_aux_processes_stop_timeout()
+            )
             for mount, remove_type in mounts:
                 print(f"Removing {mount}...")
                 # Removing reidrection targets from checkout config to allow deletion of redirected paths
@@ -2063,6 +2084,7 @@ Do you still want to delete {path}?"""
                     skip_destroy=(remove_type == RemoveType.CLEANUP_ONLY),
                     debug=args.debug,
                     proceed_on_unmount_failure=False,
+                    aux_timeout=aux_timeout,
                 )
 
                 # Handle aux process error (log but continue)
@@ -2467,7 +2489,7 @@ class AuxProcessTimeoutError(Exception):
 def stop_aux_processes_for_path(
     repo_path: str,
     complain_about_failing_to_unmount_redirs: bool = True,
-    timeout: float = AUX_PROCESSES_STOP_TIMEOUT,
+    timeout: int = AUX_PROCESSES_STOP_TIMEOUT,
 ) -> None:
     """Tear down processes that will hold onto file handles and prevent shutdown
     for a given mount point/repo.
@@ -2481,7 +2503,11 @@ def stop_aux_processes_for_path(
     # Track the current step so we can report which step timed out
     current_step: List[str] = ["initializing"]
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+    # Reset the test cancel event at the start
+    _reset_test_cancel_event()
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
         future = executor.submit(
             _stop_aux_processes_for_path_impl,
             repo_path,
@@ -2491,11 +2517,16 @@ def stop_aux_processes_for_path(
         try:
             future.result(timeout=timeout)
         except concurrent.futures.TimeoutError:
+            # Cancel any test delays so the worker thread can exit quickly
+            _cancel_test_delays()
             step_name = current_step[0]
             raise AuxProcessTimeoutError(
                 f"Stopping aux processes for {repo_path} timed out after "
                 f"{timeout} seconds while {step_name}"
             )
+    finally:
+        # Don't wait for the worker thread if we timed out
+        executor.shutdown(wait=False)
 
 
 def stop_aux_processes(client: EdenClient) -> None:
