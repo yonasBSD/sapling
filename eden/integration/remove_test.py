@@ -8,6 +8,8 @@
 
 import json
 import os
+import subprocess
+import sys
 import time
 from typing import Set
 
@@ -181,3 +183,95 @@ class RemoveTest(RemoveTestBase):
             os.path.exists(mount2),
             "second mount point should be removed",
         )
+
+    @parameterized.expand(
+        [
+            ("rust", {"EDENFSCTL_ONLY_RUST": "1"}),
+            ("python", {"EDENFSCTL_SKIP_RUST": "1"}),
+        ]
+    )
+    def test_remove_with_busy_bind_mount(self, impl: str, env: dict) -> None:
+        """Test eden rm behavior when a bind mount is actively in use.
+
+        Creates a bind redirection and holds an open file handle on a file in
+        the bind mount. This simulates an aux process (like buck) actively
+        using the redirection.
+
+        This test only runs on macOS because unmount behavior differs by platform:
+        - macOS: uses MNT_FORCE for unmount, which can hang if the mount is busy
+        - Linux: uses MNT_DETACH (lazy unmount), always succeeds immediately
+        - Windows: uses symlinks instead of bind mounts, unlink() is instant
+
+        The test verifies that eden rm with --timeout completes without hanging
+        indefinitely, even when the bind mount is in active use.
+        """
+        if sys.platform != "darwin":
+            self.skipTest(
+                "Busy bind mount test is macOS-only (Linux/Windows unmounts don't hang)"
+            )
+
+        # Setup: add a bind redirection
+        repo_path = f"busy-{impl}"
+        self.eden.run_cmd("redirect", "add", "--mount", self.mount, repo_path, "bind")
+
+        # Get the mount point path (inside the checkout)
+        mount_point = os.path.join(self.mount, repo_path)
+        self.assertTrue(
+            os.path.isdir(mount_point), f"Mount point should exist: {mount_point}"
+        )
+
+        # Keep the mount busy by holding an open file handle.
+        test_file = os.path.join(mount_point, "busy_file")
+        with open(test_file, "w") as f:
+            f.write("x")
+        busy_proc = subprocess.Popen(
+            ["tail", "-f", test_file],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        try:
+            # Give the process a moment to start and open the file
+            time.sleep(0.5)
+
+            # Verify the process is running and has the file open
+            self.assertIsNone(busy_proc.poll(), "busy process should still be running")
+
+            # Run eden rm with a timeout
+            start_time = time.time()
+            result = self.eden.run_unchecked(
+                "remove",
+                "--yes",
+                "--timeout",
+                "1",
+                self.mount,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            elapsed_time = time.time() - start_time
+
+            # The operation should complete (not hang indefinitely)
+            # On macOS, MNT_FORCE could hang on busy mounts, but --timeout should prevent that (timeout + overhead = ~2s)
+            self.assertLess(
+                elapsed_time,
+                2.0,
+                f"eden rm ({impl}) should not hang indefinitely with busy bind mount",
+            )
+
+            # Log the output for debugging
+            output = result.stderr or ""
+
+            # Verify the mount was removed despite the busy bind mount
+            self.assertFalse(
+                os.path.exists(self.mount),
+                f"mount point should be removed after eden rm ({impl}) with busy bind mount. Output: {output}",
+            )
+        finally:
+            # Clean up the busy process
+            busy_proc.terminate()
+            try:
+                busy_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                busy_proc.kill()
+                busy_proc.wait()
