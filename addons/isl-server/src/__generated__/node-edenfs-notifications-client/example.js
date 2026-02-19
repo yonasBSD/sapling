@@ -114,6 +114,7 @@ async function subscriptionExample() {
         includedSuffixes: ['.js', '.ts', '.py'], // Only watch specific file types
         excludedRoots: ['node_modules', '.git'], // Exclude certain directories
         deferredStates: ['test'], // Wait for these states to be deasserted
+        unpackCommitTransitions: true, // Unpack commit transitions into file changes
       },
       (error, resp) => {
         if (error) {

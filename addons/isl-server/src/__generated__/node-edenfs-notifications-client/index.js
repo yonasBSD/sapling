@@ -275,6 +275,7 @@ class EdenFSNotificationsClient extends EventEmitter {
    * @param {string[]} options.includedSuffixes - Included suffixes in output
    * @param {string[]} options.excludedSuffixes - Excluded suffixes in output
    * @param {string[]} options.deferredStates - States to wait for deassertion
+   * @param {boolean} options.unpackCommitTransitions - Unpack commit transitions into individual file changes
    * @param {CommandCallback} callback
    * @returns {EdenFSSubscription} Subscription object
    */
@@ -432,6 +433,10 @@ class EdenFSSubscription extends EventEmitter {
       this.options.deferredStates.forEach(state => {
         args.push('--deferred-states', state);
       });
+    }
+
+    if (this.options.unpackCommitTransitions) {
+      args.push('--unpack-commit-transitions');
     }
 
     if (mountPoint) {

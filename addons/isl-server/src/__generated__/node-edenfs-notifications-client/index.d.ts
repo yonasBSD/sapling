@@ -122,6 +122,8 @@ export interface SubscriptionOptions {
   excludedSuffixes?: string[];
   /** States to wait for deassertion */
   deferredStates?: string[];
+  /** Unpack commit transitions into individual file changes */
+  unpackCommitTransitions?: boolean;
   /** Path to eden binary */
   edenBinaryPath?: string;
 }
