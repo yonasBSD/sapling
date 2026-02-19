@@ -84,7 +84,12 @@ impl Middleware for ThrottleMiddleware {
                 OdsCounterManager::new(self.fb),
                 atlas,
             ) {
-                let err = HttpError::e429(err);
+                let err = if err.no_target() {
+                    HttpError::e503(err)
+                } else {
+                    // Targeted rate limiting — still 429 for now
+                    HttpError::e429(err)
+                };
 
                 let res =
                     async move { build_error_response(err, state, &LfsErrorFormatter) }.boxed();

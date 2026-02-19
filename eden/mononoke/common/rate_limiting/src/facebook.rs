@@ -60,6 +60,7 @@ pub fn log_or_enforce_status(
     body: &RateLimitBody,
     metric: FciMetric,
     scuba: &mut MononokeScubaSampleBuilder,
+    no_target: bool,
 ) -> RateLimitResult {
     match body.raw_config.status {
         RateLimitStatus::Disabled => RateLimitResult::Pass,
@@ -68,7 +69,7 @@ pub fn log_or_enforce_status(
                 "Would have rate limited",
                 format!(
                     "{:?}",
-                    (RateLimitReason::RateLimitedMetric(metric.metric, metric.window))
+                    (RateLimitReason::RateLimitedMetric(metric.metric, metric.window, no_target))
                 ),
             );
             RateLimitResult::Pass
@@ -76,6 +77,7 @@ pub fn log_or_enforce_status(
         RateLimitStatus::Enforced => RateLimitResult::Fail(RateLimitReason::RateLimitedMetric(
             metric.metric,
             metric.window,
+            no_target,
         )),
         _ => panic!(
             "Thrift enums aren't real enums once in Rust. We have to account for other values here."
@@ -138,7 +140,8 @@ impl RateLimiter for MononokeRateLimits {
             )
             .await?
             {
-                match log_or_enforce_status(&limit.body, fci_metric, scuba) {
+                let no_target = limit.target.is_none();
+                match log_or_enforce_status(&limit.body, fci_metric, scuba, no_target) {
                     RateLimitResult::Pass => {
                         break;
                     }

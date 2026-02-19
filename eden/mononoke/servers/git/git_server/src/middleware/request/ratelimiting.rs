@@ -82,6 +82,12 @@ impl Middleware for UploadPackRateLimitingMiddleware {
                 &mut scuba,
                 atlas,
             ) {
+                let status = if err.no_target() {
+                    StatusCode::SERVICE_UNAVAILABLE
+                } else {
+                    // Targeted rate limiting — still 429 for now
+                    StatusCode::TOO_MANY_REQUESTS
+                };
                 MononokeGitScubaHandler::log_rejected(
                     scuba,
                     repo_name,
@@ -91,6 +97,7 @@ impl Middleware for UploadPackRateLimitingMiddleware {
                         "Upload pack request rejected due to load shedding / rate limiting: {:?}",
                         err
                     ),
+                    status,
                 );
                 error!(
                     "Upload pack request rejected due to load shedding / rate limiting: {:?}",
@@ -98,7 +105,7 @@ impl Middleware for UploadPackRateLimitingMiddleware {
                 );
                 return Some(
                     Response::builder()
-                        .status(StatusCode::TOO_MANY_REQUESTS)
+                        .status(status)
                         .body(
                             format!(
                                 "Upload pack request rejected due to load shedding / rate limiting: {:?}",

@@ -222,6 +222,7 @@ pub fn log_or_enforce_status(
     metric: String,
     value: i64,
     scuba: &mut MononokeScubaSampleBuilder,
+    no_target: bool,
 ) -> LoadShedResult {
     match raw_config.status {
         RateLimitStatus::Disabled => LoadShedResult::Pass,
@@ -230,7 +231,7 @@ pub fn log_or_enforce_status(
                 "Would have rate limited",
                 format!(
                     "{:?}",
-                    (RateLimitReason::LoadShedMetric(metric, value, raw_config.limit,))
+                    (RateLimitReason::LoadShedMetric(metric, value, raw_config.limit, no_target))
                 ),
             );
             LoadShedResult::Pass
@@ -239,6 +240,7 @@ pub fn log_or_enforce_status(
             metric,
             value,
             raw_config.limit,
+            no_target,
         )),
         _ => panic!(
             "Thrift enums aren't real enums once in Rust. We have to account for other values here."
@@ -299,7 +301,14 @@ impl LoadShedLimit {
 
         match value {
             Some(value) if value > self.raw_config.limit => {
-                log_or_enforce_status(self.raw_config.clone(), metric_string, value, scuba)
+                let no_target = self.target.is_none();
+                log_or_enforce_status(
+                    self.raw_config.clone(),
+                    metric_string,
+                    value,
+                    scuba,
+                    no_target,
+                )
             }
             _ => LoadShedResult::Pass,
         }
@@ -340,10 +349,26 @@ pub struct FciMetric {
 #[must_use]
 #[derive(Debug, Error)]
 pub enum RateLimitReason {
+    /// Rate limited due to an aggregate FCI counter exceeding a threshold.
+    /// The bool indicates whether the limit has no target (applies to
+    /// everyone). Untargeted limits yield HTTP 503; targeted limits yield
+    /// HTTP 429.
     #[error("Rate limited by {0:?} over {1:?}")]
-    RateLimitedMetric(Metric, Duration),
+    RateLimitedMetric(Metric, Duration, bool),
+    /// Load shed due to an infrastructure metric (ODS/fb303) exceeding a
+    /// threshold. The bool indicates whether the limit has no target.
     #[error("Load shed due to {0} (value: {1}, limit: {2})")]
-    LoadShedMetric(String, i64, i64),
+    LoadShedMetric(String, i64, i64, bool),
+}
+
+impl RateLimitReason {
+    /// Returns true if the rate limit has no target (applies to all clients).
+    pub fn no_target(&self) -> bool {
+        match self {
+            Self::RateLimitedMetric(_, _, no_target) => *no_target,
+            Self::LoadShedMetric(_, _, _, no_target) => *no_target,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

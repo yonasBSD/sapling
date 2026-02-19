@@ -200,11 +200,12 @@ impl MononokeGitScubaHandler {
         main_client_id: Option<String>,
         identities: &MononokeIdentitySet,
         error: String,
+        status_code: StatusCode,
     ) {
         scuba.add(MononokeGitScubaKey::Repo, repo_name.to_string());
         scuba.add(MononokeGitScubaKey::Error, error);
         // TODO(T247968902) logging of status code should be consolidated in one place
-        scuba.add("http_status", StatusCode::TOO_MANY_REQUESTS.as_u16());
+        scuba.add("http_status", status_code.as_u16());
         scuba.add_opt(MononokeGitScubaKey::ClientMainId, main_client_id);
         scuba.add(
             MononokeGitScubaKey::ClientIdentities,

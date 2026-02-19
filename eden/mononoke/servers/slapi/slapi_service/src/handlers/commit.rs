@@ -537,6 +537,7 @@ impl SaplingRemoteApiHandler for UploadHgChangesetsHandler {
         let changesets = request.changesets;
 
         let ctx = repo.ctx().clone();
+        // Per-user commit rate limit: always 429, this client is the offender.
         bump_counter_check_ratelimit(ctx, COMMITS_PER_USER_RATE_LIMIT, 1.0)
             .await
             .map_err(HttpError::e429)?;
@@ -600,6 +601,7 @@ impl SaplingRemoteApiHandler for UploadBonsaiChangesetHandler {
         let repo = &repo;
 
         let ctx = repo.ctx().clone();
+        // Per-user commit rate limit: always 429, this client is the offender.
         bump_counter_check_ratelimit(ctx, COMMITS_PER_USER_RATE_LIMIT, 1.0)
             .await
             .map_err(HttpError::e429)?;

@@ -86,6 +86,15 @@ impl HttpError {
 
 impl From<RateLimitReason> for HttpError {
     fn from(r: RateLimitReason) -> Self {
-        Self::e429(r)
+        if r.no_target() {
+            // Untargeted limit: the server is rejecting everyone,
+            // not just this client. That's a 503 Service Unavailable.
+            Self::e503(r)
+        } else {
+            // Targeted limit: this specific client is being throttled.
+            // Use 429 for now, even when the client isn't the direct cause
+            // of the overload (e.g. targeted load shedding).
+            Self::e429(r)
+        }
     }
 }

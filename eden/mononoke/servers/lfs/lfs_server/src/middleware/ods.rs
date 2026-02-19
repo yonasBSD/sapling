@@ -27,6 +27,7 @@ define_stats! {
     requests: timeseries(Rate, Sum),
     failure_4xx: timeseries(Rate, Sum),
     failure_429: timeseries(Rate, Sum),
+    failure_503: timeseries(Rate, Sum),
     failure_404: timeseries(Rate, Sum),
     failure_5xx: timeseries(Rate, Sum),
 
@@ -59,6 +60,9 @@ fn log_stats(state: &mut State, status: StatusCode) -> Option<()> {
 
         STATS::failure_4xx.add_value(1);
     } else if status.is_server_error() {
+        if status == StatusCode::SERVICE_UNAVAILABLE {
+            STATS::failure_503.add_value(1);
+        }
         STATS::failure_5xx.add_value(1);
     }
 

@@ -102,6 +102,8 @@ impl Middleware for ThrottleMiddleware {
         {
             Ok(_) => None,
             Err(response) => {
+                // Per-user rate limiting (counter keyed by client_main_id):
+                // always 429, this client specifically is the offender.
                 let res = Response::builder()
                     .status(StatusCode::TOO_MANY_REQUESTS)
                     .body(response.to_string().into())
