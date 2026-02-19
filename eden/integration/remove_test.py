@@ -6,6 +6,7 @@
 
 # pyre-unsafe
 
+import json
 import os
 import time
 from typing import Set
@@ -46,6 +47,57 @@ class RemoveTest(RemoveTestBase):
     These tests exercise various remove scenarios including redirections,
     timeouts, and handling of busy mounts.
     """
+
+    @parameterized.expand(
+        [
+            ("rust", {"EDENFSCTL_ONLY_RUST": "1"}),
+            ("python", {"EDENFSCTL_SKIP_RUST": "1"}),
+        ]
+    )
+    def test_remove_checkout_with_redirections(self, impl: str, env: dict) -> None:
+        """Test that eden rm properly unmounts redirections before removing checkout.
+
+
+        Tests both Rust and Python implementations of eden rm.
+        """
+        # Setup: add a bind redirection
+        repo_path = os.path.join(f"test-redirect-{impl}", "bind-mount")
+        self.eden.run_cmd("redirect", "add", "--mount", self.mount, repo_path, "bind")
+
+        # Verify redirection exists and is functional
+        output = self.eden.run_cmd("redirect", "list", "--json", "--mount", self.mount)
+        redirections = json.loads(output)
+        our_redir = [r for r in redirections if r["repo_path"] == repo_path]
+        self.assertEqual(len(our_redir), 1, msg="should have our redirection")
+
+        self.assertIn(
+            our_redir[0]["state"],
+            ["ok", "not-mounted"],
+            msg=f"redirection {repo_path} should be in a valid state",
+        )
+
+        # Verify the redirection path exists
+        redirect_path = os.path.join(self.mount, repo_path)
+        self.assertTrue(
+            os.path.exists(redirect_path),
+            msg=f"redirection path {redirect_path} should exist",
+        )
+
+        # Run eden rm with the appropriate env var to force the implementation
+        self.eden.run_cmd("remove", "--yes", self.mount, env=env)
+
+        # Verify the mount is removed
+        self.assertFalse(
+            os.path.exists(self.mount),
+            msg=f"mount point should be removed after eden rm ({impl})",
+        )
+
+        # Re-clone to verify eden is still working
+        self.eden.clone(self.repo.path, self.mount)
+        self.assertTrue(
+            os.path.isdir(self.mount),
+            msg="should be able to re-clone after eden rm",
+        )
 
     @parameterized.expand(
         [
