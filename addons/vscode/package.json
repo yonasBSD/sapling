@@ -89,6 +89,11 @@
           "type": "boolean",
           "default": false,
           "description": "%settings.isl.showInSidebar.description%"
+        },
+        "sapling.isl.showOpenOrFocusButtonOnEditorTitle": {
+          "type": "boolean",
+          "default": true,
+          "description": "%settings.isl.showOpenOrFocusButtonOnEditorTitle.description%"
         }
       }
     },
@@ -239,6 +244,13 @@
         {
           "command": "sapling.copy-remote-file-link",
           "when": "sapling:hasRemoteLinkRepo"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "sapling.open-isl",
+          "group": "navigation@-100",
+          "when": "config.sapling.isl.showOpenOrFocusButtonOnEditorTitle && isl.showButtonOnEditorTitle"
         }
       ],
       "explorer/context": [
