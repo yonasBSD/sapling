@@ -91,7 +91,6 @@
   white-space: pre-wrap;
   transition: background-color 0.1s;
   border-radius: var(--pad);
-  margin-inline: calc(-1 * var(--pad));
   margin-bottom: var(--pad);
   padding: var(--pad);
   word-break: break-word;
