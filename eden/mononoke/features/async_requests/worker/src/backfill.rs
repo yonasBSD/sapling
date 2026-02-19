@@ -81,6 +81,21 @@ fn get_throttled_manager(manager: &DerivedDataManager) -> Result<DerivedDataMana
     Ok(manager.with_replaced_blobstore(throttled_blobstore))
 }
 
+/// Returns a manager with the given derived data type enabled in its config.
+/// If the type is already enabled, returns a clone of the existing manager.
+/// This is needed for backfill operations where the type may not yet be in the repo config.
+fn with_type_enabled(
+    manager: &DerivedDataManager,
+    derived_data_type: DerivableType,
+) -> DerivedDataManager {
+    if manager.config().types.contains(&derived_data_type) {
+        return manager.clone();
+    }
+    let mut config = manager.config().clone();
+    config.types.insert(derived_data_type);
+    manager.with_replaced_config(manager.config_name(), config)
+}
+
 /// Returns true if this derived data type requires slices to be chained
 /// serially (each slice depends on the previous). Types that support
 /// derive_from_predecessor can derive boundaries independently, allowing
@@ -136,6 +151,7 @@ pub(crate) async fn compute_derive_boundaries(
     let derived_count = Arc::new(AtomicUsize::new(0));
     let manager = get_throttled_manager(repo.repo().repo_derived_data().manager())
         .map_err(AsyncRequestsError::internal)?;
+    let manager = with_type_enabled(&manager, derived_data_type);
     let concurrency = params.concurrency.max(1) as usize;
     let use_predecessor = params.use_predecessor_derivation;
 
@@ -230,6 +246,7 @@ pub(crate) async fn compute_derive_slice(
 
     let manager = get_throttled_manager(repo.repo().repo_derived_data().manager())
         .map_err(AsyncRequestsError::internal)?;
+    let manager = with_type_enabled(&manager, derived_data_type);
 
     manager
         .derive_bulk_locally(
@@ -355,6 +372,7 @@ async fn process_repo_backfill(
     } else {
         inner_repo.repo_derived_data().manager()
     };
+    let manager = with_type_enabled(manager, derived_data_type);
 
     info!(
         "DeriveBackfill for repo {} type {:?}: {} changesets, slice_size {}",
@@ -387,10 +405,13 @@ async fn process_repo_backfill(
     } else {
         let (frontier_stats, frontier) = inner_repo
             .commit_graph()
-            .ancestors_frontier_with(ctx, cs_ids.clone(), |cs_id| async move {
-                Ok(manager
-                    .is_derived(ctx, cs_id, None, derived_data_type)
-                    .await?)
+            .ancestors_frontier_with(ctx, cs_ids.clone(), |cs_id| {
+                let manager = manager.clone();
+                async move {
+                    Ok(manager
+                        .is_derived(ctx, cs_id, None, derived_data_type)
+                        .await?)
+                }
             })
             .try_timed()
             .await
