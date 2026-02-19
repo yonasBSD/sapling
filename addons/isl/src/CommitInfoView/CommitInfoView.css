@@ -91,8 +91,7 @@
   white-space: pre-wrap;
   transition: background-color 0.1s;
   border-radius: var(--pad);
-  margin-bottom: var(--pad);
-  padding: var(--pad);
+  padding: var(--pad) 0;
   word-break: break-word;
 }
 
@@ -105,7 +104,6 @@
 }
 
 .commit-info-section .see-more-container {
-  margin: calc(-1 * var(--pad));
   margin-left: 0;
   margin-bottom: var(--pad);
 }
@@ -226,12 +224,12 @@
 
 .commit-info-section {
   margin: var(--pad);
-  margin-top: calc(2 * var(--pad));
 }
 
 .commit-info-title-byline {
   padding: 5px;
   margin: 0 var(--halfpad);
+  margin-bottom: var(--pad);
   display: flex;
   flex-wrap: nowrap;
   gap: var(--halfpad);
@@ -304,6 +302,7 @@
   align-items: center;
   flex-wrap: wrap;
   padding: var(--halfpad) 0;
+  min-height: calc(var(--pad));
   --token-height: 26px;
 }
 .commit-info-tokenized-field vscode-text-field {
