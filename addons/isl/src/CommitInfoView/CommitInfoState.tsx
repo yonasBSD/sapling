@@ -126,17 +126,14 @@ registerDisposable(
     const schema = readAtom(commitMessageFieldsSchema);
     const fields = parseCommitMessageFields(schema, title, description);
 
-    if (mode === 'commit') {
-      writeAtom(editedCommitMessages('head'), fields);
-    } else {
-      const currentMessage = readAtom(editedCommitMessages(hash));
-      // For amend mode: non-empty fields replace existing values, empty fields preserve current values
-      // By passing fields first, mergeOnlyEmptyMessageFields will prefer the new fields when non-empty
-      writeAtom(
-        editedCommitMessages(hash),
-        mergeOnlyEmptyMessageFields(schema, fields, currentMessage as CommitMessageFields),
-      );
-    }
+    const key = mode === 'commit' ? 'head' : hash;
+    const currentMessage = readAtom(editedCommitMessages(key));
+    // Non-empty fields replace existing values, empty fields preserve current values.
+    // By passing fields first, mergeOnlyEmptyMessageFields will prefer the new fields when non-empty.
+    writeAtom(
+      editedCommitMessages(key),
+      mergeOnlyEmptyMessageFields(schema, fields, currentMessage as CommitMessageFields),
+    );
 
     writeAtom(selectedCommits, new Set([hash]));
     writeAtom(rawCommitMode, mode);
