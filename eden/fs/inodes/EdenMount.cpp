@@ -1408,8 +1408,8 @@ ImmediateFuture<folly::Unit> EdenMount::waitForPendingWrites() const {
 }
 
 constexpr const char* interruptedCheckoutAdvice =
-    "a previous checkout was interrupted - please run `hg go {0}` to resume it"
-    ".\nIf there are conflicts, run `hg go --clean {0}` to discard changes, or `hg go --merge {0}` to merge.";
+    "a previous checkout was interrupted - please run `sl go {0}` to resume it"
+    ".\nIf there are conflicts, run `sl go --clean {0}` to discard changes, or `sl go --merge {0}` to merge.";
 
 ImmediateFuture<CheckoutResult> EdenMount::checkout(
     TreeInodePtr rootInode,
