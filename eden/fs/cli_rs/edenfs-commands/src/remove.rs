@@ -8,6 +8,7 @@
 //! edenfsctl remove
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use anyhow::anyhow;
@@ -21,6 +22,7 @@ mod operations;
 mod types;
 mod utils;
 
+use operations::get_aux_processes_stop_timeout;
 use types::Messenger;
 use types::PathType;
 use types::RemoveContext;
@@ -61,6 +63,13 @@ pub struct RemoveCmd {
 
     #[clap(long = "no-force", hide = true)]
     no_force: bool,
+
+    #[clap(
+        long = "timeout",
+        value_name = "SECONDS",
+        help = "Timeout in seconds for stopping auxiliary processes (e.g., redirections). Defaults to 60 seconds if not specified. Can also be set via environment variable EDENFS_AUX_PROCESSES_TIMEOUT_SECS."
+    )]
+    timeout: Option<u64>,
 }
 
 #[async_trait]
@@ -131,8 +140,10 @@ impl Subcommand for RemoveCmd {
             }
         }
 
+        // Remove each checkout (unmount redirections if applicable, unmount, destroy, cleanup)
+        let timeout = Duration::from_secs(get_aux_processes_stop_timeout(self.timeout));
         for context in remove_contexts {
-            context.path_type.remove(&context).await?;
+            context.path_type.remove(&context, timeout).await?;
         }
 
         messenger.success(format!(

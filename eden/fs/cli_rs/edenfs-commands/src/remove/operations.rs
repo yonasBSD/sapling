@@ -5,11 +5,15 @@
  * GNU General Public License version 2.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
+use edenfs_client::checkout::find_checkout;
+use edenfs_client::redirect::get_effective_redirections;
 use edenfs_utils::is_active_eden_mount;
 use fail::fail_point;
 use tracing::debug;
@@ -19,6 +23,46 @@ use super::types::PathType;
 use super::types::RemoveContext;
 use super::utils;
 use crate::get_edenfs_instance;
+
+const AUX_PROCESSES_STOP_TIMEOUT: u64 = 60;
+
+/// Get the timeout for stopping aux processes.
+///
+/// Priority: CLI arg > EDENFS_AUX_PROCESSES_TIMEOUT_SECS env var > default (60s).
+pub fn get_aux_processes_stop_timeout(cli_timeout: Option<u64>) -> u64 {
+    if let Some(t) = cli_timeout {
+        return t;
+    }
+    std::env::var("EDENFS_AUX_PROCESSES_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(AUX_PROCESSES_STOP_TIMEOUT)
+}
+
+/// Unmount redirections for a given path before removing the checkout.
+pub async fn unmount_redirections_for_path(path: &Path) -> Result<()> {
+    let instance = get_edenfs_instance();
+
+    let checkout = find_checkout(instance, path)
+        .with_context(|| format!("Failed to find checkout for {}", path.display()))?;
+
+    let redirs = get_effective_redirections(instance, &checkout)
+        .with_context(|| format!("Failed to get redirections for {}", path.display()))?;
+
+    for redir in redirs.values() {
+        redir
+            .remove_existing(instance, &checkout, false, false, "eden rm")
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed to unmount redirection {}",
+                    redir.repo_path().display()
+                )
+            })?;
+    }
+
+    Ok(())
+}
 
 // Validate and canonicalize the given path into absolute path with the type of PathBuf.
 // Then determine a type for this path.
@@ -76,8 +120,38 @@ pub async fn classify_path(path: &str) -> Result<(PathBuf, PathType)> {
     }
 }
 
-pub async fn remove_active_eden_mount(context: &RemoveContext) -> Result<()> {
-    // TODO: stop process first
+pub async fn remove_active_eden_mount(context: &RemoveContext, timeout: Duration) -> Result<()> {
+    // First, unmount redirections before unmounting the checkout
+    context.io.info(format!(
+        "Unmounting redirections for {}...",
+        context.canonical_path.display()
+    ));
+
+    match tokio::time::timeout(
+        timeout,
+        unmount_redirections_for_path(&context.canonical_path),
+    )
+    .await
+    {
+        Ok(Ok(())) => {
+            context.io.done();
+        }
+        Ok(Err(e)) => {
+            warn!(
+                "Error unmounting redirections for {}: {}",
+                context.canonical_path.display(),
+                e
+            );
+        }
+        Err(_) => {
+            context.io.warn(format!(
+                "Unmounting redirections for {} timed out after {} seconds. Continuing with unmount...",
+                context.canonical_path.display(),
+                timeout.as_secs_f64(),
+            ));
+        }
+    }
+
     context
         .io
         .info(format!("Unmounting repo at {} ...", context.original_path));

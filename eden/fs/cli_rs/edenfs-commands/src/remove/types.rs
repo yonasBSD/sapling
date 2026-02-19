@@ -9,6 +9,7 @@ use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use crossterm::style::Stylize;
@@ -74,7 +75,7 @@ impl PathType {
         prompt_str.yellow().to_string()
     }
 
-    pub async fn remove(&self, context: &RemoveContext) -> Result<()> {
+    pub async fn remove(&self, context: &RemoveContext, timeout: Duration) -> Result<()> {
         #[cfg(fbcode_build)]
         {
             let sample = edenfs_telemetry::remove::build(&self.to_string());
@@ -82,7 +83,9 @@ impl PathType {
         }
 
         match self {
-            PathType::ActiveEdenMount => operations::remove_active_eden_mount(context).await,
+            PathType::ActiveEdenMount => {
+                operations::remove_active_eden_mount(context, timeout).await
+            }
             PathType::InactiveEdenMount => operations::remove_inactive_eden_mount(context).await,
             PathType::RegularFile => {
                 fs::remove_file(context.canonical_path.as_path()).map_err(Into::into)
