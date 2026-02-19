@@ -39,8 +39,20 @@ pub fn get_aux_processes_stop_timeout(cli_timeout: Option<u64>) -> u64 {
         .unwrap_or(AUX_PROCESSES_STOP_TIMEOUT)
 }
 
+/// Get delay to inject for testing.
+fn get_test_delay() -> Option<Duration> {
+    std::env::var("EDENFS_AUX_PROCESSES_TEST_DELAY_SECS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(Duration::from_secs)
+}
+
 /// Unmount redirections for a given path before removing the checkout.
 pub async fn unmount_redirections_for_path(path: &Path) -> Result<()> {
+    if let Some(delay) = get_test_delay() {
+        debug!("Injecting test delay of {} seconds", delay.as_secs());
+        tokio::time::sleep(delay).await;
+    }
     let instance = get_edenfs_instance();
 
     let checkout = find_checkout(instance, path)
