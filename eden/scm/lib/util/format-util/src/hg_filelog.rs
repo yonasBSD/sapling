@@ -84,7 +84,7 @@ pub fn prepend_hg_file_metadata(data: Bytes, copy_meta: Option<Key>) -> Bytes {
                 meta.path,
                 meta.hgid.to_hex(),
             ),
-            None => format!("\x01\n\x01\n"),
+            None => "\x01\n\x01\n".to_string(),
         };
         let mut with_metadata = Vec::with_capacity(data.len() + meta.len());
         with_metadata.extend_from_slice(meta.as_bytes());
