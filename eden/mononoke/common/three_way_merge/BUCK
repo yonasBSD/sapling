@@ -10,5 +10,7 @@ rust_library(
     test_deps = [
         "//eden/mononoke/common/mononoke_macros:mononoke_macros",
     ],
-    deps = [],
+    deps = [
+        "//eden/scm/lib/xdiff:xdiff",
+    ],
 )
