@@ -12,13 +12,13 @@ from pathlib import Path
 from typing import AsyncGenerator, Mapping, Set, Tuple
 
 from eden.fs.service.eden.thrift_types import (
+    DIS_REQUIRE_MATERIALIZED,
     FaultDefinition,
     GetScmStatusParams,
     RemoveFaultArg,
     ScmFileStatus,
     SyncBehavior,
 )
-from facebook.eden.constants import DIS_REQUIRE_MATERIALIZED
 
 from . import testcase
 
