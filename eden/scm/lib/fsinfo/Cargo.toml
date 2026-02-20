@@ -22,8 +22,5 @@ libc = "0.2.139"
 libc = "0.2.139"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-sapling-identity = { path = "../identity" }
+sapling-identity = { version = "0.1.0", path = "../identity" }
 winapi = { version = "0.3", features = ["everything", "std"] }
-
-[target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["fileapi", "handleapi", "ioapiset", "minwindef", "winbase", "winerror", "winioctl"] }
