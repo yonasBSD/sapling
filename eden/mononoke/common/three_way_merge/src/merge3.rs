@@ -11,6 +11,8 @@
 //! find regions where both sides match the base, then classify the
 //! gaps between them.
 
+use std::ops::Range;
+
 use crate::utils::compare_range;
 use crate::utils::split_lines;
 
@@ -25,33 +27,27 @@ pub(crate) struct MatchingBlock {
 /// A sync region where both A and B match the base.
 #[derive(Debug, PartialEq, Eq)]
 struct SyncRegion {
-    base_start: usize,
-    base_end: usize,
-    a_start: usize,
-    a_end: usize,
-    b_start: usize,
-    b_end: usize,
+    base: Range<usize>,
+    a: Range<usize>,
+    b: Range<usize>,
 }
 
 /// A classified region from the 3-way merge.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum MergeRegion {
-    /// Neither side changed this region. Use base[start..end].
-    Unchanged { start: usize, end: usize },
-    /// Only side A changed. Use a[start..end].
-    A { start: usize, end: usize },
-    /// Only side B changed. Use b[start..end].
-    B { start: usize, end: usize },
-    /// Both sides changed identically. Use a[start..end].
-    Same { start: usize, end: usize },
+    /// Neither side changed this region. Use base[range].
+    Unchanged { range: Range<usize> },
+    /// Only side A changed. Use a[range].
+    A { range: Range<usize> },
+    /// Only side B changed. Use b[range].
+    B { range: Range<usize> },
+    /// Both sides changed identically. Use a[range].
+    Same { range: Range<usize> },
     /// Both sides changed differently. Unresolvable conflict.
     Conflict {
-        base_start: usize,
-        base_end: usize,
-        a_start: usize,
-        a_end: usize,
-        b_start: usize,
-        b_end: usize,
+        base: Range<usize>,
+        a: Range<usize>,
+        b: Range<usize>,
     },
 }
 
@@ -105,12 +101,9 @@ fn find_sync_regions(
             let b_sub = b.other_start + (int_start - b.base_start);
 
             regions.push(SyncRegion {
-                base_start: int_start,
-                base_end: int_end,
-                a_start: a_sub,
-                a_end: a_sub + int_len,
-                b_start: b_sub,
-                b_end: b_sub + int_len,
+                base: int_start..int_end,
+                a: a_sub..a_sub + int_len,
+                b: b_sub..b_sub + int_len,
             });
         }
 
@@ -124,12 +117,9 @@ fn find_sync_regions(
 
     // Sentinel: zero-length sync region at the end
     regions.push(SyncRegion {
-        base_start: base_line_count,
-        base_end: base_line_count,
-        a_start: a_line_count,
-        a_end: a_line_count,
-        b_start: b_line_count,
-        b_end: b_line_count,
+        base: base_line_count..base_line_count,
+        a: a_line_count..a_line_count,
+        b: b_line_count..b_line_count,
     });
 
     regions
@@ -157,54 +147,57 @@ pub(crate) fn merge_regions(
     let mut ib: usize = 0;
 
     for sync in &sync_regions {
-        let len_a = sync.a_start - ia;
-        let len_b = sync.b_start - ib;
+        let len_a = sync.a.start.checked_sub(ia).ok_or_else(|| {
+            format!(
+                "merge_regions: sync.a.start ({}) < ia ({})",
+                sync.a.start, ia
+            )
+        })?;
+        let len_b = sync.b.start.checked_sub(ib).ok_or_else(|| {
+            format!(
+                "merge_regions: sync.b.start ({}) < ib ({})",
+                sync.b.start, ib
+            )
+        })?;
 
         if len_a > 0 || len_b > 0 {
-            let equal_a = compare_range(a, ia..sync.a_start, base, iz..sync.base_start)?;
-            let equal_b = compare_range(b, ib..sync.b_start, base, iz..sync.base_start)?;
-            let same = compare_range(a, ia..sync.a_start, b, ib..sync.b_start)?;
+            let equal_a = compare_range(a, ia..sync.a.start, base, iz..sync.base.start)?;
+            let equal_b = compare_range(b, ib..sync.b.start, base, iz..sync.base.start)?;
+            let same = compare_range(a, ia..sync.a.start, b, ib..sync.b.start)?;
 
             if same {
                 regions.push(MergeRegion::Same {
-                    start: ia,
-                    end: sync.a_start,
+                    range: ia..sync.a.start,
                 });
             } else if equal_a && !equal_b {
                 regions.push(MergeRegion::B {
-                    start: ib,
-                    end: sync.b_start,
+                    range: ib..sync.b.start,
                 });
             } else if equal_b && !equal_a {
                 regions.push(MergeRegion::A {
-                    start: ia,
-                    end: sync.a_start,
+                    range: ia..sync.a.start,
                 });
             } else {
                 regions.push(MergeRegion::Conflict {
-                    base_start: iz,
-                    base_end: sync.base_start,
-                    a_start: ia,
-                    a_end: sync.a_start,
-                    b_start: ib,
-                    b_end: sync.b_start,
+                    base: iz..sync.base.start,
+                    a: ia..sync.a.start,
+                    b: ib..sync.b.start,
                 });
             }
 
-            ia = sync.a_start;
-            ib = sync.b_start;
+            ia = sync.a.start;
+            ib = sync.b.start;
         }
-        iz = sync.base_start;
+        iz = sync.base.start;
 
-        let match_len = sync.base_end - sync.base_start;
+        let match_len = sync.base.end - sync.base.start;
         if match_len > 0 {
             regions.push(MergeRegion::Unchanged {
-                start: sync.base_start,
-                end: sync.base_end,
+                range: sync.base.start..sync.base.end,
             });
-            iz = sync.base_end;
-            ia = sync.a_end;
-            ib = sync.b_end;
+            iz = sync.base.end;
+            ia = sync.a.end;
+            ib = sync.b.end;
         }
     }
 
@@ -230,41 +223,38 @@ pub(crate) fn merge3(base_bytes: &[u8], a_bytes: &[u8], b_bytes: &[u8]) -> Resul
 
     for region in &regions {
         match region {
-            MergeRegion::Unchanged { start, end } => {
-                for line in &base[*start..*end] {
+            MergeRegion::Unchanged { range } => {
+                for line in &base[range.clone()] {
                     result.extend_from_slice(line);
                 }
             }
-            MergeRegion::A { start, end } | MergeRegion::Same { start, end } => {
-                for line in &a[*start..*end] {
+            MergeRegion::A { range } | MergeRegion::Same { range } => {
+                for line in &a[range.clone()] {
                     result.extend_from_slice(line);
                 }
             }
-            MergeRegion::B { start, end } => {
-                for line in &b[*start..*end] {
+            MergeRegion::B { range } => {
+                for line in &b[range.clone()] {
                     result.extend_from_slice(line);
                 }
             }
             MergeRegion::Conflict {
-                base_start,
-                base_end,
-                a_start,
-                a_end,
-                b_start,
-                b_end,
+                base: base_range,
+                a: a_range,
+                b: b_range,
             } => {
-                let base_preview: Vec<String> = base[*base_start..*base_end]
+                let base_preview: Vec<String> = base[base_range.clone()]
                     .iter()
                     .take(3)
                     .map(|l| String::from_utf8_lossy(l).trim_end().to_string())
                     .collect();
                 let preview = if base_preview.is_empty() {
                     "(insertion point)".to_string()
-                } else if *base_end - *base_start > 3 {
+                } else if base_range.len() > 3 {
                     format!(
                         "{}... ({} lines)",
                         base_preview.join(", "),
-                        base_end - base_start
+                        base_range.len()
                     )
                 } else {
                     base_preview.join(", ")
@@ -272,11 +262,11 @@ pub(crate) fn merge3(base_bytes: &[u8], a_bytes: &[u8], b_bytes: &[u8]) -> Resul
                 return Err(format!(
                     "conflict: both sides modified lines {}-{} of base ({}), \
                      local has {} lines, other has {} lines",
-                    base_start + 1,
-                    base_end,
+                    base_range.start + 1,
+                    base_range.end,
                     preview,
-                    a_end - a_start,
-                    b_end - b_start,
+                    a_range.len(),
+                    b_range.len(),
                 ));
             }
         }
@@ -591,7 +581,7 @@ mod tests {
         // Should have one sync region covering all lines + sentinel
         assert!(regions.len() >= 2);
         // First region should cover lines 0..3
-        assert_eq!(regions[0].base_start, 0);
-        assert_eq!(regions[0].base_end, 3);
+        assert_eq!(regions[0].base.start, 0);
+        assert_eq!(regions[0].base.end, 3);
     }
 }
