@@ -6,6 +6,7 @@
  */
 
 use anyhow::Result;
+use anyhow::bail;
 use scs_client_raw::thrift;
 
 use crate::ScscApp;
@@ -49,8 +50,31 @@ pub(super) async fn run(app: ScscApp, args: CommandArgs) -> Result<()> {
     // Repo creation is potentially asynchronous request. Let's poll it until it's done.
     loop {
         let res = conn.create_repos_poll(&token).await?;
-        if res.result.is_some() {
-            break;
+        if let Some(result) = res.result {
+            match result.status {
+                thrift::CreateReposStatus::SUCCESS => {
+                    eprintln!("Repo creation succeeded.");
+                    break;
+                }
+                thrift::CreateReposStatus::FAILED => {
+                    let msg = result
+                        .message
+                        .unwrap_or_else(|| "no details provided".to_string());
+                    bail!("Repo creation failed: {}", msg);
+                }
+                thrift::CreateReposStatus::ABORTED => {
+                    let msg = result
+                        .message
+                        .unwrap_or_else(|| "no details provided".to_string());
+                    bail!("Repo creation aborted: {}", msg);
+                }
+                thrift::CreateReposStatus::IN_PROGRESS => {
+                    // Still in progress, keep polling
+                }
+                status => {
+                    bail!("Repo creation returned unexpected status: {:?}", status);
+                }
+            }
         }
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     }
