@@ -41,7 +41,7 @@ pub fn get_aux_processes_stop_timeout(cli_timeout: Option<u64>) -> u64 {
 
 /// Get delay to inject for testing.
 fn get_test_delay() -> Option<Duration> {
-    std::env::var("EDENFS_AUX_PROCESSES_TEST_DELAY_SECS")
+    std::env::var("TEST_ONLY_AUX_PROCESSES_STOP_DELAY_SECS")
         .ok()
         .and_then(|s| s.parse::<u64>().ok())
         .map(Duration::from_secs)

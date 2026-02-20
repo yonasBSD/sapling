@@ -64,9 +64,9 @@ def _get_aux_processes_stop_timeout() -> int:
 def _get_test_delay() -> Optional[float]:
     """Get delay to inject for testing.
 
-    Returns the delay in seconds if EDENFS_AUX_PROCESSES_TEST_DELAY_SECS is set, else None.
+    Returns the delay in seconds if TEST_ONLY_AUX_PROCESSES_STOP_DELAY_SECS is set, else None.
     """
-    env_delay = os.environ.get("EDENFS_AUX_PROCESSES_TEST_DELAY_SECS")
+    env_delay = os.environ.get("TEST_ONLY_AUX_PROCESSES_STOP_DELAY_SECS")
     if env_delay:
         try:
             return float(env_delay)

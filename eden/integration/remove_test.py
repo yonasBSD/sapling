@@ -123,7 +123,7 @@ class RemoveTest(RemoveTestBase):
         full_env = {
             **env,
             # Inject a 2-second delay to simulate slow aux process stopping
-            "EDENFS_AUX_PROCESSES_TEST_DELAY_SECS": "2",
+            "TEST_ONLY_AUX_PROCESSES_STOP_DELAY_SECS": "2",
         }
 
         start_time = time.time()
