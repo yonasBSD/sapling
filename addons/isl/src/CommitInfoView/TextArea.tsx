@@ -10,7 +10,7 @@ import type {ReactNode, RefObject} from 'react';
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {TextArea} from 'isl-components/TextArea';
-import {Tooltip} from 'isl-components/Tooltip';
+import {DOCUMENTATION_DELAY, Tooltip} from 'isl-components/Tooltip';
 import {useAtomValue} from 'jotai';
 import {useEffect, useRef} from 'react';
 import {InternalFieldName} from 'shared/constants';
@@ -140,7 +140,7 @@ export function EditorToolbar({
     (fieldName === InternalFieldName.Summary || fieldName === InternalFieldName.TestPlan)
   ) {
     parts.push(
-      <Tooltip title="Copy from previous commit" key="copy-parent">
+      <Tooltip title="Copy from previous commit" key="copy-parent" delayMs={DOCUMENTATION_DELAY}>
         <Button icon onClick={() => copyFromParentCommit(fieldName)}>
           <Icon icon="clippy" />
         </Button>

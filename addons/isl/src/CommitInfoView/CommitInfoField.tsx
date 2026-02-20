@@ -13,9 +13,11 @@ import {extractTokens, TokensList} from 'isl-components/Tokens';
 import {DOCUMENTATION_DELAY, Tooltip} from 'isl-components/Tooltip';
 import {useAtomValue} from 'jotai';
 import {Fragment} from 'react';
+import {InternalFieldName} from 'shared/constants';
 import {tracker} from '../analytics';
 import {Copyable} from '../Copyable';
 import {T} from '../i18n';
+import {Internal} from '../Internal';
 import {copyFromParentCommit, parentCommitContextAtom} from './CommitInfoState';
 import {isFieldNonEmpty} from './CommitMessageFields';
 import {RenderMarkup} from './RenderMarkup';
@@ -192,6 +194,16 @@ export function CommitInfoField({
               {readonly ? null : <EditFieldButton onClick={startEditingField} />}
               {showCopyFromParent ? (
                 <CopyFromParentButton onClick={() => copyFromParentCommit(field.key)} />
+              ) : null}
+              {!readonly &&
+              field.key === InternalFieldName.TestPlan &&
+              Internal.RecommendTestPlanButton ? (
+                <Internal.RecommendTestPlanButton className="hover-edit-button" />
+              ) : null}
+              {!readonly &&
+              field.key === InternalFieldName.Summary &&
+              Internal.GenerateSummaryButton ? (
+                <Internal.GenerateSummaryButton className="hover-edit-button" />
               ) : null}
             </div>
           </SmallCapsTitle>
