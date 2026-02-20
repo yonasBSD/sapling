@@ -349,10 +349,26 @@ async fn update_cgdm(
 
     let stored_cgdms = stream::iter(new_full_components)
         .map(async |component_id| {
-            let changesets = component_to_changeset_ids
+            let mut changesets = component_to_changeset_ids
                 .get(&component_id)
-                .expect("component should exist");
-            let entries = stream::iter(changesets)
+                .expect("component should exist")
+                .clone();
+
+            // Sort changesets by generation number (ascending) to ensure topological
+            // order in the CGDM blob. Without this, changesets loaded from the HashMap
+            // have arbitrary order, causing unresolved deltas during clone.
+            let generations = repo
+                .commit_graph()
+                .many_changeset_generations(ctx, &changesets)
+                .await?;
+            changesets.sort_by_key(|cs_id| {
+                generations
+                    .get(cs_id)
+                    .copied()
+                    .expect("generation should exist for changeset")
+            });
+
+            let entries = stream::iter(&changesets)
                 .map(async |cs_id| {
                     let gdm = repo
                         .repo_derived_data()
@@ -374,7 +390,7 @@ async fn update_cgdm(
                 ctx,
                 repo.repo_blobstore_arc(),
                 repo.bonsai_git_mapping_arc(),
-                changesets,
+                &changesets,
             )
             .await?;
             let cgdm_commits_id = cgdm_commits
