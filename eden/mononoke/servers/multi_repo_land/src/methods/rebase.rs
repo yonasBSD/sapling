@@ -36,15 +36,54 @@ use three_way_merge::MergeResult;
 
 use crate::repo::Repo;
 
+/// Information about content merge attempts during rebase.
+///
+/// Populated when file-level conflicts are found during rebase and a 3-way
+/// content merge is attempted (or would have been attempted if the JustKnob
+/// were enabled).
+#[derive(Debug, Default, Clone)]
+pub struct MergeInfo {
+    /// Whether 3-way content merge was attempted during rebase.
+    pub merge_attempted: bool,
+    /// Whether all content merges succeeded.
+    pub merge_succeeded: bool,
+    /// Number of files that went through content merge.
+    pub merge_files_count: usize,
+    /// Path of the file that caused a merge conflict (if any).
+    pub merge_conflict_file: Option<String>,
+}
+
+impl MergeInfo {
+    /// Aggregate another MergeInfo into this one (for multi-repo scenarios).
+    pub fn aggregate(&mut self, other: &MergeInfo) {
+        if other.merge_attempted {
+            if !self.merge_attempted {
+                self.merge_attempted = true;
+                self.merge_succeeded = other.merge_succeeded;
+            } else {
+                self.merge_succeeded = self.merge_succeeded && other.merge_succeeded;
+            }
+            self.merge_files_count += other.merge_files_count;
+            if self.merge_conflict_file.is_none() {
+                self.merge_conflict_file = other.merge_conflict_file.clone();
+            }
+        }
+    }
+}
+
 pub struct RebaseResult {
     pub rebased_cs_id: ChangesetId,
+    pub merge_info: MergeInfo,
 }
 
 pub enum RebaseOutcome {
     Success(RebaseResult),
     /// The rebase could not complete because files in the changeset conflict
     /// with changes between old_parent and new_parent.
-    Conflict(String),
+    Conflict {
+        description: String,
+        merge_info: MergeInfo,
+    },
 }
 
 /// Rebase a single changeset onto a new parent.
@@ -63,6 +102,7 @@ pub async fn rebase_changeset(
     if old_parent == new_parent {
         return Ok(RebaseOutcome::Success(RebaseResult {
             rebased_cs_id: cs_id,
+            merge_info: MergeInfo::default(),
         }));
     }
 
@@ -82,13 +122,20 @@ pub async fn rebase_changeset(
     // Detect path-level conflicts: any overlapping paths or prefix relationships.
     let conflicts = find_path_conflicts(changeset_files, server_files);
 
-    let merged_changes = if !conflicts.is_empty() {
-        match try_resolve_conflicts(ctx, repo, &bcs, old_parent, new_parent, conflicts).await? {
-            Ok(changes) => changes,
-            Err(description) => return Ok(RebaseOutcome::Conflict(description)),
+    let (merged_changes, merge_info) = if !conflicts.is_empty() {
+        let (result, info) =
+            try_resolve_conflicts(ctx, repo, &bcs, old_parent, new_parent, conflicts).await?;
+        match result {
+            Ok(changes) => (changes, info),
+            Err(description) => {
+                return Ok(RebaseOutcome::Conflict {
+                    description,
+                    merge_info: info,
+                });
+            }
         }
     } else {
-        Vec::new()
+        (Vec::new(), MergeInfo::default())
     };
 
     // Swap parent and create the rebased changeset.
@@ -102,7 +149,10 @@ pub async fn rebase_changeset(
     let rebased_cs_id = rebased.get_changeset_id();
     save_changesets(ctx, repo, vec![rebased]).await?;
 
-    Ok(RebaseOutcome::Success(RebaseResult { rebased_cs_id }))
+    Ok(RebaseOutcome::Success(RebaseResult {
+        rebased_cs_id,
+        merge_info,
+    }))
 }
 
 /// Try to resolve path conflicts via 3-way content merge.
@@ -116,11 +166,16 @@ async fn try_resolve_conflicts(
     old_parent: ChangesetId,
     new_parent: ChangesetId,
     conflicts: Vec<(MPath, MPath)>,
-) -> Result<std::result::Result<Vec<(NonRootMPath, FileChange)>, String>> {
+) -> Result<(
+    std::result::Result<Vec<(NonRootMPath, FileChange)>, String>,
+    MergeInfo,
+)> {
+    let mut merge_info = MergeInfo::default();
+
     // Prefix conflicts (file vs directory) can never be content-merged.
     let has_prefix_conflict = conflicts.iter().any(|(l, r)| l != r);
     if has_prefix_conflict {
-        return Ok(Err(format_conflict_description(&conflicts)));
+        return Ok((Err(format_conflict_description(&conflicts)), merge_info));
     }
 
     // All conflicts are exact-path (same file modified on both sides).
@@ -132,8 +187,12 @@ async fn try_resolve_conflicts(
     )?;
 
     if !merge_enabled {
-        return Ok(Err(format_conflict_description(&conflicts)));
+        return Ok((Err(format_conflict_description(&conflicts)), merge_info));
     }
+
+    // From here on, merge is attempted.
+    merge_info.merge_attempted = true;
+    merge_info.merge_files_count = conflicts.len();
 
     // Attempt 3-way merge for each conflicting file.
     let mut merged_changes = Vec::new();
@@ -142,7 +201,11 @@ async fn try_resolve_conflicts(
         let non_root_path = match conflict_path.clone().into_optional_non_root_path() {
             Some(p) => p,
             None => {
-                return Ok(Err("conflict at repository root (cannot merge)".to_string()));
+                merge_info.merge_conflict_file = Some("(root)".to_string());
+                return Ok((
+                    Err("conflict at repository root (cannot merge)".to_string()),
+                    merge_info,
+                ));
             }
         };
 
@@ -151,10 +214,14 @@ async fn try_resolve_conflicts(
             Some(FileChange::Change(tracked)) => tracked,
             _ => {
                 // Deletion or untracked change — can't content-merge.
-                return Ok(Err(format!(
-                    "cannot content-merge {}: file was deleted or has untracked changes",
-                    non_root_path
-                )));
+                merge_info.merge_conflict_file = Some(non_root_path.to_string());
+                return Ok((
+                    Err(format!(
+                        "cannot content-merge {}: file was deleted or has untracked changes",
+                        non_root_path
+                    )),
+                    merge_info,
+                ));
             }
         };
 
@@ -174,10 +241,14 @@ async fn try_resolve_conflicts(
         let other_bytes = match load_file_at_commit(ctx, repo, new_parent, conflict_path).await? {
             Some((bytes, _)) => bytes,
             None => {
-                return Ok(Err(format!(
-                    "cannot content-merge {}: file was deleted on the server side",
-                    non_root_path
-                )));
+                merge_info.merge_conflict_file = Some(non_root_path.to_string());
+                return Ok((
+                    Err(format!(
+                        "cannot content-merge {}: file was deleted on the server side",
+                        non_root_path
+                    )),
+                    merge_info,
+                ));
             }
         };
 
@@ -207,15 +278,20 @@ async fn try_resolve_conflicts(
                 merged_changes.push((non_root_path, merged_change));
             }
             MergeResult::Conflict(desc) => {
-                return Ok(Err(format!(
-                    "content merge failed for {}: {}",
-                    non_root_path, desc
-                )));
+                merge_info.merge_conflict_file = Some(non_root_path.to_string());
+                return Ok((
+                    Err(format!(
+                        "content merge failed for {}: {}",
+                        non_root_path, desc
+                    )),
+                    merge_info,
+                ));
             }
         }
     }
 
-    Ok(Ok(merged_changes))
+    merge_info.merge_succeeded = true;
+    Ok((Ok(merged_changes), merge_info))
 }
 
 /// Load file content and type at a specific changeset via fsnode derivation.
@@ -331,8 +407,9 @@ mod tests {
         match rebase_changeset(&ctx, &repo, root, root, root).await? {
             RebaseOutcome::Success(result) => {
                 assert_eq!(result.rebased_cs_id, root);
+                assert!(!result.merge_info.merge_attempted);
             }
-            RebaseOutcome::Conflict(_) => panic!("expected success, got conflict"),
+            RebaseOutcome::Conflict { .. } => panic!("expected success, got conflict"),
         }
         Ok(())
     }
@@ -371,7 +448,9 @@ mod tests {
                     .await?;
                 assert_eq!(bcs.parents().collect::<Vec<_>>(), vec![server_commit]);
             }
-            RebaseOutcome::Conflict(desc) => panic!("expected success, got conflict: {desc}"),
+            RebaseOutcome::Conflict {
+                description: desc, ..
+            } => panic!("expected success, got conflict: {desc}"),
         }
         Ok(())
     }
@@ -400,7 +479,9 @@ mod tests {
         // (knob is off by default).
         match rebase_changeset(&ctx, &repo, user_commit, root, server_commit).await? {
             RebaseOutcome::Success(_) => panic!("expected conflict, got success"),
-            RebaseOutcome::Conflict(desc) => {
+            RebaseOutcome::Conflict {
+                description: desc, ..
+            } => {
                 assert!(
                     desc.contains("shared_file"),
                     "conflict description should mention the conflicting file"
@@ -467,9 +548,13 @@ mod tests {
             RebaseOutcome::Success(result) => {
                 let merged = read_file(&ctx, &repo, result.rebased_cs_id, "shared").await?;
                 assert_eq!(merged.as_ref(), b"user1\nline2\nline3\nline4\nserver5\n");
+                assert!(result.merge_info.merge_attempted);
+                assert!(result.merge_info.merge_succeeded);
+                assert_eq!(result.merge_info.merge_files_count, 1);
+                assert!(result.merge_info.merge_conflict_file.is_none());
             }
-            RebaseOutcome::Conflict(desc) => {
-                panic!("expected clean merge, got conflict: {desc}")
+            RebaseOutcome::Conflict { description, .. } => {
+                panic!("expected clean merge, got conflict: {description}")
             }
         }
         Ok(())
@@ -499,11 +584,18 @@ mod tests {
 
         match rebase_changeset(&ctx, &repo, user, root, server).await? {
             RebaseOutcome::Success(_) => panic!("expected conflict, got success"),
-            RebaseOutcome::Conflict(desc) => {
+            RebaseOutcome::Conflict {
+                description,
+                merge_info,
+            } => {
                 assert!(
-                    desc.contains("content merge failed"),
-                    "should indicate content merge failure: {desc}"
+                    description.contains("content merge failed"),
+                    "should indicate content merge failure: {description}"
                 );
+                assert!(merge_info.merge_attempted);
+                assert!(!merge_info.merge_succeeded);
+                assert_eq!(merge_info.merge_files_count, 1);
+                assert_eq!(merge_info.merge_conflict_file.as_deref(), Some("shared"));
             }
         }
         Ok(())
@@ -532,8 +624,11 @@ mod tests {
 
         match rebase_changeset(&ctx, &repo, user, root, server).await? {
             RebaseOutcome::Success(_) => panic!("expected conflict for binary file"),
-            RebaseOutcome::Conflict(desc) => {
-                assert!(desc.contains("binary"), "should mention binary: {desc}");
+            RebaseOutcome::Conflict { description, .. } => {
+                assert!(
+                    description.contains("binary"),
+                    "should mention binary: {description}"
+                );
             }
         }
         Ok(())
@@ -565,8 +660,15 @@ mod tests {
             RebaseOutcome::Success(_) => {
                 panic!("expected conflict when knob is off, got success")
             }
-            RebaseOutcome::Conflict(desc) => {
-                assert!(desc.contains("shared"), "should mention the file: {desc}");
+            RebaseOutcome::Conflict {
+                description,
+                merge_info,
+            } => {
+                assert!(
+                    description.contains("shared"),
+                    "should mention the file: {description}"
+                );
+                assert!(!merge_info.merge_attempted);
             }
         }
         Ok(())
@@ -599,8 +701,8 @@ mod tests {
                 let content = read_file(&ctx, &repo, result.rebased_cs_id, "new_file").await?;
                 assert_eq!(content.as_ref(), b"same content\n");
             }
-            RebaseOutcome::Conflict(desc) => {
-                panic!("expected success for identical add/add, got conflict: {desc}")
+            RebaseOutcome::Conflict { description, .. } => {
+                panic!("expected success for identical add/add, got conflict: {description}")
             }
         }
         Ok(())
@@ -630,7 +732,7 @@ mod tests {
 
         match rebase_changeset(&ctx, &repo, user, root, server).await? {
             RebaseOutcome::Success(_) => panic!("expected conflict for different add/add"),
-            RebaseOutcome::Conflict(_) => {}
+            RebaseOutcome::Conflict { .. } => {}
         }
         Ok(())
     }
@@ -660,8 +762,11 @@ mod tests {
 
         match rebase_changeset(&ctx, &repo, user, root, server).await? {
             RebaseOutcome::Success(_) => panic!("expected conflict for delete vs modify"),
-            RebaseOutcome::Conflict(desc) => {
-                assert!(desc.contains("deleted"), "should mention deletion: {desc}");
+            RebaseOutcome::Conflict { description, .. } => {
+                assert!(
+                    description.contains("deleted"),
+                    "should mention deletion: {description}"
+                );
             }
         }
         Ok(())
@@ -696,10 +801,10 @@ mod tests {
             RebaseOutcome::Success(_) => {
                 panic!("expected conflict when one file can't merge")
             }
-            RebaseOutcome::Conflict(desc) => {
+            RebaseOutcome::Conflict { description, .. } => {
                 assert!(
-                    desc.contains("conflicting"),
-                    "should mention the conflicting file: {desc}"
+                    description.contains("conflicting"),
+                    "should mention the conflicting file: {description}"
                 );
             }
         }
@@ -733,8 +838,8 @@ mod tests {
                 let content = read_file(&ctx, &repo, result.rebased_cs_id, "shared").await?;
                 assert_eq!(content.as_ref(), b"line1\nmodified\nline3\n");
             }
-            RebaseOutcome::Conflict(desc) => {
-                panic!("expected success for identical edits, got conflict: {desc}")
+            RebaseOutcome::Conflict { description, .. } => {
+                panic!("expected success for identical edits, got conflict: {description}")
             }
         }
         Ok(())

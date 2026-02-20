@@ -40,10 +40,41 @@ use repo_identity::RepoIdentityRef;
 use source_control as thrift;
 
 use crate::methods::manifest_commit::create_manifest_commit;
+use crate::methods::rebase::MergeInfo;
 use crate::methods::rebase::RebaseOutcome;
 use crate::methods::rebase::rebase_changeset;
 use crate::repo::Repo;
 use crate::service::MultiRepoLandServiceImpl;
+
+/// CAS failure error with attached merge information for Scuba logging.
+#[derive(Debug)]
+pub(crate) struct CasFailureWithMergeInfo {
+    pub cas_failure: MultiRepoLandCasFailure,
+    pub merge_info: MergeInfo,
+}
+
+impl std::fmt::Display for CasFailureWithMergeInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.cas_failure.message)
+    }
+}
+
+impl std::error::Error for CasFailureWithMergeInfo {}
+
+/// Rebase conflict error with attached merge information for Scuba logging.
+#[derive(Debug)]
+pub(crate) struct RebaseConflictWithMergeInfo {
+    pub rebase_conflict: MultiRepoLandRebaseConflict,
+    pub merge_info: MergeInfo,
+}
+
+impl std::fmt::Display for RebaseConflictWithMergeInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.rebase_conflict.message)
+    }
+}
+
+impl std::error::Error for RebaseConflictWithMergeInfo {}
 
 /// Resolved representation of a single bookmark modification ready for
 /// execution. All commit IDs have been resolved to ChangesetIds.
@@ -354,6 +385,7 @@ impl MultiRepoLandServiceImpl {
     ) -> Result<MultipleRepoModifyBookmarksResponse> {
         let mut rebased_entries = Vec::new();
         let mut conflict_entries = Vec::new();
+        let mut aggregate_merge_info = MergeInfo::default();
 
         for m in mods {
             let (cs_id, old_target) = match &m.kind {
@@ -378,6 +410,7 @@ impl MultiRepoLandServiceImpl {
 
             match rebase_changeset(ctx, &repo, cs_id, old_target, current_cs).await? {
                 RebaseOutcome::Success(result) => {
+                    aggregate_merge_info.aggregate(&result.merge_info);
                     rebased_entries.push(RebasedCommitEntry {
                         repo_name: m.repo_name.clone(),
                         bookmark_name: m.bookmark.to_string(),
@@ -388,7 +421,11 @@ impl MultiRepoLandServiceImpl {
                         new_bookmark_target: thrift::CommitId::bonsai(current_cs.as_ref().to_vec()),
                     });
                 }
-                RebaseOutcome::Conflict(description) => {
+                RebaseOutcome::Conflict {
+                    description,
+                    merge_info,
+                } => {
+                    aggregate_merge_info.aggregate(&merge_info);
                     conflict_entries.push(RebaseConflictEntry {
                         repo_name: m.repo_name.clone(),
                         bookmark_name: m.bookmark.to_string(),
@@ -403,19 +440,25 @@ impl MultiRepoLandServiceImpl {
         }
 
         if !conflict_entries.is_empty() {
-            return Err(MultiRepoLandRebaseConflict {
-                message: format!(
-                    "{} bookmark(s) have rebase conflicts",
-                    conflict_entries.len()
-                ),
-                conflicts: conflict_entries,
+            return Err(RebaseConflictWithMergeInfo {
+                rebase_conflict: MultiRepoLandRebaseConflict {
+                    message: format!(
+                        "{} bookmark(s) have rebase conflicts",
+                        conflict_entries.len()
+                    ),
+                    conflicts: conflict_entries,
+                },
+                merge_info: aggregate_merge_info,
             }
             .into());
         }
 
-        Err(MultiRepoLandCasFailure {
-            message: "CAS failure: bookmarks moved since read".to_string(),
-            rebased_commits: rebased_entries,
+        Err(CasFailureWithMergeInfo {
+            cas_failure: MultiRepoLandCasFailure {
+                message: "CAS failure: bookmarks moved since read".to_string(),
+                rebased_commits: rebased_entries,
+            },
+            merge_info: aggregate_merge_info,
         }
         .into())
     }

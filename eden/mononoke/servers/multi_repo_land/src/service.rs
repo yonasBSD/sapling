@@ -28,6 +28,8 @@ use srserver::RequestContext;
 use stats::prelude::*;
 use time_ext::DurationExt;
 
+use crate::methods::multi_repo_modify::CasFailureWithMergeInfo;
+use crate::methods::multi_repo_modify::RebaseConflictWithMergeInfo;
 use crate::repo::Repo;
 
 define_stats! {
@@ -273,36 +275,48 @@ impl MultiRepoLandService for MultiRepoLandServiceImpl {
                 Ok(result.unwrap())
             }
             Err(e) => {
-                if let Some(cas_failure) =
-                    e.downcast_ref::<multi_repo_land_if::MultiRepoLandCasFailure>()
-                {
+                if let Some(cas_with_merge) = e.downcast_ref::<CasFailureWithMergeInfo>() {
                     STATS::total_request_cas_failure.add_value(1);
                     log_result(
                         &ctx,
                         method,
                         &stats,
                         "CAS_FAILURE",
-                        Some(&cas_failure.message),
-                        |_| {},
+                        Some(&cas_with_merge.cas_failure.message),
+                        |scuba| {
+                            let mi = &cas_with_merge.merge_info;
+                            scuba.add("merge_attempted", mi.merge_attempted);
+                            scuba.add("merge_succeeded", mi.merge_succeeded);
+                            scuba.add("merge_files_count", mi.merge_files_count);
+                            if let Some(ref file) = mi.merge_conflict_file {
+                                scuba.add("merge_conflict_file", file.as_str());
+                            }
+                        },
                     );
                     return Err(MultipleRepoModifyBookmarksExn::cas_failure(
-                        cas_failure.clone(),
+                        cas_with_merge.cas_failure.clone(),
                     ));
                 }
-                if let Some(rebase_conflict) =
-                    e.downcast_ref::<multi_repo_land_if::MultiRepoLandRebaseConflict>()
-                {
+                if let Some(conflict_with_merge) = e.downcast_ref::<RebaseConflictWithMergeInfo>() {
                     STATS::total_request_rebase_conflict.add_value(1);
                     log_result(
                         &ctx,
                         method,
                         &stats,
                         "REBASE_CONFLICT",
-                        Some(&rebase_conflict.message),
-                        |_| {},
+                        Some(&conflict_with_merge.rebase_conflict.message),
+                        |scuba| {
+                            let mi = &conflict_with_merge.merge_info;
+                            scuba.add("merge_attempted", mi.merge_attempted);
+                            scuba.add("merge_succeeded", mi.merge_succeeded);
+                            scuba.add("merge_files_count", mi.merge_files_count);
+                            if let Some(ref file) = mi.merge_conflict_file {
+                                scuba.add("merge_conflict_file", file.as_str());
+                            }
+                        },
                     );
                     return Err(MultipleRepoModifyBookmarksExn::rebase_conflict(
-                        rebase_conflict.clone(),
+                        conflict_with_merge.rebase_conflict.clone(),
                     ));
                 }
 
