@@ -148,6 +148,7 @@ members = [
   "common/scuba_ext",
   "common/session_id",
   "common/sql_construct",
+  "common/three_way_merge",
   "common/thrift_convert",
   "common/thrift_convert/proc_macros",
   "common/thrift_convert/tests/if",
