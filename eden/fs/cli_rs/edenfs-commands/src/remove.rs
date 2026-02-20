@@ -90,6 +90,8 @@ impl Subcommand for RemoveCmd {
             self.no,
         ));
 
+        let timeout = Duration::from_secs(get_aux_processes_stop_timeout(self.timeout));
+
         for path in &self.paths {
             let (canonicalized_path, path_type) = operations::classify_path(path).await?;
 
@@ -100,6 +102,7 @@ impl Subcommand for RemoveCmd {
                 self.preserve_mount_point,
                 self.no_force,
                 messenger.clone(),
+                timeout,
             );
             remove_contexts.push(context);
 
@@ -141,9 +144,8 @@ impl Subcommand for RemoveCmd {
         }
 
         // Remove each checkout (unmount redirections if applicable, unmount, destroy, cleanup)
-        let timeout = Duration::from_secs(get_aux_processes_stop_timeout(self.timeout));
         for context in remove_contexts {
-            context.path_type.remove(&context, timeout).await?;
+            context.path_type.remove(&context).await?;
         }
 
         messenger.success(format!(

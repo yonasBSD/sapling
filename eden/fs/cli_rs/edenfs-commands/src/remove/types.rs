@@ -75,7 +75,7 @@ impl PathType {
         prompt_str.yellow().to_string()
     }
 
-    pub async fn remove(&self, context: &RemoveContext, timeout: Duration) -> Result<()> {
+    pub async fn remove(&self, context: &RemoveContext) -> Result<()> {
         #[cfg(fbcode_build)]
         {
             let sample = edenfs_telemetry::remove::build(&self.to_string());
@@ -83,9 +83,7 @@ impl PathType {
         }
 
         match self {
-            PathType::ActiveEdenMount => {
-                operations::remove_active_eden_mount(context, timeout).await
-            }
+            PathType::ActiveEdenMount => operations::remove_active_eden_mount(context).await,
             PathType::InactiveEdenMount => operations::remove_inactive_eden_mount(context).await,
             PathType::RegularFile => {
                 fs::remove_file(context.canonical_path.as_path()).map_err(Into::into)
@@ -102,6 +100,7 @@ pub struct RemoveContext {
     pub preserve_mount_point: bool,
     pub no_force: bool,
     pub io: Arc<Messenger>,
+    pub timeout: Duration,
 }
 
 impl RemoveContext {
@@ -112,6 +111,7 @@ impl RemoveContext {
         preserve_mount_point: bool,
         no_force: bool,
         io: Arc<Messenger>,
+        timeout: Duration,
     ) -> RemoveContext {
         RemoveContext {
             original_path,
@@ -120,6 +120,7 @@ impl RemoveContext {
             preserve_mount_point,
             no_force,
             io,
+            timeout,
         }
     }
 }

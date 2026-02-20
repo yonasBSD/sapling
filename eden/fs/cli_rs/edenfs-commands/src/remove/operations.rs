@@ -132,7 +132,8 @@ pub async fn classify_path(path: &str) -> Result<(PathBuf, PathType)> {
     }
 }
 
-pub async fn remove_active_eden_mount(context: &RemoveContext, timeout: Duration) -> Result<()> {
+pub async fn remove_active_eden_mount(context: &RemoveContext) -> Result<()> {
+    let timeout = context.timeout;
     // First, unmount redirections before unmounting the checkout
     context.io.info(format!(
         "Unmounting redirections for {}...",
