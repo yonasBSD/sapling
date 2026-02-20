@@ -6,17 +6,6 @@ rust_library(
     name = "udsipc",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "dependencies_override": {"target": {
-            "'cfg(target_os = \"windows\")'": {"dependencies": {
-                "uds_windows": {"version": "1.0.1"},
-            }},
-        }},
-        "extra_buck_dependencies": {"dependencies": [
-            "fbsource//third-party/rust:anyhow",
-            "fbsource//third-party/rust:fn-error-context",
-            "fbsource//third-party/rust:fs-err",
-            "//eden/scm/lib/util/nodeipc:nodeipc",
-        ]},
         "lib": {"name": "udsipc"},
         "package": {
             "authors": ["Meta Source Control Team <sourcecontrol-dev@meta.com>"],

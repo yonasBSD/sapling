@@ -7,11 +7,6 @@ rust_library(
     name = "metrics",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "extra_buck_dependencies": {"dependencies": [
-            "//common/rust/shed/fbinit:fbinit",
-            "//common/rust/shed/stats:stats",
-            "//common/rust/shed/stats:stats_traits",
-        ]},
         "features": {
             "default": [],
             "ods": [

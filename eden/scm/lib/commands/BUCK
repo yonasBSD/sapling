@@ -12,11 +12,11 @@ rust_library(
             "sapling-constructors": {"features": ["git"]},
             "sapling-repo": {"features": ["wdir"]},
         }},
+        # Cargo feature deps: "pycheckout/eden" etc. require these declared.
         "extra_buck_dependencies": {"dependencies": [
             "//eden/scm/saplingnative/bindings/modules/pycheckout:pycheckout",
             "//eden/scm/saplingnative/bindings/modules/pyworkingcopyclient:pyworkingcopyclient",
             "//eden/scm/saplingnative/bindings/modules/pyworkingcopy:pyworkingcopy",
-            "//eden/scm/lib/revisionstore:revisionstore",
         ]},
         "features": {
             "default": [],

@@ -10,6 +10,7 @@ rust_library(
             "harness": False,
             "name": "bench",
         }],
+        # Cargo bench deps.
         "extra_buck_dependencies": {"dev-dependencies": [
             "//eden/scm/lib/minibench:minibench",
             "fbsource//third-party/rust:rand_chacha",

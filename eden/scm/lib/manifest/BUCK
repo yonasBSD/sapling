@@ -10,6 +10,7 @@ rust_library(
             "default-features": False,
             "features": ["for-tests"],
         }}},
+        # quickcheck is used by either tests, or the "for-tests" feature
         "extra_buck_dependencies": {"dev-dependencies": [
             "fbsource//third-party/rust:quickcheck",
             "//eden/scm/lib/types:types",

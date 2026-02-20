@@ -6,27 +6,6 @@ rust_library(
     name = "procutil",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "dependencies_override": {"target": {
-            "'cfg(target_os = \"linux\")'": {"dependencies": {
-                "libc": {"version": "0.2.139"},
-            }},
-            "'cfg(target_os = \"macos\")'": {"dependencies": {
-                "libc": {"version": "0.2.139"},
-            }},
-            "'cfg(target_os = \"windows\")'": {"dependencies": {
-                "once_cell": {"version": "1.21"},
-                "winapi": {
-                    "features": [
-                        "everything",
-                        "std",
-                    ],
-                    "version": "0.3",
-                },
-            }},
-        }},
-        "extra_buck_dependencies": {"dependencies": [
-            "fbsource//third-party/rust:tracing",
-        ]},
         "lib": {"name": "procutil"},
         "package": {
             "authors": ["Meta Source Control Team <sourcecontrol-dev@meta.com>"],

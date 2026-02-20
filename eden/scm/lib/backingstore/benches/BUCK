@@ -10,7 +10,6 @@ rust_binary(
     ]),
     autocargo = {"cargo_toml_config": {
         "extra_buck_dependencies": {"dependencies": [
-            "//common/rust/shed/fbinit:fbinit",
             "//eden/scm/lib/config/loader:configloader",
         ]},
         "features": {"fb": ["sapling-configloader/fb"]},

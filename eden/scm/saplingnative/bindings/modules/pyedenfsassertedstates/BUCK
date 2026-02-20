@@ -8,6 +8,7 @@ rust_python_library(
     srcs = glob(["src/**/*.rs"]),
     autocargo = {
         "cargo_toml_config": {
+            # OSS-only dep (hidden from autocargo by is_oss_build()).
             "extra_buck_dependencies": {
                 "dependencies": [
                     "fbsource//third-party/rust:anyhow",

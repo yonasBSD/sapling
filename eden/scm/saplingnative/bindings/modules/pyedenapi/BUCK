@@ -5,7 +5,7 @@ oncall("sapling")
 rust_python_library(
     name = "pyedenapi",
     srcs = glob(["src/**/*.rs"]),
-    autocargo = {"cargo_toml_config": {"extra_buck_dependencies": {"dependencies": ["//eden/scm/lib/revisionstore:revisionstore"]}}},
+    autocargo = {},
     crate_root = "src/lib.rs",
     deps = [
         "fbsource//third-party/rust:anyhow",

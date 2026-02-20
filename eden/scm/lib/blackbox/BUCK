@@ -10,6 +10,7 @@ rust_library(
             "harness": False,
             "name": "blackbox",
         }],
+        # Cargo bench deps.
         "extra_buck_dependencies": {"dev-dependencies": ["//eden/scm/lib/minibench:minibench"]},
         "lib": {"name": "blackbox"},
         "package": {

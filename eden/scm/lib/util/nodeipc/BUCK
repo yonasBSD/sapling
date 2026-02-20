@@ -7,26 +7,6 @@ rust_library(
     name = "nodeipc",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "dependencies_override": {"target": {
-            "'cfg(target_os = \"windows\")'": {"dependencies": {
-                "winapi": {
-                    "features": [
-                        "everything",
-                        "std",
-                    ],
-                    "version": "0.3",
-                },
-            }},
-        }},
-        "extra_buck_dependencies": {"dependencies": [
-            "fbsource//third-party/rust:anyhow",
-            "fbsource//third-party/rust:filedescriptor",
-            "fbsource//third-party/rust:libc",
-            "fbsource//third-party/rust:paste",
-            "fbsource//third-party/rust:serde",
-            "fbsource//third-party/rust:serde_json",
-            "//eden/scm/lib/util/nodeipc/derive:nodeipc_derive",
-        ]},
         "lib": {"name": "nodeipc"},
         "package": {
             "authors": ["Meta Source Control Team <sourcecontrol-dev@meta.com>"],

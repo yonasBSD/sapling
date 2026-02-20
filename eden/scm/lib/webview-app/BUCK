@@ -6,31 +6,6 @@ rust_library(
     name = "webview-app",
     srcs = glob(["src/*"]),
     autocargo = {"cargo_toml_config": {
-        "dependencies_override": {"target": {
-            "'cfg(target_os = \"macos\")'": {"dependencies": {
-                "base64": {
-                    "features": ["alloc"],
-                    "version": "0.22.1",
-                },
-                "open": {"version": "4"},
-                "sapling-version": {"path": "../version"},
-                "tinyfiledialogs": {"version": "3.9.1"},
-                "tracing": {
-                    "features": [
-                        "attributes",
-                        "valuable",
-                    ],
-                    "version": "0.1.41",
-                },
-                "webview-sys": {"path": "../third-party/webview-sys"},
-            }},
-        }},
-        "extra_buck_dependencies": {"dependencies": [
-            "fbsource//third-party/rust:anyhow",
-            "fbsource//third-party/rust:dirs",
-            "fbsource//third-party/rust:serde",
-            "fbsource//third-party/rust:serde_json",
-        ]},
         "lib": {"name": "webview-app"},
         "package": {
             "authors": ["Meta Source Control Team <sourcecontrol-dev@meta.com>"],

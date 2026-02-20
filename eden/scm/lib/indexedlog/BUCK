@@ -21,59 +21,8 @@ rust_library(
                 "name": "log",
             },
         ],
-        "dependencies_override": {"target": {
-            "'cfg(target_os = \"linux\")'": {
-                "dependencies": {
-                    "hex": {
-                        "features": ["alloc"],
-                        "version": "0.4.3",
-                    },
-                    "libc": {"version": "0.2.139"},
-                    "sapling-btrfs": {
-                        "optional": True,
-                        "path": "../util/btrfs",
-                    },
-                },
-                "dev-dependencies": {
-                    "tempfile": {"version": "3.22"},
-                },
-            },
-            "'cfg(target_os = \"macos\")'": {
-                "dependencies": {
-                    "hex": {
-                        "features": ["alloc"],
-                        "version": "0.4.3",
-                    },
-                    "libc": {"version": "0.2.139"},
-                },
-                "dev-dependencies": {
-                    "tempfile": {"version": "3.22"},
-                },
-            },
-            "'cfg(target_os = \"windows\")'": {"dependencies": {
-                "winapi": {
-                    "features": [
-                        "everything",
-                        "std",
-                    ],
-                    "version": "0.3",
-                },
-            }},
-        }},
+        # Cargo bench deps.
         "extra_buck_dependencies": {
-            "dependencies": [
-                "fbsource//third-party/rust:byteorder",
-                "fbsource//third-party/rust:memmap2",
-                "fbsource//third-party/rust:once_cell",
-                "fbsource//third-party/rust:rand",
-                "fbsource//third-party/rust:tempfile",
-                "fbsource//third-party/rust:tracing",
-                "fbsource//third-party/rust:twox-hash",
-                "//eden/scm/lib/atomicfile:atomicfile",
-                "//eden/scm/lib/config/model:configmodel",
-                "//eden/scm/lib/minibytes:minibytes",
-                "//eden/scm/lib/vlqencoding:vlqencoding",
-            ],
             "dev-dependencies": [
                 "fbsource//third-party/rust:rand_chacha",
                 "//eden/scm/lib/minibench:minibench",

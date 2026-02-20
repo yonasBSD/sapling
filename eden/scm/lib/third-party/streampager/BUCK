@@ -14,6 +14,7 @@ rust_library(
             },
             "termwiz": {"features": []},
         }},
+        # Cargo feature-gated dep ("load_file" feature not enabled in Buck).
         "extra_buck_dependencies": {"dependencies": [
             "fbsource//third-party/rust:notify",
         ]},

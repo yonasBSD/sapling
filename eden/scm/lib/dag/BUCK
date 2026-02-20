@@ -16,11 +16,6 @@ rust_library(
                 "features": [],
             },
         }},
-        "extra_buck_dependencies": {"dev-dependencies": [
-            "fbsource//third-party/rust:tokio",
-            "//eden/scm/lib/dag/dag-types:dag-types",
-            "//eden/scm/lib/indexedlog:indexedlog",
-        ]},
         "features": {
             "default": [
                 "indexedlog-backend",

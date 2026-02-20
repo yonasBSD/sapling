@@ -6,7 +6,6 @@ rust_library(
     name = "cmddebugwait",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "extra_buck_dependencies": {"dependencies": []},
         "features": {
             "default": [],
             "eden": [

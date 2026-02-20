@@ -7,25 +7,6 @@ rust_binary(
     name = "scm_daemon",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "dependencies_override": {"target": {
-            "'cfg(target_os = \"linux\")'": {"dependencies": {
-                "libc": {"version": "0.2.139"},
-            }},
-            "'cfg(target_os = \"macos\")'": {"dependencies": {
-                "libc": {"version": "0.2.139"},
-            }},
-        }},
-        "extra_buck_dependencies": {"dependencies": [
-            "fbsource//third-party/rust:anyhow",
-            "fbsource//third-party/rust:clap-2",
-            "fbsource//third-party/rust:env_logger",
-            "fbsource//third-party/rust:log",
-            "fbsource//third-party/rust:serde",
-            "fbsource//third-party/rust:thiserror",
-            "fbsource//third-party/rust:tokio",
-            "fbsource//third-party/rust:toml",
-            "//eden/scm/lib/commitcloudsubscriber:commitcloudsubscriber",
-        ]},
         "package": {
             "name": "scm_daemon",
         },

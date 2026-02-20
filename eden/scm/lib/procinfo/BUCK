@@ -8,31 +8,7 @@ rust_library(
     name = "procinfo",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "dependencies_override": {
-            "dependencies": {"libc": {"version": "0.2.139"}},
-            "target": {
-                "'cfg(target_os = \"windows\")'": {"dependencies": {
-                    "ntapi": {"version": "0.4.2"},
-                    "winapi": {
-                        "features": [
-                            "everything",
-                            "std",
-                        ],
-                        "version": "0.3",
-                    },
-                }},
-                "'cfg(windows)'": {"dependencies": {"winapi": {
-                    "features": [
-                        "handleapi",
-                        "minwindef",
-                        "processthreadsapi",
-                        "psapi",
-                        "tlhelp32",
-                    ],
-                    "version": "0.3",
-                }}},
-            },
-        },
+        # Cargo build.rs dep (not used by Buck).
         "extra_buck_dependencies": {"target": {'\'cfg(target_os = "macos")\'': {"build-dependencies": ["fbsource//third-party/rust:cc"]}}},
         "lib": {"name": "procinfo"},
         "package": {

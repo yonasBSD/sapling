@@ -22,29 +22,10 @@ rust_library(
     name = "backtrace-python",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "dependencies_override": {
-            "target": {
-                "'cfg(target_os = \"windows\")'": {
-                    "dependencies": {
-                        "winapi": {
-                            "features": [
-                                "everything",
-                                "std",
-                            ],
-                            "version": "0.3",
-                        },
-                    },
-                },
-            },
-        },
+        # Cargo build.rs dep (Buck uses gen_offsets.rs genrule instead).
         "extra_buck_dependencies": {
             "build-dependencies": [
                 "//eden/scm/lib/backtrace-python/offset-probe:backtrace-python-offset-probe",
-            ],
-            "dependencies": [
-                "fbsource//third-party/rust:libc",
-                "//eden/scm/lib/backtrace-ext:backtrace-ext",
-                "//eden/scm/lib/backtrace-python/evalframe-sys:evalframe-sys",
             ],
         },
         "lib": {"name": "backtrace-python"},

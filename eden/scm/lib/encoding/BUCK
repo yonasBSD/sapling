@@ -6,23 +6,6 @@ rust_library(
     name = "encoding",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "dependencies_override": {"target": {
-            "'cfg(target_os = \"windows\")'": {"dependencies": {
-                "winapi": {
-                    "features": [
-                        "everything",
-                        "std",
-                    ],
-                    "version": "0.3",
-                },
-            }},
-            "'cfg(windows)'": {"dependencies": {
-                "winapi": {"version": "0.3"},
-            }},
-        }},
-        "extra_buck_dependencies": {"dependencies": [
-            "//eden/scm/lib/types:types",
-        ]},
         "lib": {"name": "encoding"},
         "package": {
             "authors": ["Meta Source Control Team <sourcecontrol-dev@meta.com>"],
