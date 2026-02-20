@@ -38,9 +38,8 @@ def getdefaultmaxuntrackedsize(ui):
 
 
 @util.timefunction("snapshot_backup_parents", 0, "ui")
-def _backupparents(repo, wctx) -> None:
+def _backupparents(repo, parents) -> None:
     """make sure this commit's ancestors are backed up in commitcloud"""
-    parents = (wctx.p1().node(), wctx.p2().node())
 
     # Check local backup state first to avoid unnecessary work
     localbackupstate = backupstate.BackupState(repo)
@@ -179,7 +178,7 @@ def parentsfromwctx(ui, wctx):
         )
     if p1 == nullid:
         return None
-    return p1
+    return (p1, p2)
 
 
 @dataclass(frozen=True)
@@ -255,21 +254,14 @@ class workingcopy:
 
 
 @util.timefunction("snapshot_upload", 0, "ui")
-def uploadsnapshot(repo, wctx, wc, time, tz, hgparents, bubble_properties):
+def uploadsnapshot(repo, files_info, author, time, tz, hgparents, bubble_properties):
     return repo.edenapi.uploadsnapshot(
         {
-            "files": {
-                "root": repo.root,
-                "modified": [(f, filetypefromfile(wctx[f])) for f in wc.modified],
-                "added": [(f, filetypefromfile(wctx[f])) for f in wc.added],
-                "untracked": [(f, filetypefromfile(wctx[f])) for f in wc.untracked],
-                "removed": wc.removed,
-                "missing": wc.missing,
-            },
-            "author": wctx.user(),
+            "files": files_info,
+            "author": author,
             "time": int(time),
             "tz": tz,
-            "hg_parents": hgparents,
+            "hg_parents": hgparents[0],
         },
         bubble_properties,
     )
@@ -317,62 +309,77 @@ def createremote(ui, repo, *pats, **opts) -> None:
     overrides = {}
     if ui.plain() or opts.get("template"):
         overrides[("ui", "quiet")] = True
-    with (
-        repo.wlock(),
-        repo.lock(),
-        repo.transaction("snapshot"),
-        ui.configoverride(overrides),
-    ):
-        # Current working context
-        wctx = repo[None]
+    with ui.configoverride(overrides):
+        with (
+            repo.wlock(),
+            repo.lock(),
+        ):
+            # Current working context
+            wctx = repo[None]
 
-        hgparents = parentsfromwctx(ui, wctx)
-        if hgparents is None:
-            raise error.Abort(_("snapshot creation requires working copy checkout"))
+            hgparents = parentsfromwctx(ui, wctx)
+            if hgparents is None:
+                raise error.Abort(_("snapshot creation requires working copy checkout"))
 
-        # Always backup parents first
-        _backupparents(repo, wctx)
+            # Get working copy state
+            wc = workingcopy.fromrepo(repo, effective_max_untracked_size, pats, opts)
+            filecount = wc.filecount()
 
-        # Get working copy state
-        wc = workingcopy.fromrepo(repo, effective_max_untracked_size, pats, opts)
-        filecount = wc.filecount()
+            # Check for allowempty config and handle empty working copy
+            if not allowempty and filecount == 0:
+                parent_hex = hgparents[0].hex()
 
-        # Check for allowempty config and handle empty working copy
-        if not allowempty and filecount == 0:
-            parent_hex = hgparents.hex()
-
-            # Handle JSON output if template is specified
-            if opts.get("template"):
-                with ui.formatter("snapshot", opts) as fm:
-                    fm.startitem()
-                    fm.data(message="no changes")
-                    fm.data(parent=parent_hex)
-                    if not ui.quiet and not ui.plain():
-                        fm.plain(
-                            _("nothing to snapshot, parent commit is {}\n").format(
-                                parent_hex
+                # Handle JSON output if template is specified
+                if opts.get("template"):
+                    with ui.formatter("snapshot", opts) as fm:
+                        fm.startitem()
+                        fm.data(message="no changes")
+                        fm.data(parent=parent_hex)
+                        if not ui.quiet and not ui.plain():
+                            fm.plain(
+                                _("nothing to snapshot, parent commit is {}\n").format(
+                                    parent_hex
+                                )
                             )
-                        )
-            else:
-                ui.status(
-                    _("nothing to snapshot, parent commit is {}\n").format(parent_hex),
-                    component="snapshot",
-                )
-            return
+                else:
+                    ui.status(
+                        _("nothing to snapshot, parent commit is {}\n").format(
+                            parent_hex
+                        ),
+                        component="snapshot",
+                    )
+                return
 
-        if filecount > maxfilecount:
-            raise error.AbortSnapshotFileCountLimit(
-                _(
-                    "snapshot file count limit exceeded: file count is {}, limit is {}"
-                ).format(filecount, maxfilecount)
+            if filecount > maxfilecount:
+                raise error.AbortSnapshotFileCountLimit(
+                    _(
+                        "snapshot file count limit exceeded: file count is {}, limit is {}"
+                    ).format(filecount, maxfilecount)
+                )
+
+            (time, tz) = wctx.date()
+
+            author = wctx.user()
+
+            # Build file info while we have wlock
+            files_info = {
+                "root": repo.root,
+                "modified": [(f, filetypefromfile(wctx[f])) for f in wc.modified],
+                "added": [(f, filetypefromfile(wctx[f])) for f in wc.added],
+                "untracked": [(f, filetypefromfile(wctx[f])) for f in wc.untracked],
+                "removed": wc.removed,
+                "missing": wc.missing,
+            }
+
+            # Look up bubble ID from the provided snapshot ID or latest snapshot
+            previousbubble = (
+                getcsidbubblemapping(repo.metalog(), continuationof)
+                if continuationof
+                else fetchlatestbubble(repo.metalog())
             )
 
-        # Look up bubble ID from the provided snapshot ID or latest snapshot
-        previousbubble = (
-            getcsidbubblemapping(repo.metalog(), continuationof)
-            if continuationof
-            else fetchlatestbubble(repo.metalog())
-        )
+        # Backup parents (network operation)
+        _backupparents(repo, hgparents)
 
         # Handle continuation-of option
         bubble_strategy = "create_new"  # Default strategy, keep it explicit
@@ -397,7 +404,7 @@ def createremote(ui, repo, *pats, **opts) -> None:
                     )
                 else:
                     # Cache the remote result locally for future use
-                    with repo.transaction("snapshot_cache_bubble"):
+                    with repo.lock(), repo.transaction("snapshot_cache_bubble"):
                         metadata = SnapshotMetadata(
                             bubble=previousbubble, created_at=mtime.time()
                         )
@@ -432,8 +439,6 @@ def createremote(ui, repo, *pats, **opts) -> None:
             # Use it as a copy hint for performance optimization
             bubble_strategy = {"create_with_copy_hint": {"bubble_id": previousbubble}}
 
-        (time, tz) = wctx.date()
-
         # When keep-ttl is set, don't pass lifetime_secs (for performance: skip TTL extension)
         bubble_properties = {
             "lifetime_secs": None if keepttl else lifetime,
@@ -441,10 +446,11 @@ def createremote(ui, repo, *pats, **opts) -> None:
             "labels": labels,
         }
 
+        # Upload snapshot (network operation)
         response = uploadsnapshot(
             repo,
-            wctx,
-            wc,
+            files_info,
+            author,
             time,
             tz,
             hgparents,
@@ -456,8 +462,9 @@ def createremote(ui, repo, *pats, **opts) -> None:
         bubble_expiration_timestamp = response.get("bubble_expiration_timestamp")
         snapshot_content_bytes = response.get("snapshot_content_bytes", 0)
 
-        # Store latest snapshot and bubble metadata in the local cache
-        storelatest(repo, csid, bubble, bubble_expiration_timestamp)
+        # Store metadata locally (requires lock, but brief)
+        with repo.lock(), repo.transaction("snapshot"):
+            storelatest(repo, csid, bubble, bubble_expiration_timestamp)
 
     csid = csid.hex()
 
@@ -485,12 +492,6 @@ def createremote(ui, repo, *pats, **opts) -> None:
             fm.startitem()
             fm.data(id=csid)
             fm.data(bubble=bubble)
-            # the variable actually always holds p1
-            parent = hgparents.hex()
-            fm.data(parent=parent)
-            if labels:
-                fm.data(labels=labels)
-
             # Add individual flat fields for template access
             fm.data(snapshot_modified=len(wc.modified))
             fm.data(snapshot_added=len(wc.added))
@@ -499,6 +500,9 @@ def createremote(ui, repo, *pats, **opts) -> None:
             fm.data(snapshot_untracked=len(wc.untracked))
             fm.data(snapshot_total_files=wc.filecount())
             fm.data(snapshot_content_bytes=snapshot_content_bytes)
+            fm.data(parent=hgparents[0].hex())
+            if labels:
+                fm.data(labels=labels)
 
             # Add skipped large untracked files to JSON output
             if wc.skipped_large_untracked:
