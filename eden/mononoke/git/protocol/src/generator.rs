@@ -446,10 +446,7 @@ fn packfile_stream_from_changesets<'a, T: GDMEntryProvider + Send + 'static>(
             tokio_stream::wrappers::ReceiverStream::new(gdm_receiver).filter_map({
                 let error_sender = packfile_item_sender.clone();
                 move |entry_result| {
-                    let filter = filter.clone();
-                    let fetch_container = fetch_container.clone();
-                    let base_set = base_set.clone();
-                    let error_sender = error_sender.clone();
+                    cloned!(fetch_container, base_set, filter, error_sender);
                     async move {
                         let entry = match entry_result {
                             Ok(entry) => entry,
