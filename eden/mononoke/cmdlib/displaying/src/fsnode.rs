@@ -18,8 +18,6 @@ use unicode_width::UnicodeWidthStr;
 pub fn display_fsnode_manifest(mut w: impl Write, fsnode: &Fsnode) -> Result<()> {
     writeln!(w, "Summary:",)?;
     let summary = fsnode.summary();
-    writeln!(w, "Simple-Format-SHA1: {}", summary.simple_format_sha1)?;
-    writeln!(w, "Simple-Format-SHA256: {}", summary.simple_format_sha256)?;
     writeln!(
         w,
         "Children: {} files ({}), {} dirs",

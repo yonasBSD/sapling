@@ -64,8 +64,6 @@ setup configuration
 
   $ mononoke_admin fetch -R repo -B main -p "" -k fsnode
   Summary:
-  Simple-Format-SHA1: f8af839f2ffaa63aa251fafdbea413cb21ae9176
-  Simple-Format-SHA256: 17ffd9c91c2ff10a13f8689b098fd41c90d0b45b0c14ad96eede1217b56418a5
   Children: 3 files (3), 0 dirs
   Descendants: 3 files (3)
   Children list:

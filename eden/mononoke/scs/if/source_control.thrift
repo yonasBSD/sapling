@@ -329,15 +329,16 @@ struct FileInfo {
   14: binary content_seeded_blake3;
 }
 
+@thrift.ReserveIds{ids = [2, 3]}
 struct TreeInfo {
   /// The id of the tree that can be used in subsequent look-ups.
   1: binary id;
 
-  /// DEPRECATED: The sha1 of the simple format of the directory.
-  2: optional binary simple_format_sha1;
+  /// DELETED: The sha1 of the simple format of the directory.
+  /// 2: optional binary simple_format_sha1;
 
-  /// DEPRECATED: The sha256 of the simple format of the directory.
-  3: optional binary simple_format_sha256;
+  /// DELETED: The sha256 of the simple format of the directory.
+  /// 3: optional binary simple_format_sha256;
 
   /// The count of files inside the directory (excluding files inside
   /// subdirectories).
