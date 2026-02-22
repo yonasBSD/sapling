@@ -8,7 +8,7 @@ rust_library(
     proc_macro = True,
     unittests = False,
     deps = [
-        "fbsource//third-party/rust:darling",
+        "fbsource//third-party/rust:darling-0-14",
         "fbsource//third-party/rust:proc-macro-error",
         "fbsource//third-party/rust:proc-macro2",
         "fbsource//third-party/rust:quote",
