@@ -6,7 +6,7 @@
  */
 
 use darling::FromMeta;
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::Ident;
