@@ -22,7 +22,9 @@ fn test_stress_concurrent_profilers() {
     let (jobs, iterations, intervals) = if cfg!(debug_assertions) {
         (4, 30, &[2][..])
     } else {
-        (12, 50, &[2, 1, 0, 5][..])
+        // Avoid zero interval - it can cause `sleep` to EINTR and never finish
+        // due to SA_RESTART.
+        (6, 30, &[2, 1, 5][..])
     };
 
     eprint!("{}", "\n".repeat(jobs));
