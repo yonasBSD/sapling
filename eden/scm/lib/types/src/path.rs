@@ -1009,6 +1009,10 @@ enum RepoPathRelativizerConfig {
     // If the cwd is outside the repo, then prefix is the cwd relative to the repo root: Hg paths
     // can simply be appended to this path.
     CwdOutsideRepo { prefix: PathBuf },
+
+    // Don't relativize. This is convenient for code that wants to sometimes relativize
+    // and sometimes not.
+    NoCwd,
 }
 
 pub struct RepoPathRelativizer {
@@ -1044,6 +1048,13 @@ impl RepoPathRelativizer {
         RepoPathRelativizer { config }
     }
 
+    /// Create a RepoPathRelativizer that does nothing to the provided path.
+    pub fn noop() -> RepoPathRelativizer {
+        Self {
+            config: RepoPathRelativizerConfig::NoCwd,
+        }
+    }
+
     /// Relativize the [`RepoPath`]. Returns a String that is suitable for display to the user.
     pub fn relativize(&self, path: impl AsRef<RepoPath>) -> String {
         fn inner(relativizer: &RepoPathRelativizer, path: &RepoPath) -> String {
@@ -1054,6 +1065,7 @@ impl RepoPathRelativizer {
             let output = match &relativizer.config {
                 CwdUnderRepo { relative_cwd } => util::path::relativize(relative_cwd, &path),
                 CwdOutsideRepo { prefix } => prefix.join(path),
+                NoCwd => path,
             };
             output.display().to_string()
         }
@@ -1564,6 +1576,16 @@ mod tests {
         check(
             "foo/bar.txt",
             os_path(&["..", "..", "zuck", "tfb", "foo", "bar.txt"]),
+        );
+    }
+
+    #[test]
+    fn test_relativize_noop() {
+        let relativizer = RepoPathRelativizer::noop();
+        assert_eq!(relativizer.relativize(repo_path("foo")), "foo");
+        assert_eq!(
+            relativizer.relativize(repo_path("foo/bar")),
+            if cfg!(windows) { r"foo\bar" } else { "foo/bar" }
         );
     }
 
