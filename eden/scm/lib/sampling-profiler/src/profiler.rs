@@ -16,21 +16,18 @@ use anyhow::ensure;
 use crate::ResolvedBacktraceProcessFunc;
 use crate::frame_handler;
 use crate::osutil;
-use crate::osutil::OwnedTimer;
 use crate::signal_handler;
 use crate::signal_handler::SignalState;
 
 /// Represents a profiling configuration for the owning thread.
-/// Contains resources (fd, timer) allocated.
+/// Contains resources (fd, thread handle) allocated.
 /// Dropping this struct stops the profiler.
 pub struct Profiler {
-    /// Timer that periodically sends SIGPROF to the profiled thread.
-    timer_id: OwnedTimer,
     /// Pinned because the signal handler holds a raw pointer to this.
     /// Owns the write end of the pipe (closed in `drop()` to trigger
-    /// EOF on the reader thread).
+    /// POLLHUP on the profiler thread).
     signal_state: Pin<Box<SignalState>>,
-    /// Frame handling thread.
+    /// Combined timer + frame-reader thread.
     handle: Option<JoinHandle<()>>,
     // Unimplement Send+Sync.
     // This avoids tricky race conditions during "stop".
@@ -61,39 +58,34 @@ impl Profiler {
             "minimal interval is 1ms to avoid starving threads"
         );
 
-        // Prepare the pipe fds.
-        // - read_fd: used and owned by the frame_reader_loop thread.
-        //   will be closed on EOF (closing write_fd).
-        // - write_fd: used by the signal handler. owned by `Profiler`.
-        //   will be closed when dropping `Profiler`.
         let [read_fd, write_fd] = osutil::setup_pipe()?;
 
-        // Spawn a thread to read the pipe. The thread exits on pipe EOF.
-        // The thread should be spawned before the signal handler got a chance
-        // to run to avoid potential deadlock on signal handler `write`.
         let thread_id = osutil::get_thread_id();
-        let handle = thread::Builder::new()
-            .name(format!("profiler-consumer-{thread_id:?}"))
-            .spawn(move || {
-                osutil::block_signal(SIG);
-                frame_handler::frame_reader_loop(read_fd, backtrace_process_func);
-            })?;
 
         osutil::setup_signal_handler(SIG, signal_handler::signal_handler)?;
         osutil::unblock_signal(SIG);
 
         let signal_state = Box::pin(SignalState { write_fd });
 
-        // Start a timer that sends signals to the target thread periodically.
-        let timer_id = osutil::setup_signal_timer(
-            SIG,
-            thread_id,
-            interval,
-            &*signal_state as *const SignalState,
-        )?;
+        // Cast to usize to cross the thread boundary (raw pointers aren't Send).
+        // Safety: the pointee (Pin<Box<SignalState>>) outlives the profiler
+        // thread, which is joined in Profiler::drop.
+        let signal_state_addr = &*signal_state as *const SignalState as usize;
+
+        let handle = thread::Builder::new()
+            .name(format!("profiler-{thread_id:?}"))
+            .spawn(move || {
+                frame_handler::profiler_loop(
+                    read_fd,
+                    SIG,
+                    thread_id,
+                    interval,
+                    signal_state_addr,
+                    backtrace_process_func,
+                );
+            })?;
 
         Ok(Self {
-            timer_id,
             signal_state,
             handle: Some(handle),
             _marker: PhantomData,
@@ -103,17 +95,18 @@ impl Profiler {
 
 impl Drop for Profiler {
     fn drop(&mut self) {
-        // Stop timer before dropping fds.
-        self.timer_id.stop();
+        // Prevent new signal handler invocations on this thread.
         osutil::block_signal(SIG);
-        // Consume pending signals previously queued by the timer to avoid
-        // surprises. This might cancel unrelated signal queues from nested
-        // profilers, losing some profiling accuracy.
-        osutil::drain_pending_signals(SIG);
+        // Close the write end — POLLHUP wakes the profiler thread, which
+        // stops sending signals and exits.
         self.signal_state.write_fd.close();
-        // Wait for `backtrace_process_func` to complete.
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
+        // Catch any SIGPROF the profiler thread sent between our block_signal
+        // and its exit.
+        osutil::drain_pending_signals(SIG);
+        // Restore signal.
+        osutil::unblock_signal(SIG);
     }
 }

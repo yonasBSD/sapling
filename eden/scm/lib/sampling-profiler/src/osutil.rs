@@ -9,19 +9,14 @@
 
 use std::io;
 use std::mem;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicPtr;
-use std::sync::atomic::Ordering;
-use std::thread::JoinHandle;
-use std::time::Duration;
 
 use anyhow::Context;
 
 use crate::signal_handler::SignalState;
 
-/// Atomic payload for passing data from the timer thread to the signal handler.
-/// The timer thread CAS's from null to the pointer, sends the signal, and the
+/// Atomic payload for passing data from the profiler thread to the signal handler.
+/// The profiler thread CAS's from null to the pointer, sends the signal, and the
 /// signal handler reads and resets it to null.
 pub static SIGNAL_PAYLOAD: AtomicPtr<SignalState> = AtomicPtr::new(std::ptr::null_mut());
 
@@ -56,7 +51,7 @@ pub fn get_thread_id() -> ThreadId {
 
 /// Send signal `sig` to the thread identified by `tid`.
 #[cfg(target_os = "linux")]
-fn signal_thread(tid: ThreadId, sig: libc::c_int) {
+pub fn signal_thread(tid: ThreadId, sig: libc::c_int) {
     // tgkill targets a specific thread within our process.
     unsafe {
         libc::syscall(libc::SYS_tgkill, libc::getpid(), tid, sig);
@@ -64,7 +59,7 @@ fn signal_thread(tid: ThreadId, sig: libc::c_int) {
 }
 
 #[cfg(all(unix, not(target_os = "linux")))]
-fn signal_thread(tid: ThreadId, sig: libc::c_int) {
+pub fn signal_thread(tid: ThreadId, sig: libc::c_int) {
     unsafe {
         libc::pthread_kill(tid, sig);
     }
@@ -170,116 +165,6 @@ pub fn setup_signal_handler(
     }
 
     Ok(())
-}
-
-/// Represents an owned timer backed by a pthread timer thread.
-pub struct OwnedTimer {
-    stop_flag: Arc<AtomicBool>,
-    handle: Option<JoinHandle<()>>,
-}
-
-impl Drop for OwnedTimer {
-    fn drop(&mut self) {
-        self.stop();
-    }
-}
-
-impl OwnedTimer {
-    pub fn stop(&mut self) {
-        self.stop_flag.store(true, Ordering::Release);
-        if let Some(h) = self.handle.take() {
-            h.thread().unpark();
-            let _ = h.join();
-        }
-    }
-}
-/// Send `sig` to `target_thread` at the specified interval using a dedicated
-/// timer thread. The `signal_state` pointer is passed to the signal handler
-/// via the `SIGNAL_PAYLOAD` atomic: the timer thread CAS's from null to the
-/// pointer, then sends the signal. The signal handler reads and resets
-/// `SIGNAL_PAYLOAD` to null.
-pub fn setup_signal_timer(
-    sig: libc::c_int,
-    target_thread: ThreadId,
-    interval: Duration,
-    signal_state: *const SignalState,
-) -> anyhow::Result<OwnedTimer> {
-    // Cast to usize to cross the thread boundary (raw pointers aren't Send).
-    // Safety: the pointee (Pin<Box<SignalState>> in Profiler) outlives the
-    // timer thread, which is joined in Profiler::drop.
-    let signal_state_addr = signal_state as usize;
-
-    let stop_flag = Arc::new(AtomicBool::new(false));
-
-    let handle = std::thread::Builder::new()
-        .name(format!("profiler-timer-{target_thread:?}"))
-        .spawn({
-            let stop_flag = stop_flag.clone();
-            move || {
-                let signal_state = signal_state_addr as *mut SignalState;
-                let sentinel: *mut SignalState = std::ptr::null_mut();
-                // Block the profiling signal in the timer thread itself.
-                block_signal(sig);
-                loop {
-                    std::thread::park_timeout(interval);
-                    if stop_flag.load(Ordering::Acquire) {
-                        break;
-                    }
-                    // Spin until the signal handler has consumed the previous payload.
-                    let mut wait_count: u32 = 0;
-                    loop {
-                        match SIGNAL_PAYLOAD.compare_exchange(
-                            sentinel,
-                            signal_state,
-                            Ordering::AcqRel,
-                            Ordering::Acquire,
-                        ) {
-                            Ok(_) => break,
-                            Err(current) => {
-                                if current == signal_state {
-                                    break;
-                                }
-                                if stop_flag.load(Ordering::Acquire) {
-                                    break;
-                                }
-                                // Is signal handling or delivery stuck? If so, avoid burning CPU.
-                                if wait_count >= 0x10000 {
-                                    std::thread::park_timeout(Duration::from_millis(16));
-                                } else if wait_count >= 0x1000 {
-                                    wait_count += 0x1000;
-                                    std::thread::park_timeout(Duration::from_millis(1));
-                                } else {
-                                    wait_count += 1;
-                                    std::hint::spin_loop();
-                                }
-                            }
-                        }
-                    }
-                    if stop_flag.load(Ordering::Acquire) {
-                        let _ = SIGNAL_PAYLOAD.compare_exchange(
-                            signal_state,
-                            sentinel,
-                            Ordering::AcqRel,
-                            Ordering::Acquire,
-                        );
-                        break;
-                    }
-                    signal_thread(target_thread, sig);
-                }
-                // Stopped. Clean up if the signal handler hasn't consumed our payload.
-                let _ = SIGNAL_PAYLOAD.compare_exchange(
-                    signal_state,
-                    sentinel,
-                    Ordering::AcqRel,
-                    Ordering::Relaxed,
-                );
-            }
-        })?;
-
-    Ok(OwnedTimer {
-        stop_flag,
-        handle: Some(handle),
-    })
 }
 
 /// Consume all pending instances of `sig` for the current thread.

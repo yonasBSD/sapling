@@ -17,8 +17,8 @@ use crate::Profiler;
 fn test_stress_concurrent_profilers() {
     // Repeat to surface intermittent hangs or crashes.
 
-    // Note: each "Profiler" might spawn 1 to 2 threads.
-    // Total: JOBS * INTERVALS.len() * (2 or 3) threads.
+    // Note: each "Profiler" spawns 1 thread.
+    // Total: JOBS * INTERVALS.len() * 2 threads.
     let (jobs, iterations, intervals) = if cfg!(debug_assertions) {
         (4, 30, &[2][..])
     } else {
