@@ -6,6 +6,7 @@
  */
 
 use std::marker::PhantomData;
+use std::pin::Pin;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -13,9 +14,9 @@ use std::time::Duration;
 use crate::ResolvedBacktraceProcessFunc;
 use crate::frame_handler;
 use crate::osutil;
-use crate::osutil::OwnedFd;
 use crate::osutil::OwnedTimer;
 use crate::signal_handler;
+use crate::signal_handler::SignalState;
 
 /// Represents a profiling configuration for the owning thread.
 /// Contains resources (fd, timer) allocated.
@@ -23,8 +24,10 @@ use crate::signal_handler;
 pub struct Profiler {
     /// (Linux) Timer ID for the SIGPROF timer.
     timer_id: OwnedTimer,
-    /// Frame information to write to (from signal handler).
-    pipe_write_fd: OwnedFd,
+    /// Pinned because the signal handler holds a raw pointer to this.
+    /// Owns the write end of the pipe (closed in `drop()` to trigger
+    /// EOF on the reader thread).
+    signal_state: Pin<Box<SignalState>>,
     /// Frame handling thread.
     handle: Option<JoinHandle<()>>,
     // Unimplement Send+Sync.
@@ -72,12 +75,19 @@ impl Profiler {
         osutil::setup_signal_handler(SIG, signal_handler::signal_handler)?;
         osutil::unblock_signal(SIG);
 
+        let signal_state = Box::pin(SignalState { write_fd });
+
         // Start a timer that sends signals to the target thread periodically.
-        let timer_id = osutil::setup_signal_timer(SIG, thread_id, interval, write_fd.0 as isize)?;
+        let timer_id = osutil::setup_signal_timer(
+            SIG,
+            thread_id,
+            interval,
+            &*signal_state as *const SignalState,
+        )?;
 
         Ok(Self {
             timer_id,
-            pipe_write_fd: write_fd,
+            signal_state,
             handle: Some(handle),
             _marker: PhantomData,
         })
@@ -93,7 +103,7 @@ impl Drop for Profiler {
         // surprises. This might cancel unrelated signal queues from nested
         // profilers, losing some profiling accuracy.
         osutil::drain_pending_signals(SIG);
-        self.pipe_write_fd.close();
+        self.signal_state.write_fd.close();
         // Wait for `backtrace_process_func` to complete.
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();

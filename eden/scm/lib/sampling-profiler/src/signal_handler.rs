@@ -12,6 +12,15 @@ use backtrace_ext::trace_unsynchronized;
 
 use crate::frame_handler::FramePayload;
 use crate::frame_handler::MaybeFrame;
+use crate::osutil::OwnedFd;
+
+/// State shared between the timer/signal-handler and the Profiler.
+/// Must remain at a stable address for the lifetime of the timer
+/// (the signal handler receives a raw pointer to it).
+#[repr(C)]
+pub struct SignalState {
+    pub write_fd: OwnedFd,
+}
 
 /// The signal handler is called every second on the main thread. It should
 /// collect minimal stack info while the main logic of the main thread is
@@ -28,31 +37,31 @@ pub extern "C" fn signal_handler(
         return;
     }
 
-    // On Linux, the payload (write fd) is delivered via sigevent's si_value.
+    // On Linux, the payload (SignalState pointer) is delivered via sigevent's si_value.
     // On macOS, it's passed via an atomic (no si_value support with pthread_kill).
     #[cfg(target_os = "linux")]
     let write_fd = {
         if info.is_null() {
             return;
         }
-        let write_fd: isize = unsafe {
+        let state_ptr: *const SignalState = unsafe {
             let sigev = (*info).si_value();
             std::mem::transmute(sigev)
         };
-        if write_fd < 0 {
+        if state_ptr.is_null() {
             return;
         }
-        write_fd as i32
+        unsafe { (*state_ptr).write_fd.0 }
     };
 
     #[cfg(all(unix, not(target_os = "linux")))]
     let write_fd = {
         let _ = info;
-        let payload = crate::osutil::SIGNAL_PAYLOAD.swap(-1, Ordering::AcqRel);
-        if payload < 0 {
+        let state_ptr = crate::osutil::SIGNAL_PAYLOAD.swap(std::ptr::null_mut(), Ordering::AcqRel);
+        if state_ptr.is_null() {
             return;
         }
-        payload as i32
+        unsafe { (*state_ptr).write_fd.0 }
     };
 
     // libc::write (and other syscalls) may clobber errno.

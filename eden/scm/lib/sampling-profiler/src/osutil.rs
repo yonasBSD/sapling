@@ -16,7 +16,7 @@ use std::sync::Arc;
 #[cfg(all(unix, not(target_os = "linux")))]
 use std::sync::atomic::AtomicBool;
 #[cfg(all(unix, not(target_os = "linux")))]
-use std::sync::atomic::AtomicIsize;
+use std::sync::atomic::AtomicPtr;
 #[cfg(all(unix, not(target_os = "linux")))]
 use std::sync::atomic::Ordering;
 #[cfg(all(unix, not(target_os = "linux")))]
@@ -25,12 +25,14 @@ use std::time::Duration;
 
 use anyhow::Context;
 
+use crate::signal_handler::SignalState;
+
 /// Atomic payload for passing data from the timer thread to the signal handler
 /// on non-Linux Unix, where `sigevent`/`si_value` is unavailable. The timer
-/// thread CAS's from -1 to the payload, sends the signal, and the signal
-/// handler reads and resets it to -1.
+/// thread CAS's from null to the pointer, sends the signal, and the signal
+/// handler reads and resets it to null.
 #[cfg(all(unix, not(target_os = "linux")))]
-pub static SIGNAL_PAYLOAD: AtomicIsize = AtomicIsize::new(-1);
+pub static SIGNAL_PAYLOAD: AtomicPtr<SignalState> = AtomicPtr::new(std::ptr::null_mut());
 
 // Block `sig` signals. Explicitly opt-out profiling for the current thread
 // and new threads spawned from the current thread.
@@ -201,16 +203,15 @@ pub fn setup_signal_timer(
     sig: libc::c_int,
     tid: ThreadId,
     interval: Duration,
-    sigev_value: isize,
+    signal_state: *const SignalState,
 ) -> anyhow::Result<OwnedTimer> {
     unsafe {
         let mut sev: libc::sigevent = mem::zeroed();
         sev.sigev_notify = libc::SIGEV_THREAD_ID;
         sev.sigev_signo = sig;
         sev.sigev_notify_thread_id = tid;
-        // In C, sigev is a union of int and `void*`.
-        // So it's okay to treat it as an int, not a pointer.
-        sev.sigev_value = mem::transmute_copy(&sigev_value);
+        // sigev_value is a union of int and `void*` — store our pointer in it.
+        sev.sigev_value = mem::transmute_copy(&signal_state);
 
         let mut timer: libc::timer_t = mem::zeroed();
 
@@ -237,17 +238,20 @@ pub fn setup_signal_timer(
 
 /// Setup a pthread-based timer that sends `sig` to `target_thread` at the specified interval.
 /// On non-Linux Unix, uses pthread_kill since SIGEV_THREAD_ID is not available.
-/// The `sigev_value` is passed to the signal handler via `SIGNAL_PAYLOAD` atomic:
-/// the timer thread CAS's from -1 to `sigev_value`, then sends the signal.
-/// The signal handler reads and resets `SIGNAL_PAYLOAD` to -1.
+/// The `signal_state` pointer is passed to the signal handler via `SIGNAL_PAYLOAD` atomic:
+/// the timer thread CAS's from null to the pointer, then sends the signal.
+/// The signal handler reads and resets `SIGNAL_PAYLOAD` to null.
 #[cfg(all(unix, not(target_os = "linux")))]
 pub fn setup_signal_timer(
     sig: libc::c_int,
     target_thread: ThreadId,
     interval: Duration,
-    sigev_value: isize,
+    signal_state: *const SignalState,
 ) -> anyhow::Result<OwnedTimer> {
-    anyhow::ensure!(sigev_value != -1, "sigev_value must not be -1 (sentinel)");
+    // Cast to usize to cross the thread boundary (raw pointers aren't Send).
+    // Safety: the pointee (Pin<Box<SignalState>> in Profiler) outlives the
+    // timer thread, which is joined in Profiler::drop.
+    let signal_state_addr = signal_state as usize;
 
     let stop_flag = Arc::new(AtomicBool::new(false));
 
@@ -256,6 +260,8 @@ pub fn setup_signal_timer(
         .spawn({
             let stop_flag = stop_flag.clone();
             move || {
+                let signal_state = signal_state_addr as *mut SignalState;
+                let sentinel: *mut SignalState = std::ptr::null_mut();
                 // Block the profiling signal in the timer thread itself.
                 block_signal(sig);
                 loop {
@@ -267,15 +273,14 @@ pub fn setup_signal_timer(
                     let mut wait_count: u32 = 0;
                     loop {
                         match SIGNAL_PAYLOAD.compare_exchange(
-                            -1,
-                            sigev_value,
+                            sentinel,
+                            signal_state,
                             Ordering::AcqRel,
                             Ordering::Acquire,
                         ) {
                             Ok(_) => break,
-                            Err(_) => {
-                                if SIGNAL_PAYLOAD.load(Ordering::Acquire) == sigev_value {
-                                    // Already have the desired value.
+                            Err(current) => {
+                                if current == signal_state {
                                     break;
                                 }
                                 if stop_flag.load(Ordering::Acquire) {
@@ -295,11 +300,9 @@ pub fn setup_signal_timer(
                         }
                     }
                     if stop_flag.load(Ordering::Acquire) {
-                        // Restore SIGNAL_PAYLOAD. Do not call signal handler.
-                        // If this fails, the value might be restored by the signal handler.
                         let _ = SIGNAL_PAYLOAD.compare_exchange(
-                            sigev_value,
-                            -1,
+                            signal_state,
+                            sentinel,
                             Ordering::AcqRel,
                             Ordering::Acquire,
                         );
@@ -311,8 +314,8 @@ pub fn setup_signal_timer(
                 }
                 // Stopped. Clean up if the signal handler hasn't consumed our payload.
                 let _ = SIGNAL_PAYLOAD.compare_exchange(
-                    sigev_value,
-                    -1,
+                    signal_state,
+                    sentinel,
                     Ordering::AcqRel,
                     Ordering::Relaxed,
                 );
@@ -376,9 +379,12 @@ mod tests {
     fn test_timer_drop_is_fast() {
         setup_signal_handler(libc::SIGUSR1, noop_handler).unwrap();
 
+        let state = SignalState {
+            write_fd: OwnedFd(-1),
+        };
         let interval = Duration::from_secs(5);
         let start = Instant::now();
-        let timer = setup_signal_timer(libc::SIGUSR1, get_thread_id(), interval, 42).unwrap();
+        let timer = setup_signal_timer(libc::SIGUSR1, get_thread_id(), interval, &state).unwrap();
         std::thread::sleep(Duration::from_millis(10));
         drop(timer);
         let elapsed = start.elapsed();
