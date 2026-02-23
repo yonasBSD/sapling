@@ -193,3 +193,11 @@ Test repoless grep requires --rev:
 
   $ hg grep -R test:server -r main 'dir content' path:
   dir/file:dir content
+
+
+FIXME: Can grep unpulled revisions from on-disk repo:
+
+  $ newclientrepo unpulled-client server
+  $ hg grep -r $A foo
+  abort: unknown revision '3fbf3be0ed21b8fb52f64ea4dc4c754394e5e041'
+  [255]
