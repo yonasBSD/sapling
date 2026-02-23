@@ -194,6 +194,7 @@ async fn update_cgdm(
     component_max_size: u64,
     rebuild: bool,
 ) -> Result<()> {
+    let repo_name = repo.repo_identity().name();
     let mut cgdm_components = match rebuild {
         false => match repo.repo_blobstore().get(ctx, &blobstore_key).await? {
             Some(bytes) => CGDMComponents::from_bytes(bytes.as_raw_bytes())?,
@@ -201,6 +202,14 @@ async fn update_cgdm(
         },
         true => Default::default(),
     };
+
+    println!(
+        "[{}] Loaded {} existing components with {} changesets (rebuild: {})",
+        repo_name,
+        cgdm_components.components.len(),
+        cgdm_components.changeset_to_component_id.len(),
+        rebuild,
+    );
 
     let mut component_to_changeset_ids = cgdm_components
         .changeset_to_component_id
@@ -221,6 +230,12 @@ async fn update_cgdm(
                 .contains_key(cs_id)
         })
         .collect::<Vec<_>>();
+
+    println!(
+        "[{}] Found {} new changesets to process",
+        repo_name,
+        cs_ids.len(),
+    );
 
     // Create a hashmap of all GDMv3 sizes for every changeset
     let gdm_sizes = stream::iter(&cs_ids)
@@ -248,7 +263,7 @@ async fn update_cgdm(
         .buffered(1024)
         .try_collect::<HashMap<_, _>>()
         .await?;
-    println!("Finished calculating gdm sizes");
+    println!("[{}] Finished calculating GDM sizes", repo_name);
 
     // Go through the new commits and for each either create a new component
     // or add them to one of their parent components if possible
@@ -338,12 +353,19 @@ async fn update_cgdm(
         }
 
         if (index + 1) % 10000 == 0 {
-            println!("Processed {} changesets", index + 1);
+            println!("[{}] Processed {} changesets", repo_name, index + 1);
         }
     }
 
     println!(
-        "Storing CGDM blobs for {} new full components",
+        "[{}] Finished assigning changesets to {} components",
+        repo_name,
+        cgdm_components.components.len(),
+    );
+
+    println!(
+        "[{}] Storing CGDM blobs for {} new full components",
+        repo_name,
         new_full_components.len()
     );
 
@@ -413,6 +435,11 @@ async fn update_cgdm(
         component_info.cgdm_commits_id = Some(cgdm_commits_id);
     }
 
+    println!(
+        "[{}] Saving updated CGDMComponents to blobstore key '{}'",
+        repo_name, blobstore_key,
+    );
+
     repo.repo_blobstore()
         .put(
             ctx,
@@ -420,6 +447,8 @@ async fn update_cgdm(
             BlobstoreBytes::from_bytes(cgdm_components.into_bytes()),
         )
         .await?;
+
+    println!("[{}] CGDM update complete", repo_name,);
 
     Ok(())
 }

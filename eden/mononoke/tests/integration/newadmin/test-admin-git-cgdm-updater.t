@@ -37,8 +37,13 @@
 # Test single-repo mode: update CGDM with explicit blobstore key
 # Shared args (--component-max-count, --component-max-size) come before the subcommand
   $ mononoke_admin git-cgdm-updater --component-max-count 100 --component-max-size 10485760 repo -R repo --all-bookmarks --blobstore-key manual_cgdm_key
-  Finished calculating gdm sizes
-  Storing CGDM blobs for 0 new full components
+  [repo] Loaded 0 existing components with 0 changesets (rebuild: false)
+  [repo] Found 3 new changesets to process
+  [repo] Finished calculating GDM sizes
+  [repo] Finished assigning changesets to 1 components
+  [repo] Storing CGDM blobs for 0 new full components
+  [repo] Saving updated CGDMComponents to blobstore key 'manual_cgdm_key'
+  [repo] CGDM update complete
 
 # Verify components were created via git-cgdm-components
   $ mononoke_admin git-cgdm-components -R repo --blobstore-key manual_cgdm_key | wc -l
@@ -51,8 +56,13 @@
   [INFO] Initialized repo: repo (1/1)
   [INFO] All repos initialized. It took: * seconds (glob)
   Updating CGDM for repo repo with blobstore key test_cgdm_key
-  Finished calculating gdm sizes
-  Storing CGDM blobs for 0 new full components
+  [repo] Loaded 0 existing components with 0 changesets (rebuild: false)
+  [repo] Found 3 new changesets to process
+  [repo] Finished calculating GDM sizes
+  [repo] Finished assigning changesets to 1 components
+  [repo] Storing CGDM blobs for 0 new full components
+  [repo] Saving updated CGDMComponents to blobstore key 'test_cgdm_key'
+  [repo] CGDM update complete
 
 # Verify components were created at config-derived key
   $ mononoke_admin git-cgdm-components -R repo --blobstore-key test_cgdm_key | wc -l
@@ -65,5 +75,10 @@
   [INFO] Initialized repo: repo (1/1)
   [INFO] All repos initialized. It took: * seconds (glob)
   Updating CGDM for repo repo with blobstore key test_cgdm_key
-  Finished calculating gdm sizes
-  Storing CGDM blobs for 0 new full components
+  [repo] Loaded 0 existing components with 0 changesets (rebuild: true)
+  [repo] Found 3 new changesets to process
+  [repo] Finished calculating GDM sizes
+  [repo] Finished assigning changesets to 1 components
+  [repo] Storing CGDM blobs for 0 new full components
+  [repo] Saving updated CGDMComponents to blobstore key 'test_cgdm_key'
+  [repo] CGDM update complete
