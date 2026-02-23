@@ -311,38 +311,3 @@ fn sigmask_sigprof(sig: libc::c_int, block: bool) {
         libc::pthread_sigmask(how, &set, std::ptr::null_mut());
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use std::time::Instant;
-
-    use super::*;
-
-    #[test]
-    fn test_timer_drop_is_fast() {
-        setup_signal_handler(libc::SIGUSR1, noop_handler).unwrap();
-
-        let state = SignalState {
-            write_fd: OwnedFd(-1),
-        };
-        let interval = Duration::from_secs(5);
-        let start = Instant::now();
-        let timer = setup_signal_timer(libc::SIGUSR1, get_thread_id(), interval, &state).unwrap();
-        std::thread::sleep(Duration::from_millis(10));
-        drop(timer);
-        let elapsed = start.elapsed();
-
-        assert!(
-            elapsed < Duration::from_secs(2),
-            "drop took {:?}, expected < 2s",
-            elapsed,
-        );
-
-        extern "C" fn noop_handler(
-            _: libc::c_int,
-            _: *const libc::siginfo_t,
-            _: *const libc::c_void,
-        ) {
-        }
-    }
-}

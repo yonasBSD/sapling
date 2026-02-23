@@ -142,3 +142,18 @@ fn test_signal_during_malloc_deadlock() {
     }
     worker.join().unwrap();
 }
+
+#[test]
+fn test_profiler_drop_is_fast() {
+    let interval = Duration::from_secs(5);
+    let start = Instant::now();
+    let profiler = Profiler::new(interval, Box::new(|_: &[String]| {})).unwrap();
+    std::thread::sleep(Duration::from_millis(10));
+    drop(profiler);
+    let elapsed = start.elapsed();
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "drop took {:?}, expected < 2s",
+        elapsed,
+    );
+}
