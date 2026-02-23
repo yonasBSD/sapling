@@ -26,6 +26,7 @@ use grep::searcher::SinkMatch;
 use pathmatcher::DynMatcher;
 use pathmatcher::IntersectMatcher;
 use repo::CoreRepo;
+use types::path::RepoPathRelativizer;
 
 define_flags! {
     pub struct GrepOpts {
@@ -163,22 +164,40 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
 
     let mut searcher = searcher_builder.build();
 
-    let (repo_root, case_sensitive, cwd) = match repo {
-        CoreRepo::Disk(repo) => {
-            let wc = repo.working_copy()?;
-            let wc = wc.read();
-            let vfs = wc.vfs();
-            (
-                vfs.root().to_path_buf(),
-                vfs.case_sensitive(),
-                std::env::current_dir()?,
-            )
-        }
-        CoreRepo::Slapi(_slapi_repo) => (PathBuf::new(), true, PathBuf::new()),
-    };
+    let (repo_root, case_sensitive, cwd, sl_patterns, relativizer): (_, _, _, &[String], _) =
+        match repo {
+            CoreRepo::Disk(repo) => {
+                let wc = repo.working_copy()?;
+                let wc = wc.read();
+                let vfs = wc.vfs();
+                (
+                    vfs.root().to_path_buf(),
+                    vfs.case_sensitive(),
+                    std::env::current_dir()?,
+                    if ctx.opts.sl_patterns.is_empty() {
+                        // Default to "." (i.e. search cwd).
+                        &[".".to_string()]
+                    } else {
+                        &ctx.opts.sl_patterns
+                    },
+                    RepoPathRelativizer::new(std::env::current_dir()?, vfs.root()),
+                )
+            }
+            CoreRepo::Slapi(_slapi_repo) => (
+                PathBuf::new(),
+                true,
+                PathBuf::new(),
+                if ctx.opts.sl_patterns.is_empty() {
+                    abort!("FILE pattern(s) required in repoless mode");
+                } else {
+                    &ctx.opts.sl_patterns
+                },
+                RepoPathRelativizer::noop(),
+            ),
+        };
 
     let matcher = pathmatcher::cli_matcher(
-        &ctx.opts.sl_patterns,
+        sl_patterns,
         &ctx.opts.walk_opts.include,
         &ctx.opts.walk_opts.exclude,
         pathmatcher::PatternKind::RelPath,
@@ -214,7 +233,7 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
             break;
         }
 
-        let path = file_result.path.as_str();
+        let path = relativizer.relativize(&file_result.path);
         let mut file_matched = false;
 
         let _ = file_result.data.each_chunk(|chunk| {
@@ -302,7 +321,7 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
             }
 
             let sink = GrepSink {
-                path,
+                path: &path,
                 out: io.output(),
                 match_count: &mut match_count,
                 file_matched: &mut file_matched,

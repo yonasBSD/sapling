@@ -23,5 +23,6 @@ rust_library(
         "//eden/scm/lib/filewalk:filewalk",
         "//eden/scm/lib/pathmatcher:pathmatcher",
         "//eden/scm/lib/repo:repo",
+        "//eden/scm/lib/types:types",
     ],
 )

@@ -95,6 +95,19 @@ Test context break between separate match groups:
   multiline:match2
   multiline-line5
 
+Test "." is the default file pattern (search cwd):
+  $ mkdir subdir
+  $ echo 'sub banana' > subdir/subfile
+  $ hg commit -Aqm 'add subdir'
+  $ hg grep banana | sort
+  banana:banana
+  fruits:banana
+  subdir/subfile:sub banana
+  $ cd subdir
+  $ hg grep sub
+  subfile:sub banana
+  $ cd ..
+
 Test grep in uncommitted changes:
   $ echo 'findme' > uncommitted_file
   $ hg add uncommitted_file
