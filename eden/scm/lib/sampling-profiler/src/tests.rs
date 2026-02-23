@@ -78,16 +78,11 @@ fn test_stress_concurrent_profilers() {
 }
 
 /// Stress test about malloc use-cases (which uses locks internally) where
-/// libc::write in the signal handler can deadlock if the pipe is blocking.
+/// a signal handler that calls malloc-dependent functions can deadlock.
 ///
-/// Example deadlock: The profiled thread holds a jemalloc mutex
-/// (mid-allocation) when SIGPROF fires. The signal handler tries to `write()`
-/// to the pipe, but the pipe is full. The consumer can't drain the pipe because
-/// it's also trying to allocate (symbol resolution) and blocks on the same
-/// jemalloc mutex.
-///
-/// Ingredients: (1) signal fires during malloc, (2) pipe buffer is full,
-/// (3) consumer is blocked on the same allocator lock.
+/// With the ring buffer approach, the signal handler only uses async-signal-safe
+/// operations (atomic loads/stores and ptr::write), so this specific deadlock
+/// is eliminated. This test remains as a general stress test.
 #[test]
 fn test_signal_during_malloc_deadlock() {
     use std::sync::Arc;
@@ -103,8 +98,8 @@ fn test_signal_during_malloc_deadlock() {
                 Duration::from_millis(1),
                 Box::new(|_: &[String]| {
                     // Allocation-heavy callback slows the consumer, filling the
-                    // pipe and increasing jemalloc lock contention — both required
-                    // ingredients for the deadlock.
+                    // ring buffer and increasing pressure — useful for stress
+                    // testing the lock-free ring buffer under contention.
                     let mut v = Vec::new();
                     for i in 0..200 {
                         v.push(vec![0u8; 512 * (i + 1)]);

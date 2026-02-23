@@ -12,22 +12,19 @@ use backtrace_ext::trace_unsynchronized;
 
 use crate::frame_handler::FramePayload;
 use crate::frame_handler::MaybeFrame;
-use crate::osutil::OwnedFd;
+use crate::frame_handler::RING_BUF_SIZE;
+use crate::ring_buffer::RingBufWriter;
 
-/// State shared between the timer/signal-handler and the Profiler.
-/// Must remain at a stable address for the lifetime of the timer
-/// (the signal handler receives a raw pointer to it).
-#[repr(C)]
+/// State shared between the profiler and the signal handler.
+/// Must remain at a stable address (the signal handler receives a raw pointer).
 pub struct SignalState {
-    pub write_fd: OwnedFd,
+    pub writer: RingBufWriter<FramePayload, RING_BUF_SIZE>,
 }
 
-/// The signal handler is called every second on the main thread. It should
-/// collect minimal stack info while the main logic of the main thread is
-/// paused, and pass the info over pipe for further processing.
-/// Native function symbolization can be done in other threads. Python function
-/// symbolization must be partially done now, since the PyFrame objects might be
-/// deallocated soon.
+/// Signal handler: capture a backtrace and push frames to the ring buffer.
+///
+/// Uses only async-signal-safe operations (atomic loads/stores, ptr::write).
+/// No syscalls, no allocations, no errno clobbering.
 pub extern "C" fn signal_handler(
     sig: libc::c_int,
     _info: *const libc::siginfo_t,
@@ -41,10 +38,7 @@ pub extern "C" fn signal_handler(
     if state_ptr.is_null() {
         return;
     }
-    let write_fd = unsafe { (*state_ptr).write_fd.0 };
-
-    // libc::write (and other syscalls) may clobber errno.
-    let saved_errno = unsafe { get_errno() };
+    let writer = unsafe { &(*state_ptr).writer };
 
     let backtrace_id: usize = {
         static BACKTRACE_ID: AtomicUsize = AtomicUsize::new(0);
@@ -68,14 +62,13 @@ pub extern "C" fn signal_handler(
     };
     trace_unsynchronized!(|frame| {
         if depth >= SKIP_FRAMES {
-            let maybe_frame = MaybeFrame::Present(frame);
             let payload = FramePayload {
                 backtrace_id,
                 depth: depth.saturating_sub(SKIP_FRAMES),
-                frame: maybe_frame,
+                frame: MaybeFrame::Present(frame),
             };
-            if write_frame(&payload, write_fd) != 0 {
-                // Poison `depth` so this "incomplete" backtrace gets dropped.
+            if !writer.push(payload) {
+                // Poison depth so this incomplete backtrace gets dropped.
                 depth += 2;
                 return false;
             }
@@ -84,87 +77,11 @@ pub extern "C" fn signal_handler(
         true
     });
 
-    // Write a placeholder frame to mark an end of the current backtrace.
-    let end_frame = MaybeFrame::EndOfBacktrace;
+    // Mark end of backtrace.
     let payload = FramePayload {
         backtrace_id,
         depth: depth.saturating_sub(SKIP_FRAMES),
-        frame: end_frame,
+        frame: MaybeFrame::EndOfBacktrace,
     };
-    let _ = write_frame(&payload, write_fd);
-
-    unsafe { set_errno(saved_errno) };
-}
-
-/// Write a `MaybeFrame`. Handles EINTR.
-/// Return 0 on success. Return errno otherwise.
-///
-/// This function is to be called from a signal handler, and intentionally
-/// avoids high-level Rust types like `io::Result`. So its easier to audit
-/// async-signal-safety.
-fn write_frame(frame: &FramePayload, fd: libc::c_int) -> libc::c_int {
-    let size = std::mem::size_of::<FramePayload>();
-    let mut remaining_bytes = size;
-    let mut pos = frame as *const FramePayload as *const libc::c_void;
-    loop {
-        // safety: FramePayload is `repr(C)` and contains only `usize` fields.
-        // It is okay to write its raw bytes to "serialize" within the same process.
-        let written_bytes = unsafe { libc::write(fd, pos, remaining_bytes) };
-        if written_bytes < 0 {
-            let errno = unsafe { get_errno() };
-            if errno == libc::EINTR {
-                // Retry
-                continue;
-            } else {
-                return errno;
-            }
-        }
-        remaining_bytes = remaining_bytes.saturating_sub(written_bytes as usize);
-        if remaining_bytes == 0 {
-            return 0;
-        } else if cfg!(target_os = "linux") {
-            // On Linux, the pipe is in "packet" mode (O_DIRECT).
-            // Discard this packet.
-            return libc::EINVAL;
-        } else if written_bytes == 0 {
-            return libc::EINVAL;
-        } else {
-            // On other unix systems, the pipe is not in packet mode.
-            // Continue writing the rest of the data.
-            pos = unsafe { pos.offset(written_bytes) };
-            continue;
-        }
-    }
-}
-
-/// Read `errno` for the current thread. Async-signal-safe.
-unsafe fn get_errno() -> libc::c_int {
-    #[cfg(target_os = "macos")]
-    unsafe {
-        *libc::__error()
-    }
-    #[cfg(target_os = "linux")]
-    unsafe {
-        *libc::__errno_location()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    {
-        0
-    }
-}
-
-/// Write `errno` for the current thread. Async-signal-safe.
-unsafe fn set_errno(value: libc::c_int) {
-    #[cfg(target_os = "macos")]
-    unsafe {
-        *libc::__error() = value;
-    }
-    #[cfg(target_os = "linux")]
-    unsafe {
-        *libc::__errno_location() = value;
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    {
-        let _ = value;
-    }
+    let _ = writer.push(payload);
 }
