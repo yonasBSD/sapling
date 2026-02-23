@@ -72,7 +72,6 @@ fn test_stress_concurrent_profilers() {
 /// Ingredients: (1) signal fires during malloc, (2) pipe buffer is full,
 /// (3) consumer is blocked on the same allocator lock.
 #[test]
-#[ignore] // currently fails
 fn test_signal_during_malloc_deadlock() {
     use std::sync::Arc;
     use std::sync::atomic::AtomicBool;

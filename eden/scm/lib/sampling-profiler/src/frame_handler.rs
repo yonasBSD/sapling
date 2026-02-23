@@ -8,6 +8,7 @@
 use std::fs;
 use std::io;
 use std::io::Read as _;
+use std::os::fd::AsRawFd;
 use std::os::fd::FromRawFd;
 
 use backtrace_ext::Frame;
@@ -49,6 +50,11 @@ pub fn frame_reader_loop(read_fd: OwnedFd, mut process_func: ResolvedBacktracePr
     let mut current_backtrace_id = 0;
     let mut expected_depth = 0;
     'main_loop: loop {
+        // Non-blocking pipe: wait for data before calling read_exact.
+        if !poll_readable(read_file.as_raw_fd()) {
+            break;
+        }
+
         const SIZE: usize = std::mem::size_of::<FramePayload>();
         let mut buf: [u8; SIZE] = [0; _];
         match read_file.read_exact(&mut buf) {
@@ -94,6 +100,25 @@ pub fn frame_reader_loop(read_fd: OwnedFd, mut process_func: ResolvedBacktracePr
                 expected_depth = 0;
             }
         }
+    }
+}
+
+/// Wait for the pipe to have data (or be closed). Returns false on error or hangup-with-no-data.
+fn poll_readable(fd: libc::c_int) -> bool {
+    let mut pollfd = libc::pollfd {
+        fd,
+        events: libc::POLLIN,
+        revents: 0,
+    };
+    loop {
+        let ret = unsafe { libc::poll(&mut pollfd, 1, -1) };
+        if ret > 0 {
+            return pollfd.revents & libc::POLLIN != 0;
+        }
+        if ret < 0 && io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
+            continue;
+        }
+        return false;
     }
 }
 

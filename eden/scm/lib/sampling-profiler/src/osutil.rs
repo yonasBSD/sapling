@@ -95,11 +95,12 @@ impl Drop for OwnedFd {
 /// The SIGPROF handler sends raw stack trace info to the pipe.
 /// The other end of the pipe consumes the data and might resolve symbols.
 ///
-/// On Linux the pipe is configured with:
+/// The pipe is non-blocking on both ends. The signal handler gracefully drops
+/// frames when the buffer is full (EAGAIN). The reader uses poll() to wait.
+///
+/// On Linux the pipe is additionally configured with:
 /// - O_DIRECT: Enables "packet-mode". No need to deal with payload boundaries.
 /// - A larger buffer to reduce chances data gets dropped.
-///
-/// On other Unix systems a regular blocking pipe is used.
 ///
 /// Returns `[read_fd, write_fd]`.
 pub fn setup_pipe() -> anyhow::Result<[OwnedFd; 2]> {
@@ -107,8 +108,8 @@ pub fn setup_pipe() -> anyhow::Result<[OwnedFd; 2]> {
     unsafe {
         let mut pipe_fds: [libc::c_int; 2] = [0; 2];
 
-        if libc::pipe2(pipe_fds.as_mut_ptr(), libc::O_DIRECT) != 0 {
-            return Err(io::Error::last_os_error()).context("pipe2(O_DIRECT)");
+        if libc::pipe2(pipe_fds.as_mut_ptr(), libc::O_DIRECT | libc::O_NONBLOCK) != 0 {
+            return Err(io::Error::last_os_error()).context("pipe2(O_DIRECT | O_NONBLOCK)");
         }
         let (rfd, wfd) = (OwnedFd(pipe_fds[0]), OwnedFd(pipe_fds[1]));
 
@@ -129,6 +130,14 @@ pub fn setup_pipe() -> anyhow::Result<[OwnedFd; 2]> {
         let mut pipe_fds: [libc::c_int; 2] = [0; 2];
         if libc::pipe(pipe_fds.as_mut_ptr()) != 0 {
             return Err(io::Error::last_os_error()).context("pipe");
+        }
+        for &fd in &pipe_fds {
+            if libc::fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK) != 0 {
+                let err = io::Error::last_os_error();
+                libc::close(pipe_fds[0]);
+                libc::close(pipe_fds[1]);
+                return Err(err).context("fcntl(F_SETFL, O_NONBLOCK)");
+            }
         }
         Ok([OwnedFd(pipe_fds[0]), OwnedFd(pipe_fds[1])])
     }
