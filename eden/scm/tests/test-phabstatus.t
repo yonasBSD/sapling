@@ -174,6 +174,104 @@ If the diff needs a final review, show "Needs Final Review"
   $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
   Needs Final Review
 
+If the diff is accepted but awaiting extra reviewer (CRS second review), show "Needs Extra Review"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "required_reviewers_info": {"overall_status": "AWAITING", "type": "CRS_SECOND_REVIEW"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Needs Extra Review
+
+If the diff is accepted but awaiting steward review, show "Needs Steward Review"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "required_reviewers_info": {"overall_status": "AWAITING", "type": "STEWARD_REVIEW"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Needs Steward Review
+
+If the diff is accepted but awaiting ACL reviewer, show "Needs ACL Review"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "required_reviewers_info": {"overall_status": "AWAITING", "type": "REVIEWERS_ACL"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Needs ACL Review
+
+If the diff is accepted but awaiting DRS reviewer, show "Needs DRS Review"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "required_reviewers_info": {"overall_status": "AWAITING", "type": "DRS_REVIEWER"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Needs DRS Review
+
+If the diff is accepted but awaiting CRS recommended reviewer, show "Needs CRS Review"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "required_reviewers_info": {"overall_status": "AWAITING", "type": "CRS_RECOMMENDED_REVIEWER"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Needs CRS Review
+
+If required_reviewers_info status is REVIEWED, show the base status (Accepted)
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "required_reviewers_info": {"overall_status": "REVIEWED", "type": "CRS_SECOND_REVIEW"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Accepted
+
+If required_reviewers_info is null, show the base status
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "required_reviewers_info": null}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{phabstatus}\n' -r .
+  Accepted
+
 And finally, the success case
 
   $ cat > $TESTTMP/mockduit << EOF

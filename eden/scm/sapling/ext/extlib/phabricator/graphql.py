@@ -449,6 +449,10 @@ class Client:
                 is_landing
                 land_job_status
                 needs_final_review_status
+                required_reviewers_info {
+                  overall_status
+                  type
+                }
                 unpublished_phabricator_versions {
                   phabricator_version_migration {
                     ordinal_label {
@@ -506,6 +510,7 @@ class Client:
                 info["is_landing"] = node["is_landing"]
                 info["land_job_status"] = node["land_job_status"]
                 info["needs_final_review_status"] = node["needs_final_review_status"]
+                info["required_reviewers_info"] = node.get("required_reviewers_info")
 
                 info["signal_status"] = None
                 if (

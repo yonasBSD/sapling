@@ -348,6 +348,24 @@ def showphabstatus(repo, ctx, templ, **args):
         elif finalreviewstatus == "NEEDED":
             return "Needs Final Review"
         else:
+            required_reviewers_info = result.get("required_reviewers_info")
+            if (
+                required_reviewers_info
+                and required_reviewers_info.get("overall_status") == "AWAITING"
+            ):
+                rr_type = required_reviewers_info.get("type")
+                if rr_type == "CRS_SECOND_REVIEW":
+                    return "Needs Extra Review"
+                elif rr_type == "STEWARD_REVIEW":
+                    return "Needs Steward Review"
+                elif rr_type == "REVIEWERS_ACL":
+                    return "Needs ACL Review"
+                elif rr_type == "DRS_REVIEWER":
+                    return "Needs DRS Review"
+                elif rr_type == "CRS_RECOMMENDED_REVIEWER":
+                    return "Needs CRS Review"
+                else:
+                    return "Needs Extra Review"
             return result.get("status")
     else:
         return "Error"

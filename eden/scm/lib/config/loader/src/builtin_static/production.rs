@@ -344,6 +344,11 @@ phab_sl_difflabel="{case(phabstatus,
  'Land On Hold', 'ssl.landonhold',
  'Land Cancelled', 'ssl.landcancelled',
  'Needs Final Review', 'ssl.finalreview',
+ 'Needs Extra Review', 'ssl.review',
+ 'Needs Steward Review', 'ssl.review',
+ 'Needs ACL Review', 'ssl.review',
+ 'Needs DRS Review', 'ssl.review',
+ 'Needs CRS Review', 'ssl.review',
  'sl.diff'
  )}"
 
