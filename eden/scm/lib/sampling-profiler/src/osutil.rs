@@ -131,15 +131,15 @@ pub fn setup_pipe() -> anyhow::Result<[OwnedFd; 2]> {
         if libc::pipe(pipe_fds.as_mut_ptr()) != 0 {
             return Err(io::Error::last_os_error()).context("pipe");
         }
+        let (rfd, wfd) = (OwnedFd(pipe_fds[0]), OwnedFd(pipe_fds[1]));
+
         for &fd in &pipe_fds {
             if libc::fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK) != 0 {
                 let err = io::Error::last_os_error();
-                libc::close(pipe_fds[0]);
-                libc::close(pipe_fds[1]);
                 return Err(err).context("fcntl(F_SETFL, O_NONBLOCK)");
             }
         }
-        Ok([OwnedFd(pipe_fds[0]), OwnedFd(pipe_fds[1])])
+        Ok([rfd, wfd])
     }
 
     #[cfg(not(unix))]
