@@ -11,6 +11,8 @@ use std::time::Instant;
 
 use crate::Profiler;
 
+// Run with output:
+// reset; cargo test --release --lib -- --nocapture  stress
 #[test]
 fn test_stress_concurrent_profilers() {
     // Repeat to surface intermittent hangs or crashes.
@@ -23,11 +25,21 @@ fn test_stress_concurrent_profilers() {
         (12, 50, &[2, 1, 0, 5][..])
     };
 
+    eprint!("{}", "\n".repeat(jobs));
+    fn eprint_at(line_no: usize, message: String) {
+        // Go up, clear, write, go down.
+        let s = format!("\x1b[{}A\r\x1b[K{}\x1b[{}B\r", line_no, message, line_no);
+        eprint!("{}", s);
+    }
+
     let handles: Vec<_> = (0..jobs)
         .map(|i| {
             thread::spawn(move || {
+                let line_no = jobs - i;
+                let log = |s| eprint_at(line_no, format!("Thread {i}: {s}"));
                 for j in 0..iterations {
-                    eprintln!("Thread #{i}: Iteration {j}");
+                    let log = |s| log(format!("Iteration {j}: {s}"));
+                    log("Creating profilers".into());
                     let mut profilers: Vec<_> = intervals
                         .iter()
                         .map(|&ms| {
@@ -43,15 +55,18 @@ fn test_stress_concurrent_profilers() {
                     // instead of a local state). This sleep might exercise the errno save/restore
                     // logic in the signal handler.
                     // https://github.com/rust-lang/rust/blob/5dbaac135785bca7152c5809430b1fb1653db8b1/library/std/src/sys/thread/unix.rs#L590
+                    log("Sleeping".into());
                     thread::sleep(Duration::from_millis(64));
 
                     // Try different drop orders.
-                    for _ in 1..profilers.len() {
+                    for k in 1..profilers.len() {
+                        log(format!("Dropping Profiler #{k}"));
                         profilers.remove((i + j) % profilers.len());
                     }
+                    log("Dropping all Profilers".into());
                     drop(profilers);
                 }
-                eprintln!("Thread #{i}: Completed");
+                log("Completed".into());
             })
         })
         .collect();
