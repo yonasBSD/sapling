@@ -13,6 +13,7 @@ import {is} from 'immutable';
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
+import {useAtomValue} from 'jotai';
 import {useRef, useState} from 'react';
 import {nullthrows} from 'shared/utils';
 import {AnimatedReorderGroup} from '../../AnimatedReorderGroup';
@@ -20,8 +21,11 @@ import {CommitTitle as StandaloneCommitTitle} from '../../CommitTitle';
 import {Row} from '../../ComponentUtils';
 import {DragHandle} from '../../DragHandle';
 import {DraggingOverlay} from '../../DraggingOverlay';
+import {codeReviewProvider, diffSummary} from '../../codeReview/CodeReviewInfo';
+import {DiffBadge} from '../../codeReview/DiffBadge';
 import {t, T} from '../../i18n';
 import {SplitCommitIcon} from '../../icons/SplitCommitIcon';
+import {commitByHash} from '../../serverAPIState';
 import {reorderedRevs} from '../commitStackState';
 import {ReorderState} from '../reorderState';
 import {bumpStackEditMetric, useStackEditState, WDIR_NODE} from './stackEditState';
@@ -255,9 +259,25 @@ export function StackEditCommit({
       </DragHandle>
       {buttons}
       {title}
+      <StackEditDiffBadge commit={commit} />
       {rightSideButtons}
     </Row>
   );
+}
+
+/** Show the diff review status badge (e.g. "Accepted", "Needs Review") for a commit in the stack edit. */
+function StackEditDiffBadge({commit}: {commit: CommitState}): React.ReactElement | null {
+  const provider = useAtomValue(codeReviewProvider);
+  const hash = commit.originalNodes.first();
+  const commitInfo = useAtomValue(commitByHash(hash ?? ''));
+  const diffId = commitInfo?.diffId;
+  const diffResult = useAtomValue(diffSummary(diffId));
+
+  if (provider == null || hash == null || diffId == null || diffResult?.value == null) {
+    return null;
+  }
+
+  return <DiffBadge provider={provider} diff={diffResult.value} url={diffResult.value.url} />;
 }
 
 /**
