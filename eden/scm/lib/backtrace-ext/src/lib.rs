@@ -34,6 +34,13 @@ use std::sync::atomic::Ordering;
 
 pub use backtrace;
 
+#[cfg(windows)]
+mod windows_trace;
+#[cfg(windows)]
+pub use windows_trace::ThreadHandle;
+#[cfg(windows)]
+pub use windows_trace::trace_remote_thread;
+
 /// Extend the default frame resolver to support resolving non-native
 /// frames. For example, to extract Python frames.
 pub trait SupplementalFrameResolver: Send + Sync + 'static {
