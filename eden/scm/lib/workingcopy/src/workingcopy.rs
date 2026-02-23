@@ -433,6 +433,7 @@ impl WorkingCopy {
 
         // Apply the status changes to the manifest.
         apply_status(
+            ctx,
             &mut manifest,
             &status,
             &self.vfs,

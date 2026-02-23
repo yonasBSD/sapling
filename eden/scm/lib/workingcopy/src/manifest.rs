@@ -11,6 +11,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
+use anyhow::bail;
+use configmodel::ConfigExt;
+use configmodel::convert::ByteCount;
+use context::CoreContext;
 use format_util::prepend_hg_file_metadata;
 use manifest::FileMetadata;
 use manifest::FileType;
@@ -35,6 +39,7 @@ use crate::metadata::Metadata;
 /// `WorkingCopy::status()`), reads file content from the VFS, computes file nodes
 /// by inserting into the file store, and updates the manifest.
 pub fn apply_status<M: Manifest, P: Manifest + Sync>(
+    ctx: &CoreContext,
     manifest: &mut M,
     status: &Status,
     vfs: &VFS,
@@ -42,6 +47,15 @@ pub fn apply_status<M: Manifest, P: Manifest + Sync>(
     parent_manifests: &[&P],
     mut copymap: HashMap<RepoPathBuf, RepoPathBuf>,
 ) -> Result<()> {
+    // Read file size limits from config.
+    let soft_limit: ByteCount = ctx.config.must_get("commit", "file-size-limit")?;
+    let hard_limit: ByteCount = ctx.config.must_get("devel", "hard-file-size-limit")?;
+    let file_size_limit = if soft_limit.value() < hard_limit.value() {
+        soft_limit
+    } else {
+        hard_limit
+    };
+
     // Process removals first.
     // This ensures we handle cases like a file being replaced by a directory.
     for path in status.removed() {
@@ -58,7 +72,14 @@ pub fn apply_status<M: Manifest, P: Manifest + Sync>(
     let results: Vec<_> = paths_to_insert
         .into_par_iter()
         .map(|(path, copy_from)| -> Result<_> {
-            let metadata = insert_file(path, vfs, file_store, copy_from, parent_manifests)?;
+            let metadata = insert_file(
+                path,
+                vfs,
+                file_store,
+                copy_from,
+                parent_manifests,
+                file_size_limit,
+            )?;
             Ok(((*path).clone(), metadata))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -106,8 +127,20 @@ fn insert_file<P: Manifest>(
     file_store: &Arc<dyn FileStore>,
     copy_from: Option<RepoPathBuf>,
     parent_manifests: &[&P],
+    file_size_limit: ByteCount,
 ) -> Result<FileMetadata> {
     let (content, fs_meta) = vfs.read_with_metadata(path)?;
+
+    // Check file size limit before processing.
+    let size = content.len() as u64;
+    if size >= file_size_limit.value() {
+        bail!(
+            "{}: size of {} exceeds maximum size of {}!",
+            path,
+            ByteCount::from(size),
+            file_size_limit,
+        );
+    }
 
     // Convert std::fs::Metadata to our Metadata type which knows about VFS capabilities.
     let meta: Metadata = fs_meta.into();
@@ -164,9 +197,11 @@ fn get_copy_rev<P: Manifest>(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::sync::Arc;
 
     use format_util;
+    use io::IO;
     use manifest::FileType;
     use manifest_tree::TreeManifest;
     use manifest_tree::testutil::TestStore;
@@ -176,6 +211,31 @@ mod tests {
     use types::testutil::*;
 
     use super::*;
+
+    /// Creates a CoreContext with default config for testing.
+    fn test_context() -> CoreContext {
+        test_context_with_size_limit(1024 * 1024)
+    }
+
+    /// Creates a CoreContext with a custom file size limit for testing.
+    fn test_context_with_size_limit(limit_bytes: u64) -> CoreContext {
+        test_context_with_limits(limit_bytes, limit_bytes)
+    }
+
+    /// Creates a CoreContext with separate soft and hard file size limits.
+    fn test_context_with_limits(soft_limit: u64, hard_limit: u64) -> CoreContext {
+        let mut config: BTreeMap<String, String> = BTreeMap::new();
+        config.insert(
+            "commit.file-size-limit".to_string(),
+            format!("{}b", soft_limit),
+        );
+        config.insert(
+            "devel.hard-file-size-limit".to_string(),
+            format!("{}b", hard_limit),
+        );
+        let io = IO::new("".as_bytes(), Vec::new(), Some(Vec::new()));
+        CoreContext::new(Arc::new(config), io, Vec::new())
+    }
 
     fn list_files(manifest: &TreeManifest) -> Vec<String> {
         let mut files: Vec<_> = manifest
@@ -207,6 +267,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -241,6 +302,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -289,6 +351,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -334,6 +397,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -375,6 +439,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -412,6 +477,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -489,6 +555,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -526,6 +593,7 @@ mod tests {
         let status = StatusBuilder::new().build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -561,6 +629,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -595,6 +664,7 @@ mod tests {
             .build();
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -637,6 +707,7 @@ mod tests {
         copymap.insert(repo_path_buf("copied"), repo_path_buf("original"));
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -687,6 +758,7 @@ mod tests {
         copymap.insert(repo_path_buf("copied"), repo_path_buf("nonexistent"));
 
         apply_status(
+            &test_context(),
             &mut manifest,
             &status,
             &vfs,
@@ -702,5 +774,115 @@ mod tests {
             format_util::hg_sha1_digest(b"content", HgId::null_id(), HgId::null_id());
         let meta = manifest.get_file(repo_path("copied")).unwrap().unwrap();
         assert_eq!(meta.hgid, expected_hgid);
+    }
+
+    #[test]
+    fn test_apply_status_file_size_limit() {
+        use std::fs;
+
+        let tree_store = Arc::new(TestStore::new());
+        let mut manifest = make_tree_manifest(tree_store.clone(), &[]);
+        let parent_manifest = make_tree_manifest(tree_store, &[]);
+        let file_store: Arc<dyn FileStore> = Arc::new(TestStore::new());
+
+        let tmp = tempfile::tempdir().unwrap();
+        let vfs = VFS::new_destructive(tmp.path().to_path_buf()).unwrap();
+
+        // Create a file that exceeds the size limit
+        let large_content = vec![b'x'; 1024]; // 1KB of data
+        fs::write(tmp.path().join("large_file"), &large_content).unwrap();
+
+        let status = StatusBuilder::new()
+            .added(vec![repo_path_buf("large_file")])
+            .build();
+
+        // Set size limit to 512 bytes - file is 1024 bytes so should fail
+        let result = apply_status(
+            &test_context_with_size_limit(512),
+            &mut manifest,
+            &status,
+            &vfs,
+            &file_store,
+            &[&parent_manifest],
+            HashMap::new(),
+        );
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(err_msg.contains("large_file"));
+        assert!(err_msg.contains("exceeds maximum size"));
+    }
+
+    #[test]
+    fn test_apply_status_file_size_limit_allows_smaller_files() {
+        use std::fs;
+
+        let tree_store = Arc::new(TestStore::new());
+        let mut manifest = make_tree_manifest(tree_store.clone(), &[]);
+        let parent_manifest = make_tree_manifest(tree_store, &[]);
+        let file_store: Arc<dyn FileStore> = Arc::new(TestStore::new());
+
+        let tmp = tempfile::tempdir().unwrap();
+        let vfs = VFS::new_destructive(tmp.path().to_path_buf()).unwrap();
+
+        // Create a small file that is under the limit
+        fs::write(tmp.path().join("small_file"), b"small").unwrap();
+
+        let status = StatusBuilder::new()
+            .added(vec![repo_path_buf("small_file")])
+            .build();
+
+        // Set size limit to 1024 bytes - file is only 5 bytes so should succeed
+        let result = apply_status(
+            &test_context_with_size_limit(1024),
+            &mut manifest,
+            &status,
+            &vfs,
+            &file_store,
+            &[&parent_manifest],
+            HashMap::new(),
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_apply_status_soft_limit_cannot_exceed_hard_limit() {
+        use std::fs;
+
+        // Test that even if soft limit is set high, the hard limit is enforced.
+        let tree_store = Arc::new(TestStore::new());
+        let mut manifest = make_tree_manifest(tree_store.clone(), &[]);
+        let parent_manifest = make_tree_manifest(tree_store, &[]);
+        let file_store: Arc<dyn FileStore> = Arc::new(TestStore::new());
+
+        let tmp = tempfile::tempdir().unwrap();
+        let vfs = VFS::new_destructive(tmp.path().to_path_buf()).unwrap();
+
+        // Create a file that is 1KB
+        let content = vec![b'x'; 1024];
+        fs::write(tmp.path().join("file"), &content).unwrap();
+
+        let status = StatusBuilder::new()
+            .added(vec![repo_path_buf("file")])
+            .build();
+
+        // Set soft limit to 10KB (high), but hard limit to 512 bytes (low).
+        // The effective limit should be 512 bytes (the hard limit).
+        let result = apply_status(
+            &test_context_with_limits(10 * 1024, 512),
+            &mut manifest,
+            &status,
+            &vfs,
+            &file_store,
+            &[&parent_manifest],
+            HashMap::new(),
+        );
+
+        // File is 1KB which exceeds hard limit of 512 bytes, so should fail
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("exceeds maximum size"));
     }
 }

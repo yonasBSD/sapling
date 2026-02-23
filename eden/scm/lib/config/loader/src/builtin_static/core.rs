@@ -152,6 +152,7 @@ dirstate.delaywrite=0
 [devel]
 legacy.revnum=accept
 strip-obsmarkers=True
+hard-file-size-limit=10GB
 
 [discovery]
 full-sample-size=200
@@ -321,6 +322,9 @@ statefile=
 [smartlog]
 collapse-obsolete=True
 max-commit-threshold=1000
+
+[commit]
+file-size-limit=1GB
 
 [commitcloud]
 servicetype=remote
