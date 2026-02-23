@@ -10,19 +10,24 @@
 //! - Sample the main thread periodically (ex. every second)
 //! - Resolve Python frames (by backtrace-python)
 //!
-//! Currently implemented for Unix (Linux, macOS, etc.).
+//! Implemented for Unix (signal-based) and Windows (thread suspension).
 
 mod backtrace_collector;
 #[cfg(unix)]
 mod frame_handler;
 #[cfg(unix)]
 mod osutil;
-#[cfg_attr(not(unix), path = "profiler_dummy.rs")]
+#[cfg_attr(unix, path = "profiler.rs")]
+#[cfg_attr(all(windows, target_arch = "x86_64"), path = "profiler_windows.rs")]
+#[cfg_attr(
+    not(any(unix, all(windows, target_arch = "x86_64"))),
+    path = "profiler_dummy.rs"
+)]
 mod profiler;
 pub mod ring_buffer;
 #[cfg(unix)]
 mod signal_handler;
-#[cfg(all(test, unix))]
+#[cfg(all(test, any(unix, all(windows, target_arch = "x86_64"))))]
 mod tests;
 
 pub use backtrace_collector::BacktraceCollector;
