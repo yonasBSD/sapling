@@ -15,12 +15,21 @@ use hyper::Body;
 use hyper::Response;
 use hyper::StatusCode;
 use permission_checker::MononokeIdentitySetExt;
+use stats::prelude::*;
 
 #[cfg(fbcode_build)]
 use crate::middleware::response::facebook::log_ods3;
 #[cfg(not(fbcode_build))]
 use crate::middleware::response::oss::log_ods3;
 use crate::model::GitMethodInfo;
+
+define_stats! {
+    prefix = "mononoke.git.request";
+    requests: dynamic_timeseries("{}.requests", (method: String); Rate, Sum),
+    success: dynamic_timeseries("{}.success", (method: String); Rate, Sum),
+    failure_4xx: dynamic_timeseries("{}.failure_4xx", (method: String); Rate, Sum),
+    failure_5xx: dynamic_timeseries("{}.failure_5xx", (method: String); Rate, Sum),
+}
 
 fn log_stats(state: &mut State, status: StatusCode) -> Option<()> {
     // Proxygen can be configured to periodically send a preconfigured set of
@@ -43,6 +52,15 @@ fn log_stats(state: &mut State, status: StatusCode) -> Option<()> {
 
     callbacks.add(move |info| {
         let method = method.to_string();
+
+        STATS::requests.add_value(1, (method.clone(),));
+        if status.is_success() {
+            STATS::success.add_value(1, (method.clone(),));
+        } else if status.is_client_error() {
+            STATS::failure_4xx.add_value(1, (method.clone(),));
+        } else if status.is_server_error() {
+            STATS::failure_5xx.add_value(1, (method.clone(),));
+        }
 
         log_ods3(info, &status, method, method_variants, repo, request_load);
     });
