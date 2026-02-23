@@ -781,7 +781,7 @@ fn get_update_target(
 
     if !clone_opts.updaterev.is_empty() {
         return Ok(Some((
-            repo.resolve_commit(None, &clone_opts.updaterev)?,
+            repo.resolve_commit(&clone_opts.updaterev)?,
             clone_opts.updaterev.clone(),
         )));
     }
@@ -794,7 +794,7 @@ fn get_update_target(
         })?
         .clone();
 
-    match repo.resolve_commit_opt(None, &main_bookmark)? {
+    match repo.resolve_commit_opt(&main_bookmark)? {
         Some(id) => Ok(Some((id, main_bookmark))),
         None => {
             logger.info(format!(
@@ -802,7 +802,7 @@ fn get_update_target(
                 main_bookmark,
             ));
 
-            if let Some(tip) = repo.resolve_commit_opt(None, "tip")? {
+            if let Some(tip) = repo.resolve_commit_opt("tip")? {
                 return Ok(Some((tip, "tip".to_string())));
             }
 

@@ -83,20 +83,7 @@ impl CoreRepo {
     /// For `SlapiRepo`, this only supports remote lookups (hash prefixes and bookmarks).
     pub fn resolve_commit(&self, change_id: &str) -> Result<HgId> {
         match self {
-            CoreRepo::Disk(repo) => {
-                #[cfg(feature = "wdir")]
-                {
-                    let wc = repo.working_copy()?;
-                    let wc = wc.read();
-                    let treestate = wc.treestate();
-                    let treestate = treestate.lock();
-                    repo.resolve_commit(Some(&treestate), change_id)
-                }
-                #[cfg(not(feature = "wdir"))]
-                {
-                    repo.resolve_commit(None, change_id)
-                }
-            }
+            CoreRepo::Disk(repo) => repo.resolve_commit(change_id),
             CoreRepo::Slapi(repo) => repo.resolve_commit(change_id),
         }
     }

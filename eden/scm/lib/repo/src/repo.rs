@@ -40,8 +40,8 @@ use storemodel::FileStore;
 use storemodel::StoreInfo;
 use storemodel::StoreOutput;
 use storemodel::TreeStore;
-use treestate::treestate::TreeState;
 use types::HgId;
+use types::hgid::NULL_ID;
 use types::repo::StorageFormat;
 use util::path::absolute;
 #[cfg(feature = "wdir")]
@@ -74,6 +74,10 @@ pub struct Repo {
     eager_store: Option<EagerRepoStore>,
     locker: Arc<RepoLocker>,
     tree_resolver: OnceCell<Arc<dyn ReadTreeManifest>>,
+    // Working copy p1 at repo load time. This is normally what "." revset should resolve
+    // to (i.e. we don't want to lazily load p1 since it can be changing).
+    // `None` means we couldn't read it. Null p1 is `Some(NULL_ID)`.
+    p1_at_load_time: Option<HgId>,
 }
 
 impl Deref for Repo {
@@ -158,6 +162,10 @@ impl Repo {
 
         let locker = Arc::new(RepoLocker::new(&config, info.store_path.clone())?);
 
+        let p1 = workingcopy::fast_path_wdir_parents(&info.path, info.ident)
+            .ok()
+            .map(|parents| parents.p1().copied().unwrap_or(NULL_ID));
+
         Ok(Repo {
             info,
             config: Arc::new(config),
@@ -174,6 +182,7 @@ impl Repo {
             eager_store: None,
             tree_resolver: Default::default(),
             locker,
+            p1_at_load_time: p1,
         })
     }
 
@@ -400,29 +409,29 @@ impl Repo {
         Ok(tr.clone())
     }
 
-    pub fn resolve_commit(&self, treestate: Option<&TreeState>, change_id: &str) -> Result<HgId> {
+    #[tracing::instrument(skip(self), ret)]
+    pub fn resolve_commit(&self, change_id: &str) -> Result<HgId> {
         let dag = self.dag_commits()?;
         let dag = dag.read();
         let metalog = self.metalog()?;
         let metalog = metalog.read();
         let edenapi = self.optional_eden_api().map_err(|err| err.tag_network())?;
+
         revset_utils::resolve_single(
             self.config(),
             change_id,
             &dag.id_map_snapshot()?,
             &dag.dag_snapshot()?,
             &metalog,
-            treestate,
+            // Use p1 from initial Repo load. This avoids us accidentally resolving "." to
+            // something "too new" when other sl commands are updating p1.
+            self.p1_at_load_time,
             edenapi.as_deref(),
         )
     }
 
-    pub fn resolve_commit_opt(
-        &self,
-        treestate: Option<&TreeState>,
-        change_id: &str,
-    ) -> Result<Option<HgId>> {
-        match self.resolve_commit(treestate, change_id) {
+    pub fn resolve_commit_opt(&self, change_id: &str) -> Result<Option<HgId>> {
+        match self.resolve_commit(change_id) {
             Ok(id) => Ok(Some(id)),
             Err(err) => match err.downcast_ref::<RevsetLookupError>() {
                 Some(RevsetLookupError::RevsetNotFound(_)) => Ok(None),

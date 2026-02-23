@@ -41,7 +41,6 @@ sapling-revsets = { version = "0.1.0", path = "../revsets" }
 sapling-rewrite-macros = { version = "0.1.0", path = "../util/rewrite-macros" }
 sapling-sparse = { version = "0.1.0", path = "../sparse" }
 sapling-storemodel = { version = "0.1.0", path = "../storemodel" }
-sapling-treestate = { version = "0.1.0", path = "../treestate" }
 sapling-types = { version = "0.1.0", path = "../types" }
 sapling-util = { version = "0.1.0", path = "../util" }
 sapling-workingcopy = { version = "0.1.0", path = "../workingcopy", optional = true }

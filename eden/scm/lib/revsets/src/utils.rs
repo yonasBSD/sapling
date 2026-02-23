@@ -18,7 +18,6 @@ use dag::Vertex;
 use dag::ops::IdConvert;
 use edenapi::SaplingRemoteApi;
 use metalog::MetaLog;
-use treestate::treestate::TreeState;
 use types::HgId;
 use types::hgid::NULL_ID;
 use types::hgid::WDIR_ID;
@@ -31,7 +30,7 @@ struct LookupArgs<'a> {
     id_map: &'a dyn IdConvert,
     dag: &'a dyn DagAlgorithm,
     metalog: &'a MetaLog,
-    treestate: Option<&'a TreeState>,
+    working_copy_p1: Option<HgId>,
     config: &'a dyn Config,
     edenapi: Option<&'a dyn SaplingRemoteApi>,
 }
@@ -42,7 +41,7 @@ pub fn resolve_single(
     id_map: &dyn IdConvert,
     dag: &dyn DagAlgorithm,
     metalog: &MetaLog,
-    treestate: Option<&TreeState>,
+    working_copy_p1: Option<HgId>,
     edenapi: Option<&dyn SaplingRemoteApi>,
 ) -> Result<HgId> {
     let args = LookupArgs {
@@ -51,7 +50,7 @@ pub fn resolve_single(
         id_map,
         dag,
         metalog,
-        treestate,
+        working_copy_p1,
         edenapi,
     };
     let fns = [
@@ -96,13 +95,7 @@ fn resolve_dot(args: &LookupArgs) -> Result<Option<HgId>> {
         return Ok(None);
     }
 
-    match args.treestate {
-        Some(treestate) => match treestate.parents().next() {
-            None => Ok(Some(HgId::null_id().clone())),
-            Some(hgid) => Ok(Some(hgid?)),
-        },
-        None => Ok(None),
-    }
+    Ok(args.working_copy_p1)
 }
 
 fn resolve_hash_prefix(args: &LookupArgs) -> Result<Option<HgId>> {
