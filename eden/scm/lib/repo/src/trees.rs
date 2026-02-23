@@ -23,24 +23,25 @@ use parking_lot::RwLock;
 use types::HgId;
 use types::hgid;
 
-pub struct TreeManifestResolver {
+/// A tree manifest resolver that fetches commit data from local disk.
+pub struct LocalTreeResolver {
     dag_commits: Arc<RwLock<Box<dyn DagCommits + Send + 'static>>>,
     tree_store: Arc<dyn TreeStore>,
 }
 
-impl TreeManifestResolver {
+impl LocalTreeResolver {
     pub fn new(
         dag_commits: Arc<RwLock<Box<dyn DagCommits + Send + 'static>>>,
         tree_store: Arc<dyn TreeStore>,
     ) -> Self {
-        TreeManifestResolver {
+        LocalTreeResolver {
             dag_commits,
             tree_store,
         }
     }
 }
 
-impl ReadTreeManifest for TreeManifestResolver {
+impl ReadTreeManifest for LocalTreeResolver {
     fn get(&self, commit_id: &HgId) -> Result<TreeManifest> {
         if commit_id.is_null() {
             // Null commit represents a working copy with no parents. Avoid

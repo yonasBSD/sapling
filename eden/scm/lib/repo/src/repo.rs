@@ -59,7 +59,7 @@ use crate::slapi_client::LazyCapabilities;
 use crate::slapi_client::get_eden_api;
 use crate::slapi_client::get_eden_api_with_capabilities;
 use crate::slapi_client::get_optional_eden_api;
-use crate::trees::TreeManifestResolver;
+use crate::trees::LocalTreeResolver;
 
 #[derive(Clone)]
 pub struct Repo {
@@ -405,7 +405,7 @@ impl Repo {
 
     pub fn tree_resolver(&self) -> Result<Arc<dyn ReadTreeManifest + Send + Sync>> {
         let tr = self.tree_resolver.get_or_try_init(|| {
-            Ok::<_, anyhow::Error>(Arc::new(TreeManifestResolver::new(
+            Ok::<_, anyhow::Error>(Arc::new(LocalTreeResolver::new(
                 self.dag_commits()?,
                 self.tree_store()?,
             )))
