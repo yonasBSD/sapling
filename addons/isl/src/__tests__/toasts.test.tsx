@@ -7,8 +7,11 @@
 
 import {act, fireEvent, render, screen} from '@testing-library/react';
 import App from '../App';
+import {copyCommitHashFormatAtom} from '../Commit';
+import {writeAtom} from '../jotaiUtils';
 import platform from '../platform';
 import {
+  COMMIT,
   TEST_COMMIT_HISTORY,
   expectMessageSentToServer,
   resetTestMessages,
@@ -39,11 +42,19 @@ describe('toasts', () => {
     expect(copySpy).toHaveBeenCalledWith('e', undefined);
   });
 
-  it('shows toast when copying short commit hash', () => {
+  it('copies short hash when setting is configured', () => {
+    const longHash = 'abcdef1234567890abcdef';
+    const shortHash = longHash.slice(0, 12);
+    act(() => {
+      simulateCommits({
+        value: [...TEST_COMMIT_HISTORY, COMMIT(longHash, 'Commit With Long Hash', '1')],
+      });
+      writeAtom(copyCommitHashFormatAtom, 'short');
+    });
     const copySpy = jest.spyOn(platform, 'clipboardCopy').mockImplementation(() => {});
-    fireEvent.contextMenu(screen.getByTestId('commit-e'));
-    fireEvent.click(screen.getByText('Copy Short Commit Hash "e"'));
-    expect(screen.getByText('Copied e')).toBeInTheDocument();
-    expect(copySpy).toHaveBeenCalledWith('e', undefined);
+    fireEvent.contextMenu(screen.getByTestId(`commit-${longHash}`));
+    fireEvent.click(screen.getByText(`Copy Commit Hash "${shortHash}"`));
+    expect(screen.getByText(`Copied ${shortHash}`)).toBeInTheDocument();
+    expect(copySpy).toHaveBeenCalledWith(shortHash, undefined);
   });
 });

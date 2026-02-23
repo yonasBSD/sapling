@@ -57,7 +57,13 @@ import {findPublicBaseAncestor} from './getCommitTree';
 import {t, T} from './i18n';
 import {IconStack} from './icons/IconStack';
 import {IrrelevantCwdIcon} from './icons/IrrelevantCwdIcon';
-import {atomFamilyWeak, localStorageBackedAtom, readAtom, writeAtom} from './jotaiUtils';
+import {
+  atomFamilyWeak,
+  configBackedAtom,
+  localStorageBackedAtom,
+  readAtom,
+  writeAtom,
+} from './jotaiUtils';
 import {CONFLICT_SIDE_LABELS} from './mergeConflicts/consts';
 import {getAmendToOperation, isAmendToAllowedForCommit} from './operationUtils';
 import {GotoOperation} from './operations/GotoOperation';
@@ -103,6 +109,13 @@ export const distantRebaseWarningEnabled = localStorageBackedAtom<boolean>(
 export const rebaseOntoMasterWarningEnabled = localStorageBackedAtom<boolean>(
   'isl.rebase-onto-master-warning-enabled',
   true,
+);
+
+export type CopyCommitHashFormat = 'long' | 'short';
+
+export const copyCommitHashFormatAtom = configBackedAtom<CopyCommitHashFormat>(
+  'isl.copy-commit-hash-format',
+  'long',
 );
 
 /**
@@ -196,16 +209,13 @@ export const Commit = memo(
     const makeContextMenuOptions = () => {
       const syncStatus = readAtom(syncStatusAtom)?.get(commit.hash);
 
+      const copyHashFormat = readAtom(copyCommitHashFormatAtom);
+      const hashToCopy = copyHashFormat === 'short' ? short(commit.hash) : commit.hash;
       const items: Array<ContextMenuItem & {loggingLabel?: string}> = [
         {
           label: <T replace={{$hash: short(commit?.hash)}}>Copy Commit Hash "$hash"</T>,
-          onClick: () => clipboardCopy(commit.hash),
+          onClick: () => clipboardCopy(hashToCopy),
           loggingLabel: 'Copy Commit Hash',
-        },
-        {
-          label: <T replace={{$hash: short(commit?.hash)}}>Copy Short Commit Hash "$hash"</T>,
-          onClick: () => clipboardCopy(short(commit.hash)),
-          loggingLabel: 'Copy Short Commit Hash',
         },
       ];
       if (isPublic && readAtom(supportsBrowseUrlForHash)) {

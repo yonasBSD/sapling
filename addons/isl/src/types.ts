@@ -915,6 +915,7 @@ export const settableConfigNames = [
   'isl.use-sl-graphql',
   'isl.experimental-graph-renderer',
   'isl.generated-files-regex',
+  'isl.copy-commit-hash-format',
   'github.preferred_submit_command',
   'ui.allowemptycommit',
   'ui.merge',

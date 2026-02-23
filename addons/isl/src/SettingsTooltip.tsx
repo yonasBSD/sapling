@@ -20,6 +20,7 @@ import {useAtom, useAtomValue} from 'jotai';
 import {Suspense} from 'react';
 import {nullthrows, tryJsonParse} from 'shared/utils';
 import {
+  copyCommitHashFormatAtom,
   distantRebaseWarningEnabled,
   rebaseOffWarmWarningEnabled,
   rebaseOntoMasterWarningEnabled,
@@ -138,6 +139,7 @@ function SettingsDropdown({
           <DistantRebaseWarningSetting />
           <RebaseOntoMasterWarningSetting />
           <DeemphasizeIrrelevantCommitsSetting />
+          <CopyCommitHashFormatSetting />
         </Column>
       </Setting>
       <Setting title={<T>Conflicts</T>}>
@@ -277,6 +279,31 @@ function CondenseObsoleteSetting() {
         }}>
         <T>Condense Obsolete Stacks</T>
       </Checkbox>
+    </Tooltip>
+  );
+}
+
+function CopyCommitHashFormatSetting() {
+  const [value, setValue] = useAtom(copyCommitHashFormatAtom);
+  return (
+    <Tooltip
+      title={t(
+        'Choose whether "Copy Commit Hash" in the context menu copies the full hash or short (12-character) hash.',
+      )}>
+      <div className="dropdown-container setting-inline-dropdown">
+        <T>Copy Commit Hash Format</T>
+        <Dropdown<{value: typeof value; name: string}>
+          data-testid="copy-commit-hash-format"
+          options={[
+            {value: 'long', name: t('Full Hash')},
+            {value: 'short', name: t('Short Hash (12 chars)')},
+          ]}
+          value={value}
+          onChange={event => {
+            setValue(event.currentTarget.value as typeof value);
+          }}
+        />
+      </div>
     </Tooltip>
   );
 }
