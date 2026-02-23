@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use anyhow::anyhow;
+use anyhow::bail;
 use async_runtime::block_on;
 use configloader::Config;
 use configloader::config::Options;
@@ -163,6 +164,21 @@ impl SlapiRepo {
             None => Err(RevsetLookupError::RevsetNotFound(id.to_owned()).into()),
             Some(hgid) => Ok(hgid),
         }
+    }
+
+    /// Resolve a change identifier to a TreeManifest.
+    ///
+    /// Resolves the commit and fetches its TreeManifest.
+    /// Note: "wdir" is not supported for SlapiRepo.
+    ///
+    /// Returns the commit HgId and the TreeManifest.
+    pub fn resolve_manifest(&self, change_id: &str) -> Result<(HgId, TreeManifest)> {
+        if change_id == "wdir" {
+            bail!("repoless does not support 'wdir' revset");
+        }
+        let commit_id = self.resolve_commit(change_id)?;
+        let tree_resolver = self.tree_resolver()?;
+        Ok((commit_id, tree_resolver.get(&commit_id)?))
     }
 
     /// Get sparse matcher for code tenting.

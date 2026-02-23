@@ -190,10 +190,8 @@ pub fn run(ctx: ReqCtx<CatOpts>, repo: &CoreRepo) -> Result<u8> {
 
     let mut matcher: DynMatcher = Arc::new(matcher);
 
-    let commit_id = repo.resolve_commit(&ctx.opts.rev)?;
+    let (commit_id, manifest) = repo.resolve_manifest(&ctx.core, &ctx.opts.rev, matcher.clone())?;
 
-    let tree_resolver = repo.tree_resolver()?;
-    let manifest = tree_resolver.get(&commit_id)?;
     let file_store = repo.file_store()?;
 
     // Check for sparse profile and intersect with existing matcher if set.

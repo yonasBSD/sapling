@@ -18,15 +18,18 @@ use configloader::Config;
 use configloader::config::ConfigSet;
 use configloader::hg::PinnedConfig;
 use configloader::hg::RepoInfo;
+use context::CoreContext;
 use eagerepo::EagerRepoStore;
 use edenapi::SaplingRemoteApi;
 use edenapi::SaplingRemoteApiError;
 use identity::Identity;
 use manifest_tree::ReadTreeManifest;
+use manifest_tree::TreeManifest;
 use metalog::MetaLog;
 use metalog::RefName;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
+use pathmatcher::DynMatcher;
 use repo_minimal_info::RepoMinimalInfo;
 use repo_minimal_info::Requirements;
 pub use repo_minimal_info::read_sharedpath;
@@ -42,6 +45,7 @@ use storemodel::StoreOutput;
 use storemodel::TreeStore;
 use types::HgId;
 use types::hgid::NULL_ID;
+use types::hgid::WDIR_ID;
 use types::repo::StorageFormat;
 use util::path::absolute;
 #[cfg(feature = "wdir")]
@@ -518,6 +522,39 @@ impl Repo {
         .map_err(errors::InvalidWorkingCopy::from)?;
 
         Ok(Arc::new(RwLock::new(wc)))
+    }
+}
+
+impl Repo {
+    /// Resolve a change identifier to a TreeManifest.
+    ///
+    /// If `change_id` is "wdir", returns a manifest representing the current working copy
+    /// state including uncommitted changes (requires "wdir" feature).
+    ///
+    /// Otherwise, resolves the commit and fetches its TreeManifest.
+    ///
+    /// Returns the commit HgId (or WDIR_ID for "wdir") and the TreeManifest.
+    #[allow(unused_variables)]
+    pub fn resolve_manifest(
+        &self,
+        ctx: &CoreContext,
+        change_id: &str,
+        matcher: DynMatcher,
+    ) -> Result<(HgId, TreeManifest)> {
+        if change_id == "wdir" {
+            #[cfg(feature = "wdir")]
+            {
+                let wc = self.working_copy()?;
+                let wc = wc.read();
+                return Ok((WDIR_ID, wc.working_manifest(ctx, matcher)?));
+            }
+            #[cfg(not(feature = "wdir"))]
+            anyhow::bail!("not compiled with 'wdir' support");
+        }
+
+        let commit_id = self.resolve_commit(change_id)?;
+        let tree_resolver = self.tree_resolver()?;
+        Ok((commit_id, tree_resolver.get(&commit_id)?))
     }
 }
 

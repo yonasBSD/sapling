@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use configloader::Config;
+use context::CoreContext;
 use manifest_tree::ReadTreeManifest;
 use manifest_tree::TreeManifest;
 use pathmatcher::DynMatcher;
@@ -85,6 +86,26 @@ impl CoreRepo {
         match self {
             CoreRepo::Disk(repo) => repo.resolve_commit(change_id),
             CoreRepo::Slapi(repo) => repo.resolve_commit(change_id),
+        }
+    }
+
+    /// Resolve a change identifier to a TreeManifest.
+    ///
+    /// If `change_id` is "wdir", returns a manifest representing the current working copy
+    /// state including uncommitted changes. This is only supported for `Repo` (disk-based).
+    ///
+    /// Otherwise, resolves the commit and fetches its TreeManifest.
+    ///
+    /// Returns the commit HgId (or WDIR_ID for "wdir") and the TreeManifest.
+    pub fn resolve_manifest(
+        &self,
+        ctx: &CoreContext,
+        change_id: &str,
+        matcher: DynMatcher,
+    ) -> Result<(HgId, TreeManifest)> {
+        match self {
+            CoreRepo::Disk(repo) => repo.resolve_manifest(ctx, change_id, matcher),
+            CoreRepo::Slapi(repo) => repo.resolve_manifest(change_id),
         }
     }
 
