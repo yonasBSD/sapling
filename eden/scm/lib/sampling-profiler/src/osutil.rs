@@ -9,17 +9,10 @@
 
 use std::io;
 use std::mem;
-#[cfg(target_os = "linux")]
-use std::ptr;
-#[cfg(all(unix, not(target_os = "linux")))]
 use std::sync::Arc;
-#[cfg(all(unix, not(target_os = "linux")))]
 use std::sync::atomic::AtomicBool;
-#[cfg(all(unix, not(target_os = "linux")))]
 use std::sync::atomic::AtomicPtr;
-#[cfg(all(unix, not(target_os = "linux")))]
 use std::sync::atomic::Ordering;
-#[cfg(all(unix, not(target_os = "linux")))]
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -27,11 +20,9 @@ use anyhow::Context;
 
 use crate::signal_handler::SignalState;
 
-/// Atomic payload for passing data from the timer thread to the signal handler
-/// on non-Linux Unix, where `sigevent`/`si_value` is unavailable. The timer
-/// thread CAS's from null to the pointer, sends the signal, and the signal
-/// handler reads and resets it to null.
-#[cfg(all(unix, not(target_os = "linux")))]
+/// Atomic payload for passing data from the timer thread to the signal handler.
+/// The timer thread CAS's from null to the pointer, sends the signal, and the
+/// signal handler reads and resets it to null.
 pub static SIGNAL_PAYLOAD: AtomicPtr<SignalState> = AtomicPtr::new(std::ptr::null_mut());
 
 // Block `sig` signals. Explicitly opt-out profiling for the current thread
@@ -61,6 +52,22 @@ pub fn get_thread_id() -> ThreadId {
 #[cfg(all(unix, not(target_os = "linux")))]
 pub fn get_thread_id() -> ThreadId {
     unsafe { libc::pthread_self() }
+}
+
+/// Send signal `sig` to the thread identified by `tid`.
+#[cfg(target_os = "linux")]
+fn signal_thread(tid: ThreadId, sig: libc::c_int) {
+    // tgkill targets a specific thread within our process.
+    unsafe {
+        libc::syscall(libc::SYS_tgkill, libc::getpid(), tid, sig);
+    }
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn signal_thread(tid: ThreadId, sig: libc::c_int) {
+    unsafe {
+        libc::pthread_kill(tid, sig);
+    }
 }
 
 /// Similar to stdlib `OwnedFd`.
@@ -165,14 +172,7 @@ pub fn setup_signal_handler(
     Ok(())
 }
 
-/// Represents an owned timer that can be stopped.
-/// On Linux, uses POSIX timer_create with SIGEV_THREAD_ID.
-#[cfg(target_os = "linux")]
-pub struct OwnedTimer(libc::timer_t);
-
-/// Represents an owned timer that can be stopped.
-/// On non-Linux Unix, uses a pthread-based timer thread.
-#[cfg(all(unix, not(target_os = "linux")))]
+/// Represents an owned timer backed by a pthread timer thread.
 pub struct OwnedTimer {
     stop_flag: Arc<AtomicBool>,
     handle: Option<JoinHandle<()>>,
@@ -184,17 +184,6 @@ impl Drop for OwnedTimer {
     }
 }
 
-#[cfg(target_os = "linux")]
-impl OwnedTimer {
-    pub fn stop(&mut self) {
-        if !self.0.is_null() {
-            let _ = stop_signal_timer(self.0);
-            self.0 = ptr::null_mut();
-        }
-    }
-}
-
-#[cfg(all(unix, not(target_os = "linux")))]
 impl OwnedTimer {
     pub fn stop(&mut self) {
         self.stop_flag.store(true, Ordering::Release);
@@ -204,53 +193,11 @@ impl OwnedTimer {
         }
     }
 }
-/// Send `sig` to `tid` at the specified interval.
-/// On Linux, uses kernel timer_create with SIGEV_THREAD_ID.
-/// Returns the timer handle that can be used to stop the timer later.
-#[cfg(target_os = "linux")]
-pub fn setup_signal_timer(
-    sig: libc::c_int,
-    tid: ThreadId,
-    interval: Duration,
-    signal_state: *const SignalState,
-) -> anyhow::Result<OwnedTimer> {
-    unsafe {
-        let mut sev: libc::sigevent = mem::zeroed();
-        sev.sigev_notify = libc::SIGEV_THREAD_ID;
-        sev.sigev_signo = sig;
-        sev.sigev_notify_thread_id = tid;
-        // sigev_value is a union of int and `void*` — store our pointer in it.
-        sev.sigev_value = mem::transmute_copy(&signal_state);
-
-        let mut timer: libc::timer_t = mem::zeroed();
-
-        // CLOCK_MONOTONIC does not include system suspend time.
-        if libc::timer_create(libc::CLOCK_MONOTONIC, &mut sev, &mut timer) != 0 {
-            return Err(io::Error::last_os_error()).context("timer_create");
-        }
-
-        let mut spec: libc::itimerspec = mem::zeroed();
-        spec.it_interval.tv_sec = interval.as_secs() as _;
-        spec.it_interval.tv_nsec = interval.subsec_nanos() as _;
-        spec.it_value.tv_sec = interval.as_secs() as _;
-        spec.it_value.tv_nsec = interval.subsec_nanos() as _;
-
-        if libc::timer_settime(timer, 0, &spec, std::ptr::null_mut()) != 0 {
-            let err = io::Error::last_os_error();
-            libc::timer_delete(timer);
-            return Err(err).context("timer_settime");
-        }
-
-        Ok(OwnedTimer(timer))
-    }
-}
-
-/// Setup a pthread-based timer that sends `sig` to `target_thread` at the specified interval.
-/// On non-Linux Unix, uses pthread_kill since SIGEV_THREAD_ID is not available.
-/// The `signal_state` pointer is passed to the signal handler via `SIGNAL_PAYLOAD` atomic:
-/// the timer thread CAS's from null to the pointer, then sends the signal.
-/// The signal handler reads and resets `SIGNAL_PAYLOAD` to null.
-#[cfg(all(unix, not(target_os = "linux")))]
+/// Send `sig` to `target_thread` at the specified interval using a dedicated
+/// timer thread. The `signal_state` pointer is passed to the signal handler
+/// via the `SIGNAL_PAYLOAD` atomic: the timer thread CAS's from null to the
+/// pointer, then sends the signal. The signal handler reads and resets
+/// `SIGNAL_PAYLOAD` to null.
 pub fn setup_signal_timer(
     sig: libc::c_int,
     target_thread: ThreadId,
@@ -265,7 +212,7 @@ pub fn setup_signal_timer(
     let stop_flag = Arc::new(AtomicBool::new(false));
 
     let handle = std::thread::Builder::new()
-        .name("profiler-timer-{target_thread:?}".into())
+        .name(format!("profiler-timer-{target_thread:?}"))
         .spawn({
             let stop_flag = stop_flag.clone();
             move || {
@@ -317,9 +264,7 @@ pub fn setup_signal_timer(
                         );
                         break;
                     }
-                    unsafe {
-                        libc::pthread_kill(target_thread, sig);
-                    }
+                    signal_thread(target_thread, sig);
                 }
                 // Stopped. Clean up if the signal handler hasn't consumed our payload.
                 let _ = SIGNAL_PAYLOAD.compare_exchange(
@@ -335,17 +280,6 @@ pub fn setup_signal_timer(
         stop_flag,
         handle: Some(handle),
     })
-}
-
-/// Stop and delete a signal timer created by `setup_signal_timer`.
-#[cfg(target_os = "linux")]
-fn stop_signal_timer(timer: libc::timer_t) -> anyhow::Result<()> {
-    unsafe {
-        if libc::timer_delete(timer) != 0 {
-            return Err(io::Error::last_os_error()).context("timer_delete");
-        }
-        Ok(())
-    }
 }
 
 /// Consume all pending instances of `sig` for the current thread.

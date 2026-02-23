@@ -24,7 +24,7 @@ use crate::signal_handler::SignalState;
 /// Contains resources (fd, timer) allocated.
 /// Dropping this struct stops the profiler.
 pub struct Profiler {
-    /// (Linux) Timer ID for the SIGPROF timer.
+    /// Timer that periodically sends SIGPROF to the profiled thread.
     timer_id: OwnedTimer,
     /// Pinned because the signal handler holds a raw pointer to this.
     /// Owns the write end of the pipe (closed in `drop()` to trigger

@@ -30,39 +30,18 @@ pub struct SignalState {
 /// deallocated soon.
 pub extern "C" fn signal_handler(
     sig: libc::c_int,
-    info: *const libc::siginfo_t,
+    _info: *const libc::siginfo_t,
     _data: *const libc::c_void,
 ) {
     if sig != libc::SIGPROF {
         return;
     }
 
-    // On Linux, the payload (SignalState pointer) is delivered via sigevent's si_value.
-    // On macOS, it's passed via an atomic (no si_value support with pthread_kill).
-    #[cfg(target_os = "linux")]
-    let write_fd = {
-        if info.is_null() {
-            return;
-        }
-        let state_ptr: *const SignalState = unsafe {
-            let sigev = (*info).si_value();
-            std::mem::transmute(sigev)
-        };
-        if state_ptr.is_null() {
-            return;
-        }
-        unsafe { (*state_ptr).write_fd.0 }
-    };
-
-    #[cfg(all(unix, not(target_os = "linux")))]
-    let write_fd = {
-        let _ = info;
-        let state_ptr = crate::osutil::SIGNAL_PAYLOAD.swap(std::ptr::null_mut(), Ordering::AcqRel);
-        if state_ptr.is_null() {
-            return;
-        }
-        unsafe { (*state_ptr).write_fd.0 }
-    };
+    let state_ptr = crate::osutil::SIGNAL_PAYLOAD.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    if state_ptr.is_null() {
+        return;
+    }
+    let write_fd = unsafe { (*state_ptr).write_fd.0 };
 
     // libc::write (and other syscalls) may clobber errno.
     let saved_errno = unsafe { get_errno() };
