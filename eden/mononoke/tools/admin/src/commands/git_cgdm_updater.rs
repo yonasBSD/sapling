@@ -318,7 +318,7 @@ async fn update_cgdm(
         }
 
         if !found {
-            let component_id = cgdm_components.changeset_to_component_id.len() as u64;
+            let component_id = cgdm_components.components.len() as u64;
             cgdm_components
                 .changeset_to_component_id
                 .insert(cs_id, component_id);
