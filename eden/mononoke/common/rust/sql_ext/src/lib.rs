@@ -151,6 +151,7 @@ impl Transaction {
         query_name: &str,
         shard_name: String,
         fut_stats: FutureStats,
+        attempt: usize,
     ) -> Result<Self> {
         if let Some(tel) = opt_tel.as_ref() {
             txn_telemetry.add_query_telemetry(tel.clone())
@@ -167,6 +168,7 @@ impl Transaction {
             query_name,
             shard_name.as_ref(),
             fut_stats,
+            Some(attempt),
         )?;
 
         Ok(Transaction::new(

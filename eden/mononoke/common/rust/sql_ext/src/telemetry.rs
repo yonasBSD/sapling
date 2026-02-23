@@ -73,6 +73,7 @@ pub fn log_query_telemetry(
     query_name: &str,
     shard_name: &str,
     fut_stats: FutureStats,
+    attempt: Option<usize>,
 ) -> Result<()> {
     match opt_tel {
         Some(query_tel) => log_query_telemetry_impl(
@@ -83,6 +84,7 @@ pub fn log_query_telemetry(
             query_name,
             shard_name,
             fut_stats,
+            attempt,
         ),
         // TODO(T223577767): handle case when there's no telemetry
         None => Ok(()),
@@ -264,6 +266,7 @@ fn log_query_telemetry_impl(
     query_name: &str,
     shard_name: &str,
     fut_stats: FutureStats,
+    attempt: Option<usize>,
 ) -> Result<()> {
     #[cfg(not(fbcode_build))]
     {
@@ -275,6 +278,7 @@ fn log_query_telemetry_impl(
             query_name,
             shard_name,
             fut_stats,
+            attempt,
         );
     }
     match query_tel {
@@ -292,6 +296,7 @@ fn log_query_telemetry_impl(
                 query_name,
                 shard_name,
                 fut_stats,
+                attempt,
             )
         }
         QueryTelemetry::Sqlite(_) => Ok(()),
@@ -401,6 +406,7 @@ mod facebook {
         query_name: &str,
         shard_name: &str,
         fut_stats: FutureStats,
+        attempt: Option<usize>,
     ) -> Result<()> {
         // Also log to the new MononokeXDBTelemetry logger
         if let Err(e) = log_to_mononoke_xdb_telemetry_logger(
@@ -412,6 +418,7 @@ mod facebook {
             query_name,
             shard_name,
             fut_stats.clone(),
+            attempt,
         ) {
             tracing::error!("Failed to log to MononokeXDBTelemetry logger: {e:?}");
         }
@@ -430,6 +437,7 @@ mod facebook {
         )?;
 
         scuba.add("success", 1);
+        scuba.add("attempt", attempt);
         STATS::success.add_value(1, (shard_name.to_string(),));
         STATS::success_query.add_value(1, (shard_name.to_string(), query_name.to_string()));
 
@@ -632,6 +640,7 @@ mod facebook {
         query_name: &str,
         shard_name: &str,
         fut_stats: FutureStats,
+        attempt: Option<usize>,
     ) -> Result<()> {
         let mut log_entry = setup_logger_entry(
             fb,
@@ -643,6 +652,9 @@ mod facebook {
         );
 
         log_entry.set_success(1); // This function is only called for successful queries
+        if let Some(attempt) = attempt {
+            log_entry.set_attempt(attempt as i64);
+        }
 
         if let Some(instance_type) = query_tel.instance_type() {
             log_entry.set_instance_type(instance_type.clone());
@@ -795,6 +807,7 @@ mod facebook {
 
         // Set transaction-specific fields
         log_entry.set_success(1); // Transactions that reach this function are successful
+        log_entry.set_attempt(1); // Transactions don't retry, so always attempt 1
 
         // Set table access information
         let read_tables: Vec<String> = txn_tel.read_tables.iter().cloned().collect();
@@ -848,6 +861,7 @@ mod facebook {
         )?;
 
         scuba.add("success", 1);
+        scuba.add("attempt", 1); // Transactions don't retry, so always attempt 1
 
         scuba.add(
             "read_tables",

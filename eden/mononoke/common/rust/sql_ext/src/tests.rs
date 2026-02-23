@@ -118,6 +118,7 @@ mod facebook {
         query_name: Option<String>,
         transaction_query_names: Vec<String>,
         shard_name: String,
+        attempt: Option<i64>,
     }
 
     #[mononoke::fbinit_test]
@@ -190,6 +191,7 @@ mod facebook {
 
         // Columns expected in some samples, but not necessarily all.
         let expected_in_some: HashSet<String> = hashset! {
+            "attempt",
             "query_name",
             "read_tables",
             "signal_time_ENQUEUE",
@@ -271,6 +273,7 @@ mod facebook {
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
+                attempt: Some(1),
             },
             ScubaTelemetryLogSample {
                 success: true,
@@ -285,6 +288,7 @@ mod facebook {
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
+                attempt: Some(1),
             },
             ScubaTelemetryLogSample {
                 success: true,
@@ -299,6 +303,7 @@ mod facebook {
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
+                attempt: Some(1),
             },
             // TODO(T223577767): test transaction-level metadata, e.g. run multiple queries
             // for different repos and ensure they are all logged together.
@@ -319,6 +324,7 @@ mod facebook {
                     .map(String::from)
                     .sorted()
                     .collect::<Vec<String>>(),
+                attempt: Some(1),
             },
         ];
 
@@ -417,6 +423,7 @@ mod facebook {
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
+                attempt: Some(1),
             },
             ScubaTelemetryLogSample {
                 success: true,
@@ -431,6 +438,7 @@ mod facebook {
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
+                attempt: Some(1),
             },
         ];
 
@@ -516,6 +524,7 @@ mod facebook {
                 ..Default::default()
             },
             transaction_query_names: vec![],
+            attempt: Some(1),
         };
 
         let expected_logs = vec![
@@ -603,6 +612,7 @@ mod facebook {
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
+                attempt: Some(1),
             },
             ScubaTelemetryLogSample {
                 success: true,
@@ -616,6 +626,7 @@ mod facebook {
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
+                attempt: None,
             },
         ];
 
@@ -722,6 +733,7 @@ mod facebook {
                 ..Default::default()
             },
             transaction_query_names: vec![],
+            attempt: Some(1),
         };
 
         let expected_cons_read_log = ScubaTelemetryLogSample {
@@ -736,6 +748,7 @@ mod facebook {
                 ..Default::default()
             },
             transaction_query_names: vec![],
+            attempt: None,
         };
 
         // Pop the last log for ConsistentRead granularity from both sources
@@ -926,6 +939,8 @@ mod facebook {
                     ..Default::default()
                 };
 
+                let attempt = sample.attempt_thrift_safe;
+
                 Ok(ScubaTelemetryLogSample {
                     mysql_telemetry,
                     success,
@@ -934,6 +949,7 @@ mod facebook {
                     query_name,
                     transaction_query_names,
                     shard_name,
+                    attempt,
                 })
             })
             .collect::<Result<Vec<_>>>()
@@ -1080,6 +1096,8 @@ mod facebook {
                                 })
                                 .unwrap_or_default();
 
+                        let attempt: Option<i64> = flattened_log["attempt"].as_i64();
+
                         // Now deserialize that into a MysqlQueryTelemetry object
                         let mysql_tel =
                             serde_json::from_value::<MysqlQueryTelemetry>(flattened_log)
@@ -1093,6 +1111,7 @@ mod facebook {
                             query_name,
                             transaction_query_names,
                             shard_name,
+                            attempt,
                         })
                     })
             })
