@@ -58,12 +58,14 @@ use mononoke_types::path::MPath;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_identity::RepoIdentityRef;
 use restricted_paths::RestrictedPathsArc;
+use restricted_paths::has_read_access_to_repo_region_acls;
 
 use crate::MononokeRepo;
 use crate::changeset::ChangesetContext;
 use crate::errors::MononokeError;
 use crate::file::FileContext;
 use crate::repo::RepoContext;
+use crate::restricted_paths::PathRestrictionInfo;
 use crate::tree::TreeContext;
 
 pub struct HistoryEntry {
@@ -957,5 +959,153 @@ impl<R: MononokeRepo> ChangesetPathContext<R> {
             _ => false,
         };
         Ok(is_tree)
+    }
+}
+
+/// Context for querying restriction metadata about a path in a changeset.
+///
+/// Unlike `ChangesetPathContext`, `ChangesetPathContentContext`, and
+/// `ChangesetPathHistoryContext`, this type does NOT enforce access checks
+/// in its constructor. This is intentional: restriction queries are
+/// meta-queries about access policy, and callers need to examine paths
+/// they may not have read access to (e.g. to determine which paths are
+/// restricted and whether the user should request access).
+///
+/// This type never returns file content, directory listings, or history —
+/// only restriction metadata (ACLs, access checks).
+pub struct ChangesetPathRestrictionContext<R> {
+    changeset: ChangesetContext<R>,
+    path: MPath,
+}
+
+impl<R: MononokeRepo> ChangesetPathRestrictionContext<R> {
+    // Enforces repo read access, but no Path ACLs access checks, since this will
+    // be used to query restriction metadata.
+    pub(crate) async fn _new(
+        changeset: ChangesetContext<R>,
+        path: MPath,
+    ) -> Result<Self, MononokeError> {
+        changeset
+            .repo_ctx()
+            .authorization_context()
+            .require_path_read(
+                changeset.ctx(),
+                changeset.repo_ctx().repo(),
+                changeset.id(),
+                &path,
+            )
+            .await?;
+
+        Ok(Self { changeset, path })
+    }
+
+    pub fn changeset(&self) -> &ChangesetContext<R> {
+        &self.changeset
+    }
+
+    pub fn path(&self) -> &MPath {
+        &self.path
+    }
+
+    /// Check if this path falls under any restricted paths and return restriction info
+    /// for all matching roots.
+    ///
+    /// Returns an empty Vec if the path is not restricted.
+    /// When a path is under multiple nested roots (e.g. `foo/` and `foo/bar/`),
+    /// returns info for each matching root.
+    // TODO(T248660146): update this primitive to use AclManifest instead of access logging config.
+    pub async fn restriction_info(&self) -> Result<Vec<PathRestrictionInfo>, MononokeError> {
+        let path = match NonRootMPath::try_from(self.path().clone()) {
+            Ok(p) => p,
+            // Root path cannot be restricted
+            Err(_) => return Ok(vec![]),
+        };
+
+        let restricted_paths = self.changeset().repo_ctx().repo().restricted_paths_arc();
+
+        // Find all restriction roots that match this path
+        let matching_roots: Vec<_> = restricted_paths
+            .config()
+            .path_acls
+            .iter()
+            .filter(|(root, _)| root.is_prefix_of(&path) || *root == &path)
+            .map(|(root, acl)| (root.clone(), acl.clone()))
+            .collect();
+
+        if matching_roots.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let results: Vec<PathRestrictionInfo> = stream::iter(matching_roots)
+            .map(|(restriction_root, acl)| {
+                let restricted_paths = restricted_paths.clone();
+                async move {
+                    let repo_region_acl = acl.to_string();
+
+                    // Check access
+                    let has_access = has_read_access_to_repo_region_acls(
+                        self.changeset().ctx(),
+                        restricted_paths.acl_provider(),
+                        &[&acl],
+                    )
+                    .await
+                    .unwrap_or(false);
+
+                    // TODO(T248658346): look up permission_request_group from .slacl file
+                    // For now, use the repo_region_acl itself as the request target
+                    let request_acl = repo_region_acl.clone();
+
+                    PathRestrictionInfo {
+                        restriction_root,
+                        repo_region_acl,
+                        has_access: Some(has_access),
+                        request_acl,
+                    }
+                }
+            })
+            .buffer_unordered(100)
+            .collect()
+            .await;
+
+        Ok(results)
+    }
+
+    /// Find all restricted paths that are descendants of this path.
+    ///
+    /// Returns restriction info for each restriction root under this path.
+    /// Since the number of roots can grow, this method will not perform
+    /// access checks. Callers should check access individually.
+    // TODO(T248660146): update this primitive to use AclManifest instead of access logging config.
+    pub async fn find_restricted_descendants(
+        &self,
+    ) -> Result<Vec<PathRestrictionInfo>, MononokeError> {
+        let restricted_paths = self.changeset().repo_ctx().repo().restricted_paths_arc();
+
+        let path = self.path();
+
+        let descendants: Vec<PathRestrictionInfo> = restricted_paths
+            .config()
+            .path_acls
+            .iter()
+            .filter(|(root, _acl)| {
+                // The restriction root is a descendant of our path.
+                // MPath::is_prefix_of returns false for root, so handle it explicitly:
+                // all paths are descendants of root.
+                path.is_root() || path.is_prefix_of(*root)
+            })
+            .map(|(root, acl)| {
+                let repo_region_acl = acl.to_string();
+                PathRestrictionInfo {
+                    restriction_root: root.clone(),
+                    repo_region_acl: repo_region_acl.clone(),
+                    // Access not checked in this method — caller can check individually
+                    has_access: None,
+                    // Default to repo_region_acl when not configured
+                    request_acl: repo_region_acl,
+                }
+            })
+            .collect();
+
+        Ok(descendants)
     }
 }

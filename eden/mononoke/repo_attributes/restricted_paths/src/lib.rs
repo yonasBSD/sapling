@@ -112,6 +112,10 @@ impl RestrictedPaths {
         &self.manifest_id_store
     }
 
+    pub fn acl_provider(&self) -> &Arc<dyn AclProvider> {
+        &self.acl_provider
+    }
+
     /// If a path is considered restricted according to the configuration,
     /// returns its associated ACL.
     /// This will **NOT consider child directories** as restricted. e.g.
