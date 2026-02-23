@@ -21,4 +21,4 @@ sapling-types = { version = "0.1.0", path = "../types" }
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 
 [dev-dependencies]
-mock_instant = "0.3"
+mock_instant = "0.3.2"
