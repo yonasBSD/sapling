@@ -11,6 +11,8 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use anyhow::ensure;
+
 use crate::ResolvedBacktraceProcessFunc;
 use crate::frame_handler;
 use crate::osutil;
@@ -54,6 +56,11 @@ impl Profiler {
         interval: Duration,
         backtrace_process_func: ResolvedBacktraceProcessFunc,
     ) -> anyhow::Result<Self> {
+        ensure!(
+            interval >= Duration::from_millis(1),
+            "minimal interval is 1ms to avoid starving threads"
+        );
+
         // Prepare the pipe fds.
         // - read_fd: used and owned by the frame_reader_loop thread.
         //   will be closed on EOF (closing write_fd).
