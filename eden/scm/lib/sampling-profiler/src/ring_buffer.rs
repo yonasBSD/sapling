@@ -13,6 +13,7 @@
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
+use std::ptr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
@@ -22,7 +23,7 @@ use std::sync::atomic::Ordering;
 ///
 /// `N` must be a power of two (avoids slow `%` in hot path).
 pub fn ring_buffer<T: Copy + Send, const N: usize>() -> (RingBufWriter<T, N>, RingBufReader<T, N>) {
-    let shared = Arc::new(Shared::<T, N>::new());
+    let shared = Shared::<T, N>::new_arc();
     (
         RingBufWriter {
             shared: shared.clone(),
@@ -96,14 +97,18 @@ unsafe impl<T: Send, const N: usize> Sync for Shared<T, N> {}
 impl<T: Copy, const N: usize> Shared<T, N> {
     const MASK: usize = N - 1;
 
-    fn new() -> Self {
+    /// Allocate directly on the heap — avoids putting the (potentially huge)
+    /// slots array on the stack.
+    fn new_arc() -> Arc<Self> {
         assert!(N > 0 && N & (N - 1) == 0, "N must be a power of two");
-        Self {
-            head: AtomicUsize::new(0),
-            tail: AtomicUsize::new(0),
-            closed: AtomicBool::new(false),
-            // Safe: MaybeUninit doesn't require initialization.
-            slots: unsafe { MaybeUninit::uninit().assume_init() },
+        let mut arc = Arc::new_uninit();
+        let p: *mut Self = Arc::get_mut(&mut arc).unwrap().as_mut_ptr();
+        unsafe {
+            ptr::addr_of_mut!((*p).head).write(AtomicUsize::new(0));
+            ptr::addr_of_mut!((*p).tail).write(AtomicUsize::new(0));
+            ptr::addr_of_mut!((*p).closed).write(AtomicBool::new(false));
+            // MaybeUninit slots require no initialization.
+            arc.assume_init()
         }
     }
 
@@ -208,6 +213,22 @@ mod tests {
         assert!(!r.is_exhausted());
         assert_eq!(r.pop(), Some(2));
         assert!(r.is_exhausted());
+    }
+
+    #[test]
+    fn large_buffer_on_heap() {
+        // 16 MB — would blow any normal stack.
+        // Run on a thread with a small stack to prove it's heap-allocated.
+        thread::Builder::new()
+            .stack_size(1024 * 1024)
+            .spawn(|| {
+                let (w, r) = ring_buffer::<[u8; 4096], 4096>();
+                assert!(w.push([42; 4096]));
+                assert_eq!(r.pop().unwrap()[0], 42);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
     }
 
     #[test]
