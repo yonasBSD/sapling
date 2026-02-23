@@ -140,3 +140,56 @@ Test grep does search deleted files (tracked but missing from disk):
   $ rm deleted_file
   $ hg grep deleted_content
   deleted_file:deleted_content
+
+Test --rev searches specific revision (not working copy):
+  $ echo 'new_content' > new_file
+  $ hg commit -Aqm 'add new_file'
+  $ echo 'uncommitted' >> new_file
+  $ hg grep uncommitted
+  new_file:uncommitted
+  $ hg grep -r . uncommitted
+  [1]
+  $ hg grep -r . new_content
+  new_file:new_content
+
+Test --rev can search older revisions:
+  $ hg grep -r $A apple | sort
+  apple:apple
+  fruits:apple
+
+Test repoless grep with test:server -R url:
+  $ eagerepo
+  $ newserver server
+  $ drawdag <<'EOS'
+  > B  # B/dir/file = dir content\n
+  > |  # B/other = other content\n
+  > A  # A/foo = foo content\n
+  >    # A/bar = bar content\n
+  > EOS
+  $ hg book -r $B main
+
+Test repoless grep requires file pattern:
+  $ hg grep -R test:server -r $B content
+  abort: FILE pattern(s) required in repoless mode
+  [255]
+
+Test repoless grep requires --rev:
+  $ hg grep -R test:server content pattern
+  abort: --rev is required for repoless grep
+  [255]
+
+  $ hg grep -R test:server -r $B content path: | sort
+  bar:bar content
+  dir/file:dir content
+  foo:foo content
+  other:other content
+
+  $ hg grep -R test:server -r $B content dir | sort
+  dir/file:dir content
+
+  $ hg grep -R test:server -r $A content path: | sort
+  bar:bar content
+  foo:foo content
+
+  $ hg grep -R test:server -r main 'dir content' path:
+  dir/file:dir content

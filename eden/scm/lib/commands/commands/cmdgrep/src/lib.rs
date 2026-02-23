@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use clidispatch::ReqCtx;
 use clidispatch::abort;
+use clidispatch::abort_if;
 use clidispatch::fallback;
 use cmdutil::ConfigExt;
 use cmdutil::Result;
@@ -79,6 +80,11 @@ define_flags! {
         #[short('P')]
         perl_regexp: bool,
 
+        /// search the repository as it is at REV (ADVANCED)
+        #[short('r')]
+        #[argtype("REV")]
+        rev: Option<String>,
+
         #[arg]
         grep_pattern: String,
 
@@ -89,6 +95,11 @@ define_flags! {
 
 pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
     if !repo.config().get_or("grep", "use-rust", || false)? {
+        abort_if!(
+            ctx.opts.rev.is_some(),
+            "--rev requires --config grep.use-rust=true"
+        );
+
         fallback!("grep.use-rust");
     }
 
@@ -164,37 +175,41 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
 
     let mut searcher = searcher_builder.build();
 
-    let (repo_root, case_sensitive, cwd, sl_patterns, relativizer): (_, _, _, &[String], _) =
-        match repo {
-            CoreRepo::Disk(repo) => {
-                let wc = repo.working_copy()?;
-                let wc = wc.read();
-                let vfs = wc.vfs();
-                (
-                    vfs.root().to_path_buf(),
-                    vfs.case_sensitive(),
-                    std::env::current_dir()?,
-                    if ctx.opts.sl_patterns.is_empty() {
-                        // Default to "." (i.e. search cwd).
-                        &[".".to_string()]
-                    } else {
-                        &ctx.opts.sl_patterns
-                    },
-                    RepoPathRelativizer::new(std::env::current_dir()?, vfs.root()),
-                )
-            }
-            CoreRepo::Slapi(_slapi_repo) => (
-                PathBuf::new(),
-                true,
-                PathBuf::new(),
+    let (repo_root, case_sensitive, cwd, sl_patterns, relativizer, rev) = match repo {
+        CoreRepo::Disk(repo) => {
+            let wc = repo.working_copy()?;
+            let wc = wc.read();
+            let vfs = wc.vfs();
+            (
+                vfs.root().to_path_buf(),
+                vfs.case_sensitive(),
+                std::env::current_dir()?,
                 if ctx.opts.sl_patterns.is_empty() {
-                    abort!("FILE pattern(s) required in repoless mode");
+                    // Default to "." (i.e. search cwd).
+                    &[".".to_string()][..]
                 } else {
                     &ctx.opts.sl_patterns
                 },
-                RepoPathRelativizer::noop(),
-            ),
-        };
+                RepoPathRelativizer::new(std::env::current_dir()?, vfs.root()),
+                ctx.opts.rev.as_deref().unwrap_or("wdir"),
+            )
+        }
+        CoreRepo::Slapi(_slapi_repo) => (
+            PathBuf::new(),
+            true,
+            PathBuf::new(),
+            if ctx.opts.sl_patterns.is_empty() {
+                abort!("FILE pattern(s) required in repoless mode");
+            } else {
+                ctx.opts.sl_patterns.as_slice()
+            },
+            RepoPathRelativizer::noop(),
+            match ctx.opts.rev.as_deref() {
+                Some(rev) => rev,
+                None => abort!("--rev is required for repoless grep"),
+            },
+        ),
+    };
 
     let matcher = pathmatcher::cli_matcher(
         sl_patterns,
@@ -207,8 +222,6 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
         &mut ctx.io().input(),
     )?;
     let mut matcher: DynMatcher = Arc::new(matcher);
-
-    let rev = "wdir";
 
     let (_, manifest) = repo.resolve_manifest(&ctx.core, rev, matcher.clone())?;
 
