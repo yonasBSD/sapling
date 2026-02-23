@@ -94,3 +94,36 @@ Test context break between separate match groups:
   multiline-line4
   multiline:match2
   multiline-line5
+
+Test grep in uncommitted changes:
+  $ echo 'findme' > uncommitted_file
+  $ hg add uncommitted_file
+  $ hg grep findme
+  uncommitted_file:findme
+
+Test grep does not search untracked files:
+  $ echo 'untracked_content' > untracked_file
+  $ hg grep untracked_content
+  [1]
+
+Test grep does not search ignored files:
+  $ echo 'ignored_content' > ignored_file
+  $ echo 'ignored_file' > .gitignore
+  $ hg add .gitignore
+  $ hg grep ignored_content
+  [1]
+
+Test grep does not search removed files:
+  $ hg commit -m 'add files'
+  $ echo 'removed_content' > removed_file
+  $ hg commit -Aqm 'add removed_file'
+  $ hg rm removed_file
+  $ hg grep removed_content
+  [1]
+
+Test grep does search deleted files (tracked but missing from disk):
+  $ echo 'deleted_content' > deleted_file
+  $ hg commit -Aqm 'add deleted_file'
+  $ rm deleted_file
+  $ hg grep deleted_content
+  deleted_file:deleted_content

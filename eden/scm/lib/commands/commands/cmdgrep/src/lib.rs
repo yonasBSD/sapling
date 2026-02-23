@@ -177,6 +177,10 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
         CoreRepo::Slapi(_slapi_repo) => (PathBuf::new(), true, PathBuf::new()),
     };
 
+    // Build matcher using normal manifest (for sparse profile)
+    let tree_resolver = repo.tree_resolver()?;
+    let manifest = tree_resolver.get(&repo.resolve_commit(".")?)?;
+
     let matcher = pathmatcher::cli_matcher(
         &ctx.opts.sl_patterns,
         &ctx.opts.walk_opts.include,
@@ -187,18 +191,24 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
         &cwd,
         &mut ctx.io().input(),
     )?;
-
     let mut matcher: DynMatcher = Arc::new(matcher);
-
-    let tree_resolver = repo.tree_resolver()?;
-    // TODO - other support other revs.
-    let manifest = tree_resolver.get(&repo.resolve_commit(".")?)?;
-    let file_store = repo.file_store()?;
 
     // Check for sparse profile and intersect with existing matcher if set.
     if let Some(sparse_matcher) = repo.sparse_matcher(&manifest)? {
         matcher = Arc::new(IntersectMatcher::new(vec![matcher, sparse_matcher]));
     }
+
+    // Get working manifest that includes uncommitted changes for content search
+    let manifest = match repo {
+        CoreRepo::Disk(repo) => {
+            let wc = repo.working_copy()?;
+            let wc = wc.read();
+            wc.working_manifest(&ctx.core, matcher.clone())?
+        }
+        CoreRepo::Slapi(_slapi_repo) => manifest,
+    };
+
+    let file_store = repo.file_store()?;
 
     ctx.maybe_start_pager(repo.config())?;
 
