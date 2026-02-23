@@ -23,7 +23,7 @@ use crate::signal_handler::SignalState;
 
 /// `Frame` payload being written to pipes.
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct FramePayload {
     /// Identity of a backtrace. Used to detect incomplete backtraces.
     pub backtrace_id: usize,
@@ -33,7 +33,7 @@ pub struct FramePayload {
 }
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum MaybeFrame {
     /// A frame is present.
     Present(Frame),

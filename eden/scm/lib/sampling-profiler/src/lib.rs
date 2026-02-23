@@ -19,6 +19,7 @@ mod frame_handler;
 mod osutil;
 #[cfg_attr(not(unix), path = "profiler_dummy.rs")]
 mod profiler;
+pub mod ring_buffer;
 #[cfg(unix)]
 mod signal_handler;
 #[cfg(all(test, unix))]
