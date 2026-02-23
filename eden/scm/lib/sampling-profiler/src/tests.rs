@@ -7,6 +7,7 @@
 
 use std::thread;
 use std::time::Duration;
+use std::time::Instant;
 
 use crate::Profiler;
 
@@ -57,4 +58,71 @@ fn test_stress_concurrent_profilers() {
     for h in handles {
         h.join().unwrap();
     }
+}
+
+/// Stress test about malloc use-cases (which uses locks internally) where
+/// libc::write in the signal handler can deadlock if the pipe is blocking.
+///
+/// Example deadlock: The profiled thread holds a jemalloc mutex
+/// (mid-allocation) when SIGPROF fires. The signal handler tries to `write()`
+/// to the pipe, but the pipe is full. The consumer can't drain the pipe because
+/// it's also trying to allocate (symbol resolution) and blocks on the same
+/// jemalloc mutex.
+///
+/// Ingredients: (1) signal fires during malloc, (2) pipe buffer is full,
+/// (3) consumer is blocked on the same allocator lock.
+#[test]
+#[ignore] // currently fails
+fn test_signal_during_malloc_deadlock() {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+
+    let stop = Arc::new(AtomicBool::new(false));
+
+    let worker = thread::spawn({
+        let stop = stop.clone();
+        move || {
+            let _profiler = Profiler::new(
+                Duration::from_millis(1),
+                Box::new(|_: &[String]| {
+                    // Allocation-heavy callback slows the consumer, filling the
+                    // pipe and increasing jemalloc lock contention — both required
+                    // ingredients for the deadlock.
+                    let mut v = Vec::new();
+                    for i in 0..200 {
+                        v.push(vec![0u8; 512 * (i + 1)]);
+                    }
+                }),
+            )
+            .unwrap();
+
+            // Churn allocations so SIGPROF likely fires inside jemalloc.
+            while !stop.load(Ordering::Relaxed) {
+                let mut bufs: Vec<Vec<u8>> = Vec::with_capacity(256);
+                for size in (1..=128).map(|i| i * 512) {
+                    bufs.push(vec![0u8; size]);
+                }
+                while bufs.len() > 1 {
+                    bufs.swap_remove(bufs.len() / 2);
+                }
+            }
+            // _profiler drops here. If deadlocked, we never reach this point.
+        }
+    });
+
+    // Let the workload run under profiling pressure.
+    thread::sleep(Duration::from_secs(3));
+    stop.store(true, Ordering::Relaxed);
+
+    // If the worker (or its Profiler::drop) is deadlocked, it won't finish.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !worker.is_finished() {
+        assert!(
+            Instant::now() < deadline,
+            "deadlock: signal handler write blocked while consumer waits on allocator lock"
+        );
+        thread::sleep(Duration::from_millis(200));
+    }
+    worker.join().unwrap();
 }
