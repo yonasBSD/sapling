@@ -117,6 +117,8 @@ define_stats! {
     critical_section_failure_duration_us: dynamic_timeseries("{}.critical_section_failure_duration_us", (reponame: String); Average, Sum, Count),
     critical_section_retries_failed: dynamic_timeseries("{}.critical_section_retries_failed", (reponame: String); Average, Sum),
     commits_rebased: dynamic_timeseries("{}.commits_rebased", (reponame: String); Average, Sum, Count),
+    conflict_rejections: dynamic_timeseries("{}.conflict_rejections", (reponame: String); Count),
+    conflict_files_count: dynamic_timeseries("{}.conflict_files_count", (reponame: String); Average, Sum, Count),
 }
 
 const MAX_REBASE_ATTEMPTS: usize = 100;
@@ -374,7 +376,7 @@ async fn rebase_in_loop(
 
         server_cf.extend(find_subtree_changes(&server_bcs)?);
 
-        intersect_changed_files(server_cf, client_cf.clone())?;
+        intersect_changed_files(server_cf, client_cf.clone(), repo.repo_identity().name())?;
 
         let rebase_outcome = do_rebase(
             ctx,
@@ -778,7 +780,11 @@ fn find_subtree_changes(changesets: &[BonsaiChangeset]) -> Result<Vec<MPath>, Pu
 
 /// `left` and `right` are considerered to be conflict free, if none of the element from `left`
 /// is prefix of element from `right`, and vice versa.
-fn intersect_changed_files(left: Vec<MPath>, right: Vec<MPath>) -> Result<(), PushrebaseError> {
+fn intersect_changed_files(
+    left: Vec<MPath>,
+    right: Vec<MPath>,
+    reponame: &str,
+) -> Result<(), PushrebaseError> {
     let conflicts: Vec<PushrebaseConflict> = find_path_conflicts(left, right)
         .into_iter()
         .map(|(l, r)| PushrebaseConflict::new(l, r))
@@ -787,6 +793,8 @@ fn intersect_changed_files(left: Vec<MPath>, right: Vec<MPath>) -> Result<(), Pu
     if conflicts.is_empty() {
         Ok(())
     } else {
+        STATS::conflict_rejections.add_value(1, (reponame.to_string(),));
+        STATS::conflict_files_count.add_value(conflicts.len() as i64, (reponame.to_string(),));
         Err(PushrebaseError::Conflicts(conflicts))
     }
 }
@@ -2180,6 +2188,7 @@ mod tests {
         match intersect_changed_files(
             make_paths(&["a/b/c", "c", "a/b/d", "d/d", "b", "e/c"]),
             make_paths(&["d/f", "a/b/d/f", "c", "e"]),
+            "test_repo",
         ) {
             Err(PushrebaseError::Conflicts(conflicts)) => assert_eq!(
                 *conflicts,

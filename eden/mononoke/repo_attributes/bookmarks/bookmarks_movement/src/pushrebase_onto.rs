@@ -274,7 +274,20 @@ impl<'op> PushrebaseOntoBookmarkOp<'op> {
                         .await?;
                 }
             }
-            Err(err) => scuba_logger.log_with_msg("Pushrebase failed", Some(format!("{:#?}", err))),
+            Err(err) => {
+                if let pushrebase::PushrebaseError::Conflicts(conflicts) = err {
+                    scuba_logger.add("conflict_count", conflicts.len()).add(
+                        "conflict_paths",
+                        conflicts
+                            .iter()
+                            .take(10)
+                            .map(|c| format!("{}={}", c.left, c.right))
+                            .collect::<Vec<_>>()
+                            .join(","),
+                    );
+                }
+                scuba_logger.log_with_msg("Pushrebase failed", Some(format!("{:#?}", err)));
+            }
         }
 
         result.map_err(BookmarkMovementError::PushrebaseError)
