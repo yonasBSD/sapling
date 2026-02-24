@@ -981,7 +981,7 @@ pub struct ChangesetPathRestrictionContext<R> {
 impl<R: MononokeRepo> ChangesetPathRestrictionContext<R> {
     // Enforces repo read access, but no Path ACLs access checks, since this will
     // be used to query restriction metadata.
-    pub(crate) async fn _new(
+    pub(crate) async fn new(
         changeset: ChangesetContext<R>,
         path: MPath,
     ) -> Result<Self, MononokeError> {

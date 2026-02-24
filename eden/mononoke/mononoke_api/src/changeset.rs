@@ -89,9 +89,11 @@ use crate::MononokeRepo;
 use crate::changeset_path::ChangesetPathContentContext;
 use crate::changeset_path::ChangesetPathContext;
 use crate::changeset_path::ChangesetPathHistoryContext;
+use crate::changeset_path::ChangesetPathRestrictionContext;
 use crate::changeset_path_diff::ChangesetPathDiffContext;
 use crate::errors::MononokeError;
 use crate::repo::RepoContext;
+use crate::restricted_paths::PathRestrictionInfo;
 use crate::specifiers::ChangesetId;
 use crate::specifiers::GitSha1;
 use crate::specifiers::HgChangesetId;
@@ -1879,5 +1881,37 @@ impl<R: MononokeRepo> ChangesetContext<R> {
         clusters.sort_by(|a, b| a.cluster_primary.cmp(&b.cluster_primary));
 
         Ok(clusters.into_iter())
+    }
+
+    /// Create a restriction context for querying restriction metadata about a path.
+    ///
+    /// Unlike `path()`, `path_with_content()`, and `path_with_history()`, this
+    /// method does NOT perform Path ACLs access checks, since restriction queries are
+    /// meta-queries about access policy. Repo read access is still required.
+    pub async fn path_restriction(
+        &self,
+        path: impl Into<MPath>,
+    ) -> Result<ChangesetPathRestrictionContext<R>, MononokeError> {
+        ChangesetPathRestrictionContext::new(self.clone(), path.into()).await
+    }
+
+    /// Check restriction info for a batch of paths.
+    ///
+    /// For each path, returns the path and its restriction infos (empty if not restricted).
+    /// A path under multiple nested roots will have multiple infos.
+    /// Checks are performed concurrently.
+    pub async fn paths_restriction_info(
+        &self,
+        paths: Vec<NonRootMPath>,
+    ) -> Result<Vec<(NonRootMPath, Vec<PathRestrictionInfo>)>, MononokeError> {
+        stream::iter(paths)
+            .map(|path| async move {
+                let restriction_ctx = self.path_restriction(path.clone()).await?;
+                let infos = restriction_ctx.restriction_info().await?;
+                Ok::<_, MononokeError>((path, infos))
+            })
+            .buffer_unordered(100)
+            .try_collect()
+            .await
     }
 }

@@ -25,3 +25,451 @@ pub struct PathRestrictionInfo {
     /// If no specific request ACL is configured, this defaults to the repo_region_acl.
     pub request_acl: String,
 }
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::str::FromStr;
+    use std::sync::Arc;
+
+    use anyhow::Result;
+    use context::CoreContext;
+    use fbinit::FacebookInit;
+    use metaconfig_types::RestrictedPathsConfig;
+    use mononoke_macros::mononoke;
+    use mononoke_types::RepositoryId;
+    use mononoke_types::path::MPath;
+    use permission_checker::MononokeIdentity;
+    use permission_checker::dummy::DummyAclProvider;
+    use restricted_paths::RestrictedPaths;
+    use restricted_paths::SqlRestrictedPathsManifestIdStoreBuilder;
+    use scuba_ext::MononokeScubaSampleBuilder;
+    use sql_construct::SqlConstruct;
+    use test_repo_factory::TestRepoFactory;
+    use tests_utils::CreateCommitContext;
+
+    use super::*;
+    use crate::changeset::ChangesetContext;
+    use crate::repo::Repo;
+    use crate::repo::RepoContext;
+
+    /// Create RestrictedPaths with the given path ACLs for testing.
+    async fn create_test_restricted_paths(
+        fb: FacebookInit,
+        path_acls: Vec<(&str, &str)>,
+    ) -> Arc<RestrictedPaths> {
+        let repo_id = RepositoryId::new(0);
+
+        let path_acls_map: HashMap<NonRootMPath, MononokeIdentity> = path_acls
+            .into_iter()
+            .map(|(path, acl_str)| {
+                (
+                    NonRootMPath::new(path).expect("Failed to create NonRootMPath from test path"),
+                    MononokeIdentity::from_str(acl_str)
+                        .expect("Failed to parse MononokeIdentity from ACL string"),
+                )
+            })
+            .collect();
+
+        let config = RestrictedPathsConfig {
+            path_acls: path_acls_map,
+            use_manifest_id_cache: false,
+            cache_update_interval_ms: 100,
+            soft_path_acls: Vec::new(),
+            tooling_allowlist_group: None,
+            conditional_enforcement_acls: Vec::new(),
+            acl_file_name: RestrictedPathsConfig::default().acl_file_name,
+        };
+
+        let manifest_id_store = Arc::new(
+            SqlRestrictedPathsManifestIdStoreBuilder::with_sqlite_in_memory()
+                .expect("Failed to create Sqlite connection")
+                .with_repo_id(repo_id),
+        );
+
+        let acl_provider = DummyAclProvider::new(fb).expect("Failed to create DummyAclProvider");
+        let scuba = MononokeScubaSampleBuilder::with_discard();
+
+        Arc::new(RestrictedPaths::new(
+            config,
+            manifest_id_store,
+            acl_provider,
+            None,
+            scuba,
+        ))
+    }
+
+    /// Create a RepoContext and ChangesetContext with restricted paths configured.
+    async fn create_test_changeset(
+        fb: FacebookInit,
+        path_acls: Vec<(&str, &str)>,
+    ) -> (RepoContext<Repo>, ChangesetContext<Repo>) {
+        let restricted_paths = create_test_restricted_paths(fb, path_acls).await;
+        let ctx = CoreContext::test_mock(fb);
+
+        let repo: Repo = TestRepoFactory::new(fb)
+            .expect("Failed to create TestRepoFactory")
+            .with_restricted_paths(restricted_paths)
+            .build()
+            .await
+            .expect("Failed to build test repo");
+
+        let root_cs_id = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", "content")
+            .commit()
+            .await
+            .expect("Failed to create root commit");
+
+        let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo))
+            .await
+            .expect("Failed to create test RepoContext");
+        let cs_ctx = ChangesetContext::new(repo_ctx.clone(), root_cs_id);
+
+        (repo_ctx, cs_ctx)
+    }
+
+    // ---- restriction_info tests ----
+
+    #[mononoke::fbinit_test]
+    async fn test_restriction_info_exact_match(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) =
+            create_test_changeset(fb, vec![("restricted/dir", "TIER:my-acl")]).await;
+
+        let info = cs_ctx
+            .path_restriction(MPath::try_from("restricted/dir").expect("Failed to parse MPath"))
+            .await?
+            .restriction_info()
+            .await?;
+
+        let expected = vec![PathRestrictionInfo {
+            restriction_root: NonRootMPath::new("restricted/dir")
+                .expect("Failed to create NonRootMPath"),
+            repo_region_acl: "TIER:my-acl".to_string(),
+            has_access: Some(true),
+            request_acl: "TIER:my-acl".to_string(),
+        }];
+        let mut actual = info;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restriction_info_nested_path(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) =
+            create_test_changeset(fb, vec![("restricted", "TIER:my-acl")]).await;
+
+        let info = cs_ctx
+            .path_restriction(
+                MPath::try_from("restricted/subdir/file.txt").expect("Failed to parse MPath"),
+            )
+            .await?
+            .restriction_info()
+            .await?;
+
+        let expected = vec![PathRestrictionInfo {
+            restriction_root: NonRootMPath::new("restricted")
+                .expect("Failed to create NonRootMPath"),
+            repo_region_acl: "TIER:my-acl".to_string(),
+            has_access: Some(true),
+            request_acl: "TIER:my-acl".to_string(),
+        }];
+        let mut actual = info;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restriction_info_no_match(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) =
+            create_test_changeset(fb, vec![("restricted/dir", "TIER:my-acl")]).await;
+
+        let info = cs_ctx
+            .path_restriction(
+                MPath::try_from("other/path/file.txt").expect("Failed to parse MPath"),
+            )
+            .await?
+            .restriction_info()
+            .await?;
+
+        assert!(info.is_empty(), "path should not be restricted");
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restriction_info_sibling_path(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(fb, vec![("foo/bar", "TIER:my-acl")]).await;
+
+        // foo/baz is a sibling of foo/bar, not under it
+        let info = cs_ctx
+            .path_restriction(MPath::try_from("foo/baz/file.txt").expect("Failed to parse MPath"))
+            .await?
+            .restriction_info()
+            .await?;
+
+        assert!(info.is_empty(), "sibling path should not be restricted");
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restriction_info_multiple_restrictions(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![("first", "TIER:first-acl"), ("second", "TIER:second-acl")],
+        )
+        .await;
+
+        let first_info = cs_ctx
+            .path_restriction(
+                MPath::try_from("first/nested/file.txt").expect("Failed to parse MPath"),
+            )
+            .await?
+            .restriction_info()
+            .await?;
+
+        let expected_first = vec![PathRestrictionInfo {
+            restriction_root: NonRootMPath::new("first").expect("Failed to create NonRootMPath"),
+            repo_region_acl: "TIER:first-acl".to_string(),
+            has_access: Some(true),
+            request_acl: "TIER:first-acl".to_string(),
+        }];
+        let mut actual_first = first_info;
+        actual_first.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual_first, expected_first);
+
+        let second_info = cs_ctx
+            .path_restriction(
+                MPath::try_from("second/nested/file.txt").expect("Failed to parse MPath"),
+            )
+            .await?
+            .restriction_info()
+            .await?;
+
+        let expected_second = vec![PathRestrictionInfo {
+            restriction_root: NonRootMPath::new("second").expect("Failed to create NonRootMPath"),
+            repo_region_acl: "TIER:second-acl".to_string(),
+            has_access: Some(true),
+            request_acl: "TIER:second-acl".to_string(),
+        }];
+        let mut actual_second = second_info;
+        actual_second.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual_second, expected_second);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restriction_info_root_path(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) =
+            create_test_changeset(fb, vec![("restricted", "TIER:my-acl")]).await;
+
+        // Root path cannot be restricted
+        let info = cs_ctx
+            .path_restriction(MPath::ROOT)
+            .await?
+            .restriction_info()
+            .await?;
+
+        assert!(info.is_empty(), "root path cannot be restricted");
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restriction_info_no_restrictions_configured(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(fb, vec![]).await;
+
+        let info = cs_ctx
+            .path_restriction(MPath::try_from("any/path/file.txt").expect("Failed to parse MPath"))
+            .await?
+            .restriction_info()
+            .await?;
+
+        assert!(info.is_empty(), "no restrictions configured");
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restriction_info_nested_roots(fb: FacebookInit) -> Result<()> {
+        // A path can fall under multiple nested tent roots.
+        // e.g. foo/ has acl_a and foo/bar/ has acl_b, querying foo/bar/file.txt
+        // should return both roots. See comment in D93601751.
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![("foo", "TIER:outer-acl"), ("foo/bar", "TIER:inner-acl")],
+        )
+        .await;
+
+        let infos = cs_ctx
+            .path_restriction(MPath::try_from("foo/bar/file.txt").expect("Failed to parse MPath"))
+            .await?
+            .restriction_info()
+            .await?;
+
+        let expected = vec![
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("foo").expect("Failed to create NonRootMPath"),
+                repo_region_acl: "TIER:outer-acl".to_string(),
+                has_access: Some(true),
+                request_acl: "TIER:outer-acl".to_string(),
+            },
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("foo/bar")
+                    .expect("Failed to create NonRootMPath"),
+                repo_region_acl: "TIER:inner-acl".to_string(),
+                has_access: Some(true),
+                request_acl: "TIER:inner-acl".to_string(),
+            },
+        ];
+        let mut actual = infos;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    // ---- paths_restriction_info batch tests ----
+
+    #[mononoke::fbinit_test]
+    async fn test_batch_restriction_info_mixed_paths(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![
+                ("first", "TIER:first-acl"),
+                ("second", "TIER:second-acl"),
+                ("third/nested", "TIER:third-acl"),
+            ],
+        )
+        .await;
+
+        let paths = vec![
+            NonRootMPath::new("first/file1.txt")?,
+            NonRootMPath::new("second/subdir/file2.txt")?,
+            NonRootMPath::new("third/nested/deep/file3.txt")?,
+            NonRootMPath::new("unrestricted/file4.txt")?,
+        ];
+
+        let results = cs_ctx.paths_restriction_info(paths).await?;
+
+        // Build comparable (path, Option<(restriction_root, repo_region_acl)>) tuples
+        // Using first() since these paths each have at most one matching root
+        let mut actual: Vec<(String, Option<(String, String)>)> = results
+            .into_iter()
+            .map(|(path, infos)| {
+                (
+                    path.to_string(),
+                    infos
+                        .first()
+                        .map(|i| (i.restriction_root.to_string(), i.repo_region_acl.clone())),
+                )
+            })
+            .collect();
+        actual.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let expected: Vec<(String, Option<(String, String)>)> = vec![
+            (
+                "first/file1.txt".to_string(),
+                Some(("first".to_string(), "TIER:first-acl".to_string())),
+            ),
+            (
+                "second/subdir/file2.txt".to_string(),
+                Some(("second".to_string(), "TIER:second-acl".to_string())),
+            ),
+            (
+                "third/nested/deep/file3.txt".to_string(),
+                Some(("third/nested".to_string(), "TIER:third-acl".to_string())),
+            ),
+            ("unrestricted/file4.txt".to_string(), None),
+        ];
+
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_batch_all_restricted(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) =
+            create_test_changeset(fb, vec![("restricted", "TIER:my-acl")]).await;
+
+        let paths = vec![
+            NonRootMPath::new("restricted/file1.txt")?,
+            NonRootMPath::new("restricted/file2.txt")?,
+            NonRootMPath::new("restricted/subdir/file3.txt")?,
+        ];
+
+        let results = cs_ctx.paths_restriction_info(paths).await?;
+
+        let mut actual: Vec<(String, Option<(String, String)>)> = results
+            .into_iter()
+            .map(|(path, infos)| {
+                (
+                    path.to_string(),
+                    infos
+                        .first()
+                        .map(|i| (i.restriction_root.to_string(), i.repo_region_acl.clone())),
+                )
+            })
+            .collect();
+        actual.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let expected: Vec<(String, Option<(String, String)>)> = vec![
+            (
+                "restricted/file1.txt".to_string(),
+                Some(("restricted".to_string(), "TIER:my-acl".to_string())),
+            ),
+            (
+                "restricted/file2.txt".to_string(),
+                Some(("restricted".to_string(), "TIER:my-acl".to_string())),
+            ),
+            (
+                "restricted/subdir/file3.txt".to_string(),
+                Some(("restricted".to_string(), "TIER:my-acl".to_string())),
+            ),
+        ];
+
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_batch_all_unrestricted(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) =
+            create_test_changeset(fb, vec![("restricted", "TIER:my-acl")]).await;
+
+        let paths = vec![
+            NonRootMPath::new("unrestricted/file1.txt")?,
+            NonRootMPath::new("other/file2.txt")?,
+        ];
+
+        let results = cs_ctx.paths_restriction_info(paths).await?;
+
+        let mut actual: Vec<(String, Option<(String, String)>)> = results
+            .into_iter()
+            .map(|(path, infos)| {
+                (
+                    path.to_string(),
+                    infos
+                        .first()
+                        .map(|i| (i.restriction_root.to_string(), i.repo_region_acl.clone())),
+                )
+            })
+            .collect();
+        actual.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let expected: Vec<(String, Option<(String, String)>)> = vec![
+            ("other/file2.txt".to_string(), None),
+            ("unrestricted/file1.txt".to_string(), None),
+        ];
+
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+}
