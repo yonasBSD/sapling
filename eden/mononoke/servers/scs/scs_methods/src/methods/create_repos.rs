@@ -5,7 +5,6 @@
  * GNU General Public License version 2.
  */
 
-use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,7 +22,6 @@ use configo::ConfigoClient;
 use configo::mutation::Mutation;
 use configo_thrift_srclients::ConfigoServiceClient;
 use configo_thrift_srclients::make_ConfigoService_srclient;
-use configo_thrift_srclients::thrift::CryptoProject;
 use configo_thrift_srclients::thrift::MutationState;
 use context::CoreContext;
 use futures::future::try_join_all;
@@ -65,12 +63,6 @@ const DIFF_AUTHOR: &str = "scm_server_infra";
 const REPO_DEFINITIONS_BASE_PATH: &str = "source/scm/mononoke/repos/definitions";
 const REPO_DEFINITION_THRIFT_TYPE: &str = "QuickRepoDefinition";
 const REPO_DEFINITION_THRIFT_PATH: &str = "source/scm/mononoke/repos/repos.thrift";
-
-const SIGNATURE_SKIP_FOLDERS: [&str; 3] = [
-    "materialized_configs/scm/mononoke/repos/definitions",
-    "materialized_configs/shardmanager/spec/user/mononoke",
-    "materialized_configs/scm/mononoke/repos/quick_repo_definitions.materialized_JSON",
-];
 
 async fn ensure_acls_allow_repo_creation(
     ctx: CoreContext,
@@ -1072,54 +1064,6 @@ async fn initiate_land_for_mutation(
     mutation_id: i64,
 ) -> Result<(), scs_errors::ServiceError> {
     let mutation = Mutation::new(ctx.fb, configo_client, mutation_id);
-
-    let should_sign = justknobs::eval(
-        "scm/config_signing_removal:should_sign_configs_in_automation",
-        Some("scs_create_repos"),
-        None,
-    )
-    .map_err(|e| scs_errors::internal_error(format!("Failed to read JustKnob: {e:#}")))?;
-
-    if should_sign {
-        let content = mutation.content().await.map_err(|e| {
-            scs_errors::internal_error(format!("Failed to get mutation content: {e:#}"))
-        })?;
-
-        let mut signatures = BTreeMap::new();
-        let crypto_project = CryptoProject {
-            name: "SCM".to_owned(),
-            ..Default::default()
-        };
-
-        let crypto_service = crypto_service_srclients::make_CryptoService_srclient!(ctx.fb)
-            .map_err(|e| scs_errors::internal_error(format!("{e:#}")))?;
-
-        for file in content.modifiedFiles {
-            if SIGNATURE_SKIP_FOLDERS
-                .iter()
-                .any(|skip| file.path.starts_with(skip))
-            {
-                // These files are not signed, so do not sign them or landing the mutation will
-                // fail with "Error attaching signatures for mutation"
-                continue;
-            }
-            if let Some((path, sig)) = configo_crypto_utils::sign_config(
-                ctx.fb,
-                &crypto_service,
-                &file,
-                crypto_project.clone(),
-            )
-            .await
-            .map_err(|e| scs_errors::internal_error(format!("{e:#}")))?
-            {
-                signatures.insert(path, sig);
-            }
-        }
-        mutation
-            .attach_signatures(signatures)
-            .await
-            .map_err(|e| scs_errors::internal_error(format!("{e:#}")))?;
-    }
 
     let mutation_id = mutation
         .land_nowait()
