@@ -21,6 +21,7 @@ use commit_graph_types::storage::CommitGraphStorage;
 use commit_graph_types::storage::Prefetch;
 use context::CoreContext;
 use futures::FutureExt;
+use futures::stream::TryStreamExt;
 use in_memory_commit_graph_storage::InMemoryCommitGraphStorage;
 use justknobs::test_helpers::JustKnobsInMemory;
 use justknobs::test_helpers::KnobVal;
@@ -698,6 +699,28 @@ pub async fn test_parents_and_subtree_sources_tree(
     assert_parents_and_subtree_sources_common_base(&graph, &ctx, "K", "P", vec!["P"]).await?;
     assert_parents_and_subtree_sources_common_base(&graph, &ctx, "V", "J", vec!["G"]).await?;
     assert_parents_and_subtree_sources_common_base(&graph, &ctx, "F", "U", vec!["Q"]).await?;
+
+    // Test ancestors_within_distance on the parents-and-subtree-sources graph.
+    // G has parent B and subtree source Q. In the parents-and-subtree-sources
+    // view, both are treated as parents, so ancestors_within_distance([G], 1)
+    // should include G (distance 0), B (distance 1), and Q (distance 1).
+    let ancestors_within_distance: HashSet<_> = graph
+        .parents_and_subtree_sources_graph()
+        .ancestors_within_distance_stream(&ctx, vec![name_cs_id("G")], 1)
+        .await?
+        .try_collect()
+        .await?;
+    assert_eq!(
+        ancestors_within_distance,
+        hashset! {
+            (name_cs_id("G"), 0),
+            (name_cs_id("B"), 1),
+            // BUG: Q is missing here because ancestors_within_distance
+            // hardcodes Parents instead of using E, so subtree source
+            // edges are not traversed.
+        },
+    );
+
     Ok(())
 }
 
