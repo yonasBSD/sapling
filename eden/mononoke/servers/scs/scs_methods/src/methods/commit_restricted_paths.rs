@@ -322,15 +322,15 @@ mod tests {
         let ctx = CoreContext::test_mock(fb);
 
         let repo: Repo = TestRepoFactory::new(fb)
-            .unwrap()
+            .expect("Failed to create TestRepoFactory")
             .with_restricted_paths(restricted_paths)
             .build()
             .await
-            .unwrap();
+            .expect("Failed to build test repo");
 
         let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo))
             .await
-            .unwrap();
+            .expect("Failed to create test RepoContext");
 
         let acl_provider = DummyAclProvider::new(fb).unwrap();
 
@@ -355,7 +355,7 @@ mod tests {
         let paths = BTreeSet::from(["restricted/dir".to_string()]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         assert_eq!(response.are_restricted, thrift::PathCoverage::ALL);
         assert_eq!(response.restriction_roots.len(), 1);
@@ -377,14 +377,14 @@ mod tests {
         let paths = BTreeSet::from(["restricted/subdir/file.txt".to_string()]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         assert_eq!(response.are_restricted, thrift::PathCoverage::ALL);
         assert_eq!(response.restriction_roots.len(), 1);
         let roots = response
             .restriction_roots
             .get("restricted/subdir/file.txt")
-            .unwrap();
+            .expect("Expected restriction root for 'restricted/subdir/file.txt'");
         assert_eq!(roots[0].path, "restricted");
 
         Ok(())
@@ -402,7 +402,7 @@ mod tests {
         let paths = BTreeSet::from(["other/path/file.txt".to_string()]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         assert_eq!(response.are_restricted, thrift::PathCoverage::NONE);
         assert!(response.restriction_roots.is_empty());
@@ -422,7 +422,7 @@ mod tests {
         let paths = BTreeSet::from(["foo/baz/file.txt".to_string()]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         assert_eq!(response.are_restricted, thrift::PathCoverage::NONE);
         assert!(response.restriction_roots.is_empty());
@@ -447,13 +447,13 @@ mod tests {
         let paths = BTreeSet::from(["second/nested/file.txt".to_string()]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         assert_eq!(response.are_restricted, thrift::PathCoverage::ALL);
         let roots = response
             .restriction_roots
             .get("second/nested/file.txt")
-            .unwrap();
+            .expect("Expected restriction root for 'second/nested/file.txt'");
         assert_eq!(roots[0].path, "second");
         assert_eq!(roots[0].acls, vec!["TIER:second-acl"]);
 
@@ -486,7 +486,7 @@ mod tests {
         ]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         // 3 restricted + 1 unrestricted = SOME
         assert_eq!(response.are_restricted, thrift::PathCoverage::SOME);
@@ -500,14 +500,14 @@ mod tests {
         let second_roots = response
             .restriction_roots
             .get("second/subdir/file2.txt")
-            .unwrap();
+            .expect("Expected restriction root for 'second/subdir/file2.txt'");
         assert_eq!(second_roots[0].path, "second");
         assert_eq!(second_roots[0].acls, vec!["TIER:second-acl"]);
 
         let third_roots = response
             .restriction_roots
             .get("third/nested/deep/file3.txt")
-            .unwrap();
+            .expect("Expected restriction root for 'third/nested/deep/file3.txt'");
         assert_eq!(third_roots[0].path, "third/nested");
         assert_eq!(third_roots[0].acls, vec!["TIER:third-acl"]);
 
@@ -535,7 +535,7 @@ mod tests {
         let paths = BTreeSet::from(["any/path/file.txt".to_string()]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         assert_eq!(response.are_restricted, thrift::PathCoverage::NONE);
         assert_eq!(response.has_access, thrift::PathCoverage::ALL);
@@ -566,7 +566,7 @@ mod tests {
             true, // check_permissions = true
         )
         .await
-        .unwrap();
+        .expect("restricted_paths_access_impl failed");
 
         // DummyAclProvider grants access, so both paths should be authorized
         // The unrestricted path is always authorized, and restricted path
@@ -596,7 +596,7 @@ mod tests {
         ]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         assert_eq!(response.are_restricted, thrift::PathCoverage::ALL);
         assert_eq!(response.restriction_roots.len(), 3);
@@ -619,7 +619,7 @@ mod tests {
         ]);
         let response = restricted_paths_access_impl(&ctx, &repo_ctx, &acl_provider, paths, false)
             .await
-            .unwrap();
+            .expect("restricted_paths_access_impl failed");
 
         assert_eq!(response.are_restricted, thrift::PathCoverage::NONE);
         assert!(response.restriction_roots.is_empty());
