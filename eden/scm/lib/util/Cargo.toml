@@ -43,7 +43,7 @@ nix = { version = "0.30.1", features = ["dir", "event", "hostname", "inotify", "
 tempfile = "3.22"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-widestring = "1.0.2"
+widestring = "1.2.1"
 winapi = { version = "0.3", features = ["everything", "std"] }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
