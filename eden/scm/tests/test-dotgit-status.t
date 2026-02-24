@@ -64,6 +64,14 @@ Clean up (revert, purge)
   $ sl status
   $ git status --porcelain
 
+`debugstatus` does not crash
+
+  $ sl debugstatus
+  len(dirstate) = not supproted
+  len(nonnormal) = 0
+  len(filtered nonnormal) = 0
+  clock = None
+
 Changed in the staging area, but not changed in the working copy
 
   $ echo 3 >> b

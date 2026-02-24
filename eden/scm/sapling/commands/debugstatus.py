@@ -11,12 +11,14 @@ from .cmdtable import command
 @command("debugstatus", [("n", "nonnormal", 0, _("print nonnormalfiltered samples"))])
 def debugstatus(ui, repo, **opts):
     """common performance issues for status"""
-    if "eden" in repo.requirements:
-        raise error.Abort("debugstatus is not supported in edenfs virtual checkouts")
-
     dirstate = repo.dirstate
     dmap = dirstate._map
-    ui.write(_x("len(dirstate) = %d\n") % len(dmap))
+    dmap_len = None
+    try:
+        dmap_len = str(len(dmap))
+    except RuntimeError:
+        dmap_len = "not supproted"
+    ui.write(_x("len(dirstate) = %s\n") % (dmap_len,))
 
     nonnormalset = dmap.nonnormalset
     ui.write(_x("len(nonnormal) = %d\n") % len(nonnormalset))
