@@ -715,9 +715,7 @@ pub async fn test_parents_and_subtree_sources_tree(
         hashset! {
             (name_cs_id("G"), 0),
             (name_cs_id("B"), 1),
-            // BUG: Q is missing here because ancestors_within_distance
-            // hardcodes Parents instead of using E, so subtree source
-            // edges are not traversed.
+            (name_cs_id("Q"), 1),
         },
     );
 

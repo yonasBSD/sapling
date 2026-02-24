@@ -662,9 +662,9 @@ impl<E: EdgeType> CommitGraphOps<E> {
                         let distance = *cs_ids_and_remaining_distance
                             .get(&cs_id)
                             .ok_or_else(|| anyhow!("missing distance for changeset {} (in CommitGraph::ancestors_within_distance)", cs_id))?;
-                        for parent in edges.parents::<Parents>() {
+                        for parent in edges.parents::<E>() {
                             let parent_distance = frontier
-                                .entry(parent.generation::<Parents>())
+                                .entry(parent.generation::<E>())
                                 .or_default()
                                 .entry(parent.cs_id)
                                 .or_default();
@@ -744,25 +744,16 @@ impl<E: EdgeType> CommitGraphOps<E> {
             // highest generation changesets' skip tree skew ancestor.
             // This is optimized for the case where u_frontier has only
             // one changeset, but is correct in all cases.
-            if let Some(ancestor) = u_highest_generation_edges.skip_tree_skew_ancestor::<Parents>()
-            {
+            if let Some(ancestor) = u_highest_generation_edges.skip_tree_skew_ancestor::<E>() {
                 let mut lowered_u_frontier = u_frontier.clone();
                 let mut lowered_v_frontier = v_frontier.clone();
 
-                self.lower_frontier(
-                    ctx,
-                    &mut lowered_u_frontier,
-                    ancestor.generation::<Parents>(),
-                )
-                .watched()
-                .await?;
-                self.lower_frontier(
-                    ctx,
-                    &mut lowered_v_frontier,
-                    ancestor.generation::<Parents>(),
-                )
-                .watched()
-                .await?;
+                self.lower_frontier(ctx, &mut lowered_u_frontier, ancestor.generation::<E>())
+                    .watched()
+                    .await?;
+                self.lower_frontier(ctx, &mut lowered_v_frontier, ancestor.generation::<E>())
+                    .watched()
+                    .await?;
 
                 // If the two lowered frontier are disjoint then it's safe to lower,
                 // otherwise there might be a higher generation common ancestor.
