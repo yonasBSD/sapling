@@ -8,6 +8,7 @@
 import type {Hash} from '../types';
 import type {CommitMessageFields} from './types';
 
+import {ErrorNotice} from 'isl-components/ErrorNotice';
 import {atom} from 'jotai';
 import {firstLine} from 'shared/utils';
 import serverAPI from '../ClientToServerAPI';
@@ -23,6 +24,7 @@ import {onOperationExited, queuedOperations, queuedOperationsErrorAtom} from '..
 import {dagWithPreviews} from '../previews';
 import {selectedCommitInfos, selectedCommits} from '../selection';
 import {latestHeadCommit} from '../serverAPIState';
+import {showToast} from '../toast';
 import {registerCleanup, registerDisposable} from '../utils';
 import {
   allFieldsBeingEdited,
@@ -121,6 +123,22 @@ registerDisposable(
     const description = event.description;
     const mode = event.mode ?? 'commit'; // Default to 'commit' if not specified
     const hash = event.hash ?? readAtom(latestHeadCommit)?.hash ?? 'head';
+    // If a specific hash is provided, ensure the commit exists and select it
+    const commit = readAtom(dagWithPreviews).get(hash);
+    if (mode !== 'commit' && commit?.phase === 'public') {
+      showToast(
+        <ErrorNotice
+          title="Cannot update commit message"
+          error={
+            new Error(
+              `Commit ${hash} is a public commit and cannot be modified. Please select a draft commit or use commit mode instead.`,
+            )
+          }
+        />,
+        {durationMs: 8000},
+      );
+      return;
+    }
 
     writeAtom(islDrawerState, val => ({...val, right: {...val.right, collapsed: false}}));
     const schema = readAtom(commitMessageFieldsSchema);
