@@ -1914,4 +1914,29 @@ impl<R: MononokeRepo> ChangesetContext<R> {
             .try_collect()
             .await
     }
+
+    /// Find restricted descendants under a set of root paths.
+    ///
+    /// Returns PathRestrictionInfo for all restriction roots
+    /// that are descendants of any of the given root paths.
+    /// Results are deduplicated by restriction_root.
+    pub async fn find_restricted_descendants(
+        &self,
+        roots: Vec<MPath>,
+    ) -> Result<Vec<PathRestrictionInfo>, MononokeError> {
+        let all_descendants: Vec<Vec<PathRestrictionInfo>> = stream::iter(roots)
+            .map(|root| async move {
+                let restriction_ctx = self.path_restriction(root).await?;
+                restriction_ctx.find_restricted_descendants().await
+            })
+            .buffer_unordered(100)
+            .try_collect()
+            .await?;
+
+        let mut merged: Vec<PathRestrictionInfo> = all_descendants.into_iter().flatten().collect();
+        // Deduplicate by restriction_root
+        merged.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        merged.dedup_by(|a, b| a.restriction_root == b.restriction_root);
+        Ok(merged)
+    }
 }

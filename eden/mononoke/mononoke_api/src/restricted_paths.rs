@@ -472,4 +472,319 @@ mod tests {
 
         Ok(())
     }
+
+    // ---- find_restricted_descendants tests ----
+
+    #[mononoke::fbinit_test]
+    async fn test_find_descendants_no_restrictions(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(fb, vec![]).await;
+
+        let descendants = cs_ctx
+            .path_restriction(MPath::ROOT)
+            .await?
+            .find_restricted_descendants()
+            .await?;
+
+        assert!(descendants.is_empty());
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_descendants_root_returns_all(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![
+                ("first/path", "TIER:first-acl"),
+                ("second/path", "TIER:second-acl"),
+            ],
+        )
+        .await;
+
+        let descendants = cs_ctx
+            .path_restriction(MPath::ROOT)
+            .await?
+            .find_restricted_descendants()
+            .await?;
+
+        let expected = vec![
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("first/path").unwrap(),
+                repo_region_acl: "TIER:first-acl".to_string(),
+                has_access: None,
+                request_acl: "TIER:first-acl".to_string(),
+            },
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("second/path").unwrap(),
+                repo_region_acl: "TIER:second-acl".to_string(),
+                has_access: None,
+                request_acl: "TIER:second-acl".to_string(),
+            },
+        ];
+        let mut actual = descendants;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_descendants_filter_exact_match(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![
+                ("first/path", "TIER:first-acl"),
+                ("second/path", "TIER:second-acl"),
+            ],
+        )
+        .await;
+
+        let descendants = cs_ctx
+            .path_restriction(MPath::try_from("first/path").unwrap())
+            .await?
+            .find_restricted_descendants()
+            .await?;
+
+        // "first/path" is itself a restriction root, and is_prefix_of returns
+        // true for equal paths, so it should be returned
+        let expected = vec![PathRestrictionInfo {
+            restriction_root: NonRootMPath::new("first/path").unwrap(),
+            repo_region_acl: "TIER:first-acl".to_string(),
+            has_access: None,
+            request_acl: "TIER:first-acl".to_string(),
+        }];
+        let mut actual = descendants;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_descendants_filter_parent_of_root(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) =
+            create_test_changeset(fb, vec![("foo/bar/restricted", "TIER:my-acl")]).await;
+
+        let descendants = cs_ctx
+            .path_restriction(MPath::try_from("foo").unwrap())
+            .await?
+            .find_restricted_descendants()
+            .await?;
+
+        let expected = vec![PathRestrictionInfo {
+            restriction_root: NonRootMPath::new("foo/bar/restricted").unwrap(),
+            repo_region_acl: "TIER:my-acl".to_string(),
+            has_access: None,
+            request_acl: "TIER:my-acl".to_string(),
+        }];
+        let mut actual = descendants;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_descendants_filter_child_of_root_returns_empty(
+        fb: FacebookInit,
+    ) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(fb, vec![("foo/bar", "TIER:my-acl")]).await;
+
+        // Filter is a child of the root — should NOT match because we only
+        // return roots that are under the filter
+        let descendants = cs_ctx
+            .path_restriction(MPath::try_from("foo/bar/baz/deep").unwrap())
+            .await?
+            .find_restricted_descendants()
+            .await?;
+
+        assert!(descendants.is_empty());
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_descendants_filter_no_match(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![
+                ("first/path", "TIER:first-acl"),
+                ("second/path", "TIER:second-acl"),
+            ],
+        )
+        .await;
+
+        let descendants = cs_ctx
+            .path_restriction(MPath::try_from("third/path").unwrap())
+            .await?
+            .find_restricted_descendants()
+            .await?;
+
+        assert!(descendants.is_empty());
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_descendants_filter_sibling_no_match(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(fb, vec![("foo/bar", "TIER:my-acl")]).await;
+
+        let descendants = cs_ctx
+            .path_restriction(MPath::try_from("foo/baz").unwrap())
+            .await?
+            .find_restricted_descendants()
+            .await?;
+
+        assert!(descendants.is_empty());
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_descendants_nested_roots(fb: FacebookInit) -> Result<()> {
+        // Nested restriction roots: foo/ and foo/bar/
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![("foo", "TIER:outer-acl"), ("foo/bar", "TIER:inner-acl")],
+        )
+        .await;
+
+        // Querying from foo/ should return both the outer and inner roots
+        let descendants = cs_ctx
+            .path_restriction(MPath::try_from("foo").unwrap())
+            .await?
+            .find_restricted_descendants()
+            .await?;
+
+        let expected = vec![
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("foo").unwrap(),
+                repo_region_acl: "TIER:outer-acl".to_string(),
+                has_access: None,
+                request_acl: "TIER:outer-acl".to_string(),
+            },
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("foo/bar").unwrap(),
+                repo_region_acl: "TIER:inner-acl".to_string(),
+                has_access: None,
+                request_acl: "TIER:inner-acl".to_string(),
+            },
+        ];
+        let mut actual = descendants;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    // ---- batch find_restricted_descendants tests ----
+
+    #[mononoke::fbinit_test]
+    async fn test_batch_find_descendants_multiple_roots(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![
+                ("first/path", "TIER:first-acl"),
+                ("second/path", "TIER:second-acl"),
+                ("third/path", "TIER:third-acl"),
+            ],
+        )
+        .await;
+
+        let roots = vec![
+            MPath::try_from("first/path").unwrap(),
+            MPath::try_from("third/path").unwrap(),
+        ];
+
+        let descendants = cs_ctx.find_restricted_descendants(roots).await?;
+
+        let expected = vec![
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("first/path").unwrap(),
+                repo_region_acl: "TIER:first-acl".to_string(),
+                has_access: None,
+                request_acl: "TIER:first-acl".to_string(),
+            },
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("third/path").unwrap(),
+                repo_region_acl: "TIER:third-acl".to_string(),
+                has_access: None,
+                request_acl: "TIER:third-acl".to_string(),
+            },
+        ];
+        let mut actual = descendants;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_batch_find_descendants_deduplicates(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, cs_ctx) =
+            create_test_changeset(fb, vec![("shared/path", "TIER:my-acl")]).await;
+
+        // Both roots are parents of the same restriction root
+        let roots = vec![MPath::try_from("shared").unwrap(), MPath::ROOT];
+
+        let descendants = cs_ctx.find_restricted_descendants(roots).await?;
+
+        // Should be deduplicated to just one entry
+        let expected = vec![PathRestrictionInfo {
+            restriction_root: NonRootMPath::new("shared/path").unwrap(),
+            repo_region_acl: "TIER:my-acl".to_string(),
+            has_access: None,
+            request_acl: "TIER:my-acl".to_string(),
+        }];
+        let mut actual = descendants;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_batch_find_descendants_nested_roots_and_queries(fb: FacebookInit) -> Result<()> {
+        // Nested restriction roots
+        let (_repo_ctx, cs_ctx) = create_test_changeset(
+            fb,
+            vec![
+                ("foo", "TIER:outer-acl"),
+                ("foo/bar", "TIER:inner-acl"),
+                ("baz", "TIER:baz-acl"),
+            ],
+        )
+        .await;
+
+        // Nested query paths: foo/ is a parent of foo/bar/.
+        // foo/ should find both foo/ and foo/bar/.
+        // foo/bar/ should find just foo/bar/ (already found by foo/).
+        // After dedup: foo/ and foo/bar/ (baz/ not matched by either query).
+        let roots = vec![
+            MPath::try_from("foo").unwrap(),
+            MPath::try_from("foo/bar").unwrap(),
+        ];
+
+        let descendants = cs_ctx.find_restricted_descendants(roots).await?;
+
+        let expected = vec![
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("foo").unwrap(),
+                repo_region_acl: "TIER:outer-acl".to_string(),
+                has_access: None,
+                request_acl: "TIER:outer-acl".to_string(),
+            },
+            PathRestrictionInfo {
+                restriction_root: NonRootMPath::new("foo/bar").unwrap(),
+                repo_region_acl: "TIER:inner-acl".to_string(),
+                has_access: None,
+                request_acl: "TIER:inner-acl".to_string(),
+            },
+        ];
+        let mut actual = descendants;
+        actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
+        pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
 }
