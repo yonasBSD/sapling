@@ -25,6 +25,25 @@ pub struct PathRestrictionInfo {
     /// If no specific request ACL is configured, this defaults to the repo_region_acl.
     pub request_acl: String,
 }
+
+/// Information about restricted path changes in a changeset.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RestrictedPathsChangesInfo {
+    /// Changed paths that fall under restrictions, grouped by restriction root.
+    pub restricted_changes: Vec<RestrictedChangeGroup>,
+}
+
+/// A group of changed paths that share the same restriction root.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RestrictedChangeGroup {
+    /// The restriction root and access info covering these changes.
+    pub restriction_info: PathRestrictionInfo,
+    // TODO(T248660146): remove this field and `RestrictedChangeGroup` if there's
+    // no need to use it for now.
+    /// The changed paths under this restriction root.
+    pub changed_paths: Vec<NonRootMPath>,
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -784,6 +803,210 @@ mod tests {
         let mut actual = descendants;
         actual.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
         pretty_assertions::assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    // ---- restricted_paths_changes tests ----
+
+    #[mononoke::fbinit_test]
+    async fn test_restricted_paths_changes_with_restricted_files(fb: FacebookInit) -> Result<()> {
+        let restricted_paths =
+            create_test_restricted_paths(fb, vec![("restricted", "TIER:my-acl")]).await;
+        let ctx = CoreContext::test_mock(fb);
+
+        let repo: Repo = TestRepoFactory::new(fb)
+            .unwrap()
+            .with_restricted_paths(restricted_paths)
+            .build()
+            .await
+            .unwrap();
+
+        let root_cs_id = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("restricted/file.txt", "secret")
+            .add_file("public/file.txt", "public")
+            .commit()
+            .await?;
+
+        let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo)).await?;
+        let cs_ctx = ChangesetContext::new(repo_ctx, root_cs_id);
+
+        let changes = cs_ctx.restricted_paths_changes().await?;
+
+        let expected = RestrictedPathsChangesInfo {
+            restricted_changes: vec![RestrictedChangeGroup {
+                restriction_info: PathRestrictionInfo {
+                    restriction_root: NonRootMPath::new("restricted").unwrap(),
+                    repo_region_acl: "TIER:my-acl".to_string(),
+                    has_access: Some(true),
+                    request_acl: "TIER:my-acl".to_string(),
+                },
+                changed_paths: vec![NonRootMPath::new("restricted/file.txt").unwrap()],
+            }],
+        };
+        pretty_assertions::assert_eq!(changes, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restricted_paths_changes_no_restricted_files(fb: FacebookInit) -> Result<()> {
+        let restricted_paths =
+            create_test_restricted_paths(fb, vec![("restricted", "TIER:my-acl")]).await;
+        let ctx = CoreContext::test_mock(fb);
+
+        let repo: Repo = TestRepoFactory::new(fb)
+            .unwrap()
+            .with_restricted_paths(restricted_paths)
+            .build()
+            .await
+            .unwrap();
+
+        let root_cs_id = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("public/file.txt", "public")
+            .commit()
+            .await?;
+
+        let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo)).await?;
+        let cs_ctx = ChangesetContext::new(repo_ctx, root_cs_id);
+
+        let changes = cs_ctx.restricted_paths_changes().await?;
+
+        assert!(changes.restricted_changes.is_empty());
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restricted_paths_changes_nested_roots(fb: FacebookInit) -> Result<()> {
+        // Use nested roots: "first" contains "first/second"
+        // A file under first/second/ should appear in both groups.
+        let restricted_paths = create_test_restricted_paths(
+            fb,
+            vec![
+                ("first", "TIER:first-acl"),
+                ("first/second", "TIER:second-acl"),
+            ],
+        )
+        .await;
+        let ctx = CoreContext::test_mock(fb);
+
+        let repo: Repo = TestRepoFactory::new(fb)
+            .unwrap()
+            .with_restricted_paths(restricted_paths)
+            .build()
+            .await
+            .unwrap();
+
+        let root_cs_id = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("first/a.txt", "a")
+            .add_file("first/b.txt", "b")
+            .add_file("first/second/c.txt", "c")
+            .add_file("public/d.txt", "d")
+            .commit()
+            .await?;
+
+        let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo)).await?;
+        let cs_ctx = ChangesetContext::new(repo_ctx, root_cs_id);
+
+        let changes = cs_ctx.restricted_paths_changes().await?;
+
+        // Groups are sorted by restriction_root (BTreeMap ordering)
+        // First group has 3 changed paths (a.txt, b.txt, second/c.txt)
+        // because first/second/c.txt is also under first/
+        // Second group has 1 changed path (first/second/c.txt)
+        let expected = RestrictedPathsChangesInfo {
+            restricted_changes: vec![
+                RestrictedChangeGroup {
+                    restriction_info: PathRestrictionInfo {
+                        restriction_root: NonRootMPath::new("first").unwrap(),
+                        repo_region_acl: "TIER:first-acl".to_string(),
+                        has_access: Some(true),
+                        request_acl: "TIER:first-acl".to_string(),
+                    },
+                    changed_paths: vec![
+                        NonRootMPath::new("first/a.txt").unwrap(),
+                        NonRootMPath::new("first/b.txt").unwrap(),
+                        NonRootMPath::new("first/second/c.txt").unwrap(),
+                    ],
+                },
+                RestrictedChangeGroup {
+                    restriction_info: PathRestrictionInfo {
+                        restriction_root: NonRootMPath::new("first/second").unwrap(),
+                        repo_region_acl: "TIER:second-acl".to_string(),
+                        has_access: Some(true),
+                        request_acl: "TIER:second-acl".to_string(),
+                    },
+                    changed_paths: vec![NonRootMPath::new("first/second/c.txt").unwrap()],
+                },
+            ],
+        };
+        pretty_assertions::assert_eq!(changes, expected);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_restricted_paths_changes_multiple_unrelated_roots(
+        fb: FacebookInit,
+    ) -> Result<()> {
+        // Two independent restriction roots with no nesting relationship
+        let restricted_paths = create_test_restricted_paths(
+            fb,
+            vec![("alpha", "TIER:alpha-acl"), ("beta", "TIER:beta-acl")],
+        )
+        .await;
+        let ctx = CoreContext::test_mock(fb);
+
+        let repo: Repo = TestRepoFactory::new(fb)
+            .unwrap()
+            .with_restricted_paths(restricted_paths)
+            .build()
+            .await
+            .unwrap();
+
+        let root_cs_id = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("alpha/file1.txt", "a1")
+            .add_file("alpha/file2.txt", "a2")
+            .add_file("beta/file3.txt", "b1")
+            .add_file("public/file4.txt", "p1")
+            .commit()
+            .await?;
+
+        let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo)).await?;
+        let cs_ctx = ChangesetContext::new(repo_ctx, root_cs_id);
+
+        let changes = cs_ctx.restricted_paths_changes().await?;
+
+        // Groups are sorted by restriction_root (BTreeMap ordering):
+        // alpha/ has 2 changed paths, beta/ has 1 changed path.
+        // public/file4.txt is unrestricted and should not appear.
+        let expected = RestrictedPathsChangesInfo {
+            restricted_changes: vec![
+                RestrictedChangeGroup {
+                    restriction_info: PathRestrictionInfo {
+                        restriction_root: NonRootMPath::new("alpha").unwrap(),
+                        repo_region_acl: "TIER:alpha-acl".to_string(),
+                        has_access: Some(true),
+                        request_acl: "TIER:alpha-acl".to_string(),
+                    },
+                    changed_paths: vec![
+                        NonRootMPath::new("alpha/file1.txt").unwrap(),
+                        NonRootMPath::new("alpha/file2.txt").unwrap(),
+                    ],
+                },
+                RestrictedChangeGroup {
+                    restriction_info: PathRestrictionInfo {
+                        restriction_root: NonRootMPath::new("beta").unwrap(),
+                        repo_region_acl: "TIER:beta-acl".to_string(),
+                        has_access: Some(true),
+                        request_acl: "TIER:beta-acl".to_string(),
+                    },
+                    changed_paths: vec![NonRootMPath::new("beta/file3.txt").unwrap()],
+                },
+            ],
+        };
+        pretty_assertions::assert_eq!(changes, expected);
 
         Ok(())
     }

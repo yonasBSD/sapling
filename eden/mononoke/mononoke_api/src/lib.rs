@@ -89,6 +89,8 @@ pub use crate::repo::land_stack::PushrebaseOutcome;
 pub use crate::repo::update_submodule_expansion::SubmoduleExpansionUpdate;
 pub use crate::repo::update_submodule_expansion::SubmoduleExpansionUpdateCommitInfo;
 pub use crate::restricted_paths::PathRestrictionInfo;
+pub use crate::restricted_paths::RestrictedChangeGroup;
+pub use crate::restricted_paths::RestrictedPathsChangesInfo;
 pub use crate::specifiers::ChangesetId;
 pub use crate::specifiers::ChangesetIdPrefix;
 pub use crate::specifiers::ChangesetPrefixSpecifier;

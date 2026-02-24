@@ -94,6 +94,8 @@ use crate::changeset_path_diff::ChangesetPathDiffContext;
 use crate::errors::MononokeError;
 use crate::repo::RepoContext;
 use crate::restricted_paths::PathRestrictionInfo;
+use crate::restricted_paths::RestrictedChangeGroup;
+use crate::restricted_paths::RestrictedPathsChangesInfo;
 use crate::specifiers::ChangesetId;
 use crate::specifiers::GitSha1;
 use crate::specifiers::HgChangesetId;
@@ -1938,5 +1940,55 @@ impl<R: MononokeRepo> ChangesetContext<R> {
         merged.sort_by(|a, b| a.restriction_root.cmp(&b.restriction_root));
         merged.dedup_by(|a, b| a.restriction_root == b.restriction_root);
         Ok(merged)
+    }
+
+    /// Determine which changed files in this changeset touch restricted paths.
+    ///
+    /// Returns restriction info grouped by restriction root, with the list of
+    /// changed paths under each root.
+    // TODO(T248660146): update this primitive to use AclManifest instead of access logging config.
+    // For draft commit safety (T255927050), the long-term implementation should
+    // resolve ACLs using the closest public ancestor's ACL manifest.
+    pub async fn restricted_paths_changes(
+        &self,
+    ) -> Result<RestrictedPathsChangesInfo, MononokeError> {
+        let file_changes = self.file_changes().await?;
+        let changed_paths: Vec<NonRootMPath> = file_changes.keys().cloned().collect();
+
+        let restriction_results = self.paths_restriction_info(changed_paths).await?;
+
+        // A path under multiple nested roots will appear in multiple groups.
+        // Expand each (path, infos) into individual (path, info) pairs, then group by root.
+        let groups =
+            restriction_results
+                .into_iter()
+                .flat_map(|(path, infos)| infos.into_iter().map(move |info| (path.clone(), info)))
+                .fold(
+                    std::collections::BTreeMap::<
+                        NonRootMPath,
+                        (PathRestrictionInfo, Vec<NonRootMPath>),
+                    >::new(),
+                    |mut acc, (path, info)| {
+                        let root = info.restriction_root.clone();
+                        acc.entry(root)
+                            .or_insert_with(|| (info, Vec::new()))
+                            .1
+                            .push(path);
+                        acc
+                    },
+                );
+
+        let restricted_changes = groups
+            .into_values()
+            .map(|(restriction_info, mut changed_paths)| {
+                changed_paths.sort();
+                RestrictedChangeGroup {
+                    restriction_info,
+                    changed_paths,
+                }
+            })
+            .collect();
+
+        Ok(RestrictedPathsChangesInfo { restricted_changes })
     }
 }
