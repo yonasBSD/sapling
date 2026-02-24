@@ -76,6 +76,7 @@ use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedDataArc;
 use repo_derived_data::RepoDerivedDataRef;
 use repo_identity::RepoIdentityRef;
+use restricted_paths::RestrictedPathsArc;
 use skeleton_manifest::RootSkeletonManifestId;
 use skeleton_manifest_v2::RootSkeletonManifestV2Id;
 use smallvec::SmallVec;
@@ -1990,5 +1991,13 @@ impl<R: MononokeRepo> ChangesetContext<R> {
             .collect();
 
         Ok(RestrictedPathsChangesInfo { restricted_changes })
+    }
+
+    /// Check if the repository has any restricted paths configured.
+    pub fn has_restricted_paths(&self) -> bool {
+        self.repo_ctx()
+            .repo()
+            .restricted_paths_arc()
+            .has_restricted_paths()
     }
 }
