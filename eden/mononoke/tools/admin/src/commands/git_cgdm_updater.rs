@@ -11,6 +11,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
+use blobstore::Blobstore;
 use blobstore::BlobstoreBytes;
 use blobstore::KeyedBlobstore;
 use blobstore::Storable;
@@ -53,6 +54,8 @@ use mononoke_app::args::ChangesetArgs;
 use mononoke_app::args::RepoArgs;
 use mononoke_types::BlobstoreValue;
 use mononoke_types::ThriftConvert;
+use mutable_blobstore::MutableRepoBlobstore;
+use mutable_blobstore::MutableRepoBlobstoreRef;
 use repo_blobstore::RepoBlobstore;
 use repo_blobstore::RepoBlobstoreArc;
 use repo_blobstore::RepoBlobstoreRef;
@@ -137,6 +140,9 @@ pub struct Repo {
     repo_blobstore: RepoBlobstore,
 
     #[facet]
+    mutable_repo_blobstore: MutableRepoBlobstore,
+
+    #[facet]
     repo_identity: RepoIdentity,
 
     #[facet]
@@ -196,10 +202,21 @@ async fn update_cgdm(
 ) -> Result<()> {
     let repo_name = repo.repo_identity().name();
     let mut cgdm_components = match rebuild {
-        false => match repo.repo_blobstore().get(ctx, &blobstore_key).await? {
-            Some(bytes) => CGDMComponents::from_bytes(bytes.as_raw_bytes())?,
-            None => Default::default(),
-        },
+        false => {
+            // Try reading from mutable blobstore first, fall back to immutable
+            let bytes = match repo
+                .mutable_repo_blobstore()
+                .get(ctx, &blobstore_key)
+                .await?
+            {
+                Some(bytes) => Some(bytes),
+                None => repo.repo_blobstore().get(ctx, &blobstore_key).await?,
+            };
+            match bytes {
+                Some(bytes) => CGDMComponents::from_bytes(bytes.as_raw_bytes())?,
+                None => Default::default(),
+            }
+        }
         true => Default::default(),
     };
 
@@ -440,13 +457,16 @@ async fn update_cgdm(
         repo_name, blobstore_key,
     );
 
-    repo.repo_blobstore()
-        .put(
-            ctx,
-            blobstore_key,
-            BlobstoreBytes::from_bytes(cgdm_components.into_bytes()),
-        )
-        .await?;
+    let mapping_bytes = BlobstoreBytes::from_bytes(cgdm_components.into_bytes());
+    // Write the CGDMComponents mapping blob to both the immutable and mutable blobstores.
+    // The mutable blobstore provides strong consistency guarantees needed for this
+    // mutable blob, while the immutable write maintains backwards compatibility.
+    futures::try_join!(
+        repo.repo_blobstore()
+            .put(ctx, blobstore_key.clone(), mapping_bytes.clone()),
+        repo.mutable_repo_blobstore()
+            .put(ctx, blobstore_key, mapping_bytes),
+    )?;
 
     println!("[{}] CGDM update complete", repo_name,);
 
