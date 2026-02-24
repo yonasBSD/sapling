@@ -163,7 +163,7 @@ impl<E: EdgeType> CommitGraphOps<E> {
             .await?;
 
         for (cs_id, edges) in all_edges {
-            let base = edges.merge_ancestor::<E>().unwrap_or(edges.node());
+            let base = edges.merge_ancestor_or_root::<E>().unwrap_or(edges.node());
             frontier
                 .segments
                 .entry(base.generation::<E>())
@@ -208,7 +208,7 @@ impl<E: EdgeType> CommitGraphOps<E> {
                     .await?;
 
                 for (cs_id, edges) in parent_edges {
-                    let base = edges.merge_ancestor::<E>().unwrap_or(edges.node());
+                    let base = edges.merge_ancestor_or_root::<E>().unwrap_or(edges.node());
                     segment_frontier
                         .segments
                         .entry(base.generation::<E>())
@@ -625,7 +625,7 @@ impl<E: EdgeType> CommitGraphOps<E> {
                         .await?;
 
                     for (cs_id, edges) in parent_edges {
-                        let base = edges.merge_ancestor::<E>().unwrap_or(edges.node());
+                        let base = edges.merge_ancestor_or_root::<E>().unwrap_or(edges.node());
                         heads_segment_frontier
                             .segments
                             .entry(base.generation::<E>())
@@ -939,7 +939,7 @@ impl<E: EdgeType> CommitGraphOps<E> {
         count: u64,
     ) -> Result<Vec<ChangesetId>> {
         let edges = self.storage.fetch_edges(ctx, cs_id).await?;
-        let merge_or_root_ancestor = edges.merge_ancestor::<E>().unwrap_or(edges.node());
+        let merge_or_root_ancestor = edges.merge_ancestor_or_root::<E>().unwrap_or(edges.node());
 
         // Check that the generation of the lowest requested ancestor is greater than or equal
         // to the generation of the nearest merge/root ancestor. Otherwise the request ancestor

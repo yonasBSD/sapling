@@ -505,7 +505,7 @@ impl<E: EdgeType> CommitGraphOps<E> {
             return Ok(false);
         }
 
-        if let Some(merge_ancestor) = descendant_edges.merge_ancestor::<Parents>()
+        if let Some(merge_ancestor) = descendant_edges.merge_ancestor_or_root::<Parents>()
             && merge_ancestor.generation::<Parents>() > FIRST_GENERATION
             && merge_ancestor.generation::<Parents>() >= target_gen
         {

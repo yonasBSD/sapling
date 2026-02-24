@@ -157,9 +157,9 @@ impl PreloadedEdges {
                 .iter()
                 .map(|subtree_source_id| self.get_node(*subtree_source_id))
                 .collect::<Result<_>>()?,
-            merge_ancestor: compact_edges
-                .merge_ancestor
-                .map(|merge_ancestor| self.get_node(merge_ancestor))
+            merge_ancestor_or_root: compact_edges
+                .merge_ancestor_or_root
+                .map(|merge_ancestor_or_root| self.get_node(merge_ancestor_or_root))
                 .transpose()?,
             skip_tree_parent: compact_edges
                 .skip_tree_parent
@@ -243,9 +243,9 @@ impl ExtendablePreloadedEdges {
             .subtree_sources()
             .map(|subtree_source| self.unique_id(subtree_source.cs_id))
             .collect();
-        let merge_ancestor = edges
-            .merge_ancestor::<Parents>()
-            .map(|merge_ancestor| self.unique_id(merge_ancestor.cs_id));
+        let merge_ancestor_or_root = edges
+            .merge_ancestor_or_root::<Parents>()
+            .map(|merge_ancestor_or_root| self.unique_id(merge_ancestor_or_root.cs_id));
         let skip_tree_parent = edges
             .skip_tree_parent::<Parents>()
             .map(|skip_tree_parent| self.unique_id(skip_tree_parent.cs_id));
@@ -256,7 +256,7 @@ impl ExtendablePreloadedEdges {
             .skip_tree_skew_ancestor::<FirstParentLinear>()
             .map(|p1_linear_skew_ancestor| self.unique_id(p1_linear_skew_ancestor.cs_id));
         let subtree_or_merge_ancestor = edges
-            .merge_ancestor::<ParentsAndSubtreeSources>()
+            .merge_ancestor_or_root::<ParentsAndSubtreeSources>()
             .map(|subtree_or_merge_ancestor| self.unique_id(subtree_or_merge_ancestor.cs_id));
         let subtree_source_parent = edges
             .skip_tree_parent::<ParentsAndSubtreeSources>()
@@ -279,7 +279,7 @@ impl ExtendablePreloadedEdges {
                     as u32,
                 parents,
                 subtree_sources,
-                merge_ancestor,
+                merge_ancestor_or_root,
                 skip_tree_parent,
                 skip_tree_skew_ancestor,
                 p1_linear_skew_ancestor,

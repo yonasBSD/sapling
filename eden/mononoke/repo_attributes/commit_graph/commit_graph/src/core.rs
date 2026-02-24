@@ -40,7 +40,7 @@ impl CommitGraph {
         let mut max_parent_gen = 0;
         let mut max_subtree_source_gen = 0;
         let mut edge_parents = ChangesetNodeParents::new();
-        let mut merge_ancestor = None;
+        let mut merge_ancestor_or_root = None;
         let mut subtree_or_merge_ancestor = None;
 
         let mut skip_tree_parent = None;
@@ -62,15 +62,15 @@ impl CommitGraph {
             );
             edge_parents.push(*parent_edge.node());
             if parents.len() == 1 {
-                merge_ancestor = Some(
+                merge_ancestor_or_root = Some(
                     *parent_edge
-                        .merge_ancestor::<Parents>()
+                        .merge_ancestor_or_root::<Parents>()
                         .unwrap_or(parent_edge.node()),
                 );
                 if subtree_sources.is_empty() {
                     subtree_or_merge_ancestor = Some(
                         *parent_edge
-                            .merge_ancestor::<ParentsAndSubtreeSources>()
+                            .merge_ancestor_or_root::<ParentsAndSubtreeSources>()
                             .unwrap_or(parent_edge.node()),
                     );
                 }
@@ -152,7 +152,7 @@ impl CommitGraph {
             node,
             parents: edge_parents,
             subtree_sources: edge_subtree_sources,
-            merge_ancestor,
+            merge_ancestor_or_root,
             skip_tree_parent,
             skip_tree_skew_ancestor: self
                 .calc_skew_ancestor::<Parents>(ctx, skip_tree_parent)

@@ -215,7 +215,7 @@ pub async fn test_storage_store_and_fetch(
             .maybe_fetch_edges(&ctx, name_cs_id("A"))
             .await?
             .unwrap()
-            .merge_ancestor::<Parents>(),
+            .merge_ancestor_or_root::<Parents>(),
         None
     );
     assert_eq!(
@@ -223,7 +223,7 @@ pub async fn test_storage_store_and_fetch(
             .maybe_fetch_edges(&ctx, name_cs_id("C"))
             .await?
             .unwrap()
-            .merge_ancestor::<Parents>(),
+            .merge_ancestor_or_root::<Parents>(),
         Some(&name_cs_node("A", 1, 0, 0))
     );
     assert_eq!(
@@ -231,7 +231,7 @@ pub async fn test_storage_store_and_fetch(
             .maybe_fetch_edges(&ctx, name_cs_id("I"))
             .await?
             .unwrap()
-            .merge_ancestor::<Parents>(),
+            .merge_ancestor_or_root::<Parents>(),
         Some(&name_cs_node("G", 5, 1, 4))
     );
 

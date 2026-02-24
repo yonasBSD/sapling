@@ -1270,7 +1270,7 @@ impl SqlCommitGraphStorage {
                                 ),
                                 parents: ChangesetNodeParents::new(),
                                 subtree_sources: ChangesetNodeSubtreeSources::new(),
-                                merge_ancestor,
+                                merge_ancestor_or_root: merge_ancestor,
                                 skip_tree_parent,
                                 skip_tree_skew_ancestor,
                                 p1_linear_skew_ancestor,
@@ -1774,11 +1774,11 @@ impl SqlCommitGraphStorage {
                     e.parent_count(),
                     e.subtree_source_count(),
                     maybe_get_id(e.parents::<Parents>().next())?,
-                    maybe_get_id(e.merge_ancestor::<Parents>())?,
+                    maybe_get_id(e.merge_ancestor_or_root::<Parents>())?,
                     maybe_get_id(e.skip_tree_parent::<Parents>())?,
                     maybe_get_id(e.skip_tree_skew_ancestor::<Parents>())?,
                     maybe_get_id(e.skip_tree_skew_ancestor::<FirstParentLinear>())?,
-                    maybe_get_id(e.merge_ancestor::<ParentsAndSubtreeSources>())?,
+                    maybe_get_id(e.merge_ancestor_or_root::<ParentsAndSubtreeSources>())?,
                     maybe_get_id(e.skip_tree_parent::<ParentsAndSubtreeSources>())?,
                     maybe_get_id(e.skip_tree_skew_ancestor::<ParentsAndSubtreeSources>())?,
                 ))
@@ -1964,7 +1964,9 @@ impl CommitGraphStorage for SqlCommitGraphStorage {
             &edges.parent_count(),
             &edges.subtree_source_count(),
             &edges.parents::<Parents>().next().map(|node| node.cs_id),
-            &edges.merge_ancestor::<Parents>().map(|node| node.cs_id),
+            &edges
+                .merge_ancestor_or_root::<Parents>()
+                .map(|node| node.cs_id),
             &edges.skip_tree_parent::<Parents>().map(|node| node.cs_id),
             &edges
                 .skip_tree_skew_ancestor::<Parents>()
@@ -1973,7 +1975,7 @@ impl CommitGraphStorage for SqlCommitGraphStorage {
                 .skip_tree_skew_ancestor::<FirstParentLinear>()
                 .map(|node| node.cs_id),
             &edges
-                .merge_ancestor::<ParentsAndSubtreeSources>()
+                .merge_ancestor_or_root::<ParentsAndSubtreeSources>()
                 .map(|node| node.cs_id),
             &edges
                 .skip_tree_parent::<ParentsAndSubtreeSources>()
