@@ -45,4 +45,4 @@ url = "2.5.4"
 assert_matches = "1.5"
 crossbeam = "0.8"
 mockito = "1.7.2"
-zstd = { version = "0.13", features = ["experimental", "zstdmt"] }
+zstd = { version = "0.13.3", features = ["experimental", "zstdmt"] }
