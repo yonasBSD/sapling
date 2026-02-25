@@ -11,16 +11,17 @@
 # GNU General Public License version 2 or any later version.
 
 
-import subprocess
-import textwrap
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import bindings
 
-from . import error, revlog, util
+from . import error, revlog, signing, util
 from .i18n import _
 from .node import bbin, nullid
 from .thirdparty import attr
+
+if TYPE_CHECKING:
+    from .signing import SigningConfig
 
 _defaultextra = {"branch": "default"}
 
@@ -299,16 +300,13 @@ def gitcommittext(
     user: str,
     date: Optional[Union[str, Tuple[Union[int, float], int]]],
     extra: Optional[Dict[str, str]],
-    gpgkeyid: Optional[str] = None,
+    signing_config: "Optional[SigningConfig]" = None,
 ) -> bytes:
     r"""construct raw text (bytes) used by git commit
 
-    If a gpgkeyid is specified, `gpg` will use it to create a signature for
-    the unsigned commit object. This signature will be included in the commit
-    text exactly as it would in Git.
-
-    Note that while Git supports multiple signature formats (openpgp, x509, ssh),
-    Sapling only supports openpgp today.
+    If a signing_config is specified, the commit will be signed using the
+    configured backend (GPG or SSH). The signature is stored in the ``gpgsig``
+    extra header, which is the standard Git header for all signature types.
 
     >>> tree = b'0' * 20
     >>> desc = " HI! \n   another line with leading spaces\n\nsecond line\n\n\n"
@@ -395,37 +393,10 @@ def gitcommittext(
     to_text = bindings.formatutil.git_commit_fields_to_text
     text = to_text(fields).encode()
 
-    if not gpgkeyid:
+    if not signing_config:
         return text
 
-    try:
-        # This should match how Git signs commits:
-        # https://github.com/git/git/blob/2e71cbbddd64695d43383c25c7a054ac4ff86882/gpg-interface.c#L956-L960
-        # Long-form arguments for `gpg` are used for clarity.
-        sig_bytes = subprocess.check_output(
-            [
-                # Should the path to gpg be configurable?
-                "gpg",
-                "--status-fd=2",
-                "--detach-sign",
-                "--sign",
-                "--armor",
-                "--always-trust",
-                "--yes",
-                "--local-user",
-                gpgkeyid,
-            ],
-            stderr=subprocess.PIPE,
-            input=text,
-        )
-    except subprocess.CalledProcessError as ex:
-        indented_stderr = textwrap.indent(ex.stderr.decode(errors="ignore"), "  ")
-        raise error.Abort(
-            _("error when running gpg with gpgkeyid %s:\n%s")
-            % (gpgkeyid, indented_stderr)
-        )
-
-    gpgsig = sig_bytes.replace(b"\r", b"").decode()
+    gpgsig = signing.sign(text, signing_config)
     fields["extras"]["gpgsig"] = gpgsig
     text = to_text(fields).encode()
     return text

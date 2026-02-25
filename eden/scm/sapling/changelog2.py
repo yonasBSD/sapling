@@ -7,7 +7,7 @@
 import time
 import weakref
 from functools import partial
-from typing import IO, Optional, Union
+from typing import IO, Optional, TYPE_CHECKING, Union
 
 import bindings
 
@@ -27,6 +27,9 @@ from . import (
 from .changelog import changelogrevision2, gitcommittext, hgcommittext
 from .i18n import _
 from .node import bin, hex, nullid, nullrev, wdirid, wdirrev
+
+if TYPE_CHECKING:
+    from .signing import SigningConfig
 
 SEGMENTS_DIR = "segments/v1"
 SEGMENTS_DIR_NEXT = "segments/v1next"  # Used on Windows, for migration.
@@ -354,13 +357,19 @@ class changelog:
         user,
         date=None,
         extra=None,
-        gpgkeyid: Optional[str] = None,
+        signing_config: "Optional[SigningConfig]" = None,
     ):
         parents = [p for p in (p1, p2) if p != nullid]
         if self._isgit:
             # 'files' is not used by git
             text = gitcommittext(
-                manifest, parents, desc, user, date, extra, gpgkeyid=gpgkeyid
+                manifest,
+                parents,
+                desc,
+                user,
+                date,
+                extra,
+                signing_config=signing_config,
             )
             node = git.hashobj(b"commit", text)
         else:

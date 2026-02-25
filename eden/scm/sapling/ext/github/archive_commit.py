@@ -6,7 +6,7 @@
 import re
 from typing import Callable, Optional
 
-from sapling import error, gituser, gpg
+from sapling import error, gituser, signing
 from sapling.i18n import _
 
 from . import gh_submit
@@ -119,26 +119,21 @@ async def add_commit_to_archives(
         # Synthetically create a new commit that has `oid_to_archive` and the
         # old branch head as parents and force-push it as the new branch head.
         user_name, user_email = gituser.get_identity_or_raise(ui)
-        keyid = gpg.get_gpg_keyid(ui)
+        signing_config_flags, sign_args = signing.git_signing_args(
+            signing.get_signing_config(ui)
+        )
 
         config_args = [
             "-c",
             f"user.name={user_name}",
             "-c",
             f"user.email={user_email}",
-        ]
-
-        gpg_args = [f"-S{keyid}"] if keyid else []
-
-        if gpg_args:
-            # Specify opengpg so we don't pick up alternate, unsupported formats
-            # from global Git config.
-            config_args += ["-c", "gpg.format=openpgp"]
+        ] + signing_config_flags
 
         commit_tree_args = (
             config_args
             + ["commit-tree"]
-            + gpg_args
+            + sign_args
             + [
                 "-m",
                 "merge commit for archive created by Sapling",

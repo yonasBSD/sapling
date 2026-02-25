@@ -7,7 +7,7 @@ import ghstack
 import ghstack.config
 from ghstack.ghs_types import GitCommitHash
 from ghstack.shell import _SHELL_RET
-from sapling import error, gpg
+from sapling import error, signing
 from sapling.i18n import _
 from sapling.node import hex, nullid
 
@@ -148,16 +148,18 @@ class SaplingShell(ghstack.shell.Shell):
         return {k: v[0] for k, v in mappings.items()}
 
     def git_commit_tree(self, *args, **kwargs: Any) -> GitCommitHash:  # noqa: F811
-        """Run `git commit-tree`, adding GPG flags, if appropriate."""
+        """Run `git commit-tree`, adding signing flags, if appropriate."""
         config_flags = [
             "-c",
             f"user.name={self.user_name}",
             "-c",
             f"user.email={self.user_email}",
         ]
-        keyid = gpg.get_gpg_keyid(self.ui)
-        gpg_args = [f"-S{keyid}"] if keyid else []
-        full_args = config_flags + ["commit-tree"] + gpg_args + list(args)
+        signing_config_flags, sign_args = signing.git_signing_args(
+            signing.get_signing_config(self.ui)
+        )
+        config_flags += signing_config_flags
+        full_args = config_flags + ["commit-tree"] + sign_args + list(args)
         stdout = self.git(*full_args, **kwargs)
         if isinstance(stdout, str):
             return GitCommitHash(stdout)
