@@ -106,8 +106,10 @@ use pushrebase_hook::RebasedChangesets;
 use repo_blobstore::RepoBlobstoreArc;
 use repo_derived_data::RepoDerivedDataRef;
 use repo_identity::RepoIdentityRef;
+use shared_error::std::SharedError;
 use stats::prelude::*;
 use thiserror::Error;
+use tokio::sync::oneshot;
 use tracing::info;
 
 define_stats! {
@@ -237,6 +239,25 @@ pub struct PushrebaseRequestIndex {
     pub root: ChangesetId,
 }
 
+pub struct PushrebaseRequest {
+    /// Changed files in the pushed stack.
+    pub changed_files: Vec<MPath>,
+    /// Bonsai changesets to rebase, topological order (ancestor first).
+    pub changesets: Vec<BonsaiChangeset>,
+    /// Head of the pushed stack.
+    pub head: ChangesetId,
+    /// Root of the pushed stack. Immutable; used for rebasing.
+    pub root: ChangesetId,
+    /// Last bookmark value checked for conflicts. Updated on CAS-failure re-queue.
+    pub conflict_check_base: ChangesetId,
+    /// Number of times this request has been retried due to CAS failures.
+    pub retry_num: PushrebaseRetryNum,
+    /// Pre-computed pushrebase hooks.
+    pub hooks: Vec<Box<dyn PushrebaseHook>>,
+    /// Channel for returning the result to the caller. Uses SharedError for cloneable error broadcasting.
+    pub response_tx: oneshot::Sender<Result<PushrebaseOutcome, SharedError<PushrebaseError>>>,
+}
+
 pub trait Repo = BookmarksRef
     + RepoBlobstoreArc
     + RepoDerivedDataRef
@@ -311,6 +332,232 @@ pub async fn index_pushrebase_request(
     })
 }
 
+/// Lands multiple indexed stacks in a single critical section pass.
+///
+/// All requests must have equivalent hooks (only the first request's hooks
+/// are used) and must not have file conflicts with each other.
+///
+/// Takes ownership of requests. Sends results via each request's oneshot
+/// for resolved requests. Returns only CAS-failure requests for re-queuing
+/// with updated `conflict_check_base`.
+pub async fn do_batched_pushrebase(
+    ctx: &CoreContext,
+    repo: &impl Repo,
+    config: &PushrebaseFlags,
+    onto_bookmark: &BookmarkKey,
+    requests: Vec<PushrebaseRequest>,
+) -> Vec<PushrebaseRequest> {
+    let should_log = config.monitoring_bookmark.as_deref() == Some(onto_bookmark.as_str());
+    let repo_args = (repo.repo_identity().name().to_string(),);
+    let start_critical_section = Instant::now();
+
+    // CRITICAL SECTION START: Read the current bookmark value.
+    let old_bookmark_value = match get_bookmark_value(ctx, repo, onto_bookmark).await {
+        Ok(v) => v,
+        Err(e) => {
+            let shared = SharedError::from(e);
+            for req in requests {
+                let _ = req.response_tx.send(Err(shared.clone()));
+            }
+            return vec![];
+        }
+    };
+
+    if requests.is_empty() {
+        return vec![];
+    }
+
+    // Run hooks' in_critical_section using the first request's hooks
+    // (all requests in the batch share equivalent hooks).
+    let hooks_result = try_join_all(requests[0].hooks.iter().map(|h| {
+        h.in_critical_section(ctx, old_bookmark_value)
+            .map_err(PushrebaseError::from)
+    }))
+    .await;
+
+    let mut commit_hooks = match hooks_result {
+        Ok(h) => h,
+        Err(e) => {
+            let shared = SharedError::from(e);
+            for req in requests {
+                let _ = req.response_tx.send(Err(shared.clone()));
+            }
+            return vec![];
+        }
+    };
+
+    // Per-stack conflict detection and rebase.
+    let mut pending: Vec<(PushrebaseRequest, ChangesetId, usize, Option<ChangesetId>)> = vec![];
+    let mut running_head = old_bookmark_value;
+    let mut all_rebased_changesets: RebasedChangesets = Default::default();
+
+    for request in requests {
+        let bookmark_val = old_bookmark_value.unwrap_or(request.conflict_check_base);
+        if let Err(e) = check_pushrebase_conflicts(
+            ctx,
+            repo,
+            config,
+            request.conflict_check_base,
+            bookmark_val,
+            &request.changesets,
+            &request.changed_files,
+        )
+        .await
+        {
+            let _ = request.response_tx.send(Err(SharedError::from(e)));
+            continue;
+        }
+
+        let pushrebase_distance = match try_join(
+            repo.commit_graph()
+                .changeset_linear_depth(ctx, bookmark_val),
+            repo.commit_graph()
+                .changeset_linear_depth(ctx, request.root),
+        )
+        .await
+        {
+            Ok((bookmark_depth, root_depth)) => bookmark_depth.saturating_sub(root_depth) as usize,
+            Err(e) => {
+                let _ = request
+                    .response_tx
+                    .send(Err(SharedError::from(PushrebaseError::from(e))));
+                continue;
+            }
+        };
+
+        // Capture the running head before this request's rebase so each
+        // request sees the correct "old bookmark value" for its position
+        // in the batch.
+        let request_old_bookmark_value = running_head;
+
+        // Rebase this stack onto the running head using the immutable root.
+        let onto = running_head.unwrap_or(request.root);
+        let rebase_result = create_rebased_changesets(
+            ctx,
+            repo,
+            config,
+            request.root,
+            request.head,
+            onto,
+            &mut commit_hooks,
+        )
+        .await;
+
+        match rebase_result {
+            Ok((new_head, rebased)) => {
+                all_rebased_changesets.extend(rebased);
+                running_head = Some(new_head);
+                pending.push((
+                    request,
+                    new_head,
+                    pushrebase_distance,
+                    request_old_bookmark_value,
+                ));
+            }
+            Err(e) => {
+                let _ = request.response_tx.send(Err(SharedError::from(e)));
+            }
+        }
+    }
+
+    // If no stacks survived conflict detection + rebase, we're done.
+    let final_head = match running_head {
+        Some(head) if !pending.is_empty() => head,
+        _ => return vec![],
+    };
+
+    // Convert commit hooks to transaction hooks.
+    let txn_hooks = match try_join_all(
+        commit_hooks
+            .into_iter()
+            .map(|h| h.into_transaction_hook(ctx, &all_rebased_changesets)),
+    )
+    .await
+    {
+        Ok(h) => h,
+        Err(e) => {
+            let shared = SharedError::from(PushrebaseError::from(e));
+            for (req, _, _, _) in pending {
+                let _ = req.response_tx.send(Err(shared.clone()));
+            }
+            return vec![];
+        }
+    };
+
+    // Single bookmark CAS update.
+    let move_result = try_move_bookmark(
+        ctx.clone(),
+        repo,
+        onto_bookmark,
+        old_bookmark_value,
+        final_head,
+        all_rebased_changesets,
+        txn_hooks,
+    )
+    .await;
+
+    let critical_section_duration_us: i64 = start_critical_section
+        .elapsed()
+        .as_nanos()
+        .try_into()
+        .unwrap_or(i64::MAX);
+
+    match move_result {
+        Ok(Some((_head, log_id, all_rebased_pairs))) => {
+            // CAS succeeded — build per-stack outcomes and send via oneshot.
+            if should_log {
+                STATS::critical_section_success_duration_us
+                    .add_value(critical_section_duration_us, repo_args.clone());
+                STATS::commits_rebased.add_value(all_rebased_pairs.len() as i64, repo_args);
+            }
+
+            for (req, new_head, distance, req_old_bookmark_value) in pending {
+                let stack_pairs: Vec<PushrebaseChangesetPair> = all_rebased_pairs
+                    .iter()
+                    .filter(|pair| {
+                        req.changesets
+                            .iter()
+                            .any(|cs| cs.get_changeset_id() == pair.id_old)
+                    })
+                    .cloned()
+                    .collect();
+
+                let _ = req.response_tx.send(Ok(PushrebaseOutcome {
+                    old_bookmark_value: Some(req_old_bookmark_value.unwrap_or(req.root)),
+                    head: new_head,
+                    retry_num: req.retry_num,
+                    rebased_changesets: stack_pairs,
+                    pushrebase_distance: PushrebaseDistance(distance),
+                    log_id,
+                }));
+            }
+            vec![]
+        }
+        Ok(None) => {
+            // CAS failed — update conflict_check_base and return for re-queue.
+            if should_log {
+                STATS::critical_section_failure_duration_us
+                    .add_value(critical_section_duration_us, repo_args);
+            }
+            pending
+                .into_iter()
+                .map(|(mut req, _, _, _)| {
+                    req.conflict_check_base = old_bookmark_value.unwrap_or(req.conflict_check_base);
+                    req.retry_num = PushrebaseRetryNum(req.retry_num.0 + 1);
+                    req
+                })
+                .collect()
+        }
+        Err(e) => {
+            let shared = SharedError::from(e);
+            for (req, _, _, _) in pending {
+                let _ = req.response_tx.send(Err(shared.clone()));
+            }
+            vec![]
+        }
+    }
+}
+
 async fn check_filenodes_backfilled(
     ctx: &CoreContext,
     repo: &impl RepoDerivedDataRef,
@@ -344,6 +591,42 @@ async fn check_filenodes_backfilled(
     }
 }
 
+/// Checks for server-side conflicts against the client's pushed stack.
+/// Returns the number of server-side changesets (for pushrebase_distance tracking).
+async fn check_pushrebase_conflicts(
+    ctx: &CoreContext,
+    repo: &impl Repo,
+    config: &PushrebaseFlags,
+    ancestor: ChangesetId,
+    descendant: ChangesetId,
+    client_bcs: &[BonsaiChangeset],
+    client_cf: &[MPath],
+) -> Result<usize, PushrebaseError> {
+    let server_bcs =
+        fetch_bonsai_range_ancestor_not_included(ctx, repo, ancestor, descendant).await?;
+    let server_bcs_len = server_bcs.len();
+
+    if let Some(bcs) = server_bcs.iter().find(|bcs| should_fail_pushrebase(bcs)) {
+        return Err(PushrebaseError::ForceFailPushrebase(bcs.get_changeset_id()));
+    }
+
+    if config.casefolding_check {
+        let conflict = check_case_conflicts(
+            server_bcs.iter().chain(client_bcs.iter()),
+            &config.casefolding_check_excluded_paths,
+        );
+        if let Some(conflict) = conflict {
+            return Err(PushrebaseError::PotentialCaseConflict(conflict.1));
+        }
+    }
+
+    let mut server_cf = find_changed_files(ctx, repo, ancestor, descendant).await?;
+    server_cf.extend(find_subtree_changes(&server_bcs)?);
+    intersect_changed_files(server_cf, client_cf.to_vec(), repo.repo_identity().name())?;
+
+    Ok(server_bcs_len)
+}
+
 async fn rebase_in_loop(
     ctx: &CoreContext,
     repo: &impl Repo,
@@ -372,42 +655,17 @@ async fn rebase_in_loop(
         }))
         .await?;
 
-        let server_bcs = fetch_bonsai_range_ancestor_not_included(
+        let server_bcs_count = check_pushrebase_conflicts(
             ctx,
             repo,
+            config,
             latest_rebase_attempt,
             old_bookmark_value.unwrap_or(root),
+            client_bcs,
+            &client_cf,
         )
         .await?;
-        pushrebase_distance = pushrebase_distance.add(server_bcs.len());
-
-        for bcs in server_bcs.iter() {
-            if should_fail_pushrebase(bcs) {
-                return Err(PushrebaseError::ForceFailPushrebase(bcs.get_changeset_id()));
-            }
-        }
-
-        if config.casefolding_check {
-            let conflict = check_case_conflicts(
-                server_bcs.iter().chain(client_bcs.iter()),
-                &config.casefolding_check_excluded_paths,
-            );
-            if let Some(conflict) = conflict {
-                return Err(PushrebaseError::PotentialCaseConflict(conflict.1));
-            }
-        }
-
-        let mut server_cf = find_changed_files(
-            ctx,
-            repo,
-            latest_rebase_attempt,
-            old_bookmark_value.unwrap_or(root),
-        )
-        .await?;
-
-        server_cf.extend(find_subtree_changes(&server_bcs)?);
-
-        intersect_changed_files(server_cf, client_cf.clone(), repo.repo_identity().name())?;
+        pushrebase_distance = pushrebase_distance.add(server_bcs_count);
 
         let rebase_outcome = do_rebase(
             ctx,
@@ -3173,6 +3431,262 @@ mod tests {
         }
 
         assert_eq!(expected, actual);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn batched_pushrebase_two_stacks(fb: FacebookInit) -> Result<(), Error> {
+        #[derive(Copy, Clone)]
+        struct Hook(RepositoryId);
+
+        #[async_trait]
+        impl PushrebaseHook for Hook {
+            async fn in_critical_section(
+                &self,
+                _ctx: &CoreContext,
+                _old_bookmark_value: Option<ChangesetId>,
+            ) -> Result<Box<dyn PushrebaseCommitHook>, Error> {
+                Ok(Box::new(*self) as Box<dyn PushrebaseCommitHook>)
+            }
+        }
+
+        #[async_trait]
+        impl PushrebaseCommitHook for Hook {
+            fn post_rebase_changeset(
+                &mut self,
+                _bcs_old: ChangesetId,
+                _bcs_new: &mut BonsaiChangesetMut,
+            ) -> Result<(), Error> {
+                Ok(())
+            }
+
+            async fn into_transaction_hook(
+                self: Box<Self>,
+                _ctx: &CoreContext,
+                changesets: &RebasedChangesets,
+            ) -> Result<Box<dyn PushrebaseTransactionHook>, Error> {
+                Ok(Box::new(TransactionHook(self.0, changesets.len()))
+                    as Box<dyn PushrebaseTransactionHook>)
+            }
+        }
+
+        struct TransactionHook(RepositoryId, usize);
+
+        #[async_trait]
+        impl PushrebaseTransactionHook for TransactionHook {
+            async fn populate_transaction(
+                &self,
+                ctx: &CoreContext,
+                txn: Transaction,
+            ) -> Result<Transaction, BookmarkTransactionError> {
+                let ret = SqlMutableCounters::set_counter_on_txn(
+                    ctx,
+                    self.0,
+                    "batched_hook_changesets",
+                    self.1 as i64,
+                    None,
+                    txn,
+                )
+                .await?;
+
+                match ret {
+                    TransactionResult::Succeeded(txn) => Ok(txn),
+                    TransactionResult::Failed => Err(Error::msg("Did not update").into()),
+                }
+            }
+        }
+
+        let ctx = CoreContext::test_mock(fb);
+        let factory = TestRepoFactory::new(fb)?;
+        let repo: PushrebaseTestRepo = factory.build().await?;
+        let (commits, _dag) = Linear::init_repo(fb, &repo).await?;
+
+        let master_cs = commits["K"];
+        let root_bcs_id = commits["A"];
+        let root_bcs_id_b = commits["B"];
+
+        // Stack A: adds "fileA"
+        let bcs_id_a = CreateCommitContext::new(&ctx, &repo, vec![root_bcs_id])
+            .add_file("fileA", "content_a")
+            .commit()
+            .await?;
+        let bcs_a = bcs_id_a.load(&ctx, repo.repo_blobstore()).await?;
+
+        // Stack B: adds "fileB"
+        let bcs_id_b = CreateCommitContext::new(&ctx, &repo, vec![root_bcs_id_b])
+            .add_file("fileB", "content_b")
+            .commit()
+            .await?;
+        let bcs_b = bcs_id_b.load(&ctx, repo.repo_blobstore()).await?;
+
+        // Index both stacks
+        let bookmark = master_bookmark();
+        let config = PushrebaseFlags::default();
+        let PushrebaseRequestIndex {
+            changed_files: cf_a,
+            changesets: changesets_a,
+            head: head_a,
+            root: root_a,
+        } = index_pushrebase_request(&ctx, &repo, &config, &bookmark, &hashset![bcs_a]).await?;
+        let PushrebaseRequestIndex {
+            changed_files: cf_b,
+            changesets: changesets_b,
+            head: head_b,
+            root: root_b,
+        } = index_pushrebase_request(&ctx, &repo, &config, &bookmark, &hashset![bcs_b]).await?;
+
+        // Build PushrebaseRequests with oneshot channels
+        let (tx_a, rx_a) = oneshot::channel();
+        let (tx_b, rx_b) = oneshot::channel();
+
+        // Only the first request needs hooks (batched pushrebase uses hooks from requests[0])
+        let hook_a: Box<dyn PushrebaseHook> = Box::new(Hook(repo.repo_identity().id()));
+        let hook_b: Box<dyn PushrebaseHook> = Box::new(Hook(repo.repo_identity().id()));
+
+        let req_a = PushrebaseRequest {
+            changed_files: cf_a,
+            changesets: changesets_a,
+            head: head_a,
+            root: root_a,
+            conflict_check_base: root_a,
+            retry_num: PushrebaseRetryNum(0),
+            hooks: vec![hook_a],
+            response_tx: tx_a,
+        };
+
+        let req_b = PushrebaseRequest {
+            changed_files: cf_b,
+            changesets: changesets_b,
+            head: head_b,
+            root: root_b,
+            conflict_check_base: root_b,
+            retry_num: PushrebaseRetryNum(0),
+            hooks: vec![hook_b],
+            response_tx: tx_b,
+        };
+
+        // Call do_batched_pushrebase
+        let requeued =
+            do_batched_pushrebase(&ctx, &repo, &config, &bookmark, vec![req_a, req_b]).await;
+
+        // No CAS failures expected
+        assert!(requeued.is_empty(), "Expected no re-queued requests");
+
+        // Both receivers should get Ok outcomes
+        let outcome_a = rx_a.await.unwrap().map_err(|e| format_err!("{:?}", e))?;
+        let outcome_b = rx_b.await.unwrap().map_err(|e| format_err!("{:?}", e))?;
+
+        // outcome_a sees the original bookmark value (it was rebased first)
+        assert_eq!(outcome_a.old_bookmark_value, Some(master_cs));
+        // outcome_b sees the head after A was rebased (running_head before B's rebase)
+        assert_eq!(outcome_b.old_bookmark_value, Some(outcome_a.head));
+
+        // Both should have one rebased changeset
+        assert_eq!(outcome_a.rebased_changesets.len(), 1);
+        assert_eq!(outcome_b.rebased_changesets.len(), 1);
+
+        // Pushrebase distance should be 10 (A to K in the Linear fixture)
+        assert_eq!(outcome_a.pushrebase_distance.0, 10);
+        assert_eq!(outcome_b.pushrebase_distance.0, 9);
+
+        // The final bookmark should point to outcome_b's head (second stack lands on top of first)
+        let new_master = resolve_cs_id(&ctx, &repo, "master").await?;
+        assert_eq!(new_master, outcome_b.head);
+
+        // Verify the hook fired: the transaction hook should have written the total
+        // number of rebased changesets (2, one per stack) to the mutable counter
+        assert_eq!(
+            repo.mutable_counters()
+                .get_counter(&ctx, "batched_hook_changesets")
+                .await?,
+            Some(2),
+        );
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn batched_pushrebase_one_conflict(fb: FacebookInit) -> Result<(), Error> {
+        let ctx = CoreContext::test_mock(fb);
+        let (repo, commits, _dag): (PushrebaseTestRepo, _, _) = Linear::get_repo_and_dag(fb).await;
+
+        let root_bcs_id = commits["A"];
+
+        // Stack A: adds a new file (no conflict)
+        let bcs_id_a = CreateCommitContext::new(&ctx, &repo, vec![root_bcs_id])
+            .add_file("new_file", "content")
+            .commit()
+            .await?;
+        let bcs_a = bcs_id_a.load(&ctx, repo.repo_blobstore()).await?;
+
+        // Stack B: modifies "files" which is also modified by commits B-K (conflict)
+        let bcs_id_b = CreateCommitContext::new(&ctx, &repo, vec![root_bcs_id])
+            .add_file("files", "conflicting content")
+            .commit()
+            .await?;
+        let bcs_b = bcs_id_b.load(&ctx, repo.repo_blobstore()).await?;
+
+        // Index both stacks
+        let bookmark = master_bookmark();
+        let config = PushrebaseFlags::default();
+        let PushrebaseRequestIndex {
+            changed_files: cf_a,
+            changesets: changesets_a,
+            head: head_a,
+            root: root_a,
+        } = index_pushrebase_request(&ctx, &repo, &config, &bookmark, &hashset![bcs_a]).await?;
+        let PushrebaseRequestIndex {
+            changed_files: cf_b,
+            changesets: changesets_b,
+            head: head_b,
+            root: root_b,
+        } = index_pushrebase_request(&ctx, &repo, &config, &bookmark, &hashset![bcs_b]).await?;
+
+        let (tx_a, rx_a) = oneshot::channel();
+        let (tx_b, rx_b) = oneshot::channel();
+
+        let req_a = PushrebaseRequest {
+            changed_files: cf_a,
+            changesets: changesets_a,
+            head: head_a,
+            root: root_a,
+            conflict_check_base: root_a,
+            retry_num: PushrebaseRetryNum(0),
+            hooks: vec![],
+            response_tx: tx_a,
+        };
+
+        let req_b = PushrebaseRequest {
+            changed_files: cf_b,
+            changesets: changesets_b,
+            head: head_b,
+            root: root_b,
+            conflict_check_base: root_b,
+            retry_num: PushrebaseRetryNum(0),
+            hooks: vec![],
+            response_tx: tx_b,
+        };
+
+        let requeued =
+            do_batched_pushrebase(&ctx, &repo, &config, &bookmark, vec![req_a, req_b]).await;
+        assert!(requeued.is_empty(), "Expected no re-queued requests");
+
+        // Stack A should succeed
+        let outcome_a = rx_a.await.unwrap().map_err(|e| format_err!("{:?}", e))?;
+        assert_eq!(outcome_a.rebased_changesets.len(), 1);
+
+        // Stack B should fail with conflicts
+        let result_b = rx_b.await.unwrap();
+        assert!(result_b.is_err(), "Expected stack B to fail with conflicts");
+        match result_b.unwrap_err().inner() {
+            PushrebaseError::Conflicts(_) => {}
+            other => panic!("Expected Conflicts error, got: {:?}", other),
+        }
+
+        // Bookmark should still be updated (stack A succeeded)
+        let new_master = resolve_cs_id(&ctx, &repo, "master").await?;
+        assert_eq!(new_master, outcome_a.head);
 
         Ok(())
     }
