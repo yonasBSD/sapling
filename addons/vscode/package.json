@@ -107,7 +107,7 @@
         {
           "id": "fbRunCommand__sapling_DOT_open-isl",
           "title": "%isl.title%",
-          "icon": "resources/Sapling_viewContainer.svg"
+          "icon": "resources/Smartlog_viewContainer.svg"
         }
       ]
     },
@@ -116,7 +116,7 @@
         {
           "id": "empty-view-isl",
           "name": "%isl.title%",
-          "icon": "resources/Sapling_viewContainer.svg",
+          "icon": "resources/Smartlog_viewContainer.svg",
           "when": "isl.openInteractiveSmartlogShortcutEnabled && !config.sapling.isl.showInSidebar"
         }
       ],
@@ -148,7 +148,15 @@
         "command": "sapling.open-isl",
         "title": "%sapling.open-isl-command%",
         "category": "%sapling.command-category%",
-        "icon": "resources/Sapling_favicon-light-green-transparent.svg"
+        "icon": "resources/Sapling_favicon-light-green-transparent.svg",
+        "when": "!isl.openInteractiveSmartlogShortcutEnabled"
+      },
+      {
+        "command": "sapling.open-isl",
+        "title": "%sapling.open-isl-command%",
+        "category": "%sapling.command-category%",
+        "icon": "resources/Smartlog_viewContainer.svg",
+        "when": "isl.openInteractiveSmartlogShortcutEnabled"
       },
       {
         "command": "sapling.open-file-diff-uncommitted",
