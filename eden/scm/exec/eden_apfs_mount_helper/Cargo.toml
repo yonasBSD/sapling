@@ -14,7 +14,7 @@ path = "src/eden_apfs/eden_apfs.rs"
 anyhow = "1.0.101"
 libc = "0.2.139"
 once_cell = "1.21"
-plist = "1.7.1"
+plist = "1.8.0"
 serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140", features = ["alloc", "float_roundtrip", "raw_value", "unbounded_depth"] }
 sha2 = "0.10.6"
