@@ -604,6 +604,26 @@ class EdenFSUtils {
   }
 
   /**
+   * Get file type from a SmallChange object
+   * @param {SmallChange} smallChange - SmallChange object
+   * @returns {string} File type string
+   */
+  static getFileType(smallChange) {
+    if (smallChange.Added) {
+      return smallChange.Added.file_type;
+    } else if (smallChange.Modified) {
+      return smallChange.Modified.file_type;
+    } else if (smallChange.Removed) {
+      return smallChange.Removed.file_type;
+    } else if (smallChange.Renamed) {
+      return smallChange.Renamed.file_type;
+    } else if (smallChange.Replaced) {
+      return smallChange.Replaced.file_type;
+    }
+    return 'Unknown';
+  }
+
+  /**
    * Get change type from a change object
    * @param {Object} change - Change object
    * @returns {string} Change type

@@ -373,6 +373,13 @@ export class EdenFSUtils {
   static extractPaths(changes: Change[]): string[];
 
   /**
+   * Get file type from a SmallChange object
+   * @param smallChange - SmallChange object
+   * @returns File type string
+   */
+  static getFileType(smallChange: SmallChange): string;
+
+  /**
    * Get change type from a change object
    */
   static getChangeType(
