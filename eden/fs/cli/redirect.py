@@ -1106,7 +1106,22 @@ class FixupCmd(Subcmd):
             redir.remove_existing(checkout)
             if redir.type == RedirectionType.UNKNOWN:
                 continue
-            redir.apply(checkout)
+            try:
+                redir.apply(checkout)
+            except Exception as e:
+                print(
+                    f"Unable to apply redirection `{redir.repo_path}`: {e}",
+                    file=sys.stderr,
+                )
+                with instance.get_telemetry_logger().new_sample(
+                    "redirect_fixup_failure"
+                ) as tel_logger:
+                    tel_logger.add_string("checkout", str(checkout.path))
+                    tel_logger.add_string("repo_path", str(redir.repo_path))
+                    tel_logger.add_string("redir_type", str(redir.type))
+                    tel_logger.add_string("initial_state", str(redir.state))
+                    tel_logger.add_string("source", redir.source)
+                    tel_logger.add_string("error_reason", str(e))
 
         # recompute and display the current state
         redirs = get_effective_redirections(checkout, mount_table, instance)

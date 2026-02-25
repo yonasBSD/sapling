@@ -39,6 +39,10 @@ use edenfs_client::redirect::get_effective_redirs_for_mount;
 use edenfs_client::redirect::try_add_redirection;
 use edenfs_client::utils::expand_path_or_cwd;
 use edenfs_client::utils::remove_trailing_slash;
+#[cfg(fbcode_build)]
+use edenfs_telemetry::EDEN_EVENTS_SCUBA;
+#[cfg(fbcode_build)]
+use edenfs_telemetry::send;
 use hg_util::path::expand_path;
 use tabular::Table;
 use tabular::row;
@@ -427,6 +431,18 @@ impl RedirectCmd {
                     redir.repo_path.display(),
                     e
                 );
+                #[cfg(fbcode_build)]
+                {
+                    let sample = edenfs_telemetry::redirect::build_fixup_result(
+                        &checkout.path().to_string_lossy().to_string(),
+                        &redir.repo_path.to_string_lossy(),
+                        &redir.redir_type.to_string(),
+                        &redir.state.to_string(),
+                        &redir.source,
+                        &e.to_string(),
+                    );
+                    send(EDEN_EVENTS_SCUBA.to_string(), sample);
+                }
             }
         }
 
