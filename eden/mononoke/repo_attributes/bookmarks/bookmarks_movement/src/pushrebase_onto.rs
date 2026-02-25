@@ -6,16 +6,19 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use anyhow::anyhow;
 use bookmarks::BookmarkUpdateReason;
 use bookmarks_types::BookmarkKey;
+use bookmarks_types::BookmarkKind;
 use bytes::Bytes;
 use context::CoreContext;
 use futures_stats::TimedFutureExt;
 use hooks::CrossRepoPushSource;
 use hooks::HookManager;
 use mononoke_types::BonsaiChangeset;
+use pushrebase_hook::PushrebaseHook;
 use pushrebase_hooks::get_pushrebase_hooks;
 use repo_authorization::AuthorizationContext;
 use repo_authorization::RepoWriteOperation;
@@ -37,12 +40,11 @@ use crate::restrictions::check_bookmark_sync_config;
 #[must_use = "PushrebaseOntoBookmarkOp must be run to have an effect"]
 pub struct PushrebaseOntoBookmarkOp<'op> {
     bookmark: &'op BookmarkKey,
-    affected_changesets: AffectedChangesets,
+    changesets: Vec<BonsaiChangeset>,
     bookmark_restrictions: BookmarkKindRestrictions,
     cross_repo_push_source: CrossRepoPushSource,
     pushvars: Option<&'op HashMap<String, Bytes>>,
     log_new_public_commits_to_scribe: bool,
-    only_log_acl_checks: bool,
 }
 
 impl<'op> PushrebaseOntoBookmarkOp<'op> {
@@ -52,12 +54,11 @@ impl<'op> PushrebaseOntoBookmarkOp<'op> {
     ) -> PushrebaseOntoBookmarkOp<'op> {
         PushrebaseOntoBookmarkOp {
             bookmark,
-            affected_changesets: AffectedChangesets::with_source_changesets(changesets),
+            changesets: changesets.to_vec(),
             bookmark_restrictions: BookmarkKindRestrictions::AnyKind,
             cross_repo_push_source: CrossRepoPushSource::NativeToThisRepo,
             pushvars: None,
             log_new_public_commits_to_scribe: false,
-            only_log_acl_checks: false,
         }
     }
 
@@ -94,108 +95,27 @@ impl<'op> PushrebaseOntoBookmarkOp<'op> {
         self
     }
 
-    pub fn only_log_acl_checks(mut self, only_log: bool) -> Self {
-        self.only_log_acl_checks = only_log;
-        self
-    }
-
     pub async fn run(
-        mut self,
+        self,
         ctx: &'op CoreContext,
         authz: &'op AuthorizationContext,
         repo: &'op impl Repo,
         hook_manager: &'op HookManager,
     ) -> Result<pushrebase::PushrebaseOutcome, BookmarkMovementError> {
-        let kind = self.bookmark_restrictions.check_kind(repo, self.bookmark)?;
-
-        if self.only_log_acl_checks {
-            if authz
-                .check_repo_write(ctx, repo, RepoWriteOperation::LandStack(kind))
-                .await
-                .is_denied()
-            {
-                ctx.scuba().clone().log_with_msg(
-                    "Repo write ACL check would fail for bookmark pushrebase",
-                    None,
-                );
-            }
-        } else {
-            authz
-                .require_repo_write(ctx, repo, RepoWriteOperation::LandStack(kind))
-                .await?;
-        }
-        authz
-            .require_bookmark_modify(ctx, repo, self.bookmark)
-            .await?;
-
-        check_bookmark_sync_config(ctx, repo, self.bookmark, kind).await?;
-
-        if repo.repo_config().pushrebase.block_merges {
-            let any_merges = self
-                .affected_changesets
-                .source_changesets()
-                .iter()
-                .any(BonsaiChangeset::is_merge);
-            if any_merges {
-                return Err(anyhow!(
-                    "Pushrebase blocked because it contains a merge commit.\n\
-                    If you need this for a specific use case please contact\n\
-                    the Source Control team at https://fburl.com/27qnuyl2"
-                )
-                .into());
-            }
-        }
-        let reason = BookmarkUpdateReason::Pushrebase;
-
-        self.affected_changesets
-            .check_restrictions(
-                ctx,
-                authz,
-                repo,
-                hook_manager,
-                self.bookmark,
-                self.pushvars,
-                reason,
-                kind,
-                AdditionalChangesets::None,
-                self.cross_repo_push_source,
-            )
-            .await?;
-        let mut pushrebase_hooks = get_pushrebase_hooks(
+        let pushrebase_hooks = prepare_pushrebase_hooks(
             ctx,
+            authz,
             repo,
+            hook_manager,
             self.bookmark,
-            &repo.repo_config().pushrebase,
-            None,
+            &self.changesets,
+            self.pushvars,
+            self.cross_repo_push_source,
+            self.bookmark_restrictions,
         )
         .await?;
 
-        // For pushrebase, we check the repo lock once at the beginning of the
-        // pushrebase operation, and then once more as part of the pushrebase
-        // bookmark update transaction, to check if the repo got locked while
-        // we were performing the pushrebase.
-        check_repo_lock(
-            ctx,
-            repo,
-            kind,
-            self.pushvars,
-            ctx.metadata().identities(),
-            authz,
-        )
-        .await?;
-
-        if let Some(hook) = RepoLockPushrebaseHook::new(
-            repo.repo_identity().id(),
-            kind,
-            self.pushvars,
-            repo.repo_permission_checker(),
-            ctx.metadata().identities(),
-            authz,
-        )
-        .await
-        {
-            pushrebase_hooks.push(hook);
-        }
+        let source_changesets: HashSet<_> = self.changesets.into_iter().collect();
 
         let mut flags = repo.repo_config().pushrebase.flags.clone();
         if let Some(rewritedates) = repo
@@ -215,7 +135,7 @@ impl<'op> PushrebaseOntoBookmarkOp<'op> {
             repo,
             &flags,
             self.bookmark,
-            self.affected_changesets.source_changesets(),
+            &source_changesets,
             pushrebase_hooks.as_slice(),
         )
         .timed()
@@ -232,47 +152,16 @@ impl<'op> PushrebaseOntoBookmarkOp<'op> {
                     .add("changeset_id", format!("{}", outcome.head))
                     .log_with_msg("Pushrebase finished", None);
 
-                if self.log_new_public_commits_to_scribe {
-                    let mut changesets_to_log: HashMap<_, _> = self
-                        .affected_changesets
-                        .source_changesets()
-                        .iter()
-                        .map(|bcs| (bcs.get_changeset_id(), CommitInfo::new(bcs, None)))
-                        .collect();
-
-                    for pair in outcome.rebased_changesets.iter() {
-                        let info = changesets_to_log
-                            .get_mut(&pair.id_old)
-                            .ok_or_else(|| anyhow!("Missing commit info for {}", pair.id_old))?;
-                        info.update_changeset_id(pair.id_old, pair.id_new)?;
-                    }
-
-                    log_new_commits(
-                        ctx,
-                        repo,
-                        Some((self.bookmark, kind)),
-                        changesets_to_log.into_values().collect(),
-                    )
-                    .await;
-                }
-
-                let info = BookmarkInfo {
-                    bookmark_name: self.bookmark.clone(),
-                    bookmark_kind: kind,
-                    operation: BookmarkOperation::Pushrebase(
-                        outcome.old_bookmark_value,
-                        outcome.head,
-                    ),
-                    reason,
-                };
-                log_bookmark_operation(ctx, repo, &info).await;
-
-                // Marking the pushrebased changeset as public.
-                if kind.is_public() {
-                    repo.phases()
-                        .add_reachable_as_public(ctx, vec![outcome.head.clone()])
-                        .await?;
-                }
+                postprocess_pushrebase_outcome(
+                    ctx,
+                    repo,
+                    self.bookmark,
+                    self.bookmark_restrictions,
+                    outcome,
+                    &source_changesets,
+                    self.log_new_public_commits_to_scribe,
+                )
+                .await?;
             }
             Err(err) => {
                 if let pushrebase::PushrebaseError::Conflicts(conflicts) = err {
@@ -292,4 +181,141 @@ impl<'op> PushrebaseOntoBookmarkOp<'op> {
 
         result.map_err(BookmarkMovementError::PushrebaseError)
     }
+}
+
+/// Performs all pre-pushrebase work (authorization, hooks, repo lock) and
+/// returns the pushrebase hooks to pass to the pushrebase operation.
+pub async fn prepare_pushrebase_hooks(
+    ctx: &CoreContext,
+    authz: &AuthorizationContext,
+    repo: &impl Repo,
+    hook_manager: &HookManager,
+    bookmark: &BookmarkKey,
+    changesets: &[BonsaiChangeset],
+    pushvars: Option<&HashMap<String, Bytes>>,
+    cross_repo_push_source: CrossRepoPushSource,
+    bookmark_restrictions: BookmarkKindRestrictions,
+) -> Result<Vec<Box<dyn PushrebaseHook>>, BookmarkMovementError> {
+    let kind = bookmark_restrictions.check_kind(repo, bookmark)?;
+
+    authz
+        .require_repo_write(ctx, repo, RepoWriteOperation::LandStack(kind))
+        .await?;
+    authz.require_bookmark_modify(ctx, repo, bookmark).await?;
+
+    check_bookmark_sync_config(ctx, repo, bookmark, kind).await?;
+
+    if repo.repo_config().pushrebase.block_merges {
+        let any_merges = changesets.iter().any(BonsaiChangeset::is_merge);
+        if any_merges {
+            return Err(anyhow!(
+                "Pushrebase blocked because it contains a merge commit.\n\
+                If you need this for a specific use case please contact\n\
+                the Source Control team at https://fburl.com/27qnuyl2"
+            )
+            .into());
+        }
+    }
+
+    let reason = BookmarkUpdateReason::Pushrebase;
+
+    AffectedChangesets::with_source_changesets(changesets)
+        .check_restrictions(
+            ctx,
+            authz,
+            repo,
+            hook_manager,
+            bookmark,
+            pushvars,
+            reason,
+            kind,
+            AdditionalChangesets::None,
+            cross_repo_push_source,
+        )
+        .await?;
+
+    let mut pushrebase_hooks =
+        get_pushrebase_hooks(ctx, repo, bookmark, &repo.repo_config().pushrebase, None).await?;
+
+    // For pushrebase, we check the repo lock once at the beginning of the
+    // pushrebase operation, and then once more as part of the pushrebase
+    // bookmark update transaction, to check if the repo got locked while
+    // we were performing the pushrebase.
+    check_repo_lock(
+        ctx,
+        repo,
+        kind,
+        pushvars,
+        ctx.metadata().identities(),
+        authz,
+    )
+    .await?;
+
+    if let Some(hook) = RepoLockPushrebaseHook::new(
+        repo.repo_identity().id(),
+        kind,
+        pushvars,
+        repo.repo_permission_checker(),
+        ctx.metadata().identities(),
+        authz,
+    )
+    .await
+    {
+        pushrebase_hooks.push(hook);
+    }
+
+    Ok(pushrebase_hooks)
+}
+
+/// Performs all post-pushrebase work: scribe logging, bookmark operation
+/// logging, and phase marking.
+pub async fn postprocess_pushrebase_outcome(
+    ctx: &CoreContext,
+    repo: &impl Repo,
+    bookmark: &BookmarkKey,
+    bookmark_restrictions: BookmarkKindRestrictions,
+    outcome: &pushrebase::PushrebaseOutcome,
+    source_changesets: &HashSet<BonsaiChangeset>,
+    log_new_public_commits_to_scribe: bool,
+) -> Result<(), BookmarkMovementError> {
+    let kind = bookmark_restrictions.check_kind(repo, bookmark)?;
+    if log_new_public_commits_to_scribe {
+        let mut changesets_to_log: HashMap<_, _> = source_changesets
+            .iter()
+            .map(|bcs| (bcs.get_changeset_id(), CommitInfo::new(bcs, None)))
+            .collect();
+
+        for pair in outcome.rebased_changesets.iter() {
+            let info = changesets_to_log
+                .get_mut(&pair.id_old)
+                .ok_or_else(|| anyhow!("Missing commit info for {}", pair.id_old))?;
+            info.update_changeset_id(pair.id_old, pair.id_new)?;
+        }
+
+        log_new_commits(
+            ctx,
+            repo,
+            Some((bookmark, kind)),
+            changesets_to_log.into_values().collect(),
+        )
+        .await;
+    }
+
+    let reason = BookmarkUpdateReason::Pushrebase;
+    let info = BookmarkInfo {
+        bookmark_name: bookmark.clone(),
+        bookmark_kind: kind,
+        operation: BookmarkOperation::Pushrebase(outcome.old_bookmark_value, outcome.head),
+        reason,
+    };
+    log_bookmark_operation(ctx, repo, &info).await;
+
+    // Marking the pushrebased changeset as public.
+    if kind.is_public() {
+        repo.phases()
+            .add_reachable_as_public(ctx, vec![outcome.head.clone()])
+            .await?;
+    }
+
+    Ok(())
 }

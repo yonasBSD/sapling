@@ -66,6 +66,8 @@ pub use crate::hook_running::AdminBypassError;
 pub use crate::hook_running::run_bookmark_hooks;
 pub use crate::hook_running::run_changeset_hooks;
 pub use crate::pushrebase_onto::PushrebaseOntoBookmarkOp;
+pub use crate::pushrebase_onto::postprocess_pushrebase_outcome;
+pub use crate::pushrebase_onto::prepare_pushrebase_hooks;
 pub use crate::restrictions::BookmarkKindRestrictions;
 pub use crate::restrictions::check_bookmark_sync_config;
 pub use crate::update::BookmarkUpdatePolicy;

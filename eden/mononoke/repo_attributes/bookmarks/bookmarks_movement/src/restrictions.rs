@@ -43,7 +43,7 @@ pub enum BookmarkKindRestrictions {
 }
 
 impl BookmarkKindRestrictions {
-    pub(crate) fn check_kind(
+    pub fn check_kind(
         &self,
         repo: &impl RepoConfigRef,
         name: &BookmarkKey,
