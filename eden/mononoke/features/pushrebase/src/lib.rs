@@ -390,6 +390,7 @@ pub async fn do_batched_pushrebase(
     let mut pending: Vec<(PushrebaseRequest, ChangesetId, usize, Option<ChangesetId>)> = vec![];
     let mut running_head = old_bookmark_value;
     let mut all_rebased_changesets: RebasedChangesets = Default::default();
+    let mut all_rebased_bonsais: Vec<BonsaiChangeset> = Vec::new();
 
     for request in requests {
         let bookmark_val = old_bookmark_value.unwrap_or(request.conflict_check_base);
@@ -444,8 +445,9 @@ pub async fn do_batched_pushrebase(
         .await;
 
         match rebase_result {
-            Ok((new_head, rebased)) => {
+            Ok((new_head, rebased, rebased_bonsais)) => {
                 all_rebased_changesets.extend(rebased);
+                all_rebased_bonsais.extend(rebased_bonsais);
                 running_head = Some(new_head);
                 pending.push((
                     request,
@@ -458,6 +460,15 @@ pub async fn do_batched_pushrebase(
                 let _ = request.response_tx.send(Err(SharedError::from(e)));
             }
         }
+    }
+
+    // Save all rebased changesets from all stacks in one batch.
+    if let Err(e) = changesets_creation::save_changesets(ctx, repo, all_rebased_bonsais).await {
+        let shared = SharedError::from(PushrebaseError::from(e));
+        for (req, _, _, _) in pending {
+            let _ = req.response_tx.send(Err(shared.clone()));
+        }
+        return vec![];
     }
 
     // If no stacks survived conflict detection + rebase, we're done.
@@ -738,7 +749,7 @@ async fn do_rebase(
     )>,
     PushrebaseError,
 > {
-    let (new_head, rebased_changesets) = create_rebased_changesets(
+    let (new_head, rebased_changesets, rebased_bonsais) = create_rebased_changesets(
         ctx,
         repo,
         config,
@@ -748,6 +759,8 @@ async fn do_rebase(
         &mut hooks,
     )
     .await?;
+
+    changesets_creation::save_changesets(ctx, repo, rebased_bonsais).await?;
 
     let hooks = try_join_all(
         hooks
@@ -1109,7 +1122,7 @@ async fn create_rebased_changesets(
     head: ChangesetId,
     onto: ChangesetId,
     hooks: &mut [Box<dyn PushrebaseCommitHook>],
-) -> Result<(ChangesetId, RebasedChangesets), PushrebaseError> {
+) -> Result<(ChangesetId, RebasedChangesets, Vec<BonsaiChangeset>), PushrebaseError> {
     let rebased_set = find_rebased_set(ctx, repo, root, head).await?;
 
     let rebased_set_ids: HashSet<_> = rebased_set.iter().map(|cs| cs.get_changeset_id()).collect();
@@ -1146,7 +1159,6 @@ async fn create_rebased_changesets(
         rebased.push(bcs_new);
     }
 
-    changesets_creation::save_changesets(ctx, repo, rebased).await?;
     Ok((
         remapping
             .get(&head)
@@ -1158,6 +1170,7 @@ async fn create_rebased_changesets(
             .into_iter()
             .filter(|(id_old, _)| *id_old != root)
             .collect(),
+        rebased,
     ))
 }
 
