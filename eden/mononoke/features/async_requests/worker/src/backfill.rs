@@ -324,6 +324,7 @@ pub(crate) async fn compute_derive_backfill(
             cs_ids,
             slice_size,
             params.rederive,
+            params.reslice,
             params.boundaries_concurrency,
             params.config_name.as_deref(),
             &repo_id,
@@ -358,6 +359,7 @@ async fn process_repo_backfill(
     cs_ids: Vec<ChangesetId>,
     slice_size: u64,
     rederive: bool,
+    reslice: bool,
     boundaries_concurrency: i32,
     config_name: Option<&str>,
     repo_id: &RepositoryId,
@@ -382,9 +384,13 @@ async fn process_repo_backfill(
         slice_size,
     );
 
-    // Filter to only underived changesets (unless rederive is set)
+    // rederive implies reslice: if re-deriving everything, slices must cover
+    // all ancestors too.
+    let skip_filtering = reslice || rederive;
+
+    // Filter to only underived changesets (unless reslice/rederive is set)
     let mut cs_ids = cs_ids;
-    if !rederive {
+    if !skip_filtering {
         cs_ids = manager
             .pending(ctx, &cs_ids, None, derived_data_type)
             .await
@@ -400,7 +406,7 @@ async fn process_repo_backfill(
     }
 
     // Find the derived frontier
-    let excluded_ancestors = if rederive {
+    let excluded_ancestors = if skip_filtering {
         vec![]
     } else {
         let (frontier_stats, frontier) = inner_repo

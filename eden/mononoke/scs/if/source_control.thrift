@@ -2874,6 +2874,9 @@ struct DeriveBackfillParams {
   4: i32 boundaries_concurrency;
   5: bool rederive;
   6: optional string config_name;
+  /// Whether to compute slices as if all commits were underived,
+  /// regardless of their actual derivation status.
+  7: bool reslice;
 }
 
 /// Result for derive_backfill request

@@ -41,6 +41,10 @@ pub(super) struct BackfillEnqueueArgs {
     #[clap(long)]
     pub(crate) rederive: bool,
 
+    /// Whether to compute slices as if all commits were underived
+    #[clap(long)]
+    reslice: bool,
+
     /// Repositories to backfill (comma-separated names).
     /// If provided, overrides the top-level --repo-name/--repo-id.
     #[clap(long, value_delimiter = ',')]
@@ -121,6 +125,7 @@ pub(super) async fn backfill_enqueue(
         slice_size: args.slice_size as i64,
         boundaries_concurrency: args.boundaries_concurrency,
         rederive: args.rederive,
+        reslice: args.reslice,
         config_name: config_name.map(|s| s.to_string()),
         ..Default::default()
     };
