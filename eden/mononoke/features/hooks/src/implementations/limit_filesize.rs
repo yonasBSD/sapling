@@ -131,7 +131,27 @@ impl FileHook for LimitFilesize {
                     return Ok(HookExecution::Rejected(HookRejectionInfo::new_long(
                         "File too large",
                         format!(
-                            "File size limit is {} bytes. You tried to push file {} that is over the limit ({} bytes, {:.2}x the limit). This limit is enforced for files matching the following regex: \"{}\". See https://fburl.com/landing_big_diffs for instructions.",
+                            "File size limit is {} bytes. You tried to push file {} that is over the limit \
+                            ({} bytes, {:.2}x the limit). This limit is enforced for files matching the \
+                            following regex: \"{}\".\n\
+                            \n\
+                            WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact \
+                            caching systems, Mononoke, biggrep indexing, and permanent backups used by \
+                            30,000+ engineers.\n\
+                            \n\
+                            ALTERNATIVES TO CONSIDER:\n\
+                            - Manifold: Store large binaries in blob storage\n\
+                            - Dotslash: Distribute large tools without checking them in\n\
+                            - Buckify: Package binaries as Buck-managed dependencies\n\
+                            - LFS: Use Git LFS for large files that must be versioned\n\
+                            - Split files: Break large files into smaller pieces\n\
+                            \n\
+                            IF ALTERNATIVES DO NOT WORK:\n\
+                            1. Add @allow-large-files to your commit message \
+                            (using `sl amend -e`).\n\
+                            2. Request bypass approval at https://fburl.com/support/sourcecontrol.\n\
+                            \n\
+                            See https://fburl.com/landing_big_diffs for more details.",
                             limit, path, len, ratio, regex
                         ),
                     )));

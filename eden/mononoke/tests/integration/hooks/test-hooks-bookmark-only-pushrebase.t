@@ -87,7 +87,22 @@ fast-forward the bookmark over a commit that fails the hook
   edenapi: uploaded 2 changesets
   pushrebasing stack (*, *] (2 commits) to remote bookmark master_bookmark (glob)
   abort: Server error: hooks failed:
-    limit_filesize for *: File size limit is 10 bytes. You tried to push file clarge that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". See https://fburl.com/landing_big_diffs for instructions. (glob)
+    limit_filesize for *: File size limit is 10 bytes. You tried to push file clarge that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". (glob)
+  
+  WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact caching systems, Mononoke, biggrep indexing, and permanent backups used by 30,000+ engineers.
+  
+  ALTERNATIVES TO CONSIDER:
+  - Manifold: Store large binaries in blob storage
+  - Dotslash: Distribute large tools without checking them in
+  - Buckify: Package binaries as Buck-managed dependencies
+  - LFS: Use Git LFS for large files that must be versioned
+  - Split files: Break large files into smaller pieces
+  
+  IF ALTERNATIVES DO NOT WORK:
+  1. Add @allow-large-files to your commit message (using `sl amend -e`).
+  2. Request bypass approval at https://fburl.com/support/sourcecontrol.
+  
+  See https://fburl.com/landing_big_diffs for more details.
   [255]
 
 bypass the hook, the push will now work
@@ -109,14 +124,44 @@ attempt a non-fast-forward move, it should fail
   edenapi: uploaded 2 changesets
   pushrebasing stack (*, *] (2 commits) to remote bookmark master_bookmark (glob)
   abort: Server error: hooks failed:
-    limit_filesize for *: File size limit is 10 bytes. You tried to push file elarge that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". See https://fburl.com/landing_big_diffs for instructions. (glob)
+    limit_filesize for *: File size limit is 10 bytes. You tried to push file elarge that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". (glob)
+  
+  WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact caching systems, Mononoke, biggrep indexing, and permanent backups used by 30,000+ engineers.
+  
+  ALTERNATIVES TO CONSIDER:
+  - Manifold: Store large binaries in blob storage
+  - Dotslash: Distribute large tools without checking them in
+  - Buckify: Package binaries as Buck-managed dependencies
+  - LFS: Use Git LFS for large files that must be versioned
+  - Split files: Break large files into smaller pieces
+  
+  IF ALTERNATIVES DO NOT WORK:
+  1. Add @allow-large-files to your commit message (using `sl amend -e`).
+  2. Request bypass approval at https://fburl.com/support/sourcecontrol.
+  
+  See https://fburl.com/landing_big_diffs for more details.
   [255]
 specify the pushvar to allow the non-fast-forward move.
   $ hg push -r . --to master_bookmark --pushvar NON_FAST_FORWARD=true
   pushing rev * to destination https://localhost:$LOCAL_PORT/edenapi/ bookmark master_bookmark (glob)
   pushrebasing stack (*, *] (2 commits) to remote bookmark master_bookmark (glob)
   abort: Server error: hooks failed:
-    limit_filesize for *: File size limit is 10 bytes. You tried to push file elarge that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". See https://fburl.com/landing_big_diffs for instructions. (glob)
+    limit_filesize for *: File size limit is 10 bytes. You tried to push file elarge that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". (glob)
+  
+  WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact caching systems, Mononoke, biggrep indexing, and permanent backups used by 30,000+ engineers.
+  
+  ALTERNATIVES TO CONSIDER:
+  - Manifold: Store large binaries in blob storage
+  - Dotslash: Distribute large tools without checking them in
+  - Buckify: Package binaries as Buck-managed dependencies
+  - LFS: Use Git LFS for large files that must be versioned
+  - Split files: Break large files into smaller pieces
+  
+  IF ALTERNATIVES DO NOT WORK:
+  1. Add @allow-large-files to your commit message (using `sl amend -e`).
+  2. Request bypass approval at https://fburl.com/support/sourcecontrol.
+  
+  See https://fburl.com/landing_big_diffs for more details.
   [255]
 
 bypass the hook too, and it should work
@@ -149,7 +194,22 @@ fails the hook
   edenapi: uploaded 2 changesets
   pushrebasing stack (*, *] (2 commits) to remote bookmark master_bookmark (glob)
   abort: Server error: hooks failed:
-    limit_filesize for *: File size limit is 10 bytes. You tried to push file ylarge that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". See https://fburl.com/landing_big_diffs for instructions. (glob)
+    limit_filesize for *: File size limit is 10 bytes. You tried to push file ylarge that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". (glob)
+  
+  WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact caching systems, Mononoke, biggrep indexing, and permanent backups used by 30,000+ engineers.
+  
+  ALTERNATIVES TO CONSIDER:
+  - Manifold: Store large binaries in blob storage
+  - Dotslash: Distribute large tools without checking them in
+  - Buckify: Package binaries as Buck-managed dependencies
+  - LFS: Use Git LFS for large files that must be versioned
+  - Split files: Break large files into smaller pieces
+  
+  IF ALTERNATIVES DO NOT WORK:
+  1. Add @allow-large-files to your commit message (using `sl amend -e`).
+  2. Request bypass approval at https://fburl.com/support/sourcecontrol.
+  
+  See https://fburl.com/landing_big_diffs for more details.
   [255]
 
 bypass the hook, and it should fail: can't push rebase to such a commit

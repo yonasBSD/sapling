@@ -48,7 +48,22 @@ Try to push a change to non-LFS file
   $ quiet git_client push
   To https://localhost:$LOCAL_PORT/repos/git/ro/repo.git
    ! [remote rejected] master_bookmark -> master_bookmark (hooks failed:
-    limit_filesize for 06fdd952d6868be8bbeb3de09c472ef197152968: File size limit is 10 bytes. You tried to push file some_new_large_file that is over the limit (37 bytes, 3.70x the limit). This limit is enforced for files matching the following regex: ".*". See https://fburl.com/landing_big_diffs for instructions.
+    limit_filesize for 06fdd952d6868be8bbeb3de09c472ef197152968: File size limit is 10 bytes. You tried to push file some_new_large_file that is over the limit (37 bytes, 3.70x the limit). This limit is enforced for files matching the following regex: ".*".
+  
+  WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact caching systems, Mononoke, biggrep indexing, and permanent backups used by 30,000+ engineers.
+  
+  ALTERNATIVES TO CONSIDER:
+  - Manifold: Store large binaries in blob storage
+  - Dotslash: Distribute large tools without checking them in
+  - Buckify: Package binaries as Buck-managed dependencies
+  - LFS: Use Git LFS for large files that must be versioned
+  - Split files: Break large files into smaller pieces
+  
+  IF ALTERNATIVES DO NOT WORK:
+  1. Add @allow-large-files to your commit message (using `sl amend -e`).
+  2. Request bypass approval at https://fburl.com/support/sourcecontrol.
+  
+  See https://fburl.com/landing_big_diffs for more details.
   
   For more information about hooks and bypassing, refer https://fburl.com/wiki/mb4wtk1j)
   error: failed to push some refs to 'https://localhost:$LOCAL_PORT/repos/git/ro/repo.git'

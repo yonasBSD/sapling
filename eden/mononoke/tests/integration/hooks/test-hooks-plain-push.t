@@ -65,7 +65,22 @@ fast-forward the bookmark over a commit that fails the hook
   remote: Command failed
   remote:   Error:
   remote:     hooks failed:
-  remote:     limit_filesize for *: File size limit is 10 bytes. You tried to push file large that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". See https://fburl.com/landing_big_diffs for instructions. (glob)
+  remote:     limit_filesize for *: File size limit is 10 bytes. You tried to push file large that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". (glob)
+  remote: 
+  remote:     WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact caching systems, Mononoke, biggrep indexing, and permanent backups used by 30,000+ engineers.
+  remote: 
+  remote:     ALTERNATIVES TO CONSIDER:
+  remote:     - Manifold: Store large binaries in blob storage
+  remote:     - Dotslash: Distribute large tools without checking them in
+  remote:     - Buckify: Package binaries as Buck-managed dependencies
+  remote:     - LFS: Use Git LFS for large files that must be versioned
+  remote:     - Split files: Break large files into smaller pieces
+  remote: 
+  remote:     IF ALTERNATIVES DO NOT WORK:
+  remote:     1. Add @allow-large-files to your commit message (using `sl amend -e`).
+  remote:     2. Request bypass approval at https://fburl.com/support/sourcecontrol.
+  remote: 
+  remote:     See https://fburl.com/landing_big_diffs for more details.
   abort: unexpected EOL, expected netstring digit
   [255]
 
@@ -95,7 +110,22 @@ allow the non-forward move
   remote: Command failed
   remote:   Error:
   remote:     hooks failed:
-  remote:     limit_filesize for *: File size limit is 10 bytes. You tried to push file large that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". See https://fburl.com/landing_big_diffs for instructions. (glob)
+  remote:     limit_filesize for *: File size limit is 10 bytes. You tried to push file large that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". (glob)
+  remote: 
+  remote:     WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact caching systems, Mononoke, biggrep indexing, and permanent backups used by 30,000+ engineers.
+  remote: 
+  remote:     ALTERNATIVES TO CONSIDER:
+  remote:     - Manifold: Store large binaries in blob storage
+  remote:     - Dotslash: Distribute large tools without checking them in
+  remote:     - Buckify: Package binaries as Buck-managed dependencies
+  remote:     - LFS: Use Git LFS for large files that must be versioned
+  remote:     - Split files: Break large files into smaller pieces
+  remote: 
+  remote:     IF ALTERNATIVES DO NOT WORK:
+  remote:     1. Add @allow-large-files to your commit message (using `sl amend -e`).
+  remote:     2. Request bypass approval at https://fburl.com/support/sourcecontrol.
+  remote: 
+  remote:     See https://fburl.com/landing_big_diffs for more details.
   abort: unexpected EOL, expected netstring digit
   [255]
 
@@ -112,7 +142,22 @@ fails the hook
   remote: Command failed
   remote:   Error:
   remote:     hooks failed:
-  remote:     limit_filesize for *: File size limit is 10 bytes. You tried to push file large that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". See https://fburl.com/landing_big_diffs for instructions. (glob)
+  remote:     limit_filesize for *: File size limit is 10 bytes. You tried to push file large that is over the limit (14 bytes, 1.40x the limit). This limit is enforced for files matching the following regex: ".*". (glob)
+  remote: 
+  remote:     WHY THIS IS BLOCKED: Large files have ongoing infrastructure costs — they impact caching systems, Mononoke, biggrep indexing, and permanent backups used by 30,000+ engineers.
+  remote: 
+  remote:     ALTERNATIVES TO CONSIDER:
+  remote:     - Manifold: Store large binaries in blob storage
+  remote:     - Dotslash: Distribute large tools without checking them in
+  remote:     - Buckify: Package binaries as Buck-managed dependencies
+  remote:     - LFS: Use Git LFS for large files that must be versioned
+  remote:     - Split files: Break large files into smaller pieces
+  remote: 
+  remote:     IF ALTERNATIVES DO NOT WORK:
+  remote:     1. Add @allow-large-files to your commit message (using `sl amend -e`).
+  remote:     2. Request bypass approval at https://fburl.com/support/sourcecontrol.
+  remote: 
+  remote:     See https://fburl.com/landing_big_diffs for more details.
   abort: unexpected EOL, expected netstring digit
   [255]
 
