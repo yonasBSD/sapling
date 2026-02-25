@@ -48,6 +48,7 @@
     "scm/mononoke:changeset_path_context_use_skeleton_manifest_v2": true,
     "scm/mononoke:case_conflicts_check_use_ccsm": true,
     "scm/mononoke:should_set_committer_info_to_author_info_if_empty": true,
+    "scm/mononoke:land_service_batching_enabled": false,
     "scm/mononoke:land_service_find_region_using_db_locator": true,
     "scm/mononoke:enable_subtree_changes": true,
     "scm/mononoke:enable_manifest_altering_subtree_changes": false,
@@ -154,6 +155,9 @@
     "scm/mononoke:modern_sync_edenapi_timeout": 300,
     "scm/mononoke:blobstore_deduplicated_put_sampling_rate": 100000,
     "scm/mononoke:streaming_clone_chunk_aggregation_factor": 4,
-    "scm/mononoke:async_requests_max_concurrent": 0
+    "scm/mononoke:async_requests_max_concurrent": 0,
+    "scm/mononoke:land_service_batch_time_ms": 50,
+    "scm/mononoke:land_service_batch_max_commits": 20,
+    "scm/mononoke:land_service_batch_max_requeue": 100
   }
 }
