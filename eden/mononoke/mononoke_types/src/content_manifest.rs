@@ -141,7 +141,7 @@ impl ShardedMapV2Value for ContentManifestEntry {
     type Context = ShardedMapV2NodeContentManifestContext;
     type RollupData = ContentManifestRollupData;
 
-    const WEIGHT_LIMIT: usize = 2000;
+    const WEIGHT_LIMIT: usize = 625;
 }
 
 #[derive(ThriftConvert, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
