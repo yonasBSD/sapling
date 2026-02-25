@@ -225,6 +225,18 @@ pub struct PushrebaseOutcome {
     pub log_id: BookmarkUpdateLogId,
 }
 
+/// Result of indexing a pushrebase request
+pub struct PushrebaseRequestIndex {
+    /// Changed files in the pushed stack.
+    pub changed_files: Vec<MPath>,
+    /// Bonsai changesets to rebase, topological order (ancestor first).
+    pub changesets: Vec<BonsaiChangeset>,
+    /// Head of the pushed stack.
+    pub head: ChangesetId,
+    /// Root of the pushed stack.
+    pub root: ChangesetId,
+}
+
 pub trait Repo = BookmarksRef
     + RepoBlobstoreArc
     + RepoDerivedDataRef
@@ -245,24 +257,12 @@ pub async fn do_pushrebase_bonsai(
     pushed: &HashSet<BonsaiChangeset>,
     prepushrebase_hooks: &[Box<dyn PushrebaseHook>],
 ) -> Result<PushrebaseOutcome, PushrebaseError> {
-    let head = find_only_head_or_fail(pushed)?;
-    let roots = find_roots(pushed);
-
-    let root = find_closest_root(ctx, repo, config, onto_bookmark, &roots).await?;
-
-    let (mut client_cf, client_bcs) = try_join(
-        find_changed_files(ctx, repo, root, head),
-        fetch_bonsai_range_ancestor_not_included(ctx, repo, root, head),
-    )
-    .await?;
-
-    client_cf.extend(find_subtree_changes(&client_bcs)?);
-
-    // Normally filenodes (and all other types of derived data) are generated on the first
-    // read. However if too many commits are pushed (e.g. when a new repo is merged-in) then
-    // first read might be too slow. To prevent that the function below returns an error if too
-    // many commits are missing filenodes.
-    check_filenodes_backfilled(ctx, repo, &head, config.not_generated_filenodes_limit).await?;
+    let PushrebaseRequestIndex {
+        changed_files: client_cf,
+        changesets: client_bcs,
+        head,
+        root,
+    } = index_pushrebase_request(ctx, repo, config, onto_bookmark, pushed).await?;
 
     let res = rebase_in_loop(
         ctx,
@@ -278,6 +278,37 @@ pub async fn do_pushrebase_bonsai(
     .await?;
 
     Ok(res)
+}
+
+/// Computes changed files, head, root, and bonsai changesets for a pushed
+/// stack.
+pub async fn index_pushrebase_request(
+    ctx: &CoreContext,
+    repo: &impl Repo,
+    config: &PushrebaseFlags,
+    onto_bookmark: &BookmarkKey,
+    pushed: &HashSet<BonsaiChangeset>,
+) -> Result<PushrebaseRequestIndex, PushrebaseError> {
+    let head = find_only_head_or_fail(pushed)?;
+    let roots = find_roots(pushed);
+    let root = find_closest_root(ctx, repo, config, onto_bookmark, &roots).await?;
+
+    let (mut client_cf, client_bcs) = try_join(
+        find_changed_files(ctx, repo, root, head),
+        fetch_bonsai_range_ancestor_not_included(ctx, repo, root, head),
+    )
+    .await?;
+
+    client_cf.extend(find_subtree_changes(&client_bcs)?);
+
+    check_filenodes_backfilled(ctx, repo, &head, config.not_generated_filenodes_limit).await?;
+
+    Ok(PushrebaseRequestIndex {
+        changed_files: client_cf,
+        changesets: client_bcs,
+        head,
+        root,
+    })
 }
 
 async fn check_filenodes_backfilled(
