@@ -53,6 +53,9 @@ async function waitReadyExample() {
   try {
     // Wait for EdenFS to be ready (useful after restart or initial setup)
     console.log('Waiting for EdenFS to be ready...');
+    client.on('debug', (message) => {
+      console.log('Debug:', message);
+    });
     const isReady = await client.waitReady({
       timeout: 10000, // Wait up to 10 seconds
     });

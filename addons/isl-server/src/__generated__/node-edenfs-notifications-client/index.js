@@ -113,6 +113,8 @@ class EdenFSNotificationsClient extends EventEmitter {
         }
       } catch (e) {
         // Swallow and retry with backoff
+        // Emit a debugging msg
+        this.emit('debug', `Waiting for EdenFS to become ready: ${e.message}`);
       }
 
       // Exponential backoff (capped)
