@@ -26,6 +26,9 @@
 #include <sys/sysctl.h>
 #include <sys/time.h>
 #endif
+#ifdef __linux__
+#include <sys/stat.h>
+#endif
 #include <thrift/lib/cpp2/Flags.h>
 #include <thrift/lib/cpp2/server/ThriftServer.h>
 #ifdef __APPLE__
@@ -77,6 +80,16 @@ using std::string;
 namespace facebook::eden {
 
 namespace {
+
+#ifdef __linux__
+[[maybe_unused]] std::optional<uint64_t> getNamespaceInode(const char* path) {
+  struct stat st = {};
+  if (::stat(path, &st) == 0) {
+    return st.st_ino;
+  }
+  return std::nullopt;
+}
+#endif
 
 EdenStatsPtr getGlobalEdenStats() {
   // A running EdenFS daemon only needs a single EdenStats instance. Avoid
