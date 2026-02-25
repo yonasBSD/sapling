@@ -98,6 +98,18 @@ namespace {
   }
   return std::nullopt;
 }
+
+[[maybe_unused]] std::optional<std::string> readCgroup() {
+  std::string contents;
+  if (folly::readFile("/proc/self/cgroup", contents)) {
+    // Trim trailing newline(s) for cleaner logging.
+    while (!contents.empty() && contents.back() == '\n') {
+      contents.pop_back();
+    }
+    return contents;
+  }
+  return std::nullopt;
+}
 #endif
 
 EdenStatsPtr getGlobalEdenStats() {
