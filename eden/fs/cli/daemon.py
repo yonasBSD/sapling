@@ -236,6 +236,7 @@ def _start_edenfs_service(
     if sys.platform == "linux" and instance.get_config_bool(
         "experimental.systemd-cgroup-isolation", default=False
     ):
+        use_systemd_cgroup = True
         cmd = _build_systemd_run_cmd(cmd, str(instance.state_dir))
         # systemd-run --user needs these to connect to the user session bus.
         # get_edenfs_environment() strips them, so re-inject for the wrapper.
@@ -243,6 +244,8 @@ def _start_edenfs_service(
             val = os.environ.get(var)
             if val is not None:
                 eden_env[var] = val
+    else:
+        use_systemd_cgroup = False
 
     creation_flags = 0
 
@@ -251,6 +254,15 @@ def _start_edenfs_service(
         cmd, stdin=subprocess.DEVNULL, env=eden_env, creationflags=creation_flags
     )
     maybe_edensparse_migration(instance, EdensparseMigrationStep.POST_EDEN_START)
+
+    if use_systemd_cgroup:
+        instance.log_sample(
+            "systemd_cgroup_start",
+            success=exit_code == 0,
+            is_takeover=takeover,
+            exit_signal=exit_code,
+        )
+
     return exit_code
 
 
