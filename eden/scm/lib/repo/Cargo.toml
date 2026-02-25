@@ -32,7 +32,6 @@ sapling-format-util = { version = "0.1.0", path = "../util/format-util" }
 sapling-identity = { version = "0.1.0", path = "../identity" }
 sapling-manifest-tree = { version = "0.1.0", path = "../manifest-tree" }
 sapling-metalog = { version = "0.1.0", path = "../metalog" }
-sapling-minibytes = { version = "0.1.0", path = "../minibytes" }
 sapling-pathmatcher = { version = "0.1.0", path = "../pathmatcher" }
 sapling-repo-minimal-info = { version = "0.1.0", path = "repo-minimal-info" }
 sapling-repolock = { version = "0.1.0", path = "../repolock" }
@@ -45,7 +44,6 @@ sapling-storemodel = { version = "0.1.0", path = "../storemodel" }
 sapling-types = { version = "0.1.0", path = "../types" }
 sapling-util = { version = "0.1.0", path = "../util" }
 sapling-workingcopy = { version = "0.1.0", path = "../workingcopy", optional = true }
-serde = { version = "1.0.219", features = ["derive", "rc"] }
 thiserror = "2.0.18"
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 

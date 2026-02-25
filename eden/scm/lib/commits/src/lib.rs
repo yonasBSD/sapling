@@ -16,6 +16,7 @@ pub use commits_trait::DagCommits;
 pub use commits_trait::DescribeBackend;
 pub use commits_trait::GraphNode;
 pub use commits_trait::HgCommit;
+pub use commits_trait::NewCommit;
 pub use commits_trait::ParentlessHgCommit;
 pub use commits_trait::ReadCommitText;
 pub use commits_trait::StreamCommitText;

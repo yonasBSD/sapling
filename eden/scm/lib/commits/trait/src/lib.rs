@@ -252,6 +252,8 @@ pub struct ParentlessHgCommit {
     pub raw_text: Bytes,
 }
 
+pub mod new_commit;
 pub mod trait_impls;
 
 pub use anyhow::Result;
+pub use new_commit::NewCommit;
