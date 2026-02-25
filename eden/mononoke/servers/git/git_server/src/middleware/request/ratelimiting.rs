@@ -11,7 +11,9 @@ use gotham_ext::middleware::MetadataState;
 use gotham_ext::middleware::Middleware;
 use http::Response;
 use http::Uri;
+use http::header::USER_AGENT;
 use hyper::Body;
+use hyper::HeaderMap;
 use hyper::StatusCode;
 use metadata::Metadata;
 use rate_limiting::LoadShedResult;
@@ -88,6 +90,16 @@ impl Middleware for UploadPackRateLimitingMiddleware {
                     // Targeted rate limiting — still 429 for now
                     StatusCode::TOO_MANY_REQUESTS
                 };
+                let user_agent = HeaderMap::try_borrow_from(state)
+                    .and_then(|headers| headers.get(USER_AGENT))
+                    .and_then(|v| v.to_str().ok())
+                    .map(String::from);
+                let client_correlator = metadata
+                    .client_request_info()
+                    .map(|cri| cri.correlator.clone());
+                let client_entrypoint = metadata
+                    .client_request_info()
+                    .map(|cri| cri.entry_point.to_string());
                 MononokeGitScubaHandler::log_rejected(
                     scuba,
                     repo_name,
@@ -98,6 +110,9 @@ impl Middleware for UploadPackRateLimitingMiddleware {
                         err
                     ),
                     status,
+                    user_agent,
+                    client_correlator,
+                    client_entrypoint,
                 );
                 error!(
                     "Upload pack request rejected due to load shedding / rate limiting: {:?}",
