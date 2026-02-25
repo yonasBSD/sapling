@@ -7,9 +7,11 @@
 # pyre-strict
 
 import os
+import re
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -34,6 +36,36 @@ from .util import is_apple_silicon, poll_until, print_stderr, ShutdownError
 # killing the old process but without starting the new process, which is
 # generally undesirable if we can avoid it.
 DEFAULT_SIGKILL_TIMEOUT = 30.0
+
+
+def _sanitize_unit_name(eden_dir: str) -> str:
+    """Build a systemd unit name from the eden state directory path.
+
+    Systemd treats '-' and ':' as special characters in unit names, so replace
+    them with '_'.
+    Append the current UNIX timestamp to avoid collisions during graceful restart
+    where old and new scopes coexist briefly.
+    """
+    sanitized = re.sub(r"[^a-zA-Z0-9_./]", "_", eden_dir).strip("/").replace("/", "_")
+    return f"edenfs_{sanitized}_{os.getpid()}_{int(time.time())}"
+
+
+def _build_systemd_run_cmd(edenfs_cmd: List[str], eden_dir: str) -> List[str]:
+    """Wrap an edenfs command in systemd-run for cgroup isolation.
+
+    Places edenfs in a transient scope under a dedicated eden.slice
+    """
+    unit_name = _sanitize_unit_name(eden_dir)
+    return [
+        "systemd-run",
+        "--user",
+        "--scope",
+        "--quiet",
+        "--collect",
+        "--property=Delegate=yes",
+        "--slice=eden",
+        f"--unit={unit_name}",
+    ] + edenfs_cmd
 
 
 def wait_for_process_exit(pid: int, timeout: float) -> bool:
@@ -200,6 +232,17 @@ def _start_edenfs_service(
     # Wrap the command in sudo, if necessary. See help text in
     # prepare_edenfs_privileges for more info.
     cmd, eden_env = prepare_edenfs_privileges(daemon_binary, cmd, eden_env, privhelper)
+
+    if sys.platform == "linux" and instance.get_config_bool(
+        "experimental.systemd-cgroup-isolation", default=False
+    ):
+        cmd = _build_systemd_run_cmd(cmd, str(instance.state_dir))
+        # systemd-run --user needs these to connect to the user session bus.
+        # get_edenfs_environment() strips them, so re-inject for the wrapper.
+        for var in ("XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"):
+            val = os.environ.get(var)
+            if val is not None:
+                eden_env[var] = val
 
     creation_flags = 0
 
