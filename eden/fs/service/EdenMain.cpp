@@ -82,15 +82,16 @@ namespace facebook::eden {
 namespace {
 
 #ifdef __linux__
-[[maybe_unused]] std::optional<uint64_t> getNamespaceInode(const char* path) {
+std::optional<uint64_t> getNamespaceInode(const char* path) {
   struct stat st = {};
   if (::stat(path, &st) == 0) {
     return st.st_ino;
   }
+  XLOGF(DBG5, "Failed to stat {}: {}", path, folly::errnoStr(errno));
   return std::nullopt;
 }
 
-[[maybe_unused]] std::optional<bool> checkIsRootMountNamespace() {
+std::optional<bool> checkIsRootMountNamespace() {
   auto self = getNamespaceInode("/proc/self/ns/mnt");
   auto root = getNamespaceInode("/proc/1/ns/mnt");
   if (self.has_value() && root.has_value()) {
@@ -99,7 +100,7 @@ namespace {
   return std::nullopt;
 }
 
-[[maybe_unused]] std::optional<std::string> readCgroup() {
+std::optional<std::string> readCgroup() {
   std::string contents;
   if (folly::readFile("/proc/self/cgroup", contents)) {
     // Trim trailing newline(s) for cleaner logging.
@@ -362,6 +363,18 @@ int runEdenMain(EdenMain&& main, int argc, char** argv) {
 
   folly::stop_watch<> daemonStart;
 
+#ifdef __linux__
+  auto mountNamespace = getNamespaceInode("/proc/self/ns/mnt");
+  auto pidNamespace = getNamespaceInode("/proc/self/ns/pid");
+  auto isRootMountNamespace = checkIsRootMountNamespace();
+  auto cgroupInfo = readCgroup();
+#else
+  std::optional<uint64_t> mountNamespace;
+  std::optional<uint64_t> pidNamespace;
+  std::optional<bool> isRootMountNamespace;
+  std::optional<std::string> cgroupInfo;
+#endif
+
   std::vector<std::string> originalCommandLine{argv, argv + argc};
 
   // Make sure to run this before any flag values are read.
@@ -483,7 +496,14 @@ int runEdenMain(EdenMain&& main, int argc, char** argv) {
         std::chrono::duration<double>{daemonStart.elapsed()}.count();
     if (server) {
       server->getServerState()->getStructuredLogger()->logEvent(
-          DaemonStart{startTimeInSeconds, FLAGS_takeover, false /*success*/});
+          DaemonStart{
+              startTimeInSeconds,
+              FLAGS_takeover,
+              false /*success*/,
+              mountNamespace,
+              pidNamespace,
+              isRootMountNamespace,
+              cgroupInfo});
     }
     startupLogger->exitUnsuccessfully(
         kExitCodeError, "error starting EdenFS: ", folly::exceptionStr(ex));
@@ -515,6 +535,10 @@ int runEdenMain(EdenMain&& main, int argc, char** argv) {
           [daemonStart,
            structuredLogger = server->getServerState()->getStructuredLogger(),
            takeover = FLAGS_takeover,
+           mountNamespace,
+           pidNamespace,
+           isRootMountNamespace,
+           cgroupInfo,
            &server] {
             // This value is slightly different from `startTimeInSeconds`
             // we pass into `startupLogger->success()`, but should be
@@ -526,7 +550,14 @@ int runEdenMain(EdenMain&& main, int argc, char** argv) {
             // future it would be helpful to log number of successful vs
             // unsuccessful remounts
             structuredLogger->logEvent(
-                DaemonStart{startTimeInSeconds, takeover, true /*success*/});
+                DaemonStart{
+                    startTimeInSeconds,
+                    takeover,
+                    true /*success*/,
+                    mountNamespace,
+                    pidNamespace,
+                    isRootMountNamespace,
+                    cgroupInfo});
 
 #ifndef _WIN32
             // Check for previous heartbeat files and handle crash detection
