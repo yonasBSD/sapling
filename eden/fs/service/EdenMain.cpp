@@ -89,6 +89,15 @@ namespace {
   }
   return std::nullopt;
 }
+
+[[maybe_unused]] std::optional<bool> checkIsRootMountNamespace() {
+  auto self = getNamespaceInode("/proc/self/ns/mnt");
+  auto root = getNamespaceInode("/proc/1/ns/mnt");
+  if (self.has_value() && root.has_value()) {
+    return *self == *root;
+  }
+  return std::nullopt;
+}
 #endif
 
 EdenStatsPtr getGlobalEdenStats() {
