@@ -45,7 +45,12 @@ export function useContextMenu<T>(
 
 type ContextMenuData = {x: number; y: number; items: Array<ContextMenuItem>};
 export type ContextMenuItem =
-  | {type?: undefined; label: string | React.ReactNode; onClick?: () => void; tooltip?: string}
+  | {
+      type?: undefined;
+      label: string | React.ReactNode;
+      onClick?: (e?: MouseEvent) => void;
+      tooltip?: string | React.ReactNode;
+    }
   | {
       type: 'submenu';
       label: string | React.ReactNode;
@@ -133,13 +138,13 @@ export function ContextMenus() {
       ) : null}
       <ContextMenuList
         items={state.items}
-        clickItem={item => {
+        clickItem={(item, e) => {
           if (item.type != null) {
             return;
           }
           // don't allow double-clicking to run the action twice
           if (state != null) {
-            item.onClick?.();
+            item.onClick?.(e);
             setState(null);
           }
         }}
@@ -159,15 +164,15 @@ function ContextMenuList({
   clickItem,
 }: {
   items: Array<ContextMenuItem>;
-  clickItem: (item: ContextMenuItem) => void;
+  clickItem: (item: ContextMenuItem, e?: MouseEvent) => void;
 }) {
   // Each ContextMenuList renders one additional layer of submenu
   const [submenuNavigation, setSubmenuNavigation] = useState<
     {x: number; y: number; children: Array<ContextMenuItem>} | undefined
   >(undefined);
-  const [tooltip, setTooltip] = useState<{x: number; y: number; tooltip: string} | undefined>(
-    undefined,
-  );
+  const [tooltip, setTooltip] = useState<
+    {x: number; y: number; tooltip: string | React.ReactNode} | undefined
+  >(undefined);
   const ref = useRef<HTMLDivElement | null>(null);
 
   function getCoordinatesForSubElement(e: React.PointerEvent) {
@@ -186,7 +191,7 @@ function ContextMenuList({
 
   return (
     <>
-      <div className="context-menu" ref={ref}>
+      <div className="context-menu" ref={ref} onPointerLeave={() => setTooltip(undefined)}>
         {items.map((item, i) =>
           item.type === 'divider' ? (
             <div className="context-menu-divider" key={i} />
@@ -226,8 +231,8 @@ function ContextMenuList({
                 }
                 setSubmenuNavigation(undefined);
               }}
-              onClick={() => {
-                clickItem(item);
+              onClick={e => {
+                clickItem(item, e.nativeEvent);
               }}
               className={'context-menu-item'}>
               {item.label}

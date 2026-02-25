@@ -8,14 +8,13 @@
 import * as stylex from '@stylexjs/stylex';
 import {Button, buttonStyles} from 'isl-components/Button';
 import {ButtonDropdown, styles} from 'isl-components/ButtonDropdown';
-import {Row} from 'isl-components/Flex';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
 import {getZoomLevel} from 'isl-components/zoom';
 import {atom, useAtomValue} from 'jotai';
 import {loadable} from 'jotai/utils';
-import {useEffect, useMemo, useRef, useState} from 'react';
-import {useContextMenu} from 'shared/ContextMenu';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {contextMenuState, useContextMenu} from 'shared/ContextMenu';
 import {tracker} from '../analytics';
 import serverAPI from '../ClientToServerAPI';
 import {bulkFetchFeatureFlags, useFeatureFlagSync} from '../featureFlags';
@@ -70,6 +69,8 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
   const conflicts = useAtomValue(optimisticMergeConflicts);
   const featureFlagsLoadable = useAtomValue(loadableFeatureFlagsAtom);
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
+  const isMenuOpen = useAtomValue(contextMenuState) != null;
+  const wasMenuOpenOnPointerDown = useRef(false);
 
   const context: ActionContext = useMemo(
     () => ({
@@ -109,6 +110,7 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
   const sortedActionItems = useSortedActions(availableActionItems);
 
   const [selectedAction, setSelectedAction] = useState<ActionMenuItem | undefined>(undefined);
+  const contextTooltipToggle = useRef(new EventTarget());
 
   useEffect(() => {
     if (
@@ -119,22 +121,29 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
     }
   }, [selectedAction, sortedActionItems]);
 
+  const openContextTooltip = useCallback(() => {
+    contextTooltipToggle.current.dispatchEvent(new Event('change'));
+  }, []);
+
   const contextMenu = useContextMenu(() =>
     sortedActionItems.map(actionItem => ({
-      label: (
-        // Mark the current action as selected
-        <Row>
-          <Icon icon={actionItem.id === selectedAction?.id ? 'check' : 'blank'} />
-          {actionItem.label}
-        </Row>
-      ),
-      onClick: () => {
+      label: actionItem.label,
+      onClick: (e?: MouseEvent) => {
+        if (e?.altKey) {
+          setSelectedAction(actionItem);
+          bumpSmartAction(actionItem.id);
+          // Defer to allow state update and re-render before toggling the tooltip
+          setTimeout(openContextTooltip, 0);
+          return;
+        }
         setSelectedAction(actionItem);
-        // Run the action immediately on click instead of requiring a second click
         runSmartAction(actionItem.config, context);
         bumpSmartAction(actionItem.id);
       },
-      tooltip: actionItem.config.description ? t(actionItem.config.description) : undefined,
+      tooltip: actionItem.config.description
+        ? (Internal.smartActions?.renderModifierContextTooltip?.(actionItem.config.description) ??
+          t(actionItem.config.description))
+        : undefined,
     })),
   );
 
@@ -156,15 +165,18 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
   const description = selectedAction.config.description
     ? t(selectedAction.config.description)
     : undefined;
-  const tooltip =
-    description != null && Internal.smartActions?.renderModifierContextTooltip != null
-      ? Internal.smartActions.renderModifierContextTooltip(description)
-      : description;
+  const tooltip = description
+    ? (Internal.smartActions?.renderModifierContextTooltip?.(description) ?? description)
+    : undefined;
 
   if (sortedActionItems.length === 1) {
     const singleAction = sortedActionItems[0];
     buttonComponent = (
-      <SmartActionWithContext config={singleAction.config} context={context} tooltip={tooltip}>
+      <SmartActionWithContext
+        config={singleAction.config}
+        context={context}
+        tooltip={tooltip}
+        additionalToggles={contextTooltipToggle.current}>
         <Button
           kind="icon"
           onClick={e => {
@@ -182,7 +194,11 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
     );
   } else {
     buttonComponent = (
-      <SmartActionWithContext config={selectedAction.config} context={context} tooltip={tooltip}>
+      <SmartActionWithContext
+        config={selectedAction.config}
+        context={context}
+        tooltip={tooltip}
+        additionalToggles={contextTooltipToggle.current}>
         <ButtonDropdown
           kind="icon"
           options={[]}
@@ -201,13 +217,20 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
           customSelectComponent={
             <Button
               {...stylex.props(styles.select, buttonStyles.icon, styles.iconSelect)}
+              onPointerDown={() => {
+                wasMenuOpenOnPointerDown.current = isMenuOpen;
+              }}
               onClick={e => {
+                if (wasMenuOpenOnPointerDown.current) {
+                  wasMenuOpenOnPointerDown.current = false;
+                  e.stopPropagation();
+                  return;
+                }
                 if (dropdownButtonRef.current) {
                   const rect = dropdownButtonRef.current.getBoundingClientRect();
                   const zoom = getZoomLevel();
                   const xOffset = 4 * zoom;
                   const centerX = rect.left + rect.width / 2 - xOffset;
-                  // Position arrow at the top or bottom edge of button depending on which half of screen we're in
                   const isTopHalf =
                     (rect.top + rect.height / 2) / zoom <= window.innerHeight / zoom / 2;
                   const yOffset = 5 * zoom;
@@ -234,11 +257,13 @@ function SmartActionWithContext({
   context,
   tooltip,
   children,
+  additionalToggles,
 }: {
   config: SmartActionConfig;
   context: ActionContext;
   tooltip?: React.ReactNode;
   children: React.ReactNode;
+  additionalToggles?: EventTarget;
 }) {
   const ContextInput = Internal.smartActions?.ContextInput;
 
@@ -259,10 +284,12 @@ function SmartActionWithContext({
             bumpSmartAction(config.id);
             dismiss();
           }}
+          actionName={config.label}
         />
       )}
       title={tooltip}
-      group="smart-action-context-input">
+      group="smart-action-context-input"
+      additionalToggles={additionalToggles}>
       {children}
     </Tooltip>
   );
