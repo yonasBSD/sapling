@@ -1114,27 +1114,9 @@ Remounting {mounts[1]}...<green>fixed<reset>
         )
         self.assertEqual(exit_code, 0)
 
-    def test_remount_checkouts_old_edenfs(self) -> None:
-        exit_code, out, mounts = self._test_remount_checkouts(
-            dry_run=False, old_edenfs=True
-        )
-        self.assertEqual(
-            f"""\
-Checking {mounts[0]}
-Checking {mounts[1]}
-<yellow>- Found problem:<reset>
-{mounts[1]} is not currently mounted
-Remounting {mounts[1]}...<green>fixed<reset>
-
-<yellow>Successfully fixed 1 problem.<reset>
-""",
-            out,
-        )
-        self.assertEqual(exit_code, 0)
-
     def test_remount_checkouts_dry_run(self) -> None:
         exit_code, out, mounts = self._test_remount_checkouts(
-            dry_run=True, old_edenfs=True
+            dry_run=True,
         )
         self.assertEqual(
             f"""\
@@ -1156,7 +1138,6 @@ Would remount {mounts[1]}
         # pyre-fixme[2]: Parameter must be annotated.
         mock_watchman,
         dry_run: bool,
-        old_edenfs: bool = False,
     ) -> Tuple[int, str, List[Path]]:
         """Test that `eden doctor` remounts configured mount points that are not
         currently mounted.
@@ -1168,9 +1149,6 @@ Would remount {mounts[1]}
         mount1 = instance.create_test_mount("path1")
         mounts.append(mount1.path)
         mounts.append(instance.create_test_mount("path2", active=False).path)
-        if old_edenfs:
-            # Mimic older versions of edenfs, and do not return mount state data.
-            instance.get_thrift_client_legacy().change_mount_state(mount1.path, None)
 
         out = TestOutput()
         exit_code = doctor.cure_what_ails_you(
