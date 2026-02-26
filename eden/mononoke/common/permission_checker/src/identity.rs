@@ -93,7 +93,35 @@ impl MononokeIdentity {
     }
 
     pub fn to_typed_string(&self) -> String {
-        format!("{}:{}:{}", self.id_type(), self.id_data(), self.variant())
+        match self {
+            Self::TypeData { id_type, id_data } => {
+                format!("{};{}:{}", self.variant(), id_type, id_data)
+            }
+            Self::Authenticated(auth_id) => {
+                if auth_id.attributes.is_empty() {
+                    format!(
+                        "{};{}:{}",
+                        self.variant(),
+                        auth_id.identity.id_type,
+                        auth_id.identity.id_data
+                    )
+                } else {
+                    let attrs = auth_id
+                        .attributes
+                        .iter()
+                        .map(|attr| attr.val.as_str())
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    format!(
+                        "{};{}:{};{}",
+                        self.variant(),
+                        auth_id.identity.id_type,
+                        auth_id.identity.id_data,
+                        attrs
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -168,5 +196,48 @@ mod tests {
     fn test_ipv6_identity() {
         let id = MononokeIdentity::from_str("MACHINE:2621:10d:c1a8:12c9::1162").unwrap();
         assert_eq!(id.id_data(), "2621:10d:c1a8:12c9::1162");
+    }
+
+    #[mononoke::test]
+    fn test_to_typed_string_typedata() {
+        let id = MononokeIdentity::new("SERVICE", "some_service");
+        assert_eq!(id.to_typed_string(), "TypeData;SERVICE:some_service");
+    }
+
+    #[cfg(not(fbcode_build))]
+    #[mononoke::test]
+    fn test_to_typed_string_authenticated_no_attributes() {
+        let auth_id = AuthenticatedIdentity {
+            identity: crate::oss::Identity {
+                id_type: "SERVICE".to_string(),
+                id_data: "some_service".to_string(),
+            },
+            attributes: vec![],
+        };
+        let id = MononokeIdentity::Authenticated(auth_id);
+        assert_eq!(id.to_typed_string(), "Authenticated;SERVICE:some_service");
+    }
+
+    #[cfg(not(fbcode_build))]
+    #[mononoke::test]
+    fn test_to_typed_string_authenticated_with_attributes() {
+        let auth_id = AuthenticatedIdentity {
+            identity: crate::oss::Identity {
+                id_type: "USER".to_string(),
+                id_data: "mzr".to_string(),
+            },
+            attributes: vec![crate::oss::Attribute {
+                identifier: crate::oss::AttributeKey {
+                    attributeName: "id".to_string(),
+                    attributeNamespace: "agent".to_string(),
+                },
+                value: crate::oss::IdentityAttribute {
+                    attributeValue: "AGENT:devmate".to_string(),
+                },
+                val: "AGENT:devmate".to_string(),
+            }],
+        };
+        let id = MononokeIdentity::Authenticated(auth_id);
+        assert_eq!(id.to_typed_string(), "Authenticated;USER:mzr;AGENT:devmate");
     }
 }
