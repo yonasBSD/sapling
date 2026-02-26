@@ -1271,13 +1271,13 @@ Checking {mount}
                 os.environ["PWD"] = old_pwd
 
     @patch(
-        "eden.fs.cli.doctor.test.lib.fake_eden_instance.FakeEdenInstance.check_privhelper_connection_legacy",
+        "eden.fs.cli.doctor.test.lib.fake_eden_instance.FakeEdenInstance.check_privhelper_connection",
         return_value=True,
     )
     def test_privhelper_check_accessible(
         self,
         # pyre-fixme[2]: Parameter must be annotated.
-        mock_check_privhelper_connection_legacy,
+        mock_check_privhelper_connection,
     ) -> None:
         instance = FakeEdenInstance(self.make_temporary_directory())
         mount = instance.create_test_mount("path1").path

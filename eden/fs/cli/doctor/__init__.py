@@ -308,7 +308,7 @@ class EdenDoctorChecker:
 
     def check_privhelper(self) -> None:
         try:
-            connected = self.instance.check_privhelper_connection_legacy()
+            connected = self.instance.check_privhelper_connection()
             if not connected:
                 self.tracker.add_problem(EdenfsPrivHelperNotHealthy())
         except Exception as ex:
