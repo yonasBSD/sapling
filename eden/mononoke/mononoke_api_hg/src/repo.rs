@@ -873,6 +873,7 @@ mod tests {
     use blobstore::Loadable;
     use fbinit::FacebookInit;
     use mononoke_api::repo::Repo;
+    use mononoke_api::repo::RepoContext;
     use mononoke_macros::mononoke;
     use mononoke_types::ChangesetId;
     use tests_utils::CreateCommitContext;

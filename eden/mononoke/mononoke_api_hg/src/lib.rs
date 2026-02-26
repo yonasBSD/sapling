@@ -20,4 +20,5 @@ pub use data::HgDataId;
 pub use ext::RepoContextHgExt;
 pub use file::HgFileContext;
 pub use repo::HgRepoContext;
+pub use tree::HgAugmentedTreeRestrictionContext;
 pub use tree::HgTreeContext;
