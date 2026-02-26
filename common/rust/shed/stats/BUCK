@@ -51,7 +51,7 @@ rust_library(
     },
     deps = [
         "fbsource//third-party/rust:auto_impl",
-        "fbsource//third-party/rust:dashmap",
+        "fbsource//third-party/rust:dashmap-5",
         "//common/rust/shed/fbinit:fbinit",
     ],
 )
