@@ -282,9 +282,6 @@ class FakeEdenInstance(AbstractEdenInstance):
             self._status._to_py_deprecated(), pid=None, uptime=None, detail=""
         )
 
-    def check_privhelper_connection_legacy(self) -> bool:
-        return True
-
     def check_privhelper_connection(self) -> bool:
         return True
 
