@@ -102,7 +102,7 @@ pub async fn load_content(
     }
 }
 
-async fn get_content_id_from_changeset_path(
+pub async fn get_content_id_from_changeset_path(
     ctx: &CoreContext,
     repo: &impl Repo,
     changeset_id: ChangesetId,
