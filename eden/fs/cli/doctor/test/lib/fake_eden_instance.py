@@ -288,6 +288,9 @@ class FakeEdenInstance(AbstractEdenInstance):
     def get_server_build_info_legacy(self) -> Dict[str, str]:
         return dict(self._build_info)
 
+    def get_server_build_info(self) -> Dict[str, str]:
+        return dict(self._build_info)
+
     def get_thrift_client_legacy(self, timeout: Optional[float] = None) -> FakeClient:
         return self._fake_client
 

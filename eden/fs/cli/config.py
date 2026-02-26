@@ -46,7 +46,7 @@ import toml
 from eden.fs.service.eden.thrift_clients import EdenService
 from eden.fs.service.eden.thrift_types import MountInfo as ThriftMountInfo, MountState
 from eden.thrift import client, legacy
-from eden.thrift.legacy import EdenNotRunningError
+from eden.thrift.client import EdenNotRunningError
 from filelock import BaseFileLock, FileLock
 from thrift.Thrift import TApplicationException
 
@@ -499,7 +499,7 @@ class EdenInstance(AbstractEdenInstance):
     def get_current_and_running_versions(self) -> Tuple[str, Optional[str]]:
         try:
             running = self.get_running_version()
-        except legacy.EdenNotRunningError:
+        except (legacy.EdenNotRunningError, EdenNotRunningError):
             # return None if EdenFS does not currently appear to be running
             running = None
         return version.get_current_version(), running
@@ -612,7 +612,7 @@ class EdenInstance(AbstractEdenInstance):
         try:
             with self.get_thrift_client_legacy() as client:
                 thrift_mounts = client.listMounts()
-        except EdenNotRunningError:
+        except legacy.EdenNotRunningError:
             thrift_mounts = []
 
         config_mounts = self.get_checkouts()
@@ -1318,6 +1318,10 @@ Do you want to run `eden mount %s` instead?"""
         with self.get_thrift_client_legacy(timeout=3) as client:
             return client.getRegexExportedValues("^build_.*")
 
+    def get_server_build_info(self) -> Dict[str, str]:
+        with self.get_thrift_client(timeout=3) as client:
+            return dict(client.getRegexExportedValues("^build_.*"))
+
     def get_uptime(self) -> datetime.timedelta:
         now = datetime.datetime.now()
         with self.get_thrift_client_legacy(timeout=3) as client:
@@ -1988,7 +1992,10 @@ def detect_checkout_path_problem(
         # However, we prefer to get the list from the current eden process (if one's running)
         instance.get_running_version()
         checkout_list = instance.get_mounts().items()
-    except EdenNotRunningError:  # If EdenFS isn't running, we should fail
+    except (
+        legacy.EdenNotRunningError,
+        EdenNotRunningError,
+    ):  # If EdenFS isn't running, we should fail
         return None, None
 
     # Checkout list must be sorted so that parent paths are checked first
