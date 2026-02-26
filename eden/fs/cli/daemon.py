@@ -68,6 +68,37 @@ def _build_systemd_run_cmd(edenfs_cmd: List[str], eden_dir: str) -> List[str]:
     ] + edenfs_cmd
 
 
+def _try_setup_systemd_cgroup(
+    eden_env: Dict[str, str],
+    instance: "EdenInstance",
+) -> bool:
+    """Ensure the D-Bus session env vars are available for systemd-run --user.
+
+    get_edenfs_environment() preserves them from os.environ when present.
+    When invoked from a system service (e.g. edenfs_restarter timer), they may
+    be missing.  Fall back to the standard systemd paths derived from the UID.
+    If the D-Bus socket does not exist, skip cgroup isolation entirely.
+
+    Returns True if systemd-run should be used, False to fall back to the
+    original start without systemd-run.
+    """
+    if "XDG_RUNTIME_DIR" not in eden_env or "DBUS_SESSION_BUS_ADDRESS" not in eden_env:
+        uid = os.getuid()
+        xdg_runtime_dir = eden_env.get("XDG_RUNTIME_DIR", f"/run/user/{uid}")
+        dbus_socket = f"{xdg_runtime_dir}/bus"
+        if not os.path.exists(dbus_socket):
+            instance.log_sample(
+                "systemd_cgroup_start",
+                success=False,
+                reason=f"dbus_socket_not_found at {dbus_socket}",
+            )
+            return False
+        eden_env.setdefault("XDG_RUNTIME_DIR", xdg_runtime_dir)
+        eden_env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={dbus_socket}")
+
+    return True
+
+
 def wait_for_process_exit(pid: int, timeout: float) -> bool:
     """Wait for the specified process ID to exit.
 
@@ -233,17 +264,15 @@ def _start_edenfs_service(
     # prepare_edenfs_privileges for more info.
     cmd, eden_env = prepare_edenfs_privileges(daemon_binary, cmd, eden_env, privhelper)
 
-    if sys.platform == "linux" and instance.get_config_bool(
-        "experimental.systemd-cgroup-isolation", default=False
+    if (
+        sys.platform == "linux"
+        and instance.get_config_bool(
+            "experimental.systemd-cgroup-isolation", default=False
+        )
+        and _try_setup_systemd_cgroup(eden_env, instance)
     ):
-        use_systemd_cgroup = True
         cmd = _build_systemd_run_cmd(cmd, str(instance.state_dir))
-        # systemd-run --user needs these to connect to the user session bus.
-        # get_edenfs_environment() strips them, so re-inject for the wrapper.
-        for var in ("XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"):
-            val = os.environ.get(var)
-            if val is not None:
-                eden_env[var] = val
+        use_systemd_cgroup = True
     else:
         use_systemd_cgroup = False
 
@@ -464,6 +493,10 @@ def get_edenfs_environment(
         "INSIDE_RE_WORKER",
         # Used by tests to trigger error conditions in instrumented Rust code.
         "FAILPOINTS",
+        # systemd-run --user needs these to connect to the user session bus
+        # when starting edenfs with cgroup isolation.
+        "XDG_RUNTIME_DIR",
+        "DBUS_SESSION_BUS_ADDRESS",
     ]
 
     # Add user-specified environment variables to preserve
