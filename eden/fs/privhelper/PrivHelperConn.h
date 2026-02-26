@@ -327,6 +327,9 @@ struct formatter<facebook::eden::PrivHelperConn::MsgType>
       case facebook::eden::PrivHelperConn::REQ_STOP_FAM:
         name = "REQ_STOP_FAM";
         break;
+      case facebook::eden::PrivHelperConn::REQ_SET_MEMORY_PRIORITY_FOR_PROCESS:
+        name = "REQ_SET_MEMORY_PRIORITY_FOR_PROCESS";
+        break;
       default:
         name = "Unknown PrivHelperConn::MsgType";
     }
