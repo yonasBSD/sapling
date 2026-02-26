@@ -42,6 +42,7 @@ pub struct Metadata {
     client_info: Option<ClientInfo>,
     fetch_cause: Option<String>,
     fetch_from_cas_attempted: bool,
+    upstream_client_id: Option<String>,
 }
 
 impl Metadata {
@@ -88,6 +89,7 @@ impl Metadata {
             client_info: None,
             fetch_cause: None,
             fetch_from_cas_attempted: false,
+            upstream_client_id: None,
         }
     }
 
@@ -291,5 +293,14 @@ impl Metadata {
 
     pub fn fetch_from_cas_attempted(&self) -> bool {
         self.fetch_from_cas_attempted
+    }
+
+    pub fn add_upstream_client_id(&mut self, client_id: String) -> &mut Self {
+        self.upstream_client_id = Some(client_id);
+        self
+    }
+
+    pub fn upstream_client_id(&self) -> Option<&str> {
+        self.upstream_client_id.as_deref()
     }
 }

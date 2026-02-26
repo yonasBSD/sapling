@@ -428,6 +428,9 @@ impl SourceControlServiceImpl {
                     ClientInfo::default_with_entry_point(ClientEntryPoint::ScsServer)
                 });
                 metadata.add_client_info(client_info);
+                if let Some(client_id) = header("client_id")? {
+                    metadata.add_upstream_client_id(client_id);
+                }
                 return Ok(metadata);
             }
         }
@@ -454,6 +457,9 @@ impl SourceControlServiceImpl {
         let client_info = client_info
             .unwrap_or_else(|| ClientInfo::default_with_entry_point(ClientEntryPoint::ScsServer));
         metadata.add_client_info(client_info);
+        if let Some(client_id) = header("client_id")? {
+            metadata.add_upstream_client_id(client_id);
+        }
         Ok(metadata)
     }
 
