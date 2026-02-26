@@ -452,7 +452,7 @@ class ListCmd(Subcmd):
                 # We only show the state if the mount is in an unusual state.
                 state_str = ""
             else:
-                state_name = MountState._VALUES_TO_NAMES[mount_info.state]
+                state_name = mount_info.state.name
                 state_str = f" ({state_name})"
 
             out.writeln(f"{path.as_posix()}{state_str}{suffix}")

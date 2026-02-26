@@ -16,7 +16,7 @@ from eden.fs.cli.config import (
     EdenCheckout,
     EdenInstance,
 )
-from facebook.eden.ttypes import MountInfo, MountState
+from eden.fs.service.eden.thrift_types import MountInfo, MountState
 
 from .lib.output import TestOutput
 

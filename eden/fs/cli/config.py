@@ -44,9 +44,9 @@ from typing import (
 import facebook.eden.ttypes as eden_ttypes
 import toml
 from eden.fs.service.eden.thrift_clients import EdenService
+from eden.fs.service.eden.thrift_types import MountInfo as ThriftMountInfo, MountState
 from eden.thrift import client, legacy
 from eden.thrift.legacy import EdenNotRunningError
-from facebook.eden.ttypes import MountInfo as ThriftMountInfo, MountState
 from filelock import BaseFileLock, FileLock
 from thrift.Thrift import TApplicationException
 
@@ -238,13 +238,16 @@ class ListMountInfo(typing.NamedTuple):
     backing_repo: Optional[Path]
 
     def to_json_dict(self) -> Dict[str, Any]:
+        if self.state is None:
+            state_str = "NOT_RUNNING"
+        elif hasattr(self.state, "name"):
+            state_str = self.state.name
+        else:
+            # State is a raw int
+            state_str = MountState(self.state).name
         return {
             "data_dir": self.data_dir.as_posix(),
-            "state": (
-                MountState._VALUES_TO_NAMES.get(self.state)
-                if self.state is not None
-                else "NOT_RUNNING"
-            ),
+            "state": state_str,
             "configured": self.configured,
             "backing_repo": (
                 self.backing_repo.as_posix() if self.backing_repo is not None else None
@@ -625,13 +628,7 @@ class EdenInstance(AbstractEdenInstance):
 
         for thrift_mount in thrift_mounts:
             path = Path(os.fsdecode(thrift_mount.mountPoint))
-            # Older versions of EdenFS did not report the state field.
-            # If it is missing, set it to RUNNING.
-            state = (
-                thrift_mount.state
-                if thrift_mount.state is not None
-                else MountState.RUNNING
-            )
+            state = thrift_mount.state
             data_dir = Path(os.fsdecode(thrift_mount.edenClientPath))
 
             # this line is for pyre :(
