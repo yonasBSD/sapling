@@ -285,7 +285,7 @@ class FakeEdenInstance(AbstractEdenInstance):
     def check_privhelper_connection(self) -> bool:
         return True
 
-    def get_server_build_info(self) -> Dict[str, str]:
+    def get_server_build_info_legacy(self) -> Dict[str, str]:
         return dict(self._build_info)
 
     def get_thrift_client_legacy(self, timeout: Optional[float] = None) -> FakeClient:

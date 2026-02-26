@@ -490,7 +490,7 @@ class EdenInstance(AbstractEdenInstance):
 
         Throws an EdenNotRunningError if EdenFS does not currently appear to be running.
         """
-        bi = self.get_server_build_info()
+        bi = self.get_server_build_info_legacy()
         return (
             bi.get("build_package_version", ""),
             bi.get("build_package_release", ""),
@@ -1314,7 +1314,7 @@ Do you want to run `eden mount %s` instead?"""
     def _get_clients_dir(self) -> Path:
         return self._config_dir / CLIENTS_DIR
 
-    def get_server_build_info(self) -> Dict[str, str]:
+    def get_server_build_info_legacy(self) -> Dict[str, str]:
         with self.get_thrift_client_legacy(timeout=3) as client:
             return client.getRegexExportedValues("^build_.*")
 
