@@ -1013,8 +1013,15 @@ impl<R: MononokeRepo> ChangesetPathRestrictionContext<R> {
     /// Returns an empty Vec if the path is not restricted.
     /// When a path is under multiple nested roots (e.g. `foo/` and `foo/bar/`),
     /// returns info for each matching root.
+    ///
+    /// When `check_permissions` is true, the `has_access` field in each
+    /// `PathRestrictionInfo` will be populated with the result of an ACL check.
+    /// When false, `has_access` will be `None`.
     // TODO(T248660146): update this primitive to use AclManifest instead of access logging config.
-    pub async fn restriction_info(&self) -> Result<Vec<PathRestrictionInfo>, MononokeError> {
+    pub async fn restriction_info(
+        &self,
+        check_permissions: bool,
+    ) -> Result<Vec<PathRestrictionInfo>, MononokeError> {
         let path = match NonRootMPath::try_from(self.path().clone()) {
             Ok(p) => p,
             // Root path cannot be restricted
@@ -1042,30 +1049,33 @@ impl<R: MononokeRepo> ChangesetPathRestrictionContext<R> {
                 async move {
                     let repo_region_acl = acl.to_string();
 
-                    // Check access
-                    let has_access = has_read_access_to_repo_region_acls(
-                        self.changeset().ctx(),
-                        restricted_paths.acl_provider(),
-                        &[&acl],
-                    )
-                    .await
-                    .unwrap_or(false);
+                    let has_access = if check_permissions {
+                        let access = has_read_access_to_repo_region_acls(
+                            self.changeset().ctx(),
+                            restricted_paths.acl_provider(),
+                            &[&acl],
+                        )
+                        .await?;
+                        Some(access)
+                    } else {
+                        None
+                    };
 
                     // TODO(T248658346): look up permission_request_group from .slacl file
                     // For now, use the repo_region_acl itself as the request target
                     let request_acl = repo_region_acl.clone();
 
-                    PathRestrictionInfo {
+                    Ok::<_, MononokeError>(PathRestrictionInfo {
                         restriction_root,
                         repo_region_acl,
-                        has_access: Some(has_access),
+                        has_access,
                         request_acl,
-                    }
+                    })
                 }
             })
             .buffer_unordered(100)
-            .collect()
-            .await;
+            .try_collect()
+            .await?;
 
         Ok(results)
     }

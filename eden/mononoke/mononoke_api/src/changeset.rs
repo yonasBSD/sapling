@@ -1903,14 +1903,19 @@ impl<R: MononokeRepo> ChangesetContext<R> {
     /// For each path, returns the path and its restriction infos (empty if not restricted).
     /// A path under multiple nested roots will have multiple infos.
     /// Checks are performed concurrently.
+    ///
+    /// When `check_permissions` is true, each `PathRestrictionInfo` will have
+    /// its `has_access` field populated with the result of an ACL check.
+    /// When false, `has_access` will be `None`.
     pub async fn paths_restriction_info(
         &self,
         paths: Vec<NonRootMPath>,
+        check_permissions: bool,
     ) -> Result<Vec<(NonRootMPath, Vec<PathRestrictionInfo>)>, MononokeError> {
         stream::iter(paths)
             .map(|path| async move {
                 let restriction_ctx = self.path_restriction(path.clone()).await?;
-                let infos = restriction_ctx.restriction_info().await?;
+                let infos = restriction_ctx.restriction_info(check_permissions).await?;
                 Ok::<_, MononokeError>((path, infos))
             })
             .buffer_unordered(100)
@@ -1950,13 +1955,19 @@ impl<R: MononokeRepo> ChangesetContext<R> {
     // TODO(T248660146): update this primitive to use AclManifest instead of access logging config.
     // For draft commit safety (T255927050), the long-term implementation should
     // resolve ACLs using the closest public ancestor's ACL manifest.
+    /// When `check_permissions` is true, each `PathRestrictionInfo` will have
+    /// its `has_access` field populated with the result of an ACL check.
+    /// When false, `has_access` will be `None`.
     pub async fn restricted_paths_changes(
         &self,
+        check_permissions: bool,
     ) -> Result<RestrictedPathsChangesInfo, MononokeError> {
         let file_changes = self.file_changes().await?;
         let changed_paths: Vec<NonRootMPath> = file_changes.keys().cloned().collect();
 
-        let restriction_results = self.paths_restriction_info(changed_paths).await?;
+        let restriction_results = self
+            .paths_restriction_info(changed_paths, check_permissions)
+            .await?;
 
         // A path under multiple nested roots will appear in multiple groups.
         // Expand each (path, infos) into individual (path, info) pairs, then group by root.

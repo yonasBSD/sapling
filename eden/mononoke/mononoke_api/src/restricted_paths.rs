@@ -156,7 +156,7 @@ mod tests {
         let info = cs_ctx
             .path_restriction(MPath::try_from("restricted/dir").expect("Failed to parse MPath"))
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         let expected = vec![PathRestrictionInfo {
@@ -183,7 +183,7 @@ mod tests {
                 MPath::try_from("restricted/subdir/file.txt").expect("Failed to parse MPath"),
             )
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         let expected = vec![PathRestrictionInfo {
@@ -210,7 +210,7 @@ mod tests {
                 MPath::try_from("other/path/file.txt").expect("Failed to parse MPath"),
             )
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         assert!(info.is_empty(), "path should not be restricted");
@@ -226,7 +226,7 @@ mod tests {
         let info = cs_ctx
             .path_restriction(MPath::try_from("foo/baz/file.txt").expect("Failed to parse MPath"))
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         assert!(info.is_empty(), "sibling path should not be restricted");
@@ -247,7 +247,7 @@ mod tests {
                 MPath::try_from("first/nested/file.txt").expect("Failed to parse MPath"),
             )
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         let expected_first = vec![PathRestrictionInfo {
@@ -265,7 +265,7 @@ mod tests {
                 MPath::try_from("second/nested/file.txt").expect("Failed to parse MPath"),
             )
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         let expected_second = vec![PathRestrictionInfo {
@@ -290,7 +290,7 @@ mod tests {
         let info = cs_ctx
             .path_restriction(MPath::ROOT)
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         assert!(info.is_empty(), "root path cannot be restricted");
@@ -305,7 +305,7 @@ mod tests {
         let info = cs_ctx
             .path_restriction(MPath::try_from("any/path/file.txt").expect("Failed to parse MPath"))
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         assert!(info.is_empty(), "no restrictions configured");
@@ -327,7 +327,7 @@ mod tests {
         let infos = cs_ctx
             .path_restriction(MPath::try_from("foo/bar/file.txt").expect("Failed to parse MPath"))
             .await?
-            .restriction_info()
+            .restriction_info(true)
             .await?;
 
         let expected = vec![
@@ -373,7 +373,7 @@ mod tests {
             NonRootMPath::new("unrestricted/file4.txt")?,
         ];
 
-        let results = cs_ctx.paths_restriction_info(paths).await?;
+        let results = cs_ctx.paths_restriction_info(paths, true).await?;
 
         // Build comparable (path, Option<(restriction_root, repo_region_acl)>) tuples
         // Using first() since these paths each have at most one matching root
@@ -422,7 +422,7 @@ mod tests {
             NonRootMPath::new("restricted/subdir/file3.txt")?,
         ];
 
-        let results = cs_ctx.paths_restriction_info(paths).await?;
+        let results = cs_ctx.paths_restriction_info(paths, true).await?;
 
         let mut actual: Vec<(String, Option<(String, String)>)> = results
             .into_iter()
@@ -467,7 +467,7 @@ mod tests {
             NonRootMPath::new("other/file2.txt")?,
         ];
 
-        let results = cs_ctx.paths_restriction_info(paths).await?;
+        let results = cs_ctx.paths_restriction_info(paths, true).await?;
 
         let mut actual: Vec<(String, Option<(String, String)>)> = results
             .into_iter()
@@ -831,14 +831,14 @@ mod tests {
         let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo)).await?;
         let cs_ctx = ChangesetContext::new(repo_ctx, root_cs_id);
 
-        let changes = cs_ctx.restricted_paths_changes().await?;
+        let changes = cs_ctx.restricted_paths_changes(false).await?;
 
         let expected = RestrictedPathsChangesInfo {
             restricted_changes: vec![RestrictedChangeGroup {
                 restriction_info: PathRestrictionInfo {
                     restriction_root: NonRootMPath::new("restricted").unwrap(),
                     repo_region_acl: "TIER:my-acl".to_string(),
-                    has_access: Some(true),
+                    has_access: None,
                     request_acl: "TIER:my-acl".to_string(),
                 },
                 changed_paths: vec![NonRootMPath::new("restricted/file.txt").unwrap()],
@@ -870,7 +870,7 @@ mod tests {
         let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo)).await?;
         let cs_ctx = ChangesetContext::new(repo_ctx, root_cs_id);
 
-        let changes = cs_ctx.restricted_paths_changes().await?;
+        let changes = cs_ctx.restricted_paths_changes(false).await?;
 
         assert!(changes.restricted_changes.is_empty());
 
@@ -909,7 +909,7 @@ mod tests {
         let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo)).await?;
         let cs_ctx = ChangesetContext::new(repo_ctx, root_cs_id);
 
-        let changes = cs_ctx.restricted_paths_changes().await?;
+        let changes = cs_ctx.restricted_paths_changes(false).await?;
 
         // Groups are sorted by restriction_root (BTreeMap ordering)
         // First group has 3 changed paths (a.txt, b.txt, second/c.txt)
@@ -921,7 +921,7 @@ mod tests {
                     restriction_info: PathRestrictionInfo {
                         restriction_root: NonRootMPath::new("first").unwrap(),
                         repo_region_acl: "TIER:first-acl".to_string(),
-                        has_access: Some(true),
+                        has_access: None,
                         request_acl: "TIER:first-acl".to_string(),
                     },
                     changed_paths: vec![
@@ -934,7 +934,7 @@ mod tests {
                     restriction_info: PathRestrictionInfo {
                         restriction_root: NonRootMPath::new("first/second").unwrap(),
                         repo_region_acl: "TIER:second-acl".to_string(),
-                        has_access: Some(true),
+                        has_access: None,
                         request_acl: "TIER:second-acl".to_string(),
                     },
                     changed_paths: vec![NonRootMPath::new("first/second/c.txt").unwrap()],
@@ -976,7 +976,7 @@ mod tests {
         let repo_ctx = RepoContext::new_test(ctx.clone(), Arc::new(repo)).await?;
         let cs_ctx = ChangesetContext::new(repo_ctx, root_cs_id);
 
-        let changes = cs_ctx.restricted_paths_changes().await?;
+        let changes = cs_ctx.restricted_paths_changes(false).await?;
 
         // Groups are sorted by restriction_root (BTreeMap ordering):
         // alpha/ has 2 changed paths, beta/ has 1 changed path.
@@ -987,7 +987,7 @@ mod tests {
                     restriction_info: PathRestrictionInfo {
                         restriction_root: NonRootMPath::new("alpha").unwrap(),
                         repo_region_acl: "TIER:alpha-acl".to_string(),
-                        has_access: Some(true),
+                        has_access: None,
                         request_acl: "TIER:alpha-acl".to_string(),
                     },
                     changed_paths: vec![
@@ -999,7 +999,7 @@ mod tests {
                     restriction_info: PathRestrictionInfo {
                         restriction_root: NonRootMPath::new("beta").unwrap(),
                         repo_region_acl: "TIER:beta-acl".to_string(),
-                        has_access: Some(true),
+                        has_access: None,
                         request_acl: "TIER:beta-acl".to_string(),
                     },
                     changed_paths: vec![NonRootMPath::new("beta/file3.txt").unwrap()],
