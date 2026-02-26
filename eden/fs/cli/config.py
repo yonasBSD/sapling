@@ -1211,7 +1211,7 @@ Do you want to run `eden mount %s` instead?"""
             self.get_thrift_client_legacy, self._config_dir, timeout=timeout
         )
 
-    def check_privhelper_connection(self) -> bool:
+    def check_privhelper_connection_legacy(self) -> bool:
         """
         Check if the PrivHelper is accessible.
 

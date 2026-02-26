@@ -41,11 +41,11 @@ class DoctorUnixTest(DoctorTestBase):
     maxDiff: Optional[int] = None
 
     @patch(
-        "eden.fs.cli.doctor.test.lib.fake_eden_instance.FakeEdenInstance.check_privhelper_connection",
+        "eden.fs.cli.doctor.test.lib.fake_eden_instance.FakeEdenInstance.check_privhelper_connection_legacy",
         return_value=False,
     )
     def test_privhelper_check_not_accessible(
-        self, mock_check_privhelper_connection: MagicMock
+        self, mock_check_privhelper_connection_legacy: MagicMock
     ) -> None:
         instance = FakeEdenInstance(self.make_temporary_directory())
         mount = instance.create_test_mount("path1").path
