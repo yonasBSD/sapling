@@ -285,6 +285,9 @@ class FakeEdenInstance(AbstractEdenInstance):
     def check_privhelper_connection_legacy(self) -> bool:
         return True
 
+    def check_privhelper_connection(self) -> bool:
+        return True
+
     def get_server_build_info(self) -> Dict[str, str]:
         return dict(self._build_info)
 

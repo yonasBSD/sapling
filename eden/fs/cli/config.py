@@ -1216,9 +1216,20 @@ Do you want to run `eden mount %s` instead?"""
         Check if the PrivHelper is accessible.
 
         Returns True if so, False if not.
+
+        DEPRECATED: Use check_privhelper_connection() instead.
         """
         with self.get_thrift_client_legacy() as client:
             return client.checkPrivHelper().connected
+
+    def check_privhelper_connection(self) -> bool:
+        """
+        Check if the PrivHelper is accessible.
+
+        Returns True if so, False if not.
+        """
+        with self.get_thrift_client() as thrift_client:
+            return thrift_client.checkPrivHelper().connected
 
     def get_log_dir(self) -> Path:
         return self._config_dir / "logs"
