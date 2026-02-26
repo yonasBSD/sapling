@@ -28,7 +28,7 @@ python_unittest(
 
 python_unittest(
     name = "wintests",
-    srcs = glob(["windows/*.py"]),
+    srcs = glob(["windows/*.py"]) + ["multiprocessing_test.py"],
     compatible_with = [
         "ovr_config//os:windows",
     ],
