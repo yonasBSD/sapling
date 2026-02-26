@@ -52,7 +52,6 @@ use mononoke_api_hg::RepoContextHgExt;
 use mononoke_macros::mononoke;
 use mononoke_types::path::MPath;
 use phases::PhasesRef;
-use restricted_paths::RestrictedPathsArc;
 use scs_errors::ServiceErrorResultExt;
 use source_control as thrift;
 
@@ -1710,7 +1709,7 @@ impl SourceControlServiceImpl {
         commit: thrift::CommitSpecifier,
         params: thrift::CommitRestrictedPathsAccessParams,
     ) -> Result<thrift::CommitRestrictedPathsAccessResponse, scs_errors::ServiceError> {
-        let (repo, _changeset) = self.repo_changeset(ctx.clone(), &commit).await?;
+        let (repo, changeset) = self.repo_changeset(ctx.clone(), &commit).await?;
         if commit_restricted_paths::use_mock_api(repo.name()) {
             return Err(scs_errors::not_implemented(
                 "commit_restricted_paths_access is not mocked yet".to_string(),
@@ -1719,9 +1718,7 @@ impl SourceControlServiceImpl {
         }
         let paths: BTreeSet<String> = params.paths.into_iter().collect();
         commit_restricted_paths::restricted_paths_access_impl(
-            repo.ctx(),
-            &repo,
-            &self.acl_provider,
+            &changeset,
             paths,
             params.check_permissions,
         )
@@ -1744,7 +1741,7 @@ impl SourceControlServiceImpl {
         ),
         scs_errors::ServiceError,
     > {
-        let (repo, _changeset) = self.repo_changeset(ctx.clone(), &commit).await?;
+        let (repo, changeset) = self.repo_changeset(ctx.clone(), &commit).await?;
         if commit_restricted_paths::use_mock_api(repo.name()) {
             return Err(scs_errors::not_implemented(
                 "commit_find_restricted_paths is not mocked yet".to_string(),
@@ -1752,13 +1749,10 @@ impl SourceControlServiceImpl {
             .into());
         }
 
-        let restricted_paths_facet = repo.repo().restricted_paths_arc().clone();
         let filter_roots: BTreeSet<String> = params.roots.into_iter().collect();
 
-        let stream = commit_restricted_paths::find_nested_restricted_roots_stream(
-            restricted_paths_facet,
-            filter_roots,
-        );
+        let stream =
+            commit_restricted_paths::find_nested_restricted_roots(&changeset, filter_roots).await?;
 
         Ok((
             thrift::CommitFindRestrictedPathsStreamResponse::default(),
@@ -1790,9 +1784,7 @@ impl SourceControlServiceImpl {
             .collect();
 
         let access_response = commit_restricted_paths::restricted_paths_access_impl(
-            repo.ctx(),
-            &repo,
-            &self.acl_provider,
+            &changeset,
             changed_paths.clone(),
             true, // Always check permissions for changes endpoint
         )
