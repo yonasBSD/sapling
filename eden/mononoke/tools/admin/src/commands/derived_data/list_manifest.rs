@@ -19,6 +19,7 @@ use deleted_manifest::RootDeletedManifestIdCommon;
 use deleted_manifest::RootDeletedManifestV2Id;
 use derivation_queue_thrift::DerivationPriority;
 use derived_data_manager::BonsaiDerivable;
+use derived_data_manager::DerivedDataManager;
 use fsnodes::RootFsnodeId;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
@@ -55,7 +56,6 @@ use mononoke_types::path::MPath;
 use mononoke_types::skeleton_manifest_v2::SkeletonManifestV2;
 use repo_blobstore::RepoBlobstore;
 use repo_blobstore::RepoBlobstoreRef;
-use repo_derived_data::RepoDerivedDataRef;
 use skeleton_manifest::RootSkeletonManifestId;
 use skeleton_manifest_v2::RootSkeletonManifestV2Id;
 use unodes::RootUnodeManifestId;
@@ -379,7 +379,7 @@ async fn list_deleted(
 
 async fn fetch_or_derive_root<TreeId>(
     ctx: &CoreContext,
-    repo: &Repo,
+    manager: &DerivedDataManager,
     cs_id: ChangesetId,
     derive: bool,
 ) -> Result<TreeId>
@@ -387,13 +387,12 @@ where
     TreeId: BonsaiDerivable,
 {
     if derive {
-        Ok(repo
-            .repo_derived_data()
-            .derive::<TreeId>(ctx, cs_id, DerivationPriority::LOW)
+        Ok(manager
+            .derive::<TreeId>(ctx, cs_id, None, DerivationPriority::LOW)
             .await?)
     } else {
-        repo.repo_derived_data()
-            .fetch_derived::<TreeId>(ctx, cs_id)
+        manager
+            .fetch_derived::<TreeId>(ctx, cs_id, None)
             .await?
             .ok_or_else(|| anyhow!("No manifest for changeset {}", cs_id))
     }
@@ -402,6 +401,7 @@ where
 pub(super) async fn list_manifest(
     ctx: &CoreContext,
     repo: &Repo,
+    manager: &DerivedDataManager,
     args: ListManifestArgs,
 ) -> Result<()> {
     let cs_id = args.changeset_args.resolve_changeset(ctx, repo).await?;
@@ -412,14 +412,14 @@ pub(super) async fn list_manifest(
     let items = match args.manifest_type {
         ListManifestType::SkeletonManifests => {
             let root_id =
-                fetch_or_derive_root::<RootSkeletonManifestId>(ctx, repo, cs_id, args.derive)
+                fetch_or_derive_root::<RootSkeletonManifestId>(ctx, manager, cs_id, args.derive)
                     .await?
                     .into_skeleton_manifest_id();
             list(ctx, repo, root_id, path, args.directory, args.recursive).await?
         }
         ListManifestType::SkeletonManifests2 => {
             let root =
-                fetch_or_derive_root::<RootSkeletonManifestV2Id>(ctx, repo, cs_id, args.derive)
+                fetch_or_derive_root::<RootSkeletonManifestV2Id>(ctx, manager, cs_id, args.derive)
                     .await?
                     .into_inner_id()
                     .load(ctx, repo.repo_blobstore())
@@ -428,27 +428,27 @@ pub(super) async fn list_manifest(
         }
         ListManifestType::ContentManifests => {
             let root_id =
-                fetch_or_derive_root::<RootContentManifestId>(ctx, repo, cs_id, args.derive)
+                fetch_or_derive_root::<RootContentManifestId>(ctx, manager, cs_id, args.derive)
                     .await?
                     .into_content_manifest_id();
             list(ctx, repo, root_id, path, args.directory, args.recursive).await?
         }
         ListManifestType::Fsnodes => {
-            let root_id = fetch_or_derive_root::<RootFsnodeId>(ctx, repo, cs_id, args.derive)
+            let root_id = fetch_or_derive_root::<RootFsnodeId>(ctx, manager, cs_id, args.derive)
                 .await?
                 .into_fsnode_id();
             list(ctx, repo, root_id, path, args.directory, args.recursive).await?
         }
         ListManifestType::Unodes => {
             let root_id =
-                *fetch_or_derive_root::<RootUnodeManifestId>(ctx, repo, cs_id, args.derive)
+                *fetch_or_derive_root::<RootUnodeManifestId>(ctx, manager, cs_id, args.derive)
                     .await?
                     .manifest_unode_id();
             list(ctx, repo, root_id, path, args.directory, args.recursive).await?
         }
         ListManifestType::HgManifests => {
             let hg_changeset_id =
-                fetch_or_derive_root::<MappedHgChangesetId>(ctx, repo, cs_id, args.derive)
+                fetch_or_derive_root::<MappedHgChangesetId>(ctx, manager, cs_id, args.derive)
                     .await?
                     .hg_changeset_id();
             let root_id = hg_changeset_id
@@ -459,22 +459,23 @@ pub(super) async fn list_manifest(
         }
         ListManifestType::HgAugmentedManifests => {
             let root_id =
-                fetch_or_derive_root::<RootHgAugmentedManifestId>(ctx, repo, cs_id, args.derive)
+                fetch_or_derive_root::<RootHgAugmentedManifestId>(ctx, manager, cs_id, args.derive)
                     .await?
                     .hg_augmented_manifest_id();
             list(ctx, repo, root_id, path, args.directory, args.recursive).await?
         }
         ListManifestType::DeletedManifests => {
             let root_id =
-                fetch_or_derive_root::<RootDeletedManifestV2Id>(ctx, repo, cs_id, args.derive)
+                fetch_or_derive_root::<RootDeletedManifestV2Id>(ctx, manager, cs_id, args.derive)
                     .await?;
             list_deleted(ctx, repo, root_id, path, args.directory, args.recursive).await?
         }
         ListManifestType::GitTrees => {
-            let root_id = fetch_or_derive_root::<MappedGitCommitId>(ctx, repo, cs_id, args.derive)
-                .await?
-                .fetch_root_tree(ctx, repo.repo_blobstore())
-                .await?;
+            let root_id =
+                fetch_or_derive_root::<MappedGitCommitId>(ctx, manager, cs_id, args.derive)
+                    .await?
+                    .fetch_root_tree(ctx, repo.repo_blobstore())
+                    .await?;
             list(ctx, repo, root_id, path, args.directory, args.recursive).await?
         }
     };

@@ -29,11 +29,13 @@ use filenodes::Filenodes;
 use filestore::FilestoreConfig;
 use mononoke_app::MononokeApp;
 use mononoke_app::args::RepoArgs;
+use mononoke_types::DerivableType;
 use repo_blobstore::RepoBlobstore;
 use repo_derived_data::RepoDerivedData;
 use repo_derived_data::RepoDerivedDataRef;
 use repo_factory::RepoFactory;
 use repo_identity::RepoIdentity;
+use strum::IntoEnumIterator;
 
 use self::backfill_enqueue::BackfillEnqueueArgs;
 use self::backfill_enqueue::backfill_enqueue;
@@ -152,6 +154,23 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
         repo.repo_derived_data().manager()
     };
 
+    let is_read_only = matches!(
+        &args.subcommand,
+        DerivedDataSubcommand::Exists(_)
+            | DerivedDataSubcommand::Fetch(_)
+            | DerivedDataSubcommand::CountUnderived(_)
+            | DerivedDataSubcommand::ListManifest(_)
+            | DerivedDataSubcommand::Slice(_)
+    );
+
+    let manager = if is_read_only {
+        let mut config = manager.config().clone();
+        config.types = DerivableType::iter().collect();
+        manager.with_replaced_config(manager.config_name(), config)
+    } else {
+        manager.clone()
+    };
+
     match args.subcommand {
         DerivedDataSubcommand::BackfillEnqueue(args) => {
             let queue = async_requests_client::build(ctx.fb, &app, None)
@@ -168,17 +187,19 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
             )
             .await?
         }
-        DerivedDataSubcommand::Exists(args) => exists(&ctx, &repo, manager, args).await?,
-        DerivedDataSubcommand::Fetch(args) => fetch(&ctx, &repo, manager, args).await?,
+        DerivedDataSubcommand::Exists(args) => exists(&ctx, &repo, &manager, args).await?,
+        DerivedDataSubcommand::Fetch(args) => fetch(&ctx, &repo, &manager, args).await?,
         DerivedDataSubcommand::CountUnderived(args) => {
-            count_underived(&ctx, &repo, manager, args).await?
+            count_underived(&ctx, &repo, &manager, args).await?
         }
         DerivedDataSubcommand::VerifyManifests(args) => verify_manifests(&ctx, &repo, args).await?,
-        DerivedDataSubcommand::ListManifest(args) => list_manifest(&ctx, &repo, args).await?,
-        DerivedDataSubcommand::Derive(args) => derive(&mut ctx, &repo, manager, args).await?,
-        DerivedDataSubcommand::Slice(args) => slice(&ctx, &repo, manager, args).await?,
+        DerivedDataSubcommand::ListManifest(args) => {
+            list_manifest(&ctx, &repo, &manager, args).await?
+        }
+        DerivedDataSubcommand::Derive(args) => derive(&mut ctx, &repo, &manager, args).await?,
+        DerivedDataSubcommand::Slice(args) => slice(&ctx, &repo, &manager, args).await?,
         DerivedDataSubcommand::DeriveSlice(args) => {
-            derive_slice(&ctx, &repo, manager, args).await?
+            derive_slice(&ctx, &repo, &manager, args).await?
         }
     }
 
