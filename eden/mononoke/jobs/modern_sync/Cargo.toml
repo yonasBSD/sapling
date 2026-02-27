@@ -53,5 +53,5 @@ sorted_vector_map = { version = "0.2.0", git = "https://github.com/facebookexper
 stats = { version = "0.1.0", git = "https://github.com/facebookexperimental/rust-shed.git", branch = "main" }
 tokio = { version = "1.47.1", features = ["full", "test-util", "tracing"] }
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
-url = "2.5.4"
+url = "2.5.8"
 uuid = { version = "1.17", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
