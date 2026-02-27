@@ -448,16 +448,17 @@ try:
 except ImportError:
     pass
 
-
-# We temporarily need to add skips for FilteredFS mixins. Do not add FilteredFS
-# specific skips here. Add them below to FILTERED_TEST_DISABLED instead.
-FILTEREDFS_PARITY = {}
+# Propagate skips to FilteredFS and Coroutines test variants so that
+# platform-specific skips apply to those mixins as well. Do not add
+# FilteredFS-specific skips here; add them below to FILTERED_TEST_DISABLED.
+VARIANT_PARITY = {}
 for class_name, value_name in TEST_DISABLED.items():
-    if class_name.endswith("Hg"):
-        FILTEREDFS_PARITY[class_name.replace("Hg", "FilteredHg")] = value_name
-    elif not class_name.endswith("FilteredHg") and not class_name.endswith("Git"):
-        FILTEREDFS_PARITY[class_name + "FilteredHg"] = value_name
-TEST_DISABLED.update(FILTEREDFS_PARITY)
+    for suffix in ("FilteredHg", "Coroutines"):
+        if class_name.endswith("Hg"):
+            VARIANT_PARITY[class_name.replace("Hg", suffix)] = value_name
+        elif not class_name.endswith("Git"):
+            VARIANT_PARITY[class_name + suffix] = value_name
+TEST_DISABLED.update(VARIANT_PARITY)
 
 # Any future FilteredHg skips should be added here
 FILTEREDFS_TEST_DISABLED = {

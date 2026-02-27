@@ -333,6 +333,11 @@ class EdenTestCase(EdenTestCaseBase):
         if experimental_configs:
             configs["experimental"].extend(experimental_configs)
 
+        # Collect coroutines configs from mixins
+        coroutines_configs = self.get_coroutines_configs()
+        if coroutines_configs:
+            configs["coroutines"] = coroutines_configs
+
         if self.use_nfs():
             configs["clone"] = ['default-mount-protocol = "NFS"']
         # The number of concurrent APFS volumes we can create on macOS
@@ -514,6 +519,10 @@ class EdenTestCase(EdenTestCaseBase):
 
     def get_experimental_configs(self) -> List[str]:
         """Default implementation returns no additional configs."""
+        return []
+
+    def get_coroutines_configs(self) -> List[str]:
+        """Default implementation returns no additional coroutines configs."""
         return []
 
     def remove_fault(
@@ -861,6 +870,7 @@ def _replicate_eden_repo_test(
     test_class: Type[EdenRepoTest],
     run_on_nfs: bool = True,
     case_sensitivity_dependent: bool = False,
+    run_coroutines: bool = True,
 ) -> Iterable[Tuple[str, Type[EdenRepoTest]]]:
     nfs_variants: MixinList = [("", [])]
     if run_on_nfs and eden.config.HAVE_NFS:
@@ -897,6 +907,19 @@ def _replicate_eden_repo_test(
                         typing.cast(Type[EdenRepoTest], VariantRepoTest),
                     )
                 )
+
+    # Add a single Coroutines variant after all other combinations
+    if run_coroutines:
+
+        class CoroutinesVariantRepoTest(
+            CoroutinesTestMixin, HgRepoTestMixin, test_class
+        ):
+            pass
+
+        variants.append(
+            ("Coroutines", typing.cast(Type[EdenRepoTest], CoroutinesVariantRepoTest))
+        )
+
     return variants
 
 
@@ -971,7 +994,14 @@ class CaseInsensitiveTestMixin:
 
 class CoroutinesTestMixin:
     def get_experimental_configs(self) -> List[str]:
-        return ["enable-coroutines-debug-get-blob = true"]
+        return [
+            "enable-coroutines-debug-get-blob = true",
+        ]
+
+    def get_coroutines_configs(self) -> List[str]:
+        return [
+            "enable-get-file-content = true",
+        ]
 
 
 def _replicate_eden_test(
