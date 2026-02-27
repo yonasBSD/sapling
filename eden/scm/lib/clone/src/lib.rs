@@ -155,12 +155,12 @@ fn run_eden_clone_command(clone_command: &mut Command) -> Result<()> {
 
 #[instrument(err)]
 pub fn eden_clone(
-    backing_repo: &Repo,
+    repo: &Repo,
     working_copy: &Path,
     target: Option<HgId>,
     filters: Option<HashSet<Text>>,
 ) -> Result<()> {
-    let config = backing_repo.config();
+    let config = repo.config();
 
     let mut clone_command = get_eden_clone_command(config)?;
 
@@ -178,7 +178,7 @@ pub fn eden_clone(
 
     clone_command.args([
         OsStr::new("clone"),
-        backing_repo.path().as_os_str(),
+        repo.shared_path().as_os_str(),
         working_copy.as_os_str(),
     ]);
 
