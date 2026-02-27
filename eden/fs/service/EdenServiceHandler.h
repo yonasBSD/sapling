@@ -10,6 +10,7 @@
 #include <fb303/BaseService.h>
 #include <folly/CancellationToken.h>
 #include <folly/coro/Task.h>
+#include <folly/coro/safe/NowTask.h>
 #include <optional>
 #include "eden/common/os/ProcessId.h"
 #include "eden/common/telemetry/TraceBus.h"
@@ -528,6 +529,9 @@ class EdenServiceHandler
 
   folly::SemiFuture<std::unique_ptr<GetFileContentResponse>>
   semifuture_getFileContentImpl(std::unique_ptr<GetFileContentRequest> request);
+
+  folly::coro::now_task<std::unique_ptr<GetFileContentResponse>>
+  co_getFileContentImpl(std::unique_ptr<GetFileContentRequest> request);
 
   folly::coro::Task<std::unique_ptr<::facebook::eden::CancelRequestsResponse>>
   co_cancelRequests(

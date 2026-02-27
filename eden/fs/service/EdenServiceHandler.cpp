@@ -21,6 +21,8 @@
 #include <folly/String.h>
 #include <folly/chrono/Conv.h>
 #include <folly/coro/Collect.h>
+#include <folly/coro/Invoke.h>
+#include <folly/coro/safe/NowTask.h>
 #include <folly/executors/SerialExecutor.h>
 #include <folly/futures/Future.h>
 #include <folly/logging/Logger.h>
@@ -5825,6 +5827,56 @@ EdenServiceHandler::semifuture_getFileContentImpl(
                    return response;
                  }))
       .semi();
+}
+
+folly::coro::now_task<std::unique_ptr<GetFileContentResponse>>
+EdenServiceHandler::co_getFileContentImpl(
+    std::unique_ptr<GetFileContentRequest> request) {
+  // Read from request
+  auto sync = request->sync();
+  auto mountPoint = request->mount()->mountPoint();
+  auto filePath = request->filePath();
+
+  // Set up log helper
+  auto helper = INSTRUMENT_THRIFT_CALL(
+      DBG3, *mountPoint, getSyncTimeout(*sync), *filePath);
+
+  // Prepare params for querying
+  auto mountHandle = lookupMount(mountPoint);
+  auto path = RelativePathPiece(*filePath);
+  auto& fetchContext = helper->getFetchContext();
+
+  // Ensure Eden has its internal state updated.
+  // See SyncBehavior struct in eden.thrift for details.
+  co_await waitForPendingWrites(mountHandle.getEdenMount(), *request->sync())
+      .semi();
+
+  ScmBlobOrError blobOrError;
+  try {
+    auto& edenMount = mountHandle.getEdenMount();
+    auto inode = co_await edenMount.getVirtualInode(path, fetchContext).semi();
+    auto& objectStore = mountHandle.getObjectStorePtr();
+    auto blob = co_await inode.getBlob(objectStore, fetchContext).semi();
+    // Return error if the binary size exceeds 2GB limit.
+    // Enforced by CompactProtocolWriter in the Thrift
+    // https://github.com/facebook/fbthrift/blob/main/thrift/lib/cpp2/protocol/CompactProtocol-inl.h
+    const auto blobSize = blob.size();
+    if (blobSize > std::numeric_limits<int32_t>::max()) {
+      blobOrError.error() = newEdenError(
+          EFBIG,
+          EdenErrorType::POSIX_ERROR,
+          "Thrift size limit (2GB) exceeded by file: ",
+          path);
+    } else {
+      blobOrError.blob() = std::move(blob);
+    }
+  } catch (...) {
+    blobOrError.error() =
+        newEdenError(folly::exception_wrapper{std::current_exception()});
+  }
+  auto response = std::make_unique<GetFileContentResponse>();
+  response->blob() = std::move(blobOrError);
+  co_return response;
 }
 
 folly::SemiFuture<std::unique_ptr<GetFileContentResponse>>
