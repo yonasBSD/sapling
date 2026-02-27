@@ -107,8 +107,11 @@ class HeartbeatManager : public std::enable_shared_from_this<HeartbeatManager> {
    * Helper function to convert integer to string in async-signal-safe way
    */
   static int intToStrSafe(int val, char* buf, size_t buf_size);
+
+#ifndef _WIN32
   std::string timestampToDateTimeString(uint64_t timestamp);
   folly::Try<bool> isMemoryPressureInSystemLog(uint64_t latestDaemonHeartbeat);
+#endif
 };
 
 } // namespace facebook::eden

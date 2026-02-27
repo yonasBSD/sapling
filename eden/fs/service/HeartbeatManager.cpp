@@ -259,6 +259,7 @@ std::string HeartbeatManager::getHeartbeatFileName() const {
   return edenDir_.getHeartbeatFileNamePrefix().toString() + pidContents;
 }
 
+#ifndef _WIN32
 // Helper function to convert UNIX timestamp to "YYYY-MM-DD HH:MM:SS"
 std::string HeartbeatManager::timestampToDateTimeString(uint64_t timestamp) {
   std::time_t t = static_cast<std::time_t>(timestamp);
@@ -309,6 +310,8 @@ folly::Try<bool> HeartbeatManager::isMemoryPressureInSystemLog(
     return folly::Try<bool>(e);
   }
 }
+
+#endif
 
 // Convert integer to string in a signal-safe way (simple itoa)
 // return the length of the string
