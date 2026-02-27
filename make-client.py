@@ -17,7 +17,7 @@ import subprocess
 import sys
 import tempfile
 import zipapp
-from pipes import quote as shellquote
+from shlex import quote as shellquote
 
 
 # Where to find the eden OSS directory; it contains this script.
