@@ -334,7 +334,7 @@ pub trait Blobstore: fmt::Display + fmt::Debug + Send + Sync {
     ) -> Result<Option<BlobstoreGetData>>;
 
     /// Adds ability to specify the put behaviour explicitly so that even if per process default was
-    /// IfAbsent once could chose to OverwriteAndLog. Expected to be used only in admin tools
+    /// IfAbsent one could choose to OverwriteAndLog. Expected to be used only in admin tools
     async fn put_explicit<'a>(
         &'a self,
         ctx: &'a CoreContext,
