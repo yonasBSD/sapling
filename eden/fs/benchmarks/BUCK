@@ -1,7 +1,19 @@
 load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 
 oncall("scm_client_infra")
+
+cpp_library(
+    name = "bench_utils",
+    headers = ["bench_utils.h"],
+    exported_deps = [
+        "//eden/common/utils:path",
+        "//eden/fs/service:thrift-cpp2-services",
+        "//folly/io/async:async_socket",
+        "//thrift/lib/cpp2/async:header_client_channel",
+    ],
+)
 
 # Run with --bench
 rust_binary(
@@ -187,8 +199,8 @@ cpp_binary(
         "//thrift/lib/cpp2/async:header_client_channel",
     ],
     external_deps = [
-        "gflags",
         ("boost", None, "boost_uuid"),
+        "gflags",
     ],
 )
 
