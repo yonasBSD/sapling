@@ -269,7 +269,6 @@ mod facebook {
                 mysql_telemetry: MysqlQueryTelemetry {
                     read_tables: hashset! {},
                     write_tables: hashset! {"mononoke_queries_test_v3".to_string()},
-                    instance_type: Some("PRIMARY".to_string()),
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
@@ -284,7 +283,6 @@ mod facebook {
                 mysql_telemetry: MysqlQueryTelemetry {
                     read_tables: hashset! {"mononoke_queries_test_v3".to_string()},
                     write_tables: hashset! {},
-                    instance_type: Some("PRIMARY".to_string()),
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
@@ -299,7 +297,6 @@ mod facebook {
                 mysql_telemetry: MysqlQueryTelemetry {
                     read_tables: hashset! {"mononoke_queries_test_v3".to_string()},
                     write_tables: hashset! {},
-                    instance_type: Some("PRIMARY".to_string()),
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
@@ -419,7 +416,6 @@ mod facebook {
                 mysql_telemetry: MysqlQueryTelemetry {
                     read_tables: hashset! {},
                     write_tables: hashset! {"mononoke_queries_test_v3".to_string()},
-                    instance_type: Some("PRIMARY".to_string()),
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
@@ -434,7 +430,6 @@ mod facebook {
                 mysql_telemetry: MysqlQueryTelemetry {
                     read_tables: hashset! {},
                     write_tables: hashset! {"mononoke_queries_test_v3".to_string()},
-                    instance_type: Some("PRIMARY".to_string()),
                     ..Default::default()
                 },
                 transaction_query_names: vec![],
