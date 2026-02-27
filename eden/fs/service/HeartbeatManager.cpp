@@ -277,13 +277,14 @@ std::string HeartbeatManager::timestampToDateTimeString(uint64_t timestamp) {
 folly::Try<bool> HeartbeatManager::isMemoryPressureInSystemLog(
     uint64_t latestDaemonHeartbeat) {
   try {
-    // Use helper for both start and end time
     std::string startDateTime =
         timestampToDateTimeString(latestDaemonHeartbeat);
+
+#ifdef __APPLE__
     std::time_t now = std::time(nullptr);
     std::string endDateTime =
         timestampToDateTimeString(static_cast<uint64_t>(now));
-    // Construct the log show command
+    // Construct "log show" command
     std::vector<std::string> cmd = {
         "/usr/bin/log",
         "show",
@@ -295,6 +296,10 @@ folly::Try<bool> HeartbeatManager::isMemoryPressureInSystemLog(
         endDateTime,
         "--predicate",
         "eventMessage CONTAINS \"largest compressed process edenfs\""};
+#else
+    // Construct "dmesg" command
+    std::vector<std::string> cmd = {"/usr/bin/dmesg", "--since", startDateTime};
+#endif
     // Run the command using SpawnedProcess
     SpawnedProcess::Options opts;
     opts.pipeStdout();
@@ -302,10 +307,18 @@ folly::Try<bool> HeartbeatManager::isMemoryPressureInSystemLog(
     auto proc = SpawnedProcess(cmd, std::move(opts));
     std::string output = proc.communicate().first;
     proc.waitTimeout(std::chrono::seconds(10));
-    // Check if "killing largest compressed process edenfs" exists in the output
+
+#ifdef __APPLE__
     bool found = output.find("killing largest compressed process edenfs") !=
         std::string::npos;
+#else
+    // Check for OOMD kills
+    bool found = output.find("Killed process") != std::string::npos &&
+        (output.find("(edenfs)") != std::string::npos ||
+         output.find("(edenfs_privhelp)") != std::string::npos);
+#endif
     return folly::Try<bool>(found);
+
   } catch (const std::exception& e) {
     return folly::Try<bool>(e);
   }

@@ -1319,11 +1319,11 @@ class EdenConfig : private ConfigSettingManager {
       this};
 
   /**
-   * Controls whether, after a silent daemon exit, the "log show" command is run
-   * to determine if the exit was caused by memory pressure. Running "log show"
-   * is time-consuming, so it is executed asynchronously and does not block
+   * Controls whether, after a silent daemon exit, system logs are checked
+   * to determine if the exit was caused by memory pressure. On macOS, this
+   * runs "log show"; on Linux, this runs "dmesg". The check is
+   * time-consuming, so it is executed asynchronously and does not block
    * EdenFS startup.
-   * Note: Only works on macOS.
    */
   ConfigSetting<bool> silentDaemonExitLogShow{
       "telemetry:silent-daemon-exit-log-show",
