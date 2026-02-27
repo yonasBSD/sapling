@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <chrono>
 #include <filesystem>
+#include <sstream>
 
 #include <folly/Conv.h>
 #include <folly/FileUtil.h>
@@ -312,10 +313,23 @@ folly::Try<bool> HeartbeatManager::isMemoryPressureInSystemLog(
     bool found = output.find("killing largest compressed process edenfs") !=
         std::string::npos;
 #else
-    // Check for OOMD kills
-    bool found = output.find("Killed process") != std::string::npos &&
-        (output.find("(edenfs)") != std::string::npos ||
-         output.find("(edenfs_privhelp)") != std::string::npos);
+    // Check each line for OOM kills of edenfs processes.
+    // We check per-line to avoid false positives from unrelated processes.
+    bool found = false;
+    std::istringstream stream(output);
+    std::string line;
+    while (std::getline(stream, line)) {
+      std::string lower = line;
+      folly::toLowerAscii(lower);
+      if ((lower.find("oom") != std::string::npos ||
+           lower.find("out of memory") != std::string::npos) &&
+          lower.find("killed process") != std::string::npos &&
+          (lower.find("(edenfs)") != std::string::npos ||
+           lower.find("(edenfs_privhelp)") != std::string::npos)) {
+        found = true;
+        break;
+      }
+    }
 #endif
     return folly::Try<bool>(found);
 
