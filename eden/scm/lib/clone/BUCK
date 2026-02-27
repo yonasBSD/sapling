@@ -35,6 +35,7 @@ rust_library(
         "//eden/scm/lib/context:context",
         "//eden/scm/lib/edenapi:edenapi",
         "//eden/scm/lib/edenapi/types:edenapi_types",
+        "//eden/scm/lib/edenfs-client:edenfs-client",
         "//eden/scm/lib/progress/model:progress-model",
         "//eden/scm/lib/repo:repo",
         "//eden/scm/lib/types:types",

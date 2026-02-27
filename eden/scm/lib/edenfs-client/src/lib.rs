@@ -9,6 +9,7 @@
 
 mod client;
 mod types;
+mod utils;
 
 pub use crate::client::EdenFsClient;
 pub use crate::types::CheckoutConflict;
@@ -16,3 +17,4 @@ pub use crate::types::CheckoutMode;
 pub use crate::types::ConflictType;
 pub use crate::types::EdenError;
 pub use crate::types::FileStatus;
+pub use crate::utils::build_eden_command;

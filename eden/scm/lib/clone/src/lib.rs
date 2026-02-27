@@ -113,14 +113,6 @@ pub enum EdenCloneError {
     MissingCommandConfig(),
 }
 
-fn get_eden_clone_command(config: &dyn Config) -> Result<Command> {
-    let eden_command = config.get_opt::<String>("edenfs", "command")?;
-    match eden_command {
-        Some(cmd) => Ok(Command::new(cmd)),
-        None => Err(EdenCloneError::MissingCommandConfig().into()),
-    }
-}
-
 #[tracing::instrument]
 fn run_eden_clone_command(clone_command: &mut Command) -> Result<()> {
     let output = clone_command.output().with_context(|| {
@@ -162,19 +154,7 @@ pub fn eden_clone(
 ) -> Result<()> {
     let config = repo.config();
 
-    let mut clone_command = get_eden_clone_command(config)?;
-
-    // allow tests to specify different configuration directories from prod defaults
-    if let Some(base_dir) = config.get_opt::<PathBuf>("edenfs", "basepath")? {
-        clone_command.args([
-            "--config-dir".into(),
-            base_dir.join("eden"),
-            "--etc-eden-dir".into(),
-            base_dir.join("etc_eden"),
-            "--home-dir".into(),
-            base_dir.join("home"),
-        ]);
-    }
+    let mut clone_command = edenfs_client::build_eden_command(config)?;
 
     clone_command.args([
         OsStr::new("clone"),
