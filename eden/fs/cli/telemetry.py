@@ -22,6 +22,13 @@ from typing import Dict, List, Optional, Set, Tuple, Type, Union
 
 from . import hostname, version
 
+try:
+    from eden.fs.cli.facebook.hostcaps import get_ondemand_info
+except ImportError:
+    # in OSS define a stub
+    def get_ondemand_info() -> Optional[Dict[str, str]]:
+        return None
+
 
 log: logging.Logger = logging.getLogger(__name__)
 
@@ -178,6 +185,11 @@ class TelemetryLogger(abc.ABC):
                         sample.add_string("agentic_fingerprint_id", value)
                     elif key == "invocation_id":
                         sample.add_string("agentic_fingerprint_invocation_id", value)
+
+        od_info = get_ondemand_info()
+        if od_info:
+            for key, value in od_info.items():
+                sample.add_string(key, value)
 
         sample.add_fields(**kwargs)
         return sample

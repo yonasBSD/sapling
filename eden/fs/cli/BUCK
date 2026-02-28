@@ -225,6 +225,7 @@ python_library(
     deps = [
         ":hostname",
         ":version",
+        "//eden/fs/cli/facebook:hostcaps",
     ],
 )
 
