@@ -10,6 +10,7 @@ import abc
 import getpass
 import json
 import logging
+import os
 import platform
 import random
 import subprocess
@@ -167,6 +168,17 @@ class TelemetryLogger(abc.ABC):
         sample.add_string("os", self.os)
         sample.add_string("osver", self.os_version)
         sample.add_string("edenver", self.eden_version)
+
+        agent_metadata = os.environ.get("CODING_AGENT_METADATA")
+        if agent_metadata:
+            for part in agent_metadata.split(","):
+                if "=" in part:
+                    key, value = part.split("=", 1)
+                    if key == "id":
+                        sample.add_string("agentic_fingerprint_id", value)
+                    elif key == "invocation_id":
+                        sample.add_string("agentic_fingerprint_invocation_id", value)
+
         sample.add_fields(**kwargs)
         return sample
 
