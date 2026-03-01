@@ -49,6 +49,7 @@ use mercurial_types::HgManifestId;
 use mercurial_types::HgNodeHash;
 use mononoke_api::MononokeRepo;
 use mononoke_api::Repo;
+use mononoke_api_hg::HgAugmentedTreeRestrictionContext;
 use mononoke_api_hg::HgDataContext;
 use mononoke_api_hg::HgDataId;
 use mononoke_api_hg::HgRepoContext;
@@ -449,33 +450,41 @@ impl SaplingRemoteApiHandler for CheckPermissionHandler {
         ectx: SaplingRemoteApiContext<Self::PathExtractor, Self::QueryStringExtractor, Repo>,
         request: Self::Request,
     ) -> HandlerResult<'async_trait, Self::Response> {
-        let _repo = ectx.repo();
+        let repo = ectx.repo();
 
-        // TODO(T248658346): implement check_permission
-        // For each manifest_id in request.manifest_ids:
-        // 1. Fetch HgAugmentedManifest for this manifest_id
-        // 2. Get acl_manifest_directory_id pointer
-        //    - If None: unrestricted, return has_access: true
-        // 3. Fetch AclManifestDirectory using the pointer
-        // 4. Extract ACL names from the directory entry
-        // 5. Check caller's identity against ACLs
-        // 6. If denied, get request_acl from ACL config
-        // 7. Return CheckPermissionResponse
-        //
-        // Use buffer_unordered for concurrent ACL checks.
-        // Gate behind JustKnob scm/mononoke:enable_server_side_path_acls
-        // with switch value "check_permission".
-        // When disabled, return has_access: true for all entries.
+        Ok(stream::iter(request.manifest_ids)
+            .map(move |manifest_id| {
+                let repo = repo.clone();
+                async move {
+                    let hg_manifest_id = HgManifestId::new(
+                        HgNodeHash::from_bytes(manifest_id.as_ref())
+                            .map_err(|e| anyhow::anyhow!("Invalid manifest id: {}", e))?,
+                    );
 
-        Ok(
-            stream::iter(request.manifest_ids.into_iter().map(|manifest_id| {
-                Ok(CheckPermissionResponse {
-                    manifest_id,
-                    has_access: true,
-                    request_acl: None,
-                })
-            }))
-            .boxed(),
-        )
+                    let restriction_ctx =
+                        HgAugmentedTreeRestrictionContext::new(repo.clone(), hg_manifest_id.into())
+                            .await?;
+                    let restriction_info = restriction_ctx.restriction_info().await?;
+
+                    // Unrestricted if None. Otherwise, check if the caller
+                    // has access to this manifest's restriction root.
+                    let has_access = restriction_info
+                        .as_ref()
+                        .map(|info| info.has_access.unwrap_or(false))
+                        .unwrap_or(true);
+
+                    let request_acl = restriction_info
+                        .as_ref()
+                        .map(|info| info.request_acl.clone());
+
+                    Ok(CheckPermissionResponse {
+                        manifest_id,
+                        has_access,
+                        request_acl,
+                    })
+                }
+            })
+            .buffer_unordered(20)
+            .boxed())
     }
 }
