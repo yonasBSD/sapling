@@ -15,7 +15,7 @@ crate-type = ["lib", "staticlib"]
 
 [dependencies]
 anyhow = "1.0.101"
-arc-swap = { version = "1.5", features = ["weak"] }
+arc-swap = { version = "1.8.2", features = ["weak"] }
 blob = { version = "0.1.0", path = "../blob" }
 cxx = "1.0.119"
 env_logger = { version = "0.11.9", features = ["color"] }
