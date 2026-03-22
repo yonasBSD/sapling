@@ -13,4 +13,4 @@ license = "MIT"
 name = "btrfs"
 
 [dependencies]
-libc = "0.2.139"
+libc = "0.2.183"
