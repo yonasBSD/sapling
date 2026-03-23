@@ -148,6 +148,7 @@
     "scm/mononoke:sql_telemetry_sample_rate": 1,
     "scm/mononoke:derivation_queue_max_retry_count": 20,
     "scm/mononoke:derivation_queue_evict_rdeps_max_retries": 5,
+    "scm/mononoke:derivation_pipeline_tailer_enqueue_max_retries": 5,
     "scm/mononoke:bookmark_creation_delay_ms": 500,
     "scm/mononoke:retry_query_from_replica_with_consistency_check_max_attempts": 10,
     "scm/mononoke:retry_query_from_replica_with_consistency_check_jitter": 50,

@@ -108,6 +108,8 @@ use repo_bookmark_attrs::ArcRepoBookmarkAttrs;
 use repo_bookmark_attrs::RepoBookmarkAttrs;
 use repo_cross_repo::ArcRepoCrossRepo;
 use repo_cross_repo::RepoCrossRepo;
+use repo_derivation_queues::ArcRepoDerivationQueues;
+use repo_derivation_queues::RepoDerivationQueues;
 use repo_derived_data::ArcRepoDerivedData;
 use repo_derived_data::RepoDerivedData;
 use repo_event_publisher::ArcRepoEventPublisher;
@@ -184,6 +186,7 @@ pub struct TestRepoFactory {
     permission_checker: Option<ArcRepoPermissionChecker>,
     filenodes_override: Option<Box<dyn Fn(ArcFilenodes) -> ArcFilenodes + Send + Sync>>,
     restricted_paths: Option<ArcRestrictedPaths>,
+    repo_derivation_queues: Option<ArcRepoDerivationQueues>,
 }
 
 /// The default derived data types configuration for test repositories.
@@ -333,6 +336,7 @@ impl TestRepoFactory {
             bookmarks_cache: None,
             git_symbolic_refs: None,
             restricted_paths: None,
+            repo_derivation_queues: None,
         })
     }
 
@@ -368,6 +372,15 @@ impl TestRepoFactory {
     /// Set the restricted paths for repos built by this factory.
     pub fn with_restricted_paths(&mut self, restricted_paths: ArcRestrictedPaths) -> &mut Self {
         self.restricted_paths = Some(restricted_paths);
+        self
+    }
+
+    /// Set the derivation queues for repos built by this factory.
+    pub fn with_derivation_queues(
+        &mut self,
+        repo_derivation_queues: ArcRepoDerivationQueues,
+    ) -> &mut Self {
+        self.repo_derivation_queues = Some(repo_derivation_queues);
         self
     }
 
@@ -1060,5 +1073,12 @@ impl TestRepoFactory {
     /// Function to create an object to configure push redirection
     pub async fn push_redirection_config(&self) -> Result<ArcPushRedirectionConfig> {
         Ok(Arc::new(NoopPushRedirectionConfig {}))
+    }
+
+    /// Construct RepoDerivationQueues, using override if set, otherwise empty.
+    pub fn repo_derivation_queues(&self) -> ArcRepoDerivationQueues {
+        self.repo_derivation_queues.clone().unwrap_or_else(|| {
+            Arc::new(RepoDerivationQueues::new(std::collections::HashMap::new()))
+        })
     }
 }
