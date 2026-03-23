@@ -48,14 +48,24 @@ from eden.fs.service.eden.thrift_types import (
     Blake3OrError,
     BlobMetadataOrError,
     BlobMetadataWithOrigin,
+    DataFetchOrigin,
     DebugGetBlobMetadataRequest,
+    DebugGetRawJournalParams,
     DebugGetScmBlobRequest,
     DebugGetScmTreeRequest,
     DebugInvalidateRequest,
+    DebugJournalDelta,
     DigestHashOrError,
     DigestSizeOrError,
+    DIS_COMPUTE_ACCURATE_MODE,
+    DIS_COMPUTE_BLOB_SIZES,
+    DIS_NOT_RECURSIVE,
+    DIS_REQUIRE_LOADED,
+    DIS_REQUIRE_MATERIALIZED,
+    EdenError,
     FileAttributeDataOrErrorV2,
     FileAttributeDataV2,
+    FileAttributes,
     GetAttributesFromFilesParams,
     ModeOrError,
     MountId,
@@ -76,20 +86,6 @@ from eden.fs.service.eden.thrift_types import (
 )
 from eden.thrift.legacy import EdenClient
 from facebook.eden import EdenService
-from facebook.eden.constants import (
-    DIS_COMPUTE_ACCURATE_MODE,
-    DIS_COMPUTE_BLOB_SIZES,
-    DIS_NOT_RECURSIVE,
-    DIS_REQUIRE_LOADED,
-    DIS_REQUIRE_MATERIALIZED,
-)
-from facebook.eden.ttypes import (
-    DataFetchOrigin,
-    DebugGetRawJournalParams,
-    DebugJournalDelta,
-    EdenError,
-    FileAttributes,
-)
 from fb303_core import BaseService
 from thrift.protocol.TSimpleJSONProtocol import TSimpleJSONProtocolFactory
 from thrift.Thrift import TApplicationException

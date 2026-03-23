@@ -13,8 +13,8 @@ import stat
 from typing import List
 
 import eden.integration.lib.overlay as overlay_mod
+from eden.fs.service.eden.thrift_types import MountState
 from eden.integration.lib import testcase
-from facebook.eden.ttypes import MountState
 
 
 @testcase.eden_nfs_repo_test

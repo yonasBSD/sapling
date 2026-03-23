@@ -17,7 +17,7 @@ from enum import Enum
 from textwrap import wrap
 from typing import Any, Dict, List, Optional, Tuple
 
-from facebook.eden.ttypes import AccessCounts
+from eden.fs.service.eden.thrift_types import AccessCounts
 
 from . import cmd_util
 from .hostname import get_normalized_hostname
@@ -1069,19 +1069,23 @@ class Process:
             self.last_access = other.last_access
 
     def increment_counts(self, access_counts: AccessCounts) -> None:
-        self.access_counts.fsChannelReads += access_counts.fsChannelReads
-        self.access_counts.fsChannelWrites += access_counts.fsChannelWrites
-        self.access_counts.fsChannelTotal += access_counts.fsChannelTotal
-        self.access_counts.fsChannelMemoryCacheImports += (
-            access_counts.fsChannelMemoryCacheImports
+        # Modern thrift-python types have immutable fields, so create a new object
+        self.access_counts = AccessCounts(
+            fsChannelReads=self.access_counts.fsChannelReads
+            + access_counts.fsChannelReads,
+            fsChannelWrites=self.access_counts.fsChannelWrites
+            + access_counts.fsChannelWrites,
+            fsChannelTotal=self.access_counts.fsChannelTotal
+            + access_counts.fsChannelTotal,
+            fsChannelMemoryCacheImports=self.access_counts.fsChannelMemoryCacheImports
+            + access_counts.fsChannelMemoryCacheImports,
+            fsChannelDiskCacheImports=self.access_counts.fsChannelDiskCacheImports
+            + access_counts.fsChannelDiskCacheImports,
+            fsChannelBackingStoreImports=self.access_counts.fsChannelBackingStoreImports
+            + access_counts.fsChannelBackingStoreImports,
+            fsChannelDurationNs=self.access_counts.fsChannelDurationNs
+            + access_counts.fsChannelDurationNs,
         )
-        self.access_counts.fsChannelDiskCacheImports += (
-            access_counts.fsChannelDiskCacheImports
-        )
-        self.access_counts.fsChannelBackingStoreImports += (
-            access_counts.fsChannelBackingStoreImports
-        )
-        self.access_counts.fsChannelDurationNs += access_counts.fsChannelDurationNs
 
     def set_fetches(self, fetch_counts: int) -> None:
         self.fuseFetch = fetch_counts

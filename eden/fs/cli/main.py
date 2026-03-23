@@ -39,6 +39,7 @@ from eden.fs.service.eden.thrift_clients import EdenService
 from eden.fs.service.eden.thrift_types import (
     ChangeOwnershipRequest,
     MountInfo,
+    MountState,
     SendNotificationRequest,
 )
 

@@ -41,7 +41,6 @@ from typing import (
     Union,
 )
 
-import facebook.eden.ttypes as eden_ttypes
 import toml
 from eden.fs.service.eden.thrift_clients import EdenService
 from eden.fs.service.eden.thrift_types import (
@@ -254,7 +253,6 @@ class ListMountInfo(typing.NamedTuple):
             state_str = MountState(self.state).name
         return {
             "data_dir": self.data_dir.as_posix(),
-            # pyre-ignore[16]: Legacy thrift MountState enum has .name attribute
             "state": state_str,
             "configured": self.configured,
             "backing_repo": (
@@ -626,7 +624,7 @@ class EdenInstance(AbstractEdenInstance):
     @classmethod
     def _combine_mount_info(
         cls,
-        thrift_mounts: List[ThriftMountInfo],
+        thrift_mounts: List[MountInfo],
         config_checkouts: List["EdenCheckout"],
     ) -> Dict[Path, ListMountInfo]:
         mount_points: Dict[Path, ListMountInfo] = {}

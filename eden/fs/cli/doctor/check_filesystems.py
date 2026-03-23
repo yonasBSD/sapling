@@ -34,17 +34,20 @@ from eden.fs.cli.prjfs import PRJ_FILE_STATE
 from eden.fs.service.eden.thrift_types import (
     DebugInvalidateRequest,
     DebugInvalidateResponse,
+    DIS_REQUIRE_LOADED,
+    DIS_REQUIRE_MATERIALIZED,
+    EdenError,
+    EdenErrorType,
     GetCurrentSnapshotInfoRequest,
     GetScmStatusParams,
     MatchFileSystemRequest,
     MountId,
     MountInodeInfo,
     RootIdOptions,
+    ScmFileStatus,
     SyncBehavior,
     TimeSpec,
 )
-from facebook.eden.constants import DIS_REQUIRE_LOADED, DIS_REQUIRE_MATERIALIZED
-from facebook.eden.ttypes import EdenError, EdenErrorType, ScmFileStatus
 
 try:
     from eden.fs.cli.doctor.facebook.internal_error_messages import (

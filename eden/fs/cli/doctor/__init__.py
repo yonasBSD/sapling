@@ -33,7 +33,7 @@ from eden.fs.cli.doctor.util import (
     get_dependent_repos,
     hg_doctor_in_backing_repo,
 )
-from facebook.eden.ttypes import MountState
+from eden.fs.service.eden.thrift_types import MountState
 from fb303_core.ttypes import fb303_status
 from filelock import FileLock, Timeout
 
