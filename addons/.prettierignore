@@ -1,5 +1,6 @@
 ._*
 .vscode/
+.claude/
 /isl/build/
 /isl/coverage/
 /isl/public/generated
@@ -19,3 +20,4 @@
 /shared/third-party/github/schema.docs.graphql
 /shared/coverage
 /components/coverage
+/facebook/isl-tui-experimental
