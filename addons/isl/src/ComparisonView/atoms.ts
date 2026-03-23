@@ -6,13 +6,19 @@
  */
 
 import type {Comparison} from 'shared/Comparison';
+import type {RepoRelativePath} from '../types';
 
 import {atom} from 'jotai';
 import {ComparisonType} from 'shared/Comparison';
 import {writeAtom} from '../jotaiUtils';
 import platform from '../platform';
 
-export type ComparisonMode = {comparison: Comparison; visible: boolean};
+export type ComparisonMode = {
+  comparison: Comparison;
+  visible: boolean;
+  /** When set, only show the diff for this specific file. */
+  focusedFile?: RepoRelativePath;
+};
 export const currentComparisonMode = atom<ComparisonMode>(
   window.islAppMode?.mode === 'comparison'
     ? {
@@ -25,14 +31,14 @@ export const currentComparisonMode = atom<ComparisonMode>(
       },
 );
 
-/** Open Comparison View for a given comparison type */
-export async function showComparison(comparison: Comparison) {
+/** Open Comparison View, optionally focused on a single file */
+export async function showComparison(comparison: Comparison, focusedFile?: RepoRelativePath) {
   if (await platform.openDedicatedComparison?.(comparison)) {
     return;
   }
-  writeAtom(currentComparisonMode, {comparison, visible: true});
+  writeAtom(currentComparisonMode, {comparison, visible: true, focusedFile});
 }
 
 export function dismissComparison() {
-  writeAtom(currentComparisonMode, last => ({...last, visible: false}));
+  writeAtom(currentComparisonMode, last => ({...last, visible: false, focusedFile: undefined}));
 }

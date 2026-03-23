@@ -45,7 +45,11 @@ export function ComparisonViewModal() {
   return (
     <Modal className="comparison-view-modal" height="" width="">
       <Suspense fallback={<Icon icon="loading" />}>
-        <ComparisonView comparison={mode.comparison} dismiss={dismissComparison} />
+        <ComparisonView
+          comparison={mode.comparison}
+          dismiss={dismissComparison}
+          focusedFile={mode.focusedFile}
+        />
       </Suspense>
     </Modal>
   );
@@ -61,7 +65,7 @@ export function ComparisonViewApp() {
   return (
     <div className="comparison-view-root">
       <Suspense fallback={<Icon icon="loading" />}>
-        <ComparisonView comparison={mode.comparison} />
+        <ComparisonView comparison={mode.comparison} focusedFile={mode.focusedFile} />
       </Suspense>
     </div>
   );

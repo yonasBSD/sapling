@@ -74,9 +74,11 @@ const comparisonDisplayMode = localStorageBackedAtom<ComparisonDisplayMode | 're
 export default function ComparisonView({
   comparison,
   dismiss,
+  focusedFile,
 }: {
   comparison: Comparison;
   dismiss?: () => void;
+  focusedFile?: string;
 }) {
   const compared = useAtomValue(currentComparisonData(comparison));
 
@@ -116,7 +118,10 @@ export default function ComparisonView({
         </EmptyState>
       );
   } else {
-    const files = data.value ?? [];
+    let files = data.value ?? [];
+    if (focusedFile != null) {
+      files = files.filter(f => f.newFileName === focusedFile || f.oldFileName === focusedFile);
+    }
     sortFilesByType(files);
     const fileGroups = group(files, file => generatedStatuses[file.newFileName ?? '']);
     content = (
@@ -171,6 +176,7 @@ export default function ComparisonView({
         collapsedFiles={collapsedFiles}
         setCollapsedFile={setCollapsedFile}
         dismiss={dismiss}
+        focusedFile={focusedFile}
       />
       <div className="comparison-view-details">{content}</div>
     </div>
@@ -187,11 +193,13 @@ function ComparisonViewHeader({
   collapsedFiles,
   setCollapsedFile,
   dismiss,
+  focusedFile,
 }: {
   comparison: Comparison;
   collapsedFiles: Map<string, boolean>;
   setCollapsedFile: (path: string, collapsed: boolean) => unknown;
   dismiss?: () => void;
+  focusedFile?: string;
 }) {
   const setComparisonMode = useSetAtom(currentComparisonMode);
   const [compared, reloadComparison] = useAtom(currentComparisonData(comparison));
@@ -250,32 +258,36 @@ function ComparisonViewHeader({
               <Icon icon="refresh" data-testid="comparison-refresh-button" />
             </Button>
           </Tooltip>
-          <Button
-            onClick={() => {
-              for (const file of data?.value ?? []) {
-                if (file.newFileName) {
-                  setCollapsedFile(file.newFileName, false);
+          {focusedFile == null && (
+            <Button
+              onClick={() => {
+                for (const file of data?.value ?? []) {
+                  if (file.newFileName) {
+                    setCollapsedFile(file.newFileName, false);
+                  }
                 }
-              }
-            }}
-            disabled={isLoading || allFilesExpanded}
-            icon>
-            <Icon icon="unfold" slot="start" />
-            <T>Expand all files</T>
-          </Button>
-          <Button
-            onClick={() => {
-              for (const file of data?.value ?? []) {
-                if (file.newFileName) {
-                  setCollapsedFile(file.newFileName, true);
+              }}
+              disabled={isLoading || allFilesExpanded}
+              icon>
+              <Icon icon="unfold" slot="start" />
+              <T>Expand all files</T>
+            </Button>
+          )}
+          {focusedFile == null && (
+            <Button
+              onClick={() => {
+                for (const file of data?.value ?? []) {
+                  if (file.newFileName) {
+                    setCollapsedFile(file.newFileName, true);
+                  }
                 }
-              }
-            }}
-            icon
-            disabled={isLoading || noFilesExpanded}>
-            <Icon icon="fold" slot="start" />
-            <T>Collapse all files</T>
-          </Button>
+              }}
+              icon
+              disabled={isLoading || noFilesExpanded}>
+              <Icon icon="fold" slot="start" />
+              <T>Collapse all files</T>
+            </Button>
+          )}
           <Tooltip trigger="click" component={() => <ComparisonSettingsDropdown />}>
             <Button icon>
               <Icon icon="ellipsis" />
