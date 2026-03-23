@@ -1666,6 +1666,14 @@ function microwave_builder() {
     "$@"
 }
 
+function derivation_pipeline_tailer {
+  GLOG_minloglevel=5 "$DERIVATION_PIPELINE_TAILER" \
+    "${CACHE_ARGS[@]}" \
+    "${COMMON_ARGS[@]}" \
+    --mononoke-config-path "$TESTTMP"/mononoke-config \
+    "$@"
+}
+
 function derived_data_tailer {
   GLOG_minloglevel=5 "$DERIVED_DATA_TAILER" \
     "${CACHE_ARGS[@]}" \
