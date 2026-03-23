@@ -31,6 +31,7 @@ from typing import (
     List,
     Optional,
     Pattern,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -41,30 +42,53 @@ import facebook.eden.constants as eden_constants
 import facebook.eden.ttypes as eden_ttypes
 import thrift.util.inspect
 from eden.fs.cli.cmd_util import get_eden_instance
-from eden.fs.service.eden.thrift_types import SyncBehavior
-from eden.thrift.legacy import EdenClient
-from facebook.eden import EdenService
-from facebook.eden.ttypes import (
-    AttributesRequestScope,
+from eden.fs.service.eden.thrift_clients import EdenService as ModernEdenService
+from eden.fs.service.eden.thrift_enums import AttributesRequestScope
+from eden.fs.service.eden.thrift_types import (
     Blake3OrError,
     BlobMetadataOrError,
+    BlobMetadataWithOrigin,
     DebugGetBlobMetadataRequest,
     DebugGetScmBlobRequest,
     DebugGetScmTreeRequest,
     DebugInvalidateRequest,
+    DigestHashOrError,
+    DigestSizeOrError,
     FileAttributeDataOrErrorV2,
     FileAttributeDataV2,
     GetAttributesFromFilesParams,
     ModeOrError,
     MountId,
     MtimeOrError,
+    ObjectIdOrError,
     ScmBlobMetadata,
     ScmBlobOrError,
+    ScmBlobWithOrigin,
+    ScmTreeEntry,
     ScmTreeOrError,
+    ScmTreeWithOrigin,
     Sha1OrError,
     SizeOrError,
     SourceControlTypeOrError,
+    SyncBehavior,
     TimeSpec,
+    TreeInodeDebugInfo,
+)
+from eden.thrift.legacy import EdenClient
+from facebook.eden import EdenService
+from facebook.eden.constants import (
+    DIS_COMPUTE_ACCURATE_MODE,
+    DIS_COMPUTE_BLOB_SIZES,
+    DIS_NOT_RECURSIVE,
+    DIS_REQUIRE_LOADED,
+    DIS_REQUIRE_MATERIALIZED,
+)
+from facebook.eden.ttypes import (
+    DataFetchOrigin,
+    DebugGetRawJournalParams,
+    DebugJournalDelta,
+    EdenError,
+    FileAttributes,
 )
 from fb303_core import BaseService
 from thrift.protocol.TSimpleJSONProtocol import TSimpleJSONProtocolFactory
@@ -258,22 +282,21 @@ class TreeCmd(Subcmd):
         parser.add_argument("mount", help="The EdenFS mount point path.")
         parser.add_argument("id", help="The tree ID")
 
-    def print_all_trees(self, trees: List[eden_ttypes.ScmTreeWithOrigin]) -> None:
+    def print_all_trees(self, trees: Sequence[ScmTreeWithOrigin]) -> None:
         print_all_objects(
             trees,
             "tree",
-            lambda tree: tree.scmTreeData.getType()
-            != eden_ttypes.ScmTreeOrError.TREEENTRIES,
-            lambda trees: trees[0].scmTreeData.get_treeEntries()
-            == trees[1].scmTreeData.get_treeEntries(),
-            lambda tree: print_tree(tree.scmTreeData.get_treeEntries()),
+            lambda tree: tree.scmTreeData.type is not ScmTreeOrError.Type.treeEntries,
+            lambda trees: trees[0].scmTreeData.treeEntries
+            == trees[1].scmTreeData.treeEntries,
+            lambda tree: print_tree(tree.scmTreeData.treeEntries),
         )
 
     def print_tree_or_error(self, treeOrError: ScmTreeOrError) -> None:
-        if treeOrError.getType() == eden_ttypes.ScmTreeOrError.TREEENTRIES:
-            print_tree(treeOrError.get_treeEntries())
+        if treeOrError.type is ScmTreeOrError.Type.treeEntries:
+            print_tree(treeOrError.treeEntries)
         else:
-            error = treeOrError.get_error()
+            error = treeOrError.error
             sys.stdout.buffer.write(f"ERROR fetching data: {error}\n".encode())
 
     def run(self, args: argparse.Namespace) -> int:
@@ -282,7 +305,7 @@ class TreeCmd(Subcmd):
 
         origin_flags = get_origin_flags(args)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             resp = client.debugGetTree(
                 DebugGetScmTreeRequest(
                     mountId=MountId(mountPoint=bytes(checkout.path)),
@@ -355,7 +378,7 @@ class ProcessFetchCmd(Subcmd):
         rows = []
 
         eden = cmd_util.get_eden_instance(args)
-        with eden.get_thrift_client_legacy() as client:
+        with eden.get_thrift_client() as client:
             # Get the data in the past args.time_window seconds. All data is collected only within
             # this period except that fetchCountsByPid is from the beginning of start
             counts = client.getAccessCounts(args.time_window)
@@ -479,7 +502,7 @@ def print_blob(blob: bytes) -> None:
     sys.stdout.buffer.write(blob)
 
 
-def print_tree(treeEntries: List[eden_ttypes.ScmTreeEntry]) -> None:
+def print_tree(treeEntries: Sequence[ScmTreeEntry]) -> None:
     max_object_id_len = max(
         (len(object_id_str(entry.id)) for entry in treeEntries), default=0
     )
@@ -503,9 +526,7 @@ def print_blob_metadata(id: str, metadata: ScmBlobMetadata) -> None:
 
 
 def print_all_objects(
-    # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
-    #  `typing.List[<element type>]` to avoid runtime subscripting errors.
-    objects: List,
+    objects: Sequence[Any],
     object_type: str,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     is_error: Callable,
@@ -564,19 +585,19 @@ class BlobCmd(Subcmd):
         parser.add_argument("id", help="The blob ID")
 
     def print_blob_or_error(self, blobOrError: ScmBlobOrError) -> None:
-        if blobOrError.getType() == eden_ttypes.ScmBlobOrError.BLOB:
-            print_blob(blobOrError.get_blob())
+        if blobOrError.type is ScmBlobOrError.Type.blob:
+            print_blob(blobOrError.blob)
         else:
-            error = blobOrError.get_error()
+            error = blobOrError.error
             sys.stdout.buffer.write(f"ERROR fetching data: {error}\n".encode())
 
-    def print_all_blobs(self, blobs: List[eden_ttypes.ScmBlobWithOrigin]) -> None:
+    def print_all_blobs(self, blobs: Sequence[ScmBlobWithOrigin]) -> None:
         print_all_objects(
             blobs,
             "blob",
-            lambda blob: blob.blob.getType() != eden_ttypes.ScmBlobOrError.BLOB,
-            lambda blobs: blobs[0].blob.get_blob() == blobs[1].blob.get_blob(),
-            lambda blob: print_blob(blob.blob.get_blob()),
+            lambda blob: blob.blob.type is not ScmBlobOrError.Type.blob,
+            lambda blobs: blobs[0].blob.blob == blobs[1].blob.blob,
+            lambda blob: print_blob(blob.blob.blob),
         )
 
     def run(self, args: argparse.Namespace) -> int:
@@ -585,7 +606,7 @@ class BlobCmd(Subcmd):
 
         origin_flags = get_origin_flags(args)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             data = client.debugGetBlob(
                 DebugGetScmBlobRequest(
                     mountId=MountId(mountPoint=bytes(checkout.path)),
@@ -611,23 +632,23 @@ class BlobMetaCmd(Subcmd):
     def print_blob_metadata_or_error(
         self, id: str, metadataOrError: BlobMetadataOrError
     ) -> None:
-        if metadataOrError.getType() == eden_ttypes.BlobMetadataOrError.METADATA:
-            print_blob_metadata(id, metadataOrError.get_metadata())
+        if metadataOrError.type is BlobMetadataOrError.Type.metadata:
+            print_blob_metadata(id, metadataOrError.metadata)
         else:
-            error = metadataOrError.get_error()
+            error = metadataOrError.error
             sys.stdout.buffer.write(f"ERROR fetching data: {error}\n".encode())
 
     def print_all_blob_metadatas(
-        self, id: str, blob_metadatas: List[eden_ttypes.BlobMetadataWithOrigin]
+        self, id: str, blob_metadatas: Sequence[BlobMetadataWithOrigin]
     ) -> None:
         print_all_objects(
             blob_metadatas,
             "blob metadata",
-            lambda metadata: metadata.metadata.getType()
-            != eden_ttypes.BlobMetadataOrError.METADATA,
-            lambda metadatas: metadatas[0].metadata.get_metadata()
-            == metadatas[1].metadata.get_metadata(),
-            lambda metadata: print_blob_metadata(id, metadata.metadata.get_metadata()),
+            lambda metadata: metadata.metadata.type
+            is not BlobMetadataOrError.Type.metadata,
+            lambda metadatas: metadatas[0].metadata.metadata
+            == metadatas[1].metadata.metadata,
+            lambda metadata: print_blob_metadata(id, metadata.metadata.metadata),
         )
 
     def run(self, args: argparse.Namespace) -> int:
@@ -636,7 +657,7 @@ class BlobMetaCmd(Subcmd):
 
         origin_flags = get_origin_flags(args)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             info = client.debugGetBlobMetadata(
                 DebugGetBlobMetadataRequest(
                     mountId=MountId(mountPoint=bytes(checkout.path)),
@@ -663,7 +684,7 @@ class MismatchedBlobSize:
 
 
 def check_blob_and_size_match(
-    client: EdenClient, checkout: Path, identifying_hash: bytes
+    client: ModernEdenService.Sync, checkout: Path, identifying_hash: bytes
 ) -> Optional[MismatchedBlobSize]:
     try:
         response = client.debugGetBlob(
@@ -676,7 +697,7 @@ def check_blob_and_size_match(
         blob = None
         for blobFromACertainPlace in response.blobs:
             try:
-                blob = blobFromACertainPlace.blob.get_blob()
+                blob = blobFromACertainPlace.blob.blob
             except AssertionError:
                 # only care to check blobs that exist
                 pass
@@ -692,7 +713,7 @@ def check_blob_and_size_match(
                     )
                 )
                 .metadatas[0]
-                .metadata.get_metadata()
+                .metadata.metadata
             )
         except AssertionError:
             # only care to check blobs that exist
@@ -765,7 +786,7 @@ class GcProcessFetchCmd(Subcmd):
 
     def run(self, args: argparse.Namespace) -> int:
         eden = cmd_util.get_eden_instance(args)
-        with eden.get_thrift_client_legacy() as client:
+        with eden.get_thrift_client() as client:
             if args.mount:
                 instance, checkout, _rel_path = cmd_util.require_checkout(
                     args, args.mount
@@ -779,14 +800,18 @@ class GcProcessFetchCmd(Subcmd):
 @debug_cmd("clear_local_caches", "Clears local caches of objects stored in RocksDB")
 class ClearLocalCachesCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
-        # noop
+        instance = cmd_util.get_eden_instance(args)
+        with instance.get_thrift_client() as client:
+            client.debugClearLocalStoreCaches()
         return 0
 
 
 @debug_cmd("compact_local_storage", "Asks RocksDB to compact its storage")
 class CompactLocalStorageCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
-        # noop
+        instance = cmd_util.get_eden_instance(args)
+        with instance.get_thrift_client() as client:
+            client.debugCompactLocalStorage()
         return 0
 
 
@@ -932,7 +957,7 @@ class InodeCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         out = sys.stdout.buffer
         instance, checkout, rel_path = cmd_util.require_checkout(args, args.path)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             flags = (
                 eden_constants.DIS_REQUIRE_LOADED
                 | eden_constants.DIS_COMPUTE_BLOB_SIZES
@@ -946,7 +971,7 @@ class InodeCmd(Subcmd):
                 bytes(checkout.path),
                 bytes(rel_path),
                 flags=flags,
-                sync=eden_ttypes.SyncBehavior(),
+                sync=SyncBehavior(),
             )
 
         out.write(b"%d loaded TreeInodes\n" % len(results))
@@ -974,12 +999,12 @@ class MaterializedCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, rel_path = cmd_util.require_checkout(args, args.path)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             results = client.debugInodeStatus(
                 bytes(checkout.path),
                 bytes(rel_path),
                 eden_constants.DIS_REQUIRE_MATERIALIZED,
-                sync=eden_ttypes.SyncBehavior(),
+                sync=SyncBehavior(),
             )
 
         if not results:
@@ -1070,10 +1095,7 @@ class FileStatsCMD(Subcmd):
 
         with instance.get_thrift_client() as client:
             inode_results = client.debugInodeStatus(
-                bytes(checkout.path),
-                bytes(rel_path),
-                flags=0,
-                sync=SyncBehavior(),
+                bytes(checkout.path), bytes(rel_path), flags=0, sync=SyncBehavior()
             )
 
         read_files, written_files = split_inodes_by_operation_type(inode_results)
@@ -1100,7 +1122,7 @@ class FuseCallsCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         out = sys.stdout.buffer
         instance, checkout, _rel_path = cmd_util.require_checkout(args, args.path)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             outstanding_call = client.debugOutstandingFuseCalls(bytes(checkout.path))
 
         out.write(b"Outstanding FUSE calls: %d\n" % len(outstanding_call))
@@ -1129,7 +1151,7 @@ class StartRecordingCmd(Subcmd):
 
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, _rel_path = cmd_util.require_checkout(args, os.getcwd())
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             result = client.debugStartRecordingActivity(
                 bytes(checkout.path), args.output_dir.encode()
             )
@@ -1155,7 +1177,7 @@ class StopRecordingCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, _rel_path = cmd_util.require_checkout(args, os.getcwd())
         output_path: Optional[bytes] = None
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             result = client.debugStopRecordingActivity(
                 bytes(checkout.path), args.unique
             )
@@ -1174,7 +1196,7 @@ class StopRecordingCmd(Subcmd):
 class ListRecordingsCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, _rel_path = cmd_util.require_checkout(args, os.getcwd())
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             result = client.debugListActivityRecordings(bytes(checkout.path))
             if not result.recordings:
                 print("There is no active activity recording sessions.")
@@ -1187,9 +1209,7 @@ class ListRecordingsCmd(Subcmd):
         return 0
 
 
-def _print_inode_info(
-    inode_info: eden_ttypes.TreeInodeDebugInfo, out: IO[bytes]
-) -> None:
+def _print_inode_info(inode_info: TreeInodeDebugInfo, out: IO[bytes]) -> None:
     out.write(inode_info.path + b"\n")
     out.write(b"  Inode number:  %d\n" % inode_info.inodeNumber)
     out.write(b"  Ref count:     %d\n" % inode_info.refcount)
@@ -1242,7 +1262,7 @@ class GetPathCmd(Subcmd):
         path = args.path or os.getcwd()
         instance, checkout, _rel_path = cmd_util.require_checkout(args, path)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             inodePathInfo = client.debugGetInodePath(bytes(checkout.path), args.number)
 
         state = "loaded" if inodePathInfo.loaded else "unloaded"
@@ -1275,11 +1295,11 @@ class UnloadInodesCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, rel_path = cmd_util.require_checkout(args, args.path)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             # set the age in nanoSeconds
-            age = eden_ttypes.TimeSpec()
-            age.seconds = int(args.age)
-            age.nanoSeconds = int((args.age - age.seconds) * 10**9)
+            seconds = int(args.age)
+            nanoSeconds = int((args.age - seconds) * 10**9)
+            age = TimeSpec(seconds=seconds, nanoSeconds=nanoSeconds)
             count = client.unloadInodeForPath(
                 bytes(checkout.path), bytes(rel_path), age
             )
@@ -1300,7 +1320,7 @@ class FlushCacheCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, rel_path = cmd_util.require_checkout(args, args.path)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             client.invalidateKernelInodeCache(bytes(checkout.path), bytes(rel_path))
 
         return 0
@@ -1449,7 +1469,7 @@ class LoggingCmd(Subcmd):
                 "WARN:default,eden=DBG2; default=stream:stream=stderr,async=true"
             )
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             if args.config is not None:
                 if args.reset:
                     print(f"Resetting logging configuration to {args.config!r}")
@@ -1528,7 +1548,7 @@ class DebugJournalSetMemoryLimitCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, _rel_path = cmd_util.require_checkout(args, args.path)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             try:
                 client.setJournalMemoryLimit(bytes(checkout.path), args.limit)
             except eden_ttypes.EdenError as err:
@@ -1549,7 +1569,7 @@ class DebugJournalGetMemoryLimitCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, _rel_path = cmd_util.require_checkout(args, args.path)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             try:
                 mem = client.getJournalMemoryLimit(bytes(checkout.path))
             except eden_ttypes.EdenError as err:
@@ -1574,7 +1594,7 @@ class DebugFlushJournalCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance, checkout, _rel_path = cmd_util.require_checkout(args, args.path)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             try:
                 client.flushJournal(bytes(checkout.path))
             except eden_ttypes.EdenError as err:
@@ -1634,7 +1654,7 @@ class DebugJournalCmd(Subcmd):
         # pyre-fixme[3]: Return type must be annotated.
         # pyre-fixme[2]: Parameter must be annotated.
         def refresh(params):
-            with instance.get_thrift_client_legacy() as client:
+            with instance.get_thrift_client() as client:
                 journal = client.debugGetRawJournal(params)
 
             deltas = journal.allDeltas
@@ -1807,7 +1827,7 @@ class DebugThriftCmd(Subcmd):
             raise AttributeError(f"Failed to find {name} in {modules}")
 
         instance = cmd_util.get_eden_instance(args)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             fn = getattr(client, args.function_name)
             result = fn(**python_args)
             if args.json:
@@ -1888,7 +1908,7 @@ class DebugThriftCmd(Subcmd):
 class DropRequestsCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance = cmd_util.get_eden_instance(args)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             num_dropped = client.debugDropAllPendingRequests()
             print(f"Dropped {num_dropped} source control fetch requests")
             return 0
@@ -1931,13 +1951,11 @@ class GCInodesCmd(Subcmd):
             seconds = 0
         if int(args.age) > 0:
             seconds = int(args.age)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             try:
                 result = client.debugInvalidateNonMaterialized(
                     DebugInvalidateRequest(
-                        mount=eden_ttypes.MountId(
-                            mountPoint=os.fsencode(checkout.path)
-                        ),
+                        mount=MountId(mountPoint=os.fsencode(checkout.path)),
                         path=os.fsencode(args.path),
                         background=args.background,
                         age=TimeSpec(seconds=seconds),
@@ -2062,18 +2080,16 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         }
         return type_mapping.get(scm_type, f"UNKNOWN({scm_type})")
 
-    def _print_object_id(
-        self, object_id: Optional[eden_ttypes.ObjectIdOrError]
-    ) -> None:
+    def _print_object_id(self, object_id: Optional[ObjectIdOrError]) -> None:
         """Print object ID attribute."""
         if object_id is None:
             print("  Object ID:             None")
             return
-        obj_enum = object_id.getType()
-        if obj_enum == object_id.OBJECTID:
-            print(f"  Object ID:             {object_id_str(object_id.get_objectId())}")
-        elif obj_enum == object_id.ERROR:
-            print(f"  Object ID:             {object_id.get_error().message}")
+        obj_type = object_id.type
+        if obj_type is ObjectIdOrError.Type.objectId:
+            print(f"  Object ID:             {object_id_str(object_id.objectId)}")
+        elif obj_type is ObjectIdOrError.Type.error:
+            print(f"  Object ID:             {object_id.error.message}")
         else:
             print("  Object ID:             Empty")
 
@@ -2082,13 +2098,11 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         if size is None:
             print("  File Size:             None")
             return
-        size_enum = size.getType()
-        if size_enum == size.SIZE:
-            print(
-                f"  File Size:             {stats_print.format_size(size.get_size())}"
-            )
-        elif size_enum == size.ERROR:
-            print(f"  File Size:             {size.get_error().message}")
+        size_type = size.type
+        if size_type is SizeOrError.Type.size:
+            print(f"  File Size:             {stats_print.format_size(size.size)}")
+        elif size_type is SizeOrError.Type.error:
+            print(f"  File Size:             {size.error.message}")
         else:
             print("  File Size:             Empty")
 
@@ -2097,11 +2111,11 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         if mode is None:
             print("  File Mode:             None")
             return
-        mode_enum = mode.getType()
-        if mode_enum == mode.MODE:
-            print(f"  File Mode:             {mode.get_mode():04o}")
-        elif mode_enum == mode.ERROR:
-            print(f"  File Mode:             {mode.get_error().message}")
+        mode_type = mode.type
+        if mode_type is ModeOrError.Type.mode:
+            print(f"  File Mode:             {mode.mode:04o}")
+        elif mode_type is ModeOrError.Type.error:
+            print(f"  File Mode:             {mode.error.message}")
         else:
             print("  File Mode:             Empty")
 
@@ -2112,15 +2126,15 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         if scm_type is None:
             print("  Source Control Type:   None")
             return
-        scm_type_enum = scm_type.getType()
+        scm_type_type = scm_type.type
 
-        if scm_type_enum == scm_type.SOURCECONTROLTYPE:
+        if scm_type_type is SourceControlTypeOrError.Type.sourceControlType:
             scm_type_str = self._source_control_type_to_string(
-                scm_type.get_sourceControlType()
+                scm_type.sourceControlType
             )
             print(f"  Source Control Type:   {scm_type_str}")
-        elif scm_type_enum == scm_type.ERROR:
-            print(f"  Source Control Type:   {scm_type.get_error().message}")
+        elif scm_type_type is SourceControlTypeOrError.Type.error:
+            print(f"  Source Control Type:   {scm_type.error.message}")
         else:
             print("  Source Control Type:   Empty")
 
@@ -2130,11 +2144,11 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
             print("  SHA1 Hash:            None")
             return
 
-        sha1_enum = sha1.getType()
-        if sha1_enum == sha1.SHA1:
-            print(f"  SHA1 Hash:            {hash_str(sha1.get_sha1())}")
-        elif sha1_enum == sha1.ERROR:
-            print(f"  SHA1 Hash:            {sha1.get_error().message}")
+        sha1_type = sha1.type
+        if sha1_type is Sha1OrError.Type.sha1:
+            print(f"  SHA1 Hash:            {hash_str(sha1.sha1)}")
+        elif sha1_type is Sha1OrError.Type.error:
+            print(f"  SHA1 Hash:            {sha1.error.message}")
         else:
             print("  SHA1 Hash:            Empty")
 
@@ -2144,45 +2158,41 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
             print("  BLAKE3 Hash:          None")
             return
 
-        blake3_enum = blake3.getType()
-        if blake3_enum == blake3.BLAKE3:
-            print(f"  BLAKE3 Hash:          {hash_str(blake3.get_blake3())}")
-        elif blake3_enum == blake3.ERROR:
-            print(f"  BLAKE3 Hash:          {blake3.get_error().message}")
+        blake3_type = blake3.type
+        if blake3_type is Blake3OrError.Type.blake3:
+            print(f"  BLAKE3 Hash:          {hash_str(blake3.blake3)}")
+        elif blake3_type is Blake3OrError.Type.error:
+            print(f"  BLAKE3 Hash:          {blake3.error.message}")
         else:
             print("  BLAKE3 Hash:          Empty")
 
-    def _print_digest_size(
-        self, digest_size: Optional[eden_ttypes.DigestSizeOrError]
-    ) -> None:
+    def _print_digest_size(self, digest_size: Optional[DigestSizeOrError]) -> None:
         """Print digest size attribute."""
         if digest_size is None:
             print("  Digest Size:          None")
             return
 
-        digest_size_enum = digest_size.getType()
-        if digest_size_enum == digest_size.DIGESTSIZE:
+        digest_size_type = digest_size.type
+        if digest_size_type is DigestSizeOrError.Type.digestSize:
             print(
-                f"  Digest Size:          {stats_print.format_size(digest_size.get_digestSize())}"
+                f"  Digest Size:          {stats_print.format_size(digest_size.digestSize)}"
             )
-        elif digest_size_enum == digest_size.ERROR:
-            print(f"  Digest Size:          {digest_size.get_error().message}")
+        elif digest_size_type is DigestSizeOrError.Type.error:
+            print(f"  Digest Size:          {digest_size.error.message}")
         else:
             print("  Digest Size:          Empty")
 
-    def _print_digest_hash(
-        self, digest_hash: Optional[eden_ttypes.DigestHashOrError]
-    ) -> None:
+    def _print_digest_hash(self, digest_hash: Optional[DigestHashOrError]) -> None:
         """Print digest hash attribute."""
         if digest_hash is None:
             print("  Digest Hash:          None")
             return
 
-        digest_hash_enum = digest_hash.getType()
-        if digest_hash_enum == digest_hash.DIGESTHASH:
-            print(f"  Digest Hash:          {hash_str(digest_hash.get_digestHash())}")
-        elif digest_hash_enum == digest_hash.ERROR:
-            print(f"  Digest Hash:          {digest_hash.get_error().message}")
+        digest_hash_type = digest_hash.type
+        if digest_hash_type is DigestHashOrError.Type.digestHash:
+            print(f"  Digest Hash:          {hash_str(digest_hash.digestHash)}")
+        elif digest_hash_type is DigestHashOrError.Type.error:
+            print(f"  Digest Hash:          {digest_hash.error.message}")
         else:
             print("  Digest Hash:          Empty")
 
@@ -2192,16 +2202,16 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
             print("  Modification Time:    None")
             return
 
-        mtime_enum = mtime.getType()
-        if mtime_enum == mtime.MTIME:
-            mtime_val = mtime.get_mtime()
+        mtime_type = mtime.type
+        if mtime_type is MtimeOrError.Type.mtime:
+            mtime_val = mtime.mtime
             timestamp = mtime_val.seconds + mtime_val.nanoSeconds / 1e9
             datetime_str = datetime.datetime.fromtimestamp(timestamp).strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
             print(f"  Modification Time:    {datetime_str}")
-        elif mtime_enum == mtime.ERROR:
-            print(f"  Modification Time:    {mtime.get_error().message}")
+        elif mtime_type is MtimeOrError.Type.error:
+            print(f"  Modification Time:    {mtime.error.message}")
         else:
             print("  Modification Time:    Empty")
 
@@ -2238,12 +2248,12 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         print(f"\nPath: {path}")
         print("=" * (len(path) + 6))
 
-        attr_result_enum = attr_result.getType()
-        if attr_result_enum == attr_result.FILEATTRIBUTEDATA:
-            attr_data = attr_result.get_fileAttributeData()
+        attr_result_type = attr_result.type
+        if attr_result_type is FileAttributeDataOrErrorV2.Type.fileAttributeData:
+            attr_data = attr_result.fileAttributeData
             self._print_file_attributes(attr_data, requested_attributes)
-        elif attr_result_enum == attr_result.ERROR:
-            error = attr_result.get_error()
+        elif attr_result_type is FileAttributeDataOrErrorV2.Type.error:
+            error = attr_result.error
             print(f"  ERROR: {error.message}")
         else:
             print("  Empty attribute result")
@@ -2297,9 +2307,7 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
 
         return requested_attrs
 
-    def _get_scope(
-        self, args: argparse.Namespace
-    ) -> Optional[eden_ttypes.AttributesRequestScope]:
+    def _get_scope(self, args: argparse.Namespace) -> Optional[AttributesRequestScope]:
         """Get the AttributesRequestScope based on command line arguments."""
         if args.files_only:
             return AttributesRequestScope.FILES
@@ -2322,7 +2330,7 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
 
         # Get the sync behavior based on command line arguments
         sync_timeout = args.sync_timeout if args.sync_timeout is not None else None
-        sync_behavior = eden_ttypes.SyncBehavior(syncTimeoutSeconds=sync_timeout)
+        sync_behavior = SyncBehavior(syncTimeoutSeconds=sync_timeout)
 
         # Create the request params
         params = GetAttributesFromFilesParams(
@@ -2334,7 +2342,7 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         )
 
         try:
-            with instance.get_thrift_client_legacy() as client:
+            with instance.get_thrift_client() as client:
                 result = client.getAttributesFromFilesV2(params)
                 for i, path in enumerate(args.paths):
                     attr_result = result.res[i]

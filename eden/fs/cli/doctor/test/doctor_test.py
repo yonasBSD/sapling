@@ -54,14 +54,13 @@ from eden.fs.cli.prjfs import PRJ_FILE_STATE
 from eden.fs.cli.redirect import Redirection, RedirectionState, RedirectionType
 from eden.fs.cli.test.lib.output import TestOutput
 from eden.fs.service.eden.thrift_enums import MountState
-from eden.fs.service.eden.thrift_types import MountInodeInfo
+from eden.fs.service.eden.thrift_types import MountInodeInfo, SHA1Result
 from facebook.eden.ttypes import (
     GetScmStatusResult,
     InternalStats,
     MountInodeInfo as LegacyMountInodeInfo,
     ScmFileStatus,
     ScmStatus,
-    SHA1Result,
     TreeInodeDebugInfo,
     TreeInodeEntryDebugInfo,
 )

@@ -300,7 +300,7 @@ class RemoveLegacyEphemeralCheckoutsTest(unittest.TestCase):
         def raise_not_running(timeout: float | None = None) -> MagicMock:
             raise main_mod.EdenNotRunningError("Daemon not running")
 
-        # pyre-ignore[16]
+        # pyre-ignore[8, 16]
         instance.get_thrift_client_legacy = raise_not_running
 
         result = main_mod.remove_legacyephemeral_checkouts(

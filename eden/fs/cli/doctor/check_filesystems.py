@@ -31,22 +31,20 @@ from eden.fs.cli.doctor.problem import (
 from eden.fs.cli.doctor.util import CheckoutInfo, get_mount_inode_info
 from eden.fs.cli.filesystem import FsUtil
 from eden.fs.cli.prjfs import PRJ_FILE_STATE
-from eden.fs.service.eden.thrift_types import MountInodeInfo
-from facebook.eden.constants import DIS_REQUIRE_LOADED, DIS_REQUIRE_MATERIALIZED
-from facebook.eden.ttypes import (
+from eden.fs.service.eden.thrift_types import (
     DebugInvalidateRequest,
     DebugInvalidateResponse,
-    EdenError,
-    EdenErrorType,
     GetCurrentSnapshotInfoRequest,
     GetScmStatusParams,
     MatchFileSystemRequest,
     MountId,
+    MountInodeInfo,
     RootIdOptions,
-    ScmFileStatus,
     SyncBehavior,
     TimeSpec,
 )
+from facebook.eden.constants import DIS_REQUIRE_LOADED, DIS_REQUIRE_MATERIALIZED
+from facebook.eden.ttypes import EdenError, EdenErrorType, ScmFileStatus
 
 try:
     from eden.fs.cli.doctor.facebook.internal_error_messages import (
@@ -424,7 +422,7 @@ class MaterializedInodesHaveDifferentModeOnDisk(PathsProblem, FixableProblem):
 
     def check_fix(self) -> bool:
         mismatched_modes = []
-        with self._instance.get_thrift_client_legacy() as client:
+        with self._instance.get_thrift_client() as client:
             try:
                 materialized = client.debugInodeStatus(
                     bytes(self._mount),
@@ -506,7 +504,7 @@ class MissingInodesForFiles(PathsProblem, FixableProblem):
         Execute a thrift call to EdenFS to force sync the eden state with the filesystem
         Don't catch errors here, handle them in the caller
         """
-        with self._instance.get_thrift_client_legacy() as client:
+        with self._instance.get_thrift_client() as client:
             result = client.matchFilesystem(
                 MatchFileSystemRequest(
                     mountPoint=MountId(mountPoint=str(self._mount).encode()),
@@ -652,7 +650,7 @@ def check_materialized_are_accessible(
     # This generally always should be [], EdenFS directories should not be able to contain duplicates.
     duplicate_inodes = []
 
-    with instance.get_thrift_client_legacy() as client:
+    with instance.get_thrift_client() as client:
         try:
             materialized = client.debugInodeStatus(
                 bytes(checkout.path),
@@ -812,7 +810,7 @@ def check_loaded_content(
     checkout: EdenCheckout,
     query_prjfs_file: Callable[[Path], PRJ_FILE_STATE],
 ) -> None:
-    with instance.get_thrift_client_legacy() as client:
+    with instance.get_thrift_client() as client:
         try:
             loaded = client.debugInodeStatus(
                 bytes(checkout.path),
@@ -876,7 +874,7 @@ def check_loaded_content(
 
                 sha1 = client.getSHA1(
                     bytes(checkout.path), [bytes(dirent_path)], sync=SyncBehavior()
-                )[0].get_sha1()
+                )[0].sha1
 
                 try:
                     on_disk_sha1 = _compute_file_sha1(checkout.path / dirent_path)
@@ -927,7 +925,7 @@ class HighInodeCountProblemWindowsOrDarwin(Problem, FixableProblem):
 
     def perform_fix(self) -> None:
         """Invalidate all non-materialized inodes."""
-        with self._info.instance.get_thrift_client_legacy() as client:
+        with self._info.instance.get_thrift_client() as client:
             try:
                 self.fix_result = client.debugInvalidateNonMaterialized(
                     DebugInvalidateRequest(
@@ -1004,7 +1002,7 @@ class HgStatusAndDiffMismatch(PathsProblem):
 
 
 def get_modified_files(instance: EdenInstance, checkout: EdenCheckout) -> List[Path]:
-    with instance.get_thrift_client_legacy(timeout=60.0) as client:
+    with instance.get_thrift_client(timeout=60.0) as client:
         # We are required to pass the active FilterId to getScmStatusV2. We
         # can find the active FilterId with GetCurrentSnapshotInfo
         snapshot_info = client.getCurrentSnapshotInfo(
@@ -1012,10 +1010,10 @@ def get_modified_files(instance: EdenInstance, checkout: EdenCheckout) -> List[P
                 mountId=MountId(mountPoint=bytes(checkout.path))
             )
         )
-        rootId = RootIdOptions()
         active_fid = snapshot_info.fid
-        if active_fid is not None:
-            rootId.fid = active_fid
+        rootId = (
+            RootIdOptions(fid=active_fid) if active_fid is not None else RootIdOptions()
+        )
 
         status = client.getScmStatusV2(
             GetScmStatusParams(
