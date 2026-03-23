@@ -604,7 +604,7 @@ class EdenInstance(AbstractEdenInstance):
 
         return ret
 
-    def get_mounts(self) -> Dict[Path, ListMountInfo]:
+    def get_mounts_legacy(self) -> Dict[Path, ListMountInfo]:
         try:
             with self.get_thrift_client_legacy() as client:
                 thrift_mounts = client.listMounts()
@@ -1748,7 +1748,7 @@ class EdenCheckout:
         """
         start_time = time.time()
         while time.time() - start_time < timeout_sec:
-            mounts = self.instance.get_mounts()
+            mounts = self.instance.get_mounts_legacy()
             for path, mount_info in mounts.items():
                 if path == self.path and mount_info.state == MountState.RUNNING:
                     return True
@@ -1984,7 +1984,7 @@ def detect_checkout_path_problem(
     try:
         # However, we prefer to get the list from the current eden process (if one's running)
         instance.get_running_version()
-        checkout_list = instance.get_mounts().items()
+        checkout_list = instance.get_mounts_legacy().items()
     except (
         legacy.EdenNotRunningError,
         EdenNotRunningError,

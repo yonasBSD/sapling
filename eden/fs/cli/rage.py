@@ -447,7 +447,7 @@ def print_eden_mounts(out: IOWithRedaction, instance: EdenInstance) -> None:
     for key in sorted(instance.get_mount_paths()):
         out.write(f"{key}\n")
         mountpoint_paths.append(key)
-    mounts = instance.get_mounts()
+    mounts = instance.get_mounts_legacy()
     mounts_data = {
         mount.path.as_posix(): mount.to_json_dict() for mount in mounts.values()
     }

@@ -250,7 +250,7 @@ class FakeEdenInstance(AbstractEdenInstance):
         return self._checkouts_by_path.keys()
 
     # TODO: Improve this mock. The real get_mounts() requests info from thrift.
-    def get_mounts(self) -> Dict[Path, ListMountInfo]:
+    def get_mounts_legacy(self) -> Dict[Path, ListMountInfo]:
         mount_points: Dict[Path, ListMountInfo] = {}
         for strPath, checkout in self._checkouts_by_path.items():
             path = Path(strPath)

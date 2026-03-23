@@ -978,7 +978,7 @@ class CleanupApfsCmd(Subcmd):
             raise Exception(f"Unsupported platform {sys.platform}")
 
         instance = cmd_util.get_eden_instance(args)
-        mounts = instance.get_mounts()
+        mounts = instance.get_mounts_legacy()
 
         stdout = subprocess.check_output(
             [

@@ -423,7 +423,7 @@ class ListCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance = get_eden_instance(args)
 
-        mounts = instance.get_mounts()
+        mounts = instance.get_mounts_legacy()
         out = ui.get_output()
         if args.json:
             self.print_mounts_json(out, mounts)
@@ -1643,7 +1643,7 @@ class MountCmd(Subcmd):
 
     def remount_checkouts(self, instance: EdenInstance, read_only: bool) -> int:
         exitcode = 0
-        mounts = instance.get_mounts()
+        mounts = instance.get_mounts_legacy()
         for path, mount_info in sorted(mounts.items()):
             if mount_info.state is None:
                 print(f"Found unmounted checkout at {path}, attempting to mount")
