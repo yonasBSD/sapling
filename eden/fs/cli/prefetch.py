@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import List, NamedTuple, Optional
 
 from eden.fs.service.eden.thrift_types import GlobParams, PrefetchParams
-from thrift.Thrift import TApplicationException
 
 from .cmd_util import require_checkout
 from .config import EdenCheckout, EdenInstance
