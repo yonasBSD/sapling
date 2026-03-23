@@ -103,22 +103,24 @@ pub fn try_biggrep(
     // Build the biggrep pattern
     let biggrep_pattern = if ctx.opts.word_regexp {
         format!(r"\b{}\b", pattern)
+    } else if ctx.opts.fixed_strings {
+        pattern.to_string()
     } else {
         pattern.replace("-", r"\-")
     };
 
-    // Choose client based on fixed_strings option
-    let biggrep_client = if ctx.opts.fixed_strings {
-        "bgs".to_string().into()
+    // Choose search engine based on fixed_strings option
+    let biggrep_engine = if ctx.opts.fixed_strings {
+        "apr_strmatch"
     } else {
-        biggrep_client
+        "re2"
     };
 
     // Build the biggrep command
     let mut cmd = Command::new(&biggrep_client);
     cmd.arg(&*biggrep_tier)
         .arg(&biggrep_corpus)
-        .arg("re2")
+        .arg(biggrep_engine)
         .arg("--stripdir")
         .arg("-r")
         .arg("--expression")

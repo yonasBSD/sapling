@@ -3851,8 +3851,7 @@ def grep(ui, repo, table, matcher, pattern, **opts):
         # to apply for this.
     if opts.get("fixed_strings"):
         cmd.append("-F")
-        # using bgs rather than bgr switches the engine to fixed string matches
-        biggrepclient = "bgs"
+        biggreppattern = pattern
     if opts.get("perl_regexp"):
         cmd.append("-P")
         # re2 is already mostly pcre compatible, so there are no options
@@ -3860,11 +3859,12 @@ def grep(ui, repo, table, matcher, pattern, **opts):
 
     # Ask big grep to strip out the corpus dir (stripdir) and to include
     # the corpus revision on the first line.
+    bigrepengine = "apr_strmatch" if opts.get("fixed_strings") else "re2"
     biggrepcmd = [
         biggrepclient,
         biggreptier,
         biggrepcorpus,
-        "re2",
+        bigrepengine,
         "--stripdir",
         "-r",
         "--expression",
