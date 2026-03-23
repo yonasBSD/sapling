@@ -41,8 +41,12 @@ from typing import (
 )
 
 import thrift.transport
-from eden.thrift.legacy import EdenClient, EdenNotRunningError
-from facebook.eden.ttypes import TreeInodeDebugInfo
+from eden.fs.service.eden.thrift_types import TreeInodeDebugInfo
+from eden.thrift.client import EdenNotRunningError
+from eden.thrift.legacy import (
+    EdenClient,
+    EdenNotRunningError as LegacyEdenNotRunningError,
+)
 from fb303_core.ttypes import fb303_status
 from thrift import Thrift
 
@@ -260,7 +264,7 @@ def _create_dead_health_status() -> HealthStatus:
 
 
 def check_health(
-    get_client: Callable[..., EdenClient],
+    get_client: Callable[..., Any],
     config_dir: Path,
     timeout: Optional[float] = None,
 ) -> HealthStatus:
@@ -288,7 +292,11 @@ def check_health(
             assert status_value is not None
             status = status_value
             uptime = info.uptime
-    except (EdenNotRunningError, thrift.transport.TTransport.TTransportException):
+    except (
+        EdenNotRunningError,
+        LegacyEdenNotRunningError,
+        thrift.transport.TTransport.TTransportException,
+    ):
         # It is possible that the edenfs process is running, but the Thrift
         # server is not running. This could be during the startup, shutdown,
         # or takeover of the edenfs process. As a backup to requesting the

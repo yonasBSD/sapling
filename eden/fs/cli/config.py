@@ -44,7 +44,15 @@ from typing import (
 import facebook.eden.ttypes as eden_ttypes
 import toml
 from eden.fs.service.eden.thrift_clients import EdenService
-from eden.fs.service.eden.thrift_types import MountInfo as ThriftMountInfo, MountState
+from eden.fs.service.eden.thrift_types import (
+    EdenError,
+    MountArgument,
+    MountId,
+    MountInfo,
+    MountInfo as ThriftMountInfo,
+    MountState,
+    UnmountArgument,
+)
 from eden.thrift import client, legacy
 from eden.thrift.client import EdenNotRunningError
 from filelock import BaseFileLock, FileLock
@@ -246,6 +254,7 @@ class ListMountInfo(typing.NamedTuple):
             state_str = MountState(self.state).name
         return {
             "data_dir": self.data_dir.as_posix(),
+            # pyre-ignore[16]: Legacy thrift MountState enum has .name attribute
             "state": state_str,
             "configured": self.configured,
             "backing_repo": (
@@ -604,11 +613,11 @@ class EdenInstance(AbstractEdenInstance):
 
         return ret
 
-    def get_mounts_legacy(self) -> Dict[Path, ListMountInfo]:
+    def get_mounts(self) -> Dict[Path, ListMountInfo]:
         try:
-            with self.get_thrift_client_legacy() as client:
-                thrift_mounts = client.listMounts()
-        except legacy.EdenNotRunningError:
+            with self.get_thrift_client() as client:
+                thrift_mounts: List[MountInfo] = list(client.listMounts())
+        except EdenNotRunningError:
             thrift_mounts = []
 
         config_mounts = self.get_checkouts()
@@ -705,7 +714,7 @@ Do you want to run `eden mount %s` instead?"""
         checkout.save_config(checkout_config)
 
         # Prepare to mount
-        mount_info = eden_ttypes.MountArgument(
+        mount_info = MountArgument(
             mountPoint=os.fsencode(path),
             edenClientPath=os.fsencode(client_dir),
             readOnly=False,
@@ -718,7 +727,7 @@ Do you want to run `eden mount %s` instead?"""
         if mount_timeout == 0:
             mount_timeout = None
 
-        with self.get_thrift_client_legacy(timeout=mount_timeout) as client:
+        with self.get_thrift_client(timeout=mount_timeout) as client:
             client.mount(mount_info)
 
         self._post_clone_checkout_setup(checkout, snapshot_id, filter_paths)
@@ -927,14 +936,16 @@ Do you want to run `eden mount %s` instead?"""
                 raise
 
         # Ask eden to mount the path
-        mount_info = eden_ttypes.MountArgument(
-            mountPoint=bytes(path), edenClientPath=bytes(client_dir), readOnly=read_only
+        mount_info = MountArgument(
+            mountPoint=os.fsencode(path),
+            edenClientPath=os.fsencode(client_dir),
+            readOnly=read_only,
         )
 
         try:
-            with self.get_thrift_client_legacy() as client:
+            with self.get_thrift_client() as client:
                 client.mount(mount_info)
-        except eden_ttypes.EdenError as ex:
+        except EdenError as ex:
             if "already mounted" in str(ex):
                 print_stderr(
                     f"ERROR: Mount point in use! {path} is already mounted by EdenFS."
@@ -954,13 +965,13 @@ Do you want to run `eden mount %s` instead?"""
         #
         # For now at least time out here so the CLI commands do not hang in this
         # case.
-        with self.get_thrift_client_legacy(timeout=UNMOUNT_TIMEOUT_SECONDS) as client:
-            mountPoint = os.fsencode(path)
-            unmount_arg = eden_ttypes.UnmountArgument(
-                mountId=eden_ttypes.MountId(mountPoint=mountPoint),
-                useForce=use_force,
-            )
+        mount_point = os.fsencode(path)
+        unmount_arg = UnmountArgument(
+            mountId=MountId(mountPoint=mount_point),
+            useForce=use_force,
+        )
 
+        with self.get_thrift_client(timeout=UNMOUNT_TIMEOUT_SECONDS) as client:
             try:
                 client.unmountV2(unmount_arg)
             except TApplicationException as e:
@@ -968,7 +979,7 @@ Do you want to run `eden mount %s` instead?"""
                 # against an older version of EdenFS in which unmountV2 is
                 # not known
                 if e.type == TApplicationException.UNKNOWN_METHOD:
-                    client.unmount(mountPoint)
+                    client.unmount(mount_point)
                 else:
                     raise e
 
@@ -1204,7 +1215,7 @@ Do you want to run `eden mount %s` instead?"""
         Returns a HealthStatus object containing health information.
         """
         return util.check_health(
-            self.get_thrift_client_legacy, self._config_dir, timeout=timeout
+            self.get_thrift_client, self._config_dir, timeout=timeout
         )
 
     def check_privhelper_connection(self) -> bool:
@@ -1213,8 +1224,8 @@ Do you want to run `eden mount %s` instead?"""
 
         Returns True if so, False if not.
         """
-        with self.get_thrift_client() as thrift_client:
-            return thrift_client.checkPrivHelper().connected
+        with self.get_thrift_client() as client:
+            return client.checkPrivHelper().connected
 
     def get_log_dir(self) -> Path:
         return self._config_dir / "logs"
@@ -1748,7 +1759,7 @@ class EdenCheckout:
         """
         start_time = time.time()
         while time.time() - start_time < timeout_sec:
-            mounts = self.instance.get_mounts_legacy()
+            mounts = self.instance.get_mounts()
             for path, mount_info in mounts.items():
                 if path == self.path and mount_info.state == MountState.RUNNING:
                     return True
@@ -1984,11 +1995,9 @@ def detect_checkout_path_problem(
     try:
         # However, we prefer to get the list from the current eden process (if one's running)
         instance.get_running_version()
-        checkout_list = instance.get_mounts_legacy().items()
-    except (
-        legacy.EdenNotRunningError,
-        EdenNotRunningError,
-    ):  # If EdenFS isn't running, we should fail
+        checkout_list = instance.get_mounts().items()
+    except (EdenNotRunningError, legacy.EdenNotRunningError):
+        # If EdenFS isn't running, we should fail
         return None, None
 
     # Checkout list must be sorted so that parent paths are checked first

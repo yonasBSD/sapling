@@ -150,6 +150,7 @@ from eden.fs.cli.util import (
 )
 from eden.fs.service.eden.thrift_types import (
     ChangeOwnershipRequest,
+    EdenError as ModernEdenError,
     MountInfo,
     MountState,
     SendNotificationRequest,
@@ -423,7 +424,7 @@ class ListCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance = get_eden_instance(args)
 
-        mounts = instance.get_mounts_legacy()
+        mounts = instance.get_mounts()
         out = ui.get_output()
         if args.json:
             self.print_mounts_json(out, mounts)
@@ -804,11 +805,12 @@ is case-sensitive. This is not recommended and is intended only for testing."""
             # process here to prefetch files that we think the user is likely
             # to want to access soon.
             return 0
-        except EdenService.EdenError as ex:
+        except (EdenService.EdenError, ModernEdenError) as ex:
             print_stderr(
                 f"{ForegroundColor.RED.value}Failed to clone.{ForegroundColor.RESET.value} Error from EdenFS: {ex}"
             )
-            return int(ex.errorCode) if ex.errorCode else 1
+            error_code = getattr(ex, "errorCode", None)
+            return int(error_code) if error_code else 1
         except Exception as ex:
             print_stderr(
                 f"{ForegroundColor.RED.value}Failed to clone.{ForegroundColor.RESET.value} Error: {ex}"
@@ -1643,7 +1645,7 @@ class MountCmd(Subcmd):
 
     def remount_checkouts(self, instance: EdenInstance, read_only: bool) -> int:
         exitcode = 0
-        mounts = instance.get_mounts_legacy()
+        mounts = instance.get_mounts()
         for path, mount_info in sorted(mounts.items()):
             if mount_info.state is None:
                 print(f"Found unmounted checkout at {path}, attempting to mount")
