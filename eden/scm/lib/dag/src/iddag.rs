@@ -1105,9 +1105,8 @@ pub trait IdDagAlgorithm: IdDagStore {
         if set.count() < 5 {
             let result = set
                 .iter_desc()
-                .fold(Ok(IdSet::empty()), |acc: Result<IdSet>, id| match acc {
-                    Ok(acc) => Ok(acc.union(&self.children_id(id)?)),
-                    Err(err) => Err(err),
+                .try_fold(IdSet::empty(), |acc, id| -> Result<IdSet> {
+                    Ok(acc.union(&self.children_id(id)?))
                 })?;
             #[cfg(test)]
             {
@@ -1321,8 +1320,8 @@ pub trait IdDagAlgorithm: IdDagStore {
                 // `common_ancestors(X)` = `common_ancestors(roots(X))`.
                 let set = self.roots(set)?;
                 set.iter_desc()
-                    .fold(Ok(IdSet::full()), |set: Result<IdSet>, id| {
-                        Ok(set?.intersection(&self.ancestors(id.into())?))
+                    .try_fold(IdSet::full(), |set, id| -> Result<IdSet> {
+                        Ok(set.intersection(&self.ancestors(id.into())?))
                     })?
             }
         };
