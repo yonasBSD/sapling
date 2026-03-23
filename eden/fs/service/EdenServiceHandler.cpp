@@ -1008,7 +1008,7 @@ EdenServiceHandler::semifuture_resetParentCommits(
 void EdenServiceHandler::getCurrentSnapshotInfo(
     GetCurrentSnapshotInfoResponse& out,
     std::unique_ptr<GetCurrentSnapshotInfoRequest> params) {
-  const auto& mountId = params->mountId();
+  auto mountId = params->mountId();
   auto helper = INSTRUMENT_THRIFT_CALL(DBG3, *mountId);
   helper->getThriftFetchContext().fillClientRequestInfo(params->cri());
 
@@ -1327,7 +1327,7 @@ void EdenServiceHandler::getCurrentJournalPosition(
 void EdenServiceHandler::peekCurrentJournalPosition(
     PeekCurrentJournalPositionResponse& out,
     std::unique_ptr<PeekCurrentJournalPositionRequest> params) {
-  const auto& mountId = params->mountId();
+  auto mountId = params->mountId();
   auto helper = INSTRUMENT_THRIFT_CALL(DBG3, *mountId);
   auto mountHandle = lookupMount(*mountId);
   auto latest = mountHandle.getEdenMount().getJournal().peekLatest();
@@ -4084,7 +4084,7 @@ EdenServiceHandler::semifuture_predictiveGlobFiles(
                                : sandcastleAlias;
 
   // check specified predictive parameters
-  const auto& predictiveGlob = params->predictiveGlob();
+  auto predictiveGlob = params->predictiveGlob();
   if (predictiveGlob.has_value()) {
     numResults = predictiveGlob->numTopDirectories().value_or(numResults);
     user = predictiveGlob->user().has_value() ? predictiveGlob->user().value()
@@ -4902,9 +4902,9 @@ folly::coro::Task<std::unique_ptr<DebugGetScmBlobResponse>>
 EdenServiceHandler::co_debugGetBlobImpl(
     apache::thrift::Cpp2RequestContext* requestContext,
     std::unique_ptr<DebugGetScmBlobRequest> request) {
-  const auto& mountid = request->mountId();
-  const auto& idStr = request->id();
-  const auto& origins = request->origins();
+  auto mountid = request->mountId();
+  auto idStr = request->id();
+  auto origins = request->origins();
 
   auto helper = INSTRUMENT_THRIFT_CALL_WITH_CANCELLATION(
       DBG2, true, requestContext, *mountid, logHash(*idStr), *origins);
@@ -5078,9 +5078,9 @@ EdenServiceHandler::co_cancelRequests(
 folly::SemiFuture<std::unique_ptr<DebugGetScmBlobResponse>>
 EdenServiceHandler::debugGetBlobImpl(
     std::unique_ptr<DebugGetScmBlobRequest> request) {
-  const auto& mountid = request->mountId();
-  const auto& idStr = request->id();
-  const auto& origins = request->origins();
+  auto mountid = request->mountId();
+  auto idStr = request->id();
+  auto origins = request->origins();
   auto helper =
       INSTRUMENT_THRIFT_CALL(DBG2, *mountid, logHash(*idStr), *origins);
 
@@ -5148,9 +5148,9 @@ EdenServiceHandler::debugGetBlobImpl(
 folly::SemiFuture<std::unique_ptr<DebugGetBlobMetadataResponse>>
 EdenServiceHandler::semifuture_debugGetBlobMetadata(
     std::unique_ptr<DebugGetBlobMetadataRequest> request) {
-  const auto& mountid = request->mountId();
-  const auto& idStr = request->id();
-  const auto& origins = request->origins();
+  auto mountid = request->mountId();
+  auto idStr = request->id();
+  auto origins = request->origins();
   auto helper =
       INSTRUMENT_THRIFT_CALL(DBG2, *mountid, logHash(*idStr), *origins);
 
@@ -5225,9 +5225,9 @@ EdenServiceHandler::semifuture_debugGetBlobMetadata(
 folly::SemiFuture<std::unique_ptr<DebugGetScmTreeResponse>>
 EdenServiceHandler::semifuture_debugGetTree(
     std::unique_ptr<DebugGetScmTreeRequest> request) {
-  const auto& mountid = request->mountId();
-  const auto& idStr = request->id();
-  const auto& origins = request->origins();
+  auto mountid = request->mountId();
+  auto idStr = request->id();
+  auto origins = request->origins();
   auto helper =
       INSTRUMENT_THRIFT_CALL(DBG2, *mountid, logHash(*idStr), *origins);
 
