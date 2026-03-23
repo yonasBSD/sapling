@@ -453,7 +453,7 @@ class Top:
         self.refresh_rate = args.refresh_rate
 
         eden = cmd_util.get_eden_instance(args)
-        with eden.get_thrift_client_legacy() as client:
+        with eden.get_thrift_client() as client:
             try:
                 self.curses.wrapper(self.run(client))
             except KeyboardInterrupt:

@@ -817,7 +817,7 @@ def print_counters(
 ) -> None:
     try:
         section_title(f"{counter_type} counters:", out)
-        with instance.get_thrift_client_legacy(timeout=3) as client:
+        with instance.get_thrift_client(timeout=3) as client:
             counters = client.getRegexCounters(regex)
             for key, value in counters.items():
                 out.write(f"{key}: {value}\n")
