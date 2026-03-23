@@ -24,6 +24,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use anyhow::Context;
 use aosp_service_clients::make_AospService;
 use aosp_service_services::types::DiffChange;
 use aosp_service_services::types::DirectPushRequest;
@@ -32,8 +33,11 @@ use aosp_service_services::types::LandResult;
 use aosp_service_services::types::LandStatus;
 use aosp_service_services::types::SubmitLandRequest;
 use aosp_service_services::types::SubmitLandRequestType;
+use permission_checker::AclProvider;
+use permission_checker::MononokeIdentitySetExt;
 use repo_identity::RepoIdentityRef;
 use thrift_client::MononokeThriftClient;
+use tracing::error;
 use tracing::info;
 
 use crate::command::RefUpdate;
@@ -68,6 +72,162 @@ pub fn should_divert_to_rl_land_service(
             Some(repo_name),
         )?;
     Ok(divert)
+}
+
+/// Whether an emergency push was requested and authorized.
+pub enum EmergencyPushStatus {
+    /// The x-git-emergency-push pushvar was not set.
+    NotRequested,
+    /// The pushvar was set and the caller is authorized.
+    Authorized,
+}
+
+/// The Hipster ACL that controls emergency push access.
+const EMERGENCY_PUSH_ACL: &str = "scm_emergency_git_push";
+
+/// Check whether this push is an emergency push and whether the caller
+/// is authorized.
+///
+/// Returns `EmergencyPushStatus::NotRequested` if the pushvar is not set.
+/// Returns `EmergencyPushStatus::Authorized` if the pushvar is set and
+/// the caller is a member of the emergency push ACL.
+/// Returns an error if the pushvar is set but the caller is not authorized.
+///
+/// The `acl_provider` must be extracted from `State` by the caller before
+/// entering a `Send` future, because `State` is not `Sync`.
+pub async fn check_emergency_push(
+    acl_provider: &Arc<dyn AclProvider>,
+    request_context: &RepositoryRequestContext,
+) -> anyhow::Result<EmergencyPushStatus> {
+    if !request_context.pushvars.emergency_push() {
+        return Ok(EmergencyPushStatus::NotRequested);
+    }
+
+    let identities = request_context.ctx.metadata().identities();
+    let checker = acl_provider
+        .group(EMERGENCY_PUSH_ACL)
+        .await
+        .with_context(|| format!("Failed to load ACL '{}'", EMERGENCY_PUSH_ACL))?;
+
+    if checker.is_member(identities).await {
+        info!(
+            "Emergency push authorized for repo {} by {}",
+            request_context.repo.repo_identity().name(),
+            identities.to_string(),
+        );
+        Ok(EmergencyPushStatus::Authorized)
+    } else {
+        anyhow::bail!(
+            "Emergency push rejected: identities [{}] are not authorized. \
+             Request membership in the '{}' ACL to use emergency push.",
+            identities.to_string(),
+            EMERGENCY_PUSH_ACL,
+        )
+    }
+}
+
+/// Send a best-effort `submitLand` notification to the RL Land Service.
+///
+/// This is used for emergency pushes: the git push has already succeeded,
+/// and we notify the RL Land Service asynchronously so it can update the
+/// manifest. If the notification fails, the error is logged but not
+/// propagated — the push is already done.
+pub async fn fire_and_forget_submit_land(
+    ref_updates: &[(RefUpdate, anyhow::Result<()>)],
+    request_context: &RepositoryRequestContext,
+    service_address: Option<String>,
+) {
+    let ctx = &request_context.ctx;
+    let repo_name = request_context.repo.repo_identity().name().to_string();
+
+    // Build DiffChange items from successful ref updates only.
+    let changes: Vec<DiffChange> = ref_updates
+        .iter()
+        .filter_map(|(ref_update, result)| {
+            if result.is_err() {
+                return None;
+            }
+            if !ref_update.ref_name.starts_with("refs/heads/") || ref_update.to.is_null() {
+                return None;
+            }
+            let branch = ref_update
+                .ref_name
+                .strip_prefix("refs/heads/")
+                .unwrap_or(ref_update.ref_name.as_str())
+                .to_string();
+            Some(DiffChange {
+                project: repo_name.clone(),
+                branch,
+                git_hash: hex::encode(ref_update.to.as_slice()),
+                original_diff_id: None,
+                ..Default::default()
+            })
+        })
+        .collect();
+
+    if changes.is_empty() {
+        info!(
+            "Emergency push for repo {}: no branch updates to notify RL Land Service about",
+            repo_name,
+        );
+        return;
+    }
+
+    let client_result = if let Some(host_port) = service_address {
+        MononokeThriftClient::from_host_port(ctx.fb, host_port, make_AospService)
+    } else {
+        MononokeThriftClient::from_tier_name(
+            ctx.fb,
+            RL_LAND_SERVICE_TIER.to_string(),
+            make_AospService,
+        )
+    };
+
+    let client = match client_result {
+        Ok(c) => c,
+        Err(e) => {
+            error!(
+                "Emergency push for repo {}: failed to create RL Land Service client: {}",
+                repo_name, e,
+            );
+            return;
+        }
+    };
+
+    let request = SubmitLandRequest {
+        changes,
+        request_type: SubmitLandRequestType::direct_push(DirectPushRequest {
+            is_emergency: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let service = match client.get_service_client(None, Some(ctx)) {
+        Ok(s) => s,
+        Err(e) => {
+            error!(
+                "Emergency push for repo {}: failed to get service client: {}",
+                repo_name, e,
+            );
+            return;
+        }
+    };
+
+    match service.submitLand(&request).await {
+        Ok(response) => {
+            info!(
+                "Emergency push for repo {}: RL Land Service notified, request_id={}",
+                repo_name, response.request_id,
+            );
+        }
+        Err(e) => {
+            error!(
+                "Emergency push for repo {}: RL Land Service submitLand failed (best-effort): {}",
+                repo_name, e,
+            );
+        }
+    }
 }
 
 /// Result of diverting a push to the RL Land Service.

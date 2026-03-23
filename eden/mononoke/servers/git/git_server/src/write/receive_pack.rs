@@ -210,6 +210,10 @@ async fn push(
         // Get the RL land service address if configured (for push diversion)
         let multi_repo_land_service_address = git_ctx.multi_repo_land_service_address();
 
+        // Extract ACL provider while we have access to State (State is not
+        // Sync so it cannot be passed to refs_update across await points).
+        let acl_provider = git_ctx.acl_provider();
+
         let updated_refs = refs_update(
             ref_updates,
             request_context.clone(),
@@ -217,6 +221,7 @@ async fn push(
             object_store.clone(),
             settings.atomic,
             multi_repo_land_service_address,
+            acl_provider,
         )
         .try_timed()
         .await?
@@ -270,68 +275,88 @@ async fn refs_update(
     object_store: Arc<GitObjectStore>,
     atomic_update: bool,
     _multi_repo_land_service_address: Option<String>,
+    acl_provider: Arc<dyn permission_checker::AclProvider>,
 ) -> anyhow::Result<Vec<(RefUpdate, anyhow::Result<()>)>> {
-    // Check if this push should be diverted to the RL Land Service.
+    use super::push_diversion::PushDiversionMode;
+
+    let diversion_mode = PushDiversionMode::resolve(&request_context, &acl_provider).await?;
+
+    // Normal RL Land Service diversion: submitLand + poll.
     // Branch creates/moves are diverted; other refs (deletes, tags, etc.)
     // are handled by the normal git server path below.
     // NOTE: When diversion is active and the push contains both divertable and
     // non-divertable refs, atomicity is not preserved across the two paths.
     // In practice, diverted repos only have branch pushes, so this is acceptable.
     #[cfg(fbcode_build)]
-    {
-        if super::rl_land_service_diversion::should_divert_to_rl_land_service(&request_context)? {
-            let mut diversion = super::rl_land_service_diversion::divert_to_rl_land_service(
-                ref_updates,
-                request_context.clone(),
-                git_bonsai_mapping_store.clone(),
-                object_store.clone(),
-                _multi_repo_land_service_address,
-            )
-            .await?;
+    if matches!(diversion_mode, PushDiversionMode::RlLandServiceDiversion) {
+        let mut diversion = super::rl_land_service_diversion::divert_to_rl_land_service(
+            ref_updates,
+            request_context.clone(),
+            git_bonsai_mapping_store.clone(),
+            object_store.clone(),
+            _multi_repo_land_service_address,
+        )
+        .await?;
 
-            // Process remaining refs (deletes, tags, etc.) through the normal path.
-            if !diversion.remaining.is_empty() {
-                let remaining_results = if atomic_update {
-                    atomic_refs_update(
-                        diversion.remaining,
-                        request_context,
-                        git_bonsai_mapping_store,
-                        object_store,
-                    )
-                    .await?
-                } else {
-                    non_atomic_refs_update(
-                        diversion.remaining,
-                        request_context,
-                        git_bonsai_mapping_store,
-                        object_store,
-                    )
-                    .await?
-                };
-                diversion.diverted.extend(remaining_results);
-            }
-
-            return Ok(diversion.diverted);
+        // Process remaining refs (deletes, tags, etc.) through the normal path.
+        if !diversion.remaining.is_empty() {
+            let remaining_results = if atomic_update {
+                atomic_refs_update(
+                    diversion.remaining,
+                    request_context,
+                    git_bonsai_mapping_store,
+                    object_store,
+                )
+                .await?
+            } else {
+                non_atomic_refs_update(
+                    diversion.remaining,
+                    request_context,
+                    git_bonsai_mapping_store,
+                    object_store,
+                )
+                .await?
+            };
+            diversion.diverted.extend(remaining_results);
         }
+
+        return Ok(diversion.diverted);
     }
 
-    if atomic_update {
+    // Normal git server path: process all refs directly.
+    // Used for non-diverted repos AND emergency pushes.
+    let results = if atomic_update {
         atomic_refs_update(
             ref_updates,
-            request_context,
+            request_context.clone(),
             git_bonsai_mapping_store,
             object_store,
         )
-        .await
+        .await?
     } else {
         non_atomic_refs_update(
             ref_updates,
-            request_context,
+            request_context.clone(),
             git_bonsai_mapping_store,
             object_store,
         )
-        .await
+        .await?
+    };
+
+    // For emergency pushes, send a best-effort notification to the RL Land Service.
+    #[cfg(fbcode_build)]
+    if matches!(diversion_mode, PushDiversionMode::EmergencyPush)
+        && results.iter().any(|(_, r)| r.is_ok())
+    {
+        super::rl_land_service_diversion::fire_and_forget_submit_land(
+            &results,
+            &request_context,
+            _multi_repo_land_service_address,
+        )
+        .await;
     }
+
+    Ok(results)
 }
 
 /// Function responsible for updating the refs in the repo non-atomically.

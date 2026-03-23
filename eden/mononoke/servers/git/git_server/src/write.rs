@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+mod push_diversion;
 mod receive_pack;
 #[cfg(fbcode_build)]
 pub(crate) mod rl_land_service_diversion;
