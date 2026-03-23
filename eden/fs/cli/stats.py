@@ -13,10 +13,14 @@ import logging
 import os
 import sys
 import textwrap
-from typing import cast, Dict, List, NamedTuple, Optional
+from typing import cast, Dict, List, Mapping, NamedTuple, Optional
 
-from facebook.eden.constants import STATS_ALL, STATS_MOUNTS_STATS, STATS_RSS_BYTES
-from facebook.eden.ttypes import GetStatInfoParams
+from eden.fs.service.eden.thrift_types import (
+    GetStatInfoParams,
+    STATS_ALL,
+    STATS_MOUNTS_STATS,
+    STATS_RSS_BYTES,
+)
 from thrift.protocol.TSimpleJSONProtocol import TSimpleJSONProtocolFactory
 from thrift.util import Serializer as ThriftSerializer
 
@@ -30,7 +34,7 @@ stats_cmd = subcmd_mod.Decorator()
 log: logging.Logger = logging.getLogger("eden.fs.cli.stats")
 
 
-DiagInfoCounters = Dict[str, int]
+DiagInfoCounters = Mapping[str, int]
 Table = Dict[str, List[int]]
 Table2D = Dict[str, List[List[Optional[str]]]]
 
@@ -49,7 +53,7 @@ class StatsGeneralOptions(NamedTuple):
 def do_stats_general(instance: EdenInstance, options: StatsGeneralOptions) -> None:
     out, basic, json = options
 
-    with instance.get_thrift_client_legacy(timeout=20) as client:
+    with instance.get_thrift_client(timeout=20) as client:
         statsMask = STATS_MOUNTS_STATS | STATS_RSS_BYTES if basic else STATS_ALL
         stat_info = client.getStatInfo(GetStatInfoParams(statsMask=statsMask))
 
@@ -147,7 +151,7 @@ class FuseCmd(Subcmd):
         out = sys.stdout
         stats_print.write_heading("Counts of I/O operations performed in EdenFs", out)
         instance = cmd_util.get_eden_instance(args)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             counters = client.getCounters()
 
         # If the arguments has --all flag, we will have args.all set to
@@ -247,7 +251,7 @@ class LatencyCmd(Subcmd):
         stats_print.write_heading(TITLE, sys.stdout)
 
         instance = cmd_util.get_eden_instance(args)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             counters = client.getCounters()
 
         table = get_fuse_latency(counters, args.all)
@@ -297,7 +301,7 @@ class ThriftCmd(Subcmd):
         stats_print.write_heading(TITLE, sys.stdout)
 
         instance = cmd_util.get_eden_instance(args)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             counters = client.getRegexCounters("thrift.EdenService\\..*")
 
         PREFIX = ["thrift", "EdenService"]
@@ -315,7 +319,7 @@ class ThriftLatencyCmd(Subcmd):
         stats_print.write_heading(TITLE, sys.stdout)
 
         instance = cmd_util.get_eden_instance(args)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             counters = client.getCounters()
 
         table = get_thrift_latency(counters)
@@ -357,7 +361,7 @@ def backing_store_latency(store: str, args: argparse.Namespace) -> int:
     stats_print.write_heading(TITLE, sys.stdout)
 
     instance = cmd_util.get_eden_instance(args)
-    with instance.get_thrift_client_legacy() as client:
+    with instance.get_thrift_client() as client:
         counters = client.getCounters()
 
     table = get_store_latency(counters, store)
@@ -388,7 +392,7 @@ class ObjectStoreCommand(Subcmd):
         stats_print.write_heading(TITLE, sys.stdout)
 
         eden = cmd_util.get_eden_instance(args)
-        with eden.get_thrift_client_legacy() as thrift:
+        with eden.get_thrift_client() as thrift:
             counters = thrift.getRegexCounters("object_store\\..*")
 
         table = get_counter_table(counters, ["object_store"], ["pct"])
