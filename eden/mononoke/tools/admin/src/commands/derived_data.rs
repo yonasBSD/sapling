@@ -15,6 +15,7 @@ mod fetch;
 mod list_manifest;
 mod slice;
 mod verify_manifests;
+mod verify_stage_output;
 
 use anyhow::Context;
 use anyhow::Result;
@@ -58,6 +59,8 @@ use self::slice::SliceArgs;
 use self::slice::slice;
 use self::verify_manifests::VerifyManifestsArgs;
 use self::verify_manifests::verify_manifests;
+use self::verify_stage_output::VerifyStageOutputArgs;
+use self::verify_stage_output::verify_stage_output;
 
 #[facet::container]
 struct Repo {
@@ -125,6 +128,8 @@ enum DerivedDataSubcommand {
     Slice(SliceArgs),
     /// Compare different manifest types to ensure they are equivalent
     VerifyManifests(VerifyManifestsArgs),
+    /// Verify stage derivation output matches normal derivation output
+    VerifyStageOutput(VerifyStageOutputArgs),
 }
 
 pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
@@ -147,6 +152,7 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
         | DerivedDataSubcommand::Fetch(_)
         | DerivedDataSubcommand::CountUnderived(_)
         | DerivedDataSubcommand::VerifyManifests(_)
+        | DerivedDataSubcommand::VerifyStageOutput(_)
         | DerivedDataSubcommand::ListManifest(_)
         | DerivedDataSubcommand::Slice(_) => {
             open_repo_for_derive(&app, &args.repo, false, args.bypass_redaction)
@@ -175,6 +181,7 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
             | DerivedDataSubcommand::CountUnderived(_)
             | DerivedDataSubcommand::ListManifest(_)
             | DerivedDataSubcommand::Slice(_)
+            | DerivedDataSubcommand::VerifyStageOutput(_)
     );
 
     let manager = if is_read_only {
@@ -217,6 +224,9 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
         DerivedDataSubcommand::Slice(args) => slice(&ctx, &repo, &manager, args).await?,
         DerivedDataSubcommand::DeriveSlice(args) => {
             derive_slice(&ctx, &repo, &manager, args).await?
+        }
+        DerivedDataSubcommand::VerifyStageOutput(args) => {
+            verify_stage_output(&ctx, &repo, &manager, args).await?
         }
     }
 

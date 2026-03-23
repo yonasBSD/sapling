@@ -1149,6 +1149,58 @@ impl DerivedDataManager {
         Ok(outputs.contains_key(&csid))
     }
 
+    /// Verify that a stage output matches the expected output extracted from the
+    /// normal derived value.
+    pub async fn verify_stage_output<Derivable>(
+        &self,
+        ctx: &CoreContext,
+        csid: ChangesetId,
+        stage_id: &str,
+    ) -> Result<bool, DerivationError>
+    where
+        Derivable: PipelineDerivable,
+    {
+        let derivation_ctx = self.derivation_context(None);
+
+        let stage_config = derivation_ctx
+            .derivation_pipeline_config()
+            .get(&Derivable::VARIANT)
+            .and_then(|type_config| type_config.stages.get(stage_id))
+            .ok_or_else(|| {
+                DerivationError::from(anyhow!(
+                    "derivation pipeline config not found for type {} stage {}",
+                    Derivable::VARIANT,
+                    stage_id,
+                ))
+            })?
+            .clone();
+
+        // Fetch actual stage output
+        let stage_outputs =
+            Derivable::fetch_stage_outputs(ctx, &derivation_ctx, stage_id, vec![csid]).await?;
+
+        let actual_output = match stage_outputs.get(&csid) {
+            Some(output) => output,
+            None => return Err(anyhow!("Stage output not found for changeset {}", csid).into()),
+        };
+
+        // Fetch normal derived value
+        let derived = derivation_ctx
+            .fetch_dependency::<Derivable>(ctx, csid)
+            .await?;
+
+        // Extract expected stage output from derived value
+        let expected_output = Derivable::extract_stage_output_from_derived(
+            ctx,
+            &derivation_ctx,
+            &derived,
+            &stage_config,
+        )
+        .await?;
+
+        Ok(*actual_output == expected_output)
+    }
+
     /// Fetch derived data for a changeset if it has previously been derived.
     pub async fn fetch_derived<Derivable>(
         &self,

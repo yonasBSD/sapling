@@ -132,6 +132,16 @@ pub trait BulkDerivation {
         stage_id: &str,
     ) -> Result<bool, DerivationError>;
 
+    /// Verify that a stage output matches the expected output extracted from
+    /// the normal derived value.
+    async fn verify_stage_output(
+        &self,
+        ctx: &CoreContext,
+        csid: ChangesetId,
+        derived_data_type: DerivableType,
+        stage_id: &str,
+    ) -> Result<bool, DerivationError>;
+
     /// Returns a `Vec` that contains all changeset ids that don't have the given
     /// derived data type derived from the given changeset ids.
     async fn pending(
@@ -511,6 +521,21 @@ pub async fn is_stage_derived(
     }
 }
 
+pub async fn verify_stage_output(
+    ddm: &DerivedDataManager,
+    ctx: &CoreContext,
+    csid: ChangesetId,
+    stage_id: &str,
+    variant: PipelineDerivableVariant,
+) -> Result<bool, DerivationError> {
+    match variant {
+        PipelineDerivableVariant::Fsnodes => {
+            ddm.verify_stage_output::<RootFsnodeId>(ctx, csid, stage_id)
+                .await
+        }
+    }
+}
+
 #[async_trait]
 impl BulkDerivation for DerivedDataManager {
     async fn derive_bulk_locally(
@@ -620,6 +645,17 @@ impl BulkDerivation for DerivedDataManager {
     ) -> Result<bool, DerivationError> {
         let variant = derived_data_type.into_pipeline_derivable_variant()?;
         is_stage_derived(self, ctx, csid, stage_id, variant).await
+    }
+
+    async fn verify_stage_output(
+        &self,
+        ctx: &CoreContext,
+        csid: ChangesetId,
+        derived_data_type: DerivableType,
+        stage_id: &str,
+    ) -> Result<bool, DerivationError> {
+        let variant = derived_data_type.into_pipeline_derivable_variant()?;
+        verify_stage_output(self, ctx, csid, stage_id, variant).await
     }
 
     async fn pending(

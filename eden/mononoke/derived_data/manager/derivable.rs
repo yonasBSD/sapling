@@ -247,7 +247,7 @@ pub trait DerivableUntopologically: BonsaiDerivable {
 pub trait PipelineDerivable: BonsaiDerivable {
     const PIPELINE_DERIVABLE_VARIANT: PipelineDerivableVariant;
 
-    type StageOutput: Send + Sync + Clone + Debug + 'static;
+    type StageOutput: Send + Sync + Clone + Debug + PartialEq + 'static;
 
     /// Derive a batch of changesets for a specific stage.
     ///
