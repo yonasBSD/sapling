@@ -267,6 +267,16 @@ class EdenTestCase(EdenTestCaseBase):
         """
         return self.eden.get_thrift_client_legacy()
 
+    @contextmanager
+    def get_thrift_client(
+        self,
+    ) -> Generator[EdenService.Sync, None, None]:
+        """
+        Get a modern thrift-python sync client to the edenfs daemon.
+        """
+        with self.eden.get_thrift_client() as client:
+            yield client
+
     def get_async_thrift_client(self) -> EdenService.Async:
         """
         Get a thrift client to the edenfs daemon.
@@ -274,7 +284,7 @@ class EdenTestCase(EdenTestCaseBase):
         return self.eden.get_async_thrift_client()
 
     def get_counters(self) -> typing.Mapping[str, float]:
-        with self.get_thrift_client_legacy() as thrift_client:
+        with self.get_thrift_client() as thrift_client:
             thrift_client.flushStatsNow()
             return thrift_client.getCounters()
 
@@ -535,12 +545,12 @@ class EdenTestCase(EdenTestCaseBase):
         keyClass: str,
         keyValueRegex: str = ".*",
     ) -> None:
-        with self.eden.get_thrift_client_legacy() as client:
+        with self.eden.get_thrift_client() as client:
             client.removeFault(
                 RemoveFaultArg(
                     keyClass=keyClass,
                     keyValueRegex=keyValueRegex,
-                )._to_py_deprecated()
+                )
             )
 
     def unblock_fault(
@@ -548,12 +558,12 @@ class EdenTestCase(EdenTestCaseBase):
         keyClass: str,
         keyValueRegex: str = ".*",
     ) -> None:
-        with self.eden.get_thrift_client_legacy() as client:
+        with self.eden.get_thrift_client() as client:
             client.unblockFault(
                 UnblockFaultArg(
                     keyClass=keyClass,
                     keyValueRegex=keyValueRegex,
-                )._to_py_deprecated()
+                )
             )
 
     def wait_on_fault_unblock(
@@ -563,12 +573,12 @@ class EdenTestCase(EdenTestCaseBase):
         numToUnblock: int = 1,
     ) -> None:
         def unblock() -> Optional[bool]:
-            with self.eden.get_thrift_client_legacy() as client:
+            with self.eden.get_thrift_client() as client:
                 unblocked = client.unblockFault(
                     UnblockFaultArg(
                         keyClass=keyClass,
                         keyValueRegex=keyValueRegex,
-                    )._to_py_deprecated()
+                    )
                 )
             if unblocked == 1:
                 return True
@@ -583,18 +593,18 @@ class EdenTestCase(EdenTestCaseBase):
         """
 
         def faults_hit() -> Optional[bool]:
-            with self.eden.get_thrift_client_legacy() as client:
+            with self.eden.get_thrift_client() as client:
                 blocked_faults = client.getBlockedFaults(
-                    GetBlockedFaultsRequest(keyclass=key_class)._to_py_deprecated()
+                    GetBlockedFaultsRequest(keyclass=key_class)
                 ).keyValues
             return True if len(blocked_faults) == num_to_hit else None
 
         try:
             util.poll_until(faults_hit, timeout=30)
         except TimeoutError as e:
-            with self.eden.get_thrift_client_legacy() as client:
+            with self.eden.get_thrift_client() as client:
                 # this unblock all faults to avoid tests hang
-                client.unblockFault(UnblockFaultArg()._to_py_deprecated())
+                client.unblockFault(UnblockFaultArg())
             raise e
 
     @contextmanager
@@ -603,13 +613,13 @@ class EdenTestCase(EdenTestCaseBase):
         keyClass: str,
         keyValueRegex: str = ".*",
     ) -> Generator[None, None, None]:
-        with self.eden.get_thrift_client_legacy() as client:
+        with self.eden.get_thrift_client() as client:
             client.injectFault(
                 FaultDefinition(
                     keyClass=keyClass,
                     keyValueRegex=keyValueRegex,
                     block=True,
-                )._to_py_deprecated()
+                )
             )
 
             try:
@@ -619,13 +629,13 @@ class EdenTestCase(EdenTestCaseBase):
                     RemoveFaultArg(
                         keyClass=keyClass,
                         keyValueRegex=keyValueRegex,
-                    )._to_py_deprecated()
+                    )
                 )
                 client.unblockFault(
                     UnblockFaultArg(
                         keyClass=keyClass,
                         keyValueRegex=keyValueRegex,
-                    )._to_py_deprecated()
+                    )
                 )
 
 

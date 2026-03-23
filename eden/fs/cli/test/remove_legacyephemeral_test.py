@@ -8,7 +8,8 @@
 
 import tempfile
 import unittest
-from typing import cast, List
+from contextlib import contextmanager
+from typing import cast, Generator, List
 from unittest.mock import MagicMock, patch
 
 from eden.fs.cli import main as main_mod
@@ -297,11 +298,15 @@ class RemoveLegacyEphemeralCheckoutsTest(unittest.TestCase):
 
         unmount_calls, destroy_mount_calls = self._add_mock_methods(instance)
 
-        def raise_not_running(timeout: float | None = None) -> MagicMock:
+        @contextmanager
+        def raise_not_running(
+            timeout: float | None = None,
+        ) -> Generator[None, None, None]:
             raise main_mod.EdenNotRunningError("Daemon not running")
+            yield  # Never reached, but needed for generator syntax
 
         # pyre-ignore[8, 16]
-        instance.get_thrift_client_legacy = raise_not_running
+        instance.get_thrift_client = raise_not_running
 
         result = main_mod.remove_legacyephemeral_checkouts(
             cast(EdenInstance, instance), out

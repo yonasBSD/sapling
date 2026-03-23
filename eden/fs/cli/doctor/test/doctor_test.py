@@ -771,7 +771,7 @@ Repairing hg directory contents for {checkout.path}...<green>fixed<reset>
         # The dirstate file should have been updated to use the snapshot hash
         self.assertEqual(
             # pyre-fixme[16]: `EdenClient` has no attribute `set_parents_calls`.
-            checkout.instance.get_thrift_client_legacy().set_parents_calls,
+            checkout.instance._fake_client.set_parents_calls,
             [],
         )
         self.assert_dirstate_p0(checkout, snapshot_hex)
@@ -813,7 +813,7 @@ Repairing hg directory contents for {checkout.path}...<green>fixed<reset>
         # Make sure resetParentCommits() was called once with the expected arguments
         self.assertEqual(
             # pyre-fixme[16]: `EdenClient` has no attribute `set_parents_calls`.
-            checkout.instance.get_thrift_client_legacy().set_parents_calls,
+            checkout.instance._fake_client.set_parents_calls,
             [
                 ResetParentsCommitsArgs(
                     mount=bytes(checkout.path),
@@ -876,7 +876,7 @@ Repairing hg directory contents for {checkout.path}...<green>fixed<reset>
         # Make sure resetParentCommits() was called once with the expected arguments
         self.assertEqual(
             # pyre-fixme[16]: `EdenClient` has no attribute `set_parents_calls`.
-            checkout.instance.get_thrift_client_legacy().set_parents_calls,
+            checkout.instance._fake_client.set_parents_calls,
             [
                 ResetParentsCommitsArgs(
                     mount=bytes(checkout.path),
@@ -948,7 +948,7 @@ Repairing hg directory contents for {checkout.path}...<green>fixed<reset>
         # Make sure resetParentCommits() was called once with the expected arguments
         self.assertEqual(
             # pyre-fixme[16]: `EdenClient` has no attribute `set_parents_calls`.
-            checkout.instance.get_thrift_client_legacy().set_parents_calls,
+            checkout.instance._fake_client.set_parents_calls,
             [
                 ResetParentsCommitsArgs(
                     mount=bytes(checkout.path),
@@ -989,7 +989,7 @@ Repairing hg directory contents for {checkout.path}...<green>fixed<reset>
         # The dirstate file should have been updated to use the snapshot hash
         self.assertEqual(
             # pyre-fixme[16]: `EdenClient` has no attribute `set_parents_calls`.
-            checkout.instance.get_thrift_client_legacy().set_parents_calls,
+            checkout.instance._fake_client.set_parents_calls,
             [],
         )
         self.assert_dirstate_p0(checkout, snapshot_hex)
@@ -2214,7 +2214,7 @@ Starting background invalidation of not recently used files and directories in {
         tmp_dir = self.make_temporary_directory()
         instance = FakeEdenInstance(tmp_dir)
 
-        instance.get_thrift_client_legacy().set_counter_value(
+        instance._fake_client.set_counter_value(
             "store.sapling.live_import.max_duration_us", 15 * 60 * 1_000_000
         )
 
@@ -2316,7 +2316,7 @@ Collect an 'eden rage' and ask in the EdenFS (Windows |macOS )?Users group if yo
             },
         )
 
-        instance.get_thrift_client_legacy().set_counter_value(
+        instance._fake_client.set_counter_value(
             "store.sapling.live_import.max_duration_us", 15 * 60 * 1_000_000
         )
 
