@@ -555,7 +555,7 @@ fn report_bookmark_missing_from_cache(
         repoid: Some(repo.repo_identity().id().id()),
         bookmark: Some(bookmark.to_string()),
         event: Some(MononokeApiEvent::BookmarkNotInCache),
-        count: Some(1.0),
+        event_count: Some(1.0),
         ..Default::default()
     });
 }
@@ -582,7 +582,7 @@ fn report_bookmark_missing_from_repo(
         repoid: Some(repo.repo_identity().id().id()),
         bookmark: Some(bookmark.to_string()),
         event: Some(MononokeApiEvent::BookmarkNotInRepo),
-        count: Some(1.0),
+        event_count: Some(1.0),
         ..Default::default()
     });
 }
@@ -614,7 +614,7 @@ fn report_bookmark_staleness(
         repoid: Some(repo.repo_identity().id().id()),
         bookmark: Some(bookmark.to_string()),
         event: Some(MononokeApiEvent::BookmarkStale),
-        count: Some(1.0),
+        event_count: Some(1.0),
         ..Default::default()
     });
 }
