@@ -31,6 +31,7 @@ from eden.fs.cli.doctor.problem import (
 from eden.fs.cli.doctor.util import CheckoutInfo, get_mount_inode_info
 from eden.fs.cli.filesystem import FsUtil
 from eden.fs.cli.prjfs import PRJ_FILE_STATE
+from eden.fs.service.eden.thrift_types import MountInodeInfo
 from facebook.eden.constants import DIS_REQUIRE_LOADED, DIS_REQUIRE_MATERIALIZED
 from facebook.eden.ttypes import (
     DebugInvalidateRequest,
@@ -41,7 +42,6 @@ from facebook.eden.ttypes import (
     GetScmStatusParams,
     MatchFileSystemRequest,
     MountId,
-    MountInodeInfo,
     RootIdOptions,
     ScmFileStatus,
     SyncBehavior,

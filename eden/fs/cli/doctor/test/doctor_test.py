@@ -53,11 +53,12 @@ from eden.fs.cli.doctor.util import CheckoutInfo
 from eden.fs.cli.prjfs import PRJ_FILE_STATE
 from eden.fs.cli.redirect import Redirection, RedirectionState, RedirectionType
 from eden.fs.cli.test.lib.output import TestOutput
+from eden.fs.service.eden.thrift_enums import MountState
+from eden.fs.service.eden.thrift_types import MountInodeInfo
 from facebook.eden.ttypes import (
     GetScmStatusResult,
     InternalStats,
-    MountInodeInfo,
-    MountState,
+    MountInodeInfo as LegacyMountInodeInfo,
     ScmFileStatus,
     ScmStatus,
     SHA1Result,
@@ -2158,7 +2159,7 @@ Running chef may fix this.*""",
         checkout = instance.create_test_mount("path")
 
         before_mount_point_info = {
-            os.fsencode(checkout.path): MountInodeInfo(
+            os.fsencode(checkout.path): LegacyMountInodeInfo(
                 unloadedInodeCount=2_000_000,
                 loadedFileCount=3_000_000,
                 loadedTreeCount=4_000_000,
@@ -2166,7 +2167,7 @@ Running chef may fix this.*""",
         }
 
         after_mount_point_info = {
-            os.fsencode(checkout.path): MountInodeInfo(
+            os.fsencode(checkout.path): LegacyMountInodeInfo(
                 unloadedInodeCount=0,
                 loadedFileCount=0,
                 loadedTreeCount=0,

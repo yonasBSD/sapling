@@ -1420,7 +1420,7 @@ def check_slow_hg_import(tracker: ProblemTracker, instance: EdenInstance) -> Non
     )
     threshold = timedelta(seconds=threshold_s)
 
-    with instance.get_thrift_client_legacy() as client:
+    with instance.get_thrift_client() as client:
         max_duration_us = client.getCounter("store.sapling.live_import.max_duration_us")
 
     max_duration = timedelta(microseconds=max_duration_us)

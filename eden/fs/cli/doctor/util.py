@@ -16,8 +16,12 @@ from typing import Dict, List, Optional, Set
 
 from eden.fs.cli.config import EdenCheckout, EdenInstance
 from eden.fs.cli.util import get_environment_suitable_for_subprocess
-from facebook.eden.constants import STATS_MOUNTS_STATS
-from facebook.eden.ttypes import GetStatInfoParams, MountInodeInfo, MountState
+from eden.fs.service.eden.thrift_types import (
+    GetStatInfoParams,
+    MountInodeInfo,
+    MountState,
+    STATS_MOUNTS_STATS,
+)
 
 
 class CheckoutInfo:
@@ -215,7 +219,7 @@ def get_mount_inode_info(checkout_info: CheckoutInfo) -> Optional[MountInodeInfo
     Gets current MountInodeInfo from an EdenInstance and CheckoutInfo.
     """
     instance = checkout_info.instance
-    with instance.get_thrift_client_legacy() as client:
+    with instance.get_thrift_client() as client:
         internal_stats = client.getStatInfo(
             GetStatInfoParams(statsMask=STATS_MOUNTS_STATS)
         )
@@ -229,7 +233,7 @@ def get_checkouts_info(instance: EdenInstance) -> Dict[Path, CheckoutInfo]:
     # Get information about the checkouts currently known to the running
     # edenfs process
     try:
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             internal_stats = client.getStatInfo(
                 GetStatInfoParams(statsMask=STATS_MOUNTS_STATS)
             )

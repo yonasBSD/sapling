@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Dict
+from typing import Mapping
 
 from eden.fs.cli.config import EdenInstance
 from eden.fs.cli.doctor.problem import Problem, ProblemSeverity, ProblemTracker
@@ -48,7 +48,7 @@ def check_recent_writes(
     maxNumberDisplayed = 10
 
     # Create a thrift client and call the getCounter method
-    with instance.get_thrift_client_legacy() as client:
+    with instance.get_thrift_client() as client:
         result = client.getRegexCounters(COUNTER_REGEX)
 
     reportError = should_we_report_error(result, minWriteThreshold)
@@ -74,7 +74,7 @@ def check_recent_writes(
         )
 
 
-def should_we_report_error(results: Dict[str, int], minWriteThreshold: int) -> bool:
+def should_we_report_error(results: Mapping[str, int], minWriteThreshold: int) -> bool:
     total = 0
     for val in results:
         total += results[val]
@@ -83,7 +83,7 @@ def should_we_report_error(results: Dict[str, int], minWriteThreshold: int) -> b
 
 
 def format_output_message_verbose(
-    result: Dict[str, int], maxNumberDisplayed: int, minWriteThreshold: int
+    result: Mapping[str, int], maxNumberDisplayed: int, minWriteThreshold: int
 ) -> str:
     message = "\nCount List:"
 
@@ -120,7 +120,7 @@ def format_output_message_verbose(
     return message
 
 
-def format_output_message(result: Dict[str, int], minWriteThreshold: int) -> str:
+def format_output_message(result: Mapping[str, int], minWriteThreshold: int) -> str:
     totalCounts = 0
     for val in result:
         totalCounts += result[val]
