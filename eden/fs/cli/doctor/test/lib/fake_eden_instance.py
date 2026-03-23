@@ -14,8 +14,9 @@ import stat
 import sys
 import typing
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, Generator, Iterable, List, NamedTuple, Optional, Tuple, Union
 
 import eden.dirstate
 from eden.fs.cli import mtab, version as version_mod
@@ -289,6 +290,13 @@ class FakeEdenInstance(AbstractEdenInstance):
 
     def get_thrift_client_legacy(self, timeout: Optional[float] = None) -> FakeClient:
         return self._fake_client
+
+    @contextmanager
+    def get_thrift_client(
+        self, timeout: Optional[float] = None
+    ) -> Generator[FakeClient, None, None]:
+        """Get a mock thrift client for testing."""
+        yield self._fake_client
 
     def get_checkouts(self) -> List[EdenCheckout]:
         results: List[EdenCheckout] = []

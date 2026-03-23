@@ -101,7 +101,7 @@ class FakeClient:
 
             if mount_state is None:
                 # For None states (old edenfs), create py-deprecated MountInfo directly
-                # to preserve exact original behavior
+                # to preserve exact original behavior where state can be None
                 thrift_mount_info = py_deprecated_eden_ttypes.MountInfo(
                     mountPoint=mount.mount_point,
                     edenClientPath=os.fsencode(client_path),

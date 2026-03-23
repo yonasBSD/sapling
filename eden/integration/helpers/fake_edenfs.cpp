@@ -219,6 +219,10 @@ class FakeEdenServiceHandler : virtual public StreamingEdenServiceSvIf {
     result.status() = getStatus();
   }
 
+  int64_t getPid() override {
+    return server_->getPid();
+  }
+
   void listMounts(std::vector<MountInfo>& /* results */) override {}
 
   void initiateShutdown(std::unique_ptr<string> reason) override {

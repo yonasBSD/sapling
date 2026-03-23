@@ -28,13 +28,19 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Dict, List, Optional, Sequence, Set, Tuple, Type, Union
 
 # Must import util before any module that imports thrift (like check_filesystems)
 # to set up Windows DLL directories for native module loading.
 from eden.fs.cli import util as _util_setup  # noqa: F401
 from eden.fs.cli.doctor.check_filesystems import check_disk_usage
 from eden.fs.cli.util import get_chef_log_path
+from eden.fs.service.eden.thrift_clients import EdenService
+from eden.fs.service.eden.thrift_types import (
+    ChangeOwnershipRequest,
+    MountInfo,
+    SendNotificationRequest,
+)
 
 # Constants
 CHEF_LOG_TIMESTAMP_KEY = "chef.run_success_timestamp"
@@ -156,12 +162,10 @@ from eden.fs.service.eden.thrift_types import (
     SendNotificationRequest,
 )
 from eden.thrift.client import EdenNotRunningError
-from eden.thrift.legacy import (
-    EdenClient,
-    EdenNotRunningError as LegacyEdenNotRunningError,
-)
-from facebook.eden import EdenService
+from eden.thrift.legacy import EdenNotRunningError as LegacyEdenNotRunningError
+from facebook.eden import EdenService as LegacyEdenService
 from fb303_core.thrift_types import fb303_status
+from thrift.python.exceptions import TransportError
 
 from . import (
     config as config_mod,
@@ -805,7 +809,7 @@ is case-sensitive. This is not recommended and is intended only for testing."""
             # process here to prefetch files that we think the user is likely
             # to want to access soon.
             return 0
-        except (EdenService.EdenError, ModernEdenError) as ex:
+        except (LegacyEdenService.EdenError, ModernEdenError) as ex:
             print_stderr(
                 f"{ForegroundColor.RED.value}Failed to clone.{ForegroundColor.RESET.value} Error from EdenFS: {ex}"
             )
@@ -1191,7 +1195,7 @@ class HealthReportCmd(Subcmd):
         if notify and config_notify_health_report and sys.platform == "win32":
             for error_code in HealthReportCmd.error_codes.keys():
                 try:
-                    with instance.get_thrift_client_legacy() as client:
+                    with instance.get_thrift_client() as client:
                         request = SendNotificationRequest(
                             title=error_code.summary(),
                             description=error_code.remediation(),
@@ -1479,7 +1483,7 @@ class GcCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         instance = get_eden_instance(args)
 
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             # TODO: unload
             print("Clearing and compacting local caches...", end="", flush=True)
             print()
@@ -1532,16 +1536,13 @@ class ChownCmd(Subcmd):
         gid = self.resolve_gid(args.gid)
 
         instance, checkout, _rel_path = require_checkout(args, args.path)
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             print("Chowning EdenFS repository...", end="", flush=True)
             try:
                 request = ChangeOwnershipRequest(
-                    mountPoint=args.path.encode(),
-                    uid=uid,
-                    gid=gid,
+                    mountPoint=os.fsencode(args.path), uid=uid, gid=gid
                 )
-                # pyre-ignore[6]: Legacy client expects py-deprecated types
-                client.changeOwnership(request._to_py_deprecated())
+                client.changeOwnership(request)
             except thrift.Thrift.TApplicationException as exc:
                 if exc.type == thrift.Thrift.TApplicationException.UNKNOWN_METHOD:
                     client.chown(args.path, uid, gid)
@@ -1634,7 +1635,7 @@ class MountCmd(Subcmd):
                 exitcode = instance.mount(path, args.read_only)
                 if exitcode:
                     return exitcode
-            except (EdenService.EdenError, EdenNotRunningError) as ex:
+            except (LegacyEdenService.EdenError, EdenNotRunningError) as ex:
                 print_stderr("error: {}", ex)
                 return 1
 
@@ -1729,9 +1730,9 @@ def remove_legacyephemeral_checkouts(
     # slightly larger window for a race condition to be hit since the mount status can change by
     # the time we try to remove the checkout, but in practice it shouldn't be a problem.
     # It's cheaper to do this once than in every for loop iteration
-    mount_info: List[MountInfo] = []
+    mount_info: Sequence[MountInfo] = []
     try:
-        with instance.get_thrift_client_legacy() as client:
+        with instance.get_thrift_client() as client:
             # Convert legacy MountInfo to modern MountInfo
             legacy_mount_info = client.listMounts()
             mount_info = [m._to_python() for m in legacy_mount_info]
@@ -2218,7 +2219,7 @@ class UnmountCmd(Subcmd):
                 )
                 if args.destroy:
                     instance.destroy_mount(path)
-            except (EdenService.EdenError, EdenNotRunningError) as ex:
+            except (LegacyEdenService.EdenError, EdenNotRunningError) as ex:
                 print_stderr(f"error: {ex}")
                 return 1
         return 0
@@ -2396,7 +2397,7 @@ class StartCmd(Subcmd):
         """Send notification for EdenFS health status."""
         health_info = instance.check_health()
         try:
-            with instance.get_thrift_client_legacy() as client:
+            with instance.get_thrift_client() as client:
                 if result == 1 or not health_info.is_healthy():
                     request = SendNotificationRequest(
                         title="EdenFS not healthy",
@@ -2604,7 +2605,7 @@ def stop_aux_processes_for_path(
         executor.shutdown(wait=False)
 
 
-def stop_aux_processes(client: EdenClient) -> None:
+def stop_aux_processes(client: EdenService.Sync) -> None:
     """Tear down processes that will hold onto file handles and prevent shutdown
     for all mounts"""
 
@@ -2956,7 +2957,7 @@ re-open these files after EdenFS is restarted.
         )
 
     def _do_stop(self, instance: EdenInstance, pid: int, timeout: int) -> None:
-        with instance.get_thrift_client_legacy(timeout=timeout) as client:
+        with instance.get_thrift_client(timeout=timeout) as client:
             try:
                 stop_aux_processes(client)
             except Exception:
@@ -3123,7 +3124,7 @@ class StopCmd(Subcmd):
         pid = None
         try:
             try:
-                with instance.get_thrift_client_legacy(
+                with instance.get_thrift_client(
                     timeout=self.__thrift_timeout(args)
                 ) as client:
                     pid = client.getPid()
@@ -3135,7 +3136,10 @@ class StopCmd(Subcmd):
                         # os.getuid() is not available on Windows
                         request_info += f" uid={os.getuid()}"
                     client.initiateShutdown(f"`eden stop` requested by {request_info}")
-            except thrift.transport.TTransport.TTransportException as e:
+            except (
+                TransportError,
+                EdenNotRunningError,
+            ) as e:
                 print_stderr(f"warning: edenfs daemon is not responding: {e}")
                 if pid is None:
                     pid = check_health_using_lockfile(instance.state_dir).pid
@@ -3158,7 +3162,7 @@ class StopCmd(Subcmd):
 
         # Stop aux processes if thrift is available
         try:
-            with instance.get_thrift_client_legacy(
+            with instance.get_thrift_client(
                 timeout=self.__thrift_timeout(args)
             ) as client:
                 stop_aux_processes(client)
