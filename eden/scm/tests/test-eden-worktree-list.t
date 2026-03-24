@@ -1,24 +1,25 @@
 
 #require eden
 
+  $ export HGIDENTITY=sl
   $ setconfig worktree.enabled=true
 
 setup backing repo with linked worktrees
 
   $ newclientrepo myrepo
   $ touch file.txt
-  $ hg add file.txt
-  $ hg commit -m "init"
-  $ hg worktree add $TESTTMP/linked1
+  $ sl add file.txt
+  $ sl commit -m "init"
+  $ sl worktree add $TESTTMP/linked1
   created linked worktree at $TESTTMP/linked1
-  $ hg worktree add $TESTTMP/linked2 --label "feature-x"
+  $ sl worktree add $TESTTMP/linked2 --label "feature-x"
   created linked worktree at $TESTTMP/linked2
-  $ hg worktree add $TESTTMP/linked_from_subdir
+  $ sl worktree add $TESTTMP/linked_from_subdir
   created linked worktree at $TESTTMP/linked_from_subdir
 
 test worktree list - plain output from main (shows * on main)
 
-  $ hg worktree list
+  $ sl worktree list
     linked  $TESTTMP/linked1
     linked  $TESTTMP/linked2   feature-x
     linked  $TESTTMP/linked_from_subdir
@@ -26,7 +27,7 @@ test worktree list - plain output from main (shows * on main)
 
 test worktree list - json output
 
-  $ hg worktree list -Tjson | hg debugpython -- -c "
+  $ sl worktree list -Tjson | sl debugpython -- -c "
   > import json, sys
   > data = json.load(sys.stdin)
   > print(len(data))
@@ -44,7 +45,7 @@ test worktree list - json output
 test worktree list - from linked worktree (* on linked)
 
   $ cd $TESTTMP/linked1
-  $ hg worktree list
+  $ sl worktree list
   * linked  $TESTTMP/linked1
     linked  $TESTTMP/linked2   feature-x
     linked  $TESTTMP/linked_from_subdir
@@ -54,22 +55,22 @@ test worktree list - from linked worktree (* on linked)
 test worktree list - not in a group
 
   $ newclientrepo isolated_repo
-  $ touch f.txt && hg add f.txt && hg commit -m "init"
-  $ hg worktree list
+  $ touch f.txt && sl add f.txt && sl commit -m "init"
+  $ sl worktree list
   this worktree is not part of a group
   $ cd $TESTTMP/myrepo
 
 test worktree list - group isolation
 
   $ newclientrepo myrepo2
-  $ touch file2.txt && hg add file2.txt && hg commit -m "init2"
-  $ hg worktree add $TESTTMP/linked_repo2
+  $ touch file2.txt && sl add file2.txt && sl commit -m "init2"
+  $ sl worktree add $TESTTMP/linked_repo2
   created linked worktree at $TESTTMP/linked_repo2
-  $ hg worktree list
+  $ sl worktree list
     linked  $TESTTMP/linked_repo2
   * main    $TESTTMP/myrepo2
   $ cd $TESTTMP/myrepo
-  $ hg worktree list
+  $ sl worktree list
     linked  $TESTTMP/linked1
     linked  $TESTTMP/linked2   feature-x
     linked  $TESTTMP/linked_from_subdir

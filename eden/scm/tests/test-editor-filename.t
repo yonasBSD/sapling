@@ -2,10 +2,11 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Test temp file used with an editor has the expected suffix.
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 Create an editor that writes its arguments to stdout and set it to $HGEDITOR.
@@ -14,13 +15,13 @@ Create an editor that writes its arguments to stdout and set it to $HGEDITOR.
   > printf "%s\n" "\$@"
   > exit 1
   > EOF
-  $ hg add editor.sh
+  $ sl add editor.sh
   $ HGEDITOR='sh "$TESTTMP/repo/editor.sh"'
   $ export HGEDITOR
 
 Verify that the path for a commit editor has the expected suffix.
 
-  $ SL_IDENTITY=sl hg commit
+  $ SL_IDENTITY=sl sl commit
   *.commit.sl.txt (glob)
   abort: edit failed: sh exited with status 1
   [255]
@@ -32,8 +33,8 @@ Verify that the path for a histedit editor has the expected suffix.
   > rebase=
   > histedit=
   > EOF
-  $ hg commit --message 'At least one commit for histedit.'
-  $ SL_IDENTITY=sl hg histedit
+  $ sl commit --message 'At least one commit for histedit.'
+  $ SL_IDENTITY=sl sl histedit
   *.histedit.sl.txt (glob)
   abort: edit failed: sh exited with status 1
   [255]
@@ -43,10 +44,10 @@ editor for a diff, the file ends in .diff.
 
   $ echo 1 > one
   $ echo 2 > two
-  $ hg add
+  $ sl add
   adding one
   adding two
-  $ hg commit --interactive --config ui.interactive=true --config ui.interface=text << EOF
+  $ sl commit --interactive --config ui.interactive=true --config ui.interface=text << EOF
   > y
   > e
   > q
@@ -92,7 +93,7 @@ FIXME: Fails (in ui.loadrepoconfig) if path includes something like $HOME.
   $ pwd
   $TESTTMP/a && " b"
 #endif
-  $ HGEDITOR='python edit.py' hg debugshell << 'EOS'
+  $ HGEDITOR='python edit.py' sl debugshell << 'EOS'
   > repopath = repo.svfs.join("")
   > text = "<message for editor>"
   > user = "Foo Bar <foo@bar.com>"

@@ -4,11 +4,12 @@
 
 Updating across a rename
 
+  $ export HGIDENTITY=sl
   $ newclientrepo
 
   $ echo >> a
-  $ hg commit -Aqm "add a"
-  $ hg mv a A
-  $ hg commit -qm "move a to A"
-  $ hg up -q '.^'
-  $ hg status
+  $ sl commit -Aqm "add a"
+  $ sl mv a A
+  $ sl commit -qm "move a to A"
+  $ sl up -q '.^'
+  $ sl status

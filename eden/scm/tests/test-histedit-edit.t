@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/histedit-helpers.sh"
 
   $ enable histedit
@@ -12,15 +13,15 @@
   >     newclientrepo r
   >     for x in a b c d e f g; do
   >         echo $x > $x
-  >         hg add $x
-  >         hg ci -m $x
+  >         sl add $x
+  >         sl ci -m $x
   >     done
   > }
 
   $ initrepo
 
 log before edit
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      3c6a8ed2ebe8
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -58,14 +59,14 @@ log before edit
   
 dirty a file
   $ echo a > g
-  $ hg histedit 177f92b77385 --commands - << EOF
+  $ sl histedit 177f92b77385 --commands - << EOF
   > EOF
   abort: uncommitted changes
   [255]
   $ echo g > g
 
 edit the history
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > edit e860deea161a e
@@ -74,13 +75,13 @@ edit the history
   > EOF
   0 files updated, 0 files merged, 3 files removed, 0 files unresolved
   Editing (e860deea161a), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
 
 try to update and get an error
-  $ hg goto tip
+  $ sl goto tip
   abort: histedit in progress
-  (use 'hg histedit --continue' to continue or
-       'hg histedit --abort' to abort)
+  (use 'sl histedit --continue' to continue or
+       'sl histedit --abort' to abort)
   [255]
 
 edit the plan via the editor
@@ -91,8 +92,8 @@ edit the plan via the editor
   > drop 3c6a8ed2ebe8 g
   > EOF2
   > EOF
-  $ HGEDITOR="sh $TESTTMP/editplan.sh" hg histedit --edit-plan
-  $ cat .hg/histedit-state
+  $ HGEDITOR="sh $TESTTMP/editplan.sh" sl histedit --edit-plan
+  $ cat .sl/histedit-state
   v1
   055a42cdd88768532f9cf79daa407fc8d138de9b
   3c6a8ed2ebe862cc949d2caa30775dd6f16fb799
@@ -108,12 +109,12 @@ edit the plan via the editor
   
 
 edit the plan via --commands
-  $ hg histedit --edit-plan --commands - << EOF
+  $ sl histedit --edit-plan --commands - << EOF
   > edit e860deea161a e
   > pick 652413bf663e f
   > drop 3c6a8ed2ebe8 g
   > EOF
-  $ cat .hg/histedit-state
+  $ cat .sl/histedit-state
   v1
   055a42cdd88768532f9cf79daa407fc8d138de9b
   3c6a8ed2ebe862cc949d2caa30775dd6f16fb799
@@ -130,41 +131,41 @@ edit the plan via --commands
 
 Go at a random point and try to continue
 
-  $ hg up 0
+  $ sl up 0
   abort: histedit in progress
-  (use 'hg histedit --continue' to continue or
-       'hg histedit --abort' to abort)
+  (use 'sl histedit --continue' to continue or
+       'sl histedit --abort' to abort)
   [255]
 
 Try to delete necessary commit
-  $ hg debugstrip -r 652413b
+  $ sl debugstrip -r 652413b
   abort: histedit in progress, can't strip 652413bf663e
   [255]
 
 commit, then edit the revision
-  $ hg ci -m 'wat'
+  $ sl ci -m 'wat'
   $ echo a > e
 
-  $ HGEDITOR='echo foobaz > ' hg histedit --continue 2>&1 | fixbundle
+  $ HGEDITOR='echo foobaz > ' sl histedit --continue 2>&1 | fixbundle
 
-  $ hg cat e
+  $ sl cat e
   a
 
 Stripping necessary commits should not break --abort
 (No longer true - skipped this test since debugstrip is rarely used)
 
-  $ hg histedit 1a60820cd1f6 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 1a60820cd1f6 --commands - 2>&1 << EOF| fixbundle
   > edit 1a60820cd1f6 wat
   > pick a5e1ba2f7afb foobaz
   > pick b5f70786f9b0 g
   > EOF
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   Editing (1a60820cd1f6), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
 
-  $ hg histedit --abort
+  $ sl histedit --abort
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg log -r .
+  $ sl log -r .
   commit:      b5f70786f9b0
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -173,7 +174,7 @@ Stripping necessary commits should not break --abort
 
 check histedit_source
 
-  $ hg log --debug --rev 'desc(foobaz)'
+  $ sl log --debug --rev 'desc(foobaz)'
   commit:      a5e1ba2f7afb899ef1581cea528fd885d2fca70d
   phase:       draft
   manifest:    5ad3be8791f39117565557781f5464363b918a45
@@ -187,16 +188,16 @@ check histedit_source
   
   
 
-  $ hg histedit tip --commands - 2>&1 <<EOF| fixbundle
+  $ sl histedit tip --commands - 2>&1 <<EOF| fixbundle
   > edit b5f70786f9b0 f
   > EOF
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   Editing (b5f70786f9b0), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  $ hg status
+  (sl histedit --continue to resume)
+  $ sl status
   A f
 
-  $ hg summary
+  $ sl summary
   parent: a5e1ba2f7afb 
    foobaz
   commit: 1 added
@@ -206,20 +207,20 @@ check histedit_source
 (test also that editor is invoked if histedit is continued for
 "edit" action)
 
-  $ HGEDITOR='cat' hg histedit --continue
+  $ HGEDITOR='cat' sl histedit --continue
   f
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added f
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added f
 
-  $ hg status
+  $ sl status
 
 log after edit
-  $ hg log --limit 1
+  $ sl log --limit 1
   commit:      a107ee126658
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -231,9 +232,9 @@ say we'll change the message, but don't.
   > cat "\$1" | sed s/pick/mess/ > tmp
   > mv tmp "\$1"
   > EOF
-  $ HGEDITOR="sh ../edit.sh" hg histedit tip 2>&1 | fixbundle
-  $ hg status
-  $ hg log --limit 1
+  $ HGEDITOR="sh ../edit.sh" sl histedit tip 2>&1 | fixbundle
+  $ sl status
+  $ sl log --limit 1
   commit:      1fd3b2fe7754
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -252,7 +253,7 @@ check saving last-message.txt, at first
   >             raise error.Abort('emulating unexpected abort')
   >     repo.__class__ = commitfailure
   > EOF
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > # this failure occurs before editor invocation
   > commitfailure = $TESTTMP/commitfailure.py
@@ -267,50 +268,50 @@ check saving last-message.txt, at first
 
 (test that editor is not invoked before transaction starting)
 
-  $ rm -f .hg/last-message.txt
-  $ HGEDITOR="sh $TESTTMP/editor.sh" hg histedit tip --commands - 2>&1 << EOF | fixbundle
+  $ rm -f .sl/last-message.txt
+  $ HGEDITOR="sh $TESTTMP/editor.sh" sl histedit tip --commands - 2>&1 << EOF | fixbundle
   > mess 1fd3b2fe7754 f
   > EOF
   abort: emulating unexpected abort
-  $ test -f .hg/last-message.txt
+  $ test -f .sl/last-message.txt
   [1]
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > commitfailure = !
   > EOF
-  $ hg histedit --abort -q
+  $ sl histedit --abort -q
 
 (test that editor is invoked and commit message is saved into
 "last-message.txt")
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [hooks]
   > # this failure occurs after editor invocation
   > pretxncommit.unexpectedabort = false
   > EOF
 
-  $ hg status --rev '1fd3b2fe7754^1' --rev 1fd3b2fe7754
+  $ sl status --rev '1fd3b2fe7754^1' --rev 1fd3b2fe7754
   A f
 
-  $ rm -f .hg/last-message.txt
-  $ HGEDITOR="sh $TESTTMP/editor.sh" hg histedit tip --commands - << EOF
+  $ rm -f .sl/last-message.txt
+  $ HGEDITOR="sh $TESTTMP/editor.sh" sl histedit tip --commands - << EOF
   > mess 1fd3b2fe7754 f
   > EOF
   ==== before editing
   f
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added f
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added f
   ====
-  note: commit message saved in .hg/last-message.txt
+  note: commit message saved in .sl/last-message.txt
   abort: pretxncommit.unexpectedabort hook exited with status 1
   [255]
-  $ cat .hg/last-message.txt
+  $ cat .sl/last-message.txt
   f
   
   
@@ -319,32 +320,32 @@ check saving last-message.txt, at first
 (test also that editor is invoked if histedit is continued for "message"
 action)
 
-  $ HGEDITOR=cat hg histedit --continue
+  $ HGEDITOR=cat sl histedit --continue
   f
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added f
-  note: commit message saved in .hg/last-message.txt
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added f
+  note: commit message saved in .sl/last-message.txt
   abort: pretxncommit.unexpectedabort hook exited with status 1
   [255]
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [hooks]
   > pretxncommit.unexpectedabort =
   > EOF
-  $ hg histedit --abort -q
+  $ sl histedit --abort -q
 
 then, check "modify the message" itself
 
-  $ hg histedit . --commands - << EOF | fixbundle
+  $ sl histedit . --commands - << EOF | fixbundle
   > mess 1fd3b2fe7754 f
   > EOF
-  $ hg status
-  $ hg log --limit 1
+  $ sl status
+  $ sl log --limit 1
   commit:      62feedb1200e
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

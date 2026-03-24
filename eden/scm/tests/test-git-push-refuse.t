@@ -1,5 +1,6 @@
 #require git execbit no-eden
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Server repo
@@ -8,7 +9,7 @@ Server repo
 
 Client repo
 
-  $ hg clone -q --git "$TESTTMP/server-repo.git" client-repo
+  $ sl clone -q --git "$TESTTMP/server-repo.git" client-repo
   $ cd client-repo
   $ drawdag << 'EOS'
   > B
@@ -18,8 +19,8 @@ Client repo
 
 Push A
 
-  $ hg push -q -r 'desc(A)' --to main --create
-  $ hg log -r remote/main -T '{desc}\n'
+  $ sl push -q -r 'desc(A)' --to main --create
+  $ sl log -r remote/main -T '{desc}\n'
   A
 
 Hook to reject push
@@ -32,7 +33,7 @@ Hook to reject push
 
 Push B
 
-  $ hg push -q -r 'desc(B)' --to main --create
+  $ sl push -q -r 'desc(B)' --to main --create
   remote: Push rejected by hook!* (glob)
   To $TESTTMP/server-repo.git
    ! [remote rejected] 0de30934572f96ff6d3cbfc70aa8b46ef95dbb42 -> main (pre-receive hook declined)
@@ -41,5 +42,5 @@ Push B
 
 `remote/main` does not move to `B`
 
-  $ hg log -r remote/main -T '{desc}\n'
+  $ sl log -r remote/main -T '{desc}\n'
   A

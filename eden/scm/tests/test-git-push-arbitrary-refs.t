@@ -1,5 +1,6 @@
 #require git no-eden
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Server repo
@@ -8,7 +9,7 @@ Server repo
 
 Client repo
 
-  $ hg clone -q --git "$TESTTMP/server-repo.git" client-repo
+  $ sl clone -q --git "$TESTTMP/server-repo.git" client-repo
   $ cd client-repo
   $ drawdag << 'EOS'
   > B
@@ -18,10 +19,10 @@ Client repo
 
 Push A
 
-  $ hg push -q -r 'desc(A)' --to refs/test/test123 --create
+  $ sl push -q -r 'desc(A)' --to refs/test/test123 --create
 
 Push B
-  $ hg push -q -r 'desc(A)' --to refs/commitcloud/upload --create
+  $ sl push -q -r 'desc(A)' --to refs/commitcloud/upload --create
   
 Inspect repo
   $ cd "$TESTTMP/server-repo.git"

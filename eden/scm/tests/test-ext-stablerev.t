@@ -1,8 +1,9 @@
 #debugruntest-incompatible
+  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo
   $ enable stablerev
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > D
   > |
   > C
@@ -21,7 +22,7 @@ If the script doesn't return anything, an abort is raised:
   > EOF
   $ chmod +x stable.py
   $ setconfig stablerev.script="fbpython stable.py"
-  $ hg log -r "getstablerev()" --debug
+  $ sl log -r "getstablerev()" --debug
   Executing script: fbpython stable.py
   setting current working directory to: $TESTTMP/repo1
   script stdout:
@@ -34,7 +35,7 @@ Make the script return something:
   > #!/usr/bin/env fbpython
   > print("B")
   > EOF
-  $ hg log -r "getstablerev()"
+  $ sl log -r "getstablerev()"
   [112478962961]: B
 
 Change the script, change the result:
@@ -42,13 +43,13 @@ Change the script, change the result:
   > #!/usr/bin/env fbpython
   > print("C")
   > EOF
-  $ hg log -r "getstablerev()"
+  $ sl log -r "getstablerev()"
   [26805aba1e60]: C
 
 The script is always run relative to repo root:
   $ mkdir subdir
   $ cd subdir
-  $ hg log -r "getstablerev()"
+  $ sl log -r "getstablerev()"
   [26805aba1e60]: C
   $ cd ..
 
@@ -57,7 +58,7 @@ JSON is also supported:
   > #!/usr/bin/env fbpython
   > print('{\"node\": \"D\"}')
   > EOF
-  $ hg log -r "getstablerev()"
+  $ sl log -r "getstablerev()"
   [f585351a92f8]: D
 
 Invalid JSON aborts:
@@ -65,7 +66,7 @@ Invalid JSON aborts:
   > #!/usr/bin/env fbpython
   > print('{node\": \"D\"}')
   > EOF
-  $ hg log -r "getstablerev()"
+  $ sl log -r "getstablerev()"
   abort: stable rev returned by script (fbpython stable.py) was invalid
   [255]
 
@@ -75,7 +76,7 @@ An alias can be used for simplicity:
   > print("A")
   > EOF
   $ setconfig revsetalias.stable="getstablerev()"
-  $ hg log -r stable
+  $ sl log -r stable
   [426bada5c675]: A
 
 Check that stables template keyword works:
@@ -86,7 +87,7 @@ Check that stables template keyword works:
   > EOF
   $ chmod +x stables.py
   $ setconfig "stablerev.stablesscript=fbpython stables.py {nodeid}"
-  $ hg log -r "D" --template "{stables}"
+  $ sl log -r "D" --template "{stables}"
   stable1 stable2 (no-eol)
 
 # Auto-pull
@@ -105,7 +106,7 @@ Make another repo with "E" (9bc730a19041):
   > |
   > A
   > EOS
-  $ hg push -q -r 9bc730a19041 --to book --create
+  $ sl push -q -r 9bc730a19041 --to book --create
   $ cd ../repo1
 
 What if the stable commit isn't present locally?
@@ -113,16 +114,16 @@ What if the stable commit isn't present locally?
   > #!/usr/bin/env fbpython
   > print("9bc730a19041")
   > EOF
-  $ hg log -r stable
+  $ sl log -r stable
   abort: stable commit (9bc730a19041) not in the repo
-  (try hg pull first)
+  (try sl pull first)
   [255]
 
 The revset can be configured to automatically pull in this case:
   $ setconfig paths.default=test:repo2_server
   $ setconfig stablerev.pullonmissing=True
   $ setconfig remotenames.selectivepulldefault=book
-  $ hg log -r stable
+  $ sl log -r stable
   stable commit (9bc730a19041) not in repo; pulling to get it...
   pulling from test:repo2_server
   searching for changes
@@ -133,31 +134,31 @@ But it might not exist even after pulling:
   > #!/usr/bin/env fbpython
   > print("abcdef123")
   > EOF
-  $ hg log -r stable
+  $ sl log -r stable
   stable commit (abcdef123) not in repo; pulling to get it...
   pulling from test:repo2_server
   abort: stable commit (abcdef123) not in the repo
-  (try hg pull first)
+  (try sl pull first)
   [255]
 
 # Targets
 
 Targets are disabled by default:
-  $ hg log -r "getstablerev(foo)"
+  $ sl log -r "getstablerev(foo)"
   abort: targets are not supported in this repo
   [255]
 
 But they can be made optional or required:
   $ setconfig stablerev.targetarg=optional
-  $ hg log -r "getstablerev(foo)"
+  $ sl log -r "getstablerev(foo)"
   stable commit (abcdef123) not in repo; pulling to get it...
   pulling from test:repo2_server
   abort: stable commit (abcdef123) not in the repo
-  (try hg pull first)
+  (try sl pull first)
   [255]
 
   $ setconfig stablerev.targetarg=required
-  $ hg log -r "getstablerev()"
+  $ sl log -r "getstablerev()"
   abort: must pass a target
   [255]
 
@@ -170,13 +171,13 @@ Try making the script return different locations
   > else:
   >   print('C')
   > EOF
-  $ hg log -r "getstablerev(foo)"
+  $ sl log -r "getstablerev(foo)"
   [f585351a92f8]: D
-  $ hg log -r "getstablerev(bar)"
+  $ sl log -r "getstablerev(bar)"
   [26805aba1e60]: C
 
 Lastly, targets can be used in conjunction with aliases:
 
   $ setconfig revsetalias.stable="getstablerev(foo)"
-  $ hg log -r stable
+  $ sl log -r stable
   [f585351a92f8]: D

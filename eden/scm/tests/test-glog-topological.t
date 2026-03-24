@@ -13,6 +13,7 @@
 
 # This test file aims at test topological iteration and the various configuration it can has.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [ui]
@@ -24,22 +25,22 @@
 # can finally display 0. this implies skipping from 8 to 3 and coming back to 7
 # later.
 
-  $ hg init test01
+  $ sl init test01
   $ cd test01
-  $ hg commit -qm 0
-  $ hg commit -qm 1
-  $ hg commit -qm 2
-  $ hg commit -qm 3
-  $ hg up -q 'desc(0)'
-  $ hg commit -qm 4
-  $ hg commit -qm 5
-  $ hg commit -qm 6
-  $ hg commit -qm 7
-  $ hg up -q 'desc(3)'
-  $ hg commit -qm 8
-  $ hg up -q null
+  $ sl commit -qm 0
+  $ sl commit -qm 1
+  $ sl commit -qm 2
+  $ sl commit -qm 3
+  $ sl up -q 'desc(0)'
+  $ sl commit -qm 4
+  $ sl commit -qm 5
+  $ sl commit -qm 6
+  $ sl commit -qm 7
+  $ sl up -q 'desc(3)'
+  $ sl commit -qm 8
+  $ sl up -q null
 
-  $ hg log -G
+  $ sl log -G
   o  8
   │
   │ o  7
@@ -60,7 +61,7 @@
 
 # (display all nodes)
 
-  $ hg log -G -r 'sort(all(), topo)'
+  $ sl log -G -r 'sort(all(), topo)'
   o  8
   │
   o  3
@@ -81,7 +82,7 @@
 
 # (revset skipping nodes)
 
-  $ hg log -G --rev 'sort(not (desc(2)+desc(6)), topo)'
+  $ sl log -G --rev 'sort(not (desc(2)+desc(6)), topo)'
   o  8
   │
   o  3
@@ -98,7 +99,7 @@
 
 # (begin) from the other branch
 
-  $ hg log -G -r 'sort(all(), topo, topo.firstbranch=desc(5))'
+  $ sl log -G -r 'sort(all(), topo, topo.firstbranch=desc(5))'
   o  7
   │
   o  6

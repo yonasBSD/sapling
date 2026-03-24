@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/histedit-helpers.sh"
 
@@ -9,23 +10,23 @@
 
 Create repo a:
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ setconfig ui.allowemptycommit=True
-  $ hg commit -qm "A"
-  $ hg commit -qm "B"
-  $ hg commit -qm "C"
-  $ hg commit -qm "D"
-  $ hg up -q .~3
-  $ hg commit -qm "E"
-  $ hg book E
-  $ hg up -q .~1
-  $ hg commit -qm "F"
-  $ hg merge -q E
-  $ hg book -d E
-  $ hg commit -qm "G"
-  $ hg up -q .^
-  $ hg commit -qm "H"
+  $ sl commit -qm "A"
+  $ sl commit -qm "B"
+  $ sl commit -qm "C"
+  $ sl commit -qm "D"
+  $ sl up -q .~3
+  $ sl commit -qm "E"
+  $ sl book E
+  $ sl up -q .~1
+  $ sl commit -qm "F"
+  $ sl merge -q E
+  $ sl book -d E
+  $ sl commit -qm "G"
+  $ sl up -q .^
+  $ sl commit -qm "H"
 
   $ tglogp
   @  23a00112b28c draft 'H'
@@ -46,17 +47,17 @@ Create repo a:
   
 Verify that implicit base command and help are listed
 
-  $ HGEDITOR=cat hg histedit |grep base
+  $ HGEDITOR=cat sl histedit |grep base
   #  b, base = checkout changeset and apply further changesets from there
 
 Go to D
-  $ hg goto 'desc(D)'
+  $ sl goto 'desc(D)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 edit the history to rebase B onto H
 
 
 Rebase B onto H
-  $ hg histedit 'max(desc(B))' --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit 'max(desc(B))' --commands - 2>&1 << EOF | fixbundle
   > base 23a00112b28c 
   > pick f68855660cff B
   > pick 9b96ea441fce C
@@ -81,7 +82,7 @@ Rebase B onto H
   o  7b3f3d5e5faf draft 'A'
   
 Rebase back and drop something
-  $ hg histedit 'max(desc(B))' --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit 'max(desc(B))' --commands - 2>&1 << EOF | fixbundle
   > base 7b3f3d5e5faf
   > pick 047a902d2bc7 B
   > drop fb0676d5bfd4 C
@@ -104,7 +105,7 @@ Rebase back and drop something
   o  7b3f3d5e5faf draft 'A'
   
 Split stack
-  $ hg histedit 'max(desc(B))' --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit 'max(desc(B))' --commands - 2>&1 << EOF | fixbundle
   > base 7b3f3d5e5faf
   > pick cd1f16922537 B
   > base 7b3f3d5e5faf C
@@ -128,8 +129,8 @@ Split stack
   
 Abort
   $ echo x > B
-  $ hg add B
-  $ hg commit -m "X"
+  $ sl add B
+  $ sl commit -m "X"
   $ tglogp
   @  5d4ea538b61e draft 'X'
   │
@@ -148,7 +149,7 @@ Abort
   o  7b3f3d5e5faf draft 'A'
   
 Continue
-  $ hg histedit 'max(desc(D))' --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit 'max(desc(D))' --commands - 2>&1 << EOF | fixbundle
   > base cd1f16922537 B
   > drop 3849e69e0651 D
   > pick 5d4ea538b61e X
@@ -171,11 +172,11 @@ Continue
 
 base on a previously picked changeset
   $ echo i > i
-  $ hg add i
-  $ hg commit -m "I"
+  $ sl add i
+  $ sl commit -m "I"
   $ echo j > j
-  $ hg add j
-  $ hg commit -m "J"
+  $ sl add j
+  $ sl commit -m "J"
   $ tglogp
   @  5aeb8c4a279f draft 'J'
   │
@@ -195,7 +196,7 @@ base on a previously picked changeset
   ├───╯
   o  7b3f3d5e5faf draft 'A'
   
-  $ hg histedit 'max(desc(B))' --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit 'max(desc(B))' --commands - 2>&1 << EOF | fixbundle
   > pick cd1f16922537 B
   > pick e077fa5e4ecb X
   > base cd1f16922537 B
@@ -203,7 +204,7 @@ base on a previously picked changeset
   > base cd1f16922537 B
   > pick fcf8c295f0a2 I
   > EOF
-  hg: parse error: base "cd1f16922537" changeset was an edited list candidate
+  sl: parse error: base "cd1f16922537" changeset was an edited list candidate
   (base must only use unlisted changesets)
 
   $ tglogp

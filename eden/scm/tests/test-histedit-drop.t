@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/histedit-helpers.sh"
 
@@ -9,19 +10,19 @@
 
   $ initrepo ()
   > {
-  >     hg init r
+  >     sl init r
   >     cd r
   >     for x in a b c d e f ; do
   >         echo $x > $x
-  >         hg add $x
-  >         hg ci -m $x
+  >         sl add $x
+  >         sl ci -m $x
   >     done
   > }
 
   $ initrepo
 
 log before edit
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      652413bf663e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -54,7 +55,7 @@ log before edit
   
 
 edit the history
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF | fixbundle
   > drop 177f92b77385 c
   > pick e860deea161a e
   > pick 652413bf663e f
@@ -62,7 +63,7 @@ edit the history
   > EOF
 
 log after edit
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      f518305ce889
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -91,7 +92,7 @@ log after edit
 
 Check histedit_source
 
-  $ hg log --debug --rev f518305ce889
+  $ sl log --debug --rev f518305ce889
   commit:      f518305ce889c07cb5bd05522176d75590ef3324
   phase:       draft
   manifest:    d3d4f51c157ff242c32ff745d4799aaa26ccda44
@@ -106,7 +107,7 @@ Check histedit_source
   
 
 manifest after edit
-  $ hg manifest
+  $ sl manifest
   a
   b
   d
@@ -115,12 +116,12 @@ manifest after edit
 
 Drop the last changeset
 
-  $ hg histedit ee283cb5f2d5 --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit ee283cb5f2d5 --commands - 2>&1 << EOF | fixbundle
   > pick ee283cb5f2d5 e
   > pick a4f7421b80f7 f
   > drop f518305ce889 d
   > EOF
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      a4f7421b80f7
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -142,21 +143,21 @@ Drop the last changeset
      summary:     a
   
 
-  $ hg histedit cb9a9f314b8b --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit cb9a9f314b8b --commands - 2>&1 << EOF | fixbundle
   > pick cb9a9f314b8b a
   > pick ee283cb5f2d5 e
   > EOF
-  hg: parse error: missing rules for changeset a4f7421b80f7
-  (use "drop a4f7421b80f7" to discard, see also: 'hg help -e histedit.config')
-  $ hg --config histedit.dropmissing=True histedit  cb9a9f314b8b --commands - 2>&1 << EOF | fixbundle
+  sl: parse error: missing rules for changeset a4f7421b80f7
+  (use "drop a4f7421b80f7" to discard, see also: 'sl help -e histedit.config')
+  $ sl --config histedit.dropmissing=True histedit  cb9a9f314b8b --commands - 2>&1 << EOF | fixbundle
   > EOF
-  hg: parse error: no rules provided
+  sl: parse error: no rules provided
   (use strip extension to remove commits)
-  $ hg --config histedit.dropmissing=True histedit  cb9a9f314b8b --commands - 2>&1 << EOF | fixbundle
+  $ sl --config histedit.dropmissing=True histedit  cb9a9f314b8b --commands - 2>&1 << EOF | fixbundle
   > pick cb9a9f314b8b a
   > pick ee283cb5f2d5 e
   > EOF
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      e99c679bf03e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000

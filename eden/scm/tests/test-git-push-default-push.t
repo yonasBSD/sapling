@@ -1,5 +1,6 @@
 #require git no-eden
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Initialize the server repos.
@@ -9,16 +10,16 @@ Initialize the server repos.
 
 Initialize the Sapling repo.
 
-  $ hg clone -q --git "$TESTTMP/repo-1.git" client-repo
+  $ sl clone -q --git "$TESTTMP/repo-1.git" client-repo
   $ cd client-repo
-  $ hg paths --add default-push "$TESTTMP/repo-2.git"
+  $ sl paths --add default-push "$TESTTMP/repo-2.git"
   $ touch testfile
-  $ hg add testfile
-  $ hg commit testfile -m testcommit
+  $ sl add testfile
+  $ sl commit testfile -m testcommit
 
 Pushing without specifying a path pushes to the 'default-push' path.
 
-  $ hg push -q -r . --to main --create
+  $ sl push -q -r . --to main --create
 
   $ GIT_DIR="$TESTTMP/repo-1.git" git log --pretty=format:%s%n
   fatal: your current branch 'main' does not have any commits yet
@@ -30,8 +31,8 @@ Pushing without specifying a path pushes to the 'default-push' path.
 After deleting the 'default-push' path,
 pushing without specifying a path pushes to the 'default' path
 
-  $ hg paths --delete default-push
-  $ hg push -q -r . --to main --create
+  $ sl paths --delete default-push
+  $ sl push -q -r . --to main --create
 
   $ GIT_DIR="$TESTTMP/repo-1.git" git log --pretty=format:%s%n
   testcommit

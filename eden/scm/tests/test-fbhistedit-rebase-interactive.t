@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/histedit-helpers.sh"
 
@@ -11,21 +12,21 @@
   > {
   >     for x in "$@" ; do
   >         echo "$x" > "$x"
-  >         hg add "$x"
-  >         hg ci -m "$x"
+  >         sl add "$x"
+  >         sl ci -m "$x"
   >     done
   > }
   $ initrepo ()
   > {
-  >     hg init r
+  >     sl init r
   >     cd r
   >     addcommits a b c d e f
-  >     hg goto 'desc(b)'
+  >     sl goto 'desc(b)'
   >     addcommits g h i
-  >     hg goto 'desc(b)'
+  >     sl goto 'desc(b)'
   >     echo CONFLICT > f
-  >     hg add f
-  >     hg ci -m "conflict f"
+  >     sl add f
+  >     sl ci -m "conflict f"
   > }
 
   $ initrepo
@@ -34,7 +35,7 @@
 
 log before rebase
 
-  $ hg log -G -T '{node|short} {desc|firstline}\n'
+  $ sl log -G -T '{node|short} {desc|firstline}\n'
   @  8d0611d6e5f2 conflict f
   │
   │ o  cf7e1bc6a982 i
@@ -57,11 +58,11 @@ log before rebase
   
 Simple rebase with -s and -d
 
-  $ hg goto cf7e1bc6a982390237dd47e096c15bca92fe2237
+  $ sl goto cf7e1bc6a982390237dd47e096c15bca92fe2237
   3 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ HGEDITOR=true hg rebase -i -s cf7e1bc6a982390237dd47e096c15bca92fe2237 -d 652413bf663ef2a641cab26574e46d5f5a64a55a
+  $ HGEDITOR=true sl rebase -i -s cf7e1bc6a982390237dd47e096c15bca92fe2237 -d 652413bf663ef2a641cab26574e46d5f5a64a55a
 
-  $ hg log -G -T '{node|short} {desc|firstline}\n'
+  $ sl log -G -T '{node|short} {desc|firstline}\n'
   @  bb8affa27bd8 i
   │
   │ o  8d0611d6e5f2 conflict f
@@ -84,23 +85,23 @@ Simple rebase with -s and -d
   
 
 Try to rebase with conflict (also check -d without -s)
-  $ hg goto 'desc("conflict f")'
+  $ sl goto 'desc("conflict f")'
   1 files updated, 0 files merged, 4 files removed, 0 files unresolved
 
-  $ HGEDITOR=true hg rebase -i -d 'desc(i)'
+  $ HGEDITOR=true sl rebase -i -d 'desc(i)'
   merging f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   Fix up the change (pick 8d0611d6e5f2)
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   [1]
 
   $ echo resolved > f
-  $ hg resolve --mark f
+  $ sl resolve --mark f
   (no more unresolved files)
-  continue: hg histedit --continue
-  $ hg histedit --continue
+  continue: sl histedit --continue
+  $ sl histedit --continue
 
-  $ hg log -G -T '{node|short} {desc|firstline}\n'
+  $ sl log -G -T '{node|short} {desc|firstline}\n'
   @  b6ca70f8129d conflict f
   │
   o  bb8affa27bd8 i
@@ -123,10 +124,10 @@ Try to rebase with conflict (also check -d without -s)
   
 
 Rebase with base
-  $ hg goto 'desc(h)'
+  $ sl goto 'desc(h)'
   2 files updated, 0 files merged, 5 files removed, 0 files unresolved
-  $ HGEDITOR=true hg rebase -i -b . -d 'desc(conflict)'
-  $ hg log -G -T '{node|short} {desc|firstline}\n'
+  $ HGEDITOR=true sl rebase -i -b . -d 'desc(conflict)'
+  $ sl log -G -T '{node|short} {desc|firstline}\n'
   @  50cf975d06ef h
   │
   o  ba6932766227 g
@@ -152,12 +153,12 @@ either the source or destination.  This unfortunately is rejected since the
 histedit code currently requires all edited commits to be ancestors of the
 current working directory parent.
 
-  $ hg goto 'desc(i) - desc(conflict)'
+  $ sl goto 'desc(i) - desc(conflict)'
   1 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ addcommits x y z
-  $ hg goto 'desc(f) - desc(conflict)'
+  $ sl goto 'desc(f) - desc(conflict)'
   0 files updated, 0 files merged, 4 files removed, 0 files unresolved
-  $ hg log -G -T '{node|short} {desc|firstline}\n'
+  $ sl log -G -T '{node|short} {desc|firstline}\n'
   o  70ff95fe5c79 z
   │
   o  9843e524084d y
@@ -184,6 +185,6 @@ current working directory parent.
   │
   o  cb9a9f314b8b a
   
-  $ HGEDITOR=true hg rebase -i -s 'desc(y)' -d 'desc(g)'
+  $ HGEDITOR=true sl rebase -i -s 'desc(y)' -d 'desc(g)'
   abort: source revision (-s) must be an ancestor of the working directory for interactive rebase
   [255]

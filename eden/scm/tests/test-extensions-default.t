@@ -3,30 +3,31 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Tests the behavior of the DEFAULT_EXTENSIONS constant in extensions.py
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
-hg githelp works without enabling:
+sl githelp works without enabling:
 
-  $ hg githelp -- git checkout HEAD
-  hg goto .
+  $ sl githelp -- git checkout HEAD
+  sl goto .
 
 Behaves identically if enabled manually:
 
-  $ hg githelp --config extensions.githelp= -- git checkout HEAD
-  hg goto .
+  $ sl githelp --config extensions.githelp= -- git checkout HEAD
+  sl goto .
 
 Not if turned off:
  (note: extension discovery only works for normal layout)
 
 #if normal-layout
-  $ hg githelp --config extensions.githelp=! -- git checkout HEAD
+  $ sl githelp --config extensions.githelp=! -- git checkout HEAD
   unknown command 'githelp'
-  (use 'hg help' to get help)
+  (use 'sl help' to get help)
   [255]
 #endif
 
@@ -41,11 +42,11 @@ Or overriden by a different path:
   > 
   > @command('githelp')
   > def githhelp(ui, repo, *args, **opts):
-  >      ui.warn('Custom version of hg githelp\n')
+  >      ui.warn('Custom version of sl githelp\n')
   > 
   > EOF
-  $ hg githelp --config extensions.githelp=`pwd`/githelp2.py -- git checkout HEAD
-  Custom version of hg githelp
+  $ sl githelp --config extensions.githelp=`pwd`/githelp2.py -- git checkout HEAD
+  Custom version of sl githelp
 
 A default extension's reposetup and extsetup are run:
   $ cd $TESTTMP
@@ -65,7 +66,7 @@ A default extension's reposetup and extsetup are run:
   >     githelp.reposetup = reposetup
   >     githelp.extsetup = extsetup
   > EOF
-  $ hg -R a githelp --config extensions.path=ext/mofunc.py -- git status
+  $ sl -R a githelp --config extensions.path=ext/mofunc.py -- git status
   githelp extsetup()
   githelp reposetup()
-  hg status
+  sl status

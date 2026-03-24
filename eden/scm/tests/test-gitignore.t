@@ -4,6 +4,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ newclientrepo
   $ setconfig 'ui.gitignore=1'
 
@@ -23,7 +24,7 @@
 
   $ touch build/libfoo.so t.tmp Makefile exp/x.tmp exp/i.tmp
 
-  $ hg status
+  $ sl status
   ? .gitignore
   ? Makefile
   ? exp/.gitignore
@@ -37,14 +38,14 @@
 
   $ touch x.pyc
 
-  $ hg status
+  $ sl status
   ? .gitignore
   ? Makefile
   ? exp/.gitignore
   ? exp/i.tmp
   ? x.pyc
 
-  $ hg status --config 'ui.ignore.global=$TESTTMP/globalignore'
+  $ sl status --config 'ui.ignore.global=$TESTTMP/globalignore'
   ? .gitignore
   ? Makefile
   ? exp/.gitignore
@@ -63,7 +64,7 @@
 
 # x.pyc disappears w/ fsmonitor because the above "status" removes it from the treestate.
 # We don't track ignored files in the treestate by default.
-  $ hg status
+  $ sl status
   ? .gitignore
   ? Makefile
   ? builddocs.txt
@@ -82,7 +83,7 @@
   $ mkdir build
   $ touch build/libfoo.so t.tmp Makefile
 
-  $ hg status
+  $ sl status
   ? build/libfoo.so
-  $ hg status
+  $ sl status
   ? build/libfoo.so

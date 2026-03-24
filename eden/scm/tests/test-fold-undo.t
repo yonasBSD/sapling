@@ -2,22 +2,23 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
 Set up test environment.
-This test confirms cacheinvalidation in hg fold.
+This test confirms cacheinvalidation in sl fold.
   $ configure mutation-norecord
   $ enable amend rebase undo
   $ reset() {
   >   cd ..
   >   rm -rf repo
-  >   hg init repo
+  >   sl init repo
   >   cd repo
   > }
 
 Set up repo.
-  $ hg init repo && cd repo
-  $ hg debugbuilddag -m "+5 *4 +2"
+  $ sl init repo && cd repo
+  $ sl debugbuilddag -m "+5 *4 +2"
   $ showgraph
   o  9c9414e0356c r7
   │
@@ -34,11 +35,11 @@ Set up repo.
   o  f177fbb9e8d1 r1
   │
   o  93cbaf5e6529 r0
-  $ hg up 'desc(r7)'
+  $ sl up 'desc(r7)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Do a fold
-  $ hg fold --exact 7 6
+  $ sl fold --exact 7 6
   2 changesets folded
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ showgraph
@@ -57,7 +58,7 @@ Do a fold
   o  93cbaf5e6529 r0
 
 Do an undo
-  $ hg undo
+  $ sl undo
   undone to *, before fold --exact 7 6 (glob)
   $ showgraph
   @  9c9414e0356c r7

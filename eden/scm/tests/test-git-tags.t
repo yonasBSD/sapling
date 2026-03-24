@@ -1,6 +1,7 @@
 #require git no-eden no-windows
 #modern-config-incompatible
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
   $ setconfig diff.git=true ui.allowemptycommit=true
 
@@ -22,37 +23,37 @@ Prepare git repo with tags
 Clone it
 
   $ cd
-  $ hg clone -q --git $TESTTMP/git-repo hg-repo
+  $ sl clone -q --git $TESTTMP/git-repo hg-repo
   $ cd hg-repo
 
 No remotenames about tags initially
 
-  $ hg log -Gr: -T '{remotenames} {desc}'
+  $ sl log -Gr: -T '{remotenames} {desc}'
   @  remote/main A
   
 Pull tags explicitly
 
-  $ hg pull -B tags/v1
+  $ sl pull -B tags/v1
   pulling from $TESTTMP/git-repo
   From $TESTTMP/git-repo
    * [new ref]         bfff4215bb0ba84b76577621c9974de957610ecb -> refs/remotetags/remote/v1
 
 Pull implicitly via autopull
 
-  $ hg goto tags/v2
+  $ sl goto tags/v2
   pulling 'tags/v2' from '$TESTTMP/git-repo'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Verify the pulled tags can be seen
 
-  $ hg log -Gr: -T '{remotenames} {desc}'
+  $ sl log -Gr: -T '{remotenames} {desc}'
   @  remote/tags/v2 B
   │
   o  remote/main remote/tags/v1 A
   
 Pulled tags are listed as remote names
 
-  $ hg bookmarks --list-subscriptions
+  $ sl bookmarks --list-subscriptions
      remote/main               bfff4215bb0b
      remote/tags/v1            bfff4215bb0b
      remote/tags/v2            e8a8a5525653
@@ -60,11 +61,11 @@ Pulled tags are listed as remote names
 Push tags
 
   $ echo 2 > a
-  $ hg commit -m C
-  $ hg push --to tags/v3
+  $ sl commit -m C
+  $ sl push --to tags/v3
   To $TESTTMP/git-repo
    * [new tag]         42d0e8258ed6249380f83aaf4564a0c0865ae5f7 -> v3
-  $ hg log -Gr: -T '{remotenames} {desc}'
+  $ sl log -Gr: -T '{remotenames} {desc}'
   @  remote/tags/v3 C
   │
   o  remote/tags/v2 B

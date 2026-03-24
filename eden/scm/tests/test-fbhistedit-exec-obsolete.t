@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/histedit-helpers.sh"
 
@@ -10,12 +11,12 @@
 
   $ initrepo ()
   > {
-  >     hg init r
+  >     sl init r
   >     cd r
   >     for x in a b c d e f ; do
   >         echo $x > $x
-  >         hg add $x
-  >         hg ci -m $x
+  >         sl add $x
+  >         sl ci -m $x
   >     done
   > }
 
@@ -23,7 +24,7 @@
 
 log before edit
 
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      652413bf663e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -57,7 +58,7 @@ log before edit
 
 exec & continue should not preserve hashes
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -70,7 +71,7 @@ exec & continue should not preserve hashes
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   this should be printed to stderr
 
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      652413bf663e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -102,7 +103,7 @@ exec & continue should not preserve hashes
      summary:     a
   
 ensure we are properly executed in a shell
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -113,7 +114,7 @@ ensure we are properly executed in a shell
 
 a failing command should drop us into the shell
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -125,9 +126,9 @@ a failing command should drop us into the shell
 
 continue should work
 
-  $ hg histedit --continue
+  $ sl histedit --continue
 
-  $ hg log --template '{node|short} {desc}' --graph
+  $ sl log --template '{node|short} {desc}' --graph
   @  652413bf663e f
   │
   o  e860deea161a e
@@ -143,7 +144,7 @@ continue should work
 
 abort should work
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -153,10 +154,10 @@ abort should work
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   Command 'exit 1' failed with exit status 1
 
-  $ hg histedit --abort
+  $ sl histedit --abort
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg log --template '{node|short} {desc}' --graph
+  $ sl log --template '{node|short} {desc}' --graph
   @  652413bf663e f
   │
   o  e860deea161a e
@@ -172,7 +173,7 @@ abort should work
 
 Multiple exec commands must work
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > exec exit 0
@@ -187,7 +188,7 @@ Multiple exec commands must work
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg log --template '{node|short} {desc}' --graph
+  $ sl log --template '{node|short} {desc}' --graph
   @  652413bf663e f
   │
   o  e860deea161a e
@@ -203,16 +204,16 @@ Multiple exec commands must work
 
 amend should just work fine
 
-  $ hg histedit 177f92b77385 --commands - << EOF
+  $ sl histedit 177f92b77385 --commands - << EOF
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
-  > exec echo "NEW" > NEW && hg add NEW && hg commit --amend
+  > exec echo "NEW" > NEW && sl add NEW && sl commit --amend
   > pick 652413bf663e f
   > EOF
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg log --template '{node|short} {files} {desc}' --graph
+  $ sl log --template '{node|short} {files} {desc}' --graph
   @  3cc63bf64c8d f f
   │
   o  8a564dc5ed88 NEW e e

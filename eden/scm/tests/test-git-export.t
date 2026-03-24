@@ -2,20 +2,21 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo start > start
-  $ hg ci -Amstart
+  $ sl ci -Amstart
   adding start
 
 New file:
 
   $ mkdir dir1
   $ echo new > dir1/new
-  $ hg ci -Amnew
+  $ sl ci -Amnew
   adding dir1/new
-  $ hg diff --git -r 0
+  $ sl diff --git -r 0
   diff --git a/dir1/new b/dir1/new
   new file mode 100644
   --- /dev/null
@@ -26,12 +27,12 @@ New file:
 Copy:
 
   $ mkdir dir2
-  $ hg cp dir1/new dir1/copy
+  $ sl cp dir1/new dir1/copy
   $ echo copy1 >> dir1/copy
-  $ hg cp dir1/new dir2/copy
+  $ sl cp dir1/new dir2/copy
   $ echo copy2 >> dir2/copy
-  $ hg ci -mcopy
-  $ hg diff --git -r 1:tip
+  $ sl ci -mcopy
+  $ sl diff --git -r 1:tip
   diff --git a/dir1/new b/dir1/copy
   copy from dir1/new
   copy to dir1/copy
@@ -51,11 +52,11 @@ Copy:
 
 Cross and same-directory copies with a relative root:
 
-  $ hg diff --git --root .. -r 1:tip
+  $ sl diff --git --root .. -r 1:tip
   abort: .. not under root '$TESTTMP/repo'
   [255]
-  $ hg diff --git --root doesnotexist -r 1:tip
-  $ hg diff --git --root . -r 1:tip
+  $ sl diff --git --root doesnotexist -r 1:tip
+  $ sl diff --git --root . -r 1:tip
   diff --git a/dir1/new b/dir1/copy
   copy from dir1/new
   copy to dir1/copy
@@ -72,7 +73,7 @@ Cross and same-directory copies with a relative root:
   @@ -1,1 +1,2 @@
    new
   +copy2
-  $ hg diff --git --root dir1 -r 1:tip
+  $ sl diff --git --root dir1 -r 1:tip
   diff --git a/new b/copy
   copy from new
   copy to copy
@@ -82,7 +83,7 @@ Cross and same-directory copies with a relative root:
    new
   +copy1
 
-  $ hg diff --git --root dir2/ -r 1:tip
+  $ sl diff --git --root dir2/ -r 1:tip
   diff --git a/new b/copy
   copy from new
   copy to copy
@@ -92,7 +93,7 @@ Cross and same-directory copies with a relative root:
    new
   +copy2
 
-  $ hg diff --git --root dir1 -r 1:tip -I '**/copy'
+  $ sl diff --git --root dir1 -r 1:tip -I '**/copy'
   diff --git a/new b/copy
   copy from new
   copy to copy
@@ -102,15 +103,15 @@ Cross and same-directory copies with a relative root:
    new
   +copy1
 
-  $ hg diff --git --root dir1 -r 1:tip dir2
+  $ sl diff --git --root dir1 -r 1:tip dir2
   warning: dir2 not inside relative root dir1
 
-  $ hg diff --git --root dir1 -r 1:tip 'dir2/{copy}'
+  $ sl diff --git --root dir1 -r 1:tip 'dir2/{copy}'
   warning: possible glob in non-glob pattern 'dir2/{copy}', did you mean 'glob:dir2/{copy}'?
   warning: dir2/{copy} not inside relative root dir1
 
   $ cd dir1
-  $ hg diff --git --root .. -r 1:tip
+  $ sl diff --git --root .. -r 1:tip
   diff --git a/dir1/new b/dir1/copy
   copy from dir1/new
   copy to dir1/copy
@@ -128,11 +129,11 @@ Cross and same-directory copies with a relative root:
    new
   +copy2
 
-  $ hg diff --git --root ../.. -r 1:tip
+  $ sl diff --git --root ../.. -r 1:tip
   abort: ../.. not under root '$TESTTMP/repo'
   [255]
-  $ hg diff --git --root ../doesnotexist -r 1:tip
-  $ hg diff --git --root .. -r 1:tip
+  $ sl diff --git --root ../doesnotexist -r 1:tip
+  $ sl diff --git --root .. -r 1:tip
   diff --git a/dir1/new b/dir1/copy
   copy from dir1/new
   copy to dir1/copy
@@ -150,7 +151,7 @@ Cross and same-directory copies with a relative root:
    new
   +copy2
 
-  $ hg diff --git --root . -r 1:tip
+  $ sl diff --git --root . -r 1:tip
   diff --git a/new b/copy
   copy from new
   copy to copy
@@ -159,7 +160,7 @@ Cross and same-directory copies with a relative root:
   @@ -1,1 +1,2 @@
    new
   +copy1
-  $ hg diff --git --root . -r 1:tip copy
+  $ sl diff --git --root . -r 1:tip copy
   diff --git a/new b/copy
   copy from new
   copy to copy
@@ -168,21 +169,21 @@ Cross and same-directory copies with a relative root:
   @@ -1,1 +1,2 @@
    new
   +copy1
-  $ hg diff --git --root . -r 1:tip ../dir2
+  $ sl diff --git --root . -r 1:tip ../dir2
   warning: ../dir2 not inside relative root .
-  $ hg diff --git --root . -r 1:tip '../dir2/*'
+  $ sl diff --git --root . -r 1:tip '../dir2/*'
   warning: possible glob in non-glob pattern '../dir2/*', did you mean 'glob:../dir2/*'? (no-windows !)
   warning: ../dir2/* not inside relative root . (glob)
   $ cd ..
 
 Rename:
 
-  $ hg mv dir1/copy dir1/rename1
+  $ sl mv dir1/copy dir1/rename1
   $ echo rename1 >> dir1/rename1
-  $ hg mv dir2/copy dir1/rename2
+  $ sl mv dir2/copy dir1/rename2
   $ echo rename2 >> dir1/rename2
-  $ hg ci -mrename
-  $ hg diff --git -r 2:tip
+  $ sl ci -mrename
+  $ sl diff --git -r 2:tip
   diff --git a/dir1/copy b/dir1/rename1
   rename from dir1/copy
   rename to dir1/rename1
@@ -204,7 +205,7 @@ Rename:
 
 Cross and same-directory renames with a relative root:
 
-  $ hg diff --root dir1 --git -r 2:tip
+  $ sl diff --root dir1 --git -r 2:tip
   diff --git a/copy b/rename1
   rename from copy
   rename to rename1
@@ -224,7 +225,7 @@ Cross and same-directory renames with a relative root:
    copy2
   +rename2
 
-  $ hg diff --root dir2 --git -r 2:tip
+  $ sl diff --root dir2 --git -r 2:tip
   diff --git a/copy b/copy
   deleted file mode 100644
   --- a/copy
@@ -233,7 +234,7 @@ Cross and same-directory renames with a relative root:
   -new
   -copy2
 
-  $ hg diff --root dir1 --git -r 2:tip -I '**/copy'
+  $ sl diff --root dir1 --git -r 2:tip -I '**/copy'
   diff --git a/copy b/copy
   deleted file mode 100644
   --- a/copy
@@ -242,7 +243,7 @@ Cross and same-directory renames with a relative root:
   -new
   -copy1
 
-  $ hg diff --root dir1 --git -r 2:tip -I '**/rename*'
+  $ sl diff --root dir1 --git -r 2:tip -I '**/rename*'
   diff --git a/copy b/rename1
   copy from copy
   copy to rename1
@@ -264,9 +265,9 @@ Cross and same-directory renames with a relative root:
 
 Delete:
 
-  $ hg rm dir1/*
-  $ hg ci -mdelete
-  $ hg diff --git -r 3:tip
+  $ sl rm dir1/*
+  $ sl ci -mdelete
+  $ sl diff --git -r 3:tip
   diff --git a/dir1/new b/dir1/new
   deleted file mode 100644
   --- a/dir1/new
@@ -297,7 +298,7 @@ Delete:
   > 4
   > 5
   > EOF
-  $ hg ci -Amsrc
+  $ sl ci -Amsrc
   adding src
 
 #if execbit
@@ -305,19 +306,19 @@ Delete:
 chmod 644:
 
   $ chmod +x src
-  $ hg ci -munexec
-  $ hg diff --git -r 5:tip
+  $ sl ci -munexec
+  $ sl diff --git -r 5:tip
   diff --git a/src b/src
   old mode 100644
   new mode 100755
 
 Rename+mod+chmod:
 
-  $ hg mv src dst
+  $ sl mv src dst
   $ chmod -x dst
   $ echo a >> dst
-  $ hg ci -mrenamemod
-  $ hg diff --git -r 6:tip
+  $ sl ci -mrenamemod
+  $ sl diff --git -r 6:tip
   diff --git a/src b/dst
   old mode 100755
   new mode 100644
@@ -333,7 +334,7 @@ Rename+mod+chmod:
 
 Nonexistent in tip+chmod:
 
-  $ hg diff --git -r 5:6
+  $ sl diff --git -r 5:6
   diff --git a/src b/src
   old mode 100644
   new mode 100755
@@ -343,17 +344,17 @@ Nonexistent in tip+chmod:
 Dummy changes when no exec bit, mocking the execbit commit structure
 
   $ echo change >> src
-  $ hg ci -munexec
-  $ hg mv src dst
-  $ hg ci -mrenamemod
+  $ sl ci -munexec
+  $ sl mv src dst
+  $ sl ci -mrenamemod
 
 #endif
 
 Binary diff:
 
   $ cp "$TESTDIR/binfile.bin" .
-  $ hg add binfile.bin
-  $ hg diff --git > b.diff
+  $ sl add binfile.bin
+  $ sl diff --git > b.diff
   $ cat b.diff
   diff --git a/binfile.bin b/binfile.bin
   new file mode 100644
@@ -376,58 +377,58 @@ Binary diff:
 
 Import binary diff:
 
-  $ hg revert binfile.bin
+  $ sl revert binfile.bin
   $ rm binfile.bin
-  $ hg import -mfoo b.diff
+  $ sl import -mfoo b.diff
   applying b.diff
   $ cmp binfile.bin "$TESTDIR/binfile.bin"
 
 Rename binary file:
 
-  $ hg mv binfile.bin renamed.bin
-  $ hg diff --git
+  $ sl mv binfile.bin renamed.bin
+  $ sl diff --git
   diff --git a/binfile.bin b/renamed.bin
   rename from binfile.bin
   rename to renamed.bin
 
 Diff across many revisions:
 
-  $ hg mv dst dst2
-  $ hg ci -m 'mv dst dst2'
+  $ sl mv dst dst2
+  $ sl ci -m 'mv dst dst2'
 
   $ echo >> start
-  $ hg ci -m 'change start'
+  $ sl ci -m 'change start'
 
-  $ hg revert -r -2 start
-  $ hg mv dst2 dst3
-  $ hg ci -m 'mv dst2 dst3; revert start'
+  $ sl revert -r -2 start
+  $ sl mv dst2 dst3
+  $ sl ci -m 'mv dst2 dst3; revert start'
 
-  $ hg diff --git -r 9:11
+  $ sl diff --git -r 9:11
   diff --git a/dst2 b/dst3
   rename from dst2
   rename to dst3
 
 Reversed:
 
-  $ hg diff --git -r 11:9
+  $ sl diff --git -r 11:9
   diff --git a/dst3 b/dst2
   rename from dst3
   rename to dst2
 
 
   $ echo a >> foo
-  $ hg add foo
-  $ hg ci -m 'add foo'
+  $ sl add foo
+  $ sl ci -m 'add foo'
   $ echo b >> foo
-  $ hg ci -m 'change foo'
-  $ hg mv foo bar
-  $ hg ci -m 'mv foo bar'
+  $ sl ci -m 'change foo'
+  $ sl mv foo bar
+  $ sl ci -m 'mv foo bar'
   $ echo c >> bar
-  $ hg ci -m 'change bar'
+  $ sl ci -m 'change bar'
 
 File created before r1 and renamed before r2:
 
-  $ hg diff --git -r -3:-1
+  $ sl diff --git -r -3:-1
   diff --git a/foo b/bar
   rename from foo
   rename to bar
@@ -440,7 +441,7 @@ File created before r1 and renamed before r2:
 
 Reversed:
 
-  $ hg diff --git -r -1:-3
+  $ sl diff --git -r -1:-3
   diff --git a/bar b/foo
   rename from bar
   rename to foo
@@ -453,7 +454,7 @@ Reversed:
 
 File created in r1 and renamed before r2:
 
-  $ hg diff --git -r -4:-1
+  $ sl diff --git -r -4:-1
   diff --git a/foo b/bar
   rename from foo
   rename to bar
@@ -466,7 +467,7 @@ File created in r1 and renamed before r2:
 
 Reversed:
 
-  $ hg diff --git -r -1:-4
+  $ sl diff --git -r -1:-4
   diff --git a/bar b/foo
   rename from bar
   rename to foo
@@ -479,7 +480,7 @@ Reversed:
 
 File created after r1 and renamed before r2:
 
-  $ hg diff --git -r -5:-1
+  $ sl diff --git -r -5:-1
   diff --git a/bar b/bar
   new file mode 100644
   --- /dev/null
@@ -491,7 +492,7 @@ File created after r1 and renamed before r2:
 
 Reversed:
 
-  $ hg diff --git -r -1:-5
+  $ sl diff --git -r -1:-5
   diff --git a/bar b/bar
   deleted file mode 100644
   --- a/bar
@@ -505,72 +506,72 @@ Reversed:
 Comparing with the working dir:
 
   $ echo >> start
-  $ hg ci -m 'change start again'
+  $ sl ci -m 'change start again'
 
   $ echo > created
-  $ hg add created
-  $ hg ci -m 'add created'
+  $ sl add created
+  $ sl ci -m 'add created'
 
-  $ hg mv created created2
-  $ hg ci -m 'mv created created2'
+  $ sl mv created created2
+  $ sl ci -m 'mv created created2'
 
-  $ hg mv created2 created3
+  $ sl mv created2 created3
 
 There's a copy in the working dir:
 
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/created2 b/created3
   rename from created2
   rename to created3
 
 There's another copy between the original rev and the wd:
 
-  $ hg diff --git -r -2
+  $ sl diff --git -r -2
   diff --git a/created b/created3
   rename from created
   rename to created3
 
 The source of the copy was created after the original rev:
 
-  $ hg diff --git -r -3
+  $ sl diff --git -r -3
   diff --git a/created3 b/created3
   new file mode 100644
   --- /dev/null
   +++ b/created3
   @@ -0,0 +1,1 @@
   +
-  $ hg ci -m 'mv created2 created3'
+  $ sl ci -m 'mv created2 created3'
 
 
   $ echo > brand-new
-  $ hg add brand-new
-  $ hg ci -m 'add brand-new'
-  $ hg mv brand-new brand-new2
+  $ sl add brand-new
+  $ sl ci -m 'add brand-new'
+  $ sl mv brand-new brand-new2
 
 Created in parent of wd; renamed in the wd:
 
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/brand-new b/brand-new2
   rename from brand-new
   rename to brand-new2
 
 Created between r1 and parent of wd; renamed in the wd:
 
-  $ hg diff --git -r -2
+  $ sl diff --git -r -2
   diff --git a/brand-new2 b/brand-new2
   new file mode 100644
   --- /dev/null
   +++ b/brand-new2
   @@ -0,0 +1,1 @@
   +
-  $ hg ci -m 'mv brand-new brand-new2'
+  $ sl ci -m 'mv brand-new brand-new2'
 
 One file is copied to many destinations and removed:
 
-  $ hg cp brand-new2 brand-new3
-  $ hg mv brand-new2 brand-new3-2
-  $ hg ci -m 'multiple renames/copies'
-  $ hg diff --git -r -2 -r -1
+  $ sl cp brand-new2 brand-new3
+  $ sl mv brand-new2 brand-new3-2
+  $ sl ci -m 'multiple renames/copies'
+  $ sl diff --git -r -2 -r -1
   diff --git a/brand-new2 b/brand-new3
   rename from brand-new2
   rename to brand-new3
@@ -580,7 +581,7 @@ One file is copied to many destinations and removed:
 
 Reversed:
 
-  $ hg diff --git -r -1 -r -2
+  $ sl diff --git -r -1 -r -2
   diff --git a/brand-new3-2 b/brand-new2
   rename from brand-new3-2
   rename to brand-new2
@@ -594,29 +595,29 @@ Reversed:
 There should be a trailing TAB if there are spaces in the file name:
 
   $ echo foo > 'with spaces'
-  $ hg add 'with spaces'
-  $ hg diff --git
+  $ sl add 'with spaces'
+  $ sl diff --git
   diff --git a/with spaces b/with spaces
   new file mode 100644
   --- /dev/null
   +++ b/with spaces	
   @@ -0,0 +1,1 @@
   +foo
-  $ hg ci -m 'add filename with spaces'
+  $ sl ci -m 'add filename with spaces'
 
 Additions should be properly marked even in the middle of a merge
 
-  $ hg up -r -2
+  $ sl up -r -2
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo "New File" >> inmerge
-  $ hg add inmerge
-  $ hg ci -m "file in merge"
-  $ hg up 23
+  $ sl add inmerge
+  $ sl ci -m "file in merge"
+  $ sl up 23
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg diff -g
+  $ sl diff -g
   diff --git a/inmerge b/inmerge
   new file mode 100644
   --- /dev/null

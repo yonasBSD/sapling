@@ -1,10 +1,11 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig format.use-eager-repo=True
 
   $ newrepo e1-git
-  $ grep 'git|eager' .hg/store/requires
+  $ grep 'git|eager' .sl/store/requires
   eagerepo
   git
   $ drawdag << 'EOS'
@@ -21,7 +22,7 @@
 
 Read from the repo
 
-  $ hg log -pr $E
+  $ sl log -pr $E
   commit:      aca920ced755
   bookmark:    master
   user:        test <>
@@ -35,28 +36,28 @@ Read from the repo
   +E
   \ No newline at end of file
 
-  $ hg bookmarks
+  $ sl bookmarks
      master                    aca920ced755
      stable                    06625e541e53
 
 Bookmarks
 
-  $ hg book -d stable
-  $ hg book stable -r $B
-  $ hg bookmarks
+  $ sl book -d stable
+  $ sl book stable -r $B
+  $ sl bookmarks
      master                    aca920ced755
      stable                    0de30934572f
 
 Rename
 
-  $ hg up -q $E
-  $ hg mv E E1
-  $ hg st
+  $ sl up -q $E
+  $ sl mv E E1
+  $ sl st
   A E1
   R E
-  $ hg ci -m E1
+  $ sl ci -m E1
 
-  $ hg log -p -r . --config diff.git=true
+  $ sl log -p -r . --config diff.git=true
   commit:      de9436c587d7
   user:        test <>
   date:        Thu Jan 01 00:00:00 1970 +0000

@@ -1,12 +1,13 @@
 #debugruntest-incompatible
 #require fsmonitor no-windows
 
+  $ export HGIDENTITY=sl
   $ enable fsmonitor hgevents
   $ setconfig experimental.fsmonitor.transaction_notify=true
 
   $ newclientrepo
   $ echo "A" | drawdag
-  $ hg go -q tip
+  $ sl go -q tip
   $ cat > $TESTTMP/wait_forever.py <<EOS
   > #!/usr/bin/env python
   > import time
@@ -15,5 +16,5 @@
   $ chmod +x $TESTTMP/wait_forever.py
 
 Don't wait forever for the "bad" watchman:
-  $ WATCHMAN_SOCK= WATCHMAN_BINARY=$TESTTMP/wait_forever.py hg bookmark -r . foo --debug
+  $ WATCHMAN_SOCK= WATCHMAN_BINARY=$TESTTMP/wait_forever.py sl bookmark -r . foo --debug
   error sending watchman state-enter for hg.transaction: warning: Watchman unavailable: watchman get-sockname exited with code -9 (timed_out=True timeout=1.000000 stdout= stderr=)

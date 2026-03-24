@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Testing templating for histedit command
 
@@ -10,11 +11,11 @@ Setup
   $ configure mutation-norecord
   $ enable histedit
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
-  $ for ch in a b c d; do echo foo > $ch; hg commit -Aqm "Added "$ch; done
+  $ for ch in a b c d; do echo foo > $ch; sl commit -Aqm "Added "$ch; done
 
-  $ hg log -G -T "{node|short} {desc}"
+  $ sl log -G -T "{node|short} {desc}"
   @  62615734edd5 Added d
   │
   o  28ad74487de9 Added c
@@ -25,7 +26,7 @@ Setup
   
 Getting the JSON output for nodechanges
 
-  $ hg histedit -Tjson --commands - <<EOF
+  $ sl histedit -Tjson --commands - <<EOF
   > pick 28ad74487de9 Added c
   > pick 62615734edd5 Added d
   > pick 18d04c59bb5d Added a
@@ -37,7 +38,7 @@ Getting the JSON output for nodechanges
    }
   ]
 
-  $ hg log -G -T "{node|short} {desc}"
+  $ sl log -G -T "{node|short} {desc}"
   @  f5dcf3b4db23 Added b
   │
   o  109f8ec89544 Added a
@@ -46,7 +47,7 @@ Getting the JSON output for nodechanges
   │
   o  bff9e07c1807 Added c
   
-  $ hg histedit -T "{nodechanges|json}" --commands - <<EOF
+  $ sl histedit -T "{nodechanges|json}" --commands - <<EOF
   > pick bff9e07c1807 Added c
   > pick 201423b441c8 Added d
   > pick 109f8ec89544 Added a

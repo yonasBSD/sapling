@@ -1,11 +1,12 @@
 #require git no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . $TESTDIR/git.sh
 
 Prepare bundle
 
-  $ hg init --git gitrepo1
+  $ sl init --git gitrepo1
   $ cd gitrepo1
   $ drawdag << 'EOS'
   >   D
@@ -14,14 +15,14 @@ Prepare bundle
   >  \|  |
   >   A  X
   > EOS
-  $ hg bookmark -r $B book-B
-  $ hg bookmark -r $B book-B2
+  $ sl bookmark -r $B book-B
+  $ sl bookmark -r $B book-B2
 
-  $ hg bundle -r $B+$D+$Y --base $A $TESTTMP/bundle
+  $ sl bundle -r $B+$D+$Y --base $A $TESTTMP/bundle
 
 Test debugbundle
 
-  $ hg debugbundle $TESTTMP/bundle
+  $ sl debugbundle $TESTTMP/bundle
   git bundle heads
       0de30934572f96ff6d3cbfc70aa8b46ef95dbb42
       3d8b07a81055bd39346878ecc52ac2763b7ce8f8
@@ -30,15 +31,15 @@ Test debugbundle
 Apply bundle in another repo
 
   $ cd
-  $ hg init --git gitrepo2
+  $ sl init --git gitrepo2
   $ cd gitrepo2
   $ drawdag << 'EOS'
   > A
   > EOS
-  $ hg unbundle -u $TESTTMP/bundle
+  $ sl unbundle -u $TESTTMP/bundle
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg log -Gr: -T '{desc} {bookmarks}'
+  $ sl log -Gr: -T '{desc} {bookmarks}'
   @  D
   │
   o  C

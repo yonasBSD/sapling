@@ -2,19 +2,20 @@
 #require fsmonitor no-eden
 
 
+  $ export HGIDENTITY=sl
   $ newclientrepo
   $ echo foo > foo
-  $ hg commit -qAm foo
-  $ hg status
+  $ sl commit -qAm foo
+  $ sl status
   $ echo banana > foo
-  $ LOG=vfs=trace hg status
+  $ LOG=vfs=trace sl status
   M foo
 
-  $ hg dbsh << 'EOS'
+  $ sl dbsh << 'EOS'
   > watchman_command = repo._watchmanclient.command
   > # Simulate watchman restart
   > watchman_command('watch-del-all')
   > EOS
 
-  $ LOG=vfs=trace hg status
+  $ LOG=vfs=trace sl status
   M foo

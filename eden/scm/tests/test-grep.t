@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ setconfig drawdag.defaultfiles=false
 
   $ setconfig grep.use-rust=true
@@ -8,69 +9,69 @@
   >    # A/banana = banana\n
   >    # A/fruits = apple\nbanana\norange\n
   > EOS
-  $ hg go -q $A
+  $ sl go -q $A
 
-  $ hg grep apple | sort
+  $ sl grep apple | sort
   apple:apple
   fruits:apple
 
-  $ hg grep apple path:fruits
+  $ sl grep apple path:fruits
   fruits:apple
 
-  $ hg grep doesntexist
+  $ sl grep doesntexist
   [1]
 
-  $ hg grep 're:(oops'
+  $ sl grep 're:(oops'
   abort: invalid grep pattern 're:(oops': Error { kind: Regex("regex parse error:\n    (?:re:(oops)\n    ^\nerror: unclosed group") }
   [255]
 
 Test -i (ignore case):
-  $ hg grep APPLE
+  $ sl grep APPLE
   [1]
-  $ hg grep -i APPLE | sort
+  $ sl grep -i APPLE | sort
   apple:apple
   fruits:apple
 
 Test -n (line numbers):
-  $ hg grep -n banana | sort
+  $ sl grep -n banana | sort
   banana:1:banana
   fruits:2:banana
 
 Test -l (files with matches):
-  $ hg grep -l apple | sort
+  $ sl grep -l apple | sort
   apple
   fruits
 
 Test -w (word regexp):
-  $ hg grep app | sort
+  $ sl grep app | sort
   apple:apple
   fruits:apple
-  $ hg grep -w app
+  $ sl grep -w app
   [1]
 
 Test -V (invert match):
-  $ hg grep -V apple path:fruits
+  $ sl grep -V apple path:fruits
   fruits:banana
   fruits:orange
 
 Test -F (fixed strings) - create a file with regex metacharacters:
   $ echo 'a.ple' > dotfile
-  $ hg commit -Aqm 'add dotfile'
-  $ hg grep -F 'a.ple'
+  $ sl commit -Aqm 'add dotfile'
+  $ sl grep -F 'a.ple'
   dotfile:a.ple
 
 Test -A (after context):
-  $ hg grep -A 1 apple path:fruits
+  $ sl grep -A 1 apple path:fruits
   fruits:apple
   fruits-banana
 
 Test -B (before context):
-  $ hg grep -B 1 banana path:fruits
+  $ sl grep -B 1 banana path:fruits
   fruits-apple
   fruits:banana
 
 Test -C (context - before and after):
-  $ hg grep -C 1 banana path:fruits
+  $ sl grep -C 1 banana path:fruits
   fruits-apple
   fruits:banana
   fruits-orange
@@ -85,8 +86,8 @@ Test context break between separate match groups:
   > match2
   > line5
   > EOF
-  $ hg commit -Aqm 'add multiline'
-  $ hg grep -C 1 match path:multiline
+  $ sl commit -Aqm 'add multiline'
+  $ sl grep -C 1 match path:multiline
   multiline-line1
   multiline:match1
   multiline-line2
@@ -99,33 +100,33 @@ Color seems to work on Windows, but not in the tests.
 #if no-windows
 
 Test color output (--color=always forces color even without tty):
-  $ hg grep --color=always apple path:apple
+  $ sl grep --color=always apple path:apple
   \x1b[0m\x1b[35mapple\x1b[0m:\x1b[0m\x1b[1m\x1b[31mapple\x1b[0m (esc)
 
 Test color output with line numbers:
-  $ hg grep --color=always -n banana path:banana
+  $ sl grep --color=always -n banana path:banana
   \x1b[0m\x1b[35mbanana\x1b[0m:\x1b[0m\x1b[32m1\x1b[0m:\x1b[0m\x1b[1m\x1b[31mbanana\x1b[0m (esc)
 
 Test color disabled explicitly:
-  $ hg grep --color=off apple path:apple
+  $ sl grep --color=off apple path:apple
   apple:apple
 
 #endif
 
 Test JSON output (-T json):
-  $ hg grep -T json apple path:apple
+  $ sl grep -T json apple path:apple
   [
     {"path":"apple","text":"apple"}
   ]
 
 Test JSON output with line numbers:
-  $ hg grep -T json -n banana path:fruits
+  $ sl grep -T json -n banana path:fruits
   [
     {"path":"fruits","line_number":2,"text":"banana"}
   ]
 
 Test JSON output with multiple matches:
-  $ hg grep -T json apple path:apple path:fruits | pp --sort
+  $ sl grep -T json apple path:apple path:fruits | pp --sort
   [
     {
       "path": "apple",
@@ -138,20 +139,20 @@ Test JSON output with multiple matches:
   ]
 
 Test JSON Lines output (-T jsonl):
-  $ hg grep -T jsonl apple path:apple
+  $ sl grep -T jsonl apple path:apple
   {"path":"apple","text":"apple"}
 
 Test JSON Lines output with line numbers:
-  $ hg grep -T jsonl -n banana path:fruits
+  $ sl grep -T jsonl -n banana path:fruits
   {"path":"fruits","line_number":2,"text":"banana"}
 
 Test JSON Lines output with multiple matches:
-  $ hg grep -T jsonl apple path:apple path:fruits | sort
+  $ sl grep -T jsonl apple path:apple path:fruits | sort
   {"path":"apple","text":"apple"}
   {"path":"fruits","text":"apple"}
 
 Test JSON output with -l (files with matches):
-  $ hg grep -T json -l apple path:apple path:fruits | pp --sort
+  $ sl grep -T json -l apple path:apple path:fruits | pp --sort
   [
     {
       "path": "apple"
@@ -162,87 +163,87 @@ Test JSON output with -l (files with matches):
   ]
 
 Test JSON Lines output with -l:
-  $ hg grep -T jsonl -l apple path:apple path:fruits | sort
+  $ sl grep -T jsonl -l apple path:apple path:fruits | sort
   {"path":"apple"}
   {"path":"fruits"}
 
 Test JSON output with -V (invert match):
-  $ hg grep -T json -V apple path:fruits
+  $ sl grep -T json -V apple path:fruits
   [
     {"path":"fruits","text":"banana"},
     {"path":"fruits","text":"orange"}
   ]
 
 Test unsupported flags with -T json:
-  $ hg grep -T json -A 1 apple
+  $ sl grep -T json -A 1 apple
   abort: -A/--after-context is not supported with -T json
   [255]
-  $ hg grep -T json -B 1 apple
+  $ sl grep -T json -B 1 apple
   abort: -B/--before-context is not supported with -T json
   [255]
-  $ hg grep -T json -C 1 apple
+  $ sl grep -T json -C 1 apple
   abort: -C/--context is not supported with -T json
   [255]
 
 Test "." is the default file pattern (search cwd):
   $ mkdir subdir
   $ echo 'sub banana' > subdir/subfile
-  $ hg commit -Aqm 'add subdir'
-  $ hg grep banana | sort
+  $ sl commit -Aqm 'add subdir'
+  $ sl grep banana | sort
   banana:banana
   fruits:banana
   subdir/subfile:sub banana
   $ cd subdir
-  $ hg grep sub
+  $ sl grep sub
   subfile:sub banana
   $ cd ..
 
 Test grep in uncommitted changes:
   $ echo 'findme' > uncommitted_file
-  $ hg add uncommitted_file
-  $ hg grep findme
+  $ sl add uncommitted_file
+  $ sl grep findme
   uncommitted_file:findme
 
 Test grep does not search untracked files:
   $ echo 'untracked_content' > untracked_file
-  $ hg grep untracked_content
+  $ sl grep untracked_content
   [1]
 
 Test grep does not search ignored files:
   $ echo 'ignored_content' > ignored_file
   $ echo 'ignored_file' > .gitignore
-  $ hg add .gitignore
-  $ hg grep ignored_content
+  $ sl add .gitignore
+  $ sl grep ignored_content
   [1]
 
 Test grep does not search removed files:
-  $ hg commit -m 'add files'
+  $ sl commit -m 'add files'
   $ echo 'removed_content' > removed_file
-  $ hg commit -Aqm 'add removed_file'
-  $ hg rm removed_file
-  $ hg grep removed_content
+  $ sl commit -Aqm 'add removed_file'
+  $ sl rm removed_file
+  $ sl grep removed_content
   [1]
 
 Test grep does search deleted files (tracked but missing from disk):
   $ echo 'deleted_content' > deleted_file
-  $ hg commit -Aqm 'add deleted_file'
+  $ sl commit -Aqm 'add deleted_file'
   $ rm deleted_file
-  $ hg grep deleted_content
+  $ sl grep deleted_content
   deleted_file:deleted_content
 
 Test --rev searches specific revision (not working copy):
   $ echo 'new_content' > new_file
-  $ hg commit -Aqm 'add new_file'
+  $ sl commit -Aqm 'add new_file'
   $ echo 'uncommitted' >> new_file
-  $ hg grep uncommitted
+  $ sl grep uncommitted
   new_file:uncommitted
-  $ hg grep -r . uncommitted
+  $ sl grep -r . uncommitted
   [1]
-  $ hg grep -r . new_content
+  $ sl grep -r . new_content
   new_file:new_content
 
 Test --rev can search older revisions:
-  $ hg grep -r $A apple | sort
+  $ sl grep -r $A apple | sort
   apple:apple
   fruits:apple
 
@@ -255,38 +256,38 @@ Test repoless grep with test:server -R url:
   > A  # A/foo = foo content\n
   >    # A/bar = bar content\n
   > EOS
-  $ hg book -r $B main
+  $ sl book -r $B main
 
 Test repoless grep requires file pattern:
-  $ hg grep -R test:server -r $B content
+  $ sl grep -R test:server -r $B content
   abort: FILE pattern(s) required in repoless mode
   [255]
 
 Test repoless grep requires --rev:
-  $ hg grep -R test:server content pattern
+  $ sl grep -R test:server content pattern
   abort: --rev is required for repoless grep
   [255]
 
-  $ hg grep -R test:server -r $B content path: | sort
+  $ sl grep -R test:server -r $B content path: | sort
   bar:bar content
   dir/file:dir content
   foo:foo content
   other:other content
 
-  $ hg grep -R test:server -r $B content dir | sort
+  $ sl grep -R test:server -r $B content dir | sort
   dir/file:dir content
 
-  $ hg grep -R test:server -r $A content path: | sort
+  $ sl grep -R test:server -r $A content path: | sort
   bar:bar content
   foo:foo content
 
-  $ hg grep -R test:server -r main 'dir content' path:
+  $ sl grep -R test:server -r main 'dir content' path:
   dir/file:dir content
 
 
 Can grep unpulled revisions from on-disk repo:
   $ newclientrepo unpulled-client server
-  $ hg grep -r $A foo
+  $ sl grep -r $A foo
   foo:foo content
 
 
@@ -294,6 +295,6 @@ Test grep skips binary files:
   $ newclientrepo binary-test
   $ printf 'text match\n' > text_file
   $ printf 'binary match\0 here\n' > binary_file
-  $ hg commit -Aqm 'add files'
-  $ hg grep match
+  $ sl commit -Aqm 'add files'
+  $ sl grep match
   text_file:text match

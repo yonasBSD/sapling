@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ . "$TESTDIR/histedit-helpers.sh"
@@ -10,12 +11,12 @@
 
   $ initrepo ()
   > {
-  >     hg init r
+  >     sl init r
   >     cd r
   >     for x in a b c d e f ; do
   >         echo $x > $x
-  >         hg add $x
-  >         hg ci -m $x
+  >         sl add $x
+  >         sl ci -m $x
   >     done
   > }
 
@@ -23,7 +24,7 @@
 
 log before edit
 
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      652413bf663e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -57,7 +58,7 @@ log before edit
 
 exec & continue should not preserve hashes
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -70,7 +71,7 @@ exec & continue should not preserve hashes
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   this should be printed to stderr
 
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      652413bf663e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -102,7 +103,7 @@ exec & continue should not preserve hashes
      summary:     a
   
 ensure we are properly executed in a shell
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -113,7 +114,7 @@ ensure we are properly executed in a shell
 
 a failing command should drop us into the shell
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -127,44 +128,44 @@ a failing command should drop us into the shell
 
 retry should work
 
-  $ hg histedit --retry
+  $ sl histedit --retry
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Command 'exit 1' failed with exit status 1
   [1]
 
 continue should work
 
-  $ hg histedit --continue
+  $ sl histedit --continue
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Command 'exit 2' failed with exit status 2
   [1]
 
 retry after consecutive failed execs
 
-  $ hg histedit --retry
+  $ sl histedit --retry
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Command 'exit 2' failed with exit status 2
   [1]
 
 continue after consecutive failed execs
 
-  $ hg histedit --continue
+  $ sl histedit --continue
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Command 'exit 3' failed with exit status 3
   [1]
 
 retry after the last entry
 
-  $ hg histedit --retry
+  $ sl histedit --retry
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Command 'exit 3' failed with exit status 3
   [1]
 
 continue after the last entry
 
-  $ hg histedit --continue
+  $ sl histedit --continue
 
-  $ hg log --template '{node|short} {desc}' --graph
+  $ sl log --template '{node|short} {desc}' --graph
   @  652413bf663e f
   │
   o  e860deea161a e
@@ -179,7 +180,7 @@ continue after the last entry
   
 retry should try to execute the command again and continue if succeeded
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -189,13 +190,13 @@ retry should try to execute the command again and continue if succeeded
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   Command 'exit 1' failed with exit status 1
 
-  $ hg histedit --edit-plan --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit --edit-plan --commands - 2>&1 << EOF| fixbundle
   > exec echo "Called"
   > exec exit 2
   > edit 652413bf663e f
   > EOF
 
-  $ hg histedit --retry
+  $ sl histedit --retry
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Called
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
@@ -205,31 +206,31 @@ retry should try to execute the command again and continue if succeeded
 retry should fail when working copy has pending changes
 
   $ echo "g" >> g
-  $ hg add g
-  $ hg histedit --retry
+  $ sl add g
+  $ sl histedit --retry
   abort: working copy has pending changes
   (amend, commit, or revert them and run histedit --retry, or abort with histedit --abort)
   [255]
 
-  $ hg revert -ar .
+  $ sl revert -ar .
   forgetting g
 
 retry should fail when used on non-exec histedit command
 
-  $ hg histedit --continue
+  $ sl histedit --continue
   adding f
   Editing (652413bf663e), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   [1]
 
-  $ hg histedit --retry
+  $ sl histedit --retry
   abort: no exec in progress
   (if you want to continue a non-exec histedit command use "histedit --continue" instead.)
   [255]
-  $ hg histedit --abort
+  $ sl histedit --abort
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg log --template '{node|short} {desc}' --graph
+  $ sl log --template '{node|short} {desc}' --graph
   @  652413bf663e f
   │
   o  e860deea161a e
@@ -244,7 +245,7 @@ retry should fail when used on non-exec histedit command
   
 abort should work
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -254,10 +255,10 @@ abort should work
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   Command 'exit 1' failed with exit status 1
 
-  $ hg histedit --abort
+  $ sl histedit --abort
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg log --template '{node|short} {desc}' --graph
+  $ sl log --template '{node|short} {desc}' --graph
   @  652413bf663e f
   │
   o  e860deea161a e
@@ -273,7 +274,7 @@ abort should work
 
 Multiple exec commands must work
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > exec exit 0
@@ -288,7 +289,7 @@ Multiple exec commands must work
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg log --template '{node|short} {desc}' --graph
+  $ sl log --template '{node|short} {desc}' --graph
   @  652413bf663e f
   │
   o  e860deea161a e
@@ -304,27 +305,27 @@ Multiple exec commands must work
 
 abort on a failing command, e.g an unknown commit
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
-  > exec echo "added" > added && hg foo -q
+  > exec echo "added" > added && sl foo -q
   > pick 652413bf663e f
   > EOF
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   unknown command 'foo'
-  (use 'hg help' to get help)
+  (use 'sl help' to get help)
 
-  $ hg histedit --abort
+  $ sl histedit --abort
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 test 'execr' executing in the current directory
 
-  $ hg up 'desc(f)'
+  $ sl up 'desc(f)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ mkdir subdir
   $ cd subdir
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > execr echo "added long" >> subfile
@@ -343,18 +344,18 @@ test 'execr' executing in the current directory
 
 Test that we can recover exec with amend on
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > amend=
   > [experimental]
   > evolution=createmarkers, allowunstable
   > EOF
 
-  $ hg up -q tip
+  $ sl up -q tip
 
 Test continue a stopped histedit
 
-  $ hg log -G --hidden -T '{node|short} {desc|firstline}\n'
+  $ sl log -G --hidden -T '{node|short} {desc|firstline}\n'
   @  652413bf663e f
   │
   o  e860deea161a e
@@ -367,7 +368,7 @@ Test continue a stopped histedit
   │
   o  cb9a9f314b8b a
   
-  $ hg histedit 055a42cdd887 --commands - << EOF
+  $ sl histedit 055a42cdd887 --commands - << EOF
   > pick e860deea161a e
   > pick 055a42cdd887 d
   > exec false
@@ -377,7 +378,7 @@ Test continue a stopped histedit
   Command 'false' failed with exit status 1
   [1]
   $ echo d >> d
-  $ hg log -G --hidden -T '{node|short} {desc|firstline}\n'
+  $ sl log -G --hidden -T '{node|short} {desc|firstline}\n'
   @  883a5225844a d
   │
   o  d8249471110a e
@@ -394,8 +395,8 @@ Test continue a stopped histedit
   │
   o  cb9a9f314b8b a
   
-  $ hg commit --amend -m d
-  $ hg log -G --hidden -T '{node|short} {desc|firstline}\n'
+  $ sl commit --amend -m d
+  $ sl log -G --hidden -T '{node|short} {desc|firstline}\n'
   @  8800a5180f91 d
   │
   │ x  883a5225844a d
@@ -414,8 +415,8 @@ Test continue a stopped histedit
   │
   o  cb9a9f314b8b a
   
-  $ hg histedit --continue --traceback
-  $ hg log -G --hidden -T '{node|short} {desc|firstline}\n'
+  $ sl histedit --continue --traceback
+  $ sl log -G --hidden -T '{node|short} {desc|firstline}\n'
   @  0d9a4961b100 f
   │
   o  8800a5180f91 d
@@ -439,25 +440,25 @@ Test continue a stopped histedit
 
 Test abort a stopped histedit with obsmarkers
 
-  $ hg histedit d8249471110a --commands - << EOF
+  $ sl histedit d8249471110a --commands - << EOF
   > pick 8800a5180f91 d
   > stop d8249471110a e
   > exec false
   > pick 0d9a4961b100 f
   > EOF
   Changes committed as 1d7ed205640e. You may amend the changeset now.
-  When you are done, run hg histedit --continue to resume
+  When you are done, run sl histedit --continue to resume
   [1]
-  $ hg histedit --edit-plan
-  $ hg histedit --continue
+  $ sl histedit --edit-plan
+  $ sl histedit --continue
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Command 'false' failed with exit status 1
   [1]
   $ echo e >> e
-  $ hg commit --amend -m e
-  $ hg histedit --abort --traceback
+  $ sl commit --amend -m e
+  $ sl histedit --abort --traceback
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg log -G --hidden -T '{node|short} {desc|firstline}\n'
+  $ sl log -G --hidden -T '{node|short} {desc|firstline}\n'
   o  2b451ea9fdb0 e
   │
   │ x  1d7ed205640e e
@@ -486,7 +487,7 @@ Test abort a stopped histedit with obsmarkers
   
 Test amend inside exec rule:
 
-  $ hg log -G -T '{node|short} {desc|firstline}\n'
+  $ sl log -G -T '{node|short} {desc|firstline}\n'
   @  0d9a4961b100 f
   │
   o  8800a5180f91 d
@@ -500,14 +501,14 @@ Test amend inside exec rule:
   o  cb9a9f314b8b a
   
 
-  $ hg histedit 8800a5180f91 --commands - << EOF
+  $ sl histedit 8800a5180f91 --commands - << EOF
   > pick 8800a5180f91 d
-  > exec hg commit --amend -m "d (amended)"
+  > exec sl commit --amend -m "d (amended)"
   > pick 0d9a4961b100 f
   > EOF
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg log -G -T '{node|short} {desc|firstline}\n'
+  $ sl log -G -T '{node|short} {desc|firstline}\n'
   @  5aeafddb5246 f
   │
   o  6bd17118649c d (amended)
@@ -524,14 +525,14 @@ Use exec to create a new commit at the bottom of a stack (that is,
 on top of a public commit).  Histedit shouldn't try to obsolete the
 public commit.
 
-  $ hg debugmakepublic ::d8249471110a
-  $ hg histedit --commands - << EOF
-  > exec touch x; hg add x; hg commit -m "x (inserted)"
+  $ sl debugmakepublic ::d8249471110a
+  $ sl histedit --commands - << EOF
+  > exec touch x; sl add x; sl commit -m "x (inserted)"
   > pick 6bd17118649c
   > pick 5aeafddb5246
   > EOF
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg log -G -T '{node|short} [{phase}] {desc|firstline}\n'
+  $ sl log -G -T '{node|short} [{phase}] {desc|firstline}\n'
   @  325ec50aef26 [draft] f
   │
   o  6fa3f6d34b50 [draft] d (amended)

@@ -2,6 +2,7 @@
 #require git
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . $TESTDIR/git.sh
   $ enable smartlog amend
@@ -31,23 +32,23 @@ Prepare forked server repo with branch "existing-branch" off main:
 
 Clone the upstream repo:
   $ cd
-  $ hg clone --git -q file://$TESTTMP/upstream client
+  $ sl clone --git -q file://$TESTTMP/upstream client
   $ cd client
-  $ hg smartlog -T '{desc} {remotebookmarks}'
+  $ sl smartlog -T '{desc} {remotebookmarks}'
   @  bar remote/main
   │
   ~
 
 Add "fork" as another remote:
-  $ hg path --add fork file://$TESTTMP/fork
-  $ hg smartlog -T '{desc} {remotebookmarks}'
+  $ sl path --add fork file://$TESTTMP/fork
+  $ sl smartlog -T '{desc} {remotebookmarks}'
   @  bar remote/main
   │
   ~
 
 Can check out our branch without first pulling:
-  $ hg goto -q fork/existing-branch
-  $ hg smartlog -T '{desc} {remotebookmarks}'
+  $ sl goto -q fork/existing-branch
+  $ sl smartlog -T '{desc} {remotebookmarks}'
   @  existing-branch fork/existing-branch
   │
   o  bar remote/main
@@ -55,15 +56,15 @@ Can check out our branch without first pulling:
   ~
 
 Prepare and push a new branch:
-  $ hg up -q main
+  $ sl up -q main
   $ touch baz
-  $ hg commit -qAm baz
+  $ sl commit -qAm baz
   $ touch qux
-  $ hg commit -qAm qux
-  $ hg push -q fork --to my-branch
+  $ sl commit -qAm qux
+  $ sl push -q fork --to my-branch
 
 Test that our stack still shows in smartlog after pushing:
-  $ hg smartlog -T '{desc} {remotebookmarks}'
+  $ sl smartlog -T '{desc} {remotebookmarks}'
   @  qux fork/my-branch
   │
   o  baz
@@ -75,9 +76,9 @@ Test that our stack still shows in smartlog after pushing:
   ~
 
 Make sure we can hide branches:
-  $ hg up -q main
-  $ hg hide -q 'desc("existing-branch")'
-  $ hg smartlog -T '{desc} {remotebookmarks}'
+  $ sl up -q main
+  $ sl hide -q 'desc("existing-branch")'
+  $ sl smartlog -T '{desc} {remotebookmarks}'
   o  qux fork/my-branch
   │
   o  baz

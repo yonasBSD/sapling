@@ -2,73 +2,74 @@
 #require eden
 
 setup backing repo
+  $ export HGIDENTITY=sl
   $ newclientrepo
 
   $ touch rootfile.txt
   $ mkdir dir1
   $ touch dir1/a.txt
   $ echo "original contents" >> dir1/a.txt
-  $ hg add rootfile.txt dir1/a.txt
-  $ hg commit -m "Initial commit."
+  $ sl add rootfile.txt dir1/a.txt
+  $ sl commit -m "Initial commit."
 
-test basic hg add operations
+test basic sl add operations
 
   $ touch dir1/b.txt
   $ mkdir dir2
   $ touch dir2/c.txt
 
-  $ hg status
+  $ sl status
   ? dir1/b.txt
   ? dir2/c.txt
 
-  $ hg debugdirstate --json
+  $ sl debugdirstate --json
   {}
 
-  $ hg add dir2
+  $ sl add dir2
   adding dir2/c.txt
 
-  $ hg status
+  $ sl status
   A dir2/c.txt
   ? dir1/b.txt
 
-  $ hg debugdirstate --json
+  $ sl debugdirstate --json
   {"dir2/c.txt": {"merge_state": -1, "merge_state_string": "MERGE_BOTH", "mode": 0, "status": "a"}}
 
-  $ hg rm --force dir1/a.txt
+  $ sl rm --force dir1/a.txt
   $ echo "original contents" > dir1/a.txt
   $ touch dir1/a.txt
 
-  $ hg status
+  $ sl status
   A dir2/c.txt
   R dir1/a.txt
   ? dir1/b.txt
 
-  $ hg add .
+  $ sl add .
   adding dir1/a.txt
   adding dir1/b.txt
 
-  $ hg status
+  $ sl status
   A dir1/b.txt
   A dir2/c.txt
 
-  $ hg rm dir1/a.txt
+  $ sl rm dir1/a.txt
   $ echo "different contents" > dir1/a.txt
-  $ hg add dir1
+  $ sl add dir1
   adding dir1/a.txt
 
-  $ hg status
+  $ sl status
   M dir1/a.txt
   A dir1/b.txt
   A dir2/c.txt
 
-  $ hg rm --force dir1/a.txt
-  $ hg add dir1
+  $ sl rm --force dir1/a.txt
+  $ sl add dir1
 
-  $ hg status
+  $ sl status
   A dir1/b.txt
   A dir2/c.txt
   R dir1/a.txt
 
-  $ hg add dir3
+  $ sl add dir3
   dir3: $ENOENT$
   [1]

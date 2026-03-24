@@ -1,6 +1,7 @@
 #require eden
 
 Defeat shared cache. Fetching non-local repo data will always perform a remote fetch.
+  $ export HGIDENTITY=sl
   $ setconfig remotefilelog.cachepath=
 
 Create server/remote repo.
@@ -13,18 +14,18 @@ Create server/remote repo.
   $ cd
 
 Pre-clone backing repo so we can add some local commit data.
-  $ hg clone --no-eden -qU test:server backing
+  $ sl clone --no-eden -qU test:server backing
   $ cd backing
-  $ hg go -q $A
+  $ sl go -q $A
 Add some "local only" data not available on server.
   $ mkdir local
   $ echo bar > local/file
-  $ hg ci -Aqm B
+  $ sl ci -Aqm B
 
   $ cd
 
 Now clone the eden working copy.
-  $ hg clone -q --eden --eden-backing-repo $TESTTMP/backing test:server working
+  $ sl clone -q --eden --eden-backing-repo $TESTTMP/backing test:server working
   $ cd working
 First trigger aux data fetches.
   $ ls -l remote/file local/file
@@ -49,5 +50,5 @@ Check we got 1 local and 1 remote for each of file and blob.
     "store.sapling.fetch_tree_success.count": 2,
 
 Make sure null commit works.
-  $ hg go -q null
+  $ sl go -q null
   $ ls

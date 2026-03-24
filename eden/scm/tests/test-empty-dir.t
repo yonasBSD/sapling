@@ -2,23 +2,24 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo 123 > a
-  $ hg add a
-  $ hg commit -m "first" a
+  $ sl add a
+  $ sl commit -m "first" a
 
   $ mkdir sub
   $ echo 321 > sub/b
-  $ hg add sub/b
-  $ hg commit -m "second" sub/b
+  $ sl add sub/b
+  $ sl commit -m "second" sub/b
 
   $ cat sub/b
   321
 
-  $ hg co 'desc(first)'
+  $ sl co 'desc(first)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
   $ cat sub/b 2>/dev/null || echo "sub/b not present"

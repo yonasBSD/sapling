@@ -3,6 +3,7 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Test the extensions.afterloaded() function
 
@@ -23,16 +24,16 @@ Test the extensions.afterloaded() function
   > EOF
   $ basepath=`pwd`
 
-  $ hg init basic
+  $ sl init basic
   $ cd basic
   $ echo foo > file
-  $ hg add file
-  $ hg commit -m 'add file'
+  $ sl add file
+  $ sl commit -m 'add file'
 
-  $ echo '[extensions]' >> .hg/hgrc
-  $ printf "%s\n" "foo = $basepath/foo.py" >> .hg/hgrc
-  $ printf "%s\n" "bar = $basepath/bar.py" >> .hg/hgrc
-  $ hg log -r. -T'{node}\n'
+  $ echo '[extensions]' >> .sl/config
+  $ printf "%s\n" "foo = $basepath/foo.py" >> .sl/config
+  $ printf "%s\n" "bar = $basepath/bar.py" >> .sl/config
+  $ sl log -r. -T'{node}\n'
   foo.uisetup
   foo: bar loaded: True
   bar.uisetup
@@ -41,16 +42,16 @@ Test the extensions.afterloaded() function
 Test afterloaded with the opposite extension load order
 
   $ cd ..
-  $ hg init basic_reverse
+  $ sl init basic_reverse
   $ cd basic_reverse
   $ echo foo > file
-  $ hg add file
-  $ hg commit -m 'add file'
+  $ sl add file
+  $ sl commit -m 'add file'
 
-  $ echo '[extensions]' >> .hg/hgrc
-  $ printf "%s\n" "bar = $basepath/bar.py" >> .hg/hgrc
-  $ printf "%s\n" "foo = $basepath/foo.py" >> .hg/hgrc
-  $ hg log -r. -T'{node}\n'
+  $ echo '[extensions]' >> .sl/config
+  $ printf "%s\n" "bar = $basepath/bar.py" >> .sl/config
+  $ printf "%s\n" "foo = $basepath/foo.py" >> .sl/config
+  $ sl log -r. -T'{node}\n'
   bar.uisetup
   foo.uisetup
   foo: bar loaded: True
@@ -60,15 +61,15 @@ Test the extensions.afterloaded() function when the requested extension is not
 loaded
 
   $ cd ..
-  $ hg init notloaded
+  $ sl init notloaded
   $ cd notloaded
   $ echo foo > file
-  $ hg add file
-  $ hg commit -m 'add file'
+  $ sl add file
+  $ sl commit -m 'add file'
 
-  $ echo '[extensions]' >> .hg/hgrc
-  $ printf "%s\n" "foo = $basepath/foo.py" >> .hg/hgrc
-  $ hg log -r. -T'{node}\n'
+  $ echo '[extensions]' >> .sl/config
+  $ printf "%s\n" "foo = $basepath/foo.py" >> .sl/config
+  $ sl log -r. -T'{node}\n'
   foo.uisetup
   foo: bar loaded: False
   c24b9ac61126c9cd86d5d684f8408cdc717005a4

@@ -2,20 +2,21 @@
 
 #require diff echo no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ enable extdiff
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo a > a
   $ echo b > b
-  $ hg add
+  $ sl add
   adding a
   adding b
 
 Should diff cloned directories:
 
-  $ hg extdiff -o -r $opt
+  $ sl extdiff -o -r $opt
   Only in a: a
   Only in a: b
   [1]
@@ -28,12 +29,12 @@ Should diff cloned directories:
   > opts.edspace = "name  <user@example.com>"
   > EOF
 
-  $ hg falabala
+  $ sl falabala
   diffing a.000000000000.1a a
   [1]
 
-  $ hg help falabala
-  hg falabala [OPTION]... [FILE]...
+  $ sl help falabala
+  sl falabala [OPTION]... [FILE]...
   
   use external program to diff repository (or selected files)
   
@@ -58,38 +59,38 @@ Should diff cloned directories:
   
   (some details hidden, use --verbose to show complete help)
 
-  $ hg ci -d '0 0' -mtest1
+  $ sl ci -d '0 0' -mtest1
 
   $ echo b >> a
-  $ hg ci -d '1 0' -mtest2
+  $ sl ci -d '1 0' -mtest2
 
 Should diff cloned files directly:
 
-  $ hg falabala -r 'desc(test1)':'desc(test2)'
+  $ sl falabala -r 'desc(test1)':'desc(test2)'
   diffing "*\\extdiff.*\\a.8a5febb7f867.1a\\a" "a.34eed99112ab.2\\a" (glob) (windows !)
   diffing */extdiff.*/a.8a5febb7f867.1a/a a.34eed99112ab.2/a (glob) (no-windows !)
   [1]
 
 Specifying an empty revision should abort.
 
-  $ hg extdiff -p diff --patch --rev 'ancestor()' --rev 'desc(test2)'
+  $ sl extdiff -p diff --patch --rev 'ancestor()' --rev 'desc(test2)'
   abort: empty revision on one side of range
   [255]
 
 Test diff during merge:
 
-  $ hg goto -C 'desc(test1)'
+  $ sl goto -C 'desc(test1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo c >> c
-  $ hg add c
-  $ hg ci -m "new branch" -d '1 0'
-  $ hg merge 'desc(test2)'
+  $ sl add c
+  $ sl ci -m "new branch" -d '1 0'
+  $ sl merge 'desc(test2)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
 Should diff cloned file against wc file:
 
-  $ hg falabala
+  $ sl falabala
   diffing "*\\extdiff.*\\a.2a13a4d2da36.1a\\a" "*\\a\\a" (glob) (windows !)
   diffing */extdiff.*/a.2a13a4d2da36.1a/a */a/a (glob) (no-windows !)
   [1]
@@ -97,16 +98,16 @@ Should diff cloned file against wc file:
 
 Test --change option:
 
-  $ hg ci -d '2 0' -mtest3
+  $ sl ci -d '2 0' -mtest3
 
-  $ hg falabala -c 'desc(test2)'
+  $ sl falabala -c 'desc(test2)'
   diffing "*\\extdiff.*\\a.8a5febb7f867.1a\\a" "a.34eed99112ab.2\\a" (glob) (windows !)
   diffing */extdiff.*/a.8a5febb7f867.1a/a a.34eed99112ab.2/a (glob) (no-windows !)
   [1]
 
 Check diff are made from the first parent:
 
-  $ hg falabala -c 'desc(test3)' || echo "diff-like tools yield a non-zero exit code"
+  $ sl falabala -c 'desc(test3)' || echo "diff-like tools yield a non-zero exit code"
   diffing "*\\extdiff.*\\a.2a13a4d2da36.1a\\a" "a.46c0e4daeb72.2\\a" (glob) (windows !)
   diffing */extdiff.*/a.2a13a4d2da36.1a/a a.46c0e4daeb72.2/a (glob) (no-windows !)
   diff-like tools yield a non-zero exit code
@@ -120,16 +121,16 @@ issue4463: usage of command line configuration without additional quoting
   > 4463b = echo b-naked 'single quoted' "double quoted"
   > echo =
   > EOF
-  $ hg goto -q -C 'desc(test1)'
+  $ sl goto -q -C 'desc(test1)'
   $ echo a >> a
 
-  $ hg --debug 4463a 2>&1 | grep '^running'
+  $ sl --debug 4463a 2>&1 | grep '^running'
   running 'echo a-naked \'single quoted\' "double quoted" "*\\a" "*\\a"' in */extdiff.* (glob) (windows !)
   running 'echo a-naked \'single quoted\' "double quoted" */a $TESTTMP/a/a' in */extdiff.* (glob) (no-windows !)
-  $ hg --debug 4463b 2>&1 | grep '^running'
+  $ sl --debug 4463b 2>&1 | grep '^running'
   running 'echo b-naked \'single quoted\' "double quoted" "*\\a" "*\\a"' in */extdiff.* (glob) (windows !)
   running 'echo b-naked \'single quoted\' "double quoted" */a $TESTTMP/a/a' in */extdiff.* (glob) (no-windows !)
-  $ hg --debug echo 2>&1 | grep '^running'
+  $ sl --debug echo 2>&1 | grep '^running'
   running '*echo* "*\\a" "*\\a"' in */extdiff.* (glob) (windows !)
   running '*echo */a $TESTTMP/a/a' in */extdiff.* (glob) (no-windows !)
 
@@ -149,25 +150,25 @@ issue4463: usage of command line configuration without additional quoting
   > 4463b3.diffargs = b3-naked 'single quoted' "double quoted"
   > EOF
 
-  $ hg --debug 4463b2 2>&1 | grep '^running'
+  $ sl --debug 4463b2 2>&1 | grep '^running'
   running 'echo b2-naked \'single quoted\' "double quoted" "*\\a" "*\\a"' in */extdiff.* (glob) (windows !)
   running 'echo b2-naked \'single quoted\' "double quoted" */a $TESTTMP/a/a' in */extdiff.* (glob) (no-windows !)
-  $ hg --debug 4463b3 2>&1 | grep '^running'
+  $ sl --debug 4463b3 2>&1 | grep '^running'
   running 'echo b3-naked \'single quoted\' "double quoted" "*\\a" "*\\a"' in */extdiff.* (glob) (windows !)
   running 'echo b3-naked \'single quoted\' "double quoted" */a $TESTTMP/a/a' in */extdiff.* (glob) (no-windows !)
-  $ hg --debug 4463b4 2>&1 | grep '^running'
+  $ sl --debug 4463b4 2>&1 | grep '^running'
   running 'echo "*\\a" "*\\a"' in */extdiff.* (glob) (windows !)
   running 'echo */a $TESTTMP/a/a' in */extdiff.* (glob) (no-windows !)
-  $ hg --debug 4463b4 --option b4-naked --option 'being quoted' 2>&1 | grep '^running'
+  $ sl --debug 4463b4 --option b4-naked --option 'being quoted' 2>&1 | grep '^running'
   running 'echo b4-naked "being quoted" "*\\a" "*\\a"' in */extdiff.* (glob) (windows !)
   running "echo b4-naked 'being quoted' */a $TESTTMP/a/a" in */extdiff.* (glob) (no-windows !)
-  $ hg --debug extdiff -p echo --option echo-naked --option 'being quoted' 2>&1 | grep '^running'
+  $ sl --debug extdiff -p echo --option echo-naked --option 'being quoted' 2>&1 | grep '^running'
   running 'echo echo-naked "being quoted" "*\\a" "*\\a"' in */extdiff.* (glob) (windows !)
   running "echo echo-naked 'being quoted' */a $TESTTMP/a/a" in */extdiff.* (glob) (no-windows !)
 
   $ touch 'sp ace'
-  $ hg add 'sp ace'
-  $ hg ci -m 'sp ace'
+  $ sl add 'sp ace'
+  $ sl ci -m 'sp ace'
   $ echo > 'sp ace'
 
 Test pre-72a89cf86fcd backward compatibility with half-baked manual quoting
@@ -180,7 +181,7 @@ Test pre-72a89cf86fcd backward compatibility with half-baked manual quoting
   > odd.executable = echo
   > EOF
 
-  $ hg --debug odd 2>&1 | grep '^running'
+  $ sl --debug odd 2>&1 | grep '^running'
   running '"*\\echo.exe" --foo="sp ace" "sp ace" --bar="sp ace" "sp ace"' in * (glob) (windows !)
   running "*/echo --foo='sp ace' 'sp ace' --bar='sp ace' 'sp ace'" in * (glob) (no-windows !)
 
@@ -193,14 +194,14 @@ Empty argument must be quoted
   > kdiff3.diffargs=--L1 \$plabel1 --L2 \$clabel \$parent \$child
   > EOF
 
-  $ hg --debug kdiff3 -r'desc(test1)' 2>&1 | grep '^running'
+  $ sl --debug kdiff3 -r'desc(test1)' 2>&1 | grep '^running'
   running 'echo --L1 "@0" --L2 "" a.8a5febb7f867.1a a' in * (glob) (windows !)
   running "echo --L1 '@0' --L2 '' a.8a5febb7f867.1a a" in * (glob) (no-windows !)
 
 
 Test extdiff of multiple files in tmp dir:
 
-  $ hg goto -C 'desc(test1)' > /dev/null
+  $ sl goto -C 'desc(test1)' > /dev/null
   $ echo changed > a
   $ echo changed > b
 #if execbit
@@ -209,7 +210,7 @@ Test extdiff of multiple files in tmp dir:
 
 Diff in working directory, before:
 
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/a b/a
   --- a/a
   +++ b/a
@@ -249,19 +250,19 @@ and start tool
   $ cat > 'diff tool.bat' << EOF
   > @$PYTHON "`pwd`/diff tool.py"
   > EOF
-  $ hg extdiff -p "`pwd`/diff tool.bat"
+  $ sl extdiff -p "`pwd`/diff tool.bat"
   [1]
 #endif
 
 #if no-windows bash
-  $ hg extdiff -p "`pwd`/diff tool.py"
+  $ sl extdiff -p "`pwd`/diff tool.py"
   [1]
 #endif
 
 #if bash
 Diff in working directory, after:
 
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/a b/a
   --- a/a
   +++ b/a
@@ -282,36 +283,36 @@ Diff in working directory, after:
 
 Test extdiff with --option:
 
-  $ hg extdiff -p echo -o this -c 'desc(test2)'
+  $ sl extdiff -p echo -o this -c 'desc(test2)'
   this "*\\a.8a5febb7f867.1a\\a" "a.34eed99112ab.2\\a" (glob) (windows !)
   this */extdiff.*/a.8a5febb7f867.1a/a a.34eed99112ab.2/a (glob) (no-windows !)
   [1]
 
-  $ hg falabala -o this -c 'desc(test2)'
+  $ sl falabala -o this -c 'desc(test2)'
   diffing this "*\\a.8a5febb7f867.1a\\a" "a.34eed99112ab.2\\a" (glob) (windows !)
   diffing this */extdiff.*/a.8a5febb7f867.1a/a a.34eed99112ab.2/a (glob) (no-windows !)
   [1]
 
 Test extdiff's handling of options with spaces in them:
 
-  $ hg edspace -c 'desc(test2)'
+  $ sl edspace -c 'desc(test2)'
   "name  <user@example.com>" "*\\a.8a5febb7f867.1a\\a" "a.34eed99112ab.2\\a" (glob) (windows !)
   name  <user@example.com> */extdiff.*/a.8a5febb7f867.1a/a a.34eed99112ab.2/a (glob) (no-windows !)
   [1]
 
-  $ hg extdiff -p echo -o "name  <user@example.com>" -c 'desc(test2)'
+  $ sl extdiff -p echo -o "name  <user@example.com>" -c 'desc(test2)'
   "name  <user@example.com>" "*\\a.8a5febb7f867.1a\\a" "a.34eed99112ab.2\\a" (glob) (windows !)
   name  <user@example.com> */extdiff.*/a.8a5febb7f867.1a/a a.34eed99112ab.2/a (glob) (no-windows !)
   [1]
 
 Test with revsets:
 
-  $ hg extdif -p echo -c "rev(1)"
+  $ sl extdif -p echo -c "rev(1)"
   "*\\a.8a5febb7f867.1a\\a" "a.34eed99112ab.2\\a" (glob) (windows !)
   */extdiff.*/a.8a5febb7f867.1a/a a.34eed99112ab.2/a (glob) (no-windows !)
   [1]
 
-  $ hg extdif -p echo -r "desc(test1)::desc(test2)"
+  $ sl extdif -p echo -r "desc(test1)::desc(test2)"
   "*\\a.8a5febb7f867.1a\\a" "a.34eed99112ab.2\\a" (glob) (windows !)
   */extdiff.*/a.8a5febb7f867.1a/a a.34eed99112ab.2/a (glob) (no-windows !)
   [1]
@@ -331,7 +332,7 @@ Fallback to merge-tools.tool.executable|regkey
 #endif
 
 Windows can't run *.sh directly, so create a shim executable that can be.
-Without something executable, the next hg command will try to run `tl` instead
+Without something executable, the next sl command will try to run `tl` instead
 of $tool (and fail).
 #if windows bash
   $ cat > dir/tool.bat <<EOF
@@ -348,7 +349,7 @@ of $tool (and fail).
   $ cat a
   changed
   edited
-  $ hg --debug tl --config extdiff.tl= --config merge-tools.tl.executable=$tool
+  $ sl --debug tl --config extdiff.tl= --config merge-tools.tl.executable=$tool
   making snapshot of 2 files from rev * (glob)
     a
     b
@@ -374,7 +375,7 @@ of $tool (and fail).
   > echo "** custom diff **"
   > EOF
 
-  $ hg --debug tl --config extdiff.tl= --config merge-tools.tl.executable=$tool
+  $ sl --debug tl --config extdiff.tl= --config merge-tools.tl.executable=$tool
   making snapshot of 2 files from rev * (glob)
     a
     b
@@ -397,15 +398,15 @@ of $tool (and fail).
 
 Test symlinks handling (issue1909)
 
-  $ hg init testsymlinks
+  $ sl init testsymlinks
   $ cd testsymlinks
   $ echo a > a
-  $ hg ci -Am adda
+  $ sl ci -Am adda
   adding a
   $ echo a >> a
   $ ln -s missing linka
-  $ hg add linka
-  $ hg falabala -r 'desc(adda)' --traceback
+  $ sl add linka
+  $ sl falabala -r 'desc(adda)' --traceback
   diffing testsymlinks.07f494440405.1a testsymlinks
   [1]
   $ cd ..
@@ -418,10 +419,10 @@ Test handling of non-ASCII paths in generated docstrings (issue5301)
   >>> _ = open("u", "wb").write(b"\xa5\xa5")
   $ U=`cat u`
 
-  $ HGPLAIN=1 hg --config ext.extdiff= --config extdiff.cmd.td=hi help -k xyzzy
+  $ HGPLAIN=1 sl --config ext.extdiff= --config extdiff.cmd.td=hi help -k xyzzy
   abort: no matches
-  (try 'hg help' for a list of topics)
+  (try 'sl help' for a list of topics)
   [255]
 
-  $ HGPLAIN=1 hg --config ext.extdiff= --config extdiff.cmd.td=hi help td > /dev/null
+  $ HGPLAIN=1 sl --config ext.extdiff= --config extdiff.cmd.td=hi help td > /dev/null
 #endif

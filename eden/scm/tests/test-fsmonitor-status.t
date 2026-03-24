@@ -1,12 +1,13 @@
 #require fsmonitor no-eden
 
+  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ echo >> file1
   $ echo >> file2
   $ echo >> file3
-  $ hg commit -Aqm base
+  $ sl commit -Aqm base
   $ setconfig fsmonitor.watchman-changed-file-threshold=3
-  $ hg status
+  $ sl status
 
 # Editing a new file causes a treestate flush.
   $ echo >> file1
@@ -14,30 +15,30 @@
 Defeat same-second behavior difference
   $ sleep 1
 
-  $ EDENSCM_LOG=treestate::dirstate=debug hg status
+  $ EDENSCM_LOG=treestate::dirstate=debug sl status
   DEBUG treestate::dirstate: flushing dirty treestate
   M file1
 
 # A second status does not cause a treestate flush.
-  $ EDENSCM_LOG=treestate::dirstate=debug hg status
+  $ EDENSCM_LOG=treestate::dirstate=debug sl status
   DEBUG treestate::dirstate: skipping treestate flush - it is not dirty
   M file1
 
 # Editing an already edited file does not cause a treestate flush.
   $ echo >> file1
-  $ EDENSCM_LOG=treestate::dirstate=debug hg status
+  $ EDENSCM_LOG=treestate::dirstate=debug sl status
   DEBUG treestate::dirstate: skipping treestate flush - it is not dirty
   M file1
 
 # Reverting a file to clean does cause a treestate flush.
   $ echo > file1
-  $ EDENSCM_LOG=workingcopy::filesystem::watchmanfs::treestate=debug hg status 2>&1 | grep flushing || true
+  $ EDENSCM_LOG=workingcopy::filesystem::watchmanfs::treestate=debug sl status 2>&1 | grep flushing || true
 
 # Setup 3 edits for the next test
   $ echo >> file1
   $ echo >> file2
   $ echo >> file3
-  $ EDENSCM_LOG=treestate::dirstate=debug hg status
+  $ EDENSCM_LOG=treestate::dirstate=debug sl status
   DEBUG treestate::dirstate: flushing dirty treestate
   M file1
   M file2
@@ -47,7 +48,7 @@ Defeat same-second behavior difference
 # treestate flush.
   $ echo >> file1
   $ echo >> file2
-  $ EDENSCM_LOG=treestate::dirstate=debug hg status
+  $ EDENSCM_LOG=treestate::dirstate=debug sl status
   DEBUG treestate::dirstate: skipping treestate flush - it is not dirty
   M file1
   M file2
@@ -57,7 +58,7 @@ Defeat same-second behavior difference
 # flush because the clock is updated, even if the files were already considered
 # edited.
   $ echo >> file3
-  $ EDENSCM_LOG=treestate::dirstate=debug hg status
+  $ EDENSCM_LOG=treestate::dirstate=debug sl status
   DEBUG treestate::dirstate: flushing dirty treestate
   M file1
   M file2

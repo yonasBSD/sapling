@@ -1,6 +1,7 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable grpcheck
   $ setconfig config.use-rust=false
@@ -38,36 +39,36 @@ when the user is not in those groups, warnings are printed
 
   $ newrepo
   You should be in devs group.
-  $ hg log
+  $ sl log
   You should be in devs group.
-  $ HGMOCKGRPS=100 hg log
+  $ HGMOCKGRPS=100 sl log
   You should be in users group.
-  $ HGMOCKGRPS='100 1000' hg log
+  $ HGMOCKGRPS='100 1000' sl log
   You should be in devs group.
 
 customized warning message
 
-  $ hg --config grpcheck.warning=foo log
+  $ sl --config grpcheck.warning=foo log
   foo
 
 no warning if HGPLAIN or grpcheck.warning is empty
 
-  $ hg --config grpcheck.warning= log
-  $ HGPLAIN=1 hg log
+  $ sl --config grpcheck.warning= log
+  $ HGPLAIN=1 sl log
 
 warning does not affect write action (commit)
 
   $ touch a
-  $ hg commit -A a -m a
+  $ sl commit -A a -m a
   You should be in devs group.
-  $ hg log -T '{node}\n'
+  $ sl log -T '{node}\n'
   You should be in devs group.
   3903775176ed42b1458a6281db4a0ccf4d9f287a
 
 config overrides
 
-  $ HGPLAIN=1 hg config chgserver.idletimeout
+  $ HGPLAIN=1 sl config chgserver.idletimeout
   3
   $ cd .. # use repo ui
-  $ HGPLAIN=1 hg config ui.foo
+  $ HGPLAIN=1 sl config ui.foo
   bar

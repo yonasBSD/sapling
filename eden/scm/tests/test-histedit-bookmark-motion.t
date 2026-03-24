@@ -2,27 +2,28 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/histedit-helpers.sh"
 
   $ enable histedit
 
-  $ hg init r
+  $ sl init r
   $ cd r
 
   $ for x in a b c d e f ; do
   >     echo $x > $x
-  >     hg add $x
-  >     hg ci -m $x
+  >     sl add $x
+  >     sl ci -m $x
   > done
 
-  $ hg book -r 'desc(b)' will-move-backwards
-  $ hg book -r 'desc(c)' two
-  $ hg book -r 'desc(c)' also-two
-  $ hg book -r 'desc(d)' three
-  $ hg book -r 'desc(e)' four
-  $ hg book -r tip five
-  $ hg log --graph
+  $ sl book -r 'desc(b)' will-move-backwards
+  $ sl book -r 'desc(c)' two
+  $ sl book -r 'desc(c)' also-two
+  $ sl book -r 'desc(d)' three
+  $ sl book -r 'desc(e)' four
+  $ sl book -r tip five
+  $ sl log --graph
   @  commit:      652413bf663e
   │  bookmark:    five
   │  user:        test
@@ -59,7 +60,7 @@
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     a
   
-  $ HGEDITOR=cat hg histedit 'max(desc(b))'
+  $ HGEDITOR=cat sl histedit 'max(desc(b))'
   pick d2ae7f538514 b
   pick 177f92b77385 c
   pick 055a42cdd887 d
@@ -82,7 +83,7 @@
   #  f, fold = use commit, but combine it with the one above
   #  r, roll = like fold, but discard this commit's description and date
   #
-  $ hg histedit 'max(desc(b))' --commands - --verbose << EOF | grep histedit
+  $ sl histedit 'max(desc(b))' --commands - --verbose << EOF | grep histedit
   > pick 177f92b77385 2 c
   > drop d2ae7f538514 1 b
   > pick 055a42cdd887 3 d
@@ -90,7 +91,7 @@
   > pick 652413bf663e 5 f
   > EOF
   [1]
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      cacdfd884a93
   │  bookmark:    five
   │  user:        test
@@ -117,7 +118,7 @@
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     a
   
-  $ HGEDITOR=cat hg histedit 'max(desc(c))'
+  $ HGEDITOR=cat sl histedit 'max(desc(c))'
   pick b346ab9a313d c
   pick 59d9f330561f d
   pick cacdfd884a93 f
@@ -138,7 +139,7 @@
   #  f, fold = use commit, but combine it with the one above
   #  r, roll = like fold, but discard this commit's description and date
   #
-  $ hg histedit 'max(desc(c))' --commands - --verbose << EOF | grep histedit
+  $ sl histedit 'max(desc(c))' --commands - --verbose << EOF | grep histedit
   > pick b346ab9a313d 1 c
   > pick cacdfd884a93 3 f
   > pick 59d9f330561f 2 d
@@ -148,7 +149,7 @@
 We expect 'five' to stay at tip, since the tipmost bookmark is most
 likely the useful signal.
 
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      c04e50810e4b
   │  bookmark:    five
   │  bookmark:    four

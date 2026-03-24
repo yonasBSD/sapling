@@ -4,6 +4,7 @@
 test for old histedit issue #6:
 editing a changeset without any actual change would corrupt the repository
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/histedit-helpers.sh"
 
   $ enable histedit
@@ -21,8 +22,8 @@ editing a changeset without any actual change would corrupt the repository
   >     newclientrepo ${dir}
   >     for x in a b c d e f ; do
   >         echo $x > $x
-  >         hg add $x
-  >         hg ci -m $x
+  >         sl add $x
+  >         sl ci -m $x
   >     done
   >     cd ..
   > }
@@ -48,7 +49,7 @@ editing a changeset without any actual change would corrupt the repository
   >     comment="$3"
   >     geneditor "${choice}" > edit.sh
   >     echo % start editing the history ${comment}
-  >     HGEDITOR="sh ./edit.sh" hg histedit -- -${number} 2>&1 | fixbundle
+  >     HGEDITOR="sh ./edit.sh" sl histedit -- -${number} 2>&1 | fixbundle
   > }
 
   $ continueediting ()
@@ -57,14 +58,14 @@ editing a changeset without any actual change would corrupt the repository
   >     editor="$1"  # message editor when finalizing editing
   >     comment="$2"
   >     echo % finalize changeset editing ${comment}
-  >     HGEDITOR=${editor} hg histedit --continue 2>&1 | fixbundle
+  >     HGEDITOR=${editor} sl histedit --continue 2>&1 | fixbundle
   > }
 
   $ graphlog ()
   > {
   >     comment="${1:-log}"
   >     echo % "${comment}"
-  >     hg log -G --template '{node} \"{desc|firstline}\"\n'
+  >     sl log -G --template '{node} \"{desc|firstline}\"\n'
   > }
 
 
@@ -93,13 +94,13 @@ editing a changeset without any actual change would corrupt the repository
   | pick 652413bf663e f
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   Editing (e860deea161a), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   $ continueediting true "(leaving commit message unaltered)"
   % finalize changeset editing (leaving commit message unaltered)
 
 
 check state of working copy
-  $ hg id
+  $ sl id
   794fe033d0a0
 
   $ graphlog "log after history editing"
@@ -144,11 +145,11 @@ check state of working copy
   | pick 652413bf663e f
   0 files updated, 0 files merged, 3 files removed, 0 files unresolved
   Editing (055a42cdd887), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   $ continueediting true "(leaving commit message unaltered)"
   % finalize changeset editing (leaving commit message unaltered)
   Editing (e860deea161a), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   $ graphlog "log after first edit"
   % log after first edit
   @  e5ae3ca2f1ffdbd89ec41ebc273a231f7c3022f2 "d"
@@ -167,26 +168,26 @@ check state of working copy
   
 
 abort editing session, after first forcibly updating away
-  $ hg up 0
+  $ sl up 0
   abort: histedit in progress
-  (use 'hg histedit --continue' to continue or
-       'hg histedit --abort' to abort)
+  (use 'sl histedit --continue' to continue or
+       'sl histedit --abort' to abort)
   [255]
-  $ mv .hg/histedit-state .hg/histedit-state-ignore
-  $ hg up 'desc(a)'
+  $ mv .sl/histedit-state .sl/histedit-state-ignore
+  $ sl up 'desc(a)'
   0 files updated, 0 files merged, 3 files removed, 0 files unresolved
-  $ mv .hg/histedit-state-ignore .hg/histedit-state
-  $ hg sum
+  $ mv .sl/histedit-state-ignore .sl/histedit-state
+  $ sl sum
   parent: cb9a9f314b8b 
    a
   commit: 1 added, 1 unknown
   phases: 7 draft
   hist:   2 remaining (histedit --continue)
 
-  $ hg histedit --abort 2>&1 | fixbundle
+  $ sl histedit --abort 2>&1 | fixbundle
 
 modified files should survive the abort when we've moved away already
-  $ hg st
+  $ sl st
   A e
   ? edit.sh
 
@@ -205,14 +206,14 @@ modified files should survive the abort when we've moved away already
   @  cb9a9f314b8b07ba71012fcdbc544b5a4d82ff5b "a"
   
 aborting and not changing files can skip mentioning updating (no) files
-  $ hg up 'desc(f)'
+  $ sl up 'desc(f)'
   5 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg commit -m 'closebranch' --config ui.allowemptycommit=1
+  $ sl commit -m 'closebranch' --config ui.allowemptycommit=1
   $ startediting 1 1 "(not changing anything)" # edit the 3rd of 3 changesets
   % start editing the history (not changing anything)
   | edit 663c31f74acc closebranch
   Editing (663c31f74acc), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  $ hg histedit --abort
+  (sl histedit --continue to resume)
+  $ sl histedit --abort
 
   $ cd ..

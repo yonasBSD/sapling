@@ -2,12 +2,13 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Test alignment of multibyte characters
 
   $ HGENCODING=utf-8
   $ export HGENCODING
-  $ hg init t
+  $ sl init t
   $ cd t
   $ $PYTHON << EOF
   > # (byte, width) = (6, 4)
@@ -42,15 +43,15 @@ Test alignment of multibyte characters
 
 alignment of option descriptions in help
 
-  $ cat <<EOF > .hg/hgrc
+  $ cat <<EOF > .sl/config
   > [extensions]
   > ja_ext = `pwd`/showoptlist.py
   > EOF
 
 check alignment of option descriptions in help
 
-  $ hg help showoptlist
-  hg showoptlist
+  $ sl help showoptlist
+  sl showoptlist
   
   dummy command to show option descriptions
   
@@ -73,43 +74,43 @@ check alignment of option descriptions in help
 add files
 
   $ cp s $S
-  $ hg add $S
+  $ sl add $S
   $ cp m $M
-  $ hg add $M
+  $ sl add $M
   $ cp l $L
-  $ hg add $L
+  $ sl add $L
 
 commit(1)
 
   $ echo 'first line(1)' >> s; cp s $S
   $ echo 'first line(2)' >> m; cp m $M
   $ echo 'first line(3)' >> l; cp l $L
-  $ hg commit -m 'first commit' -u $S
+  $ sl commit -m 'first commit' -u $S
 
 commit(2)
 
   $ echo 'second line(1)' >> s; cp s $S
   $ echo 'second line(2)' >> m; cp m $M
   $ echo 'second line(3)' >> l; cp l $L
-  $ hg commit -m 'second commit' -u $M
+  $ sl commit -m 'second commit' -u $M
 
 commit(3)
 
   $ echo 'third line(1)' >> s; cp s $S
   $ echo 'third line(2)' >> m; cp m $M
   $ echo 'third line(3)' >> l; cp l $L
-  $ hg commit -m 'third commit' -u $L
+  $ sl commit -m 'third commit' -u $L
 
 check alignment of user names in annotate
 
-  $ hg annotate -u $M
+  $ sl annotate -u $M
           \xe7\x9f\xad\xe5\x90\x8d: first line(2) (esc)
        MIDDLE_: second line(2)
   \xe9\x95\xb7\xe3\x81\x84\xe9\x95\xb7\xe3\x81\x84\xe5\x90\x8d\xe5\x89\x8d: third line(2) (esc)
 
 check alignment of filenames in diffstat
 
-  $ hg diff -c tip --stat
+  $ sl diff -c tip --stat
    MIDDLE_      |  1 +
    \xe7\x9f\xad\xe5\x90\x8d         |  1 + (esc)
    \xe9\x95\xb7\xe3\x81\x84\xe9\x95\xb7\xe3\x81\x84\xe5\x90\x8d\xe5\x89\x8d |  1 + (esc)
@@ -117,13 +118,13 @@ check alignment of filenames in diffstat
 
 add bookmarks
 
-  $ hg book -f $S
-  $ hg book -f $M
-  $ hg book -f $L
+  $ sl book -f $S
+  $ sl book -f $M
+  $ sl book -f $L
 
 check alignment of bookmarks
 
-  $ hg book
+  $ sl book
      MIDDLE_                   64a70663cee8
      \xe7\x9f\xad\xe5\x90\x8d                      64a70663cee8 (esc)
    * \xe9\x95\xb7\xe3\x81\x84\xe9\x95\xb7\xe3\x81\x84\xe5\x90\x8d\xe5\x89\x8d              64a70663cee8 (esc)

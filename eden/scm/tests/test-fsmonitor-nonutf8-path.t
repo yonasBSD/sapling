@@ -1,12 +1,13 @@
 #require fsmonitor linux
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo repo
 
-hg status on a non-utf8 filename
+sl status on a non-utf8 filename
   $ touch foo
   $ python3 -c 'open(b"\xc3\x28", "wb+").write(b"asdf")'
-  $ hg status --traceback
+  $ sl status --traceback
   skipping * filename: '*' (glob)
   ? foo

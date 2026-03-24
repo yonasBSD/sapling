@@ -1,14 +1,15 @@
 #require eden
 
-Basic test demonstrating that ".hg" dir is now a symlink in eden mounts.
+Basic test demonstrating that ".sl" dir is now a symlink in eden mounts.
 
+  $ export HGIDENTITY=sl
   $ newclientrepo repo
-  $ ls -l .hg
-  lrwx* .hg -> */eden/clients/repo/sl-repo-dir (glob)
+  $ ls -l .sl
+  lrwx* .sl -> */eden/clients/repo/sl-repo-dir (glob)
   $ touch foo
-  $ hg commit -Aqm foo
-  $ hg push -q --to master --create
-  $ hg log -G
+  $ sl commit -Aqm foo
+  $ sl push -q --to master --create
+  $ sl log -G
   @  commit:      1f7b0de80e11
      bookmark:    remote/master
      hoistedname: master

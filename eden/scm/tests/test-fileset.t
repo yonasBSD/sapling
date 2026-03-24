@@ -1,7 +1,8 @@
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ fileset() {
-  >   hg debugfileset "$@"
+  >   sl debugfileset "$@"
   > }
 
   $ newclientrepo
@@ -9,7 +10,7 @@
   $ echo a > a2
   $ echo b > b1
   $ echo b > b2
-  $ hg ci -Am addfiles
+  $ sl ci -Am addfiles
   adding a1
   adding a2
   adding b1
@@ -52,15 +53,15 @@ Test operators and basic patterns
   $ fileset 'a_b'
   warning: fileset evaluated to zero files (?)
   $ fileset '"\xy"'
-  hg: parse error: invalid \x escape at position 0
+  sl: parse error: invalid \x escape at position 0
   [255]
 
 Test files status
 
   $ rm a1
-  $ hg rm a2
+  $ sl rm a2
   $ echo b >> b2
-  $ hg cp b1 c1
+  $ sl cp b1 c1
   $ echo c > c2
   $ echo c > c3
   $ cat > .gitignore <<EOF
@@ -92,20 +93,20 @@ Test files status
 
 Test files status in different revisions
 
-  $ hg status -m
+  $ sl status -m
   M b2
   $ fileset -r0 'revs("wdir()", modified())' --traceback
   b2
-  $ hg status -a
+  $ sl status -a
   A c1
   $ fileset -r0 'revs("wdir()", added())'
   c1
-  $ hg status --change 'desc(addfiles)' -a
+  $ sl status --change 'desc(addfiles)' -a
   A a1
   A a2
   A b1
   A b2
-  $ hg status -mru
+  $ sl status -mru
   M b2
   R a2
   ? c3
@@ -129,7 +130,7 @@ Test files properties
   $ echo 'bin' >> .gitignore
   $ fileset 'binary() and ignored()'
   bin
-  $ hg add bin
+  $ sl add bin
   $ fileset 'binary()'
   bin
 
@@ -138,7 +139,7 @@ Test files properties
   c1
   b1
   $ fileset 'grep("missingparens(")'
-  hg: parse error: invalid match pattern: missing ), unterminated subpattern at position 13
+  sl: parse error: invalid match pattern: missing ), unterminated subpattern at position 13
   [255]
 
 #if execbit
@@ -151,25 +152,25 @@ Test files properties
   $ ln -s b2 b2link
   $ fileset 'symlink() and unknown()'
   b2link
-  $ hg add b2link
+  $ sl add b2link
 #endif
 
 #if no-windows
   $ echo foo > con.xml
   $ fileset 'not portable()'
   con.xml
-  $ hg --config ui.portablefilenames=ignore add con.xml
+  $ sl --config ui.portablefilenames=ignore add con.xml
 #endif
 
   >>> _ = open('1k', 'wb').write(b' '*1024)
   >>> _ = open('2k', 'wb').write(b' '*2048)
-  $ hg add 1k 2k
+  $ sl add 1k 2k
   $ fileset 'size("bar")'
-  hg: parse error: couldn't parse size: bar
+  sl: parse error: couldn't parse size: bar
   [255]
   $ fileset '(1k, 2k)'
-  hg: parse error: can't use a list in this context
-  (see hg help "filesets.x or y")
+  sl: parse error: can't use a list in this context
+  (see sl help "filesets.x or y")
   [255]
   $ fileset 'size(1k)'
   1k
@@ -192,29 +193,29 @@ Test files properties
 
 Test merge states
 
-  $ hg ci -m manychanges
-  $ hg up -C 'desc(addfiles)'
+  $ sl ci -m manychanges
+  $ sl up -C 'desc(addfiles)'
   * files updated, 0 files merged, * files removed, 0 files unresolved (glob) (no-eden !)
   update complete (eden !)
   $ echo c >> b2
-  $ hg ci -m diverging b2
+  $ sl ci -m diverging b2
   $ fileset 'resolved()'
   warning: fileset evaluated to zero files (?)
   $ fileset 'unresolved()'
   warning: fileset evaluated to zero files (?)
-  $ hg merge
+  $ sl merge
   merging b2
-  warning: 1 conflicts while merging b2! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging b2! (edit, then use 'sl resolve --mark')
   * files updated, 0 files merged, 1 files removed, 1 files unresolved (glob) (no-eden !)
   0 files merged, 1 files unresolved (eden !)
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ fileset 'resolved()'
   warning: fileset evaluated to zero files (?)
   $ fileset 'unresolved()'
   b2
   $ echo e > b2
-  $ hg resolve -m b2
+  $ sl resolve -m b2
   (no more unresolved files)
   $ fileset 'resolved()'
   b2
@@ -223,16 +224,16 @@ Test merge states
 
 #if no-eden
 TODO(sggutier): EdenFS starts failing from here on for some reason, investigate why
-  $ hg ci -m merge
+  $ sl ci -m merge
 
 There was a commit from subrepo here. Now subrepos are gone, insert a dummy commit to take its place.
 
-  $ hg commit -m 'subrepo' --config ui.allowemptycommit=1
+  $ sl commit -m 'subrepo' --config ui.allowemptycommit=1
 
 Test with a revision
 
 
-  $ hg log -G --template '{desc}\n'
+  $ sl log -G --template '{desc}\n'
   @  subrepo
   │
   o    merge
@@ -281,7 +282,7 @@ Test with a revision
 #if no-windows
   $ fileset -r1 'not portable()'
   con.xml
-  $ hg forget 'con.xml'
+  $ sl forget 'con.xml'
 #endif
 
   $ fileset -r4 'b2 or c1'
@@ -291,7 +292,7 @@ Test with a revision
   >>> _ = open('dos', 'wb').write(b"dos\r\n")
   >>> _ = open('mixed', 'wb').write(b"dos\r\nunix\n")
   >>> _ = open('mac', 'wb').write(b"mac\r")
-  $ hg add dos mixed mac
+  $ sl add dos mixed mac
 
 (remove a1, to examine safety of 'eol' on removed files)
   $ rm a1
@@ -333,7 +334,7 @@ Test detection of unintentional 'matchctx.existing()' invocation
   >     return [f for f in mctx.existing()]
   > EOF
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > existingcaller = $TESTTMP/existingcaller.py
   > EOF
@@ -346,7 +347,7 @@ Test 'revs(...)'
 
 small reminder of the repository state
 
-  $ hg log -G
+  $ sl log -G
   @  commit:      * (glob)
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -372,12 +373,12 @@ small reminder of the repository state
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     addfiles
   
-  $ hg status --change 'desc(addfiles)'
+  $ sl status --change 'desc(addfiles)'
   A a1
   A a2
   A b1
   A b2
-  $ hg status --change 'desc(manychanges)'
+  $ sl status --change 'desc(manychanges)'
   M b2
   A 1k
   A 2k
@@ -386,9 +387,9 @@ small reminder of the repository state
   A c1
   A con.xml (no-windows !)
   R a2
-  $ hg status --change 'desc(diverging)'
+  $ sl status --change 'desc(diverging)'
   M b2
-  $ hg status --change 'desc(merge)'
+  $ sl status --change 'desc(merge)'
   M b2
   A 1k
   A 2k
@@ -397,8 +398,8 @@ small reminder of the repository state
   A c1
   A con.xml (no-windows !)
   R a2
-  $ hg status --change 'desc(subrepo)'
-  $ hg status
+  $ sl status --change 'desc(subrepo)'
+  $ sl status
   A dos
   A mac
   A mixed
@@ -470,7 +471,7 @@ Simple case
 use rev to restrict matched file
 -----------------------------------------
 
-  $ hg status --removed --rev 0 --rev 1
+  $ sl status --removed --rev 0 --rev 1
   R a2
   $ fileset "status(0, 1, removed())"
   a2
@@ -488,13 +489,13 @@ use rev to restrict matched file
 check wdir()
 ------------
 
-  $ hg status --removed  --rev 'desc(subrepo)'
+  $ sl status --removed  --rev 'desc(subrepo)'
   R con.xml (no-windows !)
   $ fileset "status(4, 'wdir()', removed())"
   con.xml (no-windows !)
   warning: fileset evaluated to zero files (?)
 
-  $ hg status --removed --rev 'desc(diverging)'
+  $ sl status --removed --rev 'desc(diverging)'
   R a2
   $ fileset "status('2', 'wdir()', removed())"
   a2
@@ -502,9 +503,9 @@ check wdir()
 test backward status
 --------------------
 
-  $ hg status --removed --rev 0 --rev 4
+  $ sl status --removed --rev 0 --rev 4
   R a2
-  $ hg status --added --rev 4 --rev 0
+  $ sl status --added --rev 4 --rev 0
   A a2
   $ fileset "status(4, 0, added())"
   a2
@@ -512,14 +513,14 @@ test backward status
 test cross branch status
 ------------------------
 
-  $ hg status --added --rev 1 --rev 2
+  $ sl status --added --rev 1 --rev 2
   A a2
   $ fileset "status(1, 2, added())"
   a2
 
 test with multi revs revset
 ---------------------------
-  $ hg status --added --rev 'desc(addfiles)':'desc(manychanges)' --rev 'desc(merge)':'desc(subrepo)'
+  $ sl status --added --rev 'desc(addfiles)':'desc(manychanges)' --rev 'desc(merge)':'desc(subrepo)'
   A 1k
   A 2k
   A b2link (symlink !)
@@ -540,21 +541,21 @@ tests with empty value
 Fully empty revset
 
   $ fileset "status('', '4', added())"
-  hg: parse error: first argument to status must be a revision
+  sl: parse error: first argument to status must be a revision
   [255]
   $ fileset "status('2', '', added())"
-  hg: parse error: second argument to status must be a revision
+  sl: parse error: second argument to status must be a revision
   [255]
 
 Empty revset will error at the revset layer
 
   $ fileset "status(' ', '4', added())"
-  hg: parse error at 1: not a prefix: end
+  sl: parse error at 1: not a prefix: end
   ( 
     ^ here)
   [255]
   $ fileset "status('2', ' ', added())"
-  hg: parse error at 1: not a prefix: end
+  sl: parse error at 1: not a prefix: end
   ( 
     ^ here)
   [255]

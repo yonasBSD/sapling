@@ -3,6 +3,7 @@
 #testcases filtered unfiltered
 
 #if filtered
+  $ export HGIDENTITY=sl
   $ enable edensparse
   $ setconfig clone.eden-sparse-filter=
   $ setconfig remotefilelog.cachepath=$TESTTMP/filtered-cache
@@ -32,9 +33,9 @@
 
   $ newclientrepo client server
 Move between two commits to make sure we have root trees fetched. Errors fetching root trees make things fail hard.
-  $ hg go -q $B
-  $ hg go -q $C
-  $ hg go -q $A
+  $ sl go -q $B
+  $ sl go -q $C
+  $ sl go -q $A
   $ echo mismatch > dir/file
 
   $ cat >> $HOME/.edenrc <<EOS
@@ -46,11 +47,11 @@ Restart eden with error injected into eagerepo tree fetching.
   $ eden stop >/dev/null 2>&1
   $ FAILPOINTS=eagerepo::api::trees=return eden start >/dev/null 2>&1
 
-  $ hg st
+  $ sl st
   M dir/file
 
 Checkout fails since it can't fetch the tree:
-  $ hg go -C $B
+  $ sl go -C $B
   abort: EdenError: sapling::SaplingBackingStoreError: Network Error: server responded 500 Internal Server Error for eager://$TESTTMP/server/trees: failpoint. Headers: {}
   
   Caused by:
@@ -64,22 +65,22 @@ Restart eden without injected network error.
   $ eden start >/dev/null 2>&1
 
 We are still in interrupted checkout state:
-  $ hg st
+  $ sl st
   abort: EdenError: a previous checkout was interrupted - please run `sl go *` to resume it. (glob)
   If there are conflicts, run `sl go --clean *` to discard changes, or `sl go --merge *` to merge. (glob)
   [255]
 
 Try without --clean:
-  $ hg go $B
+  $ sl go $B
   abort: 1 conflicting file changes:
    dir/file
   (commit, shelve, goto --clean to discard all your changes, or goto --merge to merge them)
   [255]
 
 Complete the checkout:
-  $ hg update -qC $B
+  $ sl update -qC $B
 
-  $ hg st
+  $ sl st
 
 File has the correct contents:
   $ cat dir/file
@@ -92,7 +93,7 @@ Set up another interrupted checkout to test filter ID mismatch:
 
   $ eden stop >/dev/null 2>&1
   $ FAILPOINTS=eagerepo::api::trees=return eden start >/dev/null 2>&1
-  $ hg go -qC $C
+  $ sl go -qC $C
   abort: EdenError: sapling::SaplingBackingStoreError: Network Error: server responded 500 Internal Server Error for eager://$TESTTMP/server/trees: failpoint. Headers: {}
   
   Caused by:
@@ -106,9 +107,9 @@ Change the filterdfs config while in interrupted checkout state.
   $ setconfig clone.eden-sparse-filter=profile2
 
 Can resume checkout even though filter ids mismatch.
-  $ hg go -qC $C
+  $ sl go -qC $C
 
-  $ hg st
+  $ sl st
 
   $ cat dir/file
   changed again

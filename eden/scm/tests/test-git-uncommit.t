@@ -1,23 +1,24 @@
 #require git no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . $TESTDIR/git.sh
 
 Prepare repo
 
-  $ hg init --git repo1
+  $ sl init --git repo1
   $ cd repo1
   $ echo 'A--B' | drawdag
-  $ hg up -q $B
+  $ sl up -q $B
 
 Test uncommit
 
   $ enable amend
-  $ hg uncommit
+  $ sl uncommit
 
-  $ hg st
+  $ sl st
   A B
 
-  $ hg log -r. -T '{desc}\n'
+  $ sl log -r. -T '{desc}\n'
   A
 

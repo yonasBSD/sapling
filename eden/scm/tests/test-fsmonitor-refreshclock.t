@@ -1,27 +1,28 @@
 #require fsmonitor no-eden
 
+  $ export HGIDENTITY=sl
   $ newclientrepo repo
-  $ hg status
+  $ sl status
 
   $ touch x
 
 At t0:
 
-  $ hg status
+  $ sl status
   ? x
 
   $ touch y
 
-  $ hg debugrefreshwatchmanclock
+  $ sl debugrefreshwatchmanclock
   abort: only automation can run this
   [255]
 
 At t1:
 
-  $ HGPLAIN=1 hg debugrefreshwatchmanclock
+  $ HGPLAIN=1 sl debugrefreshwatchmanclock
   updating watchman clock from '*' to '*' (glob)
 
 Changes between last watchman clock (t0) and "debugrefreshwatchmanclock" (t1) are missed ("touch y")
 
-  $ hg status
+  $ sl status
   ? x

@@ -25,13 +25,13 @@ setup backing repo
   $ for i in foo.bcmap html/baz.bcmap www/html/baz.bcmap baz.txt foo.txt bar.rs throw.dot .dps/very.dot .more.dot .stop.dot i/.mean/slow.dot slowly/.and.by.slow.dot throw.dot; do
   >   touch $i
   > done
-  $ hg commit -Am "many files now" -q
-  $ hg push --to master --create -q
-  $ hg push --to theB -r $B --create -q
+  $ sl commit -Am "many files now" -q
+  $ sl push --to master --create -q
+  $ sl push --to theB -r $B --create -q
   $ newclientrepo clientrepo serverrepo
 
 test raw edenapi queries
-  $ hg debugapi -e suffix_query -i "{'Hg': '$(hg whereami)'}" -i "['.bcmap']" -i "['html']"
+  $ sl debugapi -e suffix_query -i "{'Hg': '$(sl whereami)'}" -i "['.bcmap']" -i "['html']"
   [{"file_path": "html/baz.bcmap"}]
 
 test eden glob with allowlisted queries
@@ -86,11 +86,11 @@ Test local files
   $ eden glob '**/*.local' --list-only-files --revision 0000000000000000000000000000000000000000
 
 # Test that local file dtype changes register
-  $ hg checkout $A -q
+  $ sl checkout $A -q
   $ touch bar.rs
-  $ hg add bar.rs
-  $ hg amend 2> /dev/null
-  $ hg checkout 072da8606ee7 > /dev/null
+  $ sl add bar.rs
+  $ sl amend 2> /dev/null
+  $ sl checkout 072da8606ee7 > /dev/null
   $ eden glob **/*.rs --dtype --list-only-files
   bar.rs Regular
   $ mv bar.rs barlink.rs

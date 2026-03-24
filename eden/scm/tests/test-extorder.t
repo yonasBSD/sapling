@@ -1,10 +1,11 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Set up repository
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ enable extorder rebase histedit
   $ setconfig extensions.dummyext1="$TESTDIR/dummyext1.py"
@@ -12,7 +13,7 @@ Set up repository
 
 Simple Dependency
 
-  $ hg id
+  $ sl id
   ext1: uisetup
   ext2: uisetup
   ext1: extsetup
@@ -26,7 +27,7 @@ Simple Dependency
   > preferlast = rebase
   > EOF
 
-  $ hg id
+  $ sl id
   ext1: uisetup
   ext2: uisetup
   ext2: extsetup
@@ -36,7 +37,7 @@ Simple Dependency
 Conflicting deps
 
   $ setconfig extorder.dummyext2=dummyext1
-  $ hg id > out.txt 2>&1
+  $ sl id > out.txt 2>&1
   [1]
   $ grep MercurialExtOrderException: < out.txt
   sapling.ext.extorder.MercurialExtOrderException: extorder: conflicting extension order

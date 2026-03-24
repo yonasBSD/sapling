@@ -3,6 +3,7 @@
 
 setup backing repo
 
+  $ export HGIDENTITY=sl
   $ setconfig clone.use-rust=True
   $ setconfig checkout.use-rust=True
   $ setconfig experimental.rust-clone-updaterev=True
@@ -30,25 +31,25 @@ test eden clone
   $ cd $TESTTMP/e2
   $ ls -a
   .eden
-  .hg
+  .sl
   A
   B
   C
   D
   E
-  $ hg go $A
+  $ sl go $A
   update complete
   $ ls
   A
 # Make sure dynamic config doesn't get loaded
-  $ [ -f $TESTTMP/e1/.hg/hgrc.dynamic ]
+  $ [ -f $TESTTMP/e1/.sl/config.dynamic ]
   [1]
-  $ [ -f $TESTTMP/e2/.hg/hgrc.dynamic ]
+  $ [ -f $TESTTMP/e2/.sl/config.dynamic ]
   [1]
 
 test rust clone
   $ cd $TESTTMP
-  $ LOG=cmdclone hg clone eager://$TESTTMP/e1 hemlo --config remotenames.selectivepulldefault='master, stable'
+  $ LOG=cmdclone sl clone eager://$TESTTMP/e1 hemlo --config remotenames.selectivepulldefault='master, stable'
   Cloning e1 into $TESTTMP/hemlo
   TRACE cmdclone: performing rust clone
    INFO clone_metadata{repo="e1"}: cmdclone: enter
@@ -66,29 +67,29 @@ test rust clone
   e1_client
   $ ls -a hemlo
   .eden
-  .hg
+  .sl
   A
   B
   C
   D
   E
   $ cd hemlo
-  $ hg go stable
+  $ sl go stable
   update complete
   $ ls
   A
   B
   C
 # Make sure dynamic config doesn't get loaded
-  $ [ -f $TESTTMP/e1/.hg/hgrc.dynamic ]
+  $ [ -f $TESTTMP/e1/.sl/config.dynamic ]
   [1]
-  $ [ -f $TESTTMP/hemlo/.hg/hgrc.dynamic ]
+  $ [ -f $TESTTMP/hemlo/.sl/config.dynamic ]
   [1]
 
 test rust clone with test instead of eager
   $ cd $TESTTMP
-  $ hg clone test:e1 testo1 --config remotefilelog.reponame=aname -q
-  $ hg clone test:e1 testo2 -q
+  $ sl clone test:e1 testo1 --config remotefilelog.reponame=aname -q
+  $ sl clone test:e1 testo2 -q
   $ eden list | grep testo
   $TESTTMP/testo1
   $TESTTMP/testo2
@@ -98,7 +99,7 @@ test rust clone with test instead of eager
   e1_client
 
 Make sure that --updaterev works on EdenFS
-   $ hg clone test:e1 testo3 -u stable
+   $ sl clone test:e1 testo3 -u stable
    Cloning e1 into $TESTTMP/testo3
    $ ls testo3
    A

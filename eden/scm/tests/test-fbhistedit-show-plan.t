@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/histedit-helpers.sh"
 
@@ -9,12 +10,12 @@
 
   $ initrepo ()
   > {
-  >     hg init r
+  >     sl init r
   >     cd r
   >     for x in a b c d e f ; do
   >         echo $x > $x
-  >         hg add $x
-  >         hg ci -m $x
+  >         sl add $x
+  >         sl ci -m $x
   >     done
   > }
 
@@ -22,7 +23,7 @@
 
 log before edit
 
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      652413bf663e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -56,7 +57,7 @@ log before edit
 
 a failing command should drop us into the shell
 
-  $ hg histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 << EOF| fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick e860deea161a e
@@ -70,7 +71,7 @@ a failing command should drop us into the shell
 
 show-plan should work
 
-  $ hg histedit --show-plan
+  $ sl histedit --show-plan
   histedit plan (call "histedit --continue/--retry" to resume it or "histedit --abort" to abort it):
       exec exit 1
       exec exit 2
@@ -79,14 +80,14 @@ show-plan should work
 
 continue should work
 
-  $ hg histedit --continue
+  $ sl histedit --continue
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Command 'exit 2' failed with exit status 2
   [1]
 
 show-plan after consecutive failed execs
 
-  $ hg histedit --show-plan
+  $ sl histedit --show-plan
   histedit plan (call "histedit --continue/--retry" to resume it or "histedit --abort" to abort it):
       exec exit 2
       pick 652413bf663e f
@@ -94,22 +95,22 @@ show-plan after consecutive failed execs
 
 continue after consecutive failed execs
 
-  $ hg histedit --continue
+  $ sl histedit --continue
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   Command 'exit 3' failed with exit status 3
   [1]
 
 show-plan after the last entry
 
-  $ hg histedit --show-plan
+  $ sl histedit --show-plan
   histedit plan (call "histedit --continue/--retry" to resume it or "histedit --abort" to abort it):
       exec exit 3
 
 continue after the last entry
 
-  $ hg histedit --continue
+  $ sl histedit --continue
 
-  $ hg log --template '{node|short} {desc}' --graph
+  $ sl log --template '{node|short} {desc}' --graph
   @  652413bf663e f
   │
   o  e860deea161a e

@@ -2,298 +2,299 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo foo > test_file
   $ mkdir dir
   $ echo foo > dir/file
   $ echo foo > removed_file
   $ echo foo > deleted_file
-  $ hg add -q .
-  $ hg commit -m 'bar'
-  $ hg bookmark both
+  $ sl add -q .
+  $ sl commit -m 'bar'
+  $ sl bookmark both
   $ touch both
   $ touch untracked_file
-  $ hg remove removed_file
+  $ sl remove removed_file
   $ rm deleted_file
 
 githelp on a single command should succeed
-  $ hg githelp -- commit
-  hg commit
-  $ hg githelp -- git commit
-  hg commit
+  $ sl githelp -- commit
+  sl commit
+  $ sl githelp -- git commit
+  sl commit
 
 githelp should fail nicely if we don't give it arguments
-  $ hg githelp
-  abort: missing git command - usage: hg githelp -- <git command>
+  $ sl githelp
+  abort: missing git command - usage: sl githelp -- <git command>
   [255]
-  $ hg githelp -- git
-  abort: missing git command - usage: hg githelp -- <git command>
+  $ sl githelp -- git
+  abort: missing git command - usage: sl githelp -- <git command>
   [255]
 
 githelp on a command with options should succeed
-  $ hg githelp -- commit -pm "abc"
-  hg commit -m 'abc' -i
+  $ sl githelp -- commit -pm "abc"
+  sl commit -m 'abc' -i
 
 githelp on a command with standalone unrecognized option should succeed with warning
-  $ hg githelp -- commit -p -v
+  $ sl githelp -- commit -p -v
   ignoring unknown option -v
-  hg commit -i
+  sl commit -i
 
 githelp on a command with unrecognized option packed with other options should fail with error
-  $ hg githelp -- commit -pv
+  $ sl githelp -- commit -pv
   abort: unknown option -v packed with other options
   Please try passing the option as it's own flag: -v
   [255]
 
 githelp with a customized footer for invalid commands
-  $ hg --config githelp.unknown.footer="This is a custom footer." githelp -- commit -pv
+  $ sl --config githelp.unknown.footer="This is a custom footer." githelp -- commit -pv
   abort: unknown option -v packed with other options
   Please try passing the option as it's own flag: -v
   [255]
 
 githelp for git rebase --skip
-  $ hg githelp -- git rebase --skip
-  hg revert --all -r .
-  hg rebase --continue
+  $ sl githelp -- git rebase --skip
+  sl revert --all -r .
+  sl rebase --continue
 
 githelp for git rebase --interactive
-  $ hg githelp -- git rebase -i master
-  note: if you don't need to rebase use 'hg histedit'. It just edits history.
+  $ sl githelp -- git rebase -i master
+  note: if you don't need to rebase use 'sl histedit'. It just edits history.
   
-  also note: 'hg histedit' will automatically detect your stack, so no second argument is necessary.
+  also note: 'sl histedit' will automatically detect your stack, so no second argument is necessary.
   
-  hg rebase --interactive -d master
+  sl rebase --interactive -d master
 
-githelp for git commit --amend (hg commit --amend pulls up an editor)
-  $ hg githelp -- commit --amend
-  hg amend --edit
+githelp for git commit --amend (sl commit --amend pulls up an editor)
+  $ sl githelp -- commit --amend
+  sl amend --edit
 
-githelp for git commit --amend --no-edit (hg amend does not pull up an editor)
-  $ hg githelp -- commit --amend --no-edit
-  hg amend
+githelp for git commit --amend --no-edit (sl amend does not pull up an editor)
+  $ sl githelp -- commit --amend --no-edit
+  sl amend
 
 githelp for git checkout -- . (checking out a directory)
-  $ hg githelp -- checkout -- .
-  hg revert .
+  $ sl githelp -- checkout -- .
+  sl revert .
 
 
 githelp for git checkout "HEAD^" (should still work to pass a rev)
-  $ hg githelp -- checkout "HEAD^"
-  hg goto .^
+  $ sl githelp -- checkout "HEAD^"
+  sl goto .^
 
 githelp checkout: args after -- should be treated as paths no matter what
-  $ hg githelp -- checkout -- HEAD
-  hg revert HEAD
+  $ sl githelp -- checkout -- HEAD
+  sl revert HEAD
 
 
 githelp for git checkout with rev and path
-  $ hg githelp -- checkout "HEAD^" -- file.txt
-  hg revert -r .^ file.txt
+  $ sl githelp -- checkout "HEAD^" -- file.txt
+  sl revert -r .^ file.txt
 
 
 githelp for git with rev and path, without separator
-  $ hg githelp -- checkout "HEAD^" file.txt
-  hg revert -r .^ file.txt
+  $ sl githelp -- checkout "HEAD^" file.txt
+  sl revert -r .^ file.txt
 
 
 githelp for checkout with a file as first argument
-  $ hg githelp -- checkout test_file
-  hg revert test_file
+  $ sl githelp -- checkout test_file
+  sl revert test_file
 
 
 githelp for checkout with a removed file as first argument
-  $ hg githelp -- checkout removed_file
-  hg revert removed_file
+  $ sl githelp -- checkout removed_file
+  sl revert removed_file
 
 
 githelp for checkout with a deleted file as first argument
-  $ hg githelp -- checkout deleted_file
-  hg revert deleted_file
+  $ sl githelp -- checkout deleted_file
+  sl revert deleted_file
 
 
 githelp for checkout with a untracked file as first argument
-  $ hg githelp -- checkout untracked_file
-  hg revert untracked_file
+  $ sl githelp -- checkout untracked_file
+  sl revert untracked_file
 
 
 githelp for checkout with a directory as first argument
-  $ hg githelp -- checkout dir
-  hg revert dir
+  $ sl githelp -- checkout dir
+  sl revert dir
 
 
 githelp for checkout when not in repo root
   $ cd dir
-  $ hg githelp -- checkout file
-  hg revert file
+  $ sl githelp -- checkout file
+  sl revert file
 
   $ cd ..
 
 githelp for checkout with an argument that is both a file and a revision
-  $ hg githelp -- checkout both
-  hg goto both
+  $ sl githelp -- checkout both
+  sl goto both
 
 githelp for checkout with the -p option
-  $ hg githelp -- git checkout -p xyz
-  hg revert -i -r xyz
+  $ sl githelp -- git checkout -p xyz
+  sl revert -i -r xyz
 
-  $ hg githelp -- git checkout -p xyz -- abc
-  hg revert -i -r xyz abc
+  $ sl githelp -- git checkout -p xyz -- abc
+  sl revert -i -r xyz abc
 
 githelp for checkout with the -f option and a rev
-  $ hg githelp -- git checkout -f xyz
-  hg goto -C xyz
-  $ hg githelp -- git checkout --force xyz
-  hg goto -C xyz
+  $ sl githelp -- git checkout -f xyz
+  sl goto -C xyz
+  $ sl githelp -- git checkout --force xyz
+  sl goto -C xyz
 
 githelp for checkout with the -f option without an arg
-  $ hg githelp -- git checkout -f
-  hg revert --all
-  $ hg githelp -- git checkout --force
-  hg revert --all
+  $ sl githelp -- git checkout -f
+  sl revert --all
+  $ sl githelp -- git checkout --force
+  sl revert --all
 
 githelp for grep with pattern and path
-  $ hg githelp -- grep shrubbery flib/intern/
-  hg grep shrubbery flib/intern/
+  $ sl githelp -- grep shrubbery flib/intern/
+  sl grep shrubbery flib/intern/
 
 githelp for reset, checking ~ in git becomes ~1 in mercurial
-  $ hg githelp -- reset HEAD~
+  $ sl githelp -- reset HEAD~
   Sapling has no strict equivalent to `git reset`.
-  If you want to remove a commit, use `hg hide -r HASH`.
-  If you want to move a bookmark, use `hg book -r HASH NAME`.
-  If you want to undo a commit, use `hg uncommit.
-  If you want to undo an amend, use `hg unamend.
-  $ hg githelp -- reset "HEAD^"
+  If you want to remove a commit, use `sl hide -r HASH`.
+  If you want to move a bookmark, use `sl book -r HASH NAME`.
+  If you want to undo a commit, use `sl uncommit.
+  If you want to undo an amend, use `sl unamend.
+  $ sl githelp -- reset "HEAD^"
   Sapling has no strict equivalent to `git reset`.
-  If you want to remove a commit, use `hg hide -r HASH`.
-  If you want to move a bookmark, use `hg book -r HASH NAME`.
-  If you want to undo a commit, use `hg uncommit.
-  If you want to undo an amend, use `hg unamend.
-  $ hg githelp -- reset HEAD~3
+  If you want to remove a commit, use `sl hide -r HASH`.
+  If you want to move a bookmark, use `sl book -r HASH NAME`.
+  If you want to undo a commit, use `sl uncommit.
+  If you want to undo an amend, use `sl unamend.
+  $ sl githelp -- reset HEAD~3
   Sapling has no strict equivalent to `git reset`.
-  If you want to remove a commit, use `hg hide -r HASH`.
-  If you want to move a bookmark, use `hg book -r HASH NAME`.
-  If you want to undo a commit, use `hg uncommit.
-  If you want to undo an amend, use `hg unamend.
+  If you want to remove a commit, use `sl hide -r HASH`.
+  If you want to move a bookmark, use `sl book -r HASH NAME`.
+  If you want to undo a commit, use `sl uncommit.
+  If you want to undo an amend, use `sl unamend.
 
 githelp for git show --name-status
-  $ hg githelp -- git show --name-status
-  hg log --style status -r tip
+  $ sl githelp -- git show --name-status
+  sl log --style status -r tip
 
 githelp for git show --pretty=format: --name-status
-  $ hg githelp -- git show --pretty=format: --name-status
-  hg stat --change tip
+  $ sl githelp -- git show --pretty=format: --name-status
+  sl stat --change tip
 
 githelp for show with no arguments
-  $ hg githelp -- show
-  hg show
+  $ sl githelp -- show
+  sl show
 
 githelp for show with a path
-  $ hg githelp -- show test_file
-  hg show . test_file
+  $ sl githelp -- show test_file
+  sl show . test_file
 
 githelp for show with not a path:
-  $ hg githelp -- show rev
-  hg show rev
+  $ sl githelp -- show rev
+  sl show rev
 
 githelp for show with many arguments
-  $ hg githelp -- show argone argtwo
-  hg show argone argtwo
-  $ hg githelp -- show test_file argone argtwo
-  hg show . test_file argone argtwo
+  $ sl githelp -- show argone argtwo
+  sl show argone argtwo
+  $ sl githelp -- show test_file argone argtwo
+  sl show . test_file argone argtwo
 
 githelp for show with --unified options
-  $ hg githelp -- show --unified=10
-  hg show --config diff.unified=10
-  $ hg githelp -- show -U100
-  hg show --config diff.unified=100
+  $ sl githelp -- show --unified=10
+  sl show --config diff.unified=10
+  $ sl githelp -- show -U100
+  sl show --config diff.unified=100
 
 githelp for show with a path and --unified
-  $ hg githelp -- show -U20 test_file
-  hg show . test_file --config diff.unified=20
+  $ sl githelp -- show -U20 test_file
+  sl show . test_file --config diff.unified=20
 
 githelp for stash drop without name
-  $ hg githelp -- git stash drop
-  hg shelve -d <shelve name>
+  $ sl githelp -- git stash drop
+  sl shelve -d <shelve name>
 
 githelp for stash drop with name
-  $ hg githelp -- git stash drop xyz
-  hg shelve -d xyz
+  $ sl githelp -- git stash drop xyz
+  sl shelve -d xyz
 
 githelp for whatchanged should show deprecated message
-  $ hg githelp -- whatchanged -p
+  $ sl githelp -- whatchanged -p
   This command has been deprecated in the git project, thus isn't supported by this tool.
   
 
 githelp for git branch -m renaming
-  $ hg githelp -- git branch -m old new
-  hg bookmark -m old new
+  $ sl githelp -- git branch -m old new
+  sl bookmark -m old new
 
 When the old name is omitted, git branch -m new renames the current branch.
-  $ hg githelp -- git branch -m new
-  hg bookmark -m `hg log -T"{activebookmark}" -r .` new
+  $ sl githelp -- git branch -m new
+  sl bookmark -m `sl log -T"{activebookmark}" -r .` new
 
 Branch deletion in git strips commits
-  $ hg githelp -- git branch -d
-  hg hide -B
-  $ hg githelp -- git branch -d feature
-  hg hide -B feature
-  $ hg githelp -- git branch --delete experiment1 experiment2
-  hg hide -B experiment1 -B experiment2
+  $ sl githelp -- git branch -d
+  sl hide -B
+  $ sl githelp -- git branch -d feature
+  sl hide -B feature
+  $ sl githelp -- git branch --delete experiment1 experiment2
+  sl hide -B experiment1 -B experiment2
 
 githelp for reuse message using the shorthand
-  $ hg githelp -- git commit -C deadbeef
-  hg commit -M deadbeef
+  $ sl githelp -- git commit -C deadbeef
+  sl commit -M deadbeef
 
 githelp for reuse message using the the long version
-  $ hg githelp -- git commit --reuse-message deadbeef
-  hg commit -M deadbeef
+  $ sl githelp -- git commit --reuse-message deadbeef
+  sl commit -M deadbeef
 
 githelp for apply with no options
-  $ hg githelp -- apply
-  hg import --no-commit
+  $ sl githelp -- apply
+  sl import --no-commit
 
 githelp for apply with directory strip custom
-  $ hg githelp -- apply -p 5
-  hg import --no-commit -p 5
+  $ sl githelp -- apply -p 5
+  sl import --no-commit -p 5
 
 git merge-base
-  $ hg githelp -- git merge-base --is-ancestor
+  $ sl githelp -- git merge-base --is-ancestor
   ignoring unknown option --is-ancestor
   NOTE: ancestors() is part of the revset language.
-  Learn more about revsets with 'hg help revsets'
+  Learn more about revsets with 'sl help revsets'
   
-  hg log -T '{node}\n' -r 'ancestor(A,B)'
+  sl log -T '{node}\n' -r 'ancestor(A,B)'
 
 githelp for git blame (tweakdefaults disabled)
-  $ hg githelp -- git blame
-  hg annotate -pudl
+  $ sl githelp -- git blame
+  sl annotate -pudl
 
 githelp for git blame (tweakdefaults enabled)
-  $ hg --config extensions.tweakdefaults= githelp -- git blame
-  hg annotate -pudl
+  $ sl --config extensions.tweakdefaults= githelp -- git blame
+  sl annotate -pudl
 
 githelp for git clean (with path)
-  $ hg githelp -- git clean -f .
-  hg clean --dirs --files .
+  $ sl githelp -- git clean -f .
+  sl clean --dirs --files .
 
 githelp for git clean (with -d and no path)
-  $ hg githelp -- git clean -fd
-  hg clean --dirs --files
+  $ sl githelp -- git clean -fd
+  sl clean --dirs --files
 
 githelp for git clean (with -d and path)
-  $ hg githelp -- git clean -fd .
-  hg clean --dirs --files .
+  $ sl githelp -- git clean -fd .
+  sl clean --dirs --files .
 
 githelp for git clean (with -dx)
-  $ hg githelp -- git clean -fdx
-  hg clean --dirs --files --ignored
+  $ sl githelp -- git clean -fdx
+  sl clean --dirs --files --ignored
 
 githelp for git clean (with -x and path)
-  $ hg githelp -- git clean -fx .
-  hg clean --dirs --files --ignored .
+  $ sl githelp -- git clean -fx .
+  sl clean --dirs --files --ignored .
 
 githelp for git clean (with -x)
-  $ hg githelp -- git clean -fx
-  hg clean --ignored
+  $ sl githelp -- git clean -fx
+  sl clean --ignored

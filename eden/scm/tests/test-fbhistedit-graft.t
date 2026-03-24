@@ -2,27 +2,28 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ . "$TESTDIR/histedit-helpers.sh"
 
   $ enable fbhistedit histedit rebase
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo base > base
-  $ hg add base
-  $ hg commit -m "base"
+  $ sl add base
+  $ sl commit -m "base"
   $ for x in a b c ; do
   >   echo $x > $x
-  >   hg add $x
-  >   hg commit -m $x
+  >   sl add $x
+  >   sl commit -m $x
   > done
-  $ hg up -q 'desc(base)'
+  $ sl up -q 'desc(base)'
   $ for x in d e f ; do
   >   echo $x > $x
-  >   hg add $x
-  >   hg commit -m $x
+  >   sl add $x
+  >   sl commit -m $x
   > done
   $ tglogp
   @  1eb7eda15cd7 draft 'f'
@@ -41,8 +42,8 @@
   
 Use histedit to graft an extra commit into current history
 
-  $ hg up -q 'desc(c)'
-  $ hg histedit 'max(desc(a))' --commands - 2>&1 << EOF | fixbundle
+  $ sl up -q 'desc(c)'
+  $ sl histedit 'max(desc(a))' --commands - 2>&1 << EOF | fixbundle
   > pick c604726e05fb
   > pick c87fe1ae405f
   > graft 581a2eefdc84
@@ -68,24 +69,24 @@ Use histedit to graft an extra commit into current history
   
 Try to use histedit to graft a non-existent commit
 
-  $ hg histedit 'max(desc(a))' --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit 'max(desc(a))' --commands - 2>&1 << EOF | fixbundle
   > pick c604726e05fb
   > pick c87fe1ae405f
   > graft abcdefabcdef
   > pick fc3ff9af0d1c
   > pick fc9a25c1b8af
   > EOF
-  hg: parse error: unknown changeset abcdefabcdef listed
+  sl: parse error: unknown changeset abcdefabcdef listed
 
 Try to use histedit to graft a commit from the set of commits being edited
 
-  $ hg histedit 'max(desc(a))' --commands - 2>&1 << EOF | fixbundle
+  $ sl histedit 'max(desc(a))' --commands - 2>&1 << EOF | fixbundle
   > pick c604726e05fb
   > pick c87fe1ae405f
   > graft fc9a25c1b8af
   > pick fc3ff9af0d1c
   > pick fc9a25c1b8af
   > EOF
-  hg: parse error: graft "fc9a25c1b8af" changeset was an edited list candidate
+  sl: parse error: graft "fc9a25c1b8af" changeset was an edited list candidate
   (graft must only use unlisted changesets)
 

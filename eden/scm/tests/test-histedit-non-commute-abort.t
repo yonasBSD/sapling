@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/histedit-helpers.sh"
 
@@ -9,15 +10,15 @@
 
   $ initrepo ()
   > {
-  >     hg init r
+  >     sl init r
   >     cd r
   >     for x in a b c d e f ; do
   >         echo $x > $x
-  >         hg add $x
-  >         hg ci -m $x
+  >         sl add $x
+  >         sl ci -m $x
   >     done
   >     echo a >> e
-  >     hg ci -m 'does not commute with e'
+  >     sl ci -m 'does not commute with e'
   >     cd ..
   > }
 
@@ -25,7 +26,7 @@
   $ cd r
 
 log before edit
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      bfa474341cc9
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -63,7 +64,7 @@ log before edit
   
 
 edit the history
-  $ hg histedit 177f92b77385 --commands - 2>&1 <<EOF | fixbundle
+  $ sl histedit 177f92b77385 --commands - 2>&1 <<EOF | fixbundle
   > pick 177f92b77385 c
   > pick 055a42cdd887 d
   > pick bfa474341cc9 does not commute with e
@@ -71,13 +72,13 @@ edit the history
   > pick 652413bf663e f
   > EOF
   merging e
-  warning: 1 conflicts while merging e! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging e! (edit, then use 'sl resolve --mark')
   Fix up the change (pick e860deea161a)
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
 
 insert unsupported advisory merge record
-  $ hg debugmergestate --add-unsupported-advisory-record
-  $ hg debugmergestate
+  $ sl debugmergestate --add-unsupported-advisory-record
+  $ sl debugmergestate
   local: 8f7551c7e4a2f2efe0bc8c741baf7f227d65d758
   other: e860deea161a2f77de56603b340ebbb4536308ae
   labels:
@@ -89,12 +90,12 @@ insert unsupported advisory merge record
     other path: e (node 6b67ccefd5ce6de77e7ead4f5292843a0255329f)
     extras: ancestorlinknode=0000000000000000000000000000000000000000
   unsupported record "x" (data ["advisory record"])
-  $ hg resolve -l
+  $ sl resolve -l
   U e
 
 insert unsupported mandatory merge record
-  $ hg debugmergestate --add-unsupported-mandatory-record
-  $ hg debugmergestate
+  $ sl debugmergestate --add-unsupported-mandatory-record
+  $ sl debugmergestate
   local: 8f7551c7e4a2f2efe0bc8c741baf7f227d65d758
   other: e860deea161a2f77de56603b340ebbb4536308ae
   labels:
@@ -106,24 +107,24 @@ insert unsupported mandatory merge record
     other path: e (node 6b67ccefd5ce6de77e7ead4f5292843a0255329f)
     extras: ancestorlinknode=0000000000000000000000000000000000000000
   unsupported record "X" (data ["mandatory record"])
-  $ hg resolve -l
+  $ sl resolve -l
   abort: unsupported merge state records: X
   (see https://mercurial-scm.org/wiki/MergeStateRecords for more information)
   [255]
-  $ hg resolve -ma
+  $ sl resolve -ma
   abort: unsupported merge state records: X
   (see https://mercurial-scm.org/wiki/MergeStateRecords for more information)
   [255]
 
 abort the edit (should clear out merge state)
-  $ hg histedit --abort 2>&1 | fixbundle
+  $ sl histedit --abort 2>&1 | fixbundle
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg debugmergestate
+  $ sl debugmergestate
   no merge state found
 
 log after abort
-  $ hg resolve -l
-  $ hg log --graph
+  $ sl resolve -l
+  $ sl log --graph
   @  commit:      bfa474341cc9
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000

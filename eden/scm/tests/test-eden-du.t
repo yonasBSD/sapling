@@ -3,6 +3,7 @@
 
 setup backing repo
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo backingrepo
   $ eden clone --allow-empty-repo $TESTTMP/backingrepo $TESTTMP/wcrepo
@@ -13,8 +14,8 @@ test eden du
 
   $ cd $TESTTMP/wcrepo
   $ seq 158730 > tmp.txt
-  $ hg add tmp.txt
-  $ hg commit -m "test commit"
+  $ sl add tmp.txt
+  $ sl commit -m "test commit"
   $ eden du | grep "Materialized files" | sed 's/\s+$/\n/' | sed 's/\s*//' # Windows has a nondeterministic split between materialized and backing repo
   Materialized files:  *B (glob)
 
