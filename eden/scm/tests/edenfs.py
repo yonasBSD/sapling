@@ -174,7 +174,10 @@ enable-eden-menu = "false"
         # annoying to escape, so let's get rid of them
         env.pop("HGTEST_EXCLUDED", None)
         env.pop("HGTEST_INCLUDED", None)
-        # See comment about Monooke above for these two env vars below
+        # Don't bake HGRCPATH/SL_CONFIG_PATH into the wrapper script.
+        # These should be inherited from the calling shell so they reflect
+        # the current test state (e.g. Mononoke tests rewrite HGRCPATH
+        # after wrapper generation).
         env.pop("HGRCPATH", None)
         env.pop("SL_CONFIG_PATH", None)
         # .t tests set the value for $HOME to $TESTTMP, and we don't want to

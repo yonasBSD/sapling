@@ -38,7 +38,7 @@ hgcloneshallow() {
   dest=$1
   shift
   hg clone --config remotefilelog.reponame=master $orig $dest $@
-  cat >> $dest/.hg/hgrc <<EOF
+  cat >> "$dest/$(_dotdir_configfile "$dest")" <<EOF
 [remotefilelog]
 reponame=master
 [phases]

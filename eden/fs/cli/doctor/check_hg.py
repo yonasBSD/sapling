@@ -260,7 +260,8 @@ class DirstateChecker(HgFileChecker):
 
 class HgrcChecker(HgFileChecker):
     def __init__(self, checkout: EdenCheckout) -> None:
-        super().__init__(checkout, "hgrc")
+        config_name = hg_util.config_file_for_dot_dir(checkout.hg_dot_path.name)
+        super().__init__(checkout, config_name)
 
     def repair(self) -> None:
         hgrc_data = hg_util.get_hgrc_data(self.checkout)

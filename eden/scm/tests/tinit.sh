@@ -8,6 +8,30 @@
 
 _repocount=0
 
+# Detect the dot directory (.sl or .hg) for the repo at the given path (or cwd).
+_dotdir() {
+  local dir
+  if [ -n "$1" ]; then dir="$1"; else dir="."; fi
+  if [ -d "$dir/.sl" ]; then
+    echo ".sl"
+  else
+    echo ".hg"
+  fi
+}
+
+# Return the config file name for the dot dir (.sl/config or .hg/hgrc).
+# Note: inlines _dotdir logic because debugruntest shell doesn't pass
+# function args through $() command substitution.
+_dotdir_configfile() {
+  local dir
+  if [ -n "$1" ]; then dir="$1"; else dir="."; fi
+  if [ -d "$dir/.sl" ]; then
+    echo ".sl/config"
+  else
+    echo ".hg/hgrc"
+  fi
+}
+
 if [ -n "$USE_MONONOKE" ] && [ -z "$DEBUGRUNTEST_ENABLED" ] ; then
   . "$TESTDIR/../../mononoke/tests/integration/library.sh"
 fi
@@ -84,7 +108,7 @@ newclientrepo() {
 # `newserver server` needs to be called at least once before this call to setup ssh repo
 newremoterepo() {
   newrepo "$@"
-  echo remotefilelog >> .hg/requires
+  echo remotefilelog >> "$(_dotdir)/requires"
   enable pushrebase
   if [ -n "$USE_MONONOKE" ] ; then
     setconfig paths.default=mononoke://$(mononoke_address)/server
@@ -142,7 +166,7 @@ clone() {
     --config "ui.ssh=$(dummysshcmd)" \
     --config "ui.remotecmd=$remotecmd"
 
-  cat >> $clientname/.hg/hgrc <<EOF
+  cat >> "$clientname/$(_dotdir_configfile "$clientname")" <<EOF
 [phases]
 publish=False
 
@@ -285,9 +309,9 @@ setmodernconfig() {
 # Read config from stdin (usually a heredoc).
 readconfig() {
   local hgrcpath
-  if [ -e ".hg" ]
+  if [ -e ".hg" ] || [ -e ".sl" ]
   then
-    hgrcpath=".hg/hgrc"
+    hgrcpath="$(_dotdir_configfile)"
   else
     hgrcpath="$HGRCPATH"
   fi

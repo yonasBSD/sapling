@@ -35,7 +35,7 @@ EOF
 }
 
 setupserver() {
-cat >> .hg/hgrc << EOF
+cat >> "$(_dotdir_configfile)" << EOF
 [infinitepush]
 server=yes
 EOF
