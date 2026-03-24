@@ -41,6 +41,7 @@ use mononoke_repos::MononokeRepos;
 use repo_factory::RepoFactory;
 use repo_factory::RepoFactoryBuilder;
 use stats::prelude::*;
+use tracing::debug;
 use tracing::info;
 
 fn repos_manager_concurrency() -> Result<usize> {
@@ -156,6 +157,15 @@ impl<Repo> MononokeReposManager<Repo> {
     where
         Repo: for<'builder> AsyncBuildable<'builder, RepoFactoryBuilder<'builder>>,
     {
+        // Load per-repo config handle for split-loading (deep-sharded repos).
+        // Non-fatal: if split-loading is disabled or repo not in manifest,
+        // the legacy config path still works.
+        if let Err(e) = self.configs.load_repo_config_handle(repo_name) {
+            debug!(
+                "Split-loading: config handle not loaded for {} (expected during migration): {:#}",
+                repo_name, e
+            );
+        }
         let repo_config = self.repo_config(repo_name)?;
         let repo_id = repo_config.repoid.id();
         let common_config = self.configs.repo_configs().common.clone();
