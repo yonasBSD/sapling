@@ -22,8 +22,6 @@ use configloader::config::ConfigSet;
 use configloader::hg::RepoInfo;
 use configloader::hg::set_pinned;
 use configmodel::Config;
-use configmodel::ConfigExt;
-use hgtime::HgTime;
 use repo::CoreRepo;
 use repo::repo::Repo;
 
@@ -38,7 +36,7 @@ use crate::global_flags::HgGlobalOpts;
 use crate::io::IO;
 use crate::util::pinned_configs;
 
-type Result<T, E = Error> = std::result::Result<T, E>;
+pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Similar to `env::args()`. But does not panic.
 pub fn args() -> Result<Vec<String>> {
@@ -114,59 +112,6 @@ fn parse(definition: &CommandDefinition, args: &[String]) -> Result<ParseOutput,
         .parse_args(args)
 }
 
-fn initialize_blackbox(optional_repo: &OptionalRepo) -> Result<()> {
-    if let OptionalRepo::CoreRepo(CoreRepo::Disk(repo)) = optional_repo {
-        let config = repo.config();
-
-        if !config.get_or("blackbox", "enable", || true)? {
-            tracing::debug!("blackbox disabled");
-            return Ok(());
-        }
-
-        let max_size = config
-            .get_or("blackbox", "maxsize", || {
-                configloader::convert::ByteCount::from(1u64 << 12)
-            })?
-            .value();
-        let max_files = config.get_or("blackbox", "maxfiles", || 3)?;
-        let path = repo.shared_dot_hg_path().join("blackbox/v1");
-        if let Ok(blackbox) = ::blackbox::BlackboxOptions::new()
-            .max_bytes_per_log(max_size)
-            .max_log_count(max_files as u8)
-            .open(path)
-        {
-            ::blackbox::init(blackbox);
-        }
-    }
-    Ok(())
-}
-
-fn initialize_hgtime(config: &dyn Config) -> Result<()> {
-    let mut should_clear = true;
-    if let Some(now_str) = config.get("devel", "default-date") {
-        let now_str = now_str.trim();
-        if !now_str.is_empty() {
-            if let Some(now) = HgTime::parse(now_str) {
-                tracing::info!(?now, "set 'now' for testing");
-                now.set_as_now_for_testing();
-                should_clear = false;
-            }
-        }
-    }
-    if should_clear {
-        tracing::debug!("unset 'now' for testing");
-        HgTime::clear_now_for_testing();
-    }
-    Ok(())
-}
-
-fn initialize_libraries(config: &dyn Config) -> Result<()> {
-    indexedlog::config::configure(config)?;
-    gitcompat::GlobalGit::set_default_config(config);
-
-    Ok(())
-}
-
 pub fn parse_global_opts(args: &[String]) -> Result<HgGlobalOpts> {
     let early_result = early_parse(args)?;
     early_result.try_into()
@@ -177,7 +122,7 @@ pub struct Dispatcher {
     args: Vec<String>,
     early_result: ParseOutput,
     early_global_opts: HgGlobalOpts,
-    optional_repo: OptionalRepo,
+    pub(crate) optional_repo: OptionalRepo,
 }
 
 fn version_args(binary_path: &str) -> Vec<String> {
@@ -312,8 +257,7 @@ impl Dispatcher {
             env::set_current_dir(&self.early_global_opts.cwd)?;
         }
 
-        initialize_libraries(config)?;
-        initialize_hgtime(config)?;
+        self.configure_libraries(io)?;
 
         // Prepare alias handling.
         let alias_lookup = |name: &str| {
@@ -410,8 +354,6 @@ impl Dispatcher {
             set_pinned(&mut config, &pinned_configs)?;
             self.set_config(Arc::new(config));
         }
-
-        initialize_blackbox(&self.optional_repo)?;
 
         if global_opts.pager == "always" {
             io.start_pager(self.optional_repo.config())?;

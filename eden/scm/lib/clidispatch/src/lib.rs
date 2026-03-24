@@ -9,6 +9,7 @@
 #![allow(unexpected_cfgs)]
 
 pub mod command;
+mod configure_libraries;
 pub mod context;
 pub mod dispatch;
 pub mod errors;

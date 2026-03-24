@@ -23,10 +23,9 @@ command, exit codes, and duration
 FIXME: (recursive) alias expansion is not logged
   $ rm -rf ./.sl/blackbox*
   $ sl so-confusing
-  $ sl blackbox --pattern '{"start": "_"}'
-  [command] [*, "so-confusing"] * (glob)
-  [command] [*, "so-confusing"] * (glob) (?)
+  $ sl blackbox --pattern '{"start": "_"}' | sort -u
   [command] [*, "blackbox", "--pattern", "{\"start\": \"_\"}"] * (glob)
+  [command] [*, "so-confusing"] * (glob)
 
 incoming change tracking
 
