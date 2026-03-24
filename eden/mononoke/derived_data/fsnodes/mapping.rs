@@ -18,12 +18,14 @@ use context::CoreContext;
 use derived_data_manager::BonsaiDerivable;
 use derived_data_manager::DerivableType;
 use derived_data_manager::DerivationContext;
+use derived_data_manager::PipelineDerivable;
 use derived_data_manager::dependencies;
 use derived_data_service_if as thrift;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use futures::stream;
+use manifest::Entry;
 use manifest::ManifestOps;
 use manifest::ManifestParentReplacement;
 use mononoke_types::BlobstoreBytes;
@@ -194,10 +196,55 @@ pub async fn get_fsnode_subtree_changes(
             cloned!(ctx);
             let blobstore = derivation_ctx.blobstore().clone();
             async move {
-                let root = derivation_ctx
-                    .fetch_unknown_dependency::<RootFsnodeId>(&ctx, known, from_cs_id)
+                let root = match derivation_ctx
+                    .fetch_unknown::<RootFsnodeId>(&ctx, known, from_cs_id)
                     .await?
-                    .into_fsnode_id();
+                {
+                    Some(root_fsnode) => root_fsnode.into_fsnode_id(),
+                    None => {
+                        // Fallback for pipeline-derived commits: fetch from terminal stage output.
+                        let pipeline_config = derivation_ctx
+                            .derivation_pipeline_config()
+                            .get(&DerivableType::Fsnodes)
+                            .ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "No RootFsnodeId mapping and no pipeline config for {}",
+                                    from_cs_id
+                                )
+                            })?;
+                        let (terminal_stage_id, _) = pipeline_config
+                            .stages
+                            .iter()
+                            .find(|(_, cfg)| cfg.terminal)
+                            .ok_or_else(|| {
+                                anyhow::anyhow!("No terminal stage in pipeline config")
+                            })?;
+                        let stage_outputs = RootFsnodeId::fetch_stage_outputs(
+                            &ctx,
+                            derivation_ctx,
+                            &terminal_stage_id,
+                            vec![from_cs_id],
+                        )
+                        .await?;
+                        let entry = stage_outputs.get(&from_cs_id).ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "No stage output for {} in terminal stage {}",
+                                from_cs_id,
+                                terminal_stage_id,
+                            )
+                        })?;
+                        match entry {
+                            Some(Entry::Tree(fsnode_id)) => *fsnode_id,
+                            other => {
+                                return Err(anyhow::anyhow!(
+                                    "Expected tree entry for terminal stage output of {}, got {:?}",
+                                    from_cs_id,
+                                    other,
+                                ));
+                            }
+                        }
+                    }
+                };
                 let entry = root
                     .find_entry(ctx, blobstore, from_path.clone())
                     .await?

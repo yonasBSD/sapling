@@ -1187,4 +1187,184 @@ mod test {
         // Content-addressed: if FsnodeIds match, the trees are identical.
         assert_eq!(pipeline_id, expected_id);
     }
+
+    /// Derivation pipeline with subtree copy: construct a ManifestParentReplacement
+    /// that replaces dir2 with dir1's content, then verify that both normal
+    /// derivation (with subtree_changes) and pipeline derivation (with prefix +
+    /// known_entries + subtree_changes) produce the same result.
+    #[mononoke::fbinit_test]
+    async fn test_derivation_pipeline_with_subtree_copy(fb: FacebookInit) {
+        let repo: TestRepo = ManyFilesDirs::get_repo(fb).await;
+        let derivation_ctx = repo.repo_derived_data().manager().derivation_context(None);
+        let ctx = CoreContext::test_mock(fb);
+        let blobstore = repo.repo_blobstore().clone();
+
+        // Derive parent fsnodes for commits A and B (same as nested_directories_test).
+        let parent_fsnode_id = {
+            let hg_cs_a = "5a28e25f924a5d209b82ce0713d8d83e68982bc8";
+            let (_bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, hg_cs_a)
+                .await
+                .unwrap();
+            derive_fsnode(
+                &ctx,
+                &derivation_ctx,
+                vec![],
+                get_file_changes(&bcs),
+                Vec::new(),
+            )
+            .await
+            .unwrap()
+        };
+        let parent_fsnode_id = {
+            let hg_cs_b = "2f866e7e549760934e31bf0420a873f65100ad63";
+            let (_bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, hg_cs_b)
+                .await
+                .unwrap();
+            derive_fsnode(
+                &ctx,
+                &derivation_ctx,
+                vec![parent_fsnode_id],
+                get_file_changes(&bcs),
+                Vec::new(),
+            )
+            .await
+            .unwrap()
+        };
+
+        // Look up the dir1 entry from the parent fsnode — this is the source
+        // of our subtree copy.
+        let dir1_entry = parent_fsnode_id
+            .find_entry(ctx.clone(), blobstore.clone(), MPath::new("dir1").unwrap())
+            .await
+            .unwrap()
+            .expect("dir1 should exist in parent");
+
+        // Build a ManifestParentReplacement that replaces dir2 with dir1's tree.
+        let subtree_changes = vec![ManifestParentReplacement {
+            path: MPath::new("dir2").unwrap(),
+            replacements: vec![dir1_entry.clone()],
+        }];
+
+        // Get a valid (ContentId, FileType) from an existing file in the repo
+        // to use for the new file we'll add.
+        let dir1_file = parent_fsnode_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir1/file_1_in_dir1").unwrap(),
+            )
+            .await
+            .unwrap()
+            .expect("file should exist")
+            .into_leaf()
+            .expect("should be a leaf");
+
+        // Changes applied on top of the subtree replacement:
+        // - delete dir2/file_1_in_dir1 (exists in dir1, proving deletions work on replaced subtree)
+        // - add dir2/new_file (proving additions work on replaced subtree)
+        let changes: Vec<(NonRootMPath, Option<(ContentId, FileType)>)> = vec![
+            (NonRootMPath::new("dir2/file_1_in_dir1").unwrap(), None),
+            (
+                NonRootMPath::new("dir2/new_file").unwrap(),
+                Some((*dir1_file.content_id(), *dir1_file.file_type())),
+            ),
+        ];
+
+        // --- Normal derivation with subtree_changes ---
+        let expected_id = derive_fsnode(
+            &ctx,
+            &derivation_ctx,
+            vec![parent_fsnode_id],
+            changes.clone(),
+            subtree_changes.clone(),
+        )
+        .await
+        .unwrap();
+
+        // Verify dir2 has the subtree replacement applied with changes on top:
+        // - file_2_in_dir1 exists (from subtree replacement, proves it worked)
+        // - file_1_in_dir1 absent (deleted by file change)
+        // - new_file exists (added by file change)
+        let file_2 = expected_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir2/file_2_in_dir1").unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            file_2.is_some(),
+            "dir2/file_2_in_dir1 should exist from subtree replacement"
+        );
+        let file_1 = expected_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir2/file_1_in_dir1").unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            file_1.is_none(),
+            "dir2/file_1_in_dir1 should be deleted by file change"
+        );
+        let new_file = expected_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir2/new_file").unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            new_file.is_some(),
+            "dir2/new_file should exist from file change"
+        );
+
+        // --- Pipeline derivation: derive dir2 stage with prefix, then root ---
+
+        // Stage dir2: derive with the subtree_changes and prefix "dir2".
+        let dir2_parent = parent_fsnode_id
+            .find_entry(ctx.clone(), blobstore.clone(), MPath::new("dir2").unwrap())
+            .await
+            .unwrap();
+        let dir2_parents = match dir2_parent {
+            Some(entry) => vec![entry],
+            None => vec![],
+        };
+        let dir2_entry = derive_fsnode_entry(
+            &ctx,
+            &derivation_ctx,
+            dir2_parents,
+            changes.clone(),
+            subtree_changes.clone(),
+            HashMap::new(),
+            MPath::new("dir2").unwrap(),
+        )
+        .await
+        .unwrap()
+        .expect("dir2 stage should produce an entry");
+
+        // Stage root: assemble with known_entries for dir2.
+        let root_known_entries: HashMap<MPath, Option<Entry<FsnodeId, FsnodeFile>>> =
+            HashMap::from([(MPath::new("dir2").unwrap(), Some(dir2_entry))]);
+        let root_entry = derive_fsnode_entry(
+            &ctx,
+            &derivation_ctx,
+            vec![Entry::Tree(parent_fsnode_id)],
+            changes,
+            subtree_changes,
+            root_known_entries,
+            MPath::ROOT,
+        )
+        .await
+        .unwrap()
+        .expect("root stage should produce an entry");
+
+        let pipeline_id = root_entry.into_tree().expect("root entry should be a tree");
+
+        // Content-addressed: if FsnodeIds match, the trees are identical.
+        assert_eq!(pipeline_id, expected_id);
+    }
 }

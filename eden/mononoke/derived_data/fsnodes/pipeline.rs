@@ -96,8 +96,8 @@ impl PipelineDerivable for RootFsnodeId {
                 }
             }
 
-            // Subtree copy operations are not supported with derivation pipeline.
-            let subtree_changes = vec![];
+            let subtree_changes =
+                crate::mapping::get_fsnode_subtree_changes(ctx, derivation, None, &bonsai).await?;
 
             let entry = derive_fsnode_entry(
                 ctx,

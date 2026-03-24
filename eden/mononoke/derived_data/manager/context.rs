@@ -272,6 +272,23 @@ impl DerivationContext {
         self.fetch_dependency(ctx, csid).await
     }
 
+    /// Like `fetch_unknown_dependency`, but returns `None` instead of an error
+    /// when the derived data has not been derived yet.
+    pub async fn fetch_unknown<Derivable>(
+        &self,
+        ctx: &CoreContext,
+        known: Option<&HashMap<ChangesetId, Derivable>>,
+        csid: ChangesetId,
+    ) -> Result<Option<Derivable>>
+    where
+        Derivable: BonsaiDerivable,
+    {
+        if let Some(value) = known.and_then(|k| k.get(&csid)) {
+            return Ok(Some(value.clone()));
+        }
+        self.fetch_derived(ctx, csid).await
+    }
+
     /// The blobstore that should be used for storing and retrieving blobs.
     pub fn blobstore(&self) -> &Arc<dyn KeyedBlobstore> {
         match &self.blobstore_write_cache {
