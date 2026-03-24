@@ -1288,10 +1288,21 @@ impl<R: MononokeRepo> ChangesetContext<R> {
         }
         if comparing_against_parent && include_subtree_copies {
             let subtree_changes = self.subtree_changes().await?;
-            for (path, change) in subtree_changes {
-                if let Some((from_cs_id, from_path)) = change.copy_or_deep_copy_source() {
+            let repo_ctx = self.repo_ctx().clone();
+            let ctx = self.ctx().clone();
+            let blobstore = self.repo_ctx().repo().repo_blobstore().clone();
+            let results: Vec<_> = stream::iter(subtree_changes.into_iter().filter_map(
+                |(path, change)| {
+                    change
+                        .copy_or_deep_copy_source()
+                        .map(|(from_cs_id, from_path)| (path, from_cs_id, from_path.clone()))
+                },
+            ))
+            .map(|(path, from_cs_id, from_path)| {
+                cloned!(repo_ctx, ctx, blobstore);
+                async move {
                     let from_cs =
-                        self.repo_ctx()
+                        repo_ctx
                             .changeset(from_cs_id)
                             .await?
                             .ok_or_else(|| {
@@ -1304,8 +1315,8 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                         .await?
                         .into_fsnode_id()
                         .find_entry(
-                            self.ctx().clone(),
-                            from_cs.repo_ctx().repo().repo_blobstore().clone(),
+                            ctx,
+                            blobstore,
                             from_path.clone(),
                         )
                         .await?
@@ -1314,9 +1325,15 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                 "Invalid subtree copy source: {from_cs_id} does not contain {from_path}"
                             ))
                         })?;
-                    subtree_copy_sources.insert(path.clone(), Some((from_cs, from_path.clone())));
-                    manifest_replacements.insert(path, entry);
+                    Ok::<_, MononokeError>((path, from_cs, from_path, entry))
                 }
+            })
+            .buffer_unordered(10)
+            .try_collect()
+            .await?;
+            for (path, from_cs, from_path, entry) in results {
+                subtree_copy_sources.insert(path.clone(), Some((from_cs, from_path.clone())));
+                manifest_replacements.insert(path, entry);
             }
         }
 
