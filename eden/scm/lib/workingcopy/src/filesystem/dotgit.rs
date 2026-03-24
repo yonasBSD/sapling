@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use core::sync::atomic::Ordering;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -25,6 +26,7 @@ use types::RepoPathBuf;
 use vfs::VFS;
 
 use crate::client::WorkingCopyClient;
+use crate::config;
 use crate::filesystem::FileSystem;
 use crate::filesystem::PendingChange;
 
@@ -39,7 +41,6 @@ pub struct DotGitFileSystem {
     #[allow(unused)]
     store: Arc<dyn FileStore>,
     git: Arc<RepoGit>,
-    is_automation: bool,
 }
 
 impl DotGitFileSystem {
@@ -52,19 +53,17 @@ impl DotGitFileSystem {
         let git = RepoGit::from_root_and_config(vfs.root().to_owned(), config);
         let treestate = create_treestate(&git, dot_dir, vfs.case_sensitive())?;
         let treestate = Arc::new(Mutex::new(treestate));
-        let is_automation = hgplain::is_plain(Some("dotgit-no-optional-locks"));
         Ok(DotGitFileSystem {
             treestate,
             vfs,
             store,
             git: Arc::new(git),
-            is_automation,
         })
     }
 
     fn prepare_git_args<'a>(&self, args: &[&'a str]) -> Vec<&'a str> {
         let mut result = Vec::with_capacity(args.len());
-        if self.is_automation {
+        if config::DOTGIT_NO_OPTIONAL_LOCKS.load(Ordering::Acquire) {
             // If "git status" is run by automation (ex. ISL), likely in background, do not use
             // "index.lock". Otherwise, other git commands run by the user (ex. "git add") could
             // fail with "fatal: Unable to create '.../.git/index.lock': File exists." if the
