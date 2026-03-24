@@ -39,6 +39,8 @@ use mononoke_types_mocks::contentid::THREES_CTID;
 use mononoke_types_mocks::contentid::TWOS_CTID;
 use permission_checker::AlwaysMember;
 use permission_checker::InternalAclProvider;
+use permission_checker::MemberAllowlist;
+use permission_checker::MononokeIdentity;
 use permission_checker::NeverMember;
 use repo_permission_checker::NeverAllowRepoPermissionChecker;
 use scuba_ext::MononokeScubaSampleBuilder;
@@ -1021,5 +1023,103 @@ async fn test_pushvar_bypass_with_group_unauthorized(fb: FacebookInit) {
     assert!(
         matches!(res[0].get_execution(), HookExecution::Rejected(_)),
         "Expected rejection from hook since bypass was not authorized"
+    );
+}
+
+// =========================================================================
+// Author-based bypass permission group tests
+//
+// These verify that group membership is checked against the changeset
+// author's identity (USER:<unixname>), not the pusher's TLS cert identity.
+// =========================================================================
+
+/// Changeset author matches the allowlist → bypass succeeds
+#[mononoke::fbinit_test]
+async fn test_bypass_checks_commit_author_not_pusher(fb: FacebookInit) {
+    let ctx = CoreContext::test_mock(fb);
+    let mut hook_manager = setup_hook_manager(fb, hashmap! {}, hashmap! {}).await;
+
+    // Allowlist only the changeset author's unixname ("test" from "Test User <test@fb.com>")
+    let author_identity = MononokeIdentity::new("USER", "test");
+    let allowlist = MemberAllowlist::new([author_identity].into());
+
+    hook_manager.register_changeset_hook(
+        "hook1",
+        always_rejecting_changeset_hook(),
+        bypass_config_with_group(),
+        Some(allowlist.into()),
+    );
+    hook_manager.set_hooks_for_bookmark(
+        BookmarkKey::new("bm1").unwrap().into(),
+        vec!["hook1".to_string()],
+    );
+
+    // changeset_with_bypass_msg has author "Test User <test@fb.com>"
+    // which extracts to unixname "test" — matches the allowlist
+    let cs = changeset_with_bypass_msg();
+    let res = justknobs::test_helpers::with_just_knobs_async(
+        bypass_permission_groups_jk(true),
+        Box::pin(hook_manager.run_changesets_hooks_for_bookmark(
+            &ctx,
+            &[cs],
+            &BookmarkKey::new("bm1").unwrap(),
+            None,
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )),
+    )
+    .await
+    .unwrap();
+    assert!(
+        res.is_empty(),
+        "Expected bypass to succeed because changeset author matches allowlist"
+    );
+}
+
+/// Changeset author does NOT match the allowlist → bypass denied, hook runs
+#[mononoke::fbinit_test]
+async fn test_bypass_rejects_when_author_not_in_allowlist(fb: FacebookInit) {
+    let ctx = CoreContext::test_mock(fb);
+    let mut hook_manager = setup_hook_manager(fb, hashmap! {}, hashmap! {}).await;
+
+    // Allowlist a DIFFERENT user — not the changeset author
+    let other_identity = MononokeIdentity::new("USER", "someoneelse");
+    let allowlist = MemberAllowlist::new([other_identity].into());
+
+    hook_manager.register_changeset_hook(
+        "hook1",
+        always_rejecting_changeset_hook(),
+        bypass_config_with_group(),
+        Some(allowlist.into()),
+    );
+    hook_manager.set_hooks_for_bookmark(
+        BookmarkKey::new("bm1").unwrap().into(),
+        vec!["hook1".to_string()],
+    );
+
+    // changeset_with_bypass_msg has author "Test User <test@fb.com>"
+    // which extracts to unixname "test" — does NOT match "someoneelse"
+    let cs = changeset_with_bypass_msg();
+    let res = justknobs::test_helpers::with_just_knobs_async(
+        bypass_permission_groups_jk(true),
+        Box::pin(hook_manager.run_changesets_hooks_for_bookmark(
+            &ctx,
+            &[cs],
+            &BookmarkKey::new("bm1").unwrap(),
+            None,
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        res.len(),
+        1,
+        "Expected hook to run (author not in allowlist)"
+    );
+    assert!(
+        matches!(res[0].get_execution(), HookExecution::Rejected(_)),
+        "Expected rejection — bypass denied for author not in group"
     );
 }

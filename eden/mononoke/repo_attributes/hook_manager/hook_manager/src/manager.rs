@@ -32,6 +32,8 @@ use mononoke_types::BonsaiChangeset;
 use mononoke_types::NonRootMPath;
 use permission_checker::AclProvider;
 use permission_checker::ArcMembershipChecker;
+use permission_checker::MononokeIdentity;
+use permission_checker::MononokeIdentitySet;
 use permission_checker::NeverMember;
 use regex::Regex;
 use repo_permission_checker::ArcRepoPermissionChecker;
@@ -199,12 +201,17 @@ impl HookManager {
     }
 
     /// Check if a bypass is authorized given the permission group restriction.
+    ///
+    /// When `changeset_author` is provided (e.g., "Alice <alice@fb.com>"),
+    /// group membership is checked against the commit author's identity
+    /// rather than the pusher's TLS cert identities.
     async fn check_bypass_authorization(
         &self,
         hook: &Hook,
         ctx: &CoreContext,
         maybe_pushvars: Option<&HashMap<String, Bytes>>,
         cs_msg: Option<&str>,
+        changeset_author: Option<&str>,
     ) -> Result<BypassAuthorizationResult> {
         let bypass = hook.get_config().bypass.as_ref();
 
@@ -233,9 +240,22 @@ impl HookManager {
             None => return Ok(BypassAuthorizationResult::Bypassed(bypass_reason)),
         };
 
-        // Check group membership
-        let identities = ctx.metadata().identities();
-        if checker.is_member(identities).await {
+        // Check group membership against the commit author's identity.
+        // We extract the unixname from the author string ("Name <user@host>")
+        // and build a USER identity for the membership check.
+        let is_member = match changeset_author.and_then(extract_unixname_from_author) {
+            Some(unixname) => {
+                let author_identity = MononokeIdentity::new("USER", unixname);
+                let identity_set: MononokeIdentitySet = std::iter::once(author_identity).collect();
+                checker.is_member(&identity_set).await
+            }
+            None => {
+                // Fallback to pusher identities if author is unavailable
+                // or unparseable
+                checker.is_member(ctx.metadata().identities()).await
+            }
+        };
+        if is_member {
             Ok(BypassAuthorizationResult::Bypassed(bypass_reason))
         } else {
             let group_name = bypass
@@ -372,7 +392,7 @@ impl HookManager {
             scuba.add("to", to.get_changeset_id().to_string());
 
             match self
-                .check_bypass_authorization(hook, ctx, maybe_pushvars, None)
+                .check_bypass_authorization(hook, ctx, maybe_pushvars, None, Some(to.author()))
                 .await?
             {
                 BypassAuthorizationResult::Bypassed(bypass_reason) => {
@@ -387,15 +407,7 @@ impl HookManager {
                             bookmark_name: bookmark.to_string(),
                             hook_name: hook_name.to_string(),
                         },
-                        HookExecution::Rejected(HookRejectionInfo::new_long(
-                            "Hook bypass not authorized",
-                            format!(
-                                "You are not a member of group '{}'. \
-                                 Remove the bypass string/pushvar and let the hook \
-                                 execute normally, or request access to the group.",
-                                group_name,
-                            ),
-                        )),
+                        unauthorized_bypass_rejection(&group_name),
                     );
                     futs.push(futures::future::ok(rejection).boxed());
                     continue;
@@ -458,58 +470,21 @@ impl HookManager {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        // Check bypass authorization for each hook (async due to group membership check).
-        // Hooks that are fully bypassed via pushvar are skipped entirely.
-        // Unauthorized bypass attempts produce immediate rejections.
-        let mut authorized_hooks = Vec::new();
+        // Check bypass authorization per changeset per hook.
+        // Both pushvar and commit message bypasses are checked, with group
+        // membership verified against the changeset author's identity.
         let mut unauthorized_outcomes = Vec::new();
-        for (hook_name, hook) in resolved_hooks {
-            match self
-                .check_bypass_authorization(hook, ctx, maybe_pushvars, None)
-                .await?
-            {
-                BypassAuthorizationResult::Bypassed(bypass_reason) => {
-                    for cs in changesets {
-                        log_bypassed_changeset(&scuba, cs, &bypass_reason);
-                    }
-                }
-                BypassAuthorizationResult::Unauthorized(group_name) => {
-                    for cs in changesets {
-                        unauthorized_outcomes.push(HookOutcome::ChangesetHook(
-                            ChangesetHookExecutionId {
-                                cs_id: cs.get_changeset_id(),
-                                hook_name: hook_name.to_string(),
-                            },
-                            HookExecution::Rejected(HookRejectionInfo::new_long(
-                                "Hook bypass not authorized",
-                                format!(
-                                    "You are not a member of group '{}'. \
-                                     Remove the bypass string/pushvar and let the hook \
-                                     execute normally, or request access to the group.",
-                                    group_name,
-                                ),
-                            )),
-                        ));
-                    }
-                }
-                BypassAuthorizationResult::NoBypass => {
-                    authorized_hooks.push((hook_name, hook));
-                }
-            }
-        }
-
-        // For hooks that weren't fully bypassed via pushvar, check per-changeset
-        // commit message bypass with group authorization.
         let mut hooks_with_changesets = Vec::new();
-        for (hook_name, hook) in authorized_hooks {
+        for (hook_name, hook) in resolved_hooks {
             let mut filtered_changesets = Vec::new();
             for cs in changesets {
                 match self
                     .check_bypass_authorization(
                         hook,
                         ctx,
-                        None, // no pushvars — only check commit message
+                        maybe_pushvars,
                         Some(cs.message()),
+                        Some(cs.author()),
                     )
                     .await?
                 {
@@ -522,15 +497,7 @@ impl HookManager {
                                 cs_id: cs.get_changeset_id(),
                                 hook_name: hook_name.to_string(),
                             },
-                            HookExecution::Rejected(HookRejectionInfo::new_long(
-                                "Hook bypass not authorized",
-                                format!(
-                                    "You are not a member of group '{}'. \
-                                     Remove the bypass string/pushvar and let the hook \
-                                     execute normally, or request access to the group.",
-                                    group_name,
-                                ),
-                            )),
+                            unauthorized_bypass_rejection(&group_name),
                         ));
                     }
                     BypassAuthorizationResult::NoBypass => {
@@ -594,6 +561,38 @@ impl HookManager {
             .chain(batched_res)
             .collect())
     }
+}
+
+fn unauthorized_bypass_rejection(group_name: &str) -> HookExecution {
+    HookExecution::Rejected(HookRejectionInfo::new_long(
+        "Hook bypass not authorized",
+        format!(
+            "You are not a member of group '{}'. \
+             Remove the bypass string/pushvar and let the hook \
+             execute normally, or request access to the group.",
+            group_name,
+        ),
+    ))
+}
+
+/// Extract unixname from a changeset author string like "Name <user@host>".
+/// Uses the same regex as `parse_author_username` in the hooks crate.
+fn extract_unixname_from_author(author: &str) -> Option<&str> {
+    use std::sync::LazyLock;
+
+    use regex::RegexBuilder;
+
+    static AUTHOR_RE: LazyLock<Regex> = LazyLock::new(|| {
+        RegexBuilder::new(".*<(.+)@(.+)>")
+            .case_insensitive(true)
+            .build()
+            .expect("valid regex")
+    });
+
+    AUTHOR_RE
+        .captures(author)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str())
 }
 
 fn log_bypassed_changeset(
