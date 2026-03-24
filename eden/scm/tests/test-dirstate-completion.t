@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cd $TESTTMP
   $ setconfig 'format.dirstate=2'
@@ -17,27 +18,27 @@
   $ echo file3 > dira/file3
   $ echo file4 > dirb/file4
   $ echo file5 > dirb/file5
-  $ hg ci -q -Am base
+  $ sl ci -q -Am base
 
 # Test debugpathcomplete with just normal files
 
-  $ hg debugpathcomplete f
+  $ sl debugpathcomplete f
   file1
   file2
-  $ hg debugpathcomplete -f d
+  $ sl debugpathcomplete -f d
   dira/file3
   dirb/file4
   dirb/file5
 
 # Test debugpathcomplete with removed files
 
-  $ hg rm dirb/file5
-  $ hg debugpathcomplete -r d
+  $ sl rm dirb/file5
+  $ sl debugpathcomplete -r d
   dirb
-  $ hg debugpathcomplete -fr d
+  $ sl debugpathcomplete -fr d
   dirb/file5
-  $ hg rm dirb/file4
-  $ hg debugpathcomplete -n d
+  $ sl rm dirb/file4
+  $ sl debugpathcomplete -n d
   dira
 
 # Test debugpathcomplete with merges
@@ -52,8 +53,8 @@
   >   A     # C/filemerged = 2
   >         # D/filemerged = 12
   > EOS
-  $ hg up -q $D
-  $ hg debugpathcomplete f
+  $ sl up -q $D
+  $ sl debugpathcomplete f
   filemerged
   filenormal
   filep1

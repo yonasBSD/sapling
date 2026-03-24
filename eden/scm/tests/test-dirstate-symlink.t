@@ -5,6 +5,7 @@
 
 #require symlink no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ cd $TESTTMP
@@ -13,7 +14,7 @@
   $ mkdir a b
   $ touch a/x
 
-  $ hg ci -m init -A a/x
+  $ sl ci -m init -A a/x
 
 # Replace the directory with a symlink
 
@@ -23,16 +24,16 @@
 
 # "! a/x" should be shown, as it is implicitly removed
 
-  $ hg status
+  $ sl status
   ! a/x
   ? a
   ? b/x
 
-  $ hg ci -m rename -A .
+  $ sl ci -m rename -A .
   adding a
   removing a/x
   adding b/x
 
-# "a/x" should not show up in "hg status", even if it exists
+# "a/x" should not show up in "sl status", even if it exists
 
-  $ hg status
+  $ sl status

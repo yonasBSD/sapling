@@ -3,7 +3,8 @@
 
 
 
-  $ hg init repo
+  $ export HGIDENTITY=sl
+  $ sl init repo
   $ cd repo
   $ cat > a <<EOF
   > c
@@ -16,7 +17,7 @@
   > c
   > c
   > EOF
-  $ hg ci -Am adda
+  $ sl ci -Am adda
   adding a
 
   $ cat > a <<EOF
@@ -33,7 +34,7 @@
 
 default context
 
-  $ hg diff --nodates
+  $ sl diff --nodates
   diff -r cf9f4ba66af2 a
   --- a/a
   +++ b/a
@@ -49,12 +50,12 @@ default context
 
 invalid --unified
 
-  $ hg diff --nodates -U foo
+  $ sl diff --nodates -U foo
   abort: diff context lines count must be an integer, not 'foo'
   [255]
 
 
-  $ hg diff --nodates -U 2
+  $ sl diff --nodates -U 2
   diff -r cf9f4ba66af2 a
   --- a/a
   +++ b/a
@@ -66,7 +67,7 @@ invalid --unified
    a
    a
 
-  $ hg --config diff.unified=2 diff --nodates
+  $ sl --config diff.unified=2 diff --nodates
   diff -r cf9f4ba66af2 a
   --- a/a
   +++ b/a
@@ -78,7 +79,7 @@ invalid --unified
    a
    a
 
-  $ hg diff --nodates -U 1
+  $ sl diff --nodates -U 1
   diff -r cf9f4ba66af2 a
   --- a/a
   +++ b/a
@@ -90,13 +91,13 @@ invalid --unified
 
 invalid diff.unified
 
-  $ hg --config diff.unified=foo diff --nodates
+  $ sl --config diff.unified=foo diff --nodates
   abort: diff context lines count must be an integer, not 'foo'
   [255]
 
 noprefix config and option
 
-  $ hg --config diff.noprefix=True diff --nodates
+  $ sl --config diff.noprefix=True diff --nodates
   diff -r cf9f4ba66af2 a
   --- a
   +++ a
@@ -109,7 +110,7 @@ noprefix config and option
    a
    a
    c
-  $ hg diff --noprefix --nodates
+  $ sl diff --noprefix --nodates
   diff -r cf9f4ba66af2 a
   --- a
   +++ a
@@ -125,7 +126,7 @@ noprefix config and option
 
 noprefix config disabled in plain mode, but option still enabled
 
-  $ HGPLAIN=1 hg --config diff.noprefix=True diff --nodates
+  $ HGPLAIN=1 sl --config diff.noprefix=True diff --nodates
   diff -r cf9f4ba66af2 a
   --- a/a
   +++ b/a
@@ -138,7 +139,7 @@ noprefix config disabled in plain mode, but option still enabled
    a
    a
    c
-  $ HGPLAIN=1 hg diff --noprefix --nodates
+  $ HGPLAIN=1 sl diff --noprefix --nodates
   diff -r cf9f4ba66af2 a
   --- a
   +++ a
@@ -157,14 +158,14 @@ noprefix config disabled in plain mode, but option still enabled
 
 0 lines of context hunk header matches gnu diff hunk header
 
-  $ hg init diffzero
+  $ sl init diffzero
   $ cd diffzero
   $ cat > f1 << EOF
   > c2
   > c4
   > c5
   > EOF
-  $ hg commit -Am0
+  $ sl commit -Am0
   adding f1
 
   $ cat > f2 << EOF
@@ -174,7 +175,7 @@ noprefix config disabled in plain mode, but option still enabled
   > c4
   > EOF
   $ mv f2 f1
-  $ hg diff -U0 --nodates
+  $ sl diff -U0 --nodates
   diff -r 55d8ff78db23 f1
   --- a/f1
   +++ b/f1
@@ -185,7 +186,7 @@ noprefix config disabled in plain mode, but option still enabled
   @@ -3,1 +4,0 @@
   -c5
 
-  $ hg diff -U0 --nodates --git
+  $ sl diff -U0 --nodates --git
   diff --git a/f1 b/f1
   --- a/f1
   +++ b/f1
@@ -196,7 +197,7 @@ noprefix config disabled in plain mode, but option still enabled
   @@ -3,1 +4,0 @@
   -c5
 
-  $ hg diff -U0 --nodates -p
+  $ sl diff -U0 --nodates -p
   diff -r 55d8ff78db23 f1
   --- a/f1
   +++ b/f1
@@ -208,14 +209,14 @@ noprefix config disabled in plain mode, but option still enabled
   -c5
 
   $ echo a > f1
-  $ hg ci -m movef2
+  $ sl ci -m movef2
 
 Test diff headers terminating with TAB when necessary (issue3357)
 Regular diff --nodates, file creation
 
-  $ hg mv f1 'f 1'
+  $ sl mv f1 'f 1'
   $ echo b > 'f 1'
-  $ hg diff --nodates 'f 1'
+  $ sl diff --nodates 'f 1'
   diff -r 7574207d0d15 f 1
   --- /dev/null
   +++ b/f 1	
@@ -224,7 +225,7 @@ Regular diff --nodates, file creation
 
 Git diff, adding space
 
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/f1 b/f 1
   rename from f1
   rename to f 1
@@ -236,7 +237,7 @@ Git diff, adding space
 
 Git diff, adding extended headers
 
-  $ hg diff --git --config experimental.extendedheader.index=7 --config experimental.extendedheader.similarity=True
+  $ sl diff --git --config experimental.extendedheader.index=7 --config experimental.extendedheader.similarity=True
   diff --git a/f1 b/f 1
   similarity index 0%
   rename from f1
@@ -248,7 +249,7 @@ Git diff, adding extended headers
   -a
   +b
 
-  $ hg diff --git --config experimental.extendedheader.index=-1
+  $ sl diff --git --config experimental.extendedheader.index=-1
   invalid length for extendedheader.index: '-1'
   diff --git a/f1 b/f 1
   rename from f1
@@ -259,7 +260,7 @@ Git diff, adding extended headers
   -a
   +b
 
-  $ hg diff --git --config experimental.extendedheader.index=whatever
+  $ sl diff --git --config experimental.extendedheader.index=whatever
   invalid value for extendedheader.index: 'whatever'
   diff --git a/f1 b/f 1
   rename from f1
@@ -272,7 +273,7 @@ Git diff, adding extended headers
 
 Git diff with noprefix
 
-  $ hg --config diff.noprefix=True diff --git --nodates
+  $ sl --config diff.noprefix=True diff --git --nodates
   diff --git f1 f 1
   rename from f1
   rename to f 1
@@ -284,7 +285,7 @@ Git diff with noprefix
 
 noprefix config disabled in plain mode, but option still enabled
 
-  $ HGPLAIN=1 hg --config diff.noprefix=True diff --git --nodates
+  $ HGPLAIN=1 sl --config diff.noprefix=True diff --git --nodates
   diff --git a/f1 b/f 1
   rename from f1
   rename to f 1
@@ -293,7 +294,7 @@ noprefix config disabled in plain mode, but option still enabled
   @@ -1,1 +1,1 @@
   -a
   +b
-  $ HGPLAIN=1 hg diff --git --noprefix --nodates
+  $ HGPLAIN=1 sl diff --git --noprefix --nodates
   diff --git f1 f 1
   rename from f1
   rename to f 1
@@ -305,10 +306,10 @@ noprefix config disabled in plain mode, but option still enabled
 
 Regular diff --nodates, file deletion
 
-  $ hg ci -m addspace
-  $ hg mv 'f 1' f1
+  $ sl ci -m addspace
+  $ sl mv 'f 1' f1
   $ echo a > f1
-  $ hg diff --nodates 'f 1'
+  $ sl diff --nodates 'f 1'
   diff -r ca50fe67c9c7 f 1
   --- a/f 1	
   +++ /dev/null
@@ -317,7 +318,7 @@ Regular diff --nodates, file deletion
 
 Git diff, removing space
 
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/f 1 b/f1
   rename from f 1
   rename to f1
@@ -337,7 +338,7 @@ showfunc diff
   >     return a + b + c + d;
   > }
   > EOF
-  $ hg commit -m addfunction
+  $ sl commit -m addfunction
   $ cat > f1 << EOF
   > int main() {
   >     int a = 0;
@@ -347,7 +348,7 @@ showfunc diff
   >     return a + b + c + e;
   > }
   > EOF
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/f1 b/f1
   --- a/f1
   +++ b/f1
@@ -360,7 +361,7 @@ showfunc diff
   +    int e = 3;
   +    return a + b + c + e;
    }
-  $ hg diff --config diff.showfunc=True --git
+  $ sl diff --config diff.showfunc=True --git
   diff --git a/f1 b/f1
   --- a/f1
   +++ b/f1
@@ -376,7 +377,7 @@ showfunc diff
 
 If [diff] git is set to true, but the user says --no-git, we should
 *not* get git diffs
-  $ hg diff --nodates --config diff.git=1 --no-git
+  $ sl diff --nodates --config diff.git=1 --no-git
   diff -r f2c7c817fa55 f1
   --- a/f1
   +++ b/f1

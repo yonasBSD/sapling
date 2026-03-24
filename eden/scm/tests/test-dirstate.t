@@ -3,22 +3,23 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig format.dirstate=2
 
 ------ Test dirstate._dirs refcounting
 
-  $ hg init t
+  $ sl init t
   $ cd t
   $ mkdir -p a/b/c/d
   $ touch a/b/c/d/x
   $ touch a/b/c/d/y
   $ touch a/b/c/d/z
-  $ hg ci -Am m
+  $ sl ci -Am m
   adding a/b/c/d/x
   adding a/b/c/d/y
   adding a/b/c/d/z
-  $ hg mv a z
+  $ sl mv a z
   moving a/b/c/d/x to z/b/c/d/x
   moving a/b/c/d/y to z/b/c/d/y
   moving a/b/c/d/z to z/b/c/d/z
@@ -28,12 +29,12 @@ Test name collisions
   $ rm z/b/c/d/x
   $ mkdir z/b/c/d/x
   $ touch z/b/c/d/x/y
-  $ hg add z/b/c/d/x/y
+  $ sl add z/b/c/d/x/y
   abort: file 'z/b/c/d/x' in dirstate clashes with 'z/b/c/d/x/y'
   [255]
   $ rm -rf z/b/c/d
   $ touch z/b/c/d
-  $ hg add z/b/c/d
+  $ sl add z/b/c/d
   abort: directory 'z/b/c/d' already in dirstate
   [255]
 
@@ -44,19 +45,19 @@ the future
 
 Prepare test repo:
 
-  $ hg init u
+  $ sl init u
   $ cd u
   $ echo a > a
-  $ hg add
+  $ sl add
   adding a
-  $ hg ci -m1
+  $ sl ci -m1
 
 Test modulo storage/comparison of absurd dates:
 
 #if no-aix
   $ touch -t 195001011200 a
-  $ hg st
-  $ hg debugstate
+  $ sl st
+  $ sl debugstate
   n 644          2 2018-01-19 15:14:08 a
 #endif
 
@@ -78,36 +79,36 @@ coherent (issue4353)
   >     extensions.wrapfunction(dirstate.dirstate, 'setparents', raiseerror)
   > EOF
 
-  $ hg rm a
-  $ hg commit -m 'rm a'
-  $ echo "[extensions]" >> .hg/hgrc
-  $ echo "dirstateex=../dirstateexception.py" >> .hg/hgrc
-  $ hg up 'desc(1)'
+  $ sl rm a
+  $ sl commit -m 'rm a'
+  $ echo "[extensions]" >> .sl/config
+  $ echo "dirstateex=../dirstateexception.py" >> .sl/config
+  $ sl up 'desc(1)'
   abort: simulated error while recording dirstateupdates
   [255]
-  $ hg log -r . -T '{node}\n'
+  $ sl log -r . -T '{node}\n'
   dfda8c2e7522c4207035f267703c5f27af5a5bf7
-  $ hg status
+  $ sl status
   ? a
-  $ rm .hg/hgrc
+  $ rm .sl/config
 
 Verify that status reports deleted files correctly
-  $ hg add a
+  $ sl add a
   $ rm a
-  $ hg status
+  $ sl status
   ! a
-  $ hg diff
+  $ sl diff
 
 Dirstate should block addition of paths with relative parent components
-  $ hg up -C .
+  $ sl up -C .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ ls
-  $ hg debugsh -c "repo.dirstate.add('foo/../b')"
+  $ sl debugsh -c "repo.dirstate.add('foo/../b')"
   abort: cannot add path with relative parents: foo/../b
   [255]
   $ touch b
   $ mkdir foo
-  $ hg add foo/../b
-  $ hg commit -m "add b"
-  $ hg status --change .
+  $ sl add foo/../b
+  $ sl commit -m "add b"
+  $ sl status --change .
   A b

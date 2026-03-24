@@ -3,65 +3,66 @@
 
 test command parsing and dispatch
 
-  $ hg init a
+  $ export HGIDENTITY=sl
+  $ sl init a
   $ cd a
 
 Redundant options used to crash (issue436):
-  $ hg -v log -v
-  $ hg -v log -v x
+  $ sl -v log -v
+  $ sl -v log -v x
 
   $ echo a > a
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding a
 
 Missing arg:
 
-  $ hg cat
-  hg cat: invalid arguments
-  (use 'hg cat -h' to get help)
+  $ sl cat
+  sl cat: invalid arguments
+  (use 'sl cat -h' to get help)
   [255]
 
 Missing parameter for early option:
 
-  $ hg log -R 2>&1 | grep 'hg log'
-  hg log: option -R requires argument
-  (use 'hg log -h' to get help)
+  $ sl log -R 2>&1 | grep 'sl log'
+  sl log: option -R requires argument
+  (use 'sl log -h' to get help)
 
 "--" may be an option value:
 
-  $ hg -R -- log
+  $ sl -R -- log
   abort: repository -- not found!
   [255]
-  $ hg log -R --
+  $ sl log -R --
   abort: repository -- not found!
   [255]
-  $ hg log -T --
+  $ sl log -T --
   -- (no-eol)
-  $ hg log -T -- -k nomatch
+  $ sl log -T -- -k nomatch
 
 Parsing of early options should stop at "--":
 
-  $ hg debug-args -- --config=hooks.pre-cat=false
+  $ sl debug-args -- --config=hooks.pre-cat=false
   ["--config=hooks.pre-cat=false"]
-  $ hg debug-args -- --debugger
+  $ sl debug-args -- --debugger
   ["--debugger"]
 
 Unparsable form of early options:
 
-  $ hg cat --debugg
+  $ sl cat --debugg
   abort: option --debugger may not be abbreviated or used in aliases
   [255]
 
 Parsing failure of early options should be detected before executing the
 command:
 
-  $ hg log -b '--config=hooks.pre-log=false' default
+  $ sl log -b '--config=hooks.pre-log=false' default
   abort: option --config may not be abbreviated, used in aliases, or used as a value for another option
   [255]
-  $ hg log -b -R. default
+  $ sl log -b -R. default
   abort: option -R must appear alone, and --repository may not be abbreviated or used in aliases
   [255]
-  $ hg log --cwd .. -b --cwd=. default
+  $ sl log --cwd .. -b --cwd=. default
   abort: option --cwd may not be abbreviated or used in aliases
   [255]
 
@@ -70,65 +71,65 @@ However, we can't prevent it from loading extensions and configs:
   $ cat <<EOF > bad.py
   > raise Exception('bad')
   > EOF
-  $ hg log -b '--config=extensions.bad=bad.py' default
+  $ sl log -b '--config=extensions.bad=bad.py' default
   warning: extension bad is disabled because it cannot be imported from bad.py: bad
   abort: option --config may not be abbreviated, used in aliases, or used as a value for another option
   [255]
 
-  $ mkdir -p badrepo/.hg
-  $ touch badrepo/.hg/requires
-  $ echo 'invalid-syntax' > badrepo/.hg/hgrc
-  $ hg log -b -Rbadrepo default
-  hg: parse errors: "$TESTTMP/a/badrepo/.hg/hgrc":
+  $ mkdir -p badrepo/.sl
+  $ touch badrepo/.sl/requires
+  $ echo 'invalid-syntax' > badrepo/.sl/config
+  $ sl log -b -Rbadrepo default
+  sl: parse errors: "$TESTTMP/a/badrepo/.sl/config":
   line 1: expect '[section]' or 'name = value'
   
   [255]
 
 (XXX: Rust io::Error does not contain path information)
-  $ hg log -b --cwd=inexistent default
+  $ sl log -b --cwd=inexistent default
   abort: $ENOENT$
   [255]
 
-  $ hg log -b '--config=ui.traceback=yes' 2>&1 | grep '^Traceback'
+  $ sl log -b '--config=ui.traceback=yes' 2>&1 | grep '^Traceback'
   Traceback (most recent call last):
-  $ hg log -b '--config=profiling.enabled=yes' 2>&1 | grep '[Ss]ample'
+  $ sl log -b '--config=profiling.enabled=yes' 2>&1 | grep '[Ss]ample'
   Sample count: .*|No samples recorded\. (re)
 
 Early options can't be specified in [aliases] and [defaults] because they are
 applied before the command name is resolved:
 
-  $ hg log -b '--config=alias.log=log --config=hooks.pre-log=false'
+  $ sl log -b '--config=alias.log=log --config=hooks.pre-log=false'
   abort: option --config may not be abbreviated, used in aliases, or used as a value for another option
   [255]
 
-  $ hg log -b '--config=defaults.log=--config=hooks.pre-log=false'
+  $ sl log -b '--config=defaults.log=--config=hooks.pre-log=false'
   abort: option --config may not be abbreviated, used in aliases, or used as a value for another option
   [255]
 
 XXX: Should we support this?
 Shell aliases bypass any command parsing rules but for the early one:
 
-  $ hg log -b '--config=alias.log=!echo howdy'
+  $ sl log -b '--config=alias.log=!echo howdy'
   abort: option --config may not be abbreviated, used in aliases, or used as a value for another option
   [255]
 
 For compatibility reasons, HGPLAIN=+strictflags is not enabled by plain HGPLAIN:
 
-  $ HGPLAIN= hg log --config='hooks.pre-log=false' -b default
+  $ HGPLAIN= sl log --config='hooks.pre-log=false' -b default
   abort: pre-log hook exited with status 1
   [255]
-  $ HGPLAINEXCEPT= hg log --cwd .. -q -Ra -b default
+  $ HGPLAINEXCEPT= sl log --cwd .. -q -Ra -b default
   cb9a9f314b8b
 
 [defaults]
 
-  $ hg cat a
+  $ sl cat a
   a
   $ cat >> $HGRCPATH <<EOF
   > [defaults]
   > cat = -r null
   > EOF
-  $ hg cat a
+  $ sl cat a
   [1]
 
   $ cd "$TESTTMP"
@@ -136,7 +137,7 @@ For compatibility reasons, HGPLAIN=+strictflags is not enabled by plain HGPLAIN:
 OSError "No such file or directory" / "The system cannot find the path
 specified" should include filename even when it is empty
 
-  $ hg -R a archive ''
+  $ sl -R a archive ''
   abort:* (glob)
   [255]
 
@@ -144,7 +145,7 @@ specified" should include filename even when it is empty
 
 No repo:
 
-  $ hg cat
+  $ sl cat
   abort: '$TESTTMP' is not inside a repository, but this command requires a repository!
   (use 'cd' to go to a directory inside a repository and try again)
   [255]
@@ -164,7 +165,7 @@ The output could be one of the following and something else:
  abort: error getting current working directory: * (glob)
  sh: 0: getcwd() failed: $ENOENT$
 Since the exact behavior depends on the shell, only check it returns non-zero.
-  $ HGDEMANDIMPORT=disable hg version -q 2>/dev/null || false
+  $ HGDEMANDIMPORT=disable sl version -q 2>/dev/null || false
   [1]
 
 #endif

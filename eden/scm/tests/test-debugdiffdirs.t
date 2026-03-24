@@ -1,63 +1,64 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ newclientrepo
   $ touch file
-  $ hg commit -Aqm initial
+  $ sl commit -Aqm initial
   $ mkdir dir
   $ touch dir/foo
-  $ hg commit -Aqm dir-added
-  $ hg debugdiffdirs -r .^ -r .
+  $ sl commit -Aqm dir-added
+  $ sl debugdiffdirs -r .^ -r .
   A dir
 
   $ echo >> dir/foo
-  $ hg commit -Aqm file-modify
-  $ hg debugdiffdirs -r .^ -r .
+  $ sl commit -Aqm file-modify
+  $ sl debugdiffdirs -r .^ -r .
 
   $ touch dir/bar
-  $ hg commit -Aqm file-added
-  $ hg debugdiffdirs -r .^ -r .
+  $ sl commit -Aqm file-added
+  $ sl debugdiffdirs -r .^ -r .
   M dir
 
-  $ hg rm dir/bar
-  $ hg commit -Aqm file-removed
-  $ hg debugdiffdirs -r .^ -r .
+  $ sl rm dir/bar
+  $ sl commit -Aqm file-removed
+  $ sl debugdiffdirs -r .^ -r .
   M dir
 
   $ mkdir dir/nested
   $ touch dir/nested/poo
-  $ hg commit -Aqm nested-added
-  $ hg debugdiffdirs -r .^ -r .
+  $ sl commit -Aqm nested-added
+  $ sl debugdiffdirs -r .^ -r .
   M dir
   A dir/nested
 
-  $ hg rm dir/nested/poo
+  $ sl rm dir/nested/poo
   $ touch dir/nested
-  $ hg commit -Aqm nested-replaced
-  $ hg debugdiffdirs -r .^ -r .
+  $ sl commit -Aqm nested-replaced
+  $ sl debugdiffdirs -r .^ -r .
   M dir
   R dir/nested
 
-  $ hg rm dir/nested
+  $ sl rm dir/nested
   $ mkdir dir/nested
   $ touch dir/nested/poo
-  $ hg commit -Aqm nested-replaced-reverse
-  $ hg debugdiffdirs -r .^ -r .
+  $ sl commit -Aqm nested-replaced-reverse
+  $ sl debugdiffdirs -r .^ -r .
   M dir
   A dir/nested
 
-  $ hg rm dir/nested
+  $ sl rm dir/nested
   removing dir/nested/poo
-  $ hg commit -Aqm nested-removed
+  $ sl commit -Aqm nested-removed
 
-  $ hg rm dir/foo
-  $ hg commit -Aqm dir-removed
-  $ hg debugdiffdirs -r .^ -r .
+  $ sl rm dir/foo
+  $ sl commit -Aqm dir-removed
+  $ sl debugdiffdirs -r .^ -r .
   R dir
 
-  $ hg debugdiffdirs -r 'desc("file-removed")' -r .
+  $ sl debugdiffdirs -r 'desc("file-removed")' -r .
   R dir
 
-  $ hg debugdiffdirs -r 'desc("initial")' -r 'desc("file-removed")'
+  $ sl debugdiffdirs -r 'desc("initial")' -r 'desc("file-removed")'
   A dir
 
-  $ hg debugdiffdirs -r 'desc("initial")' -r .
+  $ sl debugdiffdirs -r 'desc("initial")' -r .

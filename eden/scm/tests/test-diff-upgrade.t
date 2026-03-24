@@ -1,10 +1,11 @@
 
 #require execbit no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig extensions.autodiff="$TESTDIR/autodiff.py" diff.nodates=1
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 
@@ -24,7 +25,7 @@ make a combination of new, changed and deleted file
   $ chmod +x unsetexec
   $ echo binary > binary
   $ printf '\0' > rmbinary
-  $ hg ci -Am addfiles
+  $ sl ci -Am addfiles
   adding binary
   adding bintoregular
   adding exec
@@ -50,7 +51,7 @@ make a combination of new, changed and deleted file
   $ printf '\0\0' > binary
   $ printf '\0' > newbinary
   $ rm rmbinary
-  $ hg addremove -s 0
+  $ sl addremove -s 0
   adding newbinary
   adding newempty
   adding newexec
@@ -62,7 +63,7 @@ make a combination of new, changed and deleted file
 
 git=no: regular diff for all files
 
-  $ hg autodiff --git=no
+  $ sl autodiff --git=no
   diff -r a66d19b9302d binary
   Binary file binary has changed
   diff -r a66d19b9302d bintoregular
@@ -106,7 +107,7 @@ git=no: regular diff for all files
 
 git=yes: git diff for single regular file
 
-  $ hg autodiff --git=yes regular
+  $ sl autodiff --git=yes regular
   diff --git a/regular b/regular
   --- a/regular
   +++ b/regular
@@ -116,7 +117,7 @@ git=yes: git diff for single regular file
 
 git=auto: regular diff for regular files and non-binary removals
 
-  $ hg autodiff --git=auto regular newregular rmregular rmexec
+  $ sl autodiff --git=auto regular newregular rmregular rmexec
   diff -r a66d19b9302d newregular
   --- /dev/null
   +++ b/newregular
@@ -142,7 +143,7 @@ git=auto: regular diff for regular files and non-binary removals
   $ for f in exec newexec setexec unsetexec binary newbinary newempty rmempty rmbinary bintoregular; do
   >     echo
   >     echo '% git=auto: git diff for' $f
-  >     hg autodiff --git=auto $f
+  >     sl autodiff --git=auto $f
   > done
   
   % git=auto: git diff for exec
@@ -216,7 +217,7 @@ git=auto: regular diff for regular files and non-binary removals
 
 git=warn: regular diff with data loss warnings
 
-  $ hg autodiff --git=warn
+  $ sl autodiff --git=warn
   diff -r a66d19b9302d binary
   Binary file binary has changed
   diff -r a66d19b9302d bintoregular
@@ -269,13 +270,13 @@ git=warn: regular diff with data loss warnings
 
 git=abort: fail on execute bit change
 
-  $ hg autodiff --git=abort regular setexec
+  $ sl autodiff --git=abort regular setexec
   abort: losing data for setexec
   [255]
 
 git=abort: succeed on regular file
 
-  $ hg autodiff --git=abort regular
+  $ sl autodiff --git=abort regular
   diff -r a66d19b9302d regular
   --- a/regular
   +++ b/regular

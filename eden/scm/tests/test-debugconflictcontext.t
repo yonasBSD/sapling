@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ enable rebase
 
   $ newclientrepo
@@ -13,15 +14,15 @@ $C also changes the file, but in a mergable way.
   > # drawdag.defaultfiles=false
   > EOS
 
-  $ hg rebase -r $D -d $C
+  $ sl rebase -r $D -d $C
   rebasing ab91ba867301 "D"
   merging foo
-  warning: 1 conflicts while merging foo! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging foo! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
 We correctly found "B" to be the commit that likely introduced the conflict:
-  $ hg debugconflictcontext | pp
+  $ sl debugconflictcontext | pp
   [
     {
       "conflicting_local": {
@@ -39,7 +40,7 @@ We correctly found "B" to be the commit that likely introduced the conflict:
   ]
 
 If full diff is too large, limit to just the particular file's diff (i.e. exclude the "bar" file):
-  $ hg debugconflictcontext --max-diff-size=512 | pp
+  $ sl debugconflictcontext --max-diff-size=512 | pp
   [
     {
       "conflicting_local": {

@@ -1,10 +1,11 @@
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=true
 
   $ newclientrepo
   $ echo foo > foo
   $ echo bar > bar
-  $ hg commit -Aqm foo
-  $ hg show
+  $ sl commit -Aqm foo
+  $ sl show
   commit:      591c6497fd99
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -27,9 +28,9 @@
   +foo
 
 
-  $ hg debugmakeexecutable foo
+  $ sl debugmakeexecutable foo
   marking foo as executable
-  $ hg show
+  $ sl show
   commit:      1ddc81eef199
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

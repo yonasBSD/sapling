@@ -7,15 +7,16 @@
 # GNU General Public License version 2.
 
 
+  $ export HGIDENTITY=sl
   $ disable amend
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
   > dirsync=
   > EOF
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [ui]
   > verbose=true
   > [dirsync]
@@ -28,7 +29,7 @@
   $ mkdir dir1
   $ echo a > dir1/a
   $ echo b > dir1/b
-  $ hg commit -Am 'Adding a and b'
+  $ sl commit -Am 'Adding a and b'
   adding dir1/a
   adding dir1/b
   mirrored adding 'dir1/a' to 'dir2/subdir/a'
@@ -41,7 +42,7 @@
   committing manifest
   committing changelog
   committed * (glob)
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/dir1/a b/dir1/a
   new file mode 100644
   --- /dev/null
@@ -71,7 +72,7 @@
 
   $ echo a >> dir1/a
   $ echo b >> dir1/b
-  $ hg commit --amend -I dir1/a
+  $ sl commit --amend -I dir1/a
   amending changeset * (glob)
   mirrored adding 'dir1/a' to 'dir2/subdir/a'
   committing files:
@@ -83,7 +84,7 @@
   committing changelog
   committed * (glob)
 
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/dir1/a b/dir1/a
   new file mode 100644
   --- /dev/null
@@ -112,7 +113,7 @@
   +b
 
   $ echo a >> dir1/a
-  $ hg commit --amend dir1/b
+  $ sl commit --amend dir1/b
   amending changeset * (glob)
   mirrored adding 'dir1/b' to 'dir2/subdir/b'
   committing files:
@@ -124,7 +125,7 @@
   committing changelog
   committed * (glob)
 
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/dir1/a b/dir1/a
   new file mode 100644
   --- /dev/null
@@ -157,7 +158,7 @@
 # Exclude changes to particular file
 
   $ echo b >> dir1/b
-  $ hg commit --amend -X dir1/a
+  $ sl commit --amend -X dir1/a
   amending changeset * (glob)
   mirrored adding 'dir1/b' to 'dir2/subdir/b'
   committing files:
@@ -168,7 +169,7 @@
   committing manifest
   committing changelog
   committed * (glob)
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/dir1/a b/dir1/a
   new file mode 100644
   --- /dev/null
@@ -204,7 +205,7 @@
 
   $ echo c > dir1/c
   $ rm dir1/a
-  $ hg commit --amend -A
+  $ sl commit --amend -A
   amending changeset * (glob)
   removing dir1/a
   adding dir1/c
@@ -219,7 +220,7 @@
   committing changelog
   committed * (glob)
 
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/dir1/b b/dir1/b
   new file mode 100644
   --- /dev/null

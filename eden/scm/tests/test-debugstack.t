@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig tweakdefaults.showupdated=true
 
@@ -19,7 +20,7 @@ Python test utils:
     def marks(args, stdin, stdout, fs, marks={}):
         """Maintains 'marks'. Can be used to get or set marks->hashes.
         Use 'marks :1 :2' to convert marks to hex hashes in JSON.
-        Use 'hg debugimportstack ... | marks' to track marks outputted from hg.
+        Use 'sl debugimportstack ... | marks' to track marks outputted from hg.
         Use 'hg ... | marks' to convert hex commit hashes back to marks.
         """
         import json
@@ -53,7 +54,7 @@ Test that various code paths in debugexportstack are exercised:
     from sapling.commands import debugstack
     with assertCovered(debugstack.debugexportstack, debugstack._export):
       # Regular export.
-      $ hg debugexportstack -r $B::$D | pprint
+      $ sl debugexportstack -r $B::$D | pprint
       [{'author': 'test', 'date': [0.0, 0], 'immutable': True, 'node': '983f771099bbf84b42d0058f027b47ede52f179a', 'relevantFiles': {'A': {'data': '1'}, 'B': None}, 'requested': False, 'text': 'A'},
        {'author': 'test',
         'date': [0.0, 0],
@@ -83,7 +84,7 @@ Test that various code paths in debugexportstack are exercised:
         'text': 'D'}]
 
       # Use "dataRef" for large files (file "D" in commit "D").
-      $ hg debugexportstack -r $B::$D --config experimental.exportstack-max-bytes=2B | pprint
+      $ sl debugexportstack -r $B::$D --config experimental.exportstack-max-bytes=2B | pprint
       [{'author': 'test', 'date': [0.0, 0], 'immutable': True, 'node': '983f771099bbf84b42d0058f027b47ede52f179a', 'relevantFiles': {'A': {'data': '1'}, 'B': None}, 'requested': False, 'text': 'A'},
        {'author': 'test',
         'date': [0.0, 0],
@@ -113,15 +114,15 @@ Test that various code paths in debugexportstack are exercised:
         'text': 'D'}]
 
       # Export the working copy.
-      $ hg go -q $D
+      $ sl go -q $D
       $ echo 3 > D
       $ echo X > X
       $ rm C
-      $ hg addremove -q X
-      $ hg mv B B1
+      $ sl addremove -q X
+      $ sl mv B B1
       $ echo F > F
       $ echo G > G
-      $ hg debugexportstack -r 'wdir()' --assume-tracked B1 --assume-tracked C --assume-tracked G | pprint
+      $ sl debugexportstack -r 'wdir()' --assume-tracked B1 --assume-tracked C --assume-tracked G | pprint
       [{'author': 'test',
         'date': [0.0, 0],
         'immutable': False,
@@ -150,7 +151,7 @@ Import stack:
     ):
       # Simple linear stack
         $ newrepo
-        $ hg debugimportstack << EOS | marks
+        $ sl debugimportstack << EOS | marks
         > [["commit", {"author": "test1", "date": [3600.1, 3600], "text": "A", "mark": ":1", "parents": ["."],
         >   "files": {"A": {"data": "A"}}}],
         >  ["commit", {"author": "test2", "date": [7200, 0], "text": "B", "mark": ":2", "parents": [":1"],
@@ -174,7 +175,7 @@ Import stack:
         $ cat C
         C1 (no-eol)
 
-        $ hg log -Gr 'all()' -T '{desc} {author} {date|isodate}'
+        $ sl log -Gr 'all()' -T '{desc} {author} {date|isodate}'
         @  C test3 1970-01-01 03:00 +0100
         │
         o  B test2 1970-01-01 02:00 +0000
@@ -183,7 +184,7 @@ Import stack:
 
       # Fold
 
-        $ hg debugimportstack << EOS | marks
+        $ sl debugimportstack << EOS | marks
         > [["commit", {"text": "D", "mark": ":4",
         >   "parents": [], "predecessors": `marks :1 :2 :3`, "operation": "fold",
         >   "files": {"D": {"data": "D"}}}],
@@ -194,20 +195,20 @@ Import stack:
         $ ls
         D
 
-        $ hg log -Gr 'all()' -T '{desc}'
+        $ sl log -Gr 'all()' -T '{desc}'
         @  D
 
-        $ hg debugmutation -r 'all()' | marks
+        $ sl debugmutation -r 'all()' | marks
          *  :4 fold by test at 1970-01-01T00:00:00 from:
             |-  :1
             |-  :2
             '-  :3
 
-        $ hg hide 'desc(D)' -q
+        $ sl hide 'desc(D)' -q
 
       # Split E -> [E1, E2, E3], and amend E -> E4, then reset
 
-        $ hg debugimportstack << EOS | marks
+        $ sl debugimportstack << EOS | marks
         > [["commit", {"text": "E", "mark": ":5"}],
         >  ["commit", {"text": "E1", "mark": ":5a", "predecessors": [":5"]}],
         >  ["commit", {"text": "E2", "mark": ":5b", "predecessors": [":5"], "parents": [":5a"]}],
@@ -223,7 +224,7 @@ Import stack:
 
       # E should be hidden.
 
-        $ hg log -Gr 'all()' -T '{desc}'
+        $ sl log -Gr 'all()' -T '{desc}'
         o  E4
         
         @  E3
@@ -237,7 +238,7 @@ Import stack:
       # E3 (:5c) should have "split into" information about E1 (:5a) and E2 (:5b).
       # E4 (:5c) should not have "split into" information.
 
-        $ hg debugmutation -r 'all()' | marks
+        $ sl debugmutation -r 'all()' | marks
          *  :5a
         
          *  :5b
@@ -250,27 +251,27 @@ Import stack:
 
       # Hide.
 
-        $ hg up -q 'bottom()'
-        $ hg debugimportstack << EOS | marks
+        $ sl up -q 'bottom()'
+        $ sl debugimportstack << EOS | marks
         > [["hide", {"nodes": `marks :5b :5c :5d`}]]
         > EOS
         {}
 
-        $ hg log -Gr 'all()' -T '{desc}'
+        $ sl log -Gr 'all()' -T '{desc}'
         @  E1
 
       # Refer to working copy content.
       # (add untracked file, add renamed file, delete file)
 
         $ echo content > x
-        $ hg debugimportstack << EOS | marks
+        $ sl debugimportstack << EOS | marks
         > [["commit", {"text": "F", "mark": ":6", "files": {"x": "."}}],
         >  ["goto", {"mark": ":6"}]]
         > EOS
         {":6": "d10c8b78105441f6dc32a7bbce4168ea9c65f1e1"}
 
-        $ hg mv x y
-        $ hg debugimportstack << EOS | marks
+        $ sl mv x y
+        $ sl debugimportstack << EOS | marks
         > [["commit", {"text": "G", "mark": ":7", "files": {"y": "."}, "parents": ["."]}],
         >  ["goto", {"mark": ":7"}]]
         > EOS
@@ -278,13 +279,13 @@ Import stack:
 
         $ rm y
 
-        $ hg debugimportstack << EOS | marks
+        $ sl debugimportstack << EOS | marks
         > [["commit", {"text": "H", "mark": ":8", "files": {"y": "."}, "parents": `marks :7`}],
         >  ["goto", {"mark": ":8"}]]
         > EOS
         {":8": "9d8fe7c75ea2d88aa6e3242283443a8904991ed7"}
 
-        $ hg log -p -T '{desc}\n' -fr . --config diff.git=true
+        $ sl log -p -T '{desc}\n' -fr . --config diff.git=true
         H
         diff --git a/y b/y
         deleted file mode 100644
@@ -308,31 +309,31 @@ Import stack:
 
       # Refer to working copy copyFrom.
 
-        $ hg mv x x1
-        $ hg debugimportstack << EOS | marks
+        $ sl mv x x1
+        $ sl debugimportstack << EOS | marks
         > [["commit", {"text": "I", "mark": ":9", "files": {"x1": {"data": "x1\n", "copyFrom": "."}}, "parents": `marks :8`}],
         >  ["goto", {"mark": ":9"}]]
         > EOS
         {":9": "f01615cc474d26aa1116ce3528c5d5f5f9651c89"}
 
-        $ hg status --copies --change .
+        $ sl status --copies --change .
         A x1
           x
-        $ hg cat -r . x1
+        $ sl cat -r . x1
         x1
 
       # Refer to working copy flags.
 
         if hasfeature("execbit"):
             # Add 'x' flag to 'x1'
-            $ hg debugimportstack << EOS | marks
+            $ sl debugimportstack << EOS | marks
             > [["commit", {"text": "J", "mark": ":10", "files": {"x1": {"data": "x1\n", "flags": "x", "copyFrom": "."}}, "parents": `marks :9`}],
             >  ["goto", {"mark": ":10"}]]
             > EOS
             {":10": "e78b6e74635f227cf2323f607a32a015c951d121"}
 
             # Reuse x1 flag from the working copy.
-            $ hg debugimportstack << EOS | marks
+            $ sl debugimportstack << EOS | marks
             > [["commit", {"text": "K", "mark": ":11", "files": {"x1": {"data": "x2\n", "flags": "."}}, "parents": `marks :10`}],
             >  ["goto", {"mark": ":11"}]]
             > EOS
@@ -340,14 +341,14 @@ Import stack:
 
             # Reuse x1 flag from the working copy parent, when x is deleted.
             $ rm x1
-            $ hg debugimportstack << EOS | marks
+            $ sl debugimportstack << EOS | marks
             > [["commit", {"text": "L", "mark": ":12", "files": {"x1": {"data": "x2\n", "flags": "."}}, "parents": `marks :11`}],
             >  ["goto", {"mark": ":12"}]]
             > EOS
             {":12": "435dcd38184bec24509ee35a54b89ce1e8e3314e"}
 
             # Check the 'x' flag is present on x1 in the above commits.
-            $ hg debugexportstack -r '.^+.' | pprint
+            $ sl debugexportstack -r '.^+.' | pprint
             [{'author': 'test', 'date': [0.0, 0], 'immutable': False, 'node': 'e78b6e74635f227cf2323f607a32a015c951d121', 'relevantFiles': {'x1': {'data': 'x1\n', 'flags': 'x'}}, 'requested': False, 'text': 'J'},
              {'author': 'test',
               'date': [0.0, 0],
@@ -369,7 +370,7 @@ Import stack:
             # Still exercise the code paths to get coverage test pass, but do not test the result.
             $ touch x2
             $ rm x1
-            $ hg debugimportstack > /dev/null << EOS
+            $ sl debugimportstack > /dev/null << EOS
             > [["commit", {"text": "J1", "mark": ":10.1", "files": {"x1": {"data": "x1\n", "flags": ".", "copyFrom": "."}, "x2": {"data": "x2\n", "flags": "."}}, "parents": `marks :9`}]]
             > EOS
 
@@ -380,8 +381,8 @@ Import stack:
         $ newrepo repo-write --config format.use-eager-repo=True
         $ echo 1 > a
         $ echo 3 > c
-        $ hg add c
-        $ hg debugimportstack << EOS
+        $ sl add c
+        $ sl debugimportstack << EOS
         > [["write", {"a": {"data": "2\n"}, "b": {"dataBase85": "GYS"}, "c": null}]]
         > EOS
         {}
@@ -395,18 +396,18 @@ Import stack:
         3
         <<<
         c: file not found
-        $ hg st  # no "A c" or "! c"
+        $ sl st  # no "A c" or "! c"
         ? a
         ? b
         >>> assert "c" not in _
-        $ hg commit -m 'Add a, b' -A a b
+        $ sl commit -m 'Add a, b' -A a b
 
-        $ hg rm a
-        $ hg debugimportstack << EOS
+        $ sl rm a
+        $ sl debugimportstack << EOS
         > [["write", {"a": {"data": "3\n"}}]]
         > EOS
         {}
-        $ hg st  # no "R a"
+        $ sl st  # no "R a"
         M a
         >>> assert "R a" not in _
 
@@ -417,25 +418,25 @@ Import stack:
         $ drawdag << 'EOS'
         > X-Y  # Y/X=X1
         > EOS
-        $ hg debugimportstack << EOS
+        $ sl debugimportstack << EOS
         > [["amend", {"node": "$Y", "mark": ":1", "text": "Y1", "files": {"Y": {"data": "Y1"}, "P": {"data": "P"}}}]]
         > EOS
         {":1": "8567a23e6951126a1fc726a73324ee76ff5ed2cc"}
-        $ hg log -Gr 'all()' -T '{desc}'
+        $ sl log -Gr 'all()' -T '{desc}'
         o  Y1
         │
         o  X
-        $ hg cat -r 'desc(Y)' P X Y
+        $ sl cat -r 'desc(Y)' P X Y
         PX1Y1 (no-eol)
 
       # Refer to working copy parent.
       # X is reverted from "XXX" to "X1"
       # Z is reverted from "Z" to "not found"
 
-        $ hg up -q 'desc(Y)'
+        $ sl up -q 'desc(Y)'
         $ echo XXX > X
         $ echo Z > Z
-        $ hg debugimportstack << EOS
+        $ sl debugimportstack << EOS
         > [["write", {"Z": ".", "X": "."}]]
         > EOS
         {}
@@ -451,14 +452,14 @@ Import stack:
         > X  # X/a.txt=content\n
         >    # X/c.txt=something\n
         > EOS
-        $ hg debugimportstack << EOS
+        $ sl debugimportstack << EOS
         > [["commit", {"author": "test1", "date": [3600, 3600], "text": "Y", "mark": ":1", "parents": ["$X"],
         >              "files": {"b.txt": {"dataRef": {"node": "$X", "path": "a.txt"}},
         >                        "c.txt": {"dataRef": {"node": "$X", "path": "missing"}}}}],
         >  ["goto", {"mark": ":1"}]]
         > EOS
         {":1": "*"} (glob)
-        $ hg cat -r . b.txt
+        $ sl cat -r . b.txt
         content
 
       # Work with dirsync.
@@ -488,25 +489,25 @@ Import stack:
 
       # Error cases.
 
-        $ hg debugimportstack << EOS
+        $ sl debugimportstack << EOS
         > [["foo", {}]]
         > EOS
         {"error": "unsupported action: ['foo', {}]"}
         [1]
 
-        $ hg debugimportstack << EOS
+        $ sl debugimportstack << EOS
         > not-json
         > EOS
         {"error": "commit info is invalid JSON (Expecting value: line 1 column 1 (char 0))"}
         [1]
 
-        $ hg debugimportstack << EOS
+        $ sl debugimportstack << EOS
         > [["commit", {"text": "x", "mark": "123"}]]
         > EOS
         {"error": "invalid mark: 123"}
         [1]
 
-        $ hg debugimportstack << EOS
+        $ sl debugimportstack << EOS
         > [["goto", {}]]
         > EOS
         {"error": "'mark'"}

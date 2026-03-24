@@ -1,6 +1,7 @@
 
 #require no-windows no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ mkdir -p a/b c/d/e c/f/g c/g
@@ -14,7 +15,7 @@
   $ echo '!g/' > c/.gitignore
   $ echo 'g/' > c/f/.gitignore
 
-  $ hg debugignore 1.pyc a/a1.pyc a/b/a10.pyc a/b/a2.pyc a/b/a2.py c/d/e/f c/d c/f/g/1/2 c/g/1/2 c/h/1
+  $ sl debugignore 1.pyc a/a1.pyc a/b/a10.pyc a/b/a2.pyc a/b/a2.py c/d/e/f c/d c/f/g/1/2 c/g/1/2 c/h/1
   1.pyc: ignored by rule *.pyc from .gitignore
   
   a/a1.pyc: ignored by rule *.pyc from .gitignore
@@ -49,21 +50,21 @@
 
   $ setconfig ui.ignore.1=$TESTTMP/globalignore
 
-  $ hg debugignore foo
+  $ sl debugignore foo
   foo: ignored by rule foo from $TESTTMP/globalignore
   
 Works with sparse checkouts as well.
   $ newrepo
   $ enable sparse
-  $ hg sparse include b
+  $ sl sparse include b
   $ touch a b c
   $ cat > .gitignore << EOF
   > a
   > EOF
-  $ hg debugignore a
+  $ sl debugignore a
   a: ignored by rule a from .gitignore
   
-  $ hg debugignore b
+  $ sl debugignore b
   b: not ignored
-  $ hg debugignore c
+  $ sl debugignore c
   c is not in sparse profile

@@ -9,6 +9,7 @@
     lexical_var_for_both = "hello"
 
 #if case1
+  $ export HGIDENTITY=sl
   $ echo in case1
   in case1
 
@@ -43,7 +44,7 @@ Make sure we can't see case1's variable.
   $ echo in shared test
   in shared test
 
-  $ hg init
+  $ sl init
 
 
 #if case1

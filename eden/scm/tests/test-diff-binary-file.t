@@ -2,30 +2,31 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
-  $ hg init a
+  $ sl init a
   $ cd a
   $ cp "$TESTDIR/binfile.bin" .
-  $ hg add binfile.bin
-  $ hg ci -m 'add binfile.bin'
+  $ sl add binfile.bin
+  $ sl ci -m 'add binfile.bin'
 
   $ echo >> binfile.bin
-  $ hg ci -m 'change binfile.bin'
+  $ sl ci -m 'change binfile.bin'
 
-  $ hg revert -r 'desc(add)' binfile.bin
-  $ hg ci -m 'revert binfile.bin'
-  $ hg cp binfile.bin nonbinfile
+  $ sl revert -r 'desc(add)' binfile.bin
+  $ sl ci -m 'revert binfile.bin'
+  $ sl cp binfile.bin nonbinfile
   $ echo text > nonbinfile
-  $ hg ci -m 'make non-binary copy of binary file'
+  $ sl ci -m 'make non-binary copy of binary file'
 
-  $ hg diff --nodates -r 0 -r 1
+  $ sl diff --nodates -r 0 -r 1
   diff -r 48b371597640 -r acea2ab458c8 binfile.bin
   Binary file binfile.bin has changed
 
-  $ hg diff --nodates -r 0 -r 2
+  $ sl diff --nodates -r 0 -r 2
 
-  $ hg diff --git -r 0 -r 1
+  $ sl diff --git -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   index 37ba3d1c6f17137d9c5f5776fa040caf5fe73ff9..58dc31a9e2f40f74ff3b45903f7d620b8e5b7356
   GIT binary patch
@@ -44,13 +45,13 @@
   gQItJW-{SoTm)8|5##k|m00000NkvXXu0mjf3JwksH2?qr
   
 
-  $ hg diff --git -r 0 -r 2
+  $ sl diff --git -r 0 -r 2
 
-  $ hg diff --config diff.nobinary=True --git -r 0 -r 1
+  $ sl diff --config diff.nobinary=True --git -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   Binary file binfile.bin has changed
 
-  $ HGPLAIN=1 hg diff --config diff.nobinary=True --git -r 0 -r 1
+  $ HGPLAIN=1 sl diff --config diff.nobinary=True --git -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   index 37ba3d1c6f17137d9c5f5776fa040caf5fe73ff9..58dc31a9e2f40f74ff3b45903f7d620b8e5b7356
   GIT binary patch
@@ -70,7 +71,7 @@
   
 
 
-  $ hg diff --git -r 2 -r 3
+  $ sl diff --git -r 2 -r 3
   diff --git a/binfile.bin b/nonbinfile
   copy from binfile.bin
   copy to nonbinfile
@@ -82,7 +83,7 @@
   $ cd ..
 
 Test text mode with extended git-style diff format
-  $ hg init b
+  $ sl init b
   $ cd b
   $ cat > writebin.py <<EOF
   > import sys
@@ -90,13 +91,13 @@ Test text mode with extended git-style diff format
   > _ = open(path, 'wb').write(b'\x00\x01\x02\x03')
   > EOF
   $ $PYTHON writebin.py binfile.bin
-  $ hg add binfile.bin
-  $ hg ci -m 'add binfile.bin'
+  $ sl add binfile.bin
+  $ sl ci -m 'add binfile.bin'
 
   $ echo >> binfile.bin
-  $ hg ci -m 'change binfile.bin'
+  $ sl ci -m 'change binfile.bin'
 
-  $ hg diff --git -a -r 0 -r 1
+  $ sl diff --git -a -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   --- a/binfile.bin
   +++ b/binfile.bin
@@ -105,7 +106,7 @@ Test text mode with extended git-style diff format
   \ No newline at end of file
   +\x00\x01\x02\x03 (esc)
 
-  $ HGPLAIN=1 hg diff --git -a -r 0 -r 1
+  $ HGPLAIN=1 sl diff --git -a -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   --- a/binfile.bin
   +++ b/binfile.bin
@@ -115,22 +116,22 @@ Test text mode with extended git-style diff format
   +\x00\x01\x02\x03 (esc)
 
 Test binary mode with extended git-style diff format
-  $ hg diff --no-binary -r 0 -r 1
+  $ sl diff --no-binary -r 0 -r 1
   diff -r fb45f71337ad -r 9ca112d1a3c1 binfile.bin
   Binary file binfile.bin has changed
 
-  $ hg diff --git --no-binary -r 0 -r 1
+  $ sl diff --git --no-binary -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   Binary file binfile.bin has changed
 
-  $ hg diff --git --binary -r 0 -r 1
+  $ sl diff --git --binary -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   index eaf36c1daccfdf325514461cd1a2ffbc139b5464..ba71a782e93f3fb63a428383706065e3ec2828e9
   GIT binary patch
   literal 5
   Mc${NkWMbw50018V5dZ)H
   
-  $ hg diff --git --binary --config diff.nobinary=True -r 0 -r 1
+  $ sl diff --git --binary --config diff.nobinary=True -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   index eaf36c1daccfdf325514461cd1a2ffbc139b5464..ba71a782e93f3fb63a428383706065e3ec2828e9
   GIT binary patch
@@ -138,7 +139,7 @@ Test binary mode with extended git-style diff format
   Mc${NkWMbw50018V5dZ)H
   
 
-  $ hg diff --git --binary --text -r 0 -r 1
+  $ sl diff --git --binary --text -r 0 -r 1
   diff --git a/binfile.bin b/binfile.bin
   --- a/binfile.bin
   +++ b/binfile.bin

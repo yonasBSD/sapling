@@ -7,22 +7,23 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo a > a
-  $ hg ci -Am t
+  $ sl ci -Am t
   adding a
 
-  $ hg mv a b
-  $ hg ci -Am t1
-  $ hg debugrename b
+  $ sl mv a b
+  $ sl ci -Am t1
+  $ sl debugrename b
   b renamed from a:b789fdd96dc2f3bd229c1dd8eedf0fc60e2b68e3
 
-  $ hg mv b a
-  $ hg ci -Am t2
-  $ hg debugrename a
+  $ sl mv b a
+  $ sl ci -Am t2
+  $ sl debugrename a
   a renamed from b:37d9b5d994eab34eda9c16b195ace52c7b129980
 
-  $ hg debugrename --rev 'desc(t1)' b
+  $ sl debugrename --rev 'desc(t1)' b
   b renamed from a:b789fdd96dc2f3bd229c1dd8eedf0fc60e2b68e3

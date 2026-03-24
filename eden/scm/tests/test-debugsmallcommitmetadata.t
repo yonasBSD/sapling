@@ -3,14 +3,15 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
 
   $ newserver master
   $ setconfig smallcommitmetadata.entrylimit=6
-  $ echo "a" > a ; hg add a ; hg commit -qAm a
-  $ echo "b" > b ; hg add b ; hg commit -qAm b
-  $ echo "c" > c ; hg add c ; hg commit -qAm c
-  $ hg log
+  $ echo "a" > a ; sl add a ; sl commit -qAm a
+  $ echo "b" > b ; sl add b ; sl commit -qAm b
+  $ echo "c" > c ; sl add c ; sl commit -qAm c
+  $ sl log
   commit:      177f92b77385
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -29,15 +30,15 @@
 
 
 Add some metadata
-  $ hg debugsmallcommitmetadata -r cb9a9f314b8b -c toomanyondisk willbetruncated
-  $ hg debugsmallcommitmetadata -r cb9a9f314b8b -c acategory avalue_willbeevicted
-  $ hg debugsmallcommitmetadata -r d2ae7f538514 -c bcategory bvalue
-  $ hg debugsmallcommitmetadata -r 177f92b77385 -c ccategory cvalue
-  $ hg debugsmallcommitmetadata -r cb9a9f314b8b -c abccategory avalue
-  $ hg debugsmallcommitmetadata -r d2ae7f538514 -c abccategory bvalue
+  $ sl debugsmallcommitmetadata -r cb9a9f314b8b -c toomanyondisk willbetruncated
+  $ sl debugsmallcommitmetadata -r cb9a9f314b8b -c acategory avalue_willbeevicted
+  $ sl debugsmallcommitmetadata -r d2ae7f538514 -c bcategory bvalue
+  $ sl debugsmallcommitmetadata -r 177f92b77385 -c ccategory cvalue
+  $ sl debugsmallcommitmetadata -r cb9a9f314b8b -c abccategory avalue
+  $ sl debugsmallcommitmetadata -r d2ae7f538514 -c abccategory bvalue
 
 Verify basic and JSON output:
-  $ hg debugsmallcommitmetadata
+  $ sl debugsmallcommitmetadata
   Found the following entries:
   cb9a9f314b8b toomanyondisk: 'willbetruncated'
   cb9a9f314b8b acategory: 'avalue_willbeevicted'
@@ -45,7 +46,7 @@ Verify basic and JSON output:
   177f92b77385 ccategory: 'cvalue'
   cb9a9f314b8b abccategory: 'avalue'
   d2ae7f538514 abccategory: 'bvalue'
-  $ hg debugsmallcommitmetadata --template json
+  $ sl debugsmallcommitmetadata --template json
   [
    {
     "category": "toomanyondisk",
@@ -81,17 +82,17 @@ Verify basic and JSON output:
 
 Verify that the limit is enforced properly.
   $ setconfig smallcommitmetadata.entrylimit=5
-  $ hg debugsmallcommitmetadata
+  $ sl debugsmallcommitmetadata
   Found the following entries:
   cb9a9f314b8b acategory: 'avalue_willbeevicted'
   d2ae7f538514 bcategory: 'bvalue'
   177f92b77385 ccategory: 'cvalue'
   cb9a9f314b8b abccategory: 'avalue'
   d2ae7f538514 abccategory: 'bvalue'
-  $ hg debugsmallcommitmetadata -r 177f92b77385 -c abccategory cvalue
+  $ sl debugsmallcommitmetadata -r 177f92b77385 -c abccategory cvalue
   Evicted the following entry to stay below limit:
   cb9a9f314b8b acategory: 'avalue_willbeevicted'
-  $ hg debugsmallcommitmetadata
+  $ sl debugsmallcommitmetadata
   Found the following entries:
   d2ae7f538514 bcategory: 'bvalue'
   177f92b77385 ccategory: 'cvalue'
@@ -100,45 +101,45 @@ Verify that the limit is enforced properly.
   177f92b77385 abccategory: 'cvalue'
 
 Verify that reads work correctly
-  $ hg debugsmallcommitmetadata -r d2ae7f538514 -c bcategory
+  $ sl debugsmallcommitmetadata -r d2ae7f538514 -c bcategory
   Found the following entry:
   d2ae7f538514 bcategory: 'bvalue'
-  $ hg debugsmallcommitmetadata -r cb9a9f314b8b
+  $ sl debugsmallcommitmetadata -r cb9a9f314b8b
   Found the following entries:
   cb9a9f314b8b abccategory: 'avalue'
-  $ hg debugsmallcommitmetadata -c ccategory
+  $ sl debugsmallcommitmetadata -c ccategory
   Found the following entries:
   177f92b77385 ccategory: 'cvalue'
-  $ hg debugsmallcommitmetadata -c abccategory
+  $ sl debugsmallcommitmetadata -c abccategory
   Found the following entries:
   cb9a9f314b8b abccategory: 'avalue'
   d2ae7f538514 abccategory: 'bvalue'
   177f92b77385 abccategory: 'cvalue'
 
 Verify that deletes work correctly
-  $ hg debugsmallcommitmetadata -d -r d2ae7f538514 -c bcategory
+  $ sl debugsmallcommitmetadata -d -r d2ae7f538514 -c bcategory
   Deleted the following entry:
   d2ae7f538514 bcategory: 'bvalue'
-  $ hg debugsmallcommitmetadata
+  $ sl debugsmallcommitmetadata
   Found the following entries:
   177f92b77385 ccategory: 'cvalue'
   cb9a9f314b8b abccategory: 'avalue'
   d2ae7f538514 abccategory: 'bvalue'
   177f92b77385 abccategory: 'cvalue'
-  $ hg debugsmallcommitmetadata -d -c abccategory
+  $ sl debugsmallcommitmetadata -d -c abccategory
   Deleted the following entries:
   cb9a9f314b8b abccategory: 'avalue'
   d2ae7f538514 abccategory: 'bvalue'
   177f92b77385 abccategory: 'cvalue'
-  $ hg debugsmallcommitmetadata
+  $ sl debugsmallcommitmetadata
   Found the following entries:
   177f92b77385 ccategory: 'cvalue'
-  $ hg debugsmallcommitmetadata -d -r 177f92b77385
+  $ sl debugsmallcommitmetadata -d -r 177f92b77385
   Deleted the following entries:
   177f92b77385 ccategory: 'cvalue'
-  $ hg debugsmallcommitmetadata
+  $ sl debugsmallcommitmetadata
   Found the following entries:
-  $ hg debugsmallcommitmetadata -d
+  $ sl debugsmallcommitmetadata -d
   Deleted the following entries:
-  $ hg debugsmallcommitmetadata
+  $ sl debugsmallcommitmetadata
   Found the following entries:

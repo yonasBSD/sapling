@@ -2,16 +2,17 @@
 #require no-eden
 
 #chg-compatible
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable smartlog
   $ disable commitcloud
 
-Test running hg without any arguments and various configs
-  $ hg | grep "These are some common"
-  These are some common Sapling commands.  Use 'hg help commands' to list all
+Test running sl without any arguments and various configs
+  $ sl | grep "These are some common"
+  These are some common Sapling commands.  Use 'sl help commands' to list all
   $ setconfig commands.naked-default.no-repo=sl
   $ setconfig commands.naked-default.in-repo=sl
-  $ hg
+  $ sl
   abort: '$TESTTMP' is not inside a repository, but this command requires a repository!
   (use 'cd' to go to a directory inside a repository and try again)
   [255]
@@ -22,7 +23,7 @@ Test running hg without any arguments and various configs
   > A
   > EOS
   $ setconfig commands.naked-default.in-repo=sl
-  $ hg
+  $ sl
   o  commit:      112478962961
   │  bookmark:    stable
   │  user:        test
@@ -37,11 +38,11 @@ Test running hg without any arguments and various configs
 
   $ touch something
   $ setconfig commands.naked-default.in-repo=status
-  $ hg
+  $ sl
   ? something
-  $ hg --verbose
+  $ sl --verbose
   ? something
-  $ hg --config commands.naked-default.in-repo=log
+  $ sl --config commands.naked-default.in-repo=log
   commit:      112478962961
   bookmark:    stable
   user:        test
@@ -57,16 +58,16 @@ Test running hg without any arguments and various configs
 
 Make sure passing either --help or --version, or using HGPLAIN does not trigger the default command
 
-  $ hg --version -q
+  $ sl --version -q
   Sapling * (glob)
-  $ hg --help | grep "These are some common"
-  These are some common Sapling commands.  Use 'hg help commands' to list all
-  $ HGPLAIN=true hg | grep "These are some common"
-  These are some common Sapling commands.  Use 'hg help commands' to list all
+  $ sl --help | grep "These are some common"
+  These are some common Sapling commands.  Use 'sl help commands' to list all
+  $ HGPLAIN=true sl | grep "These are some common"
+  These are some common Sapling commands.  Use 'sl help commands' to list all
 
 Test that when falling back due to --help it keeps the rest of the arguments
 
-  $ hg --help --time --pager never 2>&1 | grep time
+  $ sl --help --time --pager never 2>&1 | grep time
   time: real * secs * (glob)
 
 Make sure that running a command without the naked default config errors out outside of a repo:
@@ -77,19 +78,19 @@ Make sure that running a command without the naked default config errors out out
   > %unset naked-default.no-repo
   > EOF
   $ cd
-  $ hg
+  $ sl
   abort: '$TESTTMP' is not inside a repository, but this command requires a repository!
   (use 'cd' to go to a directory inside a repository and try again)
   [255]
 
 Naked command inside a repo without in-repo command config is an error:
   $ newclientrepo
-  $ hg
+  $ sl
   $ cat >> $HGRCPATH << EOF
   > [commands]
   > %unset naked-default.in-repo
   > EOF
-  $ hg | grep "These are some common"
+  $ sl | grep "These are some common"
   abort: missing command name
   (use 'sl help' to get help)
   [1]

@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ enable dirsync
 
   $ newclientrepo repo
@@ -11,7 +12,7 @@
   > foo.A = dirA
   > foo.B = dirB
   > EOF
-  $ hg commit -Aqm foo
+  $ sl commit -Aqm foo
 
     from pathlib import Path
     import json
@@ -19,7 +20,7 @@
     import os
     os.chdir("repo")
 
-    base = sheval("hg whereami")
+    base = sheval("sl whereami")
 
     ADD = "add"
     MODIFY = "modify"
@@ -57,14 +58,14 @@
             file.write_text("modified")
         elif initial == REMOVE:
             file = fileA
-            $ hg remove $(py file)
+            $ sl remove $(py file)
         elif initial == REVERT:
             # A revert only makes sense during the amend phase.
             continue
         else:
             raise ValueError(f"unknown initial action {initial}")
 
-        $ hg commit -Aqm foo
+        $ sl commit -Aqm foo
         $ mkdir dirA
 
         # Modify the file before the amend.
@@ -77,23 +78,23 @@
             new_state = "A" if initial == ADD else "M"
             new_content = file.read_text()
         elif amend == REMOVE:
-            $ hg rm $(py file)
+            $ sl rm $(py file)
 
             new_state = None if initial == ADD else "R"
             new_content = None
         elif amend == REVERT:
-            $ hg revert --rev $(py base) $(py file)
+            $ sl revert --rev $(py base) $(py file)
 
             new_state = None
             new_content = None if initial == ADD else original_content
         else:
             raise ValueError(f"unknown amend action {amend}")
 
-        $ hg amend -q --addremove
+        $ sl amend -q --addremove
 
         # Verify that the status for each file matches, and the
         # contents/existence matches.
-        status = json.loads(sheval("hg st -Tjson --change ."))
+        status = json.loads(sheval("sl st -Tjson --change ."))
         status = {d["path"]: d["status"] for d in status}
 
         other_file = Path("dirB/" + file.name)
@@ -115,7 +116,7 @@
             assert not other_file.exists()
 
         # Reset the working copy
-        $ hg hide -q .
+        $ sl hide -q .
 
   $ cat ~/out
   Initial Action: add, Amend Action: modify

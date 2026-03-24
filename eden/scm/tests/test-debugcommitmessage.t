@@ -8,6 +8,7 @@
 
 # Set up extension
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
@@ -16,30 +17,30 @@
 
 # Set up repo
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 # Test extension
 
-  $ hg debugcommitmessage
+  $ sl debugcommitmessage
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: no files changed
-  $ hg debugcommitmessage --config 'committemplate.changeset.commit.normal.normal=Test Specific Message\n'
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: no files changed
+  $ sl debugcommitmessage --config 'committemplate.changeset.commit.normal.normal=Test Specific Message\n'
   Test Specific Message
-  $ hg debugcommitmessage --config 'committemplate.changeset.commit=Test Generic Message\n'
+  $ sl debugcommitmessage --config 'committemplate.changeset.commit=Test Generic Message\n'
   Test Generic Message
-  $ hg debugcommitmessage commit.amend.normal --config 'committemplate.changeset.commit=Test Generic Message\n'
+  $ sl debugcommitmessage commit.amend.normal --config 'committemplate.changeset.commit=Test Generic Message\n'
   Test Generic Message
-  $ hg debugcommitmessage randomform --config 'committemplate.changeset.commit=Test Generic Message\n'
+  $ sl debugcommitmessage randomform --config 'committemplate.changeset.commit=Test Generic Message\n'
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: no files changed
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: no files changed

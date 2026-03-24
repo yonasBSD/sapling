@@ -1,11 +1,12 @@
 #require git no-eden
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig metalog.track-config=0
   $ newrepo
-  $ hg commit -m A --config ui.allowemptycommit=1
+  $ sl commit -m A --config ui.allowemptycommit=1
 
-  $ hg debugexportmetalog exported
+  $ sl debugexportmetalog exported
   metalog exported to git repo at exported
   use 'git checkout main' to get a working copy
   examples:

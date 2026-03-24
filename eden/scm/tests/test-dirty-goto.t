@@ -1,6 +1,7 @@
 #require no-eden
 
 First test uncommited changes that should not conflict
+  $ export HGIDENTITY=sl
   $ newclientrepo <<EOF
   > C
   > |
@@ -8,22 +9,22 @@ First test uncommited changes that should not conflict
   > |
   > A
   > EOF
-  $ hg go -q $C
+  $ sl go -q $C
   $ echo added > added
-  $ hg add added
+  $ sl add added
   $ echo modifiy > B
-  $ hg rm A
+  $ sl rm A
   $ touch untracked
 
-  $ hg st
+  $ sl st
   M B
   A added
   R A
   ? untracked
 
-  $ hg go -q $B
+  $ sl go -q $B
 
-  $ hg st
+  $ sl st
   M B
   A added
   R A
@@ -40,23 +41,23 @@ Then test --clean works for different types of conflicts
   > A  # A/removed =
   >    # A/changed =
   > EOF
-  $ hg go -q $B
+  $ sl go -q $B
   $ echo conflict > added1
   $ echo conflict > added2
-  $ hg add added2
+  $ sl add added2
   $ echo conflict > changed
   $ echo conflict > removed
   $ echo leaveme > added3
-  $ hg add added3
+  $ sl add added3
 
-  $ hg st
+  $ sl st
   M removed
   A added2
   A added3
   ? added1
   ? changed
 
-  $ hg go -q $C
+  $ sl go -q $C
   abort: 4 conflicting file changes:
    added1
    added2
@@ -65,7 +66,7 @@ Then test --clean works for different types of conflicts
   (commit, shelve, goto --clean to discard all your changes, or goto --merge to merge them)
   [255]
 
-  $ hg go -q -C $C
+  $ sl go -q -C $C
 
-  $ hg st
+  $ sl st
   ? added3

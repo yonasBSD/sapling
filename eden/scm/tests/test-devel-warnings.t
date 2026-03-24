@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newext buggylocking <<EOF
   > """A small extension that tests our developer warnings
@@ -82,57 +83,57 @@
 
   $ setconfig devel.all-warnings=1
 
-  $ hg init lock-checker
+  $ sl init lock-checker
   $ cd lock-checker
 #if no-fsmonitor
-  $ hg buggylocking
+  $ sl buggylocking
   devel-warn: "wlock" acquired after "lock" at: $TESTTMP/buggylocking.py:* (buggylocking) (glob)
   $ cat << EOF >> $HGRCPATH
   > [devel]
   > all=0
   > check-locks=1
   > EOF
-  $ hg buggylocking
+  $ sl buggylocking
   devel-warn: "wlock" acquired after "lock" at: $TESTTMP/buggylocking.py:* (buggylocking) (glob)
-  $ hg buggylocking --traceback 2>&1 | egrep '(devel-warn|buggylocking)'
+  $ sl buggylocking --traceback 2>&1 | egrep '(devel-warn|buggylocking)'
   devel-warn: "wlock" acquired after "lock" at:
    * (glob) (?)
    * (glob) (?)
    * (glob) (?)
 #endif
-  $ hg properlocking
-  $ hg nowaitlocking
+  $ sl properlocking
+  $ sl nowaitlocking
 
 Writing without lock (also uses bare repo.vfs)
 
-  $ hg no-wlock-write
+  $ sl no-wlock-write
   devel-warn: use of bare vfs instead of localvfs or sharedvfs at: $TESTTMP/buggylocking.py:* (nowlockwrite) (glob)
   devel-warn: write with no wlock: "branch" at: $TESTTMP/buggylocking.py:* (nowlockwrite) (glob)
 
-  $ hg no-lock-write
+  $ sl no-lock-write
   devel-warn: write with no lock: "fncache" at: * (glob)
 
 Stripping from a transaction
 
   $ echo a > a
-  $ hg add a
-  $ hg commit -m a
-  $ hg stripintr 2>&1 | egrep -v '^(\*\*|  )'
+  $ sl add a
+  $ sl commit -m a
+  $ sl stripintr 2>&1 | egrep -v '^(\*\*|  )'
   Traceback (most recent call last):
   *ProgrammingError: cannot strip from inside a transaction (glob)
 
-  $ hg oldanddeprecated
+  $ sl oldanddeprecated
   devel-warn: foorbar is deprecated, go shopping
   (compatibility will be dropped after Mercurial-42.1337, update your code.) at: $TESTTMP/buggylocking.py:* (oldanddeprecated) (glob)
 
-  $ hg oldanddeprecated --traceback 2>&1 | egrep '(buggylocking|devel-warn)'
+  $ sl oldanddeprecated --traceback 2>&1 | egrep '(buggylocking|devel-warn)'
   devel-warn: foorbar is deprecated, go shopping
    * (glob)
    * (glob) (?)
    * (glob) (?)
 
 #if no-chg normal-layout no-fsmonitor
-  $ hg blackbox --no-timestamp --no-sid --pattern '{"legacy_log":{"service":"develwarn"}}' | grep develwarn
+  $ sl blackbox --no-timestamp --no-sid --pattern '{"legacy_log":{"service":"develwarn"}}' | grep develwarn
   [legacy][develwarn] devel-warn: "wlock" acquired after "lock" at: $TESTTMP/buggylocking.py:12 (buggylocking)
   [legacy][develwarn] devel-warn: "wlock" acquired after "lock" at: $TESTTMP/buggylocking.py:12 (buggylocking)
   [legacy][develwarn] devel-warn: "wlock" acquired after "lock" at:
@@ -145,13 +146,13 @@ Stripping from a transaction
 
 Test programming error failure:
 
-  $ hg buggytransaction 2>&1 | egrep -v '^  '
+  $ sl buggytransaction 2>&1 | egrep -v '^  '
   ** * has crashed: (glob)
   ** ProgrammingError: transaction requires locking
   Traceback (most recent call last):
   *ProgrammingError: transaction requires locking (glob)
 
-  $ hg programmingerror 2>&1 | egrep -v '^  '
+  $ sl programmingerror 2>&1 | egrep -v '^  '
   ** * has crashed: (glob)
   ** ProgrammingError: something went wrong
   ** (try again)
@@ -161,13 +162,13 @@ Test programming error failure:
 #if bash no-chg
 Old style deprecation warning
 
-  $ hg nouiwarning
+  $ sl nouiwarning
   $TESTTMP/buggylocking.py:*: DeprecationWarning: this is a test (glob)
   (compatibility will be dropped after Mercurial-13.37, update your code.)
     util.nouideprecwarn('this is a test', '13.37')
 
 (disabled outside of test run)
 
-  $ HGEMITWARNINGS= hg nouiwarning
+  $ HGEMITWARNINGS= sl nouiwarning
 #endif
 

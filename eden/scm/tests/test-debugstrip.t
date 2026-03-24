@@ -3,47 +3,48 @@
 #require no-eden
 
 #inprocess-hg-incompatible
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ configure mutation-norecord
 
   $ setconfig format.usegeneraldelta=yes
 
   $ restore() {
-  >     hg unbundle -q .hg/strip-backup/*
-  >     rm .hg/strip-backup/*
+  >     sl unbundle -q .sl/strip-backup/*
+  >     rm .sl/strip-backup/*
   > }
   $ teststrip() {
-  >     hg up -C $1
+  >     sl up -C $1
   >     echo % before update $1, strip $2
-  >     hg parents
+  >     sl parents
   >     hg --traceback debugstrip $2
   >     echo % after update $1, strip $2
-  >     hg parents
+  >     sl parents
   >     restore
   > }
 
-  $ hg init test
+  $ sl init test
   $ cd test
 
   $ echo foo > bar
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding bar
 
   $ echo more >> bar
-  $ hg ci -Amb
+  $ sl ci -Amb
 
   $ echo blah >> bar
-  $ hg ci -Amc
+  $ sl ci -Amc
 
-  $ hg up 'desc(b)'
+  $ sl up 'desc(b)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo blah >> bar
-  $ hg ci -Amd
+  $ sl ci -Amd
 
   $ echo final >> bar
-  $ hg ci -Ame
+  $ sl ci -Ame
 
-  $ hg log
+  $ sl log
   commit:      443431ffac4f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -148,7 +149,7 @@
   % before update null, strip desc(c)
   % after update null, strip desc(c)
 
-  $ hg log
+  $ sl log
   commit:      443431ffac4f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -173,24 +174,24 @@
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     a
-  $ hg up -C 'desc(c)'
+  $ sl up -C 'desc(c)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg parents
+  $ sl parents
   commit:      264128213d29
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     c
   
 
-  $ hg --traceback debugstrip 'desc(c)'
+  $ sl --traceback debugstrip 'desc(c)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg parents
+  $ sl parents
   commit:      ef3a871183d7
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     b
   
-  $ hg debugbundle .hg/strip-backup/*
+  $ sl debugbundle .sl/strip-backup/*
   Stream params: {Compression: BZ}
   changegroup -- {nbchanges: 1, version: 02}
       264128213d290d868c54642d13aeaa3675551a78
@@ -199,12 +200,12 @@
   b2x:treegroup2 -- {cache: False, category: manifests, version: 1}
       1 data items, 1 history items
       812d56fc5e4133f1f57fc44bd22c6d9ea0810dcb 
-  $ hg unbundle .hg/strip-backup/*
+  $ sl unbundle .sl/strip-backup/*
   adding changesets
   adding manifests
   adding file changes
-  $ rm .hg/strip-backup/*
-  $ hg log --graph
+  $ rm .sl/strip-backup/*
+  $ sl log --graph
   o  commit:      443431ffac4f
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -229,15 +230,15 @@
      user:        test
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     a
-  $ hg up -C 'desc(d)'
+  $ sl up -C 'desc(d)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg merge 'desc(c)'
+  $ sl merge 'desc(c)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
 before strip of merge parent
 
-  $ hg parents
+  $ sl parents
   commit:      65bd5f99a4a3
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -248,12 +249,12 @@ before strip of merge parent
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     c
   
-  $ hg debugstrip 'desc(c)'
+  $ sl debugstrip 'desc(c)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 after strip of merge parent
 
-  $ hg parents
+  $ sl parents
   commit:      ef3a871183d7
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -261,9 +262,9 @@ after strip of merge parent
   
   $ restore
 
-  $ hg up 'desc(c)'
+  $ sl up 'desc(c)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg log -G
+  $ sl log -G
   o  commit:      443431ffac4f
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -291,8 +292,8 @@ after strip of merge parent
 
 2 is parent of 3, only one strip should happen
 
-  $ hg debugstrip "roots(desc(d))" 'desc(e)'
-  $ hg log -G
+  $ sl debugstrip "roots(desc(d))" 'desc(e)'
+  $ sl log -G
   @  commit:      264128213d29
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -309,7 +310,7 @@ after strip of merge parent
      summary:     a
   
   $ restore
-  $ hg log -G
+  $ sl log -G
   o  commit:      443431ffac4f
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -337,9 +338,9 @@ after strip of merge parent
   
 2 different branches: 2 strips
 
-  $ hg debugstrip 'desc(c)' 'desc(e)'
+  $ sl debugstrip 'desc(c)' 'desc(e)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg log -G
+  $ sl log -G
   o  commit:      65bd5f99a4a3
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -359,163 +360,163 @@ after strip of merge parent
 
 2 different branches and a common ancestor: 1 strip
 
-  $ hg debugstrip 'desc(b)' "desc(c)|desc(e)"
+  $ sl debugstrip 'desc(b)' "desc(c)|desc(e)"
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ restore
 
 stripping an empty revset
 
-  $ hg debugstrip "desc(b) and not desc(b)"
+  $ sl debugstrip "desc(b) and not desc(b)"
   abort: empty revision set
   [255]
 
 Strip adds, removes, modifies with --keep
 
   $ touch b
-  $ hg add b
-  $ hg commit -mb
+  $ sl add b
+  $ sl commit -mb
   $ touch c
 
 ... with a clean working dir
 
-  $ hg add c
-  $ hg rm bar
-  $ hg commit -mc
-  $ hg status
-  $ hg debugstrip --keep tip
-  $ hg status
+  $ sl add c
+  $ sl rm bar
+  $ sl commit -mc
+  $ sl status
+  $ sl debugstrip --keep tip
+  $ sl status
   ! bar
   ? c
 
 ... with a dirty working dir
 
-  $ hg add c
-  $ hg rm bar
-  $ hg commit -mc
-  $ hg status
+  $ sl add c
+  $ sl rm bar
+  $ sl commit -mc
+  $ sl status
   $ echo b > b
   $ echo d > d
-  $ hg debugstrip --keep tip
-  $ hg status
+  $ sl debugstrip --keep tip
+  $ sl status
   M b
   ! bar
   ? c
   ? d
 
 ... after updating the dirstate
-  $ hg add c
-  $ hg commit -mc
-  $ hg rm c
-  $ hg commit -mc
-  $ hg debugstrip --keep '.^' -q
+  $ sl add c
+  $ sl commit -mc
+  $ sl rm c
+  $ sl commit -mc
+  $ sl debugstrip --keep '.^' -q
   $ cd ..
 
 stripping many nodes on a complex graph (issue3299)
 
-  $ hg init issue3299
+  $ sl init issue3299
   $ cd issue3299
-  $ hg debugbuilddag -n '@a.:a@b.:b.:x<a@a.:a<b@b.:b<a@a.:a'
-  $ hg debugstrip 'not ancestors(x)'
+  $ sl debugbuilddag -n '@a.:a@b.:b.:x<a@a.:a<b@b.:b<a@a.:a'
+  $ sl debugstrip 'not ancestors(x)'
 
-test hg debugstrip -B bookmark
+test sl debugstrip -B bookmark
 
   $ cd ..
-  $ hg init bookmarks
+  $ sl init bookmarks
   $ cd bookmarks
-  $ hg debugbuilddag -n '..<2.*1/2:m<2+3:c<m+3:a<2.:b<m+2:d<2.:e<m+1:f'
-  $ hg bookmark -r 'a' 'todelete'
-  $ hg bookmark -r 'b' 'B'
-  $ hg bookmark -r 'b' 'nostrip'
-  $ hg bookmark -r 'c' 'delete'
-  $ hg bookmark -r 'd' 'multipledelete1'
-  $ hg bookmark -r 'e' 'multipledelete2'
-  $ hg bookmark -r 'f' 'singlenode1'
-  $ hg bookmark -r 'f' 'singlenode2'
-  $ hg book -d a b c d e f m
-  $ hg up -C todelete
+  $ sl debugbuilddag -n '..<2.*1/2:m<2+3:c<m+3:a<2.:b<m+2:d<2.:e<m+1:f'
+  $ sl bookmark -r 'a' 'todelete'
+  $ sl bookmark -r 'b' 'B'
+  $ sl bookmark -r 'b' 'nostrip'
+  $ sl bookmark -r 'c' 'delete'
+  $ sl bookmark -r 'd' 'multipledelete1'
+  $ sl bookmark -r 'e' 'multipledelete2'
+  $ sl bookmark -r 'f' 'singlenode1'
+  $ sl bookmark -r 'f' 'singlenode2'
+  $ sl book -d a b c d e f m
+  $ sl up -C todelete
   7 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark todelete)
-  $ hg debugstrip -B nostrip
+  $ sl debugstrip -B nostrip
   bookmark 'nostrip' deleted
   abort: empty revision set
   [255]
-  $ hg debugstrip -B todelete
+  $ sl debugstrip -B todelete
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   bookmark 'todelete' deleted
-  $ hg id -ir dcbb326fdec2
+  $ sl id -ir dcbb326fdec2
   abort: unknown revision 'dcbb326fdec2'!
   [255]
-  $ hg bookmarks
+  $ sl bookmarks
      B                         bde800a4ddec
      delete                    ff38c2200f49
      multipledelete1           287656a49854
      multipledelete2           003512c0aeac
      singlenode1               ffd3d95c59c8
      singlenode2               ffd3d95c59c8
-  $ hg debugstrip -B multipledelete1 -B multipledelete2
+  $ sl debugstrip -B multipledelete1 -B multipledelete2
   bookmark 'multipledelete1' deleted
   bookmark 'multipledelete2' deleted
-  $ hg id -ir e46a4836065c
+  $ sl id -ir e46a4836065c
   abort: unknown revision 'e46a4836065c'!
   [255]
-  $ hg id -ir b4594d867745
+  $ sl id -ir b4594d867745
   abort: unknown revision 'b4594d867745'!
   [255]
-  $ hg debugstrip -B singlenode1 -B singlenode2
+  $ sl debugstrip -B singlenode1 -B singlenode2
   bookmark 'singlenode1' deleted
   bookmark 'singlenode2' deleted
-  $ hg id -ir 43227190fef8
+  $ sl id -ir 43227190fef8
   abort: unknown revision '43227190fef8'!
   [255]
-  $ hg debugstrip -B unknownbookmark
+  $ sl debugstrip -B unknownbookmark
   abort: bookmark not found: 'unknownbookmark'
   [255]
-  $ hg debugstrip -B unknownbookmark1 -B unknownbookmark2
+  $ sl debugstrip -B unknownbookmark1 -B unknownbookmark2
   abort: bookmark not found: 'unknownbookmark1', 'unknownbookmark2'
   [255]
-  $ hg debugstrip -B delete -B unknownbookmark
+  $ sl debugstrip -B delete -B unknownbookmark
   abort: bookmark not found: 'unknownbookmark'
   [255]
-  $ hg debugstrip -B delete
+  $ sl debugstrip -B delete
   bookmark 'delete' deleted
-  $ hg id -ir 'desc(r10)':2702dd0c91e7
+  $ sl id -ir 'desc(r10)':2702dd0c91e7
   abort: unknown revision '2702dd0c91e7'!
   [255]
-  $ hg goto B
+  $ sl goto B
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark B)
   $ echo a > a
-  $ hg add a
-  $ hg debugstrip -B B
+  $ sl add a
+  $ sl debugstrip -B B
   abort: local changes found
   [255]
-  $ hg bookmarks
+  $ sl bookmarks
    * B                         bde800a4ddec
 
 Make sure no one adds back a -b option:
 
-  $ hg debugstrip -b tip
-  hg debugstrip: option -b not recognized
-  (use 'hg debugstrip -h' to get help)
+  $ sl debugstrip -b tip
+  sl debugstrip: option -b not recognized
+  (use 'sl debugstrip -h' to get help)
   [255]
 
   $ cd ..
 
 Verify bundles don't get overwritten:
 
-  $ hg init doublebundle
+  $ sl init doublebundle
   $ cd doublebundle
   $ touch a
-  $ hg commit -Aqm a
+  $ sl commit -Aqm a
   $ touch b
-  $ hg commit -Aqm b
-  $ hg debugstrip -r 'desc(a)'
+  $ sl commit -Aqm b
+  $ sl debugstrip -r 'desc(a)'
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ ls .hg/strip-backup
+  $ ls .sl/strip-backup
   3903775176ed-e68910bd-backup.hg
-  $ hg unbundle -q .hg/strip-backup/3903775176ed-e68910bd-backup.hg
-  $ hg debugstrip -r 'desc(a)'
-  $ ls .hg/strip-backup
+  $ sl unbundle -q .sl/strip-backup/3903775176ed-e68910bd-backup.hg
+  $ sl debugstrip -r 'desc(a)'
+  $ ls .sl/strip-backup
   3903775176ed-e68910bd-backup.hg
   $ cd ..
 
@@ -524,29 +525,29 @@ Test that we only bundle the stripped changesets (issue4736)
 
 initialization (previous repo is empty anyway)
 
-  $ hg init issue4736
+  $ sl init issue4736
   $ cd issue4736
   $ echo a > a
-  $ hg add a
-  $ hg commit -m commitA
+  $ sl add a
+  $ sl commit -m commitA
   $ echo b > b
-  $ hg add b
-  $ hg commit -m commitB
+  $ sl add b
+  $ sl commit -m commitB
   $ echo c > c
-  $ hg add c
-  $ hg commit -m commitC
-  $ hg up 'desc(commitB)'
+  $ sl add c
+  $ sl commit -m commitC
+  $ sl up 'desc(commitB)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo d > d
-  $ hg add d
-  $ hg commit -m commitD
-  $ hg up 'desc(commitC)'
+  $ sl add d
+  $ sl commit -m commitD
+  $ sl up 'desc(commitC)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg merge 'desc(commitD)'
+  $ sl merge 'desc(commitD)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg ci -m 'mergeCD'
-  $ hg log -G
+  $ sl ci -m 'mergeCD'
+  $ sl log -G
   @    commit:      d8db9d137221
   ├─╮  user:        test
   │ │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -575,9 +576,9 @@ initialization (previous repo is empty anyway)
 
 Check bundle behavior:
 
-  $ hg bundle -r 'desc(mergeCD)' --base 'desc(commitC)' ../issue4736.hg
+  $ sl bundle -r 'desc(mergeCD)' --base 'desc(commitC)' ../issue4736.hg
   2 changesets found
-  $ hg log -r 'bundle()' -R ../issue4736.hg
+  $ sl log -r 'bundle()' -R ../issue4736.hg
   commit:      6625a5168474
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -596,7 +597,7 @@ cannot easily express revset like "commitD::", and it uses something like
 "mergeCD % commitD". This should be fixed in the bundle / discovery logic,
 unrelated to strip.)
 
-  $ hg debugstrip 'desc(commitD)' --debug
+  $ sl debugstrip 'desc(commitD)' --debug
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   3 changesets found
   list of changesets:
@@ -607,7 +608,7 @@ unrelated to strip.)
   bundle2-output-part: "changegroup" (params: 1 mandatory 1 advisory) streamed payload
   bundle2-output-part: "phase-heads" 24 bytes payload
   bundle2-output-part: "b2x:treegroup2" (params: 3 mandatory) streamed payload
-  $ hg log -G
+  $ sl log -G
   o  commit:      5c51d8d6557d
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -626,7 +627,7 @@ unrelated to strip.)
 
 strip backup content
 
-  $ hg log -r 'bundle()' -R .hg/strip-backup/6625a5168474-*-backup.hg
+  $ sl log -r 'bundle()' -R .sl/strip-backup/6625a5168474-*-backup.hg
   commit:      5c51d8d6557d
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -663,26 +664,26 @@ Check that the phase cache is properly invalidated after a strip with bookmark.
   >     extensions.wrapfunction(localrepo.localrepository, "transaction",
   >                             transactioncallback)
   > EOF
-  $ hg up -C 'desc(commitC)'
+  $ sl up -C 'desc(commitC)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo k > k
-  $ hg add k
-  $ hg commit -m commitK
+  $ sl add k
+  $ sl commit -m commitK
   $ echo l > l
-  $ hg add l
-  $ hg commit -m commitL
-  $ hg book -r tip blah
-  $ hg debugstrip ".^" --config extensions.crash=$TESTTMP/stripstalephasecache.py
+  $ sl add l
+  $ sl commit -m commitL
+  $ sl book -r tip blah
+  $ sl debugstrip ".^" --config extensions.crash=$TESTTMP/stripstalephasecache.py
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg up -C 'desc(commitB)'
+  $ sl up -C 'desc(commitB)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
 Use delayedstrip to strip inside a transaction
 
   $ cd $TESTTMP
-  $ hg init delayedstrip
+  $ sl init delayedstrip
   $ cd delayedstrip
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   D
   >   |
   >   C F H    # Commit on top of "I",
@@ -693,7 +694,7 @@ Use delayedstrip to strip inside a transaction
   > EOS
   $ cp -R . ../scmutilcleanup
 
-  $ hg up -C I
+  $ sl up -C I
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark I)
   $ echo 3 >> I
@@ -713,10 +714,10 @@ Use delayedstrip to strip inside a transaction
   >                 repair.delayedstrip(ui, repo, getnodes('G+H+Z'), 'I')
   >                 commands.commit(ui, repo, message='J', date='0 0')
   > EOF
-  $ hg testdelayedstrip --config extensions.t=$TESTTMP/delayedstrip.py
+  $ sl testdelayedstrip --config extensions.t=$TESTTMP/delayedstrip.py
   warning: orphaned descendants detected, not stripping 08ebfeb61bac, 112478962961, 7fb047a69f22
 
-  $ hg log -G -T '{node|short} {desc}' -r 'sort(all(), topo)'
+  $ sl log -G -T '{node|short} {desc}' -r 'sort(all(), topo)'
   @  2f2d51af6205 J
   │
   o  08ebfeb61bac I
@@ -734,17 +735,17 @@ Use delayedstrip to strip inside a transaction
 Test high-level scmutil.cleanupnodes API
 
   $ cd $TESTTMP/scmutilcleanup
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   D2  F2  G2   # D2, F2, G2 are replacements for D, F, G
   >   |   |   |
   >   C   H   G
   > EOS
   $ for i in B C D F G I Z; do
-  >     hg bookmark -i -r $i b-$i
+  >     sl bookmark -i -r $i b-$i
   > done
-  $ hg bookmark -i -r E 'b-F@divergent1'
-  $ hg bookmark -i -r H 'b-F@divergent2'
-  $ hg bookmark -i -r G 'b-F@divergent3'
+  $ sl bookmark -i -r E 'b-F@divergent1'
+  $ sl bookmark -i -r H 'b-F@divergent2'
+  $ sl bookmark -i -r G 'b-F@divergent3'
   $ cp -R . ../scmutilcleanup.obsstore
 
   $ cat > $TESTTMP/scmutilcleanup.py <<EOF
@@ -766,9 +767,9 @@ Test high-level scmutil.cleanupnodes API
   >                 scmutil.cleanupnodes(repo, mapping, 'replace')
   >                 scmutil.cleanupnodes(repo, nodes('((B::)+I+Z)-D2'), 'replace')
   > EOF
-  $ hg testnodescleanup --config extensions.t=$TESTTMP/scmutilcleanup.py
+  $ sl testnodescleanup --config extensions.t=$TESTTMP/scmutilcleanup.py
 
-  $ hg log -G -T '{node|short} {desc} {bookmarks}' -r 'sort(all(), topo)'
+  $ sl log -G -T '{node|short} {desc} {bookmarks}' -r 'sort(all(), topo)'
   o  d11b3456a873 F2 F F2 b-F
   │
   o    5cb05ba470a7 H H
@@ -786,7 +787,7 @@ Test high-level scmutil.cleanupnodes API
   o │  112478962961 B
   ├─╯
   o  426bada5c675 A A B C I b-B b-C b-I
-  $ hg bookmark
+  $ sl bookmark
      A                         426bada5c675
      B                         426bada5c675
      C                         426bada5c675

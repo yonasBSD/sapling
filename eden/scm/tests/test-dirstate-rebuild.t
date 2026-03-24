@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ shorttraceback
   $ newrepo
@@ -11,7 +12,7 @@
   > A
   > EOS
 
-  $ hg up -q $B
+  $ sl up -q $B
 
 Dirstate rebuild should work with a broken dirstate
 
@@ -19,26 +20,26 @@ Broken by having an incomplete p2
 
   $ enable blackbox
 # Assign to 'x' to hide the return value output in Python 3
-  >>> x = open('.hg/dirstate', 'a').truncate(25)
-  $ hg debugrebuilddirstate
+  >>> x = open('.sl/dirstate', 'a').truncate(25)
+  $ sl debugrebuilddirstate
   warning: failed to inspect working copy parent
-  $ hg log -r . -T '{desc}\n'
+  $ sl log -r . -T '{desc}\n'
   B
 
 Broken by deleting the tree
 
-  $ rm -rf .hg/treestate
-  $ hg debugrebuilddirstate
+  $ rm -rf .sl/treestate
+  $ sl debugrebuilddirstate
   warning: failed to inspect working copy parent
   warning: failed to inspect working copy parent (?)
-  $ hg log -r . -T '{desc}\n'
+  $ sl log -r . -T '{desc}\n'
   B
 
 Dirstate rebuild should work with sparse
 
   $ enable sparse
-  $ hg sparse -I A
-  $ rm .hg/dirstate
-  $ hg debugrebuilddirstate -r $B
-  $ hg log -r . -T '{desc}\n'
+  $ sl sparse -I A
+  $ rm .sl/dirstate
+  $ sl debugrebuilddirstate -r $B
+  $ sl log -r . -T '{desc}\n'
   B

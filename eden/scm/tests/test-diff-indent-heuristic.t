@@ -2,8 +2,9 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init
+  $ sl init
 
   $ cat > a.c <<'EOF'
   > /*
@@ -78,7 +79,7 @@ The below two files are taken from git: t/t4061-diff-indent.sh
   > 4
   > EOF
 
-  $ hg commit -m 1 -A . -q
+  $ sl commit -m 1 -A . -q
 
   $ cat > a.c <<'EOF'
   > /*
@@ -164,7 +165,7 @@ The below two files are taken from git: t/t4061-diff-indent.sh
   > 4
   > EOF
 
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/a.c b/a.c
   --- a/a.c
   +++ b/a.c

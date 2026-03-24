@@ -7,9 +7,10 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ cat > a << 'EOF'
@@ -17,7 +18,7 @@
   > b
   > c
   > EOF
-  $ hg ci -Am adda
+  $ sl ci -Am adda
   adding a
 
   $ cat > a << 'EOF'
@@ -25,9 +26,9 @@
   > e
   > f
   > EOF
-  $ hg ci -m moda
+  $ sl ci -m moda
 
-  $ hg diff --reverse -r0 -r1
+  $ sl diff --reverse -r0 -r1
   diff -r 2855cdcfcbb7 -r 8e1805a3cf6e a
   --- a/a	Thu Jan 01 00:00:00 1970 +0000
   +++ b/a	Thu Jan 01 00:00:00 1970 +0000
@@ -43,7 +44,7 @@
   > g
   > h
   > EOF
-  $ hg diff --reverse --nodates
+  $ sl diff --reverse --nodates
   diff -r 2855cdcfcbb7 a
   --- a/a
   +++ b/a
@@ -56,9 +57,9 @@
 
 # should show removed file 'a' as being added
 
-  $ hg revert a
-  $ hg rm a
-  $ hg diff --reverse --nodates a
+  $ sl revert a
+  $ sl rm a
+  $ sl diff --reverse --nodates a
   diff -r 2855cdcfcbb7 a
   --- /dev/null
   +++ b/a
@@ -70,8 +71,8 @@
 # should show added file 'b' as being removed
 
   $ echo b >> b
-  $ hg add b
-  $ hg diff --reverse --nodates b
+  $ sl add b
+  $ sl diff --reverse --nodates b
   diff -r 2855cdcfcbb7 b
   --- a/b
   +++ /dev/null

@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ drawdag << 'EOS'
@@ -18,7 +19,7 @@
 
 # Print paths:
 
-  $ hg debugdifftree -r "$A" -r "$B"
+  $ sl debugdifftree -r "$A" -r "$B"
   M A
   A B
   A dir/B
@@ -27,7 +28,7 @@
 
 # JSON output:
 
-  $ hg debugdifftree -r $A -r $B -Tjson
+  $ sl debugdifftree -r $A -r $B -Tjson
   [
    {
     "newflags": "",
@@ -73,7 +74,7 @@
 
 # With path matcher:
 
-  $ hg debugdifftree -r null -r "$B" -Tjson dir
+  $ sl debugdifftree -r null -r "$B" -Tjson dir
   [
    {
     "newflags": "",

@@ -2,10 +2,11 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Terse output:
 
-  $ hg debugbundle "$TESTDIR/bundles/bx2rebase.hg"
+  $ sl debugbundle "$TESTDIR/bundles/bx2rebase.hg"
   Stream params: {preloadmanifests: 58035ddbe291fb4575460ad41f75f34494c48649}
   replycaps -- {}
   b2x:commonheads -- {}
@@ -18,7 +19,7 @@ Terse output:
 
 Verbose output:
 
-  $ hg debugbundle --all "$TESTDIR/bundles/bx2rebase.hg"
+  $ sl debugbundle --all "$TESTDIR/bundles/bx2rebase.hg"
   Stream params: {preloadmanifests: 58035ddbe291fb4575460ad41f75f34494c48649}
   replycaps -- {}
   b2x:commonheads -- {}

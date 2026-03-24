@@ -6,13 +6,14 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
-  $ hg d
+  $ sl d
 
-  $ hg di --config alias.did=root
+  $ sl di --config alias.did=root
 
-  $ hg debugf
+  $ sl debugf
   unknown command 'debugf'
-  (use 'hg help' to get help)
+  (use 'sl help' to get help)
   [255]

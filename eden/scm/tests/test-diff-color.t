@@ -2,12 +2,13 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Setup
 
   $ setconfig ui.color=always ui.paginate=never
   $ setconfig color.mode=ansi
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ cat > a <<EOF
   > c
@@ -20,7 +21,7 @@ Setup
   > c
   > c
   > EOF
-  $ hg ci -Am adda
+  $ sl ci -Am adda
   adding a
   $ cat > a <<EOF
   > c
@@ -36,7 +37,7 @@ Setup
 
 default context
 
-  $ hg diff --nodates
+  $ sl diff --nodates
   \x1b[0m\x1b[1mdiff -r cf9f4ba66af2 a\x1b[0m (esc)
   \x1b[0m\x1b[1m\x1b[31m--- a/a\x1b[0m (esc)
   \x1b[0m\x1b[1m\x1b[32m+++ b/a\x1b[0m (esc)
@@ -52,7 +53,7 @@ default context
 
 (check that 'ui.color=yes' match '--color=auto')
 
-  $ hg diff --nodates --config ui.color=yes
+  $ sl diff --nodates --config ui.color=yes
   diff -r cf9f4ba66af2 a
   --- a/a
   +++ b/a
@@ -68,7 +69,7 @@ default context
 
 (check that 'ui.color=no' disable color)
 
-  $ hg diff --nodates --config ui.color=no
+  $ sl diff --nodates --config ui.color=no
   diff -r cf9f4ba66af2 a
   --- a/a
   +++ b/a
@@ -84,7 +85,7 @@ default context
 
 (check that 'ui.color=always' force color)
 
-  $ hg diff --nodates --config ui.color=always
+  $ sl diff --nodates --config ui.color=always
   \x1b[0m\x1b[1mdiff -r cf9f4ba66af2 a\x1b[0m (esc)
   \x1b[0m\x1b[1m\x1b[31m--- a/a\x1b[0m (esc)
   \x1b[0m\x1b[1m\x1b[32m+++ b/a\x1b[0m (esc)
@@ -100,7 +101,7 @@ default context
 
 --unified=2
 
-  $ hg diff --nodates -U 2
+  $ sl diff --nodates -U 2
   \x1b[0m\x1b[1mdiff -r cf9f4ba66af2 a\x1b[0m (esc)
   \x1b[0m\x1b[1m\x1b[31m--- a/a\x1b[0m (esc)
   \x1b[0m\x1b[1m\x1b[32m+++ b/a\x1b[0m (esc)
@@ -114,7 +115,7 @@ default context
 
 diffstat
 
-  $ hg diff --stat
+  $ sl diff --stat
    a |  2 \x1b[32m+\x1b[39m\x1b[31m-\x1b[39m (esc)
    1 files changed, 1 insertions(+), 1 deletions(-)
   $ cat <<EOF >> $HGRCPATH
@@ -126,7 +127,7 @@ diffstat
 
 test inline color diff
 
-  $ hg init inline
+  $ sl init inline
   $ cd inline
   $ cat > file1 << EOF
   > this is the first line
@@ -146,8 +147,8 @@ test inline color diff
   > collapse onto one
   > (to see if it works)
   > EOF
-  $ hg add file1
-  $ hg ci -m 'commit'
+  $ sl add file1
+  $ sl ci -m 'commit'
 
   $ cat > file1 << EOF
   > that is the first paragraph
@@ -168,7 +169,7 @@ test inline color diff
   > three of those lines have
   > collapsed onto one
   > EOF
-  $ hg diff --config experimental.worddiff=False --color=debug
+  $ sl diff --config experimental.worddiff=False --color=debug
   [diff.diffline|diff --git a/file1 b/file1]
   [diff.file_a|--- a/file1]
   [diff.file_b|+++ b/file1]
@@ -201,7 +202,7 @@ test inline color diff
   [diff.deleted|-(to see if it works)]
   [diff.inserted|+three of those lines have]
   [diff.inserted|+collapsed onto one]
-  $ hg diff --config experimental.worddiff=True --color=debug
+  $ sl diff --config experimental.worddiff=True --color=debug
   [diff.diffline|diff --git a/file1 b/file1]
   [diff.file_a|--- a/file1]
   [diff.file_b|+++ b/file1]
@@ -241,14 +242,14 @@ multibyte character shouldn't be broken up in word diff:
   > with open("utf8", "wb") as f:
   >     f.write(b"blah \xe3\x82\xa2 blah\n")
   > EOF
-  $ hg ci -Am 'add utf8 char' utf8
+  $ sl ci -Am 'add utf8 char' utf8
   $ $PYTHON <<'EOF'
   > with open("utf8", "wb") as f:
   >     f.write(b"blah \xe3\x82\xa4 blah\n")
   > EOF
-  $ hg ci -m 'slightly change utf8 char' utf8
+  $ sl ci -m 'slightly change utf8 char' utf8
 
-  $ hg diff --config experimental.worddiff=True --color=debug -c.
+  $ sl diff --config experimental.worddiff=True --color=debug -c.
   [diff.diffline|diff --git a/utf8 b/utf8]
   [diff.file_a|--- a/utf8]
   [diff.file_b|+++ b/utf8]
@@ -258,7 +259,7 @@ multibyte character shouldn't be broken up in word diff:
 
 word diff is disabled if HGPLAIN=1
 
-  $ HGPLAIN=1 hg diff --config experimental.worddiff=True --color=debug -c.
+  $ HGPLAIN=1 sl diff --config experimental.worddiff=True --color=debug -c.
   diff --git a/utf8 b/utf8
   --- a/utf8
   +++ b/utf8
@@ -275,15 +276,15 @@ test trailing spaces color diff
   > this is the first line
   > this is the second line
   > EOF
-  $ hg add file1
-  $ hg ci -m 'commit'
+  $ sl add file1
+  $ sl ci -m 'commit'
 
   $ cat > file1 << EOF
   > this is the first line
   > this is the second line 
   > EOF
 the second line should end with diff.trailingwhitespace
-  $ hg diff --config experimental.worddiff=True --color=debug
+  $ sl diff --config experimental.worddiff=True --color=debug
   [diff.diffline|diff --git a/file1 b/file1]
   [diff.file_a|--- a/file1]
   [diff.file_b|+++ b/file1]

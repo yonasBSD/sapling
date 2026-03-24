@@ -1,5 +1,6 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig diff.git=1
 
@@ -11,7 +12,7 @@
 
 Test what said in drawdag.py docstring
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > c d
   > |/
   > b
@@ -19,7 +20,7 @@ Test what said in drawdag.py docstring
   > a
   > EOS
 
-  $ hg log -G -T '{desc} ({bookmarks})'
+  $ sl log -G -T '{desc} ({bookmarks})'
   o  d (d)
   │
   │ o  c (c)
@@ -28,13 +29,13 @@ Test what said in drawdag.py docstring
   │
   o  a (a)
   
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >  foo    bar       bar  foo
   >   |     /          |    |
   >  ancestor(c,d)     a   baz
   > EOS
 
-  $ hg log -G -T '{desc}'
+  $ sl log -G -T '{desc}'
   o    foo
   ├─╮
   │ │ o  bar
@@ -51,7 +52,7 @@ Test what said in drawdag.py docstring
   
   $ reinit
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > foo
   > |\
   > | | d
@@ -67,7 +68,7 @@ Test what said in drawdag.py docstring
   > baz
   > EOS
 
-  $ hg log -G -T '{desc}'
+  $ sl log -G -T '{desc}'
   o    foo
   ├─╮
   │ │ o  d
@@ -82,15 +83,15 @@ Test what said in drawdag.py docstring
     │
     o  a
   
-  $ hg manifest -r a
+  $ sl manifest -r a
   a
-  $ hg manifest -r b
-  a
-  b
-  $ hg manifest -r bar
+  $ sl manifest -r b
   a
   b
-  $ hg manifest -r foo
+  $ sl manifest -r bar
+  a
+  b
+  $ sl manifest -r foo
   a
   b
   baz
@@ -98,13 +99,13 @@ Test what said in drawdag.py docstring
 Edges existed in repo are no-ops
 
   $ reinit
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > B C C
   > | | |
   > A A B
   > EOS
 
-  $ hg log -G -T '{desc}'
+  $ sl log -G -T '{desc}'
   o    C
   ├─╮
   │ o  B
@@ -112,13 +113,13 @@ Edges existed in repo are no-ops
   o  A
   
 
-  $ hg debugdrawdag --traceback <<'EOS'
+  $ sl debugdrawdag --traceback <<'EOS'
   > C D C
   > | | |
   > B B A
   > EOS
 
-  $ hg log -G -T '{desc}'
+  $ sl log -G -T '{desc}'
   o  D
   │
   │ o  C
@@ -130,7 +131,7 @@ Edges existed in repo are no-ops
 
 Node with more than 2 parents are disallowed
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   A
   >  /|\
   > D B C
@@ -140,7 +141,7 @@ Node with more than 2 parents are disallowed
 
 Cycles are disallowed
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > A
   > |
   > A
@@ -148,7 +149,7 @@ Cycles are disallowed
   abort: the graph has cycles
   [255]
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > A
   > |
   > B
@@ -162,7 +163,7 @@ Create mutations or hide commits via comments
 
   $ reinit
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >       G L
   >       | |
   > I D C F K    # split: B -> E, F, G
@@ -172,7 +173,7 @@ Create mutations or hide commits via comments
   >     A   A    # revive: D, K
   > EOS
 
-  $ hg log -r 'sort(all(), topo)' -G --hidden -T '{desc} {node}'
+  $ sl log -r 'sort(all(), topo)' -G --hidden -T '{desc} {node}'
   o  G 711f53bbef0bebd12eb6f0511d5e2e998b984846
   │
   o  F 64a8289d249234b9886244d379f15e6b650b28e3
@@ -198,7 +199,7 @@ Create mutations or hide commits via comments
   │ o  M 699bc4b6fa2207ae482508d19836281c02008d1e
   ├─╯
   o  A 426bada5c67598ca65036d57d9e4b64b0c1ce7a0
-  $ hg debugmutation -r 'all()'
+  $ sl debugmutation -r 'all()'
    *  426bada5c67598ca65036d57d9e4b64b0c1ce7a0
   
    *  112478962961147124edd43549aedd1a335e44bf
@@ -227,7 +228,7 @@ Create mutations or hide commits via comments
 Change file contents via comments
 
   $ reinit
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > C       # A/dir1/a = 1\n2
   > |\      # B/dir2/b = 34
   > A B     # C/dir1/c = 5
@@ -236,16 +237,16 @@ Change file contents via comments
   >         # C/B = b
   > EOS
 
-  $ hg log -G -T '{desc} {files}'
+  $ sl log -G -T '{desc} {files}'
   o    C A B dir1/c dir2/c
   ├─╮
   │ o  B B dir2/b
   │
   o  A A dir1/a
   
-  $ for f in `hg files -r C`; do
+  $ for f in `sl files -r C`; do
   >   echo FILE "$f"
-  >   hg cat -r C "$f"
+  >   sl cat -r C "$f"
   >   echo
   > done
   FILE A
@@ -278,7 +279,7 @@ Special comments: "(removed)", "(copied from X)", "(renamed from X)"
   >     # A/Y = Y\n
   > EOS
 
-  $ hg log -p -G -r 'all()' -T '{desc}\n'
+  $ sl log -p -G -r 'all()' -T '{desc}\n'
   o  C
   │  diff --git a/X1 b/X1
   │  deleted file mode 100644
@@ -328,45 +329,45 @@ Special comments: "X has date 1 0"
   > |
   > A
   > EOS
-  $ hg log -r 'all()' -T '{desc} {date}\n'
+  $ sl log -r 'all()' -T '{desc} {date}\n'
   A 0.00
   B 2.00
 
 --no-bookmarks and --print:
 
   $ newrepo
-  $ echo 'A' | hg debugdrawdag --no-bookmarks --print
+  $ echo 'A' | sl debugdrawdag --no-bookmarks --print
   426bada5c675 A
-  $ hg up 'desc(A)' -q
-  $ hg debugdrawdag --no-bookmarks --print << 'EOS'
+  $ sl up 'desc(A)' -q
+  $ sl debugdrawdag --no-bookmarks --print << 'EOS'
   > B
   > |
   > .
   > EOS
   426bada5c675 .
   112478962961 B
-  $ hg bookmarks
+  $ sl bookmarks
   no bookmarks set
 
 Bookmarks:
 
   $ newrepo
-  $ hg debugdrawdag --no-bookmarks << 'EOS'
+  $ sl debugdrawdag --no-bookmarks << 'EOS'
   > B   # bookmark BOOK_B = B
   > |   # bookmark BOOK-A = A
   > A
   > EOS
-  $ hg bookmarks
+  $ sl bookmarks
      BOOK-A                    426bada5c675
      BOOK_B                    112478962961
 
 Horizontal graph with ranges:
 
   $ newrepo
-  $ hg debugdrawdag << 'EOS'
+  $ sl debugdrawdag << 'EOS'
   > A--S--D..G--Z
   > EOS
-  $ hg log -Gr: -T '{desc}'
+  $ sl log -Gr: -T '{desc}'
   o  Z
   │
   o  G
@@ -385,7 +386,7 @@ Customized script for complex commit properties, intended for creating examples
 for documentation:
 
   $ newrepo
-  $ hg debugdrawdag << 'EOS'
+  $ sl debugdrawdag << 'EOS'
   > P1..P9
   > P3-A1-A2
   > P5-B1..B3
@@ -417,7 +418,7 @@ for documentation:
   > [devel]
   > default-date=2000-7-28 12:00 UTC
   > EOF
-  $ hg sl -T '{node|shortest} {ifeq(phase,"public","{remotenames}","{mutation_descs} {author} {date|simpledate}\n{desc|firstline}\n ")}'
+  $ sl sl -T '{node|shortest} {ifeq(phase,"public","{remotenames}","{mutation_descs} {author} {date|simpledate}\n{desc|firstline}\n ")}'
   o  1313 remote/master
   ╷
   ╷ o  03d3  mary Today at 11:48
@@ -455,7 +456,7 @@ for documentation:
   │
   ~
 
-  $ hg log -T '{desc}\n' -p -r 'desc(debug)'
+  $ sl log -T '{desc}\n' -p -r 'desc(debug)'
   debug
   diff --git a/1 b/1
   new file mode 100644
@@ -488,7 +489,7 @@ Support file names with dashes:
   $ drawdag <<EOS
   > A  # A/hi-there = foo
   > EOS
-  $ hg st --change $A
+  $ sl st --change $A
   A A
   A hi-there
 
@@ -499,7 +500,7 @@ Support binary, base85 data and works for merge:
   > |\   # B/B=base85:e#pZ!R^O0GSDo$oDHiT8&d*Cs
   > A B  # A/A=random:30
   > EOS
-  $ hg up -q $C
+  $ sl up -q $C
   $ wc -c A
   30
   $ wc -c B
@@ -513,7 +514,7 @@ Can combine comment files with commit():
   > python:
   > commit("A", "message", files={"python": "bar\n"})
   > EOS
-  $ hg show $A
+  $ sl show $A
   commit:      b501648cc37d
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -542,7 +543,7 @@ Specify parent order:
   > |\  |\
   > A B E D
   > EOS
-  $ hg log -r "p1(merge())" -T '{desc}\n'
+  $ sl log -r "p1(merge())" -T '{desc}\n'
   A
   D
 
@@ -552,7 +553,7 @@ Specify parent order:
   > |\  |\
   > A B E D
   > EOS
-  $ hg log -r "p1(merge())" -T '{desc}\n'
+  $ sl log -r "p1(merge())" -T '{desc}\n'
   B
   E
 
@@ -562,6 +563,6 @@ Specify parent order:
   > |\  |\    # sort parents of F by name-reverse
   > A B E D
   > EOS
-  $ hg log -r "p1(merge())" -T '{desc}\n'
+  $ sl log -r "p1(merge())" -T '{desc}\n'
   A
   E

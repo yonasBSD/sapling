@@ -8,23 +8,24 @@
 
 # Setup
 
+  $ export HGIDENTITY=sl
   $ enable fbcodereview smartlog amend
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo 1 > foo
-  $ hg ci -qAm 'base'
+  $ sl ci -qAm 'base'
   $ echo 2 > foo
-  $ hg amend -qm 'Differential Revision: https://phabricator.fb.com/D1'
+  $ sl amend -qm 'Differential Revision: https://phabricator.fb.com/D1'
   $ echo 3 > foo
-  $ hg amend -q
+  $ sl amend -q
   $ echo 4 > foo
-  $ hg amend -q
+  $ sl amend -q
   $ echo 5 > foo
-  $ hg amend -q
+  $ sl amend -q
 
 # With an invalid arc configuration
 
-  $ hg log -T '{diffversion}\n' -r .
+  $ sl log -T '{diffversion}\n' -r .
   arcconfig configuration problem. No diff information can be provided.
   Error info: no .arcconfig found
   Error
@@ -39,7 +40,7 @@
   $ cat > $TESTTMP/mockduit << 'EOF'
   > [{}]
   > EOF
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{diffversion}\n' -r .
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{diffversion}\n' -r .
   Error talking to phabricator. No diff information can be provided.
   Error info: Unexpected graphql response format
   Error
@@ -47,7 +48,7 @@
   $ cat > $TESTTMP/mockduit << 'EOF'
   > [{"errors": [{"message": "failed, yo"}]}]
   > EOF
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{diffversion}\n' -r .
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{diffversion}\n' -r .
   Error talking to phabricator. No diff information can be provided.
   Error info: failed, yo
   Error
@@ -83,7 +84,7 @@
   > }]}}]}}]
   > EOF
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -T '{node|short}: {diffversion}\n' -r 'predecessors(.)'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{node|short}: {diffversion}\n' -r 'predecessors(.)'
   e08c689390e1: 
   fb01aa127551: V0.1
   aa5c3457d4ab: V0.1 (+ local changes)

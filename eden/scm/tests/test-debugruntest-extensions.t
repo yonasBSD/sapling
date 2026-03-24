@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ cat > ex1.py <<EOS
   > from sapling import commands, extensions
   > def uisetup(ui):
@@ -22,22 +23,22 @@
 
   $ newrepo
   $ echo foo > foo
-  $ hg ci -Aqm foo
-  $ hg files
+  $ sl ci -Aqm foo
+  $ sl files
   foo
 
-  $ hg files --config extensions.ex1=~/ex1.py
+  $ sl files --config extensions.ex1=~/ex1.py
   ex1
   foo
 
-  $ hg files --config extensions.ex2=~/ex2.py
+  $ sl files --config extensions.ex2=~/ex2.py
   ex2
   foo
 
-  $ hg files --config extensions.ex2=~/ex2.py --config extensions.ex1=~/ex1.py
+  $ sl files --config extensions.ex2=~/ex2.py --config extensions.ex1=~/ex1.py
   ex2
   ex1
   foo
 
-  $ hg files
+  $ sl files
   foo

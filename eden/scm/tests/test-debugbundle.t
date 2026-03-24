@@ -4,18 +4,19 @@
 
 Create a test repository:
 
-  $ hg init repo
+  $ export HGIDENTITY=sl
+  $ sl init repo
   $ cd repo
-  $ touch a ; hg add a ; hg ci -ma
-  $ touch b ; hg add b ; hg ci -mb
-  $ touch c ; hg add c ; hg ci -mc
-  $ hg bundle --base 'desc(a)' --rev tip bundle.hg -v
+  $ touch a ; sl add a ; sl ci -ma
+  $ touch b ; sl add b ; sl ci -mb
+  $ touch c ; sl add c ; sl ci -mc
+  $ sl bundle --base 'desc(a)' --rev tip bundle.hg -v
   2 changesets found
   uncompressed size of bundle content:
        344 (changelog)
        113  b
        113  c
-  $ hg bundle --base 'desc(a)' --rev tip bundle2.hg -v --type none-v2
+  $ sl bundle --base 'desc(a)' --rev tip bundle2.hg -v --type none-v2
   2 changesets found
   uncompressed size of bundle content:
        344 (changelog)
@@ -24,7 +25,7 @@ Create a test repository:
 
 Terse output:
 
-  $ hg debugbundle bundle.hg
+  $ sl debugbundle bundle.hg
   Stream params: {Compression: BZ}
   changegroup -- {nbchanges: 2, version: 02}
       0e067c57feba1a5694ca4844f05588bb1bf82342
@@ -36,7 +37,7 @@ Terse output:
 
 Terse output:
 
-  $ hg debugbundle bundle2.hg
+  $ sl debugbundle bundle2.hg
   Stream params: {}
   changegroup -- {nbchanges: 2, version: 02}
       0e067c57feba1a5694ca4844f05588bb1bf82342
@@ -48,7 +49,7 @@ Terse output:
 
 Verbose output:
 
-  $ hg debugbundle --all bundle.hg
+  $ sl debugbundle --all bundle.hg
   Stream params: {Compression: BZ}
   changegroup -- {nbchanges: 2, version: 02}
       format: id, p1, p2, cset, delta base, len(delta)
@@ -69,7 +70,7 @@ Verbose output:
       686dbf0aeca417636fa26a9121c681eabbb15a20 
       ae25a31b30b3490a981e7b96a3238cc69583fda1 
 
-  $ hg debugbundle --all bundle2.hg
+  $ sl debugbundle --all bundle2.hg
   Stream params: {}
   changegroup -- {nbchanges: 2, version: 02}
       format: id, p1, p2, cset, delta base, len(delta)

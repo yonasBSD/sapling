@@ -2,10 +2,11 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
 
   $ newrepo
-  $ hg debugchangelog --migrate revlog
+  $ sl debugchangelog --migrate revlog
 
   $ drawdag << 'EOS'
   > B C
@@ -17,12 +18,12 @@
   > G H
   > EOS
 
-  $ hg debugchangelog
+  $ sl debugchangelog
   The changelog is backed by Rust. More backend information:
   Backend (revlog):
     Local:
-      Revlog: $TESTTMP/repo1/.hg/store/00changelog.{i,d}
-      Nodemap: $TESTTMP/repo1/.hg/store/00changelog.nodemap
+      Revlog: $TESTTMP/repo1/.sl/store/00changelog.{i,d}
+      Nodemap: $TESTTMP/repo1/.sl/store/00changelog.nodemap
   Feature Providers:
     Commit Graph Algorithms:
       Revlog
@@ -31,7 +32,7 @@
     Commit Data (user, message):
       Revlog
 
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   o    C
   ├─╮
   │ │ o  B
@@ -54,19 +55,19 @@
 Migration
 =========
 
-  $ hg debugchangelog --migrate foobar
+  $ sl debugchangelog --migrate foobar
   abort: invalid changelog format: foobar
   [255]
 
 To Rust revlog:
 
-  $ hg debugchangelog --migrate rustrevlog
-  $ hg debugchangelog
+  $ sl debugchangelog --migrate rustrevlog
+  $ sl debugchangelog
   The changelog is backed by Rust. More backend information:
   Backend (revlog):
     Local:
-      Revlog: $TESTTMP/repo1/.hg/store/00changelog.{i,d}
-      Nodemap: $TESTTMP/repo1/.hg/store/00changelog.nodemap
+      Revlog: $TESTTMP/repo1/.sl/store/00changelog.{i,d}
+      Nodemap: $TESTTMP/repo1/.sl/store/00changelog.nodemap
   Feature Providers:
     Commit Graph Algorithms:
       Revlog
@@ -77,14 +78,14 @@ To Rust revlog:
 
 To doublewrite:
 
-  $ hg debugchangelog --migrate doublewrite
-  $ hg debugchangelog
+  $ sl debugchangelog --migrate doublewrite
+  $ sl debugchangelog
   The changelog is backed by Rust. More backend information:
   Backend (doublewrite):
     Local:
-      Segments + IdMap: $TESTTMP/repo1/.hg/store/segments/v1
-      Zstore: $TESTTMP/repo1/.hg/store/hgcommits/v1
-      Revlog + Nodemap: $TESTTMP/repo1/.hg/store/00changelog.{i,d,nodemap}
+      Segments + IdMap: $TESTTMP/repo1/.sl/store/segments/v1
+      Zstore: $TESTTMP/repo1/.sl/store/hgcommits/v1
+      Revlog + Nodemap: $TESTTMP/repo1/.sl/store/00changelog.{i,d,nodemap}
   Feature Providers:
     Commit Graph Algorithms:
       Segments
@@ -93,7 +94,7 @@ To doublewrite:
     Commit Data (user, message):
       Zstore (incomplete)
       Revlog
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   o  B
   │
   │ o  C
@@ -113,13 +114,13 @@ To doublewrite:
 
 To full segments:
 
-  $ hg debugchangelog --migrate fullsegments
-  $ hg debugchangelog --debug
+  $ sl debugchangelog --migrate fullsegments
+  $ sl debugchangelog --debug
   The changelog is backed by Rust. More backend information:
   Backend (non-lazy segments):
     Local:
-      Segments + IdMap: $TESTTMP/repo1/.hg/store/segments/v1
-      Zstore: $TESTTMP/repo1/.hg/store/hgcommits/v1
+      Segments + IdMap: $TESTTMP/repo1/.sl/store/segments/v1
+      Zstore: $TESTTMP/repo1/.sl/store/hgcommits/v1
   Feature Providers:
     Commit Graph Algorithms:
       Segments
@@ -150,8 +151,8 @@ To full segments:
 
 The segments backend does not need revlog data.
 
-  $ rm -rf .hg/store/00changelog*
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ rm -rf .sl/store/00changelog*
+  $ sl log -Gr 'all()' -T '{desc}'
   o  B
   │
   │ o  C
@@ -171,13 +172,13 @@ The segments backend does not need revlog data.
 
 To revlog:
 
-  $ hg debugchangelog --migrate revlog
-  $ hg debugchangelog
+  $ sl debugchangelog --migrate revlog
+  $ sl debugchangelog
   The changelog is backed by Rust. More backend information:
   Backend (revlog):
     Local:
-      Revlog: $TESTTMP/repo1/.hg/store/00changelog.{i,d}
-      Nodemap: $TESTTMP/repo1/.hg/store/00changelog.nodemap
+      Revlog: $TESTTMP/repo1/.sl/store/00changelog.{i,d}
+      Nodemap: $TESTTMP/repo1/.sl/store/00changelog.nodemap
   Feature Providers:
     Commit Graph Algorithms:
       Revlog
@@ -188,9 +189,9 @@ To revlog:
 
 The revlog backend does not need segmented data.
 
-  $ rm -rf .hg/store/segments
-  $ mv .hg/store/hgcommits{,.bak}
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ rm -rf .sl/store/segments
+  $ mv .sl/store/hgcommits{,.bak}
+  $ sl log -Gr 'all()' -T '{desc}'
   o  B
   │
   │ o  C
@@ -209,28 +210,28 @@ The revlog backend does not need segmented data.
   
 Note revlog2 uses hgcommits for trees and files, so we need to restore it.
 
-  $ mv .hg/store/hgcommits{.bak,}
+  $ mv .sl/store/hgcommits{.bak,}
 
 To doublewrite:
 
-  $ hg debugchangelog --migrate lazytext --unless doublewrite --unless revlog
+  $ sl debugchangelog --migrate lazytext --unless doublewrite --unless revlog
 
-  $ hg debugchangelog --migrate doublewrite
+  $ sl debugchangelog --migrate doublewrite
 
 Prepare the "master" group. Note the "Group Master" output in debugchangelog:
 
   $ setconfig paths.default=test:server1
-  $ hg push -q -r 'desc(C)' --to master --create
-  $ hg push -q -r 'desc(B)' --allow-anon
-  $ hg pull -q -B master
+  $ sl push -q -r 'desc(C)' --to master --create
+  $ sl push -q -r 'desc(B)' --allow-anon
+  $ sl pull -q -B master
 
-  $ hg debugchangelog --debug
+  $ sl debugchangelog --debug
   The changelog is backed by Rust. More backend information:
   Backend (doublewrite):
     Local:
-      Segments + IdMap: $TESTTMP/repo1/.hg/store/segments/v1
-      Zstore: $TESTTMP/repo1/.hg/store/hgcommits/v1
-      Revlog + Nodemap: $TESTTMP/repo1/.hg/store/00changelog.{i,d,nodemap}
+      Segments + IdMap: $TESTTMP/repo1/.sl/store/segments/v1
+      Zstore: $TESTTMP/repo1/.sl/store/hgcommits/v1
+      Revlog + Nodemap: $TESTTMP/repo1/.sl/store/00changelog.{i,d,nodemap}
   Feature Providers:
     Commit Graph Algorithms:
       Segments
@@ -254,15 +255,15 @@ Prepare the "master" group. Note the "Group Master" output in debugchangelog:
 
 To lazy:
 
-  $ hg debugchangelog --migrate lazytext
+  $ sl debugchangelog --migrate lazytext
 
-  $ hg debugchangelog --migrate lazy
+  $ sl debugchangelog --migrate lazy
 
-  $ hg debugchangelog --migrate lazy
+  $ sl debugchangelog --migrate lazy
 
-  $ hg debugchangelog --migrate doublewrite --unless lazy
+  $ sl debugchangelog --migrate doublewrite --unless lazy
 
-  $ LOG=dag::protocol=debug hg log -Gr 'all()' -T '{desc} {remotenames}'
+  $ LOG=dag::protocol=debug sl log -Gr 'all()' -T '{desc} {remotenames}'
   DEBUG dag::protocol: resolve ids [4, 3, 1, 0] remotely
   o  B
   │
@@ -287,16 +288,16 @@ Revlog -> Lazy:
 
 (Migration requires SaplingRemoteAPI)
 
-  $ hg debugchangelog --migrate lazy -v --config paths.default=$TESTTMP/a
+  $ sl debugchangelog --migrate lazy -v --config paths.default=$TESTTMP/a
   cannot migrate to lazy backend without edenapi
 
-  $ hg debugchangelog --migrate lazy
-  $ hg debugchangelog
+  $ sl debugchangelog --migrate lazy
+  $ sl debugchangelog
   The changelog is backed by Rust. More backend information:
   Backend (lazytext):
     Local:
-      Segments + IdMap: $TESTTMP/revlogrepo/.hg/store/segments/v1
-      Zstore: $TESTTMP/revlogrepo/.hg/store/hgcommits/v1
+      Segments + IdMap: $TESTTMP/revlogrepo/.sl/store/segments/v1
+      Zstore: $TESTTMP/revlogrepo/.sl/store/hgcommits/v1
       Revlog + Nodemap: (not used)
   Feature Providers:
     Commit Graph Algorithms:
@@ -313,35 +314,35 @@ Revlog -> Lazy:
 
 --remove-backup removes backup files
 
-  $ f .hg/store/00changelog.*
-  .hg/store/00changelog.d
-  .hg/store/00changelog.i
-  .hg/store/00changelog.len
-  $ ls .hg/store/segments
+  $ f .sl/store/00changelog.*
+  .sl/store/00changelog.d
+  .sl/store/00changelog.i
+  .sl/store/00changelog.len
+  $ ls .sl/store/segments
   v1
   v1.* (glob)
 
-  $ hg debugchangelog --migrate lazy --remove-backup -v
+  $ sl debugchangelog --migrate lazy --remove-backup -v
   removed backup file 00changelog.d
   removed backup file 00changelog.i
   removed backup file 00changelog.len
   removed backup file segments/v1.* (glob) (?)
 
 #if windows
-  $ ls .hg/store/segments
+  $ ls .sl/store/segments
   v1
   v1* (glob)
 #else
-  $ ls .hg/store/segments
+  $ ls .sl/store/segments
   v1
 #endif
 
 Verify lazy changelog:
 
-  $ hg verify
+  $ sl verify
   commit graph passed quick local checks
   (pass --dag to perform slow checks with server)
-  $ hg verify --dag
+  $ sl verify --dag
   commit graph passed quick local checks
   commit graph looks okay compared with the server
 
@@ -350,21 +351,21 @@ Revlog -> LazyText:
   $ cd $TESTTMP/revlogrepo2
   $ setconfig paths.default=test:server1
 
-  $ hg debugchangelog --migrate lazytext
-  $ hg debugchangelog --migrate lazytext
+  $ sl debugchangelog --migrate lazytext
+  $ sl debugchangelog --migrate lazytext
 
 Lazy -> Lazy text
 
   $ cd ~/repo-lazy2
-  $ hg debugchangelog --migrate lazytext -v
+  $ sl debugchangelog --migrate lazytext -v
   8 commits fetched
 
-  $ hg debugchangelog
+  $ sl debugchangelog
   The changelog is backed by Rust. More backend information:
   Backend (lazytext):
     Local:
-      Segments + IdMap: $TESTTMP/repo-lazy2/.hg/store/segments/v1
-      Zstore: $TESTTMP/repo-lazy2/.hg/store/hgcommits/v1
+      Segments + IdMap: $TESTTMP/repo-lazy2/.sl/store/segments/v1
+      Zstore: $TESTTMP/repo-lazy2/.sl/store/hgcommits/v1
       Revlog + Nodemap: (not used)
   Feature Providers:
     Commit Graph Algorithms:
@@ -376,7 +377,7 @@ Lazy -> Lazy text
       SaplingRemoteAPI (remaining, public)
       Revlog (not used)
   Commit Hashes: not lazy
-  $ hg log -Gr: -T '{desc}'
+  $ sl log -Gr: -T '{desc}'
   o    C
   ├─╮
   │ o  D

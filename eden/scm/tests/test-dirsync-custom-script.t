@@ -1,5 +1,6 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable dirsync amend
   $ newrepo
@@ -46,11 +47,11 @@ By default, [dirsync-scripts] in .hgdirsync is ignored for security reasons:
   $ mkdir a
   $ cd a
   $ echo 'Test 2024' > z.log
-  $ hg add -q .
+  $ sl add -q .
 
 Since the scripts are disabled, dirsync will not rename '.log' to '.txt' or replace 2024 with 2025:
 
-  $ hg commit -m 'test dirsync 1'
+  $ sl commit -m 'test dirsync 1'
   mirrored adding 'a/z.log' to 'b/z.log'
   $ cat ../b/z.log
   Test 2024
@@ -63,11 +64,11 @@ Try out dirsync:
 
   $ echo 'The year is 2024.' > x.log
   $ touch y.zip
-  $ hg add -q .
+  $ sl add -q .
 
 Dirsync should respect the script. Rename '.log' to '.txt', skip '.zip' and update the file content:
 
-  $ hg commit -m 'test dirsync 2'
+  $ sl commit -m 'test dirsync 2'
   mirrored adding 'a/x.log' to 'b/x.txt'
   $ cd ../b
   $ cat x.txt
@@ -78,7 +79,7 @@ Mirror 2 files. They should have different content. See D80959221.
 
   $ echo 'Another 2025.' >> x.txt
   $ echo 'Different 2025.' >> y.txt
-  $ hg amend -A x.txt y.txt
+  $ sl amend -A x.txt y.txt
   mirrored adding 'b/x.txt' to 'a/x.log'
   mirrored adding 'b/y.txt' to 'a/y.log'
   $ cat ../a/x.log

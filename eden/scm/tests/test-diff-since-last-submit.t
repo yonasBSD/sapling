@@ -8,6 +8,7 @@
 
 # Load extensions
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
@@ -17,28 +18,28 @@
 
 # Diff with no revision
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ touch foo
-  $ hg add foo
-  $ hg ci -qm 'No rev'
-  $ hg diff --since-last-submit
+  $ sl add foo
+  $ sl ci -qm 'No rev'
+  $ sl diff --since-last-submit
   abort: local changeset is not associated with a differential revision
   [255]
 
-  $ hg log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
+  $ sl log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
   abort: local changeset is not associated with a differential revision
   [255]
 
 # Fake a diff
 
   $ echo bleet > foo
-  $ hg ci -qm 'Differential Revision: https://phabricator.fb.com/D1'
-  $ hg diff --since-last-submit
+  $ sl ci -qm 'Differential Revision: https://phabricator.fb.com/D1'
+  $ sl diff --since-last-submit
   abort: no .arcconfig found
   [255]
 
-  $ hg log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
+  $ sl log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
   abort: no .arcconfig found
   [255]
 
@@ -52,12 +53,12 @@
   $ cat > $TESTTMP/mockduit << 'EOF'
   > [{}]
   > EOF
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit
   Error calling graphql: Unexpected graphql response format
   abort: unable to determine previous changeset hash
   [255]
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
   Error calling graphql: Unexpected graphql response format
   abort: unable to determine previous changeset hash
   [255]
@@ -73,11 +74,11 @@
   >   "updated_time": 222
   > }]}}]}}]
   > EOF
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit
   abort: unable to determine previous changeset hash
   [255]
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
   abort: unable to determine previous changeset hash
   [255]
 
@@ -92,11 +93,11 @@
   >   "updated_time": 222
   > }]}}]}}]
   > EOF
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit
   abort: unable to determine previous changeset hash
   [255]
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
   abort: unable to determine previous changeset hash
   [255]
 
@@ -117,9 +118,9 @@
   >   "updated_time": 222
   > }]}}]}}]
   > EOF
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
   2e6531b7dada2a3e5638e136de05f51e94a427f4 Differential Revision: https://phabricator.fb.com/D1
 
 # This is the case when the diff points at our parent commit, we expect to
@@ -141,17 +142,17 @@
   >   "updated_time": 222
   > }]}}]}}]
   > EOF
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit --nodates
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit --nodates
   diff -r 88dd5a13bf28 -r 2e6531b7dada foo
   --- a/foo
   +++ b/foo
   @@ -0,0 +1,1 @@
   +bleet
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -r 'lastsubmitted(.)' -T '{node} {desc}\n'
   88dd5a13bf28b99853a24bddfc93d4c44e07c6bd No rev
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit-2o
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit-2o
   Phabricator rev: 88dd5a13bf28b99853a24bddfc93d4c44e07c6bd
   Local rev: 2e6531b7dada2a3e5638e136de05f51e94a427f4 (.)
   Changed: foo
@@ -161,13 +162,13 @@
 # Make a new commit on top, and then use -r to look at the previous commit
 
   $ echo other > foo
-  $ hg commit -m 'Other commmit'
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit --nodates -r 2e6531b
+  $ sl commit -m 'Other commmit'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit --nodates -r 2e6531b
   diff -r 88dd5a13bf28 -r 2e6531b7dada foo
   --- a/foo
   +++ b/foo
   @@ -0,0 +1,1 @@
   +bleet
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -r 'lastsubmitted(2e6531b)' -T '{node} {desc}\n'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -r 'lastsubmitted(2e6531b)' -T '{node} {desc}\n'
   88dd5a13bf28b99853a24bddfc93d4c44e07c6bd No rev

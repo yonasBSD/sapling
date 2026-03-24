@@ -3,35 +3,36 @@
 #require no-eden
 
 
-  $ hg init a
+  $ export HGIDENTITY=sl
+  $ sl init a
 
   $ echo a > a/a
-  $ hg --cwd a ci -Ama
+  $ sl --cwd a ci -Ama
   adding a
 
-  $ hg clone a c
+  $ sl clone a c
   updating to tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg clone a b
+  $ sl clone a b
   updating to tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ echo b >> b/a
-  $ hg --cwd b ci -mb
+  $ sl --cwd b ci -mb
 
 Push should provide a hint when both 'default' and 'default-push' not set:
   $ cd c
-  $ hg push --config paths.default=
+  $ sl push --config paths.default=
   abort: default repository not configured!
-  (see 'hg help config.paths')
+  (see 'sl help config.paths')
   [255]
 
   $ cd ..
 
 Push should push to 'default' when 'default-push' not set:
 
-  $ hg --cwd b push --allow-anon
+  $ sl --cwd b push --allow-anon
   pushing to $TESTTMP/a
   searching for changes
   adding changesets
@@ -40,9 +41,9 @@ Push should push to 'default' when 'default-push' not set:
 
 Push should push to 'default-push' when set:
 
-  $ echo '[paths]' >> b/.hg/hgrc
-  $ echo 'default-push = ../c' >> b/.hg/hgrc
-  $ hg --cwd b push --allow-anon
+  $ echo '[paths]' >> b/.sl/config
+  $ echo 'default-push = ../c' >> b/.sl/config
+  $ sl --cwd b push --allow-anon
   pushing to $TESTTMP/c
   searching for changes
   adding changesets
@@ -51,7 +52,7 @@ Push should push to 'default-push' when set:
 
 But push should push to 'default' if explicitly specified (issue5000):
 
-  $ hg --cwd b push default
+  $ sl --cwd b push default
   pushing to $TESTTMP/a
   searching for changes
   no changes found
@@ -59,13 +60,13 @@ But push should push to 'default' if explicitly specified (issue5000):
 
 Push should push to 'default-push' when 'default' is not set
 
-  $ hg -q clone a push-default-only
+  $ sl -q clone a push-default-only
   $ cd push-default-only
-  $ rm .hg/hgrc
+  $ rm .sl/config
 
   $ touch foo
-  $ hg -q commit -A -m 'add foo'
-  $ hg --config paths.default-push=../a push --allow-anon
+  $ sl -q commit -A -m 'add foo'
+  $ sl --config paths.default-push=../a push --allow-anon
   pushing to $TESTTMP/a
   searching for changes
   adding changesets
@@ -76,14 +77,14 @@ Push should push to 'default-push' when 'default' is not set
 
 Pushing to a path that isn't defined should not fall back to default
 
-  $ hg --cwd b push doesnotexist
+  $ sl --cwd b push doesnotexist
   abort: repository doesnotexist does not exist!
   [255]
 
 :pushurl is used when defined
 
-  $ hg -q clone a pushurlsource
-  $ hg -q clone a pushurldest
+  $ sl -q clone a pushurlsource
+  $ sl -q clone a pushurldest
   $ cd pushurlsource
 
 Windows needs a leading slash to make a URL that passes all of the checks
@@ -91,15 +92,15 @@ Windows needs a leading slash to make a URL that passes all of the checks
 #if windows
   $ WD="/$WD"
 #endif
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > [paths]
   > default = https://example.com/not/relevant
   > default:pushurl = file://$WD/../pushurldest
   > EOF
 
   $ touch pushurl
-  $ hg -q commit -A -m 'add pushurl'
-  $ hg push --allow-anon
+  $ sl -q commit -A -m 'add pushurl'
+  $ sl push --allow-anon
   pushing to file:/*/$TESTTMP/pushurlsource/../pushurldest (glob)
   searching for changes
   adding changesets
@@ -108,23 +109,23 @@ Windows needs a leading slash to make a URL that passes all of the checks
 
 :pushrev is used when no -r is passed
 
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > default:pushrev = .
   > EOF
-  $ hg -q up -r cb9a9f314b8b07ba71012fcdbc544b5a4d82ff5b
+  $ sl -q up -r cb9a9f314b8b07ba71012fcdbc544b5a4d82ff5b
   $ echo head1 > foo
-  $ hg -q commit -A -m head1
-  $ hg -q up -r cb9a9f314b8b07ba71012fcdbc544b5a4d82ff5b
+  $ sl -q commit -A -m head1
+  $ sl -q up -r cb9a9f314b8b07ba71012fcdbc544b5a4d82ff5b
   $ echo head2 > foo
-  $ hg -q commit -A -m head2
-  $ hg push -f --allow-anon
+  $ sl -q commit -A -m head2
+  $ sl push -f --allow-anon
   pushing to file:/*/$TESTTMP/pushurlsource/../pushurldest (glob)
   searching for changes
   adding changesets
   adding manifests
   adding file changes
 
-  $ hg --config 'paths.default:pushrev=draft()' push -f --allow-anon
+  $ sl --config 'paths.default:pushrev=draft()' push -f --allow-anon
   pushing to file:/*/$TESTTMP/pushurlsource/../pushurldest (glob)
   searching for changes
   adding changesets
@@ -133,14 +134,14 @@ Windows needs a leading slash to make a URL that passes all of the checks
 
 Invalid :pushrev raises appropriately
 
-  $ hg --config 'paths.default:pushrev=notdefined()' push
+  $ sl --config 'paths.default:pushrev=notdefined()' push
   pushing to file:/*/$TESTTMP/pushurlsource/../pushurldest (glob)
-  hg: parse error: unknown identifier: notdefined
+  sl: parse error: unknown identifier: notdefined
   [255]
 
-  $ hg --config 'paths.default:pushrev=(' push
+  $ sl --config 'paths.default:pushrev=(' push
   pushing to file:/*/$TESTTMP/pushurlsource/../pushurldest (glob)
-  hg: parse error at 1: not a prefix: end
+  sl: parse error at 1: not a prefix: end
   ((
     ^ here)
   [255]

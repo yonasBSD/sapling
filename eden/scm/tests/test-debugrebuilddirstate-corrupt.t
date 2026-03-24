@@ -2,18 +2,19 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Setup
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo base > base
-  $ hg add base
-  $ hg commit -m "base"
+  $ sl add base
+  $ sl commit -m "base"
 
 Deliberately corrupt the dirstate.
 
-  >>> with open('.hg/dirstate', 'wb') as f: f.write(b"\0" * 4096) and None
+  >>> with open('.sl/dirstate', 'wb') as f: f.write(b"\0" * 4096) and None
 
-  $ hg debugrebuilddirstate
+  $ sl debugrebuilddirstate
   warning: failed to inspect working copy parent

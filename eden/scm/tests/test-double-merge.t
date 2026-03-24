@@ -2,35 +2,36 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo 
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo line 1 > foo
-  $ hg ci -qAm 'add foo'
+  $ sl ci -qAm 'add foo'
 
 copy foo to bar and change both files
-  $ hg cp foo bar
+  $ sl cp foo bar
   $ echo line 2-1 >> foo
   $ echo line 2-2 >> bar
-  $ hg ci -m 'cp foo bar; change both'
+  $ sl ci -m 'cp foo bar; change both'
 
 in another branch, change foo in a way that doesn't conflict with
 the other changes
-  $ hg up -qC 'desc(add)'
+  $ sl up -qC 'desc(add)'
   $ echo line 0 > foo
-  $ hg cat foo >> foo
-  $ hg ci -m 'change foo'
+  $ sl cat foo >> foo
+  $ sl ci -m 'change foo'
 
 we get conflicts that shouldn't be there
-  $ hg merge -P
+  $ sl merge -P
   commit:      484bf6903104
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     cp foo bar; change both
   
-  $ hg merge --debug
+  $ sl merge --debug
   resolving manifests
    branchmerge: True, force: False
    ancestor: e6dc8efe11cc, local: 6a0df1dad128+, remote: 484bf6903104

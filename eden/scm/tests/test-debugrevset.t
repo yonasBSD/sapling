@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Setup repo:
@@ -20,7 +21,7 @@ Setup repo:
   > |
   > A
   > EOS
-  $ hg log -T "{node}\n"
+  $ sl log -T "{node}\n"
   43195508e3bb704c08d24c40375bdd826789dd72
   a194cadd16930608adaa649035ad4c16930cbd0f
   9bc730a19041f9ec7cb33c626e811aa233efb18c
@@ -30,52 +31,52 @@ Setup repo:
   426bada5c67598ca65036d57d9e4b64b0c1ce7a0
 
 Test hash prefix lookup:
-  $ hg debugrevset 431
+  $ sl debugrevset 431
   43195508e3bb704c08d24c40375bdd826789dd72
-  $ hg debugrevset 4
+  $ sl debugrevset 4
   abort: ambiguous identifier for '4': 426bada5c67598ca65036d57d9e4b64b0c1ce7a0, 43195508e3bb704c08d24c40375bdd826789dd72 available
   [255]
-  $ hg debugrevset 6
+  $ sl debugrevset 6
   abort: unknown revision '6'
   [255]
-  $ hg debugrevset thisshóuldnótbéfoünd
+  $ sl debugrevset thisshóuldnótbéfoünd
   abort: unknown revision 'thissh*' (glob)
   [255]
 
 Test bookmark lookup
-  $ hg book -r 'desc(C)' mybookmark
-  $ hg debugrevset mybookmark
+  $ sl book -r 'desc(C)' mybookmark
+  $ sl debugrevset mybookmark
   26805aba1e600a82e93661149f2313866a221a7b
 
 Test remote bookmark lookup
-  $ hg debugrevset master
+  $ sl debugrevset master
   43195508e3bb704c08d24c40375bdd826789dd72
 
 Test dot revset lookup
-  $ hg debugrevset .
+  $ sl debugrevset .
   0000000000000000000000000000000000000000
-  $ hg debugrevset ""
+  $ sl debugrevset ""
   0000000000000000000000000000000000000000
-  $ hg up 43195508e3
+  $ sl up 43195508e3
   7 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg debugrevset .
+  $ sl debugrevset .
   43195508e3bb704c08d24c40375bdd826789dd72
-  $ hg debugrevset ""
+  $ sl debugrevset ""
   43195508e3bb704c08d24c40375bdd826789dd72
 
 Test misc revsets
-  $ hg debugrevset tip
+  $ sl debugrevset tip
   43195508e3bb704c08d24c40375bdd826789dd72
-  $ hg debugrevset null
+  $ sl debugrevset null
   0000000000000000000000000000000000000000
 
 Test resolution priority
-  $ hg book -r 'desc(A)' f
-  $ hg debugrevset f
+  $ sl book -r 'desc(A)' f
+  $ sl debugrevset f
   426bada5c67598ca65036d57d9e4b64b0c1ce7a0
-  $ hg debugrevset tip
+  $ sl debugrevset tip
   43195508e3bb704c08d24c40375bdd826789dd72
-  $ hg debugrevset null
+  $ sl debugrevset null
   0000000000000000000000000000000000000000
 
 
@@ -88,37 +89,37 @@ Test remote/lazy hash prefix lookup:
   > |
   > A
   > EOS
-  $ hg log -T "{node}\n"
+  $ sl log -T "{node}\n"
   26805aba1e600a82e93661149f2313866a221a7b
   112478962961147124edd43549aedd1a335e44bf
   426bada5c67598ca65036d57d9e4b64b0c1ce7a0
 
   $ newclientrepo client remote
 
-  $ hg debugrevset 426bada5c67598ca65036d57d9e4b64b0c1ce7a0
+  $ sl debugrevset 426bada5c67598ca65036d57d9e4b64b0c1ce7a0
   426bada5c67598ca65036d57d9e4b64b0c1ce7a0
 
-  $ hg debugrevset zzzbada5c67598ca65036d57d9e4b64b0c1ce7a0
+  $ sl debugrevset zzzbada5c67598ca65036d57d9e4b64b0c1ce7a0
   abort: unknown revision 'zzzbada5c67598ca65036d57d9e4b64b0c1ce7a0'
   [255]
 
-  $ hg debugrevset 11
+  $ sl debugrevset 11
   112478962961147124edd43549aedd1a335e44bf
 
 
 Fall back to changelog if "tip" isn't available in metalog:
   $ newclientrepo
-  $ hg debugrevset tip
+  $ sl debugrevset tip
   0000000000000000000000000000000000000000
   $ drawdag << 'EOS'
   > A
   > EOS
-  $ hg dbsh -c 'del ml["tip"]; ml.commit("no tip")'
-  $ hg dbsh -c 'print(ml["tip"] or "no tip")'
+  $ sl dbsh -c 'del ml["tip"]; ml.commit("no tip")'
+  $ sl dbsh -c 'print(ml["tip"] or "no tip")'
   no tip
-  $ hg debugrevset tip
+  $ sl debugrevset tip
   426bada5c67598ca65036d57d9e4b64b0c1ce7a0
 Don't propagate a bad ml "tip":
-  $ hg dbsh -c 'ml["tip"] = bin("112478962961147124edd43549aedd1a335e44bf"); ml.commit("bad tip")'
-  $ hg debugrevset tip
+  $ sl dbsh -c 'ml["tip"] = bin("112478962961147124edd43549aedd1a335e44bf"); ml.commit("bad tip")'
+  $ sl debugrevset tip
   426bada5c67598ca65036d57d9e4b64b0c1ce7a0

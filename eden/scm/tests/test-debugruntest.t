@@ -1,5 +1,6 @@
 Classic .t test:
 
+  $ export HGIDENTITY=sl
   $ cat > test-sh.t << 'EOF'
   > Check shell output:
   >   $ echo 1
@@ -83,16 +84,16 @@ AssertionError fails the test even if output matches:
 
 Test output:
 
-  $ hg debugruntest test-sh.t
+  $ sl debugruntest test-sh.t
   # Ran 1 tests, 0 skipped, 0 failed.
 
-  $ hg debugruntest -v test-sh.t
+  $ sl debugruntest -v test-sh.t
   Passed 1 test:
     test-sh.t
   
   # Ran 1 tests, 0 skipped, 0 failed.
 
-  $ hg debugruntest -j1 test-*.t test-foo.t test-bar.t
+  $ sl debugruntest -j1 test-*.t test-foo.t test-bar.t
   test-assert.t ----------------------------------------------------------------
      1 >>> assert False
   
@@ -135,7 +136,7 @@ Test output:
 
 Autofix:
 
-  $ hg debugruntest --fix test-fail-sh.t
+  $ sl debugruntest --fix test-fail-sh.t
   Failed 1 test (output mismatch):
     test-fail-sh.t
   
@@ -145,7 +146,7 @@ Autofix:
   # Ran 1 tests, 0 skipped, 1 failed.
   [1]
 
-  $ hg debugruntest test-fail-sh.t
+  $ sl debugruntest test-fail-sh.t
   # Ran 1 tests, 0 skipped, 0 failed.
 
   $ head -6 test-fail-sh.t
@@ -180,7 +181,7 @@ Doctest:
 
   >>> import testmodule  # so the test runner can locate it in sys.modules
 
-  $ hg .t --direct doctest:testmodule
+  $ sl .t --direct doctest:testmodule
   doctest:testmodule -----------------------------------------------------------
      3 >>> 1+1
       -3
@@ -209,7 +210,7 @@ Doctest:
 
 Doctest can be auto fixed too:
 
-  $ hg .t --direct -q --fix doctest:testmodule
+  $ sl .t --direct -q --fix doctest:testmodule
   # Failed tests might be false positive caused by --direct. Re-reun without --direct to confirm.
   [1]
   $ cat testmodule.py
@@ -239,7 +240,7 @@ Reload the cached module:
 
 The doctest passes with the autofix changes:
 
-  $ hg .t --direct doctest:testmodule
+  $ sl .t --direct doctest:testmodule
   # Ran 1 tests, 0 skipped, 0 failed.
 
 
@@ -258,7 +259,7 @@ Python -c works:
 
   $ python -c 'print("hello")'
   hello
-  $ hg debugpython -- -c 'print("hello")'
+  $ sl debugpython -- -c 'print("hello")'
   hello
 
 
