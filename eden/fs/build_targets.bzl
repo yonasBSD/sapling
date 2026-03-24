@@ -32,6 +32,8 @@ SYMLINKS = {
 STATIC_TARGETS = {
     "facebook/packaging/NOT_MOUNTED_README.txt": "/etc/eden/NOT_MOUNTED_README.txt",
     "facebook/packaging/ignore": "/etc/eden/ignore",
+    "facebook/packaging/systemd/edenfs.slice": "/usr/lib/systemd/user/edenfs.slice",
+    "facebook/packaging/systemd/edenfs@.service": "/usr/lib/systemd/user/edenfs@.service",
 }
 
 SCRIPTS_TARGETS = {
