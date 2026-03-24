@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ disable amend
   $ configure mutation-norecord
 
@@ -10,11 +11,11 @@ File node could be reused during commit --amend
   $ newrepo
   $ echo 1 > a
   $ echo 2 > b
-  $ hg commit -m 12 -A a b
+  $ sl commit -m 12 -A a b
   $ echo 3 >> a
-  $ hg commit -m 3
+  $ sl commit -m 3
 
-  $ hg commit --debug --amend -m 'without content change'
+  $ sl commit --debug --amend -m 'without content change'
   amending changeset 0bd823dca296
   copying changeset 0bd823dca296 to dd3d87f356df
   committing files:
@@ -29,7 +30,7 @@ File node could be reused during commit --amend
 File node is reused for mode-only change
 
   $ chmod +x b
-  $ hg ci --debug --amend -m 'without content change'
+  $ sl ci --debug --amend -m 'without content change'
   amending changeset 92bc7a9d76f0
   committing files:
   a

@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ enable commitcloud
@@ -12,16 +13,16 @@
 
   $ setconfig remotefilelog.reponame=server
 
-  $ hg init server
+  $ sl init server
   $ cd server
   $ setconfig infinitepush.server=yes infinitepush.indextype=disk infinitepush.storetype=disk infinitepush.reponame=testrepo
 
 Make the clone of the server
-  $ hg clone ssh://user@dummy/server client -q
+  $ sl clone ssh://user@dummy/server client -q
   $ cd client
   $ setconfig commitcloud.servicetype=local commitcloud.servicelocation="$TESTTMP"
 
-Tests for hg cloud log
+Tests for sl cloud log
   $ cat > $TESTTMP/usersmartlogdata << EOF
   > {
   >   "smartlog": {
@@ -29,7 +30,7 @@ Tests for hg cloud log
   >   }
   > }
   > EOF
-  $ hg cloud log
+  $ sl cloud log
   the repository is not connected to any workspace, assuming the 'default' workspace
 
   $ cat > $TESTTMP/usersmartlogdata << EOF
@@ -49,7 +50,7 @@ Tests for hg cloud log
   > }
   > EOF
 
-  $ hg cloud log
+  $ sl cloud log
   the repository is not connected to any workspace, assuming the 'default' workspace
   commit:      773bd8234d94
   user:        Test User
@@ -77,7 +78,7 @@ Tests for hg cloud log
   summary:     some commit
 
 
-  $ hg cloud log -T "{node}: {date}\n"
+  $ sl cloud log -T "{node}: {date}\n"
   the repository is not connected to any workspace, assuming the 'default' workspace
   773bd8234d94c44079b4409525028517fcbd98ba: 15325254700
   685a62272258b3bd4d71ac0b331486276b3c2599: 15314088040
@@ -86,7 +87,7 @@ Tests for hg cloud log
   0067e44d36d919bec1bff6ac65d277e8e0dc2250: 15276261850
 
 
-  $ hg cloud log -T "{node}: {desc|firstline}\n"
+  $ sl cloud log -T "{node}: {desc|firstline}\n"
   the repository is not connected to any workspace, assuming the 'default' workspace
   773bd8234d94c44079b4409525028517fcbd98ba: some commit
   685a62272258b3bd4d71ac0b331486276b3c2599: some commit
@@ -94,7 +95,7 @@ Tests for hg cloud log
   717dccd1a732f794c51df27f7ba143c5c743d770: some commit
   0067e44d36d919bec1bff6ac65d277e8e0dc2250: some commit
 
-  $ hg cloud log -T "{node}: {phase}\n"
+  $ sl cloud log -T "{node}: {phase}\n"
   the repository is not connected to any workspace, assuming the 'default' workspace
   773bd8234d94c44079b4409525028517fcbd98ba: draft
   685a62272258b3bd4d71ac0b331486276b3c2599: draft
@@ -102,7 +103,7 @@ Tests for hg cloud log
   717dccd1a732f794c51df27f7ba143c5c743d770: draft
   0067e44d36d919bec1bff6ac65d277e8e0dc2250: draft
 
-  $ hg cloud log -T "{node} {bookmarks}\n"
+  $ sl cloud log -T "{node} {bookmarks}\n"
   the repository is not connected to any workspace, assuming the 'default' workspace
   773bd8234d94c44079b4409525028517fcbd98ba somebookmark
   685a62272258b3bd4d71ac0b331486276b3c2599 
@@ -110,7 +111,7 @@ Tests for hg cloud log
   717dccd1a732f794c51df27f7ba143c5c743d770 
   0067e44d36d919bec1bff6ac65d277e8e0dc2250 
 
-  $ hg cloud log --verbose -l 3
+  $ sl cloud log --verbose -l 3
   the repository is not connected to any workspace, assuming the 'default' workspace
   commit:      773bd8234d94
   user:        Test User
@@ -133,16 +134,16 @@ Tests for hg cloud log
   some commit
 
 Test with date range spec
-  $ hg cloud log -d "jul 19 2018 to aug 2018" -T "{node}: {date(date, '%Y-%m-%d')}\n"
+  $ sl cloud log -d "jul 19 2018 to aug 2018" -T "{node}: {date(date, '%Y-%m-%d')}\n"
   the repository is not connected to any workspace, assuming the 'default' workspace
   773bd8234d94c44079b4409525028517fcbd98ba: 2018-07-25
   
-  $ hg cloud log -d "jul 10 2018 to aug 2018" -T "{node}: {date(date, '%Y-%m-%d')}\n"
+  $ sl cloud log -d "jul 10 2018 to aug 2018" -T "{node}: {date(date, '%Y-%m-%d')}\n"
   the repository is not connected to any workspace, assuming the 'default' workspace
   773bd8234d94c44079b4409525028517fcbd98ba: 2018-07-25
   685a62272258b3bd4d71ac0b331486276b3c2599: 2018-07-12
   aa84f0443f949a6accca6d67b2790d2f37927451: 2018-07-10
 
-  $ hg cloud log -d "jul 10 2018 to aug 2018" -T "{node}: {date(date, '%Y-%m-%d')}\n" -l 1
+  $ sl cloud log -d "jul 10 2018 to aug 2018" -T "{node}: {date(date, '%Y-%m-%d')}\n" -l 1
   the repository is not connected to any workspace, assuming the 'default' workspace
   773bd8234d94c44079b4409525028517fcbd98ba: 2018-07-25

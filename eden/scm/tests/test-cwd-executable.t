@@ -1,6 +1,7 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ configure modernclient
 
   $ newclientrepo
@@ -14,9 +15,9 @@
   > EOF
   $ chmod +x watchman
 #endif
-  $ hg commit -Aqm foo
+  $ sl commit -Aqm foo
   $ touch bar
-  $ hg commit -Aqm bar
+  $ sl commit -Aqm bar
 This is the code under test - don't run the "watchman" in CWD.
-  $ hg up -q .^
-  $ hg status
+  $ sl up -q .^
+  $ sl status

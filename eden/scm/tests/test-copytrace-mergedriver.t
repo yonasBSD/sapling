@@ -8,6 +8,7 @@
 
 # With copied file using the heuristics copytracing:
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ enable mergedriver
@@ -31,25 +32,25 @@
   >     pass
   > EOF
 
-  $ hg up -q $B
+  $ sl up -q $B
 
 #  (trigger amend copytrace code path)
 
-  $ hg cp A D
-  $ hg cp A E
-  $ hg amend -m B2 -d '0 0'
-  $ hg bookmark -i book-B
+  $ sl cp A D
+  $ sl cp A E
+  $ sl amend -m B2 -d '0 0'
+  $ sl bookmark -i book-B
 
 # Do the merge:
 
-  $ hg up -q $C
-  $ hg graft book-B
+  $ sl up -q $C
+  $ sl graft book-B
   grafting b55db8435dc2 "B2" (book-B)
 
-  $ hg status
+  $ sl status
 
 Be sure to record copy metadata.
-  $ hg log -r . -p --config diff.git=true
+  $ sl log -r . -p --config diff.git=true
   commit:      599c51a4e5d9
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -73,6 +74,6 @@ Be sure to record copy metadata.
 
   $ setconfig copytrace.dagcopytrace=False
 
-  $ hg up -q $C
-  $ hg graft book-B
+  $ sl up -q $C
+  $ sl graft book-B
   grafting b55db8435dc2 "B2" (book-B)

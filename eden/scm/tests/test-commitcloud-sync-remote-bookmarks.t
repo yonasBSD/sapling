@@ -3,6 +3,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ enable amend commitcloud
   $ configure dummyssh
   $ setconfig remotenames.autopullhoistpattern=re:.*
@@ -12,32 +13,32 @@
 
   $ mkcommit() {
   >    echo $1 > $1
-  >    hg add $1
-  >    hg ci -m "$1"
+  >    sl add $1
+  >    sl ci -m "$1"
   > }
   $ showgraph() {
-  >    hg log -G -T "{desc}: {phase} {bookmarks} {remotenames}"
+  >    sl log -G -T "{desc}: {phase} {bookmarks} {remotenames}"
   > }
 
 Setup remote repo
-  $ hg init remoterepo
+  $ sl init remoterepo
   $ cd remoterepo
   $ setconfig infinitepush.server=yes infinitepush.reponame=testrepo
   $ setconfig infinitepush.indextype=disk infinitepush.storetype=disk
 
   $ mkcommit root
-  $ ROOT=$(hg log -r . -T{node})
+  $ ROOT=$(sl log -r . -T{node})
   $ mkcommit c1 serv
-  $ hg book warm
-  $ hg up $ROOT -q
+  $ sl book warm
+  $ sl up $ROOT -q
   $ mkcommit b1 serv
-  $ hg book stable
-  $ hg book main
+  $ sl book stable
+  $ sl book main
 
-  $ hg up $ROOT -q
+  $ sl up $ROOT -q
   $ mkcommit a1 serv
   $ mkcommit a2 serv
-  $ hg book master
+  $ sl book master
 
   $ showgraph
   @  a2: draft master
@@ -56,12 +57,12 @@ Setup first client repo and subscribe to the bookmarks "stable" and "warm".
   $ setconfig remotenames.selectivepulldefault=master
   $ setconfig commitcloud.remotebookmarkssync=True
 
-  $ hg clone -q ssh://user@dummy/remoterepo client1
+  $ sl clone -q ssh://user@dummy/remoterepo client1
   $ cd client1
-  $ hg pull -B stable -B warm -q
-  $ hg up 'desc(a2)' -q
+  $ sl pull -B stable -B warm -q
+  $ sl up 'desc(a2)' -q
   $ setconfig commitcloud.servicetype=local commitcloud.servicelocation=$TESTTMP
-  $ hg cloud join -q
+  $ sl cloud join -q
   $ showgraph
   o  b1: public  remote/stable
   │
@@ -75,10 +76,10 @@ Setup first client repo and subscribe to the bookmarks "stable" and "warm".
 Setup the second client repo with enable remote bookmarks sync
 The repo should be subscribed the "stable" and "warm" bookmark because the client1 was.
   $ cd ..
-  $ hg clone -q ssh://user@dummy/remoterepo client2
+  $ sl clone -q ssh://user@dummy/remoterepo client2
   $ cd client2
   $ setconfig commitcloud.servicetype=local commitcloud.servicelocation=$TESTTMP
-  $ hg cloud join -q
+  $ sl cloud join -q
   $ showgraph
   o  b1: public  remote/stable
   │
@@ -92,11 +93,11 @@ The repo should be subscribed the "stable" and "warm" bookmark because the clien
 
 Setup third client repo but do not enable remote bookmarks sync
   $ cd ..
-  $ hg clone -q ssh://user@dummy/remoterepo client3
+  $ sl clone -q ssh://user@dummy/remoterepo client3
   $ cd client3
   $ setconfig commitcloud.servicetype=local commitcloud.servicelocation=$TESTTMP
   $ setconfig commitcloud.remotebookmarkssync=False
-  $ hg cloud join -q
+  $ sl cloud join -q
   $ showgraph
   @  a2: public  remote/master
   │
@@ -109,10 +110,10 @@ Common case of unsynchronized remote bookmarks ("master")
   $ cd ../remoterepo
   $ mkcommit a3 serv
   $ cd ../client2
-  $ hg pull -q
-  $ hg up master -q
+  $ sl pull -q
+  $ sl up master -q
   $ mkcommit draft-1
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ showgraph
   @  draft-1: draft
   │
@@ -130,7 +131,7 @@ Common case of unsynchronized remote bookmarks ("master")
 
 remote/master should point to the new commit
   $ cd ../client1
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ showgraph
   o  draft-1: draft
   │
@@ -147,9 +148,9 @@ remote/master should point to the new commit
   o  root: public
 Subscribe to a new remote bookmark "main" that previously has been only known on the server
   $ cd ../client1
-  $ hg pull -q
-  $ hg pull -B main -q
-  $ hg cloud sync -q
+  $ sl pull -q
+  $ sl pull -B main -q
+  $ sl cloud sync -q
   $ showgraph
   o  draft-1: draft
   │
@@ -164,7 +165,7 @@ Subscribe to a new remote bookmark "main" that previously has been only known on
   o │  a1: public
   ├─╯
   o  root: public
-  $ hg book --list-subscriptions
+  $ sl book --list-subscriptions
      remote/main               b2bfab231667
      remote/master             1b6e90080435
      remote/stable             b2bfab231667
@@ -172,7 +173,7 @@ Subscribe to a new remote bookmark "main" that previously has been only known on
 
 the other client should be subscribed to this bookmark ("main") as well
   $ cd ../client2
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ showgraph
   @  draft-1: draft
   │
@@ -187,7 +188,7 @@ the other client should be subscribed to this bookmark ("main") as well
   o │  a1: public
   ├─╯
   o  root: public
-  $ hg book --list-subscriptions
+  $ sl book --list-subscriptions
      remote/main               b2bfab231667
      remote/master             1b6e90080435
      remote/stable             b2bfab231667
@@ -195,12 +196,12 @@ the other client should be subscribed to this bookmark ("main") as well
 
 try to create a commit on top of the remote/stable
   $ cd ../client1
-  $ hg up stable -q
+  $ sl up stable -q
   $ mkcommit draft-2
-  $ hg cloud sync -q
+  $ sl cloud sync -q
 
   $ cd ../client2
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ showgraph
   o  draft-2: draft
   │
@@ -219,9 +220,9 @@ try to create a commit on top of the remote/stable
   o  root: public
 check that copy with disabled remote bookmarks sync doesn't affect the other copies
   $ cd ../client1
-  $ hg up warm -q
+  $ sl up warm -q
   $ mkcommit draft-3
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ showgraph
   @  draft-3: draft
   │
@@ -242,10 +243,10 @@ check that copy with disabled remote bookmarks sync doesn't affect the other cop
   o  root: public
 sync and create a new commit on top of the draft-3
   $ cd ../client3
-  $ hg cloud sync -q
-  $ hg up dc05efd94c6626ddd820e8d98b745ad6b50b82fc -q
+  $ sl cloud sync -q
+  $ sl up dc05efd94c6626ddd820e8d98b745ad6b50b82fc -q
   $ echo check >> check
-  $ hg commit -qAm "draft-4"
+  $ sl commit -qAm "draft-4"
   $ showgraph
   @  draft-4: draft
   │
@@ -266,10 +267,10 @@ sync and create a new commit on top of the draft-3
   │ o  a1: public
   ├─╯
   o  root: public
-  $ hg cloud sync -q
+  $ sl cloud sync -q
 
   $ cd ../client2
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ showgraph
   o  draft-4: draft
   │

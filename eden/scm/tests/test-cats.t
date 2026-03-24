@@ -3,13 +3,14 @@
 
 #require linux serve bucktest
 
+  $ export HGIDENTITY=sl
   $ configure dummyssh
 
-  $ hg init test
+  $ sl init test
   $ cd test
 
   $ echo foo > foo
-  $ hg commit -Aqm 1
+  $ sl commit -Aqm 1
 
   $ cert="${HGTEST_CERTDIR}/localhost.crt"
   $ cert_key="${HGTEST_CERTDIR}/localhost.key"
@@ -20,5 +21,5 @@
 
   $ echo '{"crypto_auth_tokens": "cats"}' > cats
   $ cats_file="$(pwd)/cats"
-  $ hg push --config http.verbose=True --config cats.some.priority=1 --config cats.some.path="$cats_file" --insecure --config paths.default=mononoke://localhost:$PROXY_PORT/test --config auth.mononoke.cert=$cert --config auth.mononoke.key=$cert_key --config auth.mononoke.prefix=mononoke://* 2> /dev/null | grep -o "x-forwarded-cats: cats"
+  $ sl push --config http.verbose=True --config cats.some.priority=1 --config cats.some.path="$cats_file" --insecure --config paths.default=mononoke://localhost:$PROXY_PORT/test --config auth.mononoke.cert=$cert --config auth.mononoke.key=$cert_key --config auth.mononoke.prefix=mononoke://* 2> /dev/null | grep -o "x-forwarded-cats: cats"
   x-forwarded-cats: cats

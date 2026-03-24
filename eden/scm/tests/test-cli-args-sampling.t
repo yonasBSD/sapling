@@ -1,14 +1,15 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo
   $ setconfig sampling.filepath=$TESTTMP/sample sampling.key.command_info=my_cat
 
-  $ hg st
-  $ hg st --modified -X '**.go' -X '**.rs'
-  $ hg st --no-root-relative --quiet --pager=never -I ''
-  $ hg files --prin -X abc -X def || true
+  $ sl st
+  $ sl st --modified -X '**.go' -X '**.rs'
+  $ sl st --no-root-relative --quiet --pager=never -I ''
+  $ sl files --prin -X abc -X def || true
 
   >>> import json
   >>> with open(r"$TESTTMP/sample", mode="rb") as f:

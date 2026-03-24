@@ -1,30 +1,31 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ enable smartlog
   $ showgraph() {
-  >    hg log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
+  >    sl log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
   > }
 
   $ mkcommit() {
   >   echo "$1" > "$1"
-  >   hg commit -Aqm "$1"
+  >   sl commit -Aqm "$1"
   > }
 
   $ newserver server
   $ cd $TESTTMP/server
 
   $ mkcommit "base"
-  $ hg bookmark master
+  $ sl bookmark master
   $ cd ..
 
 Make the first clone of the server
   $ clone server client1
   $ cd client1
-  $ hg cloud rename -d w1 # renaming of the default one should fail
+  $ sl cloud rename -d w1 # renaming of the default one should fail
   abort: rename of the default workspace is not allowed
   [255]
-  $ hg cloud leave -q
-  $ hg cloud join -w w1
+  $ sl cloud leave -q
+  $ sl cloud join -w w1
   commitcloud: this repository is now connected to the 'user/test/w1' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
@@ -38,8 +39,8 @@ Make the second clone of the server
   $ cd client2
   $ mkcommit "A (W2)"
   $ mkcommit "B (W2)"
-  $ hg cloud leave -q
-  $ hg cloud join -w w2
+  $ sl cloud leave -q
+  $ sl cloud join -w w2
   commitcloud: this repository is now connected to the 'user/test/w2' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/w2'
   commitcloud: head '67590a46a20b' hasn't been uploaded yet
@@ -58,19 +59,19 @@ Make a commit in the first client, and sync it
   $ cd client1
   $ mkcommit "A (W1)"
   $ mkcommit "B (W1)"
-  $ hg cloud sync -q
+  $ sl cloud sync -q
 
-  $ hg cloud list
+  $ sl cloud list
   commitcloud: searching workspaces for the 'server' repo
   the following commitcloud workspaces are available:
           default
           w2
           w1 (connected)
-  run `hg cloud sl -w <workspace name>` to view the commits
-  run `hg cloud switch -w <workspace name>` to switch to a different workspace
+  run `sl cloud sl -w <workspace name>` to view the commits
+  run `sl cloud switch -w <workspace name>` to switch to a different workspace
 
 Rename to the existing workspace should fail 
-  $ hg cloud rename -d w2
+  $ sl cloud rename -d w2
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -82,7 +83,7 @@ Rename to the existing workspace should fail
 
 Rename to a new name should work
 Smartlog and status should stay the same
-  $ hg cloud rename -d w3
+  $ sl cloud rename -d w3
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -97,7 +98,7 @@ Smartlog and status should stay the same
   │
   o  base: public  remote/master
   
-  $ hg cloud sync --debug
+  $ sl cloud sync --debug
   commitcloud: synchronizing 'server' with 'user/test/w3'
   commitcloud: nothing to upload
   commitcloud local service: get_references for current version 2
@@ -105,32 +106,32 @@ Smartlog and status should stay the same
   finished in * (glob)
 
 Rename workspace that is not a current one
-  $ hg cloud rename -s w2 -d w4
+  $ sl cloud rename -s w2 -d w4
   commitcloud: rename the 'user/test/w2' workspace to 'user/test/w4' for the repo 'server'
   commitcloud: rename successful
 
   $ cd ..
 
 Move to the second client
-`hg cloud sync` should be broken
+`sl cloud sync` should be broken
   $ cd client2
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/w2'
   commitcloud: nothing to upload
   abort: 'get_references' failed, the workspace has been renamed or client has an invalid state
   [255]
-  $ hg cloud list
+  $ sl cloud list
   commitcloud: searching workspaces for the 'server' repo
   the following commitcloud workspaces are available:
           default
           w3
           w4
           w2 (connected) (renamed or removed)
-  run `hg cloud sl -w <workspace name>` to view the commits
-  run `hg cloud switch -w <workspace name>` to switch to a different workspace
+  run `sl cloud sl -w <workspace name>` to view the commits
+  run `sl cloud switch -w <workspace name>` to switch to a different workspace
 
-  $ hg cloud status
-  Workspace: w2 (renamed or removed) (run `hg cloud list` and switch to a different one)
+  $ sl cloud status
+  Workspace: w2 (renamed or removed) (run `sl cloud list` and switch to a different one)
   Raw Workspace Name: user/test/w2
   Automatic Sync (on local changes): OFF
   Automatic Sync via 'Scm Daemon' (on remote changes): OFF
@@ -142,7 +143,7 @@ Move to the second client
   Last Sync Status: Exception:
   'get_references' failed, the workspace has been renamed or client has an invalid state
 
-  $ hg cloud switch -w w4 --force
+  $ sl cloud switch -w w4 --force
   commitcloud: now this repository will be switched from the 'user/test/w2' to the 'user/test/w4' workspace
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   working directory now at d20a80d4def3
@@ -160,10 +161,10 @@ Move to the second client
   @  base: public  remote/master
   
 
-  $ hg cloud rename --rehost -d testhost
+  $ sl cloud rename --rehost -d testhost
   abort: 'rehost' option and 'destination' option are incompatible
   [255]
-  $ hg cloud rename --rehost
+  $ sl cloud rename --rehost
   commitcloud: synchronizing 'server' with 'user/test/w4'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -176,9 +177,9 @@ Move to the second client
 Back to client1  
 
   $ cd client1
-  $ hg up master
+  $ sl up master
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg cloud switch -w testhost # switch to a renamed workspace should work
+  $ sl cloud switch -w testhost # switch to a renamed workspace should work
   commitcloud: synchronizing 'server' with 'user/test/w3'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -201,18 +202,18 @@ Back to client1
   
  
 Try to rename an unknown workspace
-  $ hg cloud rename -s abc -d w5
+  $ sl cloud rename -s abc -d w5
   commitcloud: rename the 'user/test/abc' workspace to 'user/test/w5' for the repo 'server'
   abort: unknown workspace: user/test/abc
   [255]
 
 Try to rename a workspace after leave
-  $ hg cloud leave
+  $ sl cloud leave
   commitcloud: this repository is now disconnected from the 'user/test/testhost' workspace
-  $ hg cloud rename -d w5
+  $ sl cloud rename -d w5
   abort: the repo is not connected to any workspace, please provide the source workspace
   [255]
-  $ hg cloud join -w testhost
+  $ sl cloud join -w testhost
   commitcloud: this repository is now connected to the 'user/test/testhost' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/testhost'
   commitcloud: nothing to upload
@@ -220,18 +221,18 @@ Try to rename a workspace after leave
   finished in * (glob)
 
 Test reclaim workspace
-  $ hg cloud reclaim
+  $ sl cloud reclaim
   abort: please, provide '--user' option, can not identify the former username from the current workspace
   [255]
 
-  $ hg cloud reclaim --user test
+  $ sl cloud reclaim --user test
   commitcloud: nothing to reclaim: triggered for the same username
   [1]
 
   $ unset HGUSER
   $ setconfig ui.username='Jane Doe <jdoe@example.com>'
 
-  $ hg smartlog -T '{desc}\n'
+  $ sl smartlog -T '{desc}\n'
   o  B (W2)
   │
   o  A (W2)
@@ -240,26 +241,26 @@ Test reclaim workspace
   
   note: background backup is currently disabled so your commits are not being backed up.
   hint[commitcloud-username-migration]: username configuration has been changed
-  please, run `hg cloud reclaim` to migrate your commit cloud workspaces
-  hint[hint-ack]: use 'hg hint --ack commitcloud-username-migration' to silence these hints
+  please, run `sl cloud reclaim` to migrate your commit cloud workspaces
+  hint[hint-ack]: use 'sl hint --ack commitcloud-username-migration' to silence these hints
 
-  $ hg cloud reclaim
+  $ sl cloud reclaim
   commitcloud: the following active workspaces are reclaim candidates:
       default
       w3
       testhost
   commitcloud: reclaim of active workspaces completed
 
-  $ hg cloud list
+  $ sl cloud list
   commitcloud: searching workspaces for the 'server' repo
   the following commitcloud workspaces are available:
           default
           w3
           testhost (connected)
-  run `hg cloud sl -w <workspace name>` to view the commits
-  run `hg cloud switch -w <workspace name>` to switch to a different workspace
+  run `sl cloud sl -w <workspace name>` to view the commits
+  run `sl cloud switch -w <workspace name>` to switch to a different workspace
 
-  $ hg cloud status
+  $ sl cloud status
   Workspace: testhost
   Raw Workspace Name: user/jdoe@example.com/testhost
   Automatic Sync (on local changes): OFF
@@ -272,7 +273,7 @@ Test reclaim workspace
   Last Sync Status: Success
 
 Check that sync is ok after the reclaim
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/jdoe@example.com/testhost'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -280,20 +281,20 @@ Check that sync is ok after the reclaim
 
 Reclaim again
   $ setconfig ui.username='Jane Doe <janedoe@example.com>'
-  $ hg cloud reclaim --user 'jdoe@example.com'
+  $ sl cloud reclaim --user 'jdoe@example.com'
   commitcloud: the following active workspaces are reclaim candidates:
       default
       w3
       testhost
   commitcloud: reclaim of active workspaces completed
 
-  $ hg cloud delete -w w3
+  $ sl cloud delete -w w3
   commitcloud: workspace user/janedoe@example.com/w3 has been deleted
-  $ hg cloud delete -w testhost
+  $ sl cloud delete -w testhost
   commitcloud: workspace user/janedoe@example.com/testhost has been deleted
 
   $ setconfig ui.username='Jane Doe <jdoe@example.com>'
-  $ hg cloud reclaim 
+  $ sl cloud reclaim 
   commitcloud: the following active workspaces are reclaim candidates:
       default
   commitcloud: reclaim of active workspaces completed
@@ -303,14 +304,14 @@ Reclaim again
   commitcloud: reclaim of archived workspaces completed
 
 Try to reclaim after cloud leave
-  $ hg cloud leave
+  $ sl cloud leave
   commitcloud: this repository is now disconnected from the 'user/jdoe@example.com/testhost' workspace
   $ setconfig ui.username='Jane Doe <janedoe@example.com>'
-  $ hg cloud reclaim
+  $ sl cloud reclaim
   abort: please, provide '--user' option, can not identify the former username from the current workspace
   [255]
 
-  $ hg cloud join
+  $ sl cloud join
   commitcloud: this repository is now connected to the 'user/janedoe@example.com/default' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/janedoe@example.com/default'
   commitcloud: nothing to upload

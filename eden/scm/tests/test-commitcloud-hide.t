@@ -1,14 +1,15 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ showgraph() {
-  >    hg log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
+  >    sl log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
   > }
 
-hg cloud hide uses the smartlog data from the cloud service.  We must generate this
+sl cloud hide uses the smartlog data from the cloud service.  We must generate this
 manually.
   $ gensmartlogdata() {
   >   echo '{ "smartlog": { "nodes": [' > $TESTTMP/usersmartlogdata
-  >   hg log -r "sort(roots(all()) + draft() + parents(draft()))" \
+  >   sl log -r "sort(roots(all()) + draft() + parents(draft()))" \
   >     -T '{ifeq(rev,0,"",",")}\{"node": "{node}", "phase": "{phase}", "author": "test", "date": "{rev}", "message": "{desc}", "parents": [{join(parents % "\"{node}\"", ", ")}], "bookmarks": [{join(bookmarks % "\"{bookmark}\"", ", ")}]}\n' \
   >     >> $TESTTMP/usersmartlogdata
   > echo "]}}" >> $TESTTMP/usersmartlogdata
@@ -23,16 +24,16 @@ manually.
   > |/
   > Z
   > EOS
-  $ hg bookmark -r $W master
-  $ hg bookmark -r $Y other
+  $ sl bookmark -r $W master
+  $ sl bookmark -r $Y other
 
   $ cd $TESTTMP
   $ setconfig 'remotenames.selectivepulldefault=master other'
   $ clone server client1
   $ cd client1
-  $ hg goto -q 'desc(Y)'
-  $ hg pull -qB other
-  $ hg up -qC other
+  $ sl goto -q 'desc(Y)'
+  $ sl pull -qB other
+  $ sl up -qC other
 
   $ drawdag <<EOS
   >             S
@@ -47,15 +48,15 @@ manually.
   >   |     $Y
   >   $W
   > EOS
-  $ hg book -r $D d-bookmark
-  $ hg book -r $D d-bookmark2
-  $ hg book -r $D d-bookmark3
-  $ hg book -r $X x-bookmark
-  $ hg book -r $N n-bookmark
-  $ hg book -r $N n-bookmark2
-  $ hg book -r $O o-bookmark
-  $ hg book -r $B b-bookmark
-  $ hg cloud sync -q
+  $ sl book -r $D d-bookmark
+  $ sl book -r $D d-bookmark2
+  $ sl book -r $D d-bookmark3
+  $ sl book -r $X x-bookmark
+  $ sl book -r $N n-bookmark
+  $ sl book -r $N n-bookmark2
+  $ sl book -r $O o-bookmark
+  $ sl book -r $B b-bookmark
+  $ sl cloud sync -q
   $ showgraph
   o  S: draft
   │
@@ -93,7 +94,7 @@ manually.
 
 Remove by hash with two related commits removes both of them
   $ gensmartlogdata
-  $ hg cloud hide $P $R
+  $ sl cloud hide $P $R
   removing heads:
       0d5fa5021fb8  S
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -129,7 +130,7 @@ Remove by hash with two related commits removes both of them
 
 Remove by hash removes commit, all descendants and their bookmarks
   $ gensmartlogdata
-  $ hg cloud hide $N
+  $ sl cloud hide $N
   removing heads:
       7f49e3f0c6cd  O
   removing bookmarks:
@@ -167,7 +168,7 @@ Remove by hash removes commit, all descendants and their bookmarks
 
 Remove when other heads keep ancestors alive, removing it just removes the head
   $ gensmartlogdata
-  $ hg cloud hide $C
+  $ sl cloud hide $C
   removing heads:
       f6a18bc998c9  C
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -197,7 +198,7 @@ Remove when other heads keep ancestors alive, removing it just removes the head
 
 Remove by bookmark leaves commits alone if there are other bookmarks
   $ gensmartlogdata
-  $ hg cloud hide -B d-bookmark
+  $ sl cloud hide -B d-bookmark
   removing bookmarks:
       d-bookmark: fa9d7a2f38d1
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -227,7 +228,7 @@ Remove by bookmark leaves commits alone if there are other bookmarks
 
 But removing all of the bookmarks pointing to a head removes the head
   $ gensmartlogdata
-  $ hg cloud hide -B "re:d-bookmark.*"
+  $ sl cloud hide -B "re:d-bookmark.*"
   removing heads:
       fa9d7a2f38d1  D
   removing bookmarks:
@@ -258,7 +259,7 @@ But removing all of the bookmarks pointing to a head removes the head
 
 Removing a bookmark in the stack doesn't hide the commit
   $ gensmartlogdata
-  $ hg cloud hide -B b-bookmark
+  $ sl cloud hide -B b-bookmark
   removing bookmarks:
       b-bookmark: 9272e7e427bf
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -286,7 +287,7 @@ Removing a bookmark in the stack doesn't hide the commit
 
 Removing a bookmark on a public commit just removes it
   $ gensmartlogdata
-  $ hg cloud hide -B x-bookmark
+  $ sl cloud hide -B x-bookmark
   removing bookmarks:
       x-bookmark: 8a0aebad5927
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -314,7 +315,7 @@ Removing a bookmark on a public commit just removes it
 
 Removing a lone commit just removes that head
   $ gensmartlogdata
-  $ hg cloud hide $M
+  $ sl cloud hide $M
   removing heads:
       9c4fc22fed7c  M
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -340,7 +341,7 @@ Removing a lone commit just removes that head
 
 Removing a remote bookmark works
   $ gensmartlogdata
-  $ hg cloud hide --remotebookmark remote/other
+  $ sl cloud hide --remotebookmark remote/other
   removing remote bookmarks:
       remote/other: 1cab361770de
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -376,7 +377,7 @@ Merge commits can be removed
   >  |
   >  $F
   > EOS
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ showgraph
   o    H: draft
   ├─╮
@@ -399,7 +400,7 @@ Merge commits can be removed
   o  Z: public
 
   $ gensmartlogdata
-  $ hg cloud hide $H
+  $ sl cloud hide $H
   removing heads:
       28730d10073d  H
   adding heads:

@@ -3,6 +3,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure dummyssh mutation-norecord
   $ enable amend arcdiff commitcloud rebase share
   $ setconfig extensions.arcconfig="$TESTDIR/../sapling/ext/extlib/phabricator/arcconfig.py"
@@ -17,12 +18,12 @@
 
   $ mkcommit() {
   >   echo "$1" > "$1"
-  >   hg commit -Aqm "$1"
+  >   sl commit -Aqm "$1"
   > }
 
-  $ hg init server
+  $ sl init server
   $ cd server
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > [infinitepush]
   > server = yes
   > indextype = disk
@@ -31,7 +32,7 @@
   > EOF
 
   $ mkcommit "base"
-  $ hg bookmark master
+  $ sl bookmark master
   $ cd ..
 
 Make shared part of config
@@ -42,30 +43,30 @@ Make shared part of config
   > EOF
 
 Make the first clone of the server
-  $ hg clone ssh://user@dummy/server client1 -q
+  $ sl clone ssh://user@dummy/server client1 -q
   $ cd client1
-  $ cat ../shared.rc >> .hg/hgrc
-  $ hg cloud join -q
+  $ cat ../shared.rc >> .sl/config
+  $ sl cloud join -q
 
   $ cd ..
 
 Make the second clone of the server
-  $ hg clone ssh://user@dummy/server client2 -q
+  $ sl clone ssh://user@dummy/server client2 -q
   $ cd client2
-  $ cat ../shared.rc >> .hg/hgrc
-  $ hg cloud join -q
+  $ cat ../shared.rc >> .sl/config
+  $ sl cloud join -q
 
   $ cd ..
 
 Make the third clone of the server
-  $ hg clone ssh://user@dummy/server client3 -q
+  $ sl clone ssh://user@dummy/server client3 -q
   $ cd client3
-  $ cat ../shared.rc >> .hg/hgrc
-  $ hg cloud join -q
+  $ cat ../shared.rc >> .sl/config
+  $ sl cloud join -q
 
   $ cd ..
 
-Test for `hg diff --since-last-submit`
+Test for `sl diff --since-last-submit`
 
   $ cd client1
   $ echo '{}' > .arcrc
@@ -88,12 +89,12 @@ Test for `hg diff --since-last-submit`
   $ cd client1
 
   $ echo "Hello feature2" > feature2.body.txt
-  $ hg add feature2.body.txt
+  $ sl add feature2.body.txt
 
-  $ hg ci -Aqm 'Differential Revision: https://phabricator.fb.com/D1'
-  $ hg log -r '.' -T '{node}'
+  $ sl ci -Aqm 'Differential Revision: https://phabricator.fb.com/D1'
+  $ sl log -r '.' -T '{node}'
   162e0a8b5732f1fa168b0a6d8cf9809053ae272a (no-eol)
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: head '162e0a8b5732' hasn't been uploaded yet
   edenapi: queue 1 commit for upload
@@ -121,9 +122,9 @@ Test for `hg diff --since-last-submit`
   > EOF
 
   $ echo "Hello feature2 update" > feature2.body.txt
-  $ hg amend
+  $ sl amend
 
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: head '1166f984c176' hasn't been uploaded yet
   edenapi: queue 1 commit for upload
@@ -139,7 +140,7 @@ Test for `hg diff --since-last-submit`
 
   $ cd client2
 
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   pulling 1166f984c176 from ssh://user@dummy/server
@@ -147,10 +148,10 @@ Test for `hg diff --since-last-submit`
   commitcloud: commits synchronized
   finished in * (glob)
 
-  $ hg up 1166f984c176
+  $ sl up 1166f984c176
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit --config extensions.commitcloud=!
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit --config extensions.commitcloud=!
   pulling '162e0a8b5732f1fa168b0a6d8cf9809053ae272a' from 'ssh://user@dummy/server'
   diff -r 162e0a8b5732 -r 1166f984c176 feature2.body.txt
   --- a/feature2.body.txt	Thu Jan 01 00:00:00 1970 +0000
@@ -159,7 +160,7 @@ Test for `hg diff --since-last-submit`
   -Hello feature2
   +Hello feature2 update
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg diff --since-last-submit
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl diff --since-last-submit
   diff -r 162e0a8b5732 -r 1166f984c176 feature2.body.txt
   --- a/feature2.body.txt	Thu Jan 01 00:00:00 1970 +0000
   +++ b/feature2.body.txt	Thu Jan 01 00:00:00 1970 +0000
@@ -171,7 +172,7 @@ Test for `hg diff --since-last-submit`
 
   $ cd client3
 
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   pulling 1166f984c176 from ssh://user@dummy/server
@@ -179,12 +180,12 @@ Test for `hg diff --since-last-submit`
   commitcloud: commits synchronized
   finished in * (glob)
 
-  $ hg up 1166f984c176
+  $ sl up 1166f984c176
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log -r 'lastsubmitted(.)' -T '{node} {desc}'  --config extensions.commitcloud=!
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -r 'lastsubmitted(.)' -T '{node} {desc}'  --config extensions.commitcloud=!
   pulling '162e0a8b5732f1fa168b0a6d8cf9809053ae272a' from 'ssh://user@dummy/server'
   162e0a8b5732f1fa168b0a6d8cf9809053ae272a Differential Revision: https://phabricator.fb.com/D1 (no-eol)
 
-  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit hg log --hidden -r 'lastsubmitted(.)' -T '{node} {desc}'
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log --hidden -r 'lastsubmitted(.)' -T '{node} {desc}'
   162e0a8b5732f1fa168b0a6d8cf9809053ae272a Differential Revision: https://phabricator.fb.com/D1 (no-eol)

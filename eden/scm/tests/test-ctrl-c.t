@@ -1,6 +1,7 @@
 #require no-windows no-eden
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat > sleep.py << 'EOF'
   > import os
@@ -20,7 +21,7 @@
   > print("Should not be printed")
   > EOF
 
-  $ ( hg dbsh sleep.py; echo $?; ) >out 2>err &
+  $ ( sl dbsh sleep.py; echo $?; ) >out 2>err &
 
   $ cat > interrupt.py << 'EOF'
   > import time, os, signal, sys
@@ -37,7 +38,7 @@
   >     pass
   > EOF
 
-  $ hg debugpython -- interrupt.py
+  $ sl debugpython -- interrupt.py
 
 Should exit with 130 showing that the Rust ctrlc handler is used:
 (Python exits with 255)

@@ -6,39 +6,40 @@ changelog executable files added by the second parent of a merge. Test
 that that doesn't happen anymore
 
 
-  $ hg init repo
+  $ export HGIDENTITY=sl
+  $ sl init repo
   $ cd repo
   $ echo foo > foo
-  $ hg ci -qAm 'add foo'
+  $ sl ci -qAm 'add foo'
 
   $ echo bar > bar
   $ chmod +x bar
-  $ hg ci -qAm 'add bar'
+  $ sl ci -qAm 'add bar'
 
 manifest of p2:
 
-  $ hg manifest
+  $ sl manifest
   bar
   foo
 
-  $ hg up -qC bbd179dfa0a71671c253b3ae0aa1513b60d199fa
+  $ sl up -qC bbd179dfa0a71671c253b3ae0aa1513b60d199fa
   $ echo >> foo
-  $ hg ci -m 'change foo'
+  $ sl ci -m 'change foo'
 
 manifest of p1:
 
-  $ hg manifest
+  $ sl manifest
   foo
 
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ chmod +x foo
-  $ hg ci -m 'merge'
+  $ sl ci -m 'merge'
 
 this should not mention bar but should mention foo:
 
-  $ hg tip -v
+  $ sl tip -v
   commit:      c53d17ff3380
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -48,7 +49,7 @@ this should not mention bar but should mention foo:
   
   
 
-  $ hg debugindex bar
+  $ sl debugindex bar
      rev linkrev nodeid       p1           p2
        0       1 b004912a8510 000000000000 000000000000
 

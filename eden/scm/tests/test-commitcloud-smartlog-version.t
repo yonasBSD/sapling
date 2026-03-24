@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ enable commitcloud
@@ -12,16 +13,16 @@
 
   $ setconfig remotefilelog.reponame=server
 
-  $ hg init server
+  $ sl init server
   $ cd server
   $ setconfig infinitepush.server=yes infinitepush.indextype=disk infinitepush.storetype=disk infinitepush.reponame=testrepo
 
 Make the clone of the server
-  $ hg clone ssh://user@dummy/server client -q
+  $ sl clone ssh://user@dummy/server client -q
   $ cd client
   $ setconfig commitcloud.servicetype=local commitcloud.servicelocation="$TESTTMP"
 
-Tests for hg cloud sl --date "2019-06-23 19:34:39"
+Tests for sl cloud sl --date "2019-06-23 19:34:39"
   $ cat > $TESTTMP/usersmartlogbyversiondata << EOF
   > {
   >   "smartlog": {
@@ -29,7 +30,7 @@ Tests for hg cloud sl --date "2019-06-23 19:34:39"
   >   }
   > }
   > EOF
-  $ hg cloud sl --date "2019-06-23 19:34:39"
+  $ sl cloud sl --date "2019-06-23 19:34:39"
   the repository is not connected to any workspace, assuming the 'default' workspace
   commitcloud: searching draft commits for the 'user/test/default' workspace for the 'server' repo
   Smartlog version 42 
@@ -51,7 +52,7 @@ Tests for hg cloud sl --date "2019-06-23 19:34:39"
   > }
   > EOF
 
-  $ hg cloud sl --date "2019-06-23 19:34:39"
+  $ sl cloud sl --date "2019-06-23 19:34:39"
   the repository is not connected to any workspace, assuming the 'default' workspace
   commitcloud: searching draft commits for the 'user/test/default' workspace for the 'server' repo
   Smartlog version 42 
@@ -83,11 +84,11 @@ Tests for hg cloud sl --date "2019-06-23 19:34:39"
   │
   o  4b1141 (public)  2018-05-29 20:23 +0000
      some commit
-  $ hg cloud sl --date "2019-06-23 19:34:"
+  $ sl cloud sl --date "2019-06-23 19:34:"
   the repository is not connected to any workspace, assuming the 'default' workspace
-  hg: parse error: invalid date: '2019-06-23 19:34:'
+  sl: parse error: invalid date: '2019-06-23 19:34:'
   [255]
-Tests for hg cloud sl --workspace-version
+Tests for sl cloud sl --workspace-version
   $ cat > $TESTTMP/usersmartlogbyversiondata << EOF
   > {
   >   "smartlog": {
@@ -95,7 +96,7 @@ Tests for hg cloud sl --workspace-version
   >   }
   > }
   > EOF
-  $ hg cloud sl --workspace-version 42
+  $ sl cloud sl --workspace-version 42
   the repository is not connected to any workspace, assuming the 'default' workspace
   commitcloud: searching draft commits for the 'user/test/default' workspace for the 'server' repo
   Smartlog version 42 
@@ -118,7 +119,7 @@ Tests for hg cloud sl --workspace-version
   > }
   > EOF
 
-  $ hg cloud sl --workspace-version 42
+  $ sl cloud sl --workspace-version 42
   the repository is not connected to any workspace, assuming the 'default' workspace
   commitcloud: searching draft commits for the 'user/test/default' workspace for the 'server' repo
   Smartlog version 42 

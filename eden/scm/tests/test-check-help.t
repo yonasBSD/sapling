@@ -2,6 +2,7 @@
 
 #require test-repo normal-layout no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/helpers-testrepo.sh"
   $ enable amend undo
@@ -26,7 +27,7 @@
 Check if ":prog:`help TOPIC`" is valid:
 (use "xargs -n1 -t" to see which help commands are executed)
 
-  $ NPROC=`hg debugpython -- -c 'import multiprocessing; print(str(multiprocessing.cpu_count()))'`
+  $ NPROC=`sl debugpython -- -c 'import multiprocessing; print(str(multiprocessing.cpu_count()))'`
   $ testrepohg files 'glob:sapling/**/*.py' \
   > | sed 's|\\|/|g' \
   > | xargs $PYTHON "$TESTTMP/scanhelptopics.py" > $TESTTMP/topics

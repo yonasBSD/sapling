@@ -2,35 +2,36 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig remotenames.selectivepulldefault=master,releasebranch
 
   $ configure mutation-norecord dummyssh
   $ enable amend crdump
   $ showgraph() {
-  >   hg log --graph --hidden -T "{desc|firstline}" | sed \$d
+  >   sl log --graph --hidden -T "{desc|firstline}" | sed \$d
   > }
 
 Create repo
   $ mkdir server
-  $ hg init server
-  $ hg clone -q ssh://user@dummy/server repo
+  $ sl init server
+  $ sl clone -q ssh://user@dummy/server repo
   $ cd repo
   $ echo A > a
   $ printf "A\0\n" > bin1
-  $ hg addremove
+  $ sl addremove
   adding a
   adding bin1
-  $ hg commit -m a
-  $ hg push -q -r . --to releasebranch --create
-  $ hg debugmakepublic .
+  $ sl commit -m a
+  $ sl push -q -r . --to releasebranch --create
+  $ sl debugmakepublic .
 
   $ printf "A\nB\nC\nD\nE\nF\n" > a
   $ printf "a\0b\n" > bin1
   $ printf "b\0\n" > bin2
-  $ hg addremove
+  $ sl addremove
   adding bin2
   $ revision="Differential Revision: https://phabricator.facebook.com/D123"
-  $ hg commit -m "b
+  $ sl commit -m "b
   > $revision"
 
   $ showgraph
@@ -41,7 +42,7 @@ Create repo
 Test obsolete markers
 
   $ printf "a\0b\0c\n" > bin1
-  $ hg amend -m "b'
+  $ sl amend -m "b'
   > $revision"
   $ showgraph
   @  b'
@@ -49,7 +50,7 @@ Test obsolete markers
   │ x  b
   ├─╯
   o  a
-  $ hg debugcrdump -U 1 -r . --obsolete --traceback
+  $ sl debugcrdump -U 1 -r . --obsolete --traceback
   {
       "commits": [
           {
@@ -98,19 +99,19 @@ Test obsolete markers
   $ echo C > c
   $ rm bin2
   $ echo x > bin1
-  $ hg addremove
+  $ sl addremove
   removing bin2
   adding c
-  $ hg commit -m c
-  $ hg bookmark bookmark1 -i
+  $ sl commit -m c
+  $ sl bookmark bookmark1 -i
 
 Add a master bookmark and verify it becomes the remote branch
 - The [1] exit code is because no commits are pushed
-  $ hg push -q -r remote/releasebranch --to master --create
+  $ sl push -q -r remote/releasebranch --to master --create
 
 Test basic dump of two commits
 
-  $ hg debugcrdump -U 1 -r ".^^::." --traceback| tee ../json_output
+  $ sl debugcrdump -U 1 -r ".^^::." --traceback| tee ../json_output
   {
       "commits": [
           {
@@ -315,7 +316,7 @@ Test basic dump of two commits
 
 Check we respect --unified 0 properly (i.e. should be no lines of context in patch file)
 
-  $ hg debugcrdump -r . --unified 0 > ../json_output
+  $ sl debugcrdump -r . --unified 0 > ../json_output
 
   >>> import codecs
   >>> import json
@@ -346,7 +347,7 @@ Check we respect --unified 0 properly (i.e. should be no lines of context in pat
 #if jq
 Test crdump not dumping binaries
 
-  $ hg debugcrdump -U 1 -r ".^^::." | jq '.commits[].binary_files?'
+  $ sl debugcrdump -U 1 -r ".^^::." | jq '.commits[].binary_files?'
   [
     {
       "file_name": "bin1",
@@ -379,7 +380,7 @@ Test crdump not dumping binaries
     }
   ]
 
-  $ hg debugcrdump -U 1 -r ".^^::." --nobinary | jq '.commits[].binary_files?'
+  $ sl debugcrdump -U 1 -r ".^^::." --nobinary | jq '.commits[].binary_files?'
   null
   null
   null
@@ -388,9 +389,9 @@ Test crdump not dumping binaries
 Test non-ASCII characters
 
   $ echo x > X
-  $ HGENCODING=utf-8 hg commit -Aqm "Méssage în únicode"
-  $ HGENCODING=utf-8 hg book -r . "unusúal-bøøkmàrk"
-  $ hg debugcrdump -r .
+  $ HGENCODING=utf-8 sl commit -Aqm "Méssage în únicode"
+  $ HGENCODING=utf-8 sl book -r . "unusúal-bøøkmàrk"
+  $ sl debugcrdump -r .
   {
       "commits": [
           {
@@ -423,7 +424,7 @@ Test non-ASCII characters
       ],
       "output_directory": "*" (glob)
   }
-  $ hg debugcrdump -r . --encoding=utf-8
+  $ sl debugcrdump -r . --encoding=utf-8
   {
       "commits": [
           {
@@ -456,7 +457,7 @@ Test non-ASCII characters
       ],
       "output_directory": "*" (glob)
   }
-  $ hg debugcrdump -r . --encoding=iso-8859-1
+  $ sl debugcrdump -r . --encoding=iso-8859-1
   {
       "commits": [
           {
@@ -489,7 +490,7 @@ Test non-ASCII characters
       ],
       "output_directory": "*" (glob)
   }
-  $ hg debugcrdump -r . --encoding=ascii
+  $ sl debugcrdump -r . --encoding=ascii
   {
       "commits": [
           {
@@ -527,22 +528,22 @@ Test non-ASCII characters
 Test use globalrev instead of svnrev
 
   $ echo >> Y
-  $ hg commit -Aqm "commit with no globalrev"
-  $ hg debugmakepublic '.'
+  $ sl commit -Aqm "commit with no globalrev"
+  $ sl debugmakepublic '.'
   $ echo >> Z
-  $ hg commit -Aqm "local commit"
-  $ hg debugcrdump -r '.' | jq -e '.commits[].public_base.svnrev' > /dev/null
+  $ sl commit -Aqm "local commit"
+  $ sl debugcrdump -r '.' | jq -e '.commits[].public_base.svnrev' > /dev/null
   [1]
-  $ hg -q update '.^'
+  $ sl -q update '.^'
   $ echo >> Y
-  $ hg commit --config "extensions.commitextras=" \
+  $ sl commit --config "extensions.commitextras=" \
   > -Aqm "commit with globalrev" --extra global_rev="100098765"
-  $ hg debugmakepublic '.'
+  $ sl debugmakepublic '.'
   $ echo >> Z
-  $ hg commit -Aqm "local commit"
-  $ hg debugcrdump -r '.' | jq -e '.commits[].public_base.svnrev' > /dev/null
+  $ sl commit -Aqm "local commit"
+  $ sl debugcrdump -r '.' | jq -e '.commits[].public_base.svnrev' > /dev/null
   [1]
-  $ hg debugcrdump --config "extensions.globalrevs=" -r '.' \
+  $ sl debugcrdump --config "extensions.globalrevs=" -r '.' \
   > | jq '.commits[].public_base.svnrev'
   "100098765"
 #endif

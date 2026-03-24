@@ -1,26 +1,27 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ showgraph() {
-  >    hg log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
+  >    sl log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
   > }
 
   $ mkcommit() {
   >   echo "$1" > "$1"
-  >   hg commit -Aqm "$1"
+  >   sl commit -Aqm "$1"
   > }
 
   $ newserver server
   $ cd $TESTTMP/server
 
   $ mkcommit "base"
-  $ hg bookmark master
+  $ sl bookmark master
   $ cd ..
 
 Make the first clone of the server
   $ clone server client1
   $ cd client1
-  $ hg cloud leave -q
-  $ hg cloud join -w w1
+  $ sl cloud leave -q
+  $ sl cloud join -w w1
   commitcloud: this repository is now connected to the 'user/test/w1' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
@@ -32,8 +33,8 @@ Make the first clone of the server
 Make the second clone of the server
   $ clone server client2
   $ cd client2
-  $ hg cloud leave -q
-  $ hg cloud join -w w2
+  $ sl cloud leave -q
+  $ sl cloud join -w w2
   commitcloud: this repository is now connected to the 'user/test/w2' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/w2'
   commitcloud: nothing to upload
@@ -46,7 +47,7 @@ Make a commit in the first client, and sync it
   $ cd client1
   $ mkcommit "A (W1)"
   $ mkcommit "B (W1)"
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: head 'aab6fffb2884' hasn't been uploaded yet
   edenapi: queue 2 commits for upload
@@ -64,7 +65,7 @@ Make a commit in the second client, and sync it
   $ cd client2
   $ mkcommit "C (W2)"
   $ mkcommit "D (W2)"
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/w2'
   commitcloud: head 'dff058cfb955' hasn't been uploaded yet
   edenapi: queue 2 commits for upload
@@ -81,7 +82,7 @@ Make a commit in the second client, and sync it
 Switch workspace in the first client
   $ cd client1
 Switch workspace without specifying merge or switch strategy
-  $ hg cloud join -w w1
+  $ sl cloud join -w w1
   commitcloud: this repository has been already connected to the 'user/test/w1' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
@@ -89,7 +90,7 @@ Switch workspace without specifying merge or switch strategy
   finished in * (glob)
 
 Switch workspace to the same workspace
-  $ hg cloud join --switch -w w1
+  $ sl cloud join --switch -w w1
   commitcloud: this repository has been already connected to the 'user/test/w1' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
@@ -97,7 +98,7 @@ Switch workspace to the same workspace
   finished in * (glob)
 
 Switch workspace from a draft commit that is an ancestor of a main bookmark
-  $ hg cloud join --switch -w w2
+  $ sl cloud join --switch -w w2
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -121,11 +122,11 @@ Switch workspace from a draft commit that is an ancestor of a main bookmark
   
  
 Switch workspace using merge strategy
-  $ hg cloud join -w w2_rename --merge
+  $ sl cloud join -w w2_rename --merge
   abort: this repository can not be switched to the 'user/test/w2_rename' workspace
   the workspace doesn't exist (please use --create option to create the workspace)
   [255]
-  $ hg cloud join -w w2_rename --merge --create
+  $ sl cloud join -w w2_rename --merge --create
   commitcloud: this repository will be reconnected from the 'user/test/w2' to the 'user/test/w2_rename' workspace
   commitcloud: all local commits and bookmarks will be merged into 'user/test/w2_rename' workspace
   commitcloud: this repository is now connected to the 'user/test/w2_rename' workspace for the 'server' repo
@@ -142,7 +143,7 @@ Switch workspace using merge strategy
   
 
 Switch workspace back
-  $ hg cloud join -w w1 --switch
+  $ sl cloud join -w w1 --switch
   commitcloud: synchronizing 'server' with 'user/test/w2_rename'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -162,7 +163,7 @@ Switch workspace back
   
 
 Create a bookmark and switch workspace. The bookmark should be preserved in the original workspace
-  $ hg bookmark "book (W1)" -r 'desc("B (W1)")'
+  $ sl bookmark "book (W1)" -r 'desc("B (W1)")'
   $ showgraph
   o  B (W1): draft book (W1)
   │
@@ -170,7 +171,7 @@ Create a bookmark and switch workspace. The bookmark should be preserved in the 
   │
   @  base: public  remote/master
   
-  $ hg cloud join -w w2 --switch
+  $ sl cloud join -w w2 --switch
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -190,7 +191,7 @@ Create a bookmark and switch workspace. The bookmark should be preserved in the 
   
 
 Create a bookmark in w2 and switch workspace. The bookmark should be preserved in the w2. The w1 bookmark should appear.
-  $ hg bookmark "book (W2)" -r 'desc("D (W2)")'
+  $ sl bookmark "book (W2)" -r 'desc("D (W2)")'
   $ showgraph
   o  D (W2): draft book (W2)
   │
@@ -199,7 +200,7 @@ Create a bookmark in w2 and switch workspace. The bookmark should be preserved i
   @  base: public  remote/master
   
 
-  $ hg cloud join -w w1 --switch
+  $ sl cloud join -w w1 --switch
   commitcloud: synchronizing 'server' with 'user/test/w2'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -228,9 +229,9 @@ Switch between workspaces w1 and w2 in client2
   │
   o  base: public  remote/master
   
-  $ hg up d20a80d4def3
+  $ sl up d20a80d4def3
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg cloud join -w w1 --switch
+  $ sl cloud join -w w1 --switch
   commitcloud: synchronizing 'server' with 'user/test/w2'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -250,7 +251,7 @@ Switch between workspaces w1 and w2 in client2
   │
   @  base: public  remote/master
   
-  $ hg cloud join -w w2 --switch
+  $ sl cloud join -w w2 --switch
   commitcloud: synchronizing 'server' with 'user/test/w1'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -268,7 +269,7 @@ Switch between workspaces w1 and w2 in client2
   │
   @  base: public  remote/master
   
-  $ hg cloud join -w w1 --switch
+  $ sl cloud join -w w1 --switch
   commitcloud: synchronizing 'server' with 'user/test/w2'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -291,16 +292,16 @@ Switch between workspaces w1 and w2 in client2
 Make the third clone of the server
   $ clone server client3
   $ cd client3
-  $ hg cloud leave
+  $ sl cloud leave
   commitcloud: this repository is now disconnected from the 'user/test/default' workspace
 
 Try to provide switch and merge options together
-  $ hg cloud join -w w1 --switch --merge
+  $ sl cloud join -w w1 --switch --merge
   commitcloud: 'switch' and 'merge' options can not be provided together, please choose one over another
   [1]
 
 Join a new workspace
-  $ hg cloud join -w3
+  $ sl cloud join -w3
   commitcloud: this repository is now connected to the 'user/test/3' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/3'
   commitcloud: nothing to upload
@@ -309,10 +310,10 @@ Join a new workspace
 
 Try to switch with uncommitted changes from a draft commit. So the uncommitted changes doesn't allow to update to the public root.
   $ echo 'hello' > hello.txt
-  $ hg add hello.txt
-  $ hg commit -m "new file"
+  $ sl add hello.txt
+  $ sl commit -m "new file"
   $ echo 'goodbye' > hello.txt
-  $ hg cloud join -w w1 --switch
+  $ sl cloud join -w w1 --switch
   commitcloud: synchronizing 'server' with 'user/test/3'
   commitcloud: head 'dfa54c832678' hasn't been uploaded yet
   edenapi: queue 1 commit for upload
@@ -328,10 +329,10 @@ Try to switch with uncommitted changes from a draft commit. So the uncommitted c
   [255]
 
 Commit changes to be able to switch
-  $ hg commit -m "new file"
-  $ hg up d20a80d4def3
+  $ sl commit -m "new file"
+  $ sl up d20a80d4def3
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg cloud join -w w1 --switch
+  $ sl cloud join -w w1 --switch
   commitcloud: synchronizing 'server' with 'user/test/3'
   commitcloud: head '5fe2dc2fae70' hasn't been uploaded yet
   edenapi: queue 1 commit for upload
@@ -362,20 +363,20 @@ Commit changes to be able to switch
 Testing switching workspace with different remote bookmarks
   $ cd server
   $ mkcommit "M" # move master
-  $ hg prev -q
+  $ sl prev -q
   [d20a80] base
   $ mkcommit "F"
-  $ hg bookmark "feature"
-  $ hg prev -q
+  $ sl bookmark "feature"
+  $ sl prev -q
   [d20a80] base
   $ mkcommit "S"
-  $ hg bookmark "stable"
+  $ sl bookmark "stable"
 
   $ cd ..
 
   $ cd client1
-  $ hg pull -B feature -q
-  $ hg pull -B master -q
+  $ sl pull -B feature -q
+  $ sl pull -B master -q
   $ showgraph
   o  F: public  remote/feature
   │
@@ -388,7 +389,7 @@ Testing switching workspace with different remote bookmarks
   @  base: public
  
 Bookmark feature should disappear in w2 but master will stay as it is a protected bookmark in this configuration. 
-  $ hg cloud join -w w2 --switch -q 
+  $ sl cloud join -w w2 --switch -q 
   $ showgraph
   o  D (W2): draft book (W2)
   │
@@ -398,7 +399,7 @@ Bookmark feature should disappear in w2 but master will stay as it is a protecte
   ├─╯
   @  base: public
 
-  $ hg pull -B stable -q
+  $ sl pull -B stable -q
   $ showgraph
   o  S: public  remote/stable
   │
@@ -411,7 +412,7 @@ Bookmark feature should disappear in w2 but master will stay as it is a protecte
   @  base: public
 
 Switch back. Bookmark stable should disappear.
-  $ hg cloud join -w w1 --switch -q
+  $ sl cloud join -w w1 --switch -q
   $ showgraph
   o  F: public  remote/feature
   │
@@ -424,7 +425,7 @@ Switch back. Bookmark stable should disappear.
   @  base: public
 
 Switch one more time. Bookmark stable should return and feature disappear.
-  $ hg cloud join -w w2 --switch -q
+  $ sl cloud join -w w2 --switch -q
   $ showgraph
   o  S: public  remote/stable
   │
@@ -437,7 +438,7 @@ Switch one more time. Bookmark stable should return and feature disappear.
   @  base: public
 
 Pull a commit from another workspace
-  $ hg pull -r b624c739a2da -q
+  $ sl pull -r b624c739a2da -q
   $ showgraph
   o  S: public  remote/stable
   │
@@ -453,7 +454,7 @@ Pull a commit from another workspace
 
 Switch back to W1
 
-  $ hg cloud join -w w1 --switch -q
+  $ sl cloud join -w w1 --switch -q
   $ showgraph
   o  F: public  remote/feature
   │
@@ -466,7 +467,7 @@ Switch back to W1
   @  base: public
 
 Switch back to W2 and check that the pulled commit is there.
-  $ hg cloud join -w w2 --switch -q
+  $ sl cloud join -w w2 --switch -q
   $ showgraph
   o  S: public  remote/stable
   │
@@ -482,11 +483,11 @@ Switch back to W2 and check that the pulled commit is there.
  
 
 Test switch to non default non-existent workspace
-  $ hg cloud join --switch -w brand_new_empty
+  $ sl cloud join --switch -w brand_new_empty
   abort: this repository can not be switched to the 'user/test/brand_new_empty' workspace
   the workspace doesn't exist (please use --create option to create the workspace)
   [255]
-  $ hg cloud join --switch -w brand_new_empty --create
+  $ sl cloud join --switch -w brand_new_empty --create
   commitcloud: synchronizing 'server' with 'user/test/w2'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -505,7 +506,7 @@ Test switch to non default non-existent workspace
  
 
 Test switch back to the default workpsace using a shorter `switch` command
-  $ hg cloud switch -w default
+  $ sl cloud switch -w default
   commitcloud: synchronizing 'server' with 'user/test/brand_new_empty'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -519,15 +520,15 @@ Test switch back to the default workpsace using a shorter `switch` command
 
 
 Switch to another brand new workspace
-  $ hg cloud switch -w brand_new_empty2 --create -q
+  $ sl cloud switch -w brand_new_empty2 --create -q
 
 Leave commit cloud
-  $ hg cloud leave
+  $ sl cloud leave
   commitcloud: this repository is now disconnected from the 'user/test/brand_new_empty2' workspace
 
 Try to switch without joining to any workspace first
   $ mkcommit "new"
-  $ hg cloud switch -w default
+  $ sl cloud switch -w default
   commitcloud: this repository can not be switched to the 'user/test/default' workspace
   the repository is not connected to any workspace yet and contains local commits or bookmarks
 
@@ -539,12 +540,12 @@ Clean the repository and try again. Disconnected but clean repo should be allowe
   ├─╯
   o  base: public
   
-  $ hg hide -r 'draft()'
+  $ sl hide -r 'draft()'
   hiding commit 9adefff464dc "new"
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   working directory now at d20a80d4def3
   1 changeset hidden
-  $ hg cloud switch -w default
+  $ sl cloud switch -w default
   commitcloud: this repository is now connected to the 'user/test/default' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
@@ -552,7 +553,7 @@ Clean the repository and try again. Disconnected but clean repo should be allowe
   finished in * (glob)
 
 Switch to non existing workspace that is a prefix of an existing one
-  $ hg cloud switch -w defaul
+  $ sl cloud switch -w defaul
   abort: this repository can not be switched to the 'user/test/defaul' workspace
   the workspace doesn't exist (please use --create option to create the workspace)
   [255]

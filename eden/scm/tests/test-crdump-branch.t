@@ -2,36 +2,37 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable crdump
 
   $ showgraph() {
-  >    hg log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
+  >    sl log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
   > }
 
 Setup server
 
-  $ hg init server
+  $ sl init server
   $ cd server
   $ drawdag <<EOS
   > Y
   > |
   > X
   > EOS
-  $ hg bookmark -r $X bookmark1
-  $ hg bookmark -r $X bookmark1.1
-  $ hg bookmark -r $Y bookmark2
+  $ sl bookmark -r $X bookmark1
+  $ sl bookmark -r $X bookmark1.1
+  $ sl bookmark -r $Y bookmark2
 
 Setup client
 
   $ cd $TESTTMP
   $ clone server client
   $ cd client
-  $ hg pull -B bookmark1 -B bookmark2 -B bookmark1.1
+  $ sl pull -B bookmark1 -B bookmark2 -B bookmark1.1
   pulling from test:server
-  $ hg goto -r bookmark1 -q
+  $ sl goto -r bookmark1 -q
   $ echo 1 >> a
-  $ hg ci -Am a
+  $ sl ci -Am a
   adding a
 
   $ showgraph
@@ -42,6 +43,6 @@ Setup client
   o  X: public  remote/bookmark1 remote/bookmark1.1
 
 #if jq
-  $ hg debugcrdump -r . | jq '.commits[].branch'
+  $ sl debugcrdump -r . | jq '.commits[].branch'
   "bookmark1"
 #endif

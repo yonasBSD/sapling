@@ -2,53 +2,54 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ setconfig 'ui.allowemptycommit=1'
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo a > a
-  $ hg add a
+  $ sl add a
   $ echo line 1 > b
   $ echo line 2 >> b
-  $ hg commit -l b -d '1000000 0' -u 'User Name <user@hostname>'
+  $ sl commit -l b -d '1000000 0' -u 'User Name <user@hostname>'
 
-  $ hg add b
+  $ sl add b
   $ echo other 1 > c
   $ echo other 2 >> c
   $ echo >> c
   $ echo other 3 >> c
-  $ hg commit -l c -d '1100000 0' -u 'A. N. Other <other@place>'
+  $ sl commit -l c -d '1100000 0' -u 'A. N. Other <other@place>'
 
-  $ hg add c
-  $ hg commit -m 'no person' -d '1200000 0' -u 'other@place'
+  $ sl add c
+  $ sl commit -m 'no person' -d '1200000 0' -u 'other@place'
   $ echo c >> c
-  $ hg commit -m 'no user, no domain' -d '1300000 0' -u person
+  $ sl commit -m 'no user, no domain' -d '1300000 0' -u person
 
-  $ hg commit -m 'new branch' -d '1400000 0' -u person
-  $ hg bookmark foo
+  $ sl commit -m 'new branch' -d '1400000 0' -u person
+  $ sl bookmark foo
 
-  $ hg co -q 3
+  $ sl co -q 3
   $ echo other 4 >> d
-  $ hg add d
-  $ hg commit -m 'new head' -d '1500000 0' -u person
+  $ sl add d
+  $ sl commit -m 'new head' -d '1500000 0' -u person
 
-  $ hg merge -q foo
-  $ hg commit -m merge -d '1500001 0' -u person
+  $ sl merge -q foo
+  $ sl commit -m merge -d '1500001 0' -u person
 
-  $ hg log -r . -T '{username}'
+  $ sl log -r . -T '{username}'
   test (no-eol)
 
 # Test arithmetic operators have the right precedence:
 
-  $ hg log -l 1 -T '{date(date, "%Y") + 5 * 10} {date(date, "%Y") - 2 * 3}\n'
+  $ sl log -l 1 -T '{date(date, "%Y") + 5 * 10} {date(date, "%Y") - 2 * 3}\n'
   2020 1964
-  $ hg log -l 1 -T '{date(date, "%Y") * 5 + 10} {date(date, "%Y") * 3 - 2}\n'
+  $ sl log -l 1 -T '{date(date, "%Y") * 5 + 10} {date(date, "%Y") * 3 - 2}\n'
   9860 5908
 
 # Test division:
 
-  $ hg debugtemplate -r0 -v '{5 / 2} {mod(5, 2)}\n'
+  $ sl debugtemplate -r0 -v '{5 / 2} {mod(5, 2)}\n'
   (template
     (/
       (integer '5')
@@ -61,7 +62,7 @@
         (integer '2')))
     (string '\n'))
   2 1
-  $ hg debugtemplate -r0 -v '{5 / -2} {mod(5, -2)}\n'
+  $ sl debugtemplate -r0 -v '{5 / -2} {mod(5, -2)}\n'
   (template
     (/
       (integer '5')
@@ -76,7 +77,7 @@
           (integer '2'))))
     (string '\n'))
   -3 -1
-  $ hg debugtemplate -r0 -v '{-5 / 2} {mod(-5, 2)}\n'
+  $ sl debugtemplate -r0 -v '{-5 / 2} {mod(-5, 2)}\n'
   (template
     (/
       (negate
@@ -91,7 +92,7 @@
         (integer '2')))
     (string '\n'))
   -3 1
-  $ hg debugtemplate -r0 -v '{-5 / -2} {mod(-5, -2)}\n'
+  $ sl debugtemplate -r0 -v '{-5 / -2} {mod(-5, -2)}\n'
   (template
     (/
       (negate
@@ -111,7 +112,7 @@
 
 # Filters bind closer than arithmetic:
 
-  $ hg debugtemplate -r0 -v '{revset(".")|count - 1}\n'
+  $ sl debugtemplate -r0 -v '{revset(".")|count - 1}\n'
   (template
     (-
       (|
@@ -125,7 +126,7 @@
 
 # But negate binds closer still:
 
-  $ hg debugtemplate -r0 -v '{1-3|stringify}\n'
+  $ sl debugtemplate -r0 -v '{1-3|stringify}\n'
   (template
     (-
       (integer '1')
@@ -133,9 +134,9 @@
         (integer '3')
         (symbol 'stringify')))
     (string '\n'))
-  hg: parse error: arithmetic only defined on integers
+  sl: parse error: arithmetic only defined on integers
   [255]
-  $ hg debugtemplate -r0 -v '{-3|stringify}\n'
+  $ sl debugtemplate -r0 -v '{-3|stringify}\n'
   (template
     (|
       (negate
@@ -146,7 +147,7 @@
 
 # Filters bind as close as map operator:
 
-  $ hg debugtemplate -r0 -v '{desc|splitlines % "{line}\n"}'
+  $ sl debugtemplate -r0 -v '{desc|splitlines % "{line}\n"}'
   (template
     (%
       (|
@@ -160,95 +161,95 @@
 
 # Keyword arguments:
 
-  $ hg debugtemplate -r0 -v '{foo=bar|baz}'
+  $ sl debugtemplate -r0 -v '{foo=bar|baz}'
   (template
     (keyvalue
       (symbol 'foo')
       (|
         (symbol 'bar')
         (symbol 'baz'))))
-  hg: parse error: can't use a key-value pair in this context
+  sl: parse error: can't use a key-value pair in this context
   [255]
 
-  $ hg debugtemplate '{pad("foo", width=10, left=true)}\n'
+  $ sl debugtemplate '{pad("foo", width=10, left=true)}\n'
          foo
 
 # Call function which takes named arguments by filter syntax:
 
-  $ hg debugtemplate '{" "|separate}'
-  $ hg debugtemplate '{("not", "an", "argument", "list")|separate}'
-  hg: parse error: unknown method 'list'
+  $ sl debugtemplate '{" "|separate}'
+  $ sl debugtemplate '{("not", "an", "argument", "list")|separate}'
+  sl: parse error: unknown method 'list'
   [255]
 
 # Second branch starting at nullrev:
 
-  $ hg goto null
+  $ sl goto null
   0 files updated, 0 files merged, 4 files removed, 0 files unresolved
 
   >>> with open("second", "wb") as f:
   ...     f.write("🥈".encode()) and None
   ...     f.write(b"\xe2\x28\xa1\n") and None  # invalid utf-8
 
-  $ hg add second
-  $ hg commit -m second -d '1000000 0' -u 'User Name <user@hostname>'
+  $ sl add second
+  $ sl commit -m second -d '1000000 0' -u 'User Name <user@hostname>'
 
   $ echo third > third
-  $ hg add third
-  $ hg mv second fourth
-  $ hg commit -m third -d '2020-01-01 10:01 UTC'
+  $ sl add third
+  $ sl mv second fourth
+  $ sl commit -m third -d '2020-01-01 10:01 UTC'
 
-  $ hg log --template '{join(file_copies, ",\n")}\n' -r .
+  $ sl log --template '{join(file_copies, ",\n")}\n' -r .
   fourth (second)
-  $ hg log -T '{file_copies % "{source} -> {name}\n"}' -r .
+  $ sl log -T '{file_copies % "{source} -> {name}\n"}' -r .
   second -> fourth
-  $ hg log -T '{rev} {ifcontains("fourth", file_copies, "t", "f")}\n' -r '.:7'
+  $ sl log -T '{rev} {ifcontains("fourth", file_copies, "t", "f")}\n' -r '.:7'
   8 t
   7 f
 
 # Working-directory revision has special identifiers, though they are still
 # experimental:
 
-  $ hg log -r 'wdir()' -T '{rev}:{node}\n'
+  $ sl log -r 'wdir()' -T '{rev}:{node}\n'
   9151595917793558527:ffffffffffffffffffffffffffffffffffffffff
 
 # Some keywords are invalid for working-directory revision, but they should
 # never cause crash:
 
-  $ hg log -r 'wdir()' -T '{manifest}\n'
+  $ sl log -r 'wdir()' -T '{manifest}\n'
 
 # Quoting for ui.logtemplate
 
-  $ hg tip --config 'ui.logtemplate={rev}\n'
+  $ sl tip --config 'ui.logtemplate={rev}\n'
   8
-  $ hg tip --config 'ui.logtemplate='\''{rev}\n'\'''
+  $ sl tip --config 'ui.logtemplate='\''{rev}\n'\'''
   8
-  $ hg tip --config 'ui.logtemplate="{rev}\n"'
+  $ sl tip --config 'ui.logtemplate="{rev}\n"'
   8
-  $ hg tip --config 'ui.logtemplate=n{rev}\n'
+  $ sl tip --config 'ui.logtemplate=n{rev}\n'
   n8
 
 # Make sure user/global hgrc does not affect tests
 
-  $ echo '[ui]' > .hg/hgrc
-  $ echo 'logtemplate =' >> .hg/hgrc
-  $ echo 'style =' >> .hg/hgrc
+  $ echo '[ui]' > .sl/config
+  $ echo 'logtemplate =' >> .sl/config
+  $ echo 'style =' >> .sl/config
 
 # Add some simple styles to settings
 
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [templates]
   > simple = "{rev}\n"
   > simple2 = {rev}\n
   > rev = "should not precede {rev} keyword\n"
   > EOF
 
-  $ hg log -l1 -Tsimple
+  $ sl log -l1 -Tsimple
   8
-  $ hg log -l1 -Tsimple2
+  $ sl log -l1 -Tsimple2
   8
-  $ hg log -l1 -Trev
+  $ sl log -l1 -Trev
   should not precede 8 keyword
-  $ hg log -l1 -T '{simple}'
+  $ sl log -l1 -T '{simple}'
   8
 
 # Map file shouldn't see user templates:
@@ -256,19 +257,19 @@
   $ cat > tmpl << 'EOF'
   > changeset = 'nothing expanded:{simple}\n'
   > EOF
-  $ hg log -l1 --style ./tmpl
+  $ sl log -l1 --style ./tmpl
   nothing expanded:
 
 # Test templates and style maps in files:
 
   $ echo '{rev}' > tmpl
-  $ hg log -l1 -T./tmpl
+  $ sl log -l1 -T./tmpl
   8
-  $ hg log -l1 -Tblah/blah
+  $ sl log -l1 -Tblah/blah
   blah/blah (no-eol)
 
   $ printf "%s" 'changeset = "{rev}\n"' > map-simple
-  $ hg log -l1 -T./map-simple
+  $ sl log -l1 -T./map-simple
   8
 
 #  a map file may have [templates] and [templatealias] sections:
@@ -279,28 +280,28 @@
   > [templatealias]
   > a = desc
   > EOF
-  $ hg log -l1 -T./map-simple
+  $ sl log -l1 -T./map-simple
   third
 
 #  so it can be included in hgrc
 
-  $ cp .hg/hgrc .hg/orig.hgrc
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cp .sl/config .sl/orig.hgrc
+  $ cat >> .sl/config << 'EOF'
   > %include ../map-simple
   > [templates]
   > foo = "{desc}\n"
   > EOF
-  $ hg log -l1 -Tfoo
+  $ sl log -l1 -Tfoo
   third
-  $ hg log -l1 '-T{a}\n'
+  $ sl log -l1 '-T{a}\n'
   third
-  $ cp .hg/orig.hgrc .hg/hgrc
+  $ cp .sl/orig.hgrc .sl/config
 
 # Test template map inheritance
 
   $ echo '__base__ = map-cmdline.default' > map-simple
   $ printf "%s" 'cset = "changeset: ***{rev}***\n"' >> map-simple
-  $ hg log -l1 -T./map-simple
+  $ sl log -l1 -T./map-simple
   changeset: ***8***
   user:        test
   date:        Wed Jan 01 10:01:00 2020 +0000
@@ -314,7 +315,7 @@
   > separator = ',\n'
   > changeset = ' {dict(rev, node|short)|json}'
   > EOF
-  $ hg log -l2 -T./map-myjson
+  $ sl log -l2 -T./map-myjson
   {
    {"node": "209edb6a1848", "rev": 8},
    {"node": "88058a185da2", "rev": 7}
@@ -322,7 +323,7 @@
 
 # Test docheader, docfooter and separator in [templates] section
 
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [templates]
   > myjson = ' {dict(rev, node|short)|json}'
   > myjson:docheader = '\{\n'
@@ -330,38 +331,38 @@
   > myjson:separator = ',\n'
   > :docheader = 'should not be selected as a docheader for literal templates\n'
   > EOF
-  $ hg log -l2 -Tmyjson
+  $ sl log -l2 -Tmyjson
   {
    {"node": "209edb6a1848", "rev": 8},
    {"node": "88058a185da2", "rev": 7}
   }
-  $ hg log -l1 '-T{rev}\n'
+  $ sl log -l1 '-T{rev}\n'
   8
 
 # Template should precede style option
 
-  $ hg log -l1 --style default -T '{rev}\n'
+  $ sl log -l1 --style default -T '{rev}\n'
   8
 
 # Add a commit with empty description, to ensure that the templates
 # below will omit the description line.
 
   $ echo c >> c
-  $ hg add c
-  $ hg commit -qm ' '
+  $ sl add c
+  $ sl commit -qm ' '
 
 # Remove commit with empty commit message, so as to not pollute further
 # tests.
 
-  $ hg debugstrip -q .
+  $ sl debugstrip -q .
 
 # Revision with no copies (used to print a traceback):
 
-  $ hg tip -v --template '\n'
+  $ sl tip -v --template '\n'
 
 # Compact style works:
 
-  $ hg log -Tcompact
+  $ sl log -Tcompact
      209edb6a1848   2020-01-01 10:01 +0000   test
     third
   
@@ -389,7 +390,7 @@
      1e4e1b8f71e0   1970-01-12 13:46 +0000   user
     line 1
 
-  $ hg log -v --style compact
+  $ sl log -v --style compact
   209edb6a1848   2020-01-01 10:01 +0000   test
     third
   
@@ -421,7 +422,7 @@
     line 1
   line 2
 
-  $ hg log --debug --style compact
+  $ sl log --debug --style compact
   209edb6a1848   2020-01-01 10:01 +0000   test
     third
   
@@ -455,12 +456,12 @@
 
 # Test xml styles:
 
-  $ hg log --style xml -r 'not all()'
+  $ sl log --style xml -r 'not all()'
   <?xml version="1.0"?>
   <log>
   </log>
 
-  $ hg log --style xml
+  $ sl log --style xml
   <?xml version="1.0"?>
   <log>
   <logentry node="209edb6a18483c1434e4006bca4c2b1ee5e7090a">
@@ -515,7 +516,7 @@
   </logentry>
   </log>
 
-  $ hg log -v --style xml
+  $ sl log -v --style xml
   <?xml version="1.0"?>
   <log>
   <logentry node="209edb6a18483c1434e4006bca4c2b1ee5e7090a">
@@ -600,7 +601,7 @@
   </logentry>
   </log>
 
-  $ hg log --debug --style xml
+  $ sl log --debug --style xml
   <?xml version="1.0"?>
   <log>
   <logentry node="209edb6a18483c1434e4006bca4c2b1ee5e7090a">
@@ -696,10 +697,10 @@
 
 # Test JSON style:
 
-  $ hg log -k nosuch -Tjson
+  $ sl log -k nosuch -Tjson
   []
 
-  $ hg log -qr . -Tjson
+  $ sl log -qr . -Tjson
   [
    {
     "rev": 8,
@@ -707,7 +708,7 @@
    }
   ]
 
-  $ hg log -vpr . -Tjson --stat
+  $ sl log -vpr . -Tjson --stat
   [
    {
     "rev": 8,
@@ -728,7 +729,7 @@
 
 # honor --git but not format-breaking diffopts
 
-  $ hg --config 'diff.noprefix=True' log --git -vpr . -Tjson
+  $ sl --config 'diff.noprefix=True' log --git -vpr . -Tjson
   [
    {
     "rev": 8,
@@ -745,7 +746,7 @@
    }
   ]
 
-  $ hg log -T json
+  $ sl log -T json
   [
    {
     "rev": 8,
@@ -848,7 +849,7 @@
    }
   ]
 
-  $ hg heads -v -Tjson
+  $ sl heads -v -Tjson
   [
    {
     "rev": 8,
@@ -876,7 +877,7 @@
    }
   ]
 
-  $ hg log --debug -Tjson
+  $ sl log --debug -Tjson
   [
    {
     "rev": 8,
@@ -1029,7 +1030,7 @@
 
   >>> import os; os.chmod("q", 0) and None
 
-  $ hg log --style ./q
+  $ sl log --style ./q
   abort: Permission denied: ./q
   (current process runs with uid 42)
   (./q: mode 0o52, uid 42, gid 42)
@@ -1039,12 +1040,12 @@
 
 # Error if no style:
 
-  $ hg log --style notexist
+  $ sl log --style notexist
   abort: style 'notexist' not found
   (available styles: bisect, changelog, compact, default, phases, show, sl_default, status, xml)
   [255]
 
-  $ hg log -T list
+  $ sl log -T list
   available styles: bisect, changelog, compact, default, phases, show, sl_default, status, xml
   abort: specify a template
   [255]
@@ -1052,22 +1053,22 @@
 # Error if style missing key:
 
   $ echo 'q = q' > t
-  $ hg log --style ./t
+  $ sl log --style ./t
   abort: "changeset" not in template map
   [255]
 
 # Error if style missing value:
 
   $ echo 'changeset =' > t
-  $ hg log --style t
-  hg: parse error at t:1: missing value
+  $ sl log --style t
+  sl: parse error at t:1: missing value
   [255]
 
 # Error if include fails:
 
   $ echo 'changeset = q' >> t
 #if unix-permissions no-root
-  $ hg log --style ./t
+  $ sl log --style ./t
   abort: template file ./q: Permission denied
   [255]
   $ rm -f q
@@ -1076,7 +1077,7 @@
 # Include works:
 
   $ echo '{rev}' > q
-  $ hg log --style ./t
+  $ sl log --style ./t
   8
   7
   6
@@ -1093,7 +1094,7 @@
   $ cat > issue4758 << 'EOF'
   > changeset = '{changeset}\n'
   > EOF
-  $ hg log --style ./issue4758
+  $ sl log --style ./issue4758
   abort: recursive reference 'changeset' in template
   [255]
 
@@ -1103,7 +1104,7 @@
   > changeset = '{foo}'
   > foo = '{changeset}'
   > EOF
-  $ hg log --style ./issue4758
+  $ sl log --style ./issue4758
   abort: recursive reference 'foo' in template
   [255]
 
@@ -1112,7 +1113,7 @@
   $ cat > issue4758 << 'EOF'
   > changeset = '{files % changeset}\n'
   > EOF
-  $ hg log --style ./issue4758
+  $ sl log --style ./issue4758
   abort: recursive reference 'changeset' in template
   [255]
 
@@ -1122,7 +1123,7 @@
   > changeset = '{bookmarks % rev}'
   > rev = '{rev} {bookmark}\n'
   > EOF
-  $ hg log --style ./issue4758 -r tip
+  $ sl log --style ./issue4758 -r tip
 
 # Check that {phase} works correctly on parents:
 
@@ -1130,8 +1131,8 @@
   > changeset_debug = '{rev} ({phase}):{parents}\n'
   > parent = ' {rev} ({phase})'
   > EOF
-  $ hg debugmakepublic 5
-  $ hg log --debug -G --style ./parentphase
+  $ sl debugmakepublic 5
+  $ sl log --debug -G --style ./parentphase
   @  8 (draft): 7 (draft)
   │
   o  7 (draft):
@@ -1153,7 +1154,7 @@
 # Missing non-standard names give no error (backward compatibility):
 
   $ echo 'changeset = '\''{c}'\''' > t
-  $ hg log --style ./t
+  $ sl log --style ./t
 
 # Defining non-standard name works:
 
@@ -1161,7 +1162,7 @@
   > changeset = '{c}'
   > c = q
   > EOF
-  $ hg log --style ./t
+  $ sl log --style ./t
   8
   7
   6
@@ -1174,9 +1175,9 @@
 
 # ui.style works:
 
-  $ echo '[ui]' > .hg/hgrc
-  $ echo 'style = t' >> .hg/hgrc
-  $ hg log
+  $ echo '[ui]' > .sl/config
+  $ echo 'style = t' >> .sl/config
+  $ sl log
   8
   7
   6
@@ -1189,7 +1190,7 @@
 
 # Issue338:
 
-  $ hg log '--style=changelog' > changelog
+  $ sl log '--style=changelog' > changelog
 
   $ cat changelog
   2020-01-01  test  <test>
@@ -1244,9 +1245,9 @@
   	line 1 line 2
   	[1e4e1b8f71e0]
 
-# Issue2130: xml output for 'hg heads' is malformed
+# Issue2130: xml output for 'sl heads' is malformed
 
-  $ hg heads --style changelog
+  $ sl heads --style changelog
   2020-01-01  test  <test>
   
   	* fourth, second, third:
@@ -1262,7 +1263,7 @@
 
   $ for key in author branch branches date desc file_adds file_dels file_mods file_copies file_copies_switch files manifest node parents rev diffstat extras p1rev p2rev p1node p2node; do
   >   for mode in '' '--verbose' '--debug'; do
-  >     hg log $mode -T "$key$mode: {$key}\n"
+  >     sl log $mode -T "$key$mode: {$key}\n"
   >   done
   > done
   author: test
@@ -1847,7 +1848,7 @@
 
 # Filters work:
 
-  $ hg log --template '{author|domain}\n'
+  $ sl log --template '{author|domain}\n'
   
   hostname
   
@@ -1858,7 +1859,7 @@
   place
   hostname
 
-  $ hg log --template '{author|person}\n'
+  $ sl log --template '{author|person}\n'
   test
   User Name
   person
@@ -1869,7 +1870,7 @@
   A. N. Other
   User Name
 
-  $ hg log --template '{author|user}\n'
+  $ sl log --template '{author|user}\n'
   test
   user
   person
@@ -1880,7 +1881,7 @@
   other
   user
 
-  $ hg log --template '{date|date}\n'
+  $ sl log --template '{date|date}\n'
   Wed Jan 01 10:01:00 2020 +0000
   Mon Jan 12 13:46:40 1970 +0000
   Sun Jan 18 08:40:01 1970 +0000
@@ -1891,7 +1892,7 @@
   Tue Jan 13 17:33:20 1970 +0000
   Mon Jan 12 13:46:40 1970 +0000
 
-  $ hg log --template '{date|isodate}\n'
+  $ sl log --template '{date|isodate}\n'
   2020-01-01 10:01 +0000
   1970-01-12 13:46 +0000
   1970-01-18 08:40 +0000
@@ -1902,7 +1903,7 @@
   1970-01-13 17:33 +0000
   1970-01-12 13:46 +0000
 
-  $ hg log --template '{date|isodatesec}\n'
+  $ sl log --template '{date|isodatesec}\n'
   2020-01-01 10:01:00 +0000
   1970-01-12 13:46:40 +0000
   1970-01-18 08:40:01 +0000
@@ -1913,7 +1914,7 @@
   1970-01-13 17:33:20 +0000
   1970-01-12 13:46:40 +0000
 
-  $ hg log --template '{date|rfc822date}\n'
+  $ sl log --template '{date|rfc822date}\n'
   Wed, 01 Jan 2020 10:01:00 +0000
   Mon, 12 Jan 1970 13:46:40 +0000
   Sun, 18 Jan 1970 08:40:01 +0000
@@ -1924,7 +1925,7 @@
   Tue, 13 Jan 1970 17:33:20 +0000
   Mon, 12 Jan 1970 13:46:40 +0000
 
-  $ hg log --template '{desc|firstline}\n'
+  $ sl log --template '{desc|firstline}\n'
   third
   second
   merge
@@ -1935,7 +1936,7 @@
   other 1
   line 1
 
-  $ hg log --template '{node|short}\n'
+  $ sl log --template '{node|short}\n'
   209edb6a1848
   88058a185da2
   f7e5795620e7
@@ -1946,7 +1947,7 @@
   b608e9d1a3f0
   1e4e1b8f71e0
 
-  $ hg log --template '<changeset author="{author|xmlescape}"/>\n'
+  $ sl log --template '<changeset author="{author|xmlescape}"/>\n'
   <changeset author="test"/>
   <changeset author="User Name &lt;user@hostname&gt;"/>
   <changeset author="person"/>
@@ -1957,7 +1958,7 @@
   <changeset author="A. N. Other &lt;other@place&gt;"/>
   <changeset author="User Name &lt;user@hostname&gt;"/>
 
-  $ hg log --template '{rev}: {children}\n'
+  $ sl log --template '{rev}: {children}\n'
   8: 
   7: 209edb6a1848
   6: 
@@ -1970,23 +1971,23 @@
 
 # Formatnode filter works:
 
-  $ hg -q log -r 0 --template '{node|formatnode}\n'
+  $ sl -q log -r 0 --template '{node|formatnode}\n'
   1e4e1b8f71e0
 
-  $ hg log -r 0 --template '{node|formatnode}\n'
+  $ sl log -r 0 --template '{node|formatnode}\n'
   1e4e1b8f71e0
 
-  $ hg -v log -r 0 --template '{node|formatnode}\n'
+  $ sl -v log -r 0 --template '{node|formatnode}\n'
   1e4e1b8f71e0
 
-  $ hg --debug log -r 0 --template '{node|formatnode}\n'
+  $ sl --debug log -r 0 --template '{node|formatnode}\n'
   1e4e1b8f71e05681d422154f5421e385fec3454f
 
 # Age filter:
 
-  $ hg init unstable-hash
+  $ sl init unstable-hash
   $ cd unstable-hash
-  $ hg log --template '{date|age}\n' > /dev/null
+  $ sl log --template '{date|age}\n' > /dev/null
 
   >>> with open('a', 'wb') as f:
   ...     import datetime
@@ -1994,11 +1995,11 @@
   ...     s = "%d-%d-%d 00:00" % (n.year, n.month, n.day)
   ...     f.write(s.encode()) and None
 
-  $ hg add a
+  $ sl add a
 
-  $ hg commit -m future -d "$(cat a) UTC"
+  $ sl commit -m future -d "$(cat a) UTC"
 
-  $ hg log -l1 --template '{date|age}\n'
+  $ sl log -l1 --template '{date|age}\n'
   7 years from now
 
   $ cd ..
@@ -2006,18 +2007,18 @@
 # Add a dummy commit to make up for the instability of the above:
 
   $ echo a > a
-  $ hg add a
-  $ hg ci -m future
+  $ sl add a
+  $ sl ci -m future
 
 # Count filter:
 
-  $ hg log -l1 --template '{node|count} {node|short|count}\n'
+  $ sl log -l1 --template '{node|count} {node|short|count}\n'
   40 12
 
-  $ hg log -l1 --template '{revset("null^")|count} {revset(".")|count} {revset("0::3")|count}\n'
+  $ sl log -l1 --template '{revset("null^")|count} {revset(".")|count} {revset("0::3")|count}\n'
   0 1 4
 
-  $ hg log -G --template '{rev}: children: {children|count}, file_adds: {file_adds|count}, ancestors: {revset("ancestors(%s)", rev)|count}'
+  $ sl log -G --template '{rev}: children: {children|count}, file_adds: {file_adds|count}, ancestors: {revset("ancestors(%s)", rev)|count}'
   @  9: children: 0, file_adds: 1, ancestors: 3
   │
   o  8: children: 1, file_adds: 2, ancestors: 2
@@ -2040,11 +2041,11 @@
 
 # Upper/lower filters:
 
-  $ hg log -r0 --template '{author|upper}\n'
+  $ sl log -r0 --template '{author|upper}\n'
   USER NAME <USER@HOSTNAME>
-  $ hg log -r0 --template '{author|lower}\n'
+  $ sl log -r0 --template '{author|lower}\n'
   user name <user@hostname>
-  $ hg log -r0 --template '{date|upper}\n'
+  $ sl log -r0 --template '{date|upper}\n'
   abort: template filter 'upper' is not compatible with keyword 'date'
   [255]
 
@@ -2052,10 +2053,10 @@
 
   $ echo modify >> third
   $ touch b
-  $ hg add b
-  $ hg mv fourth fifth
-  $ hg rm a
-  $ hg ci -m 'Modify, add, remove, rename'
+  $ sl add b
+  $ sl mv fourth fifth
+  $ sl rm a
+  $ sl ci -m 'Modify, add, remove, rename'
 
 # Check the status template
 
@@ -2064,7 +2065,7 @@
   > color=
   > EOF
 
-  $ hg log -T status -r 10
+  $ sl log -T status -r 10
   commit:      bc9dfec3b3bc
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -2075,7 +2076,7 @@
   A fifth
   R a
   R fourth
-  $ hg log -T status -C -r 10
+  $ sl log -T status -C -r 10
   commit:      bc9dfec3b3bc
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -2087,7 +2088,7 @@
     fourth
   R a
   R fourth
-  $ hg log -T status -C -r 10 -v
+  $ sl log -T status -C -r 10 -v
   commit:      bc9dfec3b3bc
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -2101,7 +2102,7 @@
     fourth
   R a
   R fourth
-  $ hg log -T status -C -r 10 --debug
+  $ sl log -T status -C -r 10 --debug
   commit:      bc9dfec3b3bcc43c41a22000f3226b0c1085d5c1
   phase:       draft
   manifest:    1685af69a14aa2346cfb01cf0e7f50ef176128b4
@@ -2118,9 +2119,9 @@
     fourth
   R a
   R fourth
-  $ hg log -T status -C -r 10 --quiet
+  $ sl log -T status -C -r 10 --quiet
   bc9dfec3b3bc
-  $ hg '--color=debug' log -T status -r 10
+  $ sl '--color=debug' log -T status -r 10
   [log.changeset changeset.draft|commit:      bc9dfec3b3bc]
   [log.user|user:        test]
   [log.date|date:        Thu Jan 01 00:00:00 1970 +0000]
@@ -2131,7 +2132,7 @@
   [status.added|A fifth]
   [status.removed|R a]
   [status.removed|R fourth]
-  $ hg '--color=debug' log -T status -C -r 10
+  $ sl '--color=debug' log -T status -C -r 10
   [log.changeset changeset.draft|commit:      bc9dfec3b3bc]
   [log.user|user:        test]
   [log.date|date:        Thu Jan 01 00:00:00 1970 +0000]
@@ -2143,7 +2144,7 @@
   [status.copied|  fourth]
   [status.removed|R a]
   [status.removed|R fourth]
-  $ hg '--color=debug' log -T status -C -r 10 -v
+  $ sl '--color=debug' log -T status -C -r 10 -v
   [log.changeset changeset.draft|commit:      bc9dfec3b3bc]
   [log.user|user:        test]
   [log.date|date:        Thu Jan 01 00:00:00 1970 +0000]
@@ -2157,7 +2158,7 @@
   [status.copied|  fourth]
   [status.removed|R a]
   [status.removed|R fourth]
-  $ hg '--color=debug' log -T status -C -r 10 --debug
+  $ sl '--color=debug' log -T status -C -r 10 --debug
   [log.changeset changeset.draft|commit:      bc9dfec3b3bcc43c41a22000f3226b0c1085d5c1]
   [log.phase|phase:       draft]
   [ui.debug log.manifest|manifest:    1685af69a14aa2346cfb01cf0e7f50ef176128b4]
@@ -2174,15 +2175,15 @@
   [status.copied|  fourth]
   [status.removed|R a]
   [status.removed|R fourth]
-  $ hg '--color=debug' log -T status -C -r 10 --quiet
+  $ sl '--color=debug' log -T status -C -r 10 --quiet
   [log.node|bc9dfec3b3bc]
 
 # Check the bisect template
 
-  $ hg bisect -g 1
-  $ hg bisect -b 3 --noupdate
+  $ sl bisect -g 1
+  $ sl bisect -b 3 --noupdate
   Testing changeset 97054abb4ab8 (2 changesets remaining, ~1 tests)
-  $ hg log -T bisect -r '0:4'
+  $ sl log -T bisect -r '0:4'
   commit:      1e4e1b8f71e0
   bisect:      good (implicit)
   user:        User Name <user@hostname>
@@ -2213,7 +2214,7 @@
   user:        person
   date:        Sat Jan 17 04:53:20 1970 +0000
   summary:     new branch
-  $ hg log --debug -T bisect -r '0:4'
+  $ sl log --debug -T bisect -r '0:4'
   commit:      1e4e1b8f71e05681d422154f5421e385fec3454f
   bisect:      good (implicit)
   phase:       public
@@ -2276,7 +2277,7 @@
   extra:       branch=default
   description:
   new branch
-  $ hg log -v -T bisect -r '0:4'
+  $ sl log -v -T bisect -r '0:4'
   commit:      1e4e1b8f71e0
   bisect:      good (implicit)
   user:        User Name <user@hostname>
@@ -2324,7 +2325,7 @@
   date:        Sat Jan 17 04:53:20 1970 +0000
   description:
   new branch
-  $ hg '--color=debug' log -T bisect -r '0:4'
+  $ sl '--color=debug' log -T bisect -r '0:4'
   [log.changeset changeset.public|commit:      1e4e1b8f71e0]
   [log.bisect bisect.good|bisect:      good (implicit)]
   [log.user|user:        User Name <user@hostname>]
@@ -2355,7 +2356,7 @@
   [log.user|user:        person]
   [log.date|date:        Sat Jan 17 04:53:20 1970 +0000]
   [log.summary|summary:     new branch]
-  $ hg '--color=debug' log --debug -T bisect -r '0:4'
+  $ sl '--color=debug' log --debug -T bisect -r '0:4'
   [log.changeset changeset.public|commit:      1e4e1b8f71e05681d422154f5421e385fec3454f]
   [log.bisect bisect.good|bisect:      good (implicit)]
   [log.phase|phase:       public]
@@ -2418,7 +2419,7 @@
   [ui.debug log.extra|extra:       branch=default]
   [ui.note log.description|description:]
   [ui.note log.description|new branch]
-  $ hg '--color=debug' log -v -T bisect -r '0:4'
+  $ sl '--color=debug' log -v -T bisect -r '0:4'
   [log.changeset changeset.public|commit:      1e4e1b8f71e0]
   [log.bisect bisect.good|bisect:      good (implicit)]
   [log.user|user:        User Name <user@hostname>]
@@ -2466,91 +2467,91 @@
   [log.date|date:        Sat Jan 17 04:53:20 1970 +0000]
   [ui.note log.description|description:]
   [ui.note log.description|new branch]
-  $ hg bisect --reset
+  $ sl bisect --reset
 
 # Error on syntax:
 
   $ echo 'x = "f' >> t
-  $ hg log
-  hg: parse error at t:3: unmatched quotes
+  $ sl log
+  sl: parse error at t:3: unmatched quotes
   [255]
 
-  $ hg log -T '{date'
-  hg: parse error at 1: unterminated template expansion
+  $ sl log -T '{date'
+  sl: parse error at 1: unterminated template expansion
   ({date
    ^ here)
   [255]
 
 # Behind the scenes, this will throw TypeError
 
-  $ hg log -l 3 --template '{date|obfuscate}\n'
+  $ sl log -l 3 --template '{date|obfuscate}\n'
   abort: template filter 'obfuscate' is not compatible with keyword 'date'
   [255]
 
 # Behind the scenes, this will throw a ValueError
 
-  $ hg log -l 3 --template 'line: {desc|shortdate}\n'
+  $ sl log -l 3 --template 'line: {desc|shortdate}\n'
   abort: template filter 'shortdate' is not compatible with keyword 'desc'
   [255]
 
 # Behind the scenes, this will throw AttributeError
 
-  $ hg log -l 3 --template 'line: {date|escape}\n'
+  $ sl log -l 3 --template 'line: {date|escape}\n'
   abort: template filter 'escape' is not compatible with keyword 'date'
   [255]
 
-  $ hg log -l 3 --template 'line: {extras|localdate}\n'
-  hg: parse error: localdate expects a date information
+  $ sl log -l 3 --template 'line: {extras|localdate}\n'
+  sl: parse error: localdate expects a date information
   [255]
 
 # Behind the scenes, this will throw ValueError
 
-  $ hg tip --template '{author|email|date}\n'
-  hg: parse error: date expects a date information
+  $ sl tip --template '{author|email|date}\n'
+  sl: parse error: date expects a date information
   [255]
 
-  $ hg tip -T '{author|email|shortdate}\n'
+  $ sl tip -T '{author|email|shortdate}\n'
   abort: template filter 'shortdate' is not compatible with keyword 'author'
   [255]
 
-  $ hg tip -T '{get(extras, "branch")|shortdate}\n'
+  $ sl tip -T '{get(extras, "branch")|shortdate}\n'
   abort: incompatible use of template filter 'shortdate'
   [255]
 
 # Error in nested template:
 
-  $ hg log -T '{"date'
-  hg: parse error at 2: unterminated string
+  $ sl log -T '{"date'
+  sl: parse error at 2: unterminated string
   ({"date
     ^ here)
   [255]
 
-  $ hg log -T '{"foo{date|?}"}'
-  hg: parse error at 11: syntax error
+  $ sl log -T '{"foo{date|?}"}'
+  sl: parse error at 11: syntax error
   ({"foo{date|?}"}
              ^ here)
   [255]
 
 # Thrown an error if a template function doesn't exist
 
-  $ hg tip --template '{foo()}\n'
-  hg: parse error: unknown function 'foo'
+  $ sl tip --template '{foo()}\n'
+  sl: parse error: unknown function 'foo'
   [255]
 
 # Pass generator object created by template function to filter
 
-  $ hg log -l 1 --template '{if(author, author)|user}\n'
+  $ sl log -l 1 --template '{if(author, author)|user}\n'
   test
 
 # Test index keyword:
 
-  $ hg log -l 2 -T '{index + 10}{files % " {index}:{file}"}\n'
+  $ sl log -l 2 -T '{index + 10}{files % " {index}:{file}"}\n'
   10 0:a 1:b 2:fifth 3:fourth 4:third
   11 0:a
 
 # Test diff function:
 
-  $ hg diff -c 8
+  $ sl diff -c 8
   diff -r 88058a185da2 -r 209edb6a1848 fourth
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/fourth	Wed Jan 01 10:01:00 2020 +0000
@@ -2568,7 +2569,7 @@
   +third
 
 
-  $ hg log -r 8 -T '{diff()}'
+  $ sl log -r 8 -T '{diff()}'
   diff -r 88058a185da2 -r 209edb6a1848 fourth
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/fourth	Wed Jan 01 10:01:00 2020 +0000
@@ -2586,7 +2587,7 @@
   +third
 
 
-  $ hg log -r 8 -T '{diff('\''glob:f*'\'')}'
+  $ sl log -r 8 -T '{diff('\''glob:f*'\'')}'
   diff -r 88058a185da2 -r 209edb6a1848 fourth
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/fourth	Wed Jan 01 10:01:00 2020 +0000
@@ -2594,7 +2595,7 @@
   +🥈�(�
 
 
-  $ hg log -r 8 -T '{diff('\'''\'', '\''glob:f*'\'')}'
+  $ sl log -r 8 -T '{diff('\'''\'', '\''glob:f*'\'')}'
   diff -r 88058a185da2 -r 209edb6a1848 second
   --- a/second	Mon Jan 12 13:46:40 1970 +0000
   +++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
@@ -2607,7 +2608,7 @@
   +third
 
 
-  $ hg log -r 8 -T '{diff('\''FOURTH'\''|lower)}'
+  $ sl log -r 8 -T '{diff('\''FOURTH'\''|lower)}'
   diff -r 88058a185da2 -r 209edb6a1848 fourth
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/fourth	Wed Jan 01 10:01:00 2020 +0000
@@ -2615,48 +2616,48 @@
   +🥈�(�
 
 
-  $ hg log -r 8 -T '{diff()|json}'
+  $ sl log -r 8 -T '{diff()|json}'
   "diff -r 88058a185da2 -r 209edb6a1848 fourth\n--- /dev/null\tThu Jan 01 00:00:00 1970 +0000\n+++ b/fourth\tWed Jan 01 10:01:00 2020 +0000\n@@ -0,0 +1,1 @@\n+\ud83e\udd48\udce2(\udca1\ndiff -r 88058a185da2 -r 209edb6a1848 second\n--- a/second\tMon Jan 12 13:46:40 1970 +0000\n+++ /dev/null\tThu Jan 01 00:00:00 1970 +0000\n@@ -1,1 +0,0 @@\n-\ud83e\udd48\udce2(\udca1\ndiff -r 88058a185da2 -r 209edb6a1848 third\n--- /dev/null\tThu Jan 01 00:00:00 1970 +0000\n+++ b/third\tWed Jan 01 10:01:00 2020 +0000\n@@ -0,0 +1,1 @@\n+third\n" (no-eol)
 
 
 # ui verbosity:
 
-  $ hg log -l1 -T '{verbosity}\n'
-  $ hg log -l1 -T '{verbosity}\n' --debug
+  $ sl log -l1 -T '{verbosity}\n'
+  $ sl log -l1 -T '{verbosity}\n' --debug
   debug
-  $ hg log -l1 -T '{verbosity}\n' --quiet
+  $ sl log -l1 -T '{verbosity}\n' --quiet
   quiet
-  $ hg log -l1 -T '{verbosity}\n' --verbose
+  $ sl log -l1 -T '{verbosity}\n' --verbose
   verbose
 
   $ cd ..
 
 # latesttag:
 
-  $ hg init latesttag
+  $ sl init latesttag
   $ cd latesttag
 
   $ echo a > file
-  $ hg ci -Am a -d '0 0'
+  $ sl ci -Am a -d '0 0'
   adding file
 
   $ echo b >> file
-  $ hg ci -m b -d '1 0'
+  $ sl ci -m b -d '1 0'
 
   $ echo c >> head1
-  $ hg ci -Am h1c -d '2 0'
+  $ sl ci -Am h1c -d '2 0'
   adding head1
 
-  $ hg goto -q 1
+  $ sl goto -q 1
   $ echo d >> head2
-  $ hg ci -Am h2d -d '3 0'
+  $ sl ci -Am h2d -d '3 0'
   adding head2
 
   $ echo e >> head2
-  $ hg ci -m h2e -d '4 0'
+  $ sl ci -m h2e -d '4 0'
 
-  $ hg merge -q
-  $ hg ci -m merge -d '5 -3600'
+  $ sl merge -q
+  $ sl ci -m merge -d '5 -3600'
 
   $ cd ..
 
@@ -2669,12 +2670,12 @@
   > changeset = 'test {rev}:{node|short}\n'
   > EOF
 
-  $ cat > latesttag/.hg/hgrc << 'EOF'
+  $ cat > latesttag/.sl/config << 'EOF'
   > [ui]
   > style = $TESTTMP/home/styles/teststyle
   > EOF
 
-  $ hg -R latesttag tip
+  $ sl -R latesttag tip
   test 5:888bdaa97ddd
 
 # Test recursive showlist template (issue1989):
@@ -2686,61 +2687,61 @@
   > extra = '{key}: {author}\n'
   > EOF
 
-  $ hg -R latesttag log -r tip^ '--style=style1989'
+  $ sl -R latesttag log -r tip^ '--style=style1989'
   M|test
   4,test
   branch: test
 
 # Test new-style inline templating:
 
-  $ hg log -R latesttag -r tip^ --template 'modified files: {file_mods % " {file}\n"}\n'
+  $ sl log -R latesttag -r tip^ --template 'modified files: {file_mods % " {file}\n"}\n'
   modified files:  head2
 
-  $ hg log -R latesttag -r tip^ -T '{rev % "a"}\n'
-  hg: parse error: keyword 'rev' is not iterable
+  $ sl log -R latesttag -r tip^ -T '{rev % "a"}\n'
+  sl: parse error: keyword 'rev' is not iterable
   [255]
-  $ hg log -R latesttag -r tip^ -T '{get(extras, "unknown") % "a"}\n'
-  hg: parse error: None is not iterable
+  $ sl log -R latesttag -r tip^ -T '{get(extras, "unknown") % "a"}\n'
+  sl: parse error: None is not iterable
   [255]
 
 # Test new-style inline templating of non-list/dict type:
 
-  $ hg log -R latesttag -r tip -T '{manifest}\n'
+  $ sl log -R latesttag -r tip -T '{manifest}\n'
   ed2d5d416a513f3f19ab4cd41c793dcd8272a497
-  $ hg log -R latesttag -r tip -T 'string length: {manifest|count}\n'
+  $ sl log -R latesttag -r tip -T 'string length: {manifest|count}\n'
   string length: 40
-  $ hg log -R latesttag -r tip -T '{manifest % "{rev}:{node}"}\n'
+  $ sl log -R latesttag -r tip -T '{manifest % "{rev}:{node}"}\n'
   5:ed2d5d416a513f3f19ab4cd41c793dcd8272a497
 
-  $ hg log -R latesttag -r tip -T '{get(extras, "branch") % "{key}: {value}\n"}'
+  $ sl log -R latesttag -r tip -T '{get(extras, "branch") % "{key}: {value}\n"}'
   branch: default
-  $ hg log -R latesttag -r tip -T '{get(extras, "unknown") % "{key}\n"}'
-  hg: parse error: None is not iterable
+  $ sl log -R latesttag -r tip -T '{get(extras, "unknown") % "{key}\n"}'
+  sl: parse error: None is not iterable
   [255]
-  $ hg log -R latesttag -r tip -T '{min(extras) % "{key}: {value}\n"}'
+  $ sl log -R latesttag -r tip -T '{min(extras) % "{key}: {value}\n"}'
   branch: default
-  $ hg log -R latesttag -l1 -T '{min(revset("0:5")) % "{rev}:{node|short}\n"}'
+  $ sl log -R latesttag -l1 -T '{min(revset("0:5")) % "{rev}:{node|short}\n"}'
   0:ce3cec86e6c2
-  $ hg log -R latesttag -l1 -T '{max(revset("0:5")) % "{rev}:{node|short}\n"}'
+  $ sl log -R latesttag -l1 -T '{max(revset("0:5")) % "{rev}:{node|short}\n"}'
   5:888bdaa97ddd
 
 # Test manifest/get() can be join()-ed as before, though it's silly:
 
-  $ hg log -R latesttag -r tip -T '{join(manifest, "")}\n'
+  $ sl log -R latesttag -r tip -T '{join(manifest, "")}\n'
   ed2d5d416a513f3f19ab4cd41c793dcd8272a497
-  $ hg log -R latesttag -r tip -T '{join(get(extras, "branch"), "")}\n'
+  $ sl log -R latesttag -r tip -T '{join(get(extras, "branch"), "")}\n'
   default
 
 # Test min/max of integers
 
-  $ hg log -R latesttag -l1 -T '{min(revset("4:5"))}\n'
+  $ sl log -R latesttag -l1 -T '{min(revset("4:5"))}\n'
   4
-  $ hg log -R latesttag -l1 -T '{max(revset("4:5"))}\n'
+  $ sl log -R latesttag -l1 -T '{max(revset("4:5"))}\n'
   5
 
 # Test dot operator precedence:
 
-  $ hg debugtemplate -R latesttag -r0 -v '{manifest.node|short}\n'
+  $ sl debugtemplate -R latesttag -r0 -v '{manifest.node|short}\n'
   (template
     (|
       (.
@@ -2752,7 +2753,7 @@
 
 #  (the following examples are invalid, but seem natural in parsing POV)
 
-  $ hg debugtemplate -R latesttag -r0 -v '{foo|bar.baz}\n'
+  $ sl debugtemplate -R latesttag -r0 -v '{foo|bar.baz}\n'
   (template
     (|
       (symbol 'foo')
@@ -2760,9 +2761,9 @@
         (symbol 'bar')
         (symbol 'baz')))
     (string '\n'))
-  hg: parse error: expected a symbol, got '.'
+  sl: parse error: expected a symbol, got '.'
   [255]
-  $ hg debugtemplate -R latesttag -r0 -v '{foo.bar()}\n'
+  $ sl debugtemplate -R latesttag -r0 -v '{foo.bar()}\n'
   (template
     (.
       (symbol 'foo')
@@ -2770,38 +2771,38 @@
         (symbol 'bar')
         None))
     (string '\n'))
-  hg: parse error: expected a symbol, got 'func'
+  sl: parse error: expected a symbol, got 'func'
   [255]
 
 # Test evaluation of dot operator:
 
-  $ hg log -R latesttag -l1 -T '{min(revset("0:9")).node}\n'
+  $ sl log -R latesttag -l1 -T '{min(revset("0:9")).node}\n'
   ce3cec86e6c26bd9bdfc590a6b92abc9680f1796
-  $ hg log -R latesttag -r0 -T '{extras.branch}\n'
+  $ sl log -R latesttag -r0 -T '{extras.branch}\n'
   default
 
-  $ hg log -R latesttag -l1 -T '{author.invalid}\n'
-  hg: parse error: keyword 'author' has no member
+  $ sl log -R latesttag -l1 -T '{author.invalid}\n'
+  sl: parse error: keyword 'author' has no member
   [255]
-  $ hg log -R latesttag -l1 -T '{min("abc").invalid}\n'
-  hg: parse error: 'a' has no member
+  $ sl log -R latesttag -l1 -T '{min("abc").invalid}\n'
+  sl: parse error: 'a' has no member
   [255]
 
 # Test the sub function of templating for expansion:
 
-  $ hg log -R latesttag -r 5 --template '{sub("[0-9]", "x", "{rev}")}\n'
+  $ sl log -R latesttag -r 5 --template '{sub("[0-9]", "x", "{rev}")}\n'
   x
 
-  $ hg log -R latesttag -r 5 -T '{sub("[", "x", rev)}\n'
-  hg: parse error: sub got an invalid pattern: [
+  $ sl log -R latesttag -r 5 -T '{sub("[", "x", rev)}\n'
+  sl: parse error: sub got an invalid pattern: [
   [255]
-  $ hg log -R latesttag -r 5 -T '{sub("[0-9]", r"\1", rev)}\n'
-  hg: parse error: sub got an invalid replacement: \1
+  $ sl log -R latesttag -r 5 -T '{sub("[0-9]", r"\1", rev)}\n'
+  sl: parse error: sub got an invalid replacement: \1
   [255]
 
 # Test the strip function with chars specified:
 
-  $ hg log -R latesttag --template '{desc}\n'
+  $ sl log -R latesttag --template '{desc}\n'
   merge
   h2e
   h2d
@@ -2809,7 +2810,7 @@
   b
   a
 
-  $ hg log -R latesttag --template '{strip(desc, "te")}\n'
+  $ sl log -R latesttag --template '{strip(desc, "te")}\n'
   merg
   h2
   h2d
@@ -2819,7 +2820,7 @@
 
 # Test date format:
 
-  $ hg log -R latesttag --template 'date: {date(date, "%y %m %d %S %z")}\n'
+  $ sl log -R latesttag --template 'date: {date(date, "%y %m %d %S %z")}\n'
   date: 70 01 01 05 +0100
   date: 70 01 01 04 +0000
   date: 70 01 01 03 +0000
@@ -2829,48 +2830,48 @@
 
 # Test invalid date:
 
-  $ hg log -R latesttag -T '{date(rev)}\n'
-  hg: parse error: date expects a date information
+  $ sl log -R latesttag -T '{date(rev)}\n'
+  sl: parse error: date expects a date information
   [255]
 
 # Test integer literal:
 
-  $ hg debugtemplate -v '{(0)}\n'
+  $ sl debugtemplate -v '{(0)}\n'
   (template
     (group
       (integer '0'))
     (string '\n'))
   0
-  $ hg debugtemplate -v '{(123)}\n'
+  $ sl debugtemplate -v '{(123)}\n'
   (template
     (group
       (integer '123'))
     (string '\n'))
   123
-  $ hg debugtemplate -v '{(-4)}\n'
+  $ sl debugtemplate -v '{(-4)}\n'
   (template
     (group
       (negate
         (integer '4')))
     (string '\n'))
   -4
-  $ hg debugtemplate '{(-)}\n'
-  hg: parse error at 3: not a prefix: )
+  $ sl debugtemplate '{(-)}\n'
+  sl: parse error at 3: not a prefix: )
   ({(-)}\n
      ^ here)
   [255]
-  $ hg debugtemplate '{(-a)}\n'
-  hg: parse error: negation needs an integer argument
+  $ sl debugtemplate '{(-a)}\n'
+  sl: parse error: negation needs an integer argument
   [255]
 
 # top-level integer literal is interpreted as symbol (i.e. variable name):
 
-  $ hg debugtemplate -D '1=one' -v '{1}\n'
+  $ sl debugtemplate -D '1=one' -v '{1}\n'
   (template
     (integer '1')
     (string '\n'))
   one
-  $ hg debugtemplate -D '1=one' -v '{if("t", "{1}")}\n'
+  $ sl debugtemplate -D '1=one' -v '{if("t", "{1}")}\n'
   (template
     (func
       (symbol 'if')
@@ -2880,7 +2881,7 @@
           (integer '1'))))
     (string '\n'))
   one
-  $ hg debugtemplate -D '1=one' -v '{1|stringify}\n'
+  $ sl debugtemplate -D '1=one' -v '{1|stringify}\n'
   (template
     (|
       (integer '1')
@@ -2890,33 +2891,33 @@
 
 # unless explicit symbol is expected:
 
-  $ hg log -Ra -r0 -T '{desc|1}\n'
-  hg: parse error: expected a symbol, got 'integer'
+  $ sl log -Ra -r0 -T '{desc|1}\n'
+  sl: parse error: expected a symbol, got 'integer'
   [255]
-  $ hg log -Ra -r0 -T '{1()}\n'
-  hg: parse error: expected a symbol, got 'integer'
+  $ sl log -Ra -r0 -T '{1()}\n'
+  sl: parse error: expected a symbol, got 'integer'
   [255]
 
 # Test string literal:
 
-  $ hg debugtemplate -Ra -r0 -v '{"string with no template fragment"}\n'
+  $ sl debugtemplate -Ra -r0 -v '{"string with no template fragment"}\n'
   (template
     (string 'string with no template fragment')
     (string '\n'))
   string with no template fragment
-  $ hg debugtemplate -Ra -r0 -v '{"template: {rev}"}\n'
+  $ sl debugtemplate -Ra -r0 -v '{"template: {rev}"}\n'
   (template
     (template
       (string 'template: ')
       (symbol 'rev'))
     (string '\n'))
   template: 0
-  $ hg debugtemplate -Ra -r0 -v '{r"rawstring: {rev}"}\n'
+  $ sl debugtemplate -Ra -r0 -v '{r"rawstring: {rev}"}\n'
   (template
     (string 'rawstring: {rev}')
     (string '\n'))
   rawstring: {rev}
-  $ hg debugtemplate -Ra -r0 -v '{files % r"rawstring: {file}"}\n'
+  $ sl debugtemplate -Ra -r0 -v '{files % r"rawstring: {file}"}\n'
   (template
     (%
       (symbol 'files')
@@ -2926,19 +2927,19 @@
 
 # Test string escaping:
 
-  $ hg log -R latesttag -r 0 --template '>\n<>\\n<{if(rev, "[>\n<>\\n<]")}>\n<>\\n<\n'
+  $ sl log -R latesttag -r 0 --template '>\n<>\\n<{if(rev, "[>\n<>\\n<]")}>\n<>\\n<\n'
   >
   <>\n<[>
   <>\n<]>
   <>\n<
 
-  $ hg log -R latesttag -r 0 --config 'ui.logtemplate=>\n<>\\n<{if(rev, "[>\n<>\\n<]")}>\n<>\\n<\n'
+  $ sl log -R latesttag -r 0 --config 'ui.logtemplate=>\n<>\\n<{if(rev, "[>\n<>\\n<]")}>\n<>\\n<\n'
   >
   <>\n<[>
   <>\n<]>
   <>\n<
 
-  $ hg log -R latesttag -r 0 -T esc --config 'templates.esc=>\n<>\\n<{if(rev, "[>\n<>\\n<]")}>\n<>\\n<\n'
+  $ sl log -R latesttag -r 0 -T esc --config 'templates.esc=>\n<>\\n<{if(rev, "[>\n<>\\n<]")}>\n<>\\n<\n'
   >
   <>\n<[>
   <>\n<]>
@@ -2947,7 +2948,7 @@
   $ cat > esctmpl << 'EOF'
   > changeset = '>\n<>\\n<{if(rev, "[>\n<>\\n<]")}>\n<>\\n<\n'
   > EOF
-  $ hg log -R latesttag -r 0 --style ./esctmpl
+  $ sl log -R latesttag -r 0 --style ./esctmpl
   >
   <>\n<[>
   <>\n<]>
@@ -2955,22 +2956,22 @@
 
 # Test string escaping of quotes:
 
-  $ hg log -Ra -r0 -T '{"\""}\n'
+  $ sl log -Ra -r0 -T '{"\""}\n'
   "
-  $ hg log -Ra -r0 -T '{"\\\""}\n'
+  $ sl log -Ra -r0 -T '{"\\\""}\n'
   \"
-  $ hg log -Ra -r0 -T '{r"\""}\n'
+  $ sl log -Ra -r0 -T '{r"\""}\n'
   \"
-  $ hg log -Ra -r0 -T '{r"\\\""}\n'
+  $ sl log -Ra -r0 -T '{r"\\\""}\n'
   \\\"
 
-  $ hg log -Ra -r0 -T '{"\""}\n'
+  $ sl log -Ra -r0 -T '{"\""}\n'
   "
-  $ hg log -Ra -r0 -T '{"\\\""}\n'
+  $ sl log -Ra -r0 -T '{"\\\""}\n'
   \"
-  $ hg log -Ra -r0 -T '{r"\""}\n'
+  $ sl log -Ra -r0 -T '{r"\""}\n'
   \"
-  $ hg log -Ra -r0 -T '{r"\\\""}\n'
+  $ sl log -Ra -r0 -T '{r"\\\""}\n'
   \\\"
 
 # Test exception in quoted template. single backslash before quotation mark is
@@ -2980,54 +2981,54 @@
   > changeset = "\" \\" \\\" \\\\" {files % \"{file}\"}\n"
   > EOF
   $ cd latesttag
-  $ hg log -r 2 --style ../escquotetmpl
+  $ sl log -r 2 --style ../escquotetmpl
   " \" \" \\" head1
 
-  $ hg log -r 2 -T esc --config 'templates.esc="{\"valid\"}\n"'
+  $ sl log -r 2 -T esc --config 'templates.esc="{\"valid\"}\n"'
   valid
-  $ hg log -r 2 -T esc --config 'templates.esc='\''{\'\''valid\'\''}\n'\'''
+  $ sl log -r 2 -T esc --config 'templates.esc='\''{\'\''valid\'\''}\n'\'''
   valid
 
 # Test compatibility with 2.9.2-3.4 of escaped quoted strings in nested
 # _evalifliteral() templates (issue4733):
 
-  $ hg log -r 2 -T '{if(rev, "\"{rev}")}\n'
+  $ sl log -r 2 -T '{if(rev, "\"{rev}")}\n'
   "2
-  $ hg log -r 2 -T '{if(rev, "{if(rev, \"\\\"{rev}\")}")}\n'
+  $ sl log -r 2 -T '{if(rev, "{if(rev, \"\\\"{rev}\")}")}\n'
   "2
-  $ hg log -r 2 -T '{if(rev, "{if(rev, \"{if(rev, \\\"\\\\\\\"{rev}\\\")}\")}")}\n'
+  $ sl log -r 2 -T '{if(rev, "{if(rev, \"{if(rev, \\\"\\\\\\\"{rev}\\\")}\")}")}\n'
   "2
 
-  $ hg log -r 2 -T '{if(rev, "\\\"")}\n'
+  $ sl log -r 2 -T '{if(rev, "\\\"")}\n'
   \"
-  $ hg log -r 2 -T '{if(rev, "{if(rev, \"\\\\\\\"\")}")}\n'
+  $ sl log -r 2 -T '{if(rev, "{if(rev, \"\\\\\\\"\")}")}\n'
   \"
-  $ hg log -r 2 -T '{if(rev, "{if(rev, \"{if(rev, \\\"\\\\\\\\\\\\\\\"\\\")}\")}")}\n'
+  $ sl log -r 2 -T '{if(rev, "{if(rev, \"{if(rev, \\\"\\\\\\\\\\\\\\\"\\\")}\")}")}\n'
   \"
 
-  $ hg log -r 2 -T '{if(rev, r"\\\"")}\n'
+  $ sl log -r 2 -T '{if(rev, r"\\\"")}\n'
   \\\"
-  $ hg log -r 2 -T '{if(rev, "{if(rev, r\"\\\\\\\"\")}")}\n'
+  $ sl log -r 2 -T '{if(rev, "{if(rev, r\"\\\\\\\"\")}")}\n'
   \\\"
-  $ hg log -r 2 -T '{if(rev, "{if(rev, \"{if(rev, r\\\"\\\\\\\\\\\\\\\"\\\")}\")}")}\n'
+  $ sl log -r 2 -T '{if(rev, "{if(rev, \"{if(rev, r\\\"\\\\\\\\\\\\\\\"\\\")}\")}")}\n'
   \\\"
 
 # escaped single quotes and errors:
 
-  $ hg log -r 2 -T '{if(rev, '\''{if(rev, \'\''foo\'\'')}'\'')}\n'
+  $ sl log -r 2 -T '{if(rev, '\''{if(rev, \'\''foo\'\'')}'\'')}\n'
   foo
-  $ hg log -r 2 -T '{if(rev, '\''{if(rev, r\'\''foo\'\'')}'\'')}\n'
+  $ sl log -r 2 -T '{if(rev, '\''{if(rev, r\'\''foo\'\'')}'\'')}\n'
   foo
-  $ hg log -r 2 -T '{if(rev, "{if(rev, \")}")}\n'
-  hg: parse error at 21: unterminated string
+  $ sl log -r 2 -T '{if(rev, "{if(rev, \")}")}\n'
+  sl: parse error at 21: unterminated string
   ({if(rev, "{if(rev, \")}")}\n
                        ^ here)
   [255]
-  $ hg log -r 2 -T '{if(rev, \"\\"")}\n'
-  hg: parse error: trailing \ in string
+  $ sl log -r 2 -T '{if(rev, \"\\"")}\n'
+  sl: parse error: trailing \ in string
   [255]
-  $ hg log -r 2 -T '{if(rev, r\"\\"")}\n'
-  hg: parse error: trailing \ in string
+  $ sl log -r 2 -T '{if(rev, r\"\\"")}\n'
+  sl: parse error: trailing \ in string
   [255]
 
   $ cd ..
@@ -3035,151 +3036,151 @@
 # Test leading backslashes:
 
   $ cd latesttag
-  $ hg log -r 2 -T '\{rev} {files % "\{file}"}\n'
+  $ sl log -r 2 -T '\{rev} {files % "\{file}"}\n'
   {rev} {file}
-  $ hg log -r 2 -T '\\{rev} {files % "\\{file}"}\n'
+  $ sl log -r 2 -T '\\{rev} {files % "\\{file}"}\n'
   \2 \head1
-  $ hg log -r 2 -T '\\\{rev} {files % "\\\{file}"}\n'
+  $ sl log -r 2 -T '\\\{rev} {files % "\\\{file}"}\n'
   \{rev} \{file}
   $ cd ..
 
 # Test leading backslashes in "if" expression (issue4714):
 
   $ cd latesttag
-  $ hg log -r 2 -T '{if("1", "\{rev}")} {if("1", r"\{rev}")}\n'
+  $ sl log -r 2 -T '{if("1", "\{rev}")} {if("1", r"\{rev}")}\n'
   {rev} \{rev}
-  $ hg log -r 2 -T '{if("1", "\\{rev}")} {if("1", r"\\{rev}")}\n'
+  $ sl log -r 2 -T '{if("1", "\\{rev}")} {if("1", r"\\{rev}")}\n'
   \2 \\{rev}
-  $ hg log -r 2 -T '{if("1", "\\\{rev}")} {if("1", r"\\\{rev}")}\n'
+  $ sl log -r 2 -T '{if("1", "\\\{rev}")} {if("1", r"\\\{rev}")}\n'
   \{rev} \\\{rev}
   $ cd ..
 
 # "string-escape"-ed "\x5c\x786e" becomes r"\x6e" (once) or r"n" (twice)
 
-  $ hg log -R a -r 0 --template '{if("1", "\x5c\x786e", "NG")}\n'
+  $ sl log -R a -r 0 --template '{if("1", "\x5c\x786e", "NG")}\n'
   \x6e
-  $ hg log -R a -r 0 --template '{if("1", r"\x5c\x786e", "NG")}\n'
+  $ sl log -R a -r 0 --template '{if("1", r"\x5c\x786e", "NG")}\n'
   \x5c\x786e
-  $ hg log -R a -r 0 --template '{if("", "NG", "\x5c\x786e")}\n'
+  $ sl log -R a -r 0 --template '{if("", "NG", "\x5c\x786e")}\n'
   \x6e
-  $ hg log -R a -r 0 --template '{if("", "NG", r"\x5c\x786e")}\n'
-  \x5c\x786e
-
-  $ hg log -R a -r 2 --template '{ifeq("no perso\x6e", desc, "\x5c\x786e", "NG")}\n'
-  \x6e
-  $ hg log -R a -r 2 --template '{ifeq(r"no perso\x6e", desc, "NG", r"\x5c\x786e")}\n'
-  \x5c\x786e
-  $ hg log -R a -r 2 --template '{ifeq(desc, "no perso\x6e", "\x5c\x786e", "NG")}\n'
-  \x6e
-  $ hg log -R a -r 2 --template '{ifeq(desc, r"no perso\x6e", "NG", r"\x5c\x786e")}\n'
+  $ sl log -R a -r 0 --template '{if("", "NG", r"\x5c\x786e")}\n'
   \x5c\x786e
 
-  $ hg log -R a -r 8 --template '{join(files, "\n")}\n'
+  $ sl log -R a -r 2 --template '{ifeq("no perso\x6e", desc, "\x5c\x786e", "NG")}\n'
+  \x6e
+  $ sl log -R a -r 2 --template '{ifeq(r"no perso\x6e", desc, "NG", r"\x5c\x786e")}\n'
+  \x5c\x786e
+  $ sl log -R a -r 2 --template '{ifeq(desc, "no perso\x6e", "\x5c\x786e", "NG")}\n'
+  \x6e
+  $ sl log -R a -r 2 --template '{ifeq(desc, r"no perso\x6e", "NG", r"\x5c\x786e")}\n'
+  \x5c\x786e
+
+  $ sl log -R a -r 8 --template '{join(files, "\n")}\n'
   fourth
   second
   third
-  $ hg log -R a -r 8 --template '{join(files, r"\n")}\n'
+  $ sl log -R a -r 8 --template '{join(files, r"\n")}\n'
   fourth\nsecond\nthird
 
-  $ hg log -R a -r 2 --template '{rstdoc("1st\n\n2nd", "htm\x6c")}'
+  $ sl log -R a -r 2 --template '{rstdoc("1st\n\n2nd", "htm\x6c")}'
   <p>
   1st
   </p>
   <p>
   2nd
   </p>
-  $ hg log -R a -r 2 --template '{rstdoc(r"1st\n\n2nd", "html")}'
+  $ sl log -R a -r 2 --template '{rstdoc(r"1st\n\n2nd", "html")}'
   <p>
   1st\n\n2nd
   </p>
-  $ hg log -R a -r 2 --template '{rstdoc("1st\n\n2nd", r"htm\x6c")}'
+  $ sl log -R a -r 2 --template '{rstdoc("1st\n\n2nd", r"htm\x6c")}'
   1st
   
   2nd
 
-  $ hg log -R a -r 2 --template '{strip(desc, "\x6e")}\n'
+  $ sl log -R a -r 2 --template '{strip(desc, "\x6e")}\n'
   o perso
-  $ hg log -R a -r 2 --template '{strip(desc, r"\x6e")}\n'
+  $ sl log -R a -r 2 --template '{strip(desc, r"\x6e")}\n'
   no person
-  $ hg log -R a -r 2 --template '{strip("no perso\x6e", "\x6e")}\n'
+  $ sl log -R a -r 2 --template '{strip("no perso\x6e", "\x6e")}\n'
   o perso
-  $ hg log -R a -r 2 --template '{strip(r"no perso\x6e", r"\x6e")}\n'
+  $ sl log -R a -r 2 --template '{strip(r"no perso\x6e", r"\x6e")}\n'
   no perso
 
-  $ hg log -R a -r 2 --template '{sub("\\x6e", "\x2d", desc)}\n'
+  $ sl log -R a -r 2 --template '{sub("\\x6e", "\x2d", desc)}\n'
   -o perso-
-  $ hg log -R a -r 2 --template '{sub(r"\\x6e", "-", desc)}\n'
+  $ sl log -R a -r 2 --template '{sub(r"\\x6e", "-", desc)}\n'
   no person
 
-  $ hg log -R a -r 2 --template '{sub("n", "\x2d", "no perso\x6e")}\n'
+  $ sl log -R a -r 2 --template '{sub("n", "\x2d", "no perso\x6e")}\n'
   -o perso-
 
-  $ hg log -R a -r 8 --template '{files % "{file}\n"}'
+  $ sl log -R a -r 8 --template '{files % "{file}\n"}'
   fourth
   second
   third
 
 # Test string escaping in nested expression:
 
-  $ hg log -R a -r 8 --template '{ifeq(r"\x6e", if("1", "\x5c\x786e"), join(files, "\x5c\x786e"))}\n'
+  $ sl log -R a -r 8 --template '{ifeq(r"\x6e", if("1", "\x5c\x786e"), join(files, "\x5c\x786e"))}\n'
   fourth\x6esecond\x6ethird
-  $ hg log -R a -r 8 --template '{ifeq(if("1", r"\x6e"), "\x5c\x786e", join(files, "\x5c\x786e"))}\n'
+  $ sl log -R a -r 8 --template '{ifeq(if("1", r"\x6e"), "\x5c\x786e", join(files, "\x5c\x786e"))}\n'
   fourth\x6esecond\x6ethird
 
-  $ hg log -R a -r 8 --template '{join(files, ifeq(branch, "default", "\x5c\x786e"))}\n'
+  $ sl log -R a -r 8 --template '{join(files, ifeq(branch, "default", "\x5c\x786e"))}\n'
   fourth\x6esecond\x6ethird
-  $ hg log -R a -r 8 --template '{join(files, ifeq(branch, "default", r"\x5c\x786e"))}\n'
+  $ sl log -R a -r 8 --template '{join(files, ifeq(branch, "default", r"\x5c\x786e"))}\n'
   fourth\x5c\x786esecond\x5c\x786ethird
 
 # Test quotes in nested expression are evaluated just like a $(command)
 # substitution in POSIX shells:
 
-  $ hg log -R a -r 8 -T '{"{"{rev}:{node|short}"}"}\n'
+  $ sl log -R a -r 8 -T '{"{"{rev}:{node|short}"}"}\n'
   8:209edb6a1848
-  $ hg log -R a -r 8 -T '{"{"\{{rev}} \"{node|short}\""}"}\n'
+  $ sl log -R a -r 8 -T '{"{"\{{rev}} \"{node|short}\""}"}\n'
   {8} "209edb6a1848"
 
 # Test recursive evaluation:
 
-  $ hg init r
+  $ sl init r
   $ cd r
   $ echo a > a
-  $ hg ci -Am '{rev}'
+  $ sl ci -Am '{rev}'
   adding a
-  $ hg log -r 0 --template '{if(rev, desc)}\n'
+  $ sl log -r 0 --template '{if(rev, desc)}\n'
   {rev}
-  $ hg log -r 0 --template '{if(rev, "{author} {rev}")}\n'
+  $ sl log -r 0 --template '{if(rev, "{author} {rev}")}\n'
   test 0
 
-  $ hg bookmark -q 'text.{rev}'
+  $ sl bookmark -q 'text.{rev}'
   $ echo aa >> aa
-  $ hg ci -u '{node|short}' -m 'desc to be wrapped desc to be wrapped'
+  $ sl ci -u '{node|short}' -m 'desc to be wrapped desc to be wrapped'
 
-  $ hg log -l1 --template '{fill(desc, "20", author, bookmarks)}'
+  $ sl log -l1 --template '{fill(desc, "20", author, bookmarks)}'
   {node|short}desc to
   text.{rev}be wrapped
   text.{rev}desc to be
   text.{rev}wrapped (no-eol)
-  $ hg log -l1 --template '{fill(desc, "20", "{node|short}:", "text.{rev}:")}'
+  $ sl log -l1 --template '{fill(desc, "20", "{node|short}:", "text.{rev}:")}'
   ea4c0948489d:desc to
   text.1:be wrapped
   text.1:desc to be
   text.1:wrapped (no-eol)
-  $ hg log -l1 -T '{fill(desc, date, "", "")}\n'
-  hg: parse error: fill expects an integer width
+  $ sl log -l1 -T '{fill(desc, date, "", "")}\n'
+  sl: parse error: fill expects an integer width
   [255]
 
-  $ COLUMNS=25 hg log -l1 --template '{fill(desc, termwidth, "{node|short}:", "termwidth.{rev}:")}'
+  $ COLUMNS=25 sl log -l1 --template '{fill(desc, termwidth, "{node|short}:", "termwidth.{rev}:")}'
   ea4c0948489d:desc to be
   termwidth.1:wrapped desc
   termwidth.1:to be wrapped (no-eol)
 
-  $ hg log -l 1 --template '{sub(r"[0-9]", "-", author)}'
+  $ sl log -l 1 --template '{sub(r"[0-9]", "-", author)}'
   {node|short} (no-eol)
-  $ hg log -l 1 --template '{sub(r"[0-9]", "-", "{node|short}")}'
+  $ sl log -l 1 --template '{sub(r"[0-9]", "-", "{node|short}")}'
   ea-c-------d (no-eol)
 
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [extensions]
   > color=
   > [color]
@@ -3187,79 +3188,79 @@
   > text.{rev} = red
   > text.1 = green
   > EOF
-  $ hg log '--color=always' -l 1 --template '{label(bookmarks, "text\n")}'
+  $ sl log '--color=always' -l 1 --template '{label(bookmarks, "text\n")}'
   \x1b[31mtext\x1b[39m (esc)
-  $ hg log '--color=always' -l 1 --template '{label("text.{rev}", "text\n")}'
+  $ sl log '--color=always' -l 1 --template '{label("text.{rev}", "text\n")}'
   \x1b[32mtext\x1b[39m (esc)
 
 # color effect can be specified without quoting:
 
-  $ hg log '--color=always' -l 1 --template '{label(red, "text\n")}'
+  $ sl log '--color=always' -l 1 --template '{label(red, "text\n")}'
   \x1b[31mtext\x1b[39m (esc)
 
 # color effects can be nested (issue5413)
 
-  $ hg debugtemplate '--color=always' '{label(red, "red{label(magenta, "ma{label(cyan, "cyan")}{label(yellow, "yellow")}genta")}")}\n'
+  $ sl debugtemplate '--color=always' '{label(red, "red{label(magenta, "ma{label(cyan, "cyan")}{label(yellow, "yellow")}genta")}")}\n'
   \x1b[31mred\x1b[35mma\x1b[36mcyan\x1b[39m\x1b[33myellow\x1b[39mgenta\x1b[39m\x1b[39m (esc)
 
 # pad() should interact well with color codes (issue5416)
 
-  $ hg debugtemplate '--color=always' '{pad(label(red, "red"), 5, label(cyan, "-"))}\n'
+  $ sl debugtemplate '--color=always' '{pad(label(red, "red"), 5, label(cyan, "-"))}\n'
   \x1b[31mred\x1b[39m\x1b[36m-\x1b[39m\x1b[36m-\x1b[39m (esc)
 
 # label should be no-op if color is disabled:
 
-  $ hg log '--color=never' -l 1 --template '{label(red, "text\n")}'
+  $ sl log '--color=never' -l 1 --template '{label(red, "text\n")}'
   text
-  $ hg log --config 'extensions.color=!' -l 1 --template '{label(red, "text\n")}'
+  $ sl log --config 'extensions.color=!' -l 1 --template '{label(red, "text\n")}'
   text
 
 # Test dict constructor:
 
-  $ hg log -r 0 -T '{dict(y=node|short, x=rev)}\n'
+  $ sl log -r 0 -T '{dict(y=node|short, x=rev)}\n'
   y=f7769ec2ab97 x=0
-  $ hg log -r 0 -T '{dict(x=rev, y=node|short) % "{key}={value}\n"}'
+  $ sl log -r 0 -T '{dict(x=rev, y=node|short) % "{key}={value}\n"}'
   x=0
   y=f7769ec2ab97
-  $ hg log -r 0 -T '{dict(x=rev, y=node|short)|json}\n'
+  $ sl log -r 0 -T '{dict(x=rev, y=node|short)|json}\n'
   {"x": 0, "y": "f7769ec2ab97"}
-  $ hg log -r 0 -T '{dict()|json}\n'
+  $ sl log -r 0 -T '{dict()|json}\n'
   {}
 
-  $ hg log -r 0 -T '{dict(rev, node=node|short)}\n'
+  $ sl log -r 0 -T '{dict(rev, node=node|short)}\n'
   rev=0 node=f7769ec2ab97
-  $ hg log -r 0 -T '{dict(rev, node|short)}\n'
+  $ sl log -r 0 -T '{dict(rev, node|short)}\n'
   rev=0 node=f7769ec2ab97
 
-  $ hg log -r 0 -T '{dict(rev, rev=rev)}\n'
-  hg: parse error: duplicated dict key 'rev' inferred
+  $ sl log -r 0 -T '{dict(rev, rev=rev)}\n'
+  sl: parse error: duplicated dict key 'rev' inferred
   [255]
-  $ hg log -r 0 -T '{dict(node, node|short)}\n'
-  hg: parse error: duplicated dict key 'node' inferred
+  $ sl log -r 0 -T '{dict(node, node|short)}\n'
+  sl: parse error: duplicated dict key 'node' inferred
   [255]
-  $ hg log -r 0 -T '{dict(1 + 2)}'
-  hg: parse error: dict key cannot be inferred
+  $ sl log -r 0 -T '{dict(1 + 2)}'
+  sl: parse error: dict key cannot be inferred
   [255]
 
-  $ hg log -r 0 -T '{dict(x=rev, x=node)}'
-  hg: parse error: dict got multiple values for keyword argument 'x'
+  $ sl log -r 0 -T '{dict(x=rev, x=node)}'
+  sl: parse error: dict got multiple values for keyword argument 'x'
   [255]
 
 # Test get function:
 
-  $ hg log -r 0 --template '{get(extras, "branch")}\n'
+  $ sl log -r 0 --template '{get(extras, "branch")}\n'
   default
-  $ hg log -r 0 --template '{get(extras, "br{"anch"}")}\n'
+  $ sl log -r 0 --template '{get(extras, "br{"anch"}")}\n'
   default
-  $ hg log -r 0 --template '{get(files, "should_fail")}\n'
-  hg: parse error: get() expects a dict as first argument
+  $ sl log -r 0 --template '{get(files, "should_fail")}\n'
+  sl: parse error: get() expects a dict as first argument
   [255]
 
 # Test json filter applied to hybrid object:
 
-  $ hg log -r0 -T '{files|json}\n'
+  $ sl log -r0 -T '{files|json}\n'
   ["a"]
-  $ hg log -r0 -T '{extras|json}\n'
+  $ sl log -r0 -T '{extras|json}\n'
   {"branch": "default"}
 
 # Test localdate(date, tz) function:
@@ -3276,81 +3277,81 @@
     # https://bugs.python.org/issue30062
     time.tzset()
 
-    $ hg log -r0 -T '{date|localdate|isodate}\n'
+    $ sl log -r0 -T '{date|localdate|isodate}\n'
     1970-01-01 09:00 +0900
 
-    $ hg log -r0 -T '{localdate(date, \"UTC\")|isodate}\n'
+    $ sl log -r0 -T '{localdate(date, \"UTC\")|isodate}\n'
     1970-01-01 00:00 +0000
 
-    $ hg log -r0 -T '{localdate(date, \"blahUTC\")|isodate}\n'
-    hg: parse error: localdate expects a timezone
+    $ sl log -r0 -T '{localdate(date, \"blahUTC\")|isodate}\n'
+    sl: parse error: localdate expects a timezone
     [255]
 
-    $ hg log -r0 -T '{localdate(date, \"+0200\")|isodate}\n'
+    $ sl log -r0 -T '{localdate(date, \"+0200\")|isodate}\n'
     1970-01-01 02:00 +0200
 
-    $ hg log -r0 -T '{localdate(date, \"0\")|isodate}\n'
+    $ sl log -r0 -T '{localdate(date, \"0\")|isodate}\n'
     1970-01-01 00:00 +0000
 
-    $ hg log -r0 -T '{localdate(date, 0)|isodate}\n'
+    $ sl log -r0 -T '{localdate(date, 0)|isodate}\n'
     1970-01-01 00:00 +0000
 
     setenv("TZ", oldtz)
 #endif
 
 
-  $ hg log -r0 -T '{localdate(date, "invalid")|isodate}\n'
-  hg: parse error: localdate expects a timezone
+  $ sl log -r0 -T '{localdate(date, "invalid")|isodate}\n'
+  sl: parse error: localdate expects a timezone
   [255]
-  $ hg log -r0 -T '{localdate(date, date)|isodate}\n'
-  hg: parse error: localdate expects a timezone
+  $ sl log -r0 -T '{localdate(date, date)|isodate}\n'
+  sl: parse error: localdate expects a timezone
   [255]
 
 # Test shortest(node) function:
 
   $ echo b > b
-  $ hg ci -qAm b
-  $ hg log --template '{shortest(node)}\n'
+  $ sl ci -qAm b
+  $ sl log --template '{shortest(node)}\n'
   21c1
   ea4c
   f776
-  $ hg log --template '{shortest(node, 10)}\n'
+  $ sl log --template '{shortest(node, 10)}\n'
   21c1b7ca5a
   ea4c094848
   f7769ec2ab
-  $ hg log --template '{node|shortest}\n' -l1
+  $ sl log --template '{node|shortest}\n' -l1
   21c1
 
-  $ hg log -r 0 -T '{shortest(node, "1{"0"}")}\n'
+  $ sl log -r 0 -T '{shortest(node, "1{"0"}")}\n'
   f7769ec2ab
-  $ hg log -r 0 -T '{shortest(node, "not an int")}\n'
-  hg: parse error: shortest() expects an integer minlength
+  $ sl log -r 0 -T '{shortest(node, "not an int")}\n'
+  sl: parse error: shortest() expects an integer minlength
   [255]
 
-  $ hg log -r 'wdir()' -T '{node|shortest}\n'
+  $ sl log -r 'wdir()' -T '{node|shortest}\n'
   ffffffffffffffffffffffffffffffffffffffff
 
   $ cd ..
 
 # Test shortest(node) with the repo having short hash collision:
 
-  $ hg init hashcollision
+  $ sl init hashcollision
   $ cd hashcollision
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [experimental]
   > evolution.createmarkers=True
   > EOF
   $ echo 0 > a
-  $ hg ci -qAm 0
+  $ sl ci -qAm 0
 
   $ for i in 17 129 248 242 480 580 617 1057 2857 4025; do
-  >   hg up -q 0
+  >   sl up -q 0
   >   echo $i > a
-  >   hg ci -qm $i
+  >   sl ci -qm $i
   > done
 
-  $ hg up -q null
-  $ hg log '-r0:' -T '{rev}:{node}\n'
+  $ sl up -q null
+  $ sl log '-r0:' -T '{rev}:{node}\n'
   0:b4e73ffab476aa0ee32ed81ca51e07169844bc6a
   1:11424df6dc1dd4ea255eae2b58eaca7831973bbc
   2:11407b3f1b9c3e76a79c1ec5373924df096f0499
@@ -3362,32 +3363,32 @@
   8:c56256a09cd28e5764f32e8e2810d0f01e2e357a
   9:c5623987d205cd6d9d8389bfc40fff9dbb670b48
   10:c562ddd9c94164376c20b86b0b4991636a3bf84f
-  $ hg debugobsolete a00be79088084cb3aff086ab799f8790e01a976b
-  $ hg debugobsolete c5623987d205cd6d9d8389bfc40fff9dbb670b48
-  $ hg debugobsolete c562ddd9c94164376c20b86b0b4991636a3bf84f
+  $ sl debugobsolete a00be79088084cb3aff086ab799f8790e01a976b
+  $ sl debugobsolete c5623987d205cd6d9d8389bfc40fff9dbb670b48
+  $ sl debugobsolete c562ddd9c94164376c20b86b0b4991636a3bf84f
 
 #  nodes starting with '11' (we don't have the revision number '11' though)
 
-  $ hg log -r '1:3' -T '{rev}:{shortest(node, 0)}\n'
+  $ sl log -r '1:3' -T '{rev}:{shortest(node, 0)}\n'
   1:1142
   2:1140
   3:11d
 
 #  '5:a00' is hidden, but still we have two nodes starting with 'a0'
 
-  $ hg log -r '6:7' -T '{rev}:{shortest(node, 0)}\n'
+  $ sl log -r '6:7' -T '{rev}:{shortest(node, 0)}\n'
   6:a0b
   7:a04
 
-  $ hg log -r 4 -T '{rev}:{shortest(node, 0)}\n'
+  $ sl log -r 4 -T '{rev}:{shortest(node, 0)}\n'
   4:10
 
 #  node 'c562' should be unique if the other 'c562' nodes are hidden
 #  (but we don't try the slow path to filter out hidden nodes for now)
 
-  $ hg log -r 8 -T '{rev}:{node|shortest}\n'
+  $ sl log -r 8 -T '{rev}:{node|shortest}\n'
   8:c5625
-  $ hg log -r '8:10' -T '{rev}:{node|shortest}\n' --hidden
+  $ sl log -r '8:10' -T '{rev}:{node|shortest}\n' --hidden
   8:c5625
   9:c5623
   10:c562d
@@ -3398,150 +3399,150 @@
 
   $ cd r
 
-  $ hg log --template '{pad(rev, 20)} {author|user}\n'
+  $ sl log --template '{pad(rev, 20)} {author|user}\n'
   2                    test
   1                    {node|short}
   0                    test
 
-  $ hg log --template '{pad(rev, 20, " ", True)} {author|user}\n'
+  $ sl log --template '{pad(rev, 20, " ", True)} {author|user}\n'
                      2 test
                      1 {node|short}
                      0 test
 
-  $ hg log --template '{pad(rev, 20, "-", False)} {author|user}\n'
+  $ sl log --template '{pad(rev, 20, "-", False)} {author|user}\n'
   2------------------- test
   1------------------- {node|short}
   0------------------- test
 
 # Test unicode fillchar
 
-  $ hg log -r 0 -T '{pad("hello", 10, "â")}world\n'
-  hg: parse error: pad() expects a single fill character
+  $ sl log -r 0 -T '{pad("hello", 10, "â")}world\n'
+  sl: parse error: pad() expects a single fill character
   [255]
 
 # Test template string in pad function
 
-  $ hg log -r 0 -T '{pad("\{{rev}}", 10)} {author|user}\n'
+  $ sl log -r 0 -T '{pad("\{{rev}}", 10)} {author|user}\n'
   {0}        test
 
-  $ hg log -r 0 -T '{pad(r"\{rev}", 10)} {author|user}\n'
+  $ sl log -r 0 -T '{pad(r"\{rev}", 10)} {author|user}\n'
   \{rev}     test
 
 # Test width argument passed to pad function
 
-  $ hg log -r 0 -T '{pad(rev, "1{"0"}")} {author|user}\n'
+  $ sl log -r 0 -T '{pad(rev, "1{"0"}")} {author|user}\n'
   0          test
-  $ hg log -r 0 -T '{pad(rev, "not an int")}\n'
-  hg: parse error: pad() expects an integer width
+  $ sl log -r 0 -T '{pad(rev, "not an int")}\n'
+  sl: parse error: pad() expects an integer width
   [255]
 
 # Test invalid fillchar passed to pad function
 
-  $ hg log -r 0 -T '{pad(rev, 10, "")}\n'
-  hg: parse error: pad() expects a single fill character
+  $ sl log -r 0 -T '{pad(rev, 10, "")}\n'
+  sl: parse error: pad() expects a single fill character
   [255]
-  $ hg log -r 0 -T '{pad(rev, 10, "--")}\n'
-  hg: parse error: pad() expects a single fill character
+  $ sl log -r 0 -T '{pad(rev, 10, "--")}\n'
+  sl: parse error: pad() expects a single fill character
   [255]
 
 # Test boolean argument passed to pad function
 #  no crash
 
-  $ hg log -r 0 -T '{pad(rev, 10, "-", "f{"oo"}")}\n'
+  $ sl log -r 0 -T '{pad(rev, 10, "-", "f{"oo"}")}\n'
   ---------0
 
 #  string/literal
 
-  $ hg log -r 0 -T '{pad(rev, 10, "-", "false")}\n'
+  $ sl log -r 0 -T '{pad(rev, 10, "-", "false")}\n'
   ---------0
-  $ hg log -r 0 -T '{pad(rev, 10, "-", false)}\n'
+  $ sl log -r 0 -T '{pad(rev, 10, "-", false)}\n'
   0---------
-  $ hg log -r 0 -T '{pad(rev, 10, "-", "")}\n'
+  $ sl log -r 0 -T '{pad(rev, 10, "-", "")}\n'
   0---------
 
 #  unknown keyword is evaluated to ''
 
-  $ hg log -r 0 -T '{pad(rev, 10, "-", unknownkeyword)}\n'
+  $ sl log -r 0 -T '{pad(rev, 10, "-", unknownkeyword)}\n'
   0---------
 
 # Test separate function
 
-  $ hg log -r 0 -T '{separate("-", "", "a", "b", "", "", "c", "")}\n'
+  $ sl log -r 0 -T '{separate("-", "", "a", "b", "", "", "c", "")}\n'
   a-b-c
-  $ hg log -r 0 -T '{separate(" ", "{rev}:{node|short}", author|user, bookmarks)}\n'
+  $ sl log -r 0 -T '{separate(" ", "{rev}:{node|short}", author|user, bookmarks)}\n'
   0:f7769ec2ab97 test
-  $ hg log -r 0 '--color=always' -T '{separate(" ", "a", label(red, "b"), "c", label(red, ""), "d")}\n'
+  $ sl log -r 0 '--color=always' -T '{separate(" ", "a", label(red, "b"), "c", label(red, ""), "d")}\n'
   a \x1b[31mb\x1b[39m c d (esc)
 
 # Test boolean expression/literal passed to if function
 
-  $ hg log -r 0 -T '{if(rev, "rev 0 is True")}\n'
+  $ sl log -r 0 -T '{if(rev, "rev 0 is True")}\n'
   rev 0 is True
-  $ hg log -r 0 -T '{if(0, "literal 0 is True as well")}\n'
+  $ sl log -r 0 -T '{if(0, "literal 0 is True as well")}\n'
   literal 0 is True as well
-  $ hg log -r 0 -T '{if("", "", "empty string is False")}\n'
+  $ sl log -r 0 -T '{if("", "", "empty string is False")}\n'
   empty string is False
-  $ hg log -r 0 -T '{if(revset(r"0 - 0"), "", "empty list is False")}\n'
+  $ sl log -r 0 -T '{if(revset(r"0 - 0"), "", "empty list is False")}\n'
   empty list is False
-  $ hg log -r 0 -T '{if(true, "true is True")}\n'
+  $ sl log -r 0 -T '{if(true, "true is True")}\n'
   true is True
-  $ hg log -r 0 -T '{if(false, "", "false is False")}\n'
+  $ sl log -r 0 -T '{if(false, "", "false is False")}\n'
   false is False
-  $ hg log -r 0 -T '{if("false", "non-empty string is True")}\n'
+  $ sl log -r 0 -T '{if("false", "non-empty string is True")}\n'
   non-empty string is True
 
 # Test ifcontains function
 
-  $ hg log --template '{rev} {ifcontains(rev, "2 two 0", "is in the string", "is not")}\n'
+  $ sl log --template '{rev} {ifcontains(rev, "2 two 0", "is in the string", "is not")}\n'
   2 is in the string
   1 is not
   0 is in the string
 
-  $ hg log -T '{rev} {ifcontains(rev, "2 two{" 0"}", "is in the string", "is not")}\n'
+  $ sl log -T '{rev} {ifcontains(rev, "2 two{" 0"}", "is in the string", "is not")}\n'
   2 is in the string
   1 is not
   0 is in the string
 
-  $ hg log --template '{rev} {ifcontains("a", file_adds, "added a", "did not add a")}\n'
+  $ sl log --template '{rev} {ifcontains("a", file_adds, "added a", "did not add a")}\n'
   2 did not add a
   1 did not add a
   0 added a
 
-  $ hg log --debug -T '{rev}{ifcontains(1, parents, " is parent of 1")}\n'
+  $ sl log --debug -T '{rev}{ifcontains(1, parents, " is parent of 1")}\n'
   2 is parent of 1
   1
   0
 
 # Test revset function
 
-  $ hg log --template '{rev} {ifcontains(rev, revset("."), "current rev", "not current rev")}\n'
+  $ sl log --template '{rev} {ifcontains(rev, revset("."), "current rev", "not current rev")}\n'
   2 current rev
   1 not current rev
   0 not current rev
 
-  $ hg log --template '{rev} {ifcontains(rev, revset(". + .^"), "match rev", "not match rev")}\n'
+  $ sl log --template '{rev} {ifcontains(rev, revset(". + .^"), "match rev", "not match rev")}\n'
   2 match rev
   1 match rev
   0 not match rev
 
-  $ hg log -T '{ifcontains(desc, revset(":"), "", "type not match")}\n' -l1
+  $ sl log -T '{ifcontains(desc, revset(":"), "", "type not match")}\n' -l1
   type not match
 
-  $ hg log --template '{rev} Parents: {revset("parents(%s)", rev)}\n'
+  $ sl log --template '{rev} Parents: {revset("parents(%s)", rev)}\n'
   2 Parents: 1
   1 Parents: 0
   0 Parents: 
 
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [revsetalias]
   > myparents(x) = parents(x)
   > EOF
-  $ hg log --template '{rev} Parents: {revset("myparents(%s)", rev)}\n'
+  $ sl log --template '{rev} Parents: {revset("myparents(%s)", rev)}\n'
   2 Parents: 1
   1 Parents: 0
   0 Parents: 
 
-  $ hg log --template 'Rev: {rev}\n{revset("::%s", rev) % "Ancestor: {revision}\n"}\n'
+  $ sl log --template 'Rev: {rev}\n{revset("::%s", rev) % "Ancestor: {revision}\n"}\n'
   Rev: 2
   Ancestor: 0
   Ancestor: 1
@@ -3553,27 +3554,27 @@
   
   Rev: 0
   Ancestor: 0
-  $ hg log --template '{revset("TIP"|lower)}\n' -l1
+  $ sl log --template '{revset("TIP"|lower)}\n' -l1
   2
 
-  $ hg log -T '{revset("%s", "t{"ip"}")}\n' -l1
+  $ sl log -T '{revset("%s", "t{"ip"}")}\n' -l1
   2
 
 #  a list template is evaluated for each item of revset/parents
 
-  $ hg log -T '{rev} p: {revset("p1(%s)", rev) % "{rev}:{node|short}"}\n'
+  $ sl log -T '{rev} p: {revset("p1(%s)", rev) % "{rev}:{node|short}"}\n'
   2 p: 1:ea4c0948489d
   1 p: 0:f7769ec2ab97
   0 p: 
 
-  $ hg log --debug -T '{rev} p:{parents % " {rev}:{node|short}"}\n'
+  $ sl log --debug -T '{rev} p:{parents % " {rev}:{node|short}"}\n'
   2 p: 1:ea4c0948489d
   1 p: 0:f7769ec2ab97
   0 p:
 
 #  therefore, 'revcache' should be recreated for each rev
 
-  $ hg log -T '{rev} {file_adds}\np {revset("p1(%s)", rev) % "{file_adds}"}\n'
+  $ sl log -T '{rev} {file_adds}\np {revset("p1(%s)", rev) % "{file_adds}"}\n'
   2 aa b
   p 
   1 
@@ -3581,7 +3582,7 @@
   0 a
   p 
 
-  $ hg log --debug -T '{rev} {file_adds}\np {parents % "{file_adds}"}\n'
+  $ sl log --debug -T '{rev} {file_adds}\np {parents % "{file_adds}"}\n'
   2 aa b
   p 
   1 
@@ -3591,29 +3592,29 @@
 
 # a revset item must be evaluated as an integer revision, not an offset from tip
 
-  $ hg log -l 1 -T '{revset("null") % "{rev}:{node|short}"}\n'
+  $ sl log -l 1 -T '{revset("null") % "{rev}:{node|short}"}\n'
   -1:000000000000
-  $ hg log -l 1 -T '{revset("%s", "null") % "{rev}:{node|short}"}\n'
+  $ sl log -l 1 -T '{revset("%s", "null") % "{rev}:{node|short}"}\n'
   -1:000000000000
 
 # join() should pick '{rev}' from revset items:
 
-  $ hg log -R ../a -T '{join(revset("parents(%d)", rev), ", ")}\n' -r6
+  $ sl log -R ../a -T '{join(revset("parents(%d)", rev), ", ")}\n' -r6
   4, 5
 
 # on the other hand, parents are formatted as '{rev}:{node|formatnode}' by
 # default. join() should agree with the default formatting:
 
-  $ hg log -R ../a -T '{join(parents, ", ")}\n' -r6
+  $ sl log -R ../a -T '{join(parents, ", ")}\n' -r6
   13207e5a10d9, 07fa1db10648
 
-  $ hg log -R ../a -T '{join(parents, ",\n")}\n' -r6 --debug
+  $ sl log -R ../a -T '{join(parents, ",\n")}\n' -r6 --debug
   13207e5a10d9fd28ec424934298e176197f2c67f,
   07fa1db1064879a32157227401eb44b322ae53ce
 
 # Test files function
 
-  $ hg log -T '{rev}\n{join(files('\''*'\''), '\''\n'\'')}\n'
+  $ sl log -T '{rev}\n{join(files('\''*'\''), '\''\n'\'')}\n'
   2
   a
   aa
@@ -3623,7 +3624,7 @@
   0
   a
 
-  $ hg log -T '{rev}\n{join(files('\''aa'\''), '\''\n'\'')}\n'
+  $ sl log -T '{rev}\n{join(files('\''aa'\''), '\''\n'\'')}\n'
   2
   aa
   1
@@ -3631,7 +3632,7 @@
   0
 
 # Test filterby function
-  $ hg log -T "{rev}\n{join(files, '\n')}\n"
+  $ sl log -T "{rev}\n{join(files, '\n')}\n"
   2
   aa
   b
@@ -3639,50 +3640,50 @@
   
   0
   a
-  $ hg log -r . -T "{filterby('path:aa', files)}\n"
+  $ sl log -r . -T "{filterby('path:aa', files)}\n"
   aa
-  $ hg log -r . -T "{filterby('path:aa', files) | count}\n"
+  $ sl log -r . -T "{filterby('path:aa', files) | count}\n"
   1
 
 # Test relpath function
 
-  $ hg log -r0 -T '{files % "{file|relpath}\n"}'
+  $ sl log -r0 -T '{files % "{file|relpath}\n"}'
   a
   $ cd ..
-  $ hg log -R r -r0 -T '{files % "{file|relpath}\n"}'
+  $ sl log -R r -r0 -T '{files % "{file|relpath}\n"}'
   r/a
   $ cd r
 
 # Test active bookmark templating
 
-  $ hg book foo
-  $ hg book bar
-  $ hg log --template '{rev} {bookmarks % '\''{bookmark}{ifeq(bookmark, active, "*")} '\''}\n'
+  $ sl book foo
+  $ sl book bar
+  $ sl log --template '{rev} {bookmarks % '\''{bookmark}{ifeq(bookmark, active, "*")} '\''}\n'
   2 bar* foo text.{rev} 
   1 
   0 
-  $ hg log --template '{rev} {activebookmark}\n'
+  $ sl log --template '{rev} {activebookmark}\n'
   2 bar
   1 
   0 
-  $ hg bookmarks --inactive bar
-  $ hg log --template '{rev} {activebookmark}\n'
+  $ sl bookmarks --inactive bar
+  $ sl log --template '{rev} {activebookmark}\n'
   2 
   1 
   0 
-  $ hg book -r1 baz
-  $ hg log --template '{rev} {join(bookmarks, '\'' '\'')}\n'
+  $ sl book -r1 baz
+  $ sl log --template '{rev} {join(bookmarks, '\'' '\'')}\n'
   2 bar foo text.{rev}
   1 baz
   0 
-  $ hg log --template '{rev} {ifcontains('\''foo'\'', bookmarks, '\''t'\'', '\''f'\'')}\n'
+  $ sl log --template '{rev} {ifcontains('\''foo'\'', bookmarks, '\''t'\'', '\''f'\'')}\n'
   2 t
   1 f
   0 f
 
 # Test namespaces dict
 
-  $ hg --config "extensions.revnamesext=$TESTDIR/revnamesext.py" log -T '{rev}\n{namespaces % " {namespace} color={colorname} builtin={builtin}\n  {join(names, ",")}\n"}\n'
+  $ sl --config "extensions.revnamesext=$TESTDIR/revnamesext.py" log -T '{rev}\n{namespaces % " {namespace} color={colorname} builtin={builtin}\n  {join(names, ",")}\n"}\n'
   2
    bookmarks color=bookmark builtin=True
     bar,foo,text.{rev}
@@ -3730,13 +3731,13 @@
     from sapling import namespaces
     del namespaces.namespacetable["revnames"]
 
-  $ hg log -r2 -T '{namespaces % "{namespace}: {names}\n"}'
+  $ sl log -r2 -T '{namespaces % "{namespace}: {names}\n"}'
   bookmarks: bar foo text.{rev}
   remotebookmarks: 
   hoistednames: 
   titles: 
   commitscheme: 
-  $ hg log -r2 -T '{namespaces % "{namespace}:\n{names % " {name}\n"}"}'
+  $ sl log -r2 -T '{namespaces % "{namespace}:\n{names % " {name}\n"}"}'
   bookmarks:
    bar
    foo
@@ -3745,11 +3746,11 @@
   hoistednames:
   titles:
   commitscheme:
-  $ hg log -r2 -T '{get(namespaces, "bookmarks") % "{name}\n"}'
+  $ sl log -r2 -T '{get(namespaces, "bookmarks") % "{name}\n"}'
   bar
   foo
   text.{rev}
-  $ hg log -r2 -T '{namespaces.bookmarks % "{bookmark}\n"}'
+  $ sl log -r2 -T '{namespaces.bookmarks % "{bookmark}\n"}'
   bar
   foo
   text.{rev}
@@ -3757,14 +3758,14 @@
 # Test stringify on sub expressions
 
   $ cd ..
-  $ hg log -R a -r 8 --template '{join(files, if("1", if("1", ", ")))}\n'
+  $ sl log -R a -r 8 --template '{join(files, if("1", if("1", ", ")))}\n'
   fourth, second, third
-  $ hg log -R a -r 8 --template '{strip(if("1", if("1", "-abc-")), if("1", if("1", "-")))}\n'
+  $ sl log -R a -r 8 --template '{strip(if("1", if("1", "-abc-")), if("1", if("1", "-")))}\n'
   abc
 
 # Test splitlines
 
-  $ hg log -Gv -R a --template '{splitlines(desc) % '\''foo {line}\n'\''}'
+  $ sl log -Gv -R a --template '{splitlines(desc) % '\''foo {line}\n'\''}'
   @  foo Modify, add, remove, rename
   │
   o  foo future
@@ -3790,18 +3791,18 @@
   o  foo line 1
      foo line 2
 
-  $ hg log -R a -r0 -T '{desc|splitlines}\n'
+  $ sl log -R a -r0 -T '{desc|splitlines}\n'
   line 1 line 2
-  $ hg log -R a -r0 -T '{join(desc|splitlines, "|")}\n'
+  $ sl log -R a -r0 -T '{join(desc|splitlines, "|")}\n'
   line 1|line 2
 
 # Test startswith
 
-  $ hg log -Gv -R a --template '{startswith(desc)}'
-  hg: parse error: startswith expects two arguments
+  $ sl log -Gv -R a --template '{startswith(desc)}'
+  sl: parse error: startswith expects two arguments
   [255]
 
-  $ hg log -Gv -R a --template '{startswith('\''line'\'', desc)}'
+  $ sl log -Gv -R a --template '{startswith('\''line'\'', desc)}'
   @
   │
   o
@@ -3827,13 +3828,13 @@
 
 # Test bad template with better error message
 
-  $ hg log -Gv -R a --template '{desc|user()}'
-  hg: parse error: expected a symbol, got 'func'
+  $ sl log -Gv -R a --template '{desc|user()}'
+  sl: parse error: expected a symbol, got 'func'
   [255]
 
 # Test word function (including index out of bounds graceful failure)
 
-  $ hg log -Gv -R a --template '{word('\''1'\'', desc)}'
+  $ sl log -Gv -R a --template '{word('\''1'\'', desc)}'
   @  add,
   │
   o
@@ -3858,7 +3859,7 @@
 
 # Test word third parameter used as splitter
 
-  $ hg log -Gv -R a --template '{word('\''0'\'', desc, '\''o'\'')}'
+  $ sl log -Gv -R a --template '{word('\''0'\'', desc, '\''o'\'')}'
   @  M
   │
   o  future
@@ -3884,33 +3885,33 @@
 
 # Test word error messages for not enough and too many arguments
 
-  $ hg log -Gv -R a --template '{word('\''0'\'')}'
-  hg: parse error: word expects two or three arguments, got 1
+  $ sl log -Gv -R a --template '{word('\''0'\'')}'
+  sl: parse error: word expects two or three arguments, got 1
   [255]
 
-  $ hg log -Gv -R a --template '{word('\''0'\'', desc, '\''o'\'', '\''h'\'', '\''b'\'', '\''o'\'', '\''y'\'')}'
-  hg: parse error: word expects two or three arguments, got 7
+  $ sl log -Gv -R a --template '{word('\''0'\'', desc, '\''o'\'', '\''h'\'', '\''b'\'', '\''o'\'', '\''y'\'')}'
+  sl: parse error: word expects two or three arguments, got 7
   [255]
 
 # Test word for integer literal
 
-  $ hg log -R a --template '{word(2, desc)}\n' -r0
+  $ sl log -R a --template '{word(2, desc)}\n' -r0
   line
 
 # Test word for invalid numbers
 
-  $ hg log -Gv -R a --template '{word('\''a'\'', desc)}'
-  hg: parse error: word expects an integer index
+  $ sl log -Gv -R a --template '{word('\''a'\'', desc)}'
+  sl: parse error: word expects an integer index
   [255]
 
 # Test word for out of range
 
-  $ hg log -R a --template '{word(10000, desc)}'
-  $ hg log -R a --template '{word(-10000, desc)}'
+  $ sl log -R a --template '{word(10000, desc)}'
+  $ sl log -R a --template '{word(-10000, desc)}'
 
 # Test indent and not adding to empty lines
 
-  $ hg log -T '-----\n{indent(desc, '\''.. '\'', '\'' . '\'')}\n' -r '0:1' -R a
+  $ sl log -T '-----\n{indent(desc, '\''.. '\'', '\'' . '\'')}\n' -r '0:1' -R a
   -----
    . line 1
   .. line 2
@@ -3922,24 +3923,24 @@
 
 # Test with non-strings like dates
 
-  $ hg log -T '{indent(date, '\''   '\'')}\n' -r '2:3' -R a
+  $ sl log -T '{indent(date, '\''   '\'')}\n' -r '2:3' -R a
      1200000.00
      1300000.00
 
 # Test broken string escapes:
 
-  $ hg log -T 'bogus\' -R a
-  hg: parse error: trailing \ in string
+  $ sl log -T 'bogus\' -R a
+  sl: parse error: trailing \ in string
   [255]
-  $ hg log -T '\xy' -R a
-  hg: parse error: invalid \x escape* (glob)
+  $ sl log -T '\xy' -R a
+  sl: parse error: invalid \x escape* (glob)
   [255]
 
 # Templater supports aliases of symbol and func() styles:
 
   $ cp -R a aliases
   $ cd aliases
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [templatealias]
   > r = rev
   > rn = "{r}:{node|short}"
@@ -3947,7 +3948,7 @@
   > utcdate(d) = localdate(d, "UTC")
   > EOF
 
-  $ hg debugtemplate -vr0 '{rn} {utcdate(date)|isodate}\n'
+  $ sl debugtemplate -vr0 '{rn} {utcdate(date)|isodate}\n'
   (template
     (symbol 'rn')
     (string ' ')
@@ -3976,7 +3977,7 @@
     (string '\n'))
   0:1e4e1b8f71e0 1970-01-12 13:46 +0000
 
-  $ hg debugtemplate -vr0 '{status("A", file_adds)}'
+  $ sl debugtemplate -vr0 '{status("A", file_adds)}'
   (template
     (func
       (symbol 'status')
@@ -3996,7 +3997,7 @@
 
 # A unary function alias can be called as a filter:
 
-  $ hg debugtemplate -vr0 '{date|utcdate|isodate}\n'
+  $ sl debugtemplate -vr0 '{date|utcdate|isodate}\n'
   (template
     (|
       (|
@@ -4019,21 +4020,21 @@
 # Aliases should be applied only to command arguments and templates in hgrc.
 # Otherwise, our stock styles and web templates could be corrupted:
 
-  $ hg log -r0 -T '{rn} {utcdate(date)|isodate}\n'
+  $ sl log -r0 -T '{rn} {utcdate(date)|isodate}\n'
   0:1e4e1b8f71e0 1970-01-12 13:46 +0000
 
-  $ hg log -r0 --config 'ui.logtemplate="{rn} {utcdate(date)|isodate}\n"'
+  $ sl log -r0 --config 'ui.logtemplate="{rn} {utcdate(date)|isodate}\n"'
   0:1e4e1b8f71e0 1970-01-12 13:46 +0000
 
   $ cat > tmpl << 'EOF'
   > changeset = 'nothing expanded:{rn}\n'
   > EOF
-  $ hg log -r0 --style ./tmpl
+  $ sl log -r0 --style ./tmpl
   nothing expanded:
 
 # Aliases in formatter:
 
-  $ hg bookmarks -T '{pad(bookmark, 7)} {rn}\n'
+  $ sl bookmarks -T '{pad(bookmark, 7)} {rn}\n'
   foo     :07fa1db10648
 
 # Aliases should honor HGPLAIN:
@@ -4043,21 +4044,21 @@
 # Windows. A solution will be changing the config parser take an environ
 # instead of using hardcoded system env.
 
-  $ HGPLAIN= hg log -r0 -T 'nothing expanded:{rn}\n'
+  $ HGPLAIN= sl log -r0 -T 'nothing expanded:{rn}\n'
   nothing expanded:
 
-  $ HGPLAINEXCEPT=templatealias hg log -r0 -T '{rn}\n'
+  $ HGPLAINEXCEPT=templatealias sl log -r0 -T '{rn}\n'
   0:1e4e1b8f71e0
 #endif
 
 # Unparsable alias:
 
-  $ hg debugtemplate --config 'templatealias.bad=x(' -v '{bad}'
+  $ sl debugtemplate --config 'templatealias.bad=x(' -v '{bad}'
   (template
     (symbol 'bad'))
   abort: bad definition of template alias "bad": at 2: not a prefix: end
   [255]
-  $ hg log --config 'templatealias.bad=x(' -T '{bad}'
+  $ sl log --config 'templatealias.bad=x(' -T '{bad}'
   abort: bad definition of template alias "bad": at 2: not a prefix: end
   [255]
 
@@ -4065,29 +4066,29 @@
 
 # Set up repository for non-ascii encoding tests:
 
-  $ hg init nonascii
+  $ sl init nonascii
   $ cd nonascii
 
   $ printf 'é' > utf-8
 
-  $ hg bookmark -q 'é'
-  $ hg ci -qAm 'non-ascii branch: é' utf-8
+  $ sl bookmark -q 'é'
+  $ sl ci -qAm 'non-ascii branch: é' utf-8
 
 # json filter preserves utf-8:
 
-  $ hg log -T '{bookmarks|json}\n' -r.
+  $ sl log -T '{bookmarks|json}\n' -r.
   ["\u00e9"]
-  $ hg log -T '{desc|json}\n' -r.
+  $ sl log -T '{desc|json}\n' -r.
   "non-ascii branch: \u00e9"
 
 # json filter takes input as utf-8b:
 
-  $ hg log -T '{'\''é'\''|json}\n' -l1
+  $ sl log -T '{'\''é'\''|json}\n' -l1
   "\u00e9"
 
 # pad width:
 
-  $ hg debugtemplate '{pad('\''é%s'\'', 2, '\''-'\'')}\n'
+  $ sl debugtemplate '{pad('\''é%s'\'', 2, '\''-'\'')}\n'
   é%s
 
   $ cd ..
@@ -4104,51 +4105,51 @@
   >     return 'custom'
   > EOF
 
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > [extensions]
   > customfunc = $TESTTMP/customfunc.py
   > EOF
 
-  $ hg log -r . -T '{custom()}\n' --config 'customfunc.enabled=true'
+  $ sl log -r . -T '{custom()}\n' --config 'customfunc.enabled=true'
   custom
 
   $ cd ..
 
-# Test 'graphwidth' in 'hg log' on various topologies. The key here is that the
+# Test 'graphwidth' in 'sl log' on various topologies. The key here is that the
 # printed graphwidths 3, 5, 7, etc. should all line up in their respective
 # columns. We don't care about other aspects of the graph rendering here.
 
-  $ hg init graphwidth
+  $ sl init graphwidth
   $ cd graphwidth
 
   $ wrappabletext='a a a a a a a a a a a a'
 
   $ printf 'first\n' > file
-  $ hg add file
-  $ hg commit -m "$wrappabletext"
+  $ sl add file
+  $ sl commit -m "$wrappabletext"
 
   $ printf 'first\nsecond\n' > file
-  $ hg commit -m "$wrappabletext"
+  $ sl commit -m "$wrappabletext"
 
-  $ hg checkout 0
+  $ sl checkout 0
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ printf 'third\nfirst\n' > file
-  $ hg commit -m "$wrappabletext"
+  $ sl commit -m "$wrappabletext"
 
-  $ hg merge
+  $ sl merge
   merging file
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
-  $ hg log --graph -T '{graphwidth}'
+  $ sl log --graph -T '{graphwidth}'
   @  3
   │
   │ @  5
   ├─╯
   o  3
-  $ hg commit -m "$wrappabletext"
+  $ sl commit -m "$wrappabletext"
 
-  $ hg log --graph -T '{graphwidth}'
+  $ sl log --graph -T '{graphwidth}'
   @    5
   ├─╮
   │ o  5
@@ -4157,12 +4158,12 @@
   ├─╯
   o  3
 
-  $ hg checkout 0
+  $ sl checkout 0
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ printf 'third\nfirst\nsecond\n' > file
-  $ hg commit -m "$wrappabletext"
+  $ sl commit -m "$wrappabletext"
 
-  $ hg log --graph -T '{graphwidth}'
+  $ sl log --graph -T '{graphwidth}'
   @  3
   │
   │ o    7
@@ -4173,26 +4174,26 @@
   ├─╯
   o  3
 
-  $ hg log --graph -T '{graphwidth}' -r 3
+  $ sl log --graph -T '{graphwidth}' -r 3
   o    5
   ├─╮
   │ │
   ~ ~
 
-  $ hg log --graph -T '{graphwidth}' -r 1
+  $ sl log --graph -T '{graphwidth}' -r 1
   o  3
   │
   ~
 
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg commit -m "$wrappabletext"
+  $ sl commit -m "$wrappabletext"
 
   $ printf 'seventh\n' >> file
-  $ hg commit -m "$wrappabletext"
+  $ sl commit -m "$wrappabletext"
 
-  $ hg log --graph -T '{graphwidth}'
+  $ sl log --graph -T '{graphwidth}'
   @  3
   │
   o    5
@@ -4210,7 +4211,7 @@
 # The point of graphwidth is to allow wrapping that accounts for the space taken
 # by the graph.
 
-  $ COLUMNS=10 hg log --graph -T '{fill(desc, termwidth - graphwidth)}'
+  $ COLUMNS=10 sl log --graph -T '{fill(desc, termwidth - graphwidth)}'
   @  a a a a
   │  a a a a
   │  a a a a
@@ -4246,7 +4247,7 @@
 # edges can be more than one column wider, but the graph width only increases by
 # one column. The remaining columns are added in between the nodes.
 
-  $ hg log --graph -T '{graphwidth}' -r '0|2|4|5'
+  $ sl log --graph -T '{graphwidth}' -r '0|2|4|5'
   o    5
   ├─╮
   o ╷  5
@@ -4259,23 +4260,23 @@
 
 # Confirm that truncation does the right thing
 
-  $ hg debugtemplate '{truncatelonglines("abcdefghijklmnopqrst\n", 10)}'
+  $ sl debugtemplate '{truncatelonglines("abcdefghijklmnopqrst\n", 10)}'
   abcdefghij
-  $ hg debugtemplate '{truncatelonglines("abcdefghijklmnopqrst\n", 10, "â¦")}'
+  $ sl debugtemplate '{truncatelonglines("abcdefghijklmnopqrst\n", 10, "â¦")}'
   abcdefgâ¦
-  $ hg debugtemplate '{truncate("a\nb\nc\n", 2)}'
+  $ sl debugtemplate '{truncate("a\nb\nc\n", 2)}'
   a
   b
-  $ hg debugtemplate '{truncate("a\nb\nc\n", 2, "truncated\n")}'
+  $ sl debugtemplate '{truncate("a\nb\nc\n", 2, "truncated\n")}'
   a
   truncated
 
 # Test case expressions
 
-  $ hg debugtemplate "{case('a', 'a', 'A', 'b', 'B', 'c', 'C')}"
+  $ sl debugtemplate "{case('a', 'a', 'A', 'b', 'B', 'c', 'C')}"
   A (no-eol)
-  $ hg debugtemplate "{case('b', 'a', 'A', 'b', 'B', 'c', 'C', 'D')}"
+  $ sl debugtemplate "{case('b', 'a', 'A', 'b', 'B', 'c', 'C', 'D')}"
   B (no-eol)
-  $ hg debugtemplate "{case('x', 'a', 'A', 'b', 'B', 'c', 'C')}"
-  $ hg debugtemplate "{case('x', 'a', 'A', 'b', 'B', 'c', 'C', 'D')}"
+  $ sl debugtemplate "{case('x', 'a', 'A', 'b', 'B', 'c', 'C')}"
+  $ sl debugtemplate "{case('x', 'a', 'A', 'b', 'B', 'c', 'C', 'D')}"
   D (no-eol)

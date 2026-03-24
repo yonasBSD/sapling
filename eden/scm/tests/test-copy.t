@@ -3,28 +3,29 @@
 
 
 # enable bundle2 in advance
+  $ export HGIDENTITY=sl
   $ setconfig format.usegeneraldelta=yes
 
   $ mkdir part1
   $ cd part1
 
-  $ hg init
+  $ sl init
   $ echo a > a
-  $ hg add a
-  $ hg commit -m "1"
-  $ hg status
-  $ hg copy a b
-  $ hg --config ui.portablefilenames=abort copy a con.xml
+  $ sl add a
+  $ sl commit -m "1"
+  $ sl status
+  $ sl copy a b
+  $ sl --config ui.portablefilenames=abort copy a con.xml
   abort: filename contains 'con', which is reserved on Windows: con.xml
   [255]
-  $ hg status
+  $ sl status
   A b
-  $ hg sum
+  $ sl sum
   parent: c19d34741b0a 
    1
   commit: 1 copied
   phases: 1 draft
-  $ hg --debug commit -m "2"
+  $ sl --debug commit -m "2"
   committing files:
   b
    b: copy a:b789fdd96dc2f3bd229c1dd8eedf0fc60e2b68e3
@@ -34,7 +35,7 @@
 
 we should see two history entries
 
-  $ hg history -v
+  $ sl history -v
   commit:      93580a2c28a5
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -54,7 +55,7 @@ we should see two history entries
 
 we should see one log entry for a
 
-  $ hg log a
+  $ sl log a
   commit:      c19d34741b0a
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -63,13 +64,13 @@ we should see one log entry for a
 
 this should show a revision linked to changeset 0
 
-  $ hg debugindex a
+  $ sl debugindex a
      rev linkrev nodeid       p1           p2
        0       0 b789fdd96dc2 000000000000 000000000000
 
 we should see one log entry for b
 
-  $ hg log b
+  $ sl log b
   commit:      93580a2c28a5
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -78,23 +79,23 @@ we should see one log entry for b
 
 this should show a revision linked to changeset 1
 
-  $ hg debugindex b
+  $ sl debugindex b
      rev linkrev nodeid       p1           p2
        0       1 37d9b5d994ea 000000000000 000000000000
 
 this should show the rename information in the metadata
 
-  $ hg debugdata b 0 | head -3 | tail -2
+  $ sl debugdata b 0 | head -3 | tail -2
   copy: a
   copyrev: b789fdd96dc2f3bd229c1dd8eedf0fc60e2b68e3
 
-  $ hg cat b > bsum
+  $ sl cat b > bsum
   $ f --md5 bsum
   bsum: md5=60b725f10c9c85c70d97880dfe8191b3
-  $ hg cat a > asum
+  $ sl cat a > asum
   $ f --md5 asum
   asum: md5=60b725f10c9c85c70d97880dfe8191b3
-  $ hg verify
+  $ sl verify
   warning: verify does not actually check anything in this repo
 
   $ cd ..
@@ -103,150 +104,150 @@ this should show the rename information in the metadata
   $ mkdir part2
   $ cd part2
 
-  $ hg init
+  $ sl init
   $ echo foo > foo
 should fail - foo is not managed
-  $ hg mv foo bar
+  $ sl mv foo bar
   foo: not copying - file is not managed
   abort: no files to copy
   (use '--amend --mark' if you want to amend the current commit)
   [255]
-  $ hg st -A
+  $ sl st -A
   ? foo
-  $ hg add foo
+  $ sl add foo
 dry-run; print a warning that this is not a real copy; foo is added
-  $ hg mv --dry-run foo bar
+  $ sl mv --dry-run foo bar
   foo has not been committed yet, so no copy data will be stored for bar.
-  $ hg st -A
+  $ sl st -A
   A foo
 should print a warning that this is not a real copy; bar is added
-  $ hg mv foo bar
+  $ sl mv foo bar
   foo has not been committed yet, so no copy data will be stored for bar.
-  $ hg st -A
+  $ sl st -A
   A bar
 should print a warning that this is not a real copy; foo is added
-  $ hg cp bar foo
+  $ sl cp bar foo
   bar has not been committed yet, so no copy data will be stored for foo.
-  $ hg rm -f bar
+  $ sl rm -f bar
   $ rm bar
-  $ hg st -A
+  $ sl st -A
   A foo
-  $ hg commit -m1
+  $ sl commit -m1
 
 moving a missing file
   $ rm foo
-  $ hg mv foo foo3
+  $ sl mv foo foo3
   foo: deleted in working directory
   foo3 does not exist!
-  $ hg up -qC .
+  $ sl up -qC .
 
 copy --mark to a nonexistent target filename
-  $ hg cp --mark foo dummy
+  $ sl cp --mark foo dummy
   foo: not recording copy - dummy does not exist
 
 dry-run; should show that foo is clean
-  $ hg copy --dry-run foo bar
-  $ hg st -A
+  $ sl copy --dry-run foo bar
+  $ sl st -A
   C foo
 should show copy
-  $ hg copy foo bar
-  $ hg st -C
+  $ sl copy foo bar
+  $ sl st -C
   A bar
     foo
 
 shouldn't show copy
-  $ hg commit -m2
-  $ hg st -C
+  $ sl commit -m2
+  $ sl st -C
 
 should match
-  $ hg debugindex foo
+  $ sl debugindex foo
      rev linkrev nodeid       p1           p2
        0       0 2ed2a3912a0b 000000000000 000000000000
-  $ hg debugrename bar
+  $ sl debugrename bar
   bar renamed from foo:2ed2a3912a0b24502043eae84ee4b279c18b90dd
 
   $ echo bleah > foo
   $ echo quux > bar
-  $ hg commit -m3
+  $ sl commit -m3
 
 should not be renamed
-  $ hg debugrename bar
+  $ sl debugrename bar
   bar not renamed
 
-  $ hg copy -f foo bar
+  $ sl copy -f foo bar
 should show copy
-  $ hg st -C
+  $ sl st -C
   M bar
     foo
 
-  $ hg commit -m3
+  $ sl commit -m3
 
 should show no parents for tip
-  $ hg debugindex bar
+  $ sl debugindex bar
      rev linkrev nodeid       p1           p2
        0       1 7711d36246cc 000000000000 000000000000
        1       2 bdf70a2b8d03 7711d36246cc 000000000000
        2       3 b2558327ea8d 000000000000 000000000000
 should match
-  $ hg debugindex foo
+  $ sl debugindex foo
      rev linkrev nodeid       p1           p2
        0       0 2ed2a3912a0b 000000000000 000000000000
        1       2 dd12c926cf16 2ed2a3912a0b 000000000000
-  $ hg debugrename bar
+  $ sl debugrename bar
   bar renamed from foo:dd12c926cf165e3eb4cf87b084955cb617221c17
 
 should show no copies
-  $ hg st -C
+  $ sl st -C
 
 copy --mark on an added file
   $ cp bar baz
-  $ hg add baz
-  $ hg cp --mark bar baz
-  $ hg st -C
+  $ sl add baz
+  $ sl cp --mark bar baz
+  $ sl st -C
   A baz
     bar
 
 foo was clean:
-  $ hg st -AC foo
+  $ sl st -AC foo
   C foo
 Trying to copy on top of an existing file fails,
-  $ hg copy --mark bar foo
+  $ sl copy --mark bar foo
   foo: not overwriting - file already committed
-  (use 'hg copy --amend --mark' to amend the current commit)
+  (use 'sl copy --amend --mark' to amend the current commit)
 same error without the --mark, so the user doesn't have to go through
 two hints:
-  $ hg copy bar foo
+  $ sl copy bar foo
   foo: not overwriting - file already committed
-  (use 'hg copy --amend --mark' to amend the current commit)
+  (use 'sl copy --amend --mark' to amend the current commit)
 but it's considered modified after a copy --mark --force (legacy behavior)
-  $ hg copy --mark -f bar foo
-  $ hg st -AC foo
+  $ sl copy --mark -f bar foo
+  $ sl st -AC foo
   M foo
     bar
-  $ hg uncopy foo
-  $ hg st -AC foo
+  $ sl uncopy foo
+  $ sl st -AC foo
   C foo
 The hint for a file that exists but is not in file history doesn't
 mention --force:
   $ touch xyzzy
-  $ hg cp bar xyzzy
+  $ sl cp bar xyzzy
   xyzzy: not overwriting - file exists
-  (hg copy --mark to record the copy)
+  (sl copy --mark to record the copy)
 
 test amend current commit
-  $ hg go -Cq .
-  $ hg clean --files
+  $ sl go -Cq .
+  $ sl clean --files
   $ mv foo foo2
-  $ hg rm foo
-  $ hg add foo2
-  $ hg ci -m 'mv foo foo2'
-  $ hg mv --mark foo foo2
+  $ sl rm foo
+  $ sl add foo2
+  $ sl ci -m 'mv foo foo2'
+  $ sl mv --mark foo foo2
   foo: $ENOENT$
   abort: no files to copy
   (use '--amend --mark' if you want to amend the current commit)
   [255]
-  $ hg mv --amend --mark foo foo2
-  $ hg st -C --change .
+  $ sl mv --amend --mark foo foo2
+  $ sl st -C --change .
   A foo2
     foo
   R foo

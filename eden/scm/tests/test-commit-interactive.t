@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Set up a repo
@@ -13,15 +14,15 @@ Set up a repo
 Select no files
 
   $ touch empty-rw
-  $ hg add empty-rw
+  $ sl add empty-rw
 
-  $ hg record --config ui.interactive=false
+  $ sl record --config ui.interactive=false
   abort: running non-interactively, use commit instead
   [255]
-  $ hg commit -i --config ui.interactive=false
+  $ sl commit -i --config ui.interactive=false
   abort: running non-interactively
   [255]
-  $ hg commit -i empty-rw<<EOF
+  $ sl commit -i empty-rw<<EOF
   > n
   > EOF
   diff --git a/empty-rw b/empty-rw
@@ -31,7 +32,7 @@ Select no files
   no changes to record
   [1]
 
-  $ hg tip -p
+  $ sl tip -p
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -40,7 +41,7 @@ Select no files
 
 Select files but no hunks
 
-  $ hg commit -i  empty-rw<<EOF
+  $ sl commit -i  empty-rw<<EOF
   > y
   > n
   > EOF
@@ -51,7 +52,7 @@ Select files but no hunks
   abort: empty commit message
   [255]
 
-  $ hg tip -p
+  $ sl tip -p
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -61,14 +62,14 @@ Select files but no hunks
 Abort for untracked
 
   $ touch untracked
-  $ hg commit -i -m should-fail empty-rw untracked
+  $ sl commit -i -m should-fail empty-rw untracked
   abort: untracked: file not tracked!
   [255]
   $ rm untracked
 
 Record empty file
 
-  $ hg commit -i -d '0 0' -m empty empty-rw<<EOF
+  $ sl commit -i -d '0 0' -m empty empty-rw<<EOF
   > y
   > y
   > EOF
@@ -77,7 +78,7 @@ Record empty file
   examine changes to 'empty-rw'? [Ynesfdaq?] y
   
 
-  $ hg tip -p
+  $ sl tip -p
   commit:      c0708cf4e46e
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -87,7 +88,7 @@ Record empty file
 
 Summary shows we updated to the new cset
 
-  $ hg summary
+  $ sl summary
   parent: c0708cf4e46e 
    empty
   commit: (clean)
@@ -95,8 +96,8 @@ Summary shows we updated to the new cset
 
 Rename empty file
 
-  $ hg mv empty-rw empty-rename
-  $ hg commit -i -d '1 0' -m rename<<EOF
+  $ sl mv empty-rw empty-rename
+  $ sl commit -i -d '1 0' -m rename<<EOF
   > y
   > EOF
   diff --git a/empty-rw b/empty-rename
@@ -105,7 +106,7 @@ Rename empty file
   examine changes to 'empty-rw' and 'empty-rename'? [Ynesfdaq?] y
   
 
-  $ hg tip -p
+  $ sl tip -p
   commit:      d695e8dcb197
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -115,8 +116,8 @@ Rename empty file
 
 Copy empty file
 
-  $ hg cp empty-rename empty-copy
-  $ hg commit -i -d '2 0' -m copy<<EOF
+  $ sl cp empty-rename empty-copy
+  $ sl commit -i -d '2 0' -m copy<<EOF
   > y
   > EOF
   diff --git a/empty-rename b/empty-copy
@@ -125,7 +126,7 @@ Copy empty file
   examine changes to 'empty-rename' and 'empty-copy'? [Ynesfdaq?] y
   
 
-  $ hg tip -p
+  $ sl tip -p
   commit:      1d4b90bea524
   user:        test
   date:        Thu Jan 01 00:00:02 1970 +0000
@@ -135,8 +136,8 @@ Copy empty file
 
 Delete empty file
 
-  $ hg rm empty-copy
-  $ hg commit -i -d '3 0' -m delete<<EOF
+  $ sl rm empty-copy
+  $ sl commit -i -d '3 0' -m delete<<EOF
   > y
   > EOF
   diff --git a/empty-copy b/empty-copy
@@ -144,7 +145,7 @@ Delete empty file
   examine changes to 'empty-copy'? [Ynesfdaq?] y
   
 
-  $ hg tip -p
+  $ sl tip -p
   commit:      b39a238f01a1
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
@@ -158,10 +159,10 @@ Add binary file
   >   sed 's/\b[0-9a-f]{12}\b/aaaaaaaaaaaa/g'
   > }
 
-  $ hg bundle --base -2 tip.bundle
+  $ sl bundle --base -2 tip.bundle
   1 changesets found
-  $ hg add tip.bundle
-  $ hg commit -i -d '4 0' -m binary<<EOF
+  $ sl add tip.bundle
+  $ sl commit -i -d '4 0' -m binary<<EOF
   > y
   > EOF
   diff --git a/tip.bundle b/tip.bundle
@@ -169,7 +170,7 @@ Add binary file
   this is a binary file
   examine changes to 'tip.bundle'? [Ynesfdaq?] y
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:04 1970 +0000
@@ -180,16 +181,16 @@ Add binary file
 
 Change binary file
 
-  $ hg bundle --base -2 tip.bundle
+  $ sl bundle --base -2 tip.bundle
   1 changesets found
-  $ hg commit -i -d '5 0' -m binary-change<<EOF
+  $ sl commit -i -d '5 0' -m binary-change<<EOF
   > y
   > EOF
   diff --git a/tip.bundle b/tip.bundle
   this modifies a binary file (all or nothing)
   examine changes to 'tip.bundle'? [Ynesfdaq?] y
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
@@ -200,10 +201,10 @@ Change binary file
 
 Rename and change binary file
 
-  $ hg mv tip.bundle top.bundle
-  $ hg bundle --base -2 top.bundle
+  $ sl mv tip.bundle top.bundle
+  $ sl bundle --base -2 top.bundle
   1 changesets found
-  $ hg commit -i -d '6 0' -m binary-change-rename<<EOF
+  $ sl commit -i -d '6 0' -m binary-change-rename<<EOF
   > y
   > EOF
   diff --git a/tip.bundle b/top.bundle
@@ -212,7 +213,7 @@ Rename and change binary file
   this modifies a binary file (all or nothing)
   examine changes to 'tip.bundle' and 'top.bundle'? [Ynesfdaq?] y
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:06 1970 +0000
@@ -229,8 +230,8 @@ Add plain file
   >     echo $i >> plain
   > done
 
-  $ hg add plain
-  $ hg commit -i -d '7 0' -m plain plain<<EOF
+  $ sl add plain
+  $ sl commit -i -d '7 0' -m plain plain<<EOF
   > y
   > y
   > EOF
@@ -251,7 +252,7 @@ Add plain file
   +10
   record this change to 'plain'? [Ynesfdaq?] y
   
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:07 1970 +0000
@@ -275,9 +276,9 @@ Modify end of plain file with username unset
 
   $ echo 11 >> plain
   $ unset HGUSER
-  $ hg commit -i --config ui.username= -d '8 0' -m end plain
+  $ sl commit -i --config ui.username= -d '8 0' -m end plain
   abort: no username supplied
-  (use `hg config --user ui.username "First Last <me@example.com>"` to set your username)
+  (use `sl config --user ui.username "First Last <me@example.com>"` to set your username)
   [255]
 
 
@@ -285,7 +286,7 @@ Modify end of plain file, also test that diffopts are accounted for
 
   $ HGUSER="test"
   $ export HGUSER
-  $ hg commit -i --config diff.showfunc=true -d '8 0' -m end plain <<EOF
+  $ sl commit -i --config diff.showfunc=true -d '8 0' -m end plain <<EOF
   > y
   > y
   > EOF
@@ -304,7 +305,7 @@ Modify end of plain file, also test that diffopts are accounted for
 Modify end of plain file, no EOL
 
   $ echo -n 9b5b0d948b4337a6766950f9da247b44068e38b2 >> plain
-  $ hg commit -i -d '9 0' -m noeol plain <<EOF
+  $ sl commit -i -d '9 0' -m noeol plain <<EOF
   > y
   > y
   > EOF
@@ -357,8 +358,8 @@ Record showfunc should preserve function across sections
   > 
   >     Valid types are:
   > EOF
-  $ hg add f1.py
-  $ hg commit -m funcs
+  $ sl add f1.py
+  $ sl commit -m funcs
   $ cat > f1.py <<EOF
   > def annotate(ui, repo, *pats, **opts):
   >     """show changeset information by line for each file
@@ -390,7 +391,7 @@ Record showfunc should preserve function across sections
   > 
   >     Valid types are:
   > EOF
-  $ hg commit -i -m interactive <<EOF
+  $ sl commit -i -m interactive <<EOF
   > y
   > y
   > y
@@ -442,8 +443,8 @@ Modify end of plain file, add EOL
 
   $ echo >> plain
   $ echo 1 > plain2
-  $ hg add plain2
-  $ hg commit -i -d '10 0' -m eol plain plain2 <<EOF
+  $ sl add plain2
+  $ sl commit -i -d '10 0' -m eol plain plain2 <<EOF
   > y
   > y
   > y
@@ -478,7 +479,7 @@ changes numbering
   > done
   $ echo 2 >> plain2
 
-  $ hg commit -i -d '10 0' -m begin-and-end plain plain2 <<EOF
+  $ sl commit -i -d '10 0' -m begin-and-end plain plain2 <<EOF
   > y
   > y
   > y
@@ -514,7 +515,7 @@ changes numbering
   +2
   record change 3/3 to 'plain2'? [Ynesfdaq?] y
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:10 1970 +0000
@@ -551,7 +552,7 @@ Trim beginning, modify end
 
 Record end
 
-  $ hg commit -i -d '11 0' -m end-only plain <<EOF
+  $ sl commit -i -d '11 0' -m end-only plain <<EOF
   > y
   > n
   > y
@@ -584,7 +585,7 @@ Record end
   record change 2/2 to 'plain'? [Ynesfdaq?] y
   
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:11 1970 +0000
@@ -602,7 +603,7 @@ Record end
 
 Record beginning
 
-  $ hg commit -i -d '12 0' -m begin-only plain <<EOF
+  $ sl commit -i -d '12 0' -m begin-only plain <<EOF
   > y
   > y
   > EOF
@@ -620,7 +621,7 @@ Record beginning
   record this change to 'plain'? [Ynesfdaq?] y
   
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:12 1970 +0000
@@ -646,7 +647,7 @@ Add to beginning, trim from end
 
 Record end
 
-  $ hg commit -i --traceback -d '13 0' -m end-again plain<<EOF
+  $ sl commit -i --traceback -d '13 0' -m end-again plain<<EOF
   > y
   > n
   > y
@@ -687,7 +688,7 @@ Add to beginning, middle, end
 
 Record beginning, middle, and test that format-breaking diffopts are ignored
 
-  $ hg commit -i --config diff.noprefix=True -d '14 0' -m middle-only plain <<EOF
+  $ sl commit -i --config diff.noprefix=True -d '14 0' -m middle-only plain <<EOF
   > y
   > y
   > y
@@ -726,7 +727,7 @@ Record beginning, middle, and test that format-breaking diffopts are ignored
   record change 3/3 to 'plain'? [Ynesfdaq?] n
   
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:14 1970 +0000
@@ -749,7 +750,7 @@ Record beginning, middle, and test that format-breaking diffopts are ignored
 
 Record end
 
-  $ hg commit -i -d '15 0' -m end-only plain <<EOF
+  $ sl commit -i -d '15 0' -m end-only plain <<EOF
   > y
   > y
   > EOF
@@ -766,7 +767,7 @@ Record end
   record this change to 'plain'? [Ynesfdaq?] y
   
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:15 1970 +0000
@@ -785,11 +786,11 @@ Record end
   $ mkdir subdir
   $ cd subdir
   $ echo a > a
-  $ hg ci -d '16 0' -Amsubdir
+  $ sl ci -d '16 0' -Amsubdir
   adding subdir/a
 
   $ echo a >> a
-  $ hg commit -i -d '16 0' -m subdir-change a <<EOF
+  $ sl commit -i -d '16 0' -m subdir-change a <<EOF
   > y
   > y
   > EOF
@@ -803,7 +804,7 @@ Record end
   record this change to 'subdir/a'? [Ynesfdaq?] y
   
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:16 1970 +0000
@@ -818,16 +819,16 @@ Record end
 
   $ echo a > f1
   $ echo b > f2
-  $ hg add f1 f2
+  $ sl add f1 f2
 
-  $ hg ci -mz -d '17 0'
+  $ sl ci -mz -d '17 0'
 
   $ echo a >> f1
   $ echo b >> f2
 
 Help, quit
 
-  $ hg commit -i <<EOF
+  $ sl commit -i <<EOF
   > ?
   > q
   > EOF
@@ -851,7 +852,7 @@ Help, quit
 
 Skip
 
-  $ hg commit -i <<EOF
+  $ sl commit -i <<EOF
   > s
   > EOF
   diff --git a/subdir/f1 b/subdir/f1
@@ -865,7 +866,7 @@ Skip
 
 No
 
-  $ hg commit -i <<EOF
+  $ sl commit -i <<EOF
   > n
   > EOF
   diff --git a/subdir/f1 b/subdir/f1
@@ -879,7 +880,7 @@ No
 
 f, quit
 
-  $ hg commit -i <<EOF
+  $ sl commit -i <<EOF
   > f
   > q
   > EOF
@@ -896,7 +897,7 @@ f, quit
 
 s, all
 
-  $ hg commit -i -d '18 0' -mx <<EOF
+  $ sl commit -i -d '18 0' -mx <<EOF
   > s
   > a
   > EOF
@@ -909,7 +910,7 @@ s, all
   examine changes to 'subdir/f2'? [Ynesfdaq?] a
   
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:18 1970 +0000
@@ -924,7 +925,7 @@ s, all
 
 f
 
-  $ hg commit -i -d '19 0' -my <<EOF
+  $ sl commit -i -d '19 0' -my <<EOF
   > f
   > EOF
   diff --git a/subdir/f1 b/subdir/f1
@@ -932,7 +933,7 @@ f
   examine changes to 'subdir/f1'? [Ynesfdaq?] f
   
 
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:19 1970 +0000
@@ -951,7 +952,7 @@ Preserve chmod +x
 
   $ chmod +x f1
   $ echo a >> f1
-  $ hg commit -i -d '20 0' -mz <<EOF
+  $ sl commit -i -d '20 0' -mz <<EOF
   > y
   > y
   > y
@@ -969,7 +970,7 @@ Preserve chmod +x
   record this change to 'subdir/f1'? [Ynesfdaq?] y
   
 
-  $ hg tip --config diff.git=True -p | sed_hashes
+  $ sl tip --config diff.git=True -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:20 1970 +0000
@@ -988,7 +989,7 @@ Preserve chmod +x
 Preserve execute permission on original
 
   $ echo b >> f1
-  $ hg commit -i -d '21 0' -maa <<EOF
+  $ sl commit -i -d '21 0' -maa <<EOF
   > y
   > y
   > y
@@ -1005,7 +1006,7 @@ Preserve execute permission on original
   record this change to 'subdir/f1'? [Ynesfdaq?] y
   
 
-  $ hg tip --config diff.git=True -p | sed_hashes
+  $ sl tip --config diff.git=True -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:21 1970 +0000
@@ -1024,7 +1025,7 @@ Preserve chmod -x
 
   $ chmod -x f1
   $ echo c >> f1
-  $ hg commit -i -d '22 0' -mab <<EOF
+  $ sl commit -i -d '22 0' -mab <<EOF
   > y
   > y
   > y
@@ -1043,7 +1044,7 @@ Preserve chmod -x
   record this change to 'subdir/f1'? [Ynesfdaq?] y
   
 
-  $ hg tip --config diff.git=True -p | sed_hashes
+  $ sl tip --config diff.git=True -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:22 1970 +0000
@@ -1068,7 +1069,7 @@ Slightly bogus tests to get almost same repo structure as when x bit is used
 Mock "Preserve chmod +x"
 
   $ echo a >> f1
-  $ hg commit -i -d '20 0' -mz <<EOF
+  $ sl commit -i -d '20 0' -mz <<EOF
   > y
   > y
   > y
@@ -1084,7 +1085,7 @@ Mock "Preserve chmod +x"
   record this change to 'subdir/f1'? [Ynesfdaq?] y
   
 
-  $ hg tip --config diff.git=True -p
+  $ sl tip --config diff.git=True -p
   changeset:   24:c26cfe2c4eb0
   user:        test
   date:        Thu Jan 01 00:00:20 1970 +0000
@@ -1102,7 +1103,7 @@ Mock "Preserve chmod +x"
 Mock "Preserve execute permission on original"
 
   $ echo b >> f1
-  $ hg commit -i -d '21 0' -maa <<EOF
+  $ sl commit -i -d '21 0' -maa <<EOF
   > y
   > y
   > y
@@ -1119,7 +1120,7 @@ Mock "Preserve execute permission on original"
   record this change to 'subdir/f1'? [Ynesfdaq?] y
   
 
-  $ hg tip --config diff.git=True -p
+  $ sl tip --config diff.git=True -p
   changeset:   25:a48d2d60adde
   user:        test
   date:        Thu Jan 01 00:00:21 1970 +0000
@@ -1139,7 +1140,7 @@ Mock "Preserve chmod -x"
 
   $ chmod -x f1
   $ echo c >> f1
-  $ hg commit -i -d '22 0' -mab <<EOF
+  $ sl commit -i -d '22 0' -mab <<EOF
   > y
   > y
   > y
@@ -1156,7 +1157,7 @@ Mock "Preserve chmod -x"
   record this change to 'subdir/f1'? [Ynesfdaq?] y
   
 
-  $ hg tip --config diff.git=True -p
+  $ sl tip --config diff.git=True -p
   changeset:   26:5cc89ae210fa
   user:        test
   date:        Thu Jan 01 00:00:22 1970 +0000
@@ -1186,13 +1187,13 @@ Abort early when a merge is in progress
   > X
   > EOS
 
-  $ hg up -Cq $Y
-  $ hg merge $Z
+  $ sl up -Cq $Y
+  $ sl merge $Z
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
-  $ hg commit -i -m'will abort'
-  abort: cannot partially commit a merge (use "hg commit" instead)
+  $ sl commit -i -m'will abort'
+  abort: cannot partially commit a merge (use "sl commit" instead)
   [255]
 
 Editing patch (and ignoring trailing text)
@@ -1208,14 +1209,14 @@ Editing patch (and ignoring trailing text)
   > This is the second line
   > This is the third line
   > __EOF__
-  $ hg add editedfile
-  $ hg commit -medit-patch-1
+  $ sl add editedfile
+  $ sl commit -medit-patch-1
   $ cat > editedfile << '__EOF__'
   > This line has changed
   > This change will be committed
   > This is the third line
   > __EOF__
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit -i -d '23 0' -medit-patch-2 <<EOF
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit -i -d '23 0' -medit-patch-2 <<EOF
   > y
   > e
   > EOF
@@ -1235,16 +1236,16 @@ Editing patch (and ignoring trailing text)
   This line has changed
   This change will be committed
   This is the third line
-  $ hg cat -r tip editedfile
+  $ sl cat -r tip editedfile
   This is the first line
   This change will be committed
   This is the third line
-  $ hg revert editedfile
+  $ sl revert editedfile
 
 Trying to edit patch for whole file
 
   $ echo "This is the fourth line" >> editedfile
-  $ hg commit -i <<EOF
+  $ sl commit -i <<EOF
   > e
   > q
   > EOF
@@ -1257,7 +1258,7 @@ Trying to edit patch for whole file
   
   abort: user quit
   [255]
-  $ hg revert editedfile
+  $ sl revert editedfile
 
 Removing changes from patch
 
@@ -1268,7 +1269,7 @@ Removing changes from patch
   > sed -e 's/^[-+]/ /' "$1" > tmp
   > mv tmp "$1"
   > __EOF__
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit -i <<EOF
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit -i <<EOF
   > y
   > e
   > EOF
@@ -1291,11 +1292,11 @@ Removing changes from patch
   This change will not be committed
   This is the second line
   This line has been added
-  $ hg cat -r tip editedfile
+  $ sl cat -r tip editedfile
   This is the first line
   This change will be committed
   This is the third line
-  $ hg revert editedfile
+  $ sl revert editedfile
 
 Invalid patch
 
@@ -1306,7 +1307,7 @@ Invalid patch
   > sed s/This/That/ "$1" > tmp
   > mv tmp "$1"
   > __EOF__
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit -i <<EOF
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit -i <<EOF
   > y
   > e
   > EOF
@@ -1332,7 +1333,7 @@ Invalid patch
   This change will not be committed
   This is the second line
   This line has been added
-  $ hg cat -r tip editedfile
+  $ sl cat -r tip editedfile
   This is the first line
   This change will be committed
   This is the third line
@@ -1353,7 +1354,7 @@ Malformed patch - error handling
   > sed -e '/^@/p' "$1" > tmp
   > mv tmp "$1"
   > __EOF__
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit -i <<EOF
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit -i <<EOF
   > y
   > e
   > EOF
@@ -1376,7 +1377,7 @@ Malformed patch - error handling
 Exiting editor with status 1, ignores the edit but does not stop the recording
 session
 
-  $ HGEDITOR=false hg commit -i <<EOF
+  $ HGEDITOR=false sl commit -i <<EOF
   > y
   > e
   > n
@@ -1408,7 +1409,7 @@ random text in random positions is still an error
   > other' "$1" > tmp
   > mv tmp "$1"
   > __EOF__
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit -i <<EOF
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit -i <<EOF
   > y
   > e
   > EOF
@@ -1428,16 +1429,16 @@ random text in random positions is still an error
   abort: error parsing patch: unhandled transition: file -> other
   [255]
 
-  $ hg up -C .
+  $ sl up -C .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Ignore win32text deprecation warning for now:
 
-  $ echo '[win32text]' >> .hg/hgrc
-  $ echo 'warn = no' >> .hg/hgrc
+  $ echo '[win32text]' >> .sl/config
+  $ echo 'warn = no' >> .sl/config
 
   $ echo d >> subdir/f1
-  $ hg commit -i -d '24 0' -mw1 <<EOF
+  $ sl commit -i -d '24 0' -mw1 <<EOF
   > y
   > y
   > EOF
@@ -1453,9 +1454,9 @@ Ignore win32text deprecation warning for now:
   record this change to 'subdir/f1'? [Ynesfdaq?] y
   
 
-  $ hg status -A subdir/f1
+  $ sl status -A subdir/f1
   C subdir/f1
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:24 1970 +0000
@@ -1474,7 +1475,7 @@ Ignore win32text deprecation warning for now:
 Test --user when ui.username not set
   $ unset HGUSER
   $ echo e >> subdir/f1
-  $ hg commit -i  --config ui.username= -d '8 0' --user xyz -m "user flag" <<EOF
+  $ sl commit -i  --config ui.username= -d '8 0' --user xyz -m "user flag" <<EOF
   > y
   > y
   > EOF
@@ -1489,9 +1490,9 @@ Test --user when ui.username not set
   +e
   record this change to 'subdir/f1'? [Ynesfdaq?] y
   
-  $ hg status -A subdir/f1
+  $ sl status -A subdir/f1
   C subdir/f1
-  $ hg log --template '{author}\n' -l 1
+  $ sl log --template '{author}\n' -l 1
   xyz
   $ HGUSER="test"
   $ export HGUSER
@@ -1499,11 +1500,11 @@ Test --user when ui.username not set
 
 Moving files
 
-  $ hg goto -C .
+  $ sl goto -C .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg mv plain plain3
+  $ sl mv plain plain3
   $ echo somechange >> plain3
-  $ hg commit -i -d '23 0' -mmoving_files << EOF
+  $ sl commit -i -d '23 0' -mmoving_files << EOF
   > y
   > y
   > EOF
@@ -1521,16 +1522,16 @@ Moving files
   record this change to 'plain3'? [Ynesfdaq?] y
   
 The #if execbit block above changes the hash here on some systems
-  $ hg status -A plain3
+  $ sl status -A plain3
   C plain3
-  $ hg tip | sed_hashes
+  $ sl tip | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:23 1970 +0000
   summary:     moving_files
 Editing patch of newly added file
 
-  $ hg goto -C .
+  $ sl goto -C .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat > editor.sh << '__EOF__'
   > cat "$1"  | sed "s/first/very/g"  > tt
@@ -1541,8 +1542,8 @@ Editing patch of newly added file
   > This is the second line
   > This is the third line
   > __EOF__
-  $ hg add newfile
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit -i -d '23 0' -medit-patch-new <<EOF
+  $ sl add newfile
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit -i -d '23 0' -medit-patch-new <<EOF
   > y
   > e
   > EOF
@@ -1556,7 +1557,7 @@ Editing patch of newly added file
   +This is the third line
   record this change to 'newfile'? [Ynesfdaq?] e
   
-  $ hg cat -r tip newfile
+  $ sl cat -r tip newfile
   This is the very line
   This is the second line
   This is the third line
@@ -1567,13 +1568,13 @@ Editing patch of newly added file
   This is the third line
 
 Add new file from within a subdirectory
-  $ hg goto -C .
+  $ sl goto -C .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ mkdir folder
   $ cd folder
   $ echo "foo" > bar
-  $ hg add bar
-  $ hg commit -i -d '23 0' -mnewfilesubdir  <<EOF
+  $ sl add bar
+  $ sl commit -i -d '23 0' -mnewfilesubdir  <<EOF
   > y
   > y
   > EOF
@@ -1586,7 +1587,7 @@ Add new file from within a subdirectory
   record this change to 'folder/bar'? [Ynesfdaq?] y
   
 The #if execbit block above changes the hashes here on some systems
-  $ hg tip -p | sed_hashes
+  $ sl tip -p | sed_hashes
   commit:      aaaaaaaaaaaa
   user:        test
   date:        Thu Jan 01 00:00:23 1970 +0000
@@ -1599,19 +1600,19 @@ The #if execbit block above changes the hashes here on some systems
   +foo
   $ cd ..
 
-  $ hg status -A folder/bar
+  $ sl status -A folder/bar
   C folder/bar
 
 Clear win32text configuration before size/timestamp sensitive test
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > win32text = !
   > [patch]
   > eol = strict
   > EOF
-  $ hg goto -q -C null
-  $ hg goto -q -C tip
+  $ sl goto -q -C null
+  $ sl goto -q -C tip
 
 Test that partially committed file is still treated as "modified",
 even if none of mode, size and timestamp is changed on the filesystem
@@ -1626,7 +1627,7 @@ even if none of mode, size and timestamp is changed on the filesystem
   > d
   > E
   > EOF
-  $ hg diff --git subdir/f1
+  $ sl diff --git subdir/f1
   diff --git a/subdir/f1 b/subdir/f1
   --- a/subdir/f1
   +++ b/subdir/f1
@@ -1643,7 +1644,7 @@ even if none of mode, size and timestamp is changed on the filesystem
 
   $ touch -t 200001010000 subdir/f1
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > # emulate invoking patch.internalpatch() at 2000-01-01 00:00
   > [fakepatchtime]
   > fakenow = 2000-01-01 00:00:0
@@ -1651,7 +1652,7 @@ even if none of mode, size and timestamp is changed on the filesystem
   > [extensions]
   > fakepatchtime = $TESTDIR/fakepatchtime.py
   > EOF
-  $ hg commit -i -m 'commit subdir/f1 partially' <<EOF
+  $ sl commit -i -m 'commit subdir/f1 partially' <<EOF
   > y
   > y
   > n
@@ -1680,28 +1681,28 @@ even if none of mode, size and timestamp is changed on the filesystem
   +E
   record change 2/2 to 'subdir/f1'? [Ynesfdaq?] n
   
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > fakepatchtime = !
   > EOF
 
-  $ hg debugstate | grep ' subdir/f1$'
+  $ sl debugstate | grep ' subdir/f1$'
   n   0         -1 unset               subdir/f1
-  $ hg status -A subdir/f1
+  $ sl status -A subdir/f1
   M subdir/f1
 
 Test that filemode changes work on interactive
-  $ hg goto -C . -q
+  $ sl goto -C . -q
   $ chmod +x subdir/f1
-  $ hg commit -i -d '24 0' -m bleh <<EOF
+  $ sl commit -i -d '24 0' -m bleh <<EOF
   > y
   > EOF
   diff --git a/subdir/f1 b/subdir/f1
   old mode 100644
   new mode 100755
   examine changes to 'subdir/f1'? [Ynesfdaq?] y
-  $ hg st -m
-  $ hg diff -r .^ --git
+  $ sl st -m
+  $ sl diff -r .^ --git
   diff --git a/subdir/f1 b/subdir/f1
   old mode 100644
   new mode 100755

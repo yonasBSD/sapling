@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
 
 "import" can revive a commit
@@ -14,15 +15,15 @@
   > A
   > EOS
 
-  $ hg export $B > $TESTTMP/b.patch
+  $ sl export $B > $TESTTMP/b.patch
 
-  $ hg hide -q $B
-  $ hg log -r 'all()' -T '{desc}\n'
+  $ sl hide -q $B
+  $ sl log -r 'all()' -T '{desc}\n'
   A
 
-  $ hg up -q $A
-  $ hg import -q --exact $TESTTMP/b.patch
-  $ hg log -r 'all()' -T '{desc}\n'
+  $ sl up -q $A
+  $ sl import -q --exact $TESTTMP/b.patch
+  $ sl log -r 'all()' -T '{desc}\n'
   A
   B
 
@@ -30,12 +31,12 @@
 
   $ newrepo
 
-  $ hg commit --config ui.allowemptycommit=1 -m A
+  $ sl commit --config ui.allowemptycommit=1 -m A
 
-  $ hg hide -q .
-  $ hg log -r 'all()' -T '{desc}\n'
+  $ sl hide -q .
+  $ sl log -r 'all()' -T '{desc}\n'
 
-  $ hg commit --config ui.allowemptycommit=1 -m A
-  $ hg log -r 'all()' -T '{desc}\n'
+  $ sl commit --config ui.allowemptycommit=1 -m A
+  $ sl log -r 'all()' -T '{desc}\n'
   A
 

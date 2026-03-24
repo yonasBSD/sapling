@@ -4,10 +4,11 @@
 
 # reproduce issue2264, issue2516
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ eagerepo
 create test repo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ template="{desc|firstline}  [{branch}]\n"
 
@@ -16,10 +17,10 @@ create test repo
 # pulls rather than transplants
 add initial changesets
   $ echo feature1 > file1
-  $ hg ci -Am"feature 1"
+  $ sl ci -Am"feature 1"
   adding file1
   $ echo feature2 >> file2
-  $ hg ci -Am"feature 2"
+  $ sl ci -Am"feature 2"
   adding file2
 
 # The changes to 'bugfix' are enough to show the bug: in fact, with only
@@ -27,17 +28,17 @@ add initial changesets
 # committed after transplant").  But if we modify a second file in the
 # transplanted changesets, the bug is much more subtle: transplant
 # silently drops the second change to 'bugfix' on the floor, and we only
-# see it when we run 'hg status' after transplanting.  Subtle data loss
+# see it when we run 'sl status' after transplanting.  Subtle data loss
 # bugs are worse than crashes, so reproduce the subtle case here.
 commit bug fixes on bug fix branch
   $ echo fix1 > bugfix
   $ echo fix1 >> file1
-  $ hg ci -Am"fix 1"
+  $ sl ci -Am"fix 1"
   adding bugfix
   $ echo fix2 > bugfix
   $ echo fix2 >> file1
-  $ hg ci -Am"fix 2"
-  $ hg log -G --template="$template"
+  $ sl ci -Am"fix 2"
+  $ sl log -G --template="$template"
   @  fix 2  [default]
   │
   o  fix 1  [default]
@@ -47,13 +48,13 @@ commit bug fixes on bug fix branch
   o  feature 1  [default]
   
 transplant bug fixes onto release branch
-  $ hg goto 23224ffa3bb0b0d891aeadc0bd225327c05426ca
+  $ sl goto 23224ffa3bb0b0d891aeadc0bd225327c05426ca
   1 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg graft 1f6b59d373ef839c739a0f64390ef31d3bf14c21
+  $ sl graft 1f6b59d373ef839c739a0f64390ef31d3bf14c21
   grafting 1f6b59d373ef "fix 1"
-  $ hg graft a53b0210149009b7d475a30645c468cf3678a442
+  $ sl graft a53b0210149009b7d475a30645c468cf3678a442
   grafting a53b02101490 "fix 2"
-  $ hg log -G --template="$template"
+  $ sl log -G --template="$template"
   @  fix 2  [default]
   │
   o  fix 1  [default]
@@ -66,11 +67,11 @@ transplant bug fixes onto release branch
   ├─╯
   o  feature 1  [default]
   
-  $ hg status
-  $ hg status --rev 23224ffa3bb0b0d891aeadc0bd225327c05426ca:17595d510ef52376aeb0436ad9a0593d626bbbec
+  $ sl status
+  $ sl status --rev 23224ffa3bb0b0d891aeadc0bd225327c05426ca:17595d510ef52376aeb0436ad9a0593d626bbbec
   M file1
   A bugfix
-  $ hg status --rev 17595d510ef52376aeb0436ad9a0593d626bbbec:'max(desc(fix))'
+  $ sl status --rev 17595d510ef52376aeb0436ad9a0593d626bbbec:'max(desc(fix))'
   M bugfix
   M file1
 
@@ -108,7 +109,7 @@ now test that we fixed the bug for all scripts/extensions
   > printfiles(repo, 6)
   > printfiles(repo, 7)
   > __EOF__
-  $ hg debugpython -- $TESTTMP/committwice.py
+  $ sl debugpython -- $TESTTMP/committwice.py
   PRE: len(repo): 6
   POST: len(repo): 8
   revision 6 files: ('bugfix', 'file1')
@@ -116,9 +117,9 @@ now test that we fixed the bug for all scripts/extensions
 
 Do a size-preserving modification outside of that process
   $ echo abcd > bugfix
-  $ hg status
+  $ sl status
   M bugfix
-  $ hg log --template "{desc}  {files}\n" -r'max(desc(fix))':
+  $ sl log --template "{desc}  {files}\n" -r'max(desc(fix))':
   fix 2  bugfix file1
   x  bugfix file1
   y  file1

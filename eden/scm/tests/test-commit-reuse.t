@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Test the flag to reuse another commit's message (-M):
 
@@ -11,10 +12,10 @@ Test the flag to reuse another commit's message (-M):
   > |
   > A
   > EOS
-  $ hg up -Cq $B
+  $ sl up -Cq $B
   $ touch afile
-  $ hg add afile
-  $ hg commit -M $B
+  $ sl add afile
+  $ sl commit -M $B
   $ tglog
   @  1c3d011e7c74 'B'
   │
@@ -24,27 +25,27 @@ Test the flag to reuse another commit's message (-M):
   
 Ensure it's incompatible with other flags:
   $ echo 'canada rocks, eh?' > afile
-  $ hg commit -M . -m 'this command will fail'
+  $ sl commit -M . -m 'this command will fail'
   abort: --reuse-message and --message are mutually exclusive
   [255]
   $ echo 'Super duper commit message' > ../commitmessagefile
-  $ hg commit -M . -l ../commitmessagefile
+  $ sl commit -M . -l ../commitmessagefile
   abort: --reuse-message and --logfile are mutually exclusive
   [255]
 Ensure it supports nonexistant revisions:
 
-  $ hg commit -M thisrevsetdoesnotexist
+  $ sl commit -M thisrevsetdoesnotexist
   abort: unknown revision 'thisrevsetdoesnotexist'!
   [255]
 
 Ensure it populates the message editor:
 
-  $ HGEDITOR=cat hg commit -M . -e
+  $ HGEDITOR=cat sl commit -M . -e
   B
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: changed afile
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: changed afile

@@ -3,6 +3,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure dummyssh
   $ enable commitcloud
   $ enable amend
@@ -17,7 +18,7 @@
   $ cd ..
 
 Make the clone of the server
-  $ hg clone ssh://user@dummy/server client -q
+  $ sl clone ssh://user@dummy/server client -q
   $ cd client
   $ setconfig commitcloud.servicetype=local commitcloud.servicelocation="$TESTTMP"
 
@@ -44,8 +45,8 @@ Utility script to dump json of the checkoutlocation being sent
 
 Make a random commit
   $ echo a > a
-  $ hg add a
-  $ hg commit -m"commit"
+  $ sl add a
+  $ sl commit -m"commit"
 
 Check that the checkout locations are synced after the commit is made
   $ python $TESTTMP/dumpdata.py
@@ -53,13 +54,13 @@ Check that the checkout locations are synced after the commit is made
   workspace: user/test/default
   hostname: * (glob)
   commit: bb757c825e81d15d6959648d8f055c8e5958310f
-  shared_path: $TESTTMP/client/.hg
-  checkout_path: $TESTTMP/client/.hg
+  shared_path: $TESTTMP/client/.sl
+  checkout_path: $TESTTMP/client/.sl
   unixname: test
 
 Make changes and amend
   $ echo aa > a
-  $ hg amend
+  $ sl amend
 
 Check that the checkout locations are synced after the amend is made
   $ python $TESTTMP/dumpdata.py
@@ -67,18 +68,18 @@ Check that the checkout locations are synced after the amend is made
   workspace: user/test/default
   hostname: * (glob)
   commit: b7ad20e4fc527a09952053de497603c0a8eafd0d
-  shared_path: $TESTTMP/client/.hg
-  checkout_path: $TESTTMP/client/.hg
+  shared_path: $TESTTMP/client/.sl
+  checkout_path: $TESTTMP/client/.sl
   unixname: test
 
 Checkout the old commit and see if the location is synced
-  $ hg checkout bb757c825e81d15d6959648d8f055c8e5958310f --hidden --config checkout.use-rust=false
+  $ sl checkout bb757c825e81d15d6959648d8f055c8e5958310f --hidden --config checkout.use-rust=false
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ python $TESTTMP/dumpdata.py
   repo_name: server
   workspace: user/test/default
   hostname: * (glob)
   commit: bb757c825e81d15d6959648d8f055c8e5958310f
-  shared_path: $TESTTMP/client/.hg
-  checkout_path: $TESTTMP/client/.hg
+  shared_path: $TESTTMP/client/.sl
+  checkout_path: $TESTTMP/client/.sl
   unixname: test

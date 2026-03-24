@@ -5,6 +5,7 @@
 Test for the full copytracing algorithm
 =======================================
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable rebase
   $ setconfig copytrace.skipduplicatecopies=True
@@ -12,24 +13,24 @@ Test for the full copytracing algorithm
   $ newclientrepo t
 
   $ echo 1 > a
-  $ hg ci -qAm "first"
+  $ sl ci -qAm "first"
 
-  $ hg cp a b
-  $ hg mv a c
+  $ sl cp a b
+  $ sl mv a c
   $ echo 2 >> b
   $ echo 2 >> c
 
-  $ hg ci -qAm "second"
+  $ sl ci -qAm "second"
 
-  $ hg co -C 'desc(first)'
+  $ sl co -C 'desc(first)'
   1 files updated, 0 files merged, 2 files removed, 0 files unresolved
 
   $ echo 0 > a
   $ echo 1 >> a
 
-  $ hg ci -qAm "other"
+  $ sl ci -qAm "other"
 
-  $ hg merge --debug
+  $ sl merge --debug
   resolving manifests
    branchmerge: True, force: False
    ancestor: b8bf91eeebbc, local: add3f11052fa+, remote: 17c05bb7fcb6
@@ -65,8 +66,8 @@ Test disabling copy tracing
 
 - first verify copy metadata was kept
 
-  $ hg up -qC 'desc(other)'
-  $ hg rebase --keep -d 'desc(second)' -b 'desc(other)'
+  $ sl up -qC 'desc(other)'
+  $ sl rebase --keep -d 'desc(second)' -b 'desc(other)'
   rebasing add3f11052fa "other"
   merging b and a to b
 
@@ -77,10 +78,10 @@ Test disabling copy tracing
 
 - next verify copy metadata is lost when disabled
 
-  $ hg debugstrip -r .
+  $ sl debugstrip -r .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg up -qC 'desc(other)'
-  $ hg rebase --keep -d 'desc(second)' -b 'desc(other)' --config copytrace.dagcopytrace=False --config ui.interactive=True << EOF
+  $ sl up -qC 'desc(other)'
+  $ sl rebase --keep -d 'desc(second)' -b 'desc(other)' --config copytrace.dagcopytrace=False --config ui.interactive=True << EOF
   > c
   > EOF
   rebasing add3f11052fa "other"
@@ -98,16 +99,16 @@ Verify disabling copy tracing still keeps copies from rebase source
 
   $ newclientrepo copydisable
   $ touch a
-  $ hg ci -Aqm 'add a'
+  $ sl ci -Aqm 'add a'
   $ touch b
-  $ hg ci -Aqm 'add b, c'
-  $ hg cp b x
+  $ sl ci -Aqm 'add b, c'
+  $ sl cp b x
   $ echo x >> x
-  $ hg ci -qm 'copy b->x'
-  $ hg up -q 'max(desc(add))'
+  $ sl ci -qm 'copy b->x'
+  $ sl up -q 'max(desc(add))'
   $ touch z
-  $ hg ci -Aqm 'add z'
-  $ hg log -G -T '{desc}\n'
+  $ sl ci -Aqm 'add z'
+  $ sl log -G -T '{desc}\n'
   @  add z
   │
   │ o  copy b->x
@@ -116,10 +117,10 @@ Verify disabling copy tracing still keeps copies from rebase source
   │
   o  add a
   
-  $ hg rebase -d . -b 'desc(copy)'
+  $ sl rebase -d . -b 'desc(copy)'
   rebasing 6adcf8c12e7d "copy b->x"
-  $ hg up -q 'max(desc(copy))'
-  $ hg log -f x -T '{desc}\n'
+  $ sl up -q 'max(desc(copy))'
+  $ sl log -f x -T '{desc}\n'
   copy b->x
   add b, c
 
@@ -129,16 +130,16 @@ Verify we duplicate existing copies, instead of detecting them
 
   $ newclientrepo copydisable3
   $ touch a
-  $ hg ci -Aqm 'add a'
-  $ hg cp a b
-  $ hg ci -Aqm 'copy a->b'
-  $ hg mv b c
-  $ hg ci -Aqm 'move b->c'
-  $ hg up -q 'desc(add)'
-  $ hg cp a b
+  $ sl ci -Aqm 'add a'
+  $ sl cp a b
+  $ sl ci -Aqm 'copy a->b'
+  $ sl mv b c
+  $ sl ci -Aqm 'move b->c'
+  $ sl up -q 'desc(add)'
+  $ sl cp a b
   $ echo b >> b
-  $ hg ci -Aqm 'copy a->b (2)'
-  $ hg log -G -T '{desc}\n'
+  $ sl ci -Aqm 'copy a->b (2)'
+  $ sl log -G -T '{desc}\n'
   @  copy a->b (2)
   │
   │ o  move b->c
@@ -147,10 +148,10 @@ Verify we duplicate existing copies, instead of detecting them
   ├─╯
   o  add a
   
-  $ hg rebase -d 'desc(move)' -s 'max(desc(copy))'
+  $ sl rebase -d 'desc(move)' -s 'max(desc(copy))'
   rebasing 47e1a9e6273b "copy a->b (2)"
 
-  $ hg log -G -f b
+  $ sl log -G -f b
   @  commit:      76024fb4b05b
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:00 1970 +0000

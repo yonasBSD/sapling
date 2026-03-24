@@ -7,45 +7,46 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo foo > a
-  $ hg add a
-  $ hg commit -m 1
+  $ sl add a
+  $ sl commit -m 1
 
   $ echo bar > b
-  $ hg add b
-  $ hg remove a
+  $ sl add b
+  $ sl remove a
 
 # Should show a removed and b added:
 
-  $ hg status
+  $ sl status
   A b
   R a
 
-  $ hg revert --all
+  $ sl revert --all
   undeleting a
   forgetting b
 
 # Should show b unknown and a back to normal:
 
-  $ hg status
+  $ sl status
   ? b
 
   $ rm b
 
-  $ hg co -C 'desc(1)'
+  $ sl co -C 'desc(1)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo foo-a > a
-  $ hg commit -m 2a
+  $ sl commit -m 2a
 
-  $ hg co -C 'desc(1)'
+  $ sl co -C 'desc(1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo foo-b > a
-  $ hg commit -m 2b
+  $ sl commit -m 2b
 
-  $ HGMERGE=true hg merge 'desc(2a)'
+  $ HGMERGE=true sl merge 'desc(2a)'
   merging a
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -56,32 +57,32 @@
   foo-b
 
   $ echo bar > b
-  $ hg add b
+  $ sl add b
   $ rm a
-  $ hg remove a
+  $ sl remove a
 
 # Should show a removed and b added:
 
-  $ hg status
+  $ sl status
   A b
   R a
 
 # Revert should fail:
 
-  $ hg revert
+  $ sl revert
   abort: uncommitted merge with no revision specified
-  (use 'hg goto' or see 'hg help revert')
+  (use 'sl goto' or see 'sl help revert')
   [255]
 
 # Revert should be ok now:
 
-  $ hg revert -r 'desc(2b)' --all
+  $ sl revert -r 'desc(2b)' --all
   undeleting a
   forgetting b
 
 # Should show b unknown and a marked modified (merged):
 
-  $ hg status
+  $ sl status
   M a
   ? b
 

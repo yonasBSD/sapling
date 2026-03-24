@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 # enable morestatus outputs
@@ -9,7 +10,7 @@
   $ setconfig morestatus.show=true
 
 # initialize test repo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ cat << EOF > a
   > Small Mathematical Series.
@@ -20,8 +21,8 @@
   > Five
   > Hop we are done.
   > EOF
-  $ hg add a
-  $ hg commit -m ancestor
+  $ sl add a
+  $ sl commit -m ancestor
   $ cat << EOF > a
   > Small Mathematical Series.
   > 1
@@ -31,8 +32,8 @@
   > 5
   > Hop we are done.
   > EOF
-  $ hg commit -m branch1
-  $ hg co 'desc(ancestor)'
+  $ sl commit -m branch1
+  $ sl co 'desc(ancestor)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat << EOF > a
   > Small Mathematical Series.
@@ -43,19 +44,19 @@
   > 8
   > Hop we are done.
   > EOF
-  $ hg commit -m branch2
+  $ sl commit -m branch2
 
-  $ hg merge 'desc(branch1)'
+  $ sl merge 'desc(branch1)'
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
-  $ hg id
+  $ sl id
   618808747361+c0c68e4fe667+
 
-  $ hg status
+  $ sl status
   M a
   ? a.orig
   
@@ -64,9 +65,9 @@
   # 
   #     a
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg commit
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl commit
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
   $ cat a
   Small Mathematical Series.
@@ -82,23 +83,23 @@
   >>>>>>> merge rev:    c0c68e4fe667 - test: branch1
   Hop we are done.
 
-  $ hg status --config 'morestatus.skipstates=merge'
+  $ sl status --config 'morestatus.skipstates=merge'
   M a
   ? a.orig
 
 Verify custom conflict markers
 
-  $ hg up -q --clean .
-  $ cat <<EOF >> .hg/hgrc
+  $ sl up -q --clean .
+  $ cat <<EOF >> .sl/config
   > [ui]
   > mergemarkertemplate = '{author} {node}'
   > EOF
 
-  $ hg merge 'desc(branch1)'
+  $ sl merge 'desc(branch1)'
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ cat a
@@ -117,14 +118,14 @@ Verify custom conflict markers
 
 Verify line splitting of custom conflict marker which causes multiple lines
 
-  $ hg up -q --clean .
-  $ cat >> .hg/hgrc <<EOF
+  $ sl up -q --clean .
+  $ cat >> .sl/config <<EOF
   > [ui]
   > mergemarkertemplate={author} {node}\nfoo\nbar\nbaz
   > EOF
 
-  $ hg -q merge 'desc(branch1)'
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  $ sl -q merge 'desc(branch1)'
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   [1]
 
   $ cat a
@@ -143,7 +144,7 @@ Verify line splitting of custom conflict marker which causes multiple lines
 
 Verify line trimming of custom conflict marker using multi-byte characters
 
-  $ hg up -q --clean .
+  $ sl up -q --clean .
   $ $PYTHON <<EOF
   > fp = open('logfile', 'wb')
   > fp.write(b'12345678901234567890123456789012345678901234567890' +
@@ -154,16 +155,16 @@ Verify line trimming of custom conflict marker using multi-byte characters
   > 
   > fp.close()
   > EOF
-  $ hg add logfile
-  $ hg --encoding utf-8 commit --logfile logfile
+  $ sl add logfile
+  $ sl --encoding utf-8 commit --logfile logfile
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [ui]
   > mergemarkertemplate={desc|firstline}
   > EOF
 
-  $ hg -q --encoding utf-8 merge 'desc(branch1)'
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  $ sl -q --encoding utf-8 merge 'desc(branch1)'
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   [1]
 
   $ cat a
@@ -182,14 +183,14 @@ Verify line trimming of custom conflict marker using multi-byte characters
 
 Verify basic conflict markers
 
-  $ hg up -q --clean 'desc(branch2)'
-  $ printf "\n[ui]\nmergemarkers=basic\n" >> .hg/hgrc
+  $ sl up -q --clean 'desc(branch2)'
+  $ printf "\n[ui]\nmergemarkers=basic\n" >> .sl/config
 
-  $ hg merge 'desc(branch1)'
+  $ sl merge 'desc(branch1)'
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ cat a
@@ -208,13 +209,13 @@ Verify basic conflict markers
 
 internal:merge3
 
-  $ hg up -q --clean .
+  $ sl up -q --clean .
 
-  $ hg merge 'desc(branch1)' --tool internal:merge3
+  $ sl merge 'desc(branch1)' --tool internal:merge3
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ cat a
   Small Mathematical Series.
@@ -242,26 +243,26 @@ internal:merge3
 Add some unconflicting changes on each head, to make sure we really
 are merging, unlike :local and :other
 
-  $ hg up -C tip
+  $ sl up -C tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ printf "\n\nEnd of file\n" >> a
-  $ hg ci -m "Add some stuff at the end"
-  $ hg up -r 'desc(branch1)'
+  $ sl ci -m "Add some stuff at the end"
+  $ sl up -r 'desc(branch1)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ printf "Start of file\n\n\n" > tmp
   $ cat a >> tmp
   $ mv tmp a
-  $ hg ci -m "Add some stuff at the beginning"
+  $ sl ci -m "Add some stuff at the beginning"
 
 Now test :merge-other and :merge-local
 
-  $ hg merge
+  $ sl merge
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   1 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg resolve --tool :merge-other a
+  $ sl resolve --tool :merge-other a
   merging a
   (no more unresolved files)
   $ cat a
@@ -279,9 +280,9 @@ Now test :merge-other and :merge-local
   
   End of file
 
-  $ hg up -C tip
+  $ sl up -C tip
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg merge --tool :merge-local
+  $ sl merge --tool :merge-local
   merging a
   1 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -302,7 +303,7 @@ Now test :merge-other and :merge-local
 
 internal:mergediff
 
-  $ hg co -C 'desc(branch1)'
+  $ sl co -C 'desc(branch1)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ cat << EOF > a
   > Small Mathematical Series.
@@ -314,11 +315,11 @@ internal:mergediff
   > 5
   > Hop we are done.
   > EOF
-  $ hg co -m 'desc(branch2)' -t internal:mergediff
+  $ sl co -m 'desc(branch2)' -t internal:mergediff
   merging a
-  warning: conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ cat a
   Small Mathematical Series.
@@ -338,7 +339,7 @@ internal:mergediff
   Hop we are done.
 Test the same thing as above but modify a bit more so we instead get the working
 copy in full and the diff from base to destination.
-  $ hg co -C 'desc(branch1)'
+  $ sl co -C 'desc(branch1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat << EOF > a
   > Small Mathematical Series.
@@ -349,11 +350,11 @@ copy in full and the diff from base to destination.
   > 5.5
   > Hop we are done.
   > EOF
-  $ hg co -m 'desc(branch2)' -t internal:mergediff
+  $ sl co -m 'desc(branch2)' -t internal:mergediff
   merging a
-  warning: conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ cat a
   Small Mathematical Series.
@@ -376,7 +377,7 @@ copy in full and the diff from base to destination.
 
 internal:mergediffs
 
-  $ hg co -C 'desc(branch1)'
+  $ sl co -C 'desc(branch1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat << EOF > a
   > Small Mathematical Series.
@@ -387,11 +388,11 @@ internal:mergediffs
   > 5
   > Hop we are done.
   > EOF
-  $ hg co -m 'desc(branch2)' -t internal:mergediffs
+  $ sl co -m 'desc(branch2)' -t internal:mergediffs
   merging a
-  warning: conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ cat a
   Small Mathematical Series.
@@ -412,7 +413,7 @@ internal:mergediffs
   Hop we are done.
 Test the same thing as above but modify a bit more so we instead get the working
 copy in full and the diff from base to destination.
-  $ hg co -C 'desc(branch1)'
+  $ sl co -C 'desc(branch1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat << EOF > a
   > Small Mathematical Series.
@@ -423,11 +424,11 @@ copy in full and the diff from base to destination.
   > 5
   > Hop we are done.
   > EOF
-  $ hg co -m 'desc(branch2)' -t internal:mergediffs
+  $ sl co -m 'desc(branch2)' -t internal:mergediffs
   merging a
-  warning: conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ cat a
   Small Mathematical Series.

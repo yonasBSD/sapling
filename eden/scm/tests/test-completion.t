@@ -5,32 +5,33 @@
 
 
 Show all commands except debug commands
-  $ hg debugcomplete | grep 'commit|diff|status|debugapi'
+  $ export HGIDENTITY=sl
+  $ sl debugcomplete | grep 'commit|diff|status|debugapi'
   commit
   diff
   status
   uncommit
 
 Show all commands that start with "a"
-  $ hg debugcomplete a
+  $ sl debugcomplete a
   add
   addremove
   annotate
   archive
 
 Do not show debug commands if there are other candidates
-  $ hg debugcomplete d
+  $ sl debugcomplete d
   diff
   doctor
 
 Show debug commands if there are no other candidates
-  $ hg debugcomplete debug | grep 'debugapi|debugshell'
+  $ sl debugcomplete debug | grep 'debugapi|debugshell'
   debugapi
   debugshell
 
 Do not show the alias of a debug command if there are other candidates
 (this should hide rawcommit)
-  $ hg debugcomplete r
+  $ sl debugcomplete r
   record
   recover
   remove
@@ -40,11 +41,11 @@ Do not show the alias of a debug command if there are other candidates
   rollback
   root
 Show the alias of a debug command if there are no other candidates
-  $ hg debugcomplete rawc
+  $ sl debugcomplete rawc
   
 
 Show the global options
-  $ hg debugcomplete --options | LC_ALL=C sort
+  $ sl debugcomplete --options | LC_ALL=C sort
   --color
   --config
   --configfile
@@ -75,7 +76,7 @@ Show the global options
   -y
 
 Show the options for the "serve" command
-  $ hg debugcomplete --options serve | LC_ALL=C sort
+  $ sl debugcomplete --options serve | LC_ALL=C sort
   --accesslog
   --address
   --certificate
@@ -130,10 +131,10 @@ Show the options for the "serve" command
   -y
 
 Show aliases with -v
-  $ hg debugcomplete update -v
+  $ sl debugcomplete update -v
   update checkout co goto
 
-  $ hg debugcomplete -v
+  $ sl debugcomplete -v
   add
   addremove addrm
   annotate blame
@@ -206,58 +207,58 @@ Show aliases with -v
   worktree
 
 Show an error if we use --options with an ambiguous abbreviation
-  $ hg debugcomplete --options s
+  $ sl debugcomplete --options s
   unknown command 's'
-  (use 'hg help' to get help)
+  (use 'sl help' to get help)
   [255]
 
 Show all commands + options
-  $ hg debugcommands | grep 'cat:|debugcolor:'
+  $ sl debugcommands | grep 'cat:|debugcolor:'
   cat: output, rev, include, exclude, template
   debugcolor: style
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo fee > fee
-  $ hg ci -q -Amfee
-  $ hg book fee
+  $ sl ci -q -Amfee
+  $ sl book fee
   $ mkdir fie
   $ echo dead > fie/dead
   $ echo live > fie/live
-  $ hg bookmark fo
-  $ hg ci -q -Amfie
+  $ sl bookmark fo
+  $ sl ci -q -Amfie
   $ echo fo > fo
-  $ hg ci -q -Amfo
+  $ sl ci -q -Amfo
   $ echo Fum > Fum
-  $ hg ci -q -AmFum
-  $ hg bookmark Fum
+  $ sl ci -q -AmFum
+  $ sl bookmark Fum
 
 Test debugpathcomplete
 
-  $ hg debugpathcomplete f
+  $ sl debugpathcomplete f
   fee
   fie
   fo
-  $ hg debugpathcomplete -f f
+  $ sl debugpathcomplete -f f
   fee
   fie/dead
   fie/live
   fo
 
-  $ hg rm Fum
-  $ hg debugpathcomplete -r F
+  $ sl rm Fum
+  $ sl debugpathcomplete -r F
   Fum
 
 Test debugnamecomplete
 
-  $ hg debugnamecomplete
+  $ sl debugnamecomplete
   Fum
   fee
   fo
-  $ hg debugnamecomplete f
+  $ sl debugnamecomplete f
   fee
   fo
-  $ hg debugnamecomplete --config zsh.completion-description=true --description
+  $ sl debugnamecomplete --config zsh.completion-description=true --description
   Fum:Fum
   fee:fee
   fo:Fum
@@ -265,10 +266,10 @@ Test debugnamecomplete
 Test debuglabelcomplete, a deprecated name for debugnamecomplete that is still
 used for completions in some shells.
 
-  $ hg debuglabelcomplete
+  $ sl debuglabelcomplete
   Fum
   fee
   fo
-  $ hg debuglabelcomplete f
+  $ sl debuglabelcomplete f
   fee
   fo

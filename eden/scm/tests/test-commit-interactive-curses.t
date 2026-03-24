@@ -1,4 +1,5 @@
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
 #require tic no-eden
@@ -15,35 +16,35 @@ Set up a repo
   > EOF
 
 Record with noeol at eof (issue5268)
-  $ hg init noeol
+  $ sl init noeol
   $ cd noeol
   $ printf '0' > a
   $ printf '0\n' > b
-  $ hg ci -Aqm initial
+  $ sl ci -Aqm initial
   $ printf '1\n0' > a
   $ printf '1\n0\n' > b
   $ cat <<EOF >testModeCommands
   > c
   > EOF
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit  -i -m "add hunks" -d "0 0"
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit  -i -m "add hunks" -d "0 0"
   $ cd ..
 
 Normal repo
-  $ hg init a
+  $ sl init a
   $ cd a
 
 Committing some changes but stopping on the way
 
   $ echo "a" > a
-  $ hg add a
+  $ sl add a
   $ cat <<EOF >testModeCommands
   > TOGGLE
   > X
   > EOF
-  $ hg commit -i  -m "a" -d "0 0"
+  $ sl commit -i  -m "a" -d "0 0"
   no changes to record
   [1]
-  $ hg tip
+  $ sl tip
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -54,15 +55,15 @@ Committing some changes
   $ cat <<EOF >testModeCommands
   > X
   > EOF
-  $ hg commit -i  -m "a" -d "0 0"
-  $ hg tip
+  $ sl commit -i  -m "a" -d "0 0"
+  $ sl tip
   commit:      cb9a9f314b8b
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     a
   
 Check that commit -i works with no changes
-  $ hg commit -i
+  $ sl commit -i
   no changes to record
   [1]
 
@@ -70,20 +71,20 @@ Committing only one file
 
   $ echo "a" >> a
   >>> _ = open('b', 'w').write("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n")
-  $ hg add b
+  $ sl add b
   $ cat <<EOF >testModeCommands
   > TOGGLE
   > KEY_DOWN
   > X
   > EOF
-  $ hg commit -i  -m "one file" -d "0 0"
-  $ hg tip
+  $ sl commit -i  -m "one file" -d "0 0"
+  $ sl tip
   commit:      fb2705a663ea
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     one file
   
-  $ hg cat -r tip a
+  $ sl cat -r tip a
   a
   $ cat a
   a
@@ -118,16 +119,16 @@ Committing only one hunk while aborting edition of hunk
   > e
   > X
   > EOF
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit -i  -m "one hunk" -d "0 0"
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit -i  -m "one hunk" -d "0 0"
   editor ran
   $ rm editor.sh
-  $ hg tip
+  $ sl tip
   commit:      7d10dfe755a8
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     one hunk
   
-  $ hg cat -r tip b
+  $ sl cat -r tip b
   1
   2
   3
@@ -152,14 +153,14 @@ Committing only one hunk while aborting edition of hunk
   9
   10
   y
-  $ hg commit -m "other hunks"
-  $ hg tip
+  $ sl commit -m "other hunks"
+  $ sl tip
   commit:      a6735021574d
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     other hunks
   
-  $ hg cat -r tip b
+  $ sl cat -r tip b
   x
   1
   2
@@ -175,25 +176,25 @@ Committing only one hunk while aborting edition of hunk
 
 Newly added files can be selected with the curses interface
 
-  $ hg goto -C .
+  $ sl goto -C .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo "hello" > x
-  $ hg add x
+  $ sl add x
   $ cat <<EOF >testModeCommands
   > TOGGLE
   > TOGGLE
   > X
   > EOF
-  $ hg st
+  $ sl st
   A x
   ? testModeCommands
-  $ hg commit -i  -m "newly added file" -d "0 0"
-  $ hg st
+  $ sl commit -i  -m "newly added file" -d "0 0"
+  $ sl st
   ? testModeCommands
 
 Amend option works
   $ echo "hello world" > x
-  $ hg diff -c .
+  $ sl diff -c .
   diff -r a6735021574d -r 2b0e9be4d336 x
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/x	Thu Jan 01 00:00:00 1970 +0000
@@ -203,8 +204,8 @@ Amend option works
   > a
   > X
   > EOF
-  $ hg commit -i  -m "newly added file" -d "0 0"
-  $ hg diff -c .
+  $ sl commit -i  -m "newly added file" -d "0 0"
+  $ sl diff -c .
   diff -r a6735021574d -r c1d239d165ae x
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/x	Thu Jan 01 00:00:00 1970 +0000
@@ -216,8 +217,8 @@ Make file empty
   $ cat <<EOF >testModeCommands
   > X
   > EOF
-  $ hg ci -i -m emptify -d "0 0"
-  $ hg goto -C '.^' -q
+  $ sl ci -i -m emptify -d "0 0"
+  $ sl goto -C '.^' -q
 
 Editing a hunk puts you back on that hunk when done editing (issue5041)
 To do that, we change two lines in a file, pretend to edit the second line,
@@ -225,7 +226,7 @@ exit, toggle the line selected at the end of the edit and commit.
 The first line should be recorded if we were put on the second line at the end
 of the edit.
 
-  $ hg goto -C .
+  $ sl goto -C .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo "foo" > x
   $ echo "hello world" >> x
@@ -241,9 +242,9 @@ of the edit.
   > X
   > EOF
   $ printf "printf 'editor ran\n'; exit 0" > editor.sh
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit  -i -m "edit hunk" -d "0 0" -q
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit  -i -m "edit hunk" -d "0 0" -q
   editor ran
-  $ hg cat -r . x
+  $ sl cat -r . x
   foo
   hello world
 
@@ -253,7 +254,7 @@ the first hunk of the third file. During review, we will decide that
 "lower" sounds better than "bottom", and the final commit should
 reflect this edition.
 
-  $ hg goto -C .
+  $ sl goto -C .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo "top" > c
   $ cat x >> c
@@ -277,7 +278,7 @@ reflect this edition.
   > R
   > EOF
 
-  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit  -i -m "review hunks" -d "0 0"
+  $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" sl commit  -i -m "review hunks" -d "0 0"
   # To remove '-' lines, make them ' ' lines (context).
   # To remove '+' lines, delete them.
   # Lines starting with # will be removed from the patch.
@@ -300,12 +301,12 @@ reflect this edition.
    hello world
   +bottom
 
-  $ hg cat -r . a
+  $ sl cat -r . a
   a
   a
   third a
 
-  $ hg cat -r . b
+  $ sl cat -r . b
   x
   1
   2
@@ -319,7 +320,7 @@ reflect this edition.
   10
   y
 
-  $ hg cat -r . x
+  $ sl cat -r . x
   foo
   hello world
   lower
@@ -335,10 +336,10 @@ Check spacemovesdown
   > TOGGLE
   > X
   > EOF
-  $ hg status -q
+  $ sl status -q
   M b
   M x
-  $ hg commit -i -m "nothing to commit?" -d "0 0"
+  $ sl commit -i -m "nothing to commit?" -d "0 0"
   no changes to record
   [1]
 
@@ -347,7 +348,7 @@ Check ui.interface logic for the chunkselector
 The default interface is text
   $ cp $HGRCPATH.pretest $HGRCPATH
   $ chunkselectorinterface() {
-  > hg debugshell -- <<'EOF'
+  > sl debugshell -- <<'EOF'
   > print(repo.ui.interface("chunkselector"))
   > EOF
   > }

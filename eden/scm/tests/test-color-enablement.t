@@ -2,29 +2,30 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig alias.testcolor="debugtemplate '{label(\"green\", \"output\n\")}'"
 
-  $ HGPLAINEXCEPT=alias hg testcolor
+  $ HGPLAINEXCEPT=alias sl testcolor
   output
 
-  $ HGPLAINEXCEPT=alias hg testcolor --color always
+  $ HGPLAINEXCEPT=alias sl testcolor --color always
   output
 
-  $ hg testcolor --color always
+  $ sl testcolor --color always
   \x1b[32moutput\x1b[39m (esc)
 
-  $ hg testcolor --color yes
+  $ sl testcolor --color yes
   \x1b[32moutput\x1b[39m (esc)
 
-  $ hg testcolor --color auto
+  $ sl testcolor --color auto
   output
 
-  $ HGPLAINEXCEPT=color,alias hg testcolor --color always
+  $ HGPLAINEXCEPT=color,alias sl testcolor --color always
   \x1b[32moutput\x1b[39m (esc)
 
-  $ hg testcolor --config ui.color=always
+  $ sl testcolor --config ui.color=always
   \x1b[32moutput\x1b[39m (esc)
 
-  $ hg testcolor --config ui.color=t
+  $ sl testcolor --config ui.color=t
   output

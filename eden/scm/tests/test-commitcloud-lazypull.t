@@ -3,6 +3,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure dummyssh mutation-norecord
   $ enable amend commitcloud rebase share
   $ setconfig infinitepush.branchpattern="re:scratch/.*" commitcloud.hostname=testhost
@@ -16,12 +17,12 @@
 
   $ mkcommit() {
   >   echo "$1" > "$1"
-  >   hg commit -Aqm "$1"
+  >   sl commit -Aqm "$1"
   > }
 
-  $ hg init server
+  $ sl init server
   $ cd server
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > [infinitepush]
   > server = yes
   > indextype = disk
@@ -30,7 +31,7 @@
   > EOF
 
   $ mkcommit "base"
-  $ hg bookmark master
+  $ sl bookmark master
   $ cd ..
 
 Make shared part of config
@@ -41,27 +42,27 @@ Make shared part of config
   > EOF
 
 Make the first clone of the server
-  $ hg clone ssh://user@dummy/server client1 -q
+  $ sl clone ssh://user@dummy/server client1 -q
   $ cd client1
-  $ cat ../shared.rc >> .hg/hgrc
-  $ hg cloud join -q
+  $ cat ../shared.rc >> .sl/config
+  $ sl cloud join -q
 
   $ cd ..
 
 Make the second clone of the server
-  $ hg clone ssh://user@dummy/server client2 -q
+  $ sl clone ssh://user@dummy/server client2 -q
   $ cd client2
-  $ cat ../shared.rc >> .hg/hgrc
-  $ hg cloud join -q
+  $ cat ../shared.rc >> .sl/config
+  $ sl cloud join -q
 
   $ cd ..
 
-Test for `hg unamend`
+Test for `sl unamend`
 
 Make a commit in the first client, and sync it
   $ cd client1
   $ mkcommit "feature1"
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: head '1cf4a5a0e8fc' hasn't been uploaded yet
   edenapi: queue 1 commit for upload
@@ -73,8 +74,8 @@ Make a commit in the first client, and sync it
   commitcloud: commits synchronized
   finished in * (glob)
 
-  $ hg amend -m "feature1 renamed"
-  $ hg cloud sync
+  $ sl amend -m "feature1 renamed"
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: head 'b68dd726c6c6' hasn't been uploaded yet
   edenapi: queue 1 commit for upload
@@ -86,9 +87,9 @@ Make a commit in the first client, and sync it
 
   $ cd ..
 
-Sync from the second client and `hg unamend` there
+Sync from the second client and `sl unamend` there
   $ cd client2
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   pulling b68dd726c6c6 from ssh://user@dummy/server
@@ -102,10 +103,10 @@ Sync from the second client and `hg unamend` there
   @  d20a80d4def3 'base'
   
 
-  $ hg up b68dd726c6c6
+  $ sl up b68dd726c6c6
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg unamend
+  $ sl unamend
   pulling '1cf4a5a0e8fc41ef1289e833ebdb22d754c080ac' from 'ssh://user@dummy/server'
 
   $ tglog
@@ -116,7 +117,7 @@ Sync from the second client and `hg unamend` there
 
 (with mutation and visibility, it's not possible to undo the relationship of
 amend, therefore the "has been replaced" message)
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -126,7 +127,7 @@ amend, therefore the "has been replaced" message)
 
   $ cd client1
 
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -139,11 +140,11 @@ amend, therefore the "has been replaced" message)
   o  d20a80d4def3 'base'
   
 Amend twice, unamend, then unhide
-  $ hg up -q 1cf4a5a0e8fc
-  $ hg amend -m "feature1 renamed2"
-  $ hg amend -m "feature1 renamed3"
-  $ hg unamend
-  $ hg unhide 74b668b6b779
+  $ sl up -q 1cf4a5a0e8fc
+  $ sl amend -m "feature1 renamed2"
+  $ sl amend -m "feature1 renamed3"
+  $ sl unamend
+  $ sl unhide 74b668b6b779
   $ tglog
   o  74b668b6b779 'feature1 renamed3'
   │
@@ -151,7 +152,7 @@ Amend twice, unamend, then unhide
   ├─╯
   o  d20a80d4def3 'base'
   
-  $ P=1 hg cloud sync
+  $ P=1 sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: head 'cb45bbd0ae75' hasn't been uploaded yet
   commitcloud: head '74b668b6b779' hasn't been uploaded yet
@@ -165,7 +166,7 @@ Amend twice, unamend, then unhide
 
 Now cloud sync in the other client.  The cycle means we can't reliably pick a destination.
   $ cd ../client2
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   pulling cb45bbd0ae75 74b668b6b779 from ssh://user@dummy/server
