@@ -10,11 +10,11 @@ import {Button} from 'isl-components/Button';
 import {ButtonDropdown} from 'isl-components/ButtonDropdown';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
-import {useAtom, useAtomValue} from 'jotai';
+import {useAtom, useAtomValue, useSetAtom} from 'jotai';
 import clientToServerAPI from '../ClientToServerAPI';
 import {latestHeadCommit} from '../serverAPIState';
 import type {CodeReviewScope} from '../types';
-import {codeReviewStatusAtom} from './firstPassCodeReviewAtoms';
+import {codeReviewStatusAtom, lastSelectedReviewOptionIdAtom} from './firstPassCodeReviewAtoms';
 
 import {useCallback, useEffect, useState} from 'react';
 import {tracker} from '../analytics';
@@ -72,7 +72,9 @@ export function AICodeReviewUpsell({
     [setStatus, reviewScope],
   );
 
-  const [selectedOption, setSelectedOption] = useState(reviewOptions[0]);
+  const lastSelectedId = useAtomValue(lastSelectedReviewOptionIdAtom);
+  const setLastSelectedId = useSetAtom(lastSelectedReviewOptionIdAtom);
+  const selectedOption = reviewOptions.find(opt => opt.id === lastSelectedId) ?? reviewOptions[0];
 
   useEffect(() => {
     setHidden(false);
@@ -120,7 +122,7 @@ export function AICodeReviewUpsell({
         options={reviewOptions}
         selected={selectedOption}
         onChangeSelected={option => {
-          setSelectedOption(option);
+          setLastSelectedId(option.id);
           startReview(option.id);
         }}
         onClick={selected => startReview(selected.id)}

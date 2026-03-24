@@ -984,6 +984,7 @@ export type LocalStorageName =
   | 'isl.experimental-features-local-override'
   | 'isl.partial-abort'
   | 'isl.smart-actions-order'
+  | 'isl.ai-code-review-selected-option'
   // The keys below are prefixes, with further dynamic keys appended afterwards
   | 'isl.edited-commit-messages:'
   | 'isl.first-pass-comments:';

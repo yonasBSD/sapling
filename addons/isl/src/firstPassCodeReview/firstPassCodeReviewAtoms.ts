@@ -6,10 +6,18 @@
  */
 
 import {atom} from 'jotai';
-import {writeAtom} from '../jotaiUtils';
+import {localStorageBackedAtom, writeAtom} from '../jotaiUtils';
 import platform from '../platform';
 import {registerDisposable} from '../utils';
 import type {CodeReviewIssue, CodeReviewProgressStatus} from './types';
+
+/**
+ * Atom that stores the last selected review option id, persisted to localStorage.
+ */
+export const lastSelectedReviewOptionIdAtom = localStorageBackedAtom<string | null>(
+  'isl.ai-code-review-selected-option',
+  null,
+);
 
 /**
  * Atom that stores the current status of the AI code review.
