@@ -128,7 +128,7 @@ export function RebaseOrphanedStackButton({hash}: {hash: Hash}) {
 
   const {rebaseEntries, allOrphaned, allSuccessors} = info;
 
-  const handleClick = async () => {
+  const handleClick = () => {
     tracker.track('ClickRebaseOntoSuccessor', {
       extras: {
         sources: allOrphaned,

@@ -383,7 +383,7 @@ describe('CommitTreeList', () => {
         expect(document.body.querySelectorAll('.commit.irrelevant')).toHaveLength(1);
       });
 
-      it('can hide irrelevant commits when enabled', async () => {
+      it('can hide irrelevant commits when enabled', () => {
         fireEvent.click(screen.getByTestId('settings-gear-button'));
 
         const settingsDropdown = screen.getByTestId('settings-dropdown');

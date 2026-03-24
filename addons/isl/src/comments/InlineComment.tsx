@@ -24,7 +24,7 @@ const InlineCommentComparisonView = lazy(() => import('./InlineCommentComparison
 const styles = stylex.create({
   subheadingsAlignBaseline: {alignItems: 'baseline', gap: '4px'},
   tooltipBar: {width: '100%', justifyContent: 'space-between'},
-  boldText: {fontWeight: '700', fontSize: '100%'},
+  boldText: {fontWeight: 700, fontSize: '100%'},
   subtle: {fontSize: '90%', opacity: 0.8},
   headerRow: {
     justifyContent: 'space-between',

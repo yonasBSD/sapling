@@ -59,9 +59,11 @@ const styles = stylex.create({
     marginBottom: -1,
     display: 'flex',
     borderTopWidth: 0,
+    // eslint-disable-next-line @stylexjs/valid-styles
     ':not(#__unused__):hover .send-to-commit': {
       visibility: 'visible',
     },
+    // eslint-disable-next-line @stylexjs/valid-styles
     ':not(#__unused__):focus-within .send-to-commit': {
       visibility: 'visible',
     },
@@ -96,6 +98,7 @@ const styles = stylex.create({
     visibility: 'hidden',
     borderRadius: '5px',
     marginInline: 'var(--pad)',
+    // eslint-disable-next-line @stylexjs/valid-styles
     ':not(#__unused__) .tooltip-creator': {
       backgroundColor: 'var(--background)',
       borderRadius: '5px',

@@ -81,6 +81,7 @@ const obsidianPlatform: Platform = {
 
 window.islPlatform = obsidianPlatform;
 
+/* eslint-disable no-console */
 // Debug: Log when platform is initialized
 console.log('[ISL Obsidian] Platform initialized');
 

@@ -52,8 +52,9 @@ const styles = stylex.create({
     maxWidth: 'max(400px, 80vw)',
     padding: spacing.half,
     cursor: 'pointer',
-    ':hover': {
-      backgroundColor: 'var(--hover-darken)',
+    backgroundColor: {
+      default: null,
+      ':hover': 'var(--hover-darken)',
     },
   },
   allDiagnostics: {
