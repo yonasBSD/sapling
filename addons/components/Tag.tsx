@@ -13,7 +13,9 @@ import * as stylex from '@stylexjs/stylex';
 const styles = stylex.create({
   tag: {
     backgroundColor: 'var(--badge-background)',
-    border: '1px solid var(--button-border)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--button-border)',
     borderRadius: 'var(--tag-corner-radius, 2px)',
     color: 'var(--badge-foreground)',
     padding: '2px 4px',

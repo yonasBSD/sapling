@@ -20,7 +20,7 @@ import './Radio.css';
 const styles = stylex.create({
   group: {
     appearance: 'none',
-    border: 'none',
+    borderStyle: 'none',
     boxSizing: 'border-box',
     alignItems: 'flex-start',
     marginInline: 0,

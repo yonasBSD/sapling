@@ -25,9 +25,11 @@ const styles = stylex.create({
     minWidth: '100px',
     minHeight: '42px',
     width: '100%',
-    background: 'var(--input-background)',
+    backgroundColor: 'var(--input-background)',
     color: 'var(--input-foreground)',
-    border: '1px solid var(--dropdown-border)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--dropdown-border)',
     outline: {
       default: 'none',
       ':focus-visible': '1px solid var(--focus-border)',

@@ -26,13 +26,17 @@ const styles = stylex.create({
   chevron: {
     borderBottomLeftRadius: 0,
     borderTopLeftRadius: 0,
-    borderLeft: 'unset',
+    borderLeftWidth: 'unset',
+    borderLeftStyle: 'unset',
+    borderLeftColor: 'unset',
     width: '24px',
     height: '24px',
     paddingTop: 6,
   },
   builtinButtonBorder: {
-    borderLeft: 'unset',
+    borderLeftWidth: 'unset',
+    borderLeftStyle: 'unset',
+    borderLeftColor: 'unset',
   },
   iconButton: {
     borderTopRightRadius: 0,

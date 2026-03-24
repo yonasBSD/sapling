@@ -25,12 +25,14 @@ const styles = stylex.create({
     },
     padding: '4px 0',
     backgroundColor: 'transparent',
-    border: 'none',
+    borderStyle: 'none',
     cursor: 'pointer',
-    borderBottom: '1px solid transparent',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid',
+    borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottom: '1px solid var(--panel-tab-active-foreground)',
+    borderBottomColor: 'var(--panel-tab-active-foreground)',
     color: 'var(--panel-tab-active-foreground)',
   },
   tabpanel: {

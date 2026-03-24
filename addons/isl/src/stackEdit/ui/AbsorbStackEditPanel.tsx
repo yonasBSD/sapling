@@ -50,7 +50,9 @@ const styles = stylex.create({
     padding: 'var(--pad)',
   },
   absorbEditSingleChunk: {
-    border: '1px solid var(--tooltip-border)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--tooltip-border)',
     // The negative margins match <FileHeader />.
     marginLeft: -1,
     marginRight: -1,
@@ -65,7 +67,7 @@ const styles = stylex.create({
     },
   },
   inDraggingOverlay: {
-    border: 'none',
+    borderStyle: 'none',
   },
   beingDragged: {
     opacity: 0.5,
@@ -151,7 +153,7 @@ const styles = stylex.create({
   fileHint: {
     padding: 'var(--pad)',
     outline: '1px solid var(--panel-view-border)',
-    background: 'var(--hint-background)',
+    backgroundColor: 'var(--hint-background)',
     display: 'flex',
     gap: 'var(--halfpad)',
   },

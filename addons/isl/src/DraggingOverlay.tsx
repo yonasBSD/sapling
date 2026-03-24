@@ -15,8 +15,10 @@ import React, {useEffect, useRef} from 'react';
 const styles = stylex.create({
   draggingElement: {
     paddingLeft: 'var(--pad)',
-    background: 'var(--background)',
-    border: '1px solid var(--tooltip-border)',
+    backgroundColor: 'var(--background)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--tooltip-border)',
     boxShadow: '0px 2px 5px rgba(0, 0, 0, 0.2)',
   },
   hint: {

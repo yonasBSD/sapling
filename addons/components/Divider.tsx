@@ -12,8 +12,10 @@ import * as stylex from '@stylexjs/stylex';
 const styles = stylex.create({
   hr: {
     margin: '4px 0',
-    border: 'none',
-    borderTop: '1px solid var(--divider-background)',
+    borderStyle: 'none',
+    borderTopWidth: 1,
+    borderTopStyle: 'solid',
+    borderTopColor: 'var(--divider-background)',
     outline: 'none',
     height: 0,
     width: '100%',

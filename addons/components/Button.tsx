@@ -28,12 +28,14 @@ export const vars = {
 
 export const buttonStyles = stylex.create({
   button: {
-    background: {
+    backgroundColor: {
       default: 'var(--button-secondary-background)',
       ':hover': 'var(--button-secondary-hover-background)',
     },
     color: 'var(--button-secondary-foreground)',
-    border: '1px solid var(--button-border)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--button-border)',
     borderRadius: '2px',
     padding: '4px 11px',
     fontFamily: 'var(--font-family)',
@@ -51,16 +53,17 @@ export const buttonStyles = stylex.create({
     whiteSpace: 'nowrap',
   },
   primary: {
-    background: {
+    backgroundColor: {
       default: 'var(--button-primary-background)',
       ':hover': 'var(--button-primary-hover-background)',
     },
     color: 'var(--button-primary-foreground)',
   },
   icon: {
-    border: '1px solid',
+    borderWidth: 1,
+    borderStyle: 'solid',
     borderColor: colors.subtleHoverDarken,
-    background: {
+    backgroundColor: {
       default: colors.subtleHoverDarken,
       ':hover': 'var(--button-icon-hover-background, rgba(90, 93, 94, 0.31))',
     },

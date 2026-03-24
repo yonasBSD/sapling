@@ -133,13 +133,15 @@ const styles = stylex.create({
     gap: 0,
   },
   hideRightBorder: {
-    borderRight: 0,
+    borderRightWidth: 0,
+    borderRightStyle: 'none',
     marginRight: 0,
     borderTopRightRadius: 0,
     borderBottomRightRadius: 0,
   },
   hideLeftBorder: {
-    borderLeft: 0,
+    borderLeftWidth: 0,
+    borderLeftStyle: 'none',
     marginLeft: 0,
     borderTopLeftRadius: 0,
     borderBottomLeftRadius: 0,
@@ -153,7 +155,7 @@ const styles = stylex.create({
   },
   submoduleSeparator: {
     // Override background to disable hover effect
-    background: {
+    backgroundColor: {
       default: colors.subtleHoverDarken,
     },
   },

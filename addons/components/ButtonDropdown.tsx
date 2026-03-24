@@ -63,12 +63,16 @@ export const styles = stylex.create({
     verticalAlign: 'bottom',
     appearance: 'none',
     lineHeight: '0',
-    border: '1px solid var(--button-border)',
-    borderLeft:
-      '1px solid var(--button-border, hsl(from var(--button-secondary-foreground) h s l / 0.3))',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--button-border)',
+    borderLeftColor:
+      'var(--button-border, hsl(from var(--button-secondary-foreground) h s l / 0.3))',
   },
   builtinButtonBorder: {
-    borderLeft: 'unset',
+    borderLeftWidth: 'unset',
+    borderLeftStyle: 'unset',
+    borderLeftColor: 'unset',
   },
   iconButton: {
     borderTopRightRadius: 0,

@@ -53,7 +53,8 @@ const styles = stylex.create({
   circle: {
     width: 14,
     height: 14,
-    border: '2px solid',
+    borderWidth: 2,
+    borderStyle: 'solid',
     borderRadius: radius.full,
     borderColor: colors.fg,
   },

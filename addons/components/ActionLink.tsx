@@ -17,9 +17,11 @@ const styles = stylex.create({
     cursor: 'pointer',
     gap: '5px',
     boxSizing: 'border-box',
-    borderBottom: {
-      default: '1px solid transparent',
-      ':hover': '1px solid var(--vscode-editor-foreground)',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid',
+    borderBottomColor: {
+      default: 'transparent',
+      ':hover': 'var(--vscode-editor-foreground)',
     },
   },
 });

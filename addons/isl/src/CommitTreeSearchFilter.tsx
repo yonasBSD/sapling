@@ -37,8 +37,8 @@ const styles = stylex.create({
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    background: 'none',
-    border: 'none',
+    backgroundColor: 'transparent',
+    borderStyle: 'none',
     padding: '2px',
     color: 'var(--foreground)',
     opacity: {

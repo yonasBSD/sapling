@@ -14,8 +14,8 @@ const styles = stylex.create({
   linkButton: {
     fontSize: font.normal,
     textDecoration: 'underline',
-    border: 'none',
-    background: 'none',
+    borderStyle: 'none',
+    backgroundColor: 'transparent',
     margin: 0,
     padding: 0,
     color: colors.fg,
