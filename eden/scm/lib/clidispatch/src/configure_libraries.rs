@@ -20,10 +20,13 @@
 //! Check `lib/constructors` - it affects both `sl` and `eden`
 //! (via `lib/backingstore`).
 
+use std::sync::atomic::Ordering;
+
 use configmodel::Config;
 use configmodel::ConfigExt;
 use hgtime::HgTime;
 use io::IO;
+use io::IsTty;
 use repo::CoreRepo;
 
 use crate::OptionalRepo;
@@ -31,12 +34,15 @@ use crate::dispatch::Dispatcher;
 use crate::dispatch::Result;
 
 impl Dispatcher {
-    pub(crate) fn configure_libraries(&self, _io: &IO) -> Result<()> {
+    pub(crate) fn configure_libraries(&self, io: &IO) -> Result<()> {
         let config = self.config();
         indexedlog::config::configure(config)?;
         gitcompat::GlobalGit::set_default_config(config);
         initialize_hgtime(config)?;
         initialize_blackbox(&self.optional_repo)?;
+
+        let is_tty = io.output().is_tty();
+        configure_working_copy(is_tty);
 
         Ok(())
     }
@@ -86,4 +92,20 @@ fn initialize_hgtime(config: &dyn Config) -> Result<()> {
         HgTime::clear_now_for_testing();
     }
     Ok(())
+}
+
+fn configure_working_copy(is_tty: bool) {
+    // Many automation  runs `sl status` without `SL_AUTOMATION=1`
+    // (e.g. D97984219, D97218795). They can cause serious UX issues
+    // like 40% user-typed `checkout` commands are failing
+    // (e.g. https://fburl.com/workplace/avjspdkk).
+    //
+    // Let's just set `no-optional-locks` for non-tty users.
+    if !is_tty && !is_test() {
+        workingcopy::config::DOTGIT_NO_OPTIONAL_LOCKS.store(true, Ordering::Release);
+    }
+}
+
+fn is_test() -> bool {
+    std::env::var_os("TESTTMP").is_some()
 }
