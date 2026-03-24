@@ -38,6 +38,7 @@ module.exports = {
     'import',
     // Allow locally defined custom rules
     'rulesdir',
+    '@stylexjs',
   ],
   extends: [
     'eslint:recommended',
@@ -113,6 +114,11 @@ module.exports = {
         ],
       },
     ],
+
+    // StyleX
+    '@stylexjs/valid-styles': 'warn',
+    '@stylexjs/no-unused': 'warn',
+    '@stylexjs/valid-shorthands': 'warn',
 
     // Custom rules
     'rulesdir/jotai-maybe-use-family': 'error',
