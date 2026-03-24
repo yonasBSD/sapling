@@ -44,7 +44,7 @@ export function debounce<Args extends Array<unknown>>(
   context: unknown = undefined,
   leading = false,
 ): DebouncedFunction<Args> {
-  let timeout: NodeJS.Timeout | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   let shouldCallLeading = true;
 
   function debouncer(...args: Args) {

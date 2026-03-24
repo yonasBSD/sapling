@@ -5,12 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+// import babel from '@rolldown/plugin-babel';
+import stylex from '@stylexjs/unplugin';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path, {resolve} from 'node:path';
 import {defineConfig} from 'vite';
-import styleX from 'vite-plugin-stylex';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
 
 // Normalize `c:\foo\index.html` to `c:/foo/index.html`.
 // This affects Rollup's `facadeModuleId` (which expects the `c:/foo/bar` format),
@@ -35,34 +35,35 @@ const platforms = {
 
 export default defineConfig({
   base: '',
+  resolve: {
+    tsconfigPaths: true,
+  },
   plugins: [
-    react({
-      babel: {
-        plugins: [
-          [
-            'jotai/babel/plugin-debug-label',
-            {
-              customAtomNames: [
-                'atomFamilyWeak',
-                'atomLoadableWithRefresh',
-                'atomWithOnChange',
-                'atomWithRefresh',
-                'atomLoadableWithRefresh',
-                'atomResetOnCwdChange',
-                'atomResetOnDepChange',
-                'configBackedAtom',
-                'jotaiAtom',
-                'lazyAtom',
-                'localStorageBackedAtom',
-              ],
-            },
-          ],
-          'jotai/babel/plugin-react-refresh',
-        ],
-      },
-    }),
-    styleX(),
-    viteTsconfigPaths(),
+    stylex.vite({useCSSLayers: true}),
+    react(),
+    // babel({
+    //   plugins: [
+    //     [
+    //       'jotai/babel/plugin-debug-label',
+    //       {
+    //         customAtomNames: [
+    //           'atomFamilyWeak',
+    //           'atomLoadableWithRefresh',
+    //           'atomWithOnChange',
+    //           'atomWithRefresh',
+    //           'atomLoadableWithRefresh',
+    //           'atomResetOnCwdChange',
+    //           'atomResetOnDepChange',
+    //           'configBackedAtom',
+    //           'jotaiAtom',
+    //           'lazyAtom',
+    //           'localStorageBackedAtom',
+    //         ],
+    //       },
+    //     ],
+    //     'jotai/babel/plugin-react-refresh',
+    //   ],
+    // }),
     // The manifest vite generates doesn't include web worker js files.
     // Just output a simple list of all files that are produced,
     // and the server can serve those known files.
@@ -83,7 +84,7 @@ export default defineConfig({
   ],
   build: {
     outDir: 'build',
-    rollupOptions: {
+    rolldownOptions: {
       input: platforms,
     },
   },

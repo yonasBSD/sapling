@@ -7,12 +7,12 @@
 
 import type {Plugin, PluginOption} from 'vite';
 
+// import babel from '@rolldown/plugin-babel';
+import stylex from '@stylexjs/unplugin';
 import react from '@vitejs/plugin-react';
 import fs, {existsSync} from 'node:fs';
 import path from 'node:path';
 import {defineConfig} from 'vite';
-import styleX from 'vite-plugin-stylex';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
 
 // Normalize `c:\foo\index.html` to `c:/foo/index.html`.
 // This affects Rollup's `facadeModuleId` (which expects the `c:/foo/bar` format),
@@ -112,6 +112,9 @@ const replaceFiles = (
 
 export default defineConfig(({mode}) => ({
   base: '',
+  resolve: {
+    tsconfigPaths: true,
+  },
   plugins: [
     replaceFiles([
       {
@@ -119,29 +122,28 @@ export default defineConfig(({mode}) => ({
         replacement: './webview/vscodeWebviewPlatform.tsx',
       },
     ]),
-    react({
-      babel: {
-        plugins: [
-          [
-            'jotai/babel/plugin-debug-label',
-            {
-              customAtomNames: [
-                'atomFamilyWeak',
-                'atomLoadableWithRefresh',
-                'atomWithOnChange',
-                'atomWithRefresh',
-                'configBackedAtom',
-                'jotaiAtom',
-                'lazyAtom',
-                'localStorageBackedAtom',
-              ],
-            },
-          ],
-        ],
-      },
-    }),
-    styleX(),
-    viteTsconfigPaths(),
+
+    stylex.vite({useCSSLayers: true}),
+    react(),
+    // babel({
+    //   plugins: [
+    //     [
+    //       'jotai/babel/plugin-debug-label',
+    //       {
+    //         customAtomNames: [
+    //           'atomFamilyWeak',
+    //           'atomLoadableWithRefresh',
+    //           'atomWithOnChange',
+    //           'atomWithRefresh',
+    //           'configBackedAtom',
+    //           'jotaiAtom',
+    //           'lazyAtom',
+    //           'localStorageBackedAtom',
+    //         ],
+    //       },
+    //     ],
+    //   ],
+    // }),
     moveStylexFilenamePlugin(),
   ],
   build: {
@@ -152,7 +154,7 @@ export default defineConfig(({mode}) => ({
     // Ideally, we'd load all the relevant css files in the webview, but our current approach
     // with our own manual copy of html in htmlForWebview does not support this.
     cssCodeSplit: false,
-    rollupOptions: {
+    rolldownOptions: {
       input,
       output: {
         // Don't use hashed names, so ISL webview panel can pre-define what filename to load
@@ -166,7 +168,7 @@ export default defineConfig(({mode}) => ({
     sourcemap: mode === 'development',
   },
   worker: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // Don't use hashed names, so ISL webview panel can pre-define what filename to load
         entryFileNames: 'worker/[name].js',

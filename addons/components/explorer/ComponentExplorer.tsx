@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {StyleXVar} from '@stylexjs/stylex/lib/StyleXTypes';
-
 import * as stylex from '@stylexjs/stylex';
 import {useState, type ReactNode} from 'react';
 import {Badge} from '../Badge';
@@ -404,8 +402,8 @@ function ColorBadge({
   style,
 }: {
   children: ReactNode;
-  bg?: StyleXVar<string>;
-  fg?: StyleXVar<string>;
+  bg?: stylex.StyleXVar<string>;
+  fg?: stylex.StyleXVar<string>;
   style?: stylex.StyleXStyles;
 }) {
   return (

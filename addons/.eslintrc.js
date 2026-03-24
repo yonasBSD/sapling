@@ -46,6 +46,7 @@ module.exports = {
   ],
   ignorePatterns: [
     '.eslintrc.js',
+    'components/vite.config.ts',
     'isl/build.js',
     'isl/release.js',
     'isl/start.js',
