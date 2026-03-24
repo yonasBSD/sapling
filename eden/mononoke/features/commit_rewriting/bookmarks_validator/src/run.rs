@@ -70,6 +70,15 @@ pub(crate) async fn loop_forever<R: CrossRepo>(
         // Before initiating every iteration, check if cancellation has been requested.
         if cancellation_requested.load(Ordering::Relaxed) {
             info!("bookmark validation stopping due to cancellation request");
+            // Report a healthy value before stopping so that the metric doesn't
+            // drop to zero during shard reassignment while the new task starts up.
+            // If bookmarks are truly inconsistent, the new task will detect it
+            // within seconds and report 0.
+            STATS::result_counter.set_value(
+                ctx.fb,
+                1,
+                (large_repo_name.to_string(), small_repo_name.to_string()),
+            );
             return Ok(());
         }
 
