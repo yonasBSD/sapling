@@ -39,7 +39,8 @@ struct Cats {
     crypto_auth_tokens: String,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum CatTokenType {
     Forwarded,
     Auth,
@@ -62,7 +63,7 @@ impl CatTokenType {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CatGroup {
     pub name: String,
     pub priority: i32,
