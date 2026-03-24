@@ -8,18 +8,19 @@
 
 # Test that journal and lfs wrap the share extension properly
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
   > journal=
   > EOF
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo s > smallfile
-  $ hg commit -Aqm 'add small file'
+  $ sl commit -Aqm 'add small file'
   $ cd ..
 
-  $ hg --config 'extensions.share=' share repo sharedrepo
+  $ sl --config 'extensions.share=' share repo sharedrepo
   updating working directory
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved

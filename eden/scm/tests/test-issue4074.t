@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 A script to generate nasty diff worst-case scenarios:
 
@@ -15,19 +16,19 @@ A script to generate nasty diff worst-case scenarios:
   >     print(hex(x))
   > EOF
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
 Check in a big file:
 
-  $ hg debugpython -- ../s.py 1 > a
-  $ hg ci -qAm0
+  $ sl debugpython -- ../s.py 1 > a
+  $ sl ci -qAm0
 
 Modify it:
 
-  $ hg debugpython -- ../s.py 2 > a
+  $ sl debugpython -- ../s.py 2 > a
 
 Time a check-in, should never take more than 10 seconds user time:
 
-  $ hg ci --time -m1
+  $ sl ci --time -m1
   time: real .* secs .user [0-9][.].* sys .* (re)

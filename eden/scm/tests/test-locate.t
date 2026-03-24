@@ -8,8 +8,9 @@
 
 # Copyright (c) Mercurial Contributors.
 
+  $ export HGIDENTITY=sl
   $ setconfig hint.ack-match-full-traversal=true
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo 0 > a
   $ echo 0 > b
@@ -21,7 +22,7 @@
   $ mkdir dir.h
   $ echo 0 > dir.h/foo
 
-  $ hg ci -A -m 'initial'
+  $ sl ci -A -m 'initial'
   adding a
   adding b
   adding dir.h/foo
@@ -32,13 +33,13 @@
 
   $ touch nottracked
 
-  $ hg locate a
+  $ sl locate a
   a
 
-  $ hg locate NONEXISTENT
+  $ sl locate NONEXISTENT
   [1]
 
-  $ hg locate
+  $ sl locate
   a
   b
   dir.h/foo
@@ -47,29 +48,29 @@
   t/e.h
   t/x
 
-  $ hg rm a
-  $ hg ci -m 'remove a'
+  $ sl rm a
+  $ sl ci -m 'remove a'
 
-  $ hg locate a
+  $ sl locate a
   [1]
-  $ hg locate NONEXISTENT
+  $ sl locate NONEXISTENT
   [1]
-  $ hg locate 'relpath:NONEXISTENT'
+  $ sl locate 'relpath:NONEXISTENT'
   [1]
-  $ hg locate
+  $ sl locate
   b
   dir.h/foo
   t.h
   t/b
   t/e.h
   t/x
-  $ hg locate -r 'desc(initial)' a
+  $ sl locate -r 'desc(initial)' a
   a
-  $ hg locate -r 'desc(initial)' NONEXISTENT
+  $ sl locate -r 'desc(initial)' NONEXISTENT
   [1]
-  $ hg locate -r 'desc(initial)' 'relpath:NONEXISTENT'
+  $ sl locate -r 'desc(initial)' 'relpath:NONEXISTENT'
   [1]
-  $ hg locate -r 'desc(initial)'
+  $ sl locate -r 'desc(initial)'
   a
   b
   t.h
@@ -81,90 +82,90 @@
 # -I/-X with relative path should work:
 
   $ cd t
-  $ hg locate
+  $ sl locate
   b
   dir.h/foo
   t.h
   t/b
   t/e.h
   t/x
-  $ hg locate -I ../t
+  $ sl locate -I ../t
   t/b
   t/e.h
   t/x
 
-# Issue294: hg remove dir fails when dir.* also exists
+# Issue294: sl remove dir fails when dir.* also exists
 
   $ cd ..
   $ rm -r t
 
-  $ hg rm t/b
+  $ sl rm t/b
 
-  $ hg locate 't/**'
+  $ sl locate 't/**'
   t/b
   t/e.h
   t/x
 
-  $ hg files
+  $ sl files
   b
   dir.h/foo
   t.h
   t/e.h
   t/x
-  $ hg files b
+  $ sl files b
   b
 
   $ mkdir otherdir
   $ cd otherdir
 
-  $ hg files 'path:'
+  $ sl files 'path:'
   ../b
   ../dir.h/foo
   ../t.h
   ../t/e.h
   ../t/x
-  $ hg files 'path:.'
+  $ sl files 'path:.'
   ../b
   ../dir.h/foo
   ../t.h
   ../t/e.h
   ../t/x
 
-  $ hg locate b
+  $ sl locate b
   ../b
   ../t/b
-  $ hg locate '*.h'
+  $ sl locate '*.h'
   ../t.h
   ../t/e.h
-  $ hg locate 'path:t/x'
+  $ sl locate 'path:t/x'
   ../t/x
-  $ hg locate 're:.*\.h$'
+  $ sl locate 're:.*\.h$'
   ../t.h
   ../t/e.h
-  $ hg locate -r 'desc(initial)' b
+  $ sl locate -r 'desc(initial)' b
   ../b
   ../t/b
-  $ hg locate -r 'desc(initial)' '*.h'
+  $ sl locate -r 'desc(initial)' '*.h'
   ../t.h
   ../t/e.h
-  $ hg locate -r 'desc(initial)' 'path:t/x'
+  $ sl locate -r 'desc(initial)' 'path:t/x'
   ../t/x
-  $ hg locate -r 'desc(initial)' 're:.*\.h$'
+  $ sl locate -r 'desc(initial)' 're:.*\.h$'
   ../t.h
   ../t/e.h
 
-  $ hg files
+  $ sl files
   ../b
   ../dir.h/foo
   ../t.h
   ../t/e.h
   ../t/x
-  $ hg files .
+  $ sl files .
   [1]
 
 # Convert native path separator to slash (issue5572)
 
-  $ hg files -T '{path|slashpath}\n'
+  $ sl files -T '{path|slashpath}\n'
   ../b
   ../dir.h/foo
   ../t.h

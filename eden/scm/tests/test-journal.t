@@ -1,6 +1,7 @@
 #require no-windows no-eden
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ enable rebase
   $ setconfig workingcopy.rust-checkout=true
 
@@ -32,37 +33,37 @@ Tests for the journal extension; records bookmark locations.
 
 Setup repo
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 Test empty journal
 
-  $ hg journal
+  $ sl journal
   previous locations of '.':
   no recorded locations
-  $ hg journal foo
+  $ sl journal foo
   previous locations of 'foo':
   no recorded locations
-  $ hg journal -Tjson 2> /dev/null
+  $ sl journal -Tjson 2> /dev/null
   [
   ]
 
 Test that working copy changes are tracked
 
   $ echo a > a
-  $ hg commit -Aqm a
-  $ hg journal
+  $ sl commit -Aqm a
+  $ sl journal
   previous locations of '.':
   cb9a9f314b8b  commit -Aqm a
   $ echo b > a
-  $ hg commit -Aqm b
-  $ hg journal
+  $ sl commit -Aqm b
+  $ sl journal
   previous locations of '.':
   1e6c11564562  commit -Aqm b
   cb9a9f314b8b  commit -Aqm a
-  $ hg up 'desc(a)'
+  $ sl up 'desc(a)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg journal
+  $ sl journal
   previous locations of '.':
   cb9a9f314b8b  up 'desc(a)'
   1e6c11564562  commit -Aqm b
@@ -70,19 +71,19 @@ Test that working copy changes are tracked
 
 Test that bookmarks are tracked
 
-  $ hg book -r tip bar
-  $ hg journal bar
+  $ sl book -r tip bar
+  $ sl journal bar
   previous locations of 'bar':
   1e6c11564562  book -r tip bar
-  $ hg book -f bar
-  $ hg journal bar
+  $ sl book -f bar
+  $ sl journal bar
   previous locations of 'bar':
   cb9a9f314b8b  book -f bar
   1e6c11564562  book -r tip bar
-  $ hg rebase -d tip
+  $ sl rebase -d tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   nothing to rebase - fast-forwarded to 1e6c11564562
-  $ hg journal bar
+  $ sl journal bar
   previous locations of 'bar':
   1e6c11564562  rebase -d tip
   cb9a9f314b8b  book -f bar
@@ -90,7 +91,7 @@ Test that bookmarks are tracked
 
 Test that bookmarks and working copy tracking is not mixed
 
-  $ hg journal
+  $ sl journal
   previous locations of '.':
   1e6c11564562  rebase -d tip
   cb9a9f314b8b  up 'desc(a)'
@@ -99,8 +100,8 @@ Test that bookmarks and working copy tracking is not mixed
 
 Test that you can list all entries as well as limit the list or filter on them
 
-  $ hg book -r tip baz
-  $ hg journal --all
+  $ sl book -r tip baz
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   1e6c11564562  baz       book -r tip baz
   1e6c11564562  bar       rebase -d tip
@@ -110,25 +111,25 @@ Test that you can list all entries as well as limit the list or filter on them
   cb9a9f314b8b  .         up 'desc(a)'
   1e6c11564562  .         commit -Aqm b
   cb9a9f314b8b  .         commit -Aqm a
-  $ hg journal --limit 2
+  $ sl journal --limit 2
   previous locations of '.':
   1e6c11564562  rebase -d tip
   cb9a9f314b8b  up 'desc(a)'
-  $ hg journal bar
+  $ sl journal bar
   previous locations of 'bar':
   1e6c11564562  rebase -d tip
   cb9a9f314b8b  book -f bar
   1e6c11564562  book -r tip bar
-  $ hg journal foo
+  $ sl journal foo
   previous locations of 'foo':
   no recorded locations
-  $ hg journal .
+  $ sl journal .
   previous locations of '.':
   1e6c11564562  rebase -d tip
   cb9a9f314b8b  up 'desc(a)'
   1e6c11564562  commit -Aqm b
   cb9a9f314b8b  commit -Aqm a
-  $ hg journal "re:ba."
+  $ sl journal "re:ba."
   previous locations of 're:ba.':
   1e6c11564562  baz       book -r tip baz
   1e6c11564562  bar       rebase -d tip
@@ -137,7 +138,7 @@ Test that you can list all entries as well as limit the list or filter on them
 
 Test that verbose, JSON, template and commit output work
 
-  $ hg journal --verbose --all
+  $ sl journal --verbose --all
   previous locations of the working copy and bookmarks:
   000000000000 -> 1e6c11564562 foobar    baz      1970-01-01 00:00 +0000  book -r tip baz
   cb9a9f314b8b -> 1e6c11564562 foobar    bar      1970-01-01 00:00 +0000  rebase -d tip
@@ -147,7 +148,7 @@ Test that verbose, JSON, template and commit output work
   1e6c11564562 -> cb9a9f314b8b foobar    .        1970-01-01 00:00 +0000  up 'desc(a)'
   cb9a9f314b8b -> 1e6c11564562 foobar    .        1970-01-01 00:00 +0000  commit -Aqm b
   000000000000 -> cb9a9f314b8b foobar    .        1970-01-01 00:00 +0000  commit -Aqm a
-  $ hg journal --verbose -Tjson
+  $ sl journal --verbose -Tjson
   [
    {
     "command": "rebase -d tip",
@@ -193,7 +194,7 @@ Test that verbose, JSON, template and commit output work
   >      - oldhashes: {oldhashes}
   >      "
   > EOF
-  $ hg journal -Tj -l1
+  $ sl journal -Tj -l1
   CB9A9F314B8B07BA71012FCDBC544B5A4D82FF5B -> 1E6C11564562B4ED919BACA798BC4338BD299D6A
   - user: foobar
   - command: rebase -d tip
@@ -201,7 +202,7 @@ Test that verbose, JSON, template and commit output work
   - newhashes: 1e6c11564562b4ed919baca798bc4338bd299d6a
   - oldhashes: cb9a9f314b8b07ba71012fcdbc544b5a4d82ff5b
 
-  $ hg journal --commit
+  $ sl journal --commit
   previous locations of '.':
   1e6c11564562  rebase -d tip
   commit:      1e6c11564562
@@ -233,10 +234,10 @@ Test that verbose, JSON, template and commit output work
 
 Test for behaviour on unexpected storage version information
 
-  $ printf '42\0' > .hg/namejournal
-  $ hg journal
+  $ printf '42\0' > .sl/namejournal
+  $ sl journal
   previous locations of '.':
   abort: unknown journal file version '42'
   [255]
-  $ hg book -r tip doomed
+  $ sl book -r tip doomed
   unsupported journal file version '42'

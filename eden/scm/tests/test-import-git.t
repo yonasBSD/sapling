@@ -1,12 +1,13 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo repo
 
 New file:
 
-  $ hg import -d "1000000 0" -mnew - <<EOF
+  $ sl import -d "1000000 0" -mnew - <<EOF
   > diff --git a/new b/new
   > new file mode 100644
   > index 0000000..7898192
@@ -17,26 +18,26 @@ New file:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   ae3ee40d2079
 
 New empty file:
 
-  $ hg import -d "1000000 0" -mempty - <<EOF
+  $ sl import -d "1000000 0" -mempty - <<EOF
   > diff --git a/empty b/empty
   > new file mode 100644
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   ab199dc869b5
 
-  $ hg locate empty
+  $ sl locate empty
   empty
 
 chmod +x:
 
-  $ hg import -d "1000000 0" -msetx - <<EOF
+  $ sl import -d "1000000 0" -msetx - <<EOF
   > diff --git a/new b/new
   > old mode 100644
   > new mode 100755
@@ -44,17 +45,17 @@ chmod +x:
   applying patch from stdin
 
 #if execbit
-  $ hg tip -q
+  $ sl tip -q
   3a34410f282e
   $ test -x new
 #else
-  $ hg tip -q
+  $ sl tip -q
   1:ab199dc869b5
 #endif
 
 Copy and removing x bit:
 
-  $ hg import -f -d "1000000 0" -mcopy - <<EOF
+  $ sl import -f -d "1000000 0" -mcopy - <<EOF
   > diff --git a/new b/copy
   > old mode 100755
   > new mode 100644
@@ -72,18 +73,18 @@ Copy and removing x bit:
 #if execbit
   $ test ! -x copy
   $ test -x copyx
-  $ hg tip -q
+  $ sl tip -q
   37bacb7ca14d
 #else
-  $ hg tip -q
+  $ sl tip -q
   2:0efdaa8e3bf3
 #endif
 
-  $ hg up -qCr'desc(empty)'
+  $ sl up -qCr'desc(empty)'
 
 Copy (like above but independent of execbit):
 
-  $ hg import -d "1000000 0" -mcopy - <<EOF
+  $ sl import -d "1000000 0" -mcopy - <<EOF
   > diff --git a/new b/copy
   > similarity index 100%
   > copy from new
@@ -95,19 +96,19 @@ Copy (like above but independent of execbit):
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   0efdaa8e3bf3
   $ test -f copy
 
   $ cat copy
   a
 
-  $ hg cat copy
+  $ sl cat copy
   a
 
 Rename:
 
-  $ hg import -d "1000000 0" -mrename - <<EOF
+  $ sl import -d "1000000 0" -mrename - <<EOF
   > diff --git a/copy b/rename
   > similarity index 100%
   > rename from copy
@@ -115,10 +116,10 @@ Rename:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   b1f57753fad2
 
-  $ hg locate
+  $ sl locate
   copyx
   empty
   new
@@ -126,7 +127,7 @@ Rename:
 
 Delete:
 
-  $ hg import -d "1000000 0" -mdelete - <<EOF
+  $ sl import -d "1000000 0" -mdelete - <<EOF
   > diff --git a/copyx b/copyx
   > deleted file mode 100755
   > index 7898192..0000000
@@ -137,10 +138,10 @@ Delete:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   1bd1da94b9b2
 
-  $ hg locate
+  $ sl locate
   empty
   new
   rename
@@ -150,7 +151,7 @@ Delete:
 
 Regular diff:
 
-  $ hg import -d "1000000 0" -mregular - <<EOF
+  $ sl import -d "1000000 0" -mregular - <<EOF
   > diff --git a/rename b/rename
   > index 7898192..72e1fe3 100644
   > --- a/rename
@@ -164,12 +165,12 @@ Regular diff:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   46fe99cb3035
 
 Copy and modify:
 
-  $ hg import -d "1000000 0" -mcopymod - <<EOF
+  $ sl import -d "1000000 0" -mcopymod - <<EOF
   > diff --git a/rename b/copy2
   > similarity index 80%
   > copy from rename
@@ -187,10 +188,10 @@ Copy and modify:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   ffeb3197c12d
 
-  $ hg cat copy2
+  $ sl cat copy2
   a
   a
   b
@@ -199,7 +200,7 @@ Copy and modify:
 
 Rename and modify:
 
-  $ hg import -d "1000000 0" -mrenamemod - <<EOF
+  $ sl import -d "1000000 0" -mrenamemod - <<EOF
   > diff --git a/copy2 b/rename2
   > similarity index 80%
   > rename from copy2
@@ -217,12 +218,12 @@ Rename and modify:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   401aede9e6bb
 
-  $ hg locate copy2
+  $ sl locate copy2
   [1]
-  $ hg cat rename2
+  $ sl cat rename2
   a
   a
   b
@@ -231,7 +232,7 @@ Rename and modify:
 
 One file renamed multiple times:
 
-  $ hg import -d "1000000 0" -mmultirenames - <<EOF
+  $ sl import -d "1000000 0" -mmultirenames - <<EOF
   > diff --git a/rename2 b/rename3
   > rename from rename2
   > rename to rename3
@@ -241,24 +242,24 @@ One file renamed multiple times:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   2ef727e684e8
 
-  $ hg log -vr. --template '{files} / {file_copies}\n'
+  $ sl log -vr. --template '{files} / {file_copies}\n'
   rename2 rename3 rename3-2 / rename3 (rename2)rename3-2 (rename2)
 
-  $ hg locate rename2 rename3 rename3-2
+  $ sl locate rename2 rename3 rename3-2
   rename3
   rename3-2
 
-  $ hg cat rename3
+  $ sl cat rename3
   a
   a
   b
   c
   a
 
-  $ hg cat rename3-2
+  $ sl cat rename3-2
   a
   a
   b
@@ -266,12 +267,12 @@ One file renamed multiple times:
   a
 
   $ echo foo > foo
-  $ hg add foo
-  $ hg ci -m 'add foo'
+  $ sl add foo
+  $ sl ci -m 'add foo'
 
 Binary files and regular patch hunks:
 
-  $ hg import -d "1000000 0" -m binaryregular - <<EOF
+  $ sl import -d "1000000 0" -m binaryregular - <<EOF
   > diff --git a/binary b/binary
   > new file mode 100644
   > index 0000000000000000000000000000000000000000..593f4708db84ac8fd0f5cc47c634f38c013fe9e4
@@ -285,18 +286,18 @@ Binary files and regular patch hunks:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   27377172366e
 
   $ cat foo2
   foo
 
-  $ hg manifest --debug | grep binary
+  $ sl manifest --debug | grep binary
   045c85ba38952325e126c70962cc0f9d9077bc67 644   binary
 
 Multiple binary files:
 
-  $ hg import -d "1000000 0" -m multibinary - <<EOF
+  $ sl import -d "1000000 0" -m multibinary - <<EOF
   > diff --git a/mbinary1 b/mbinary1
   > new file mode 100644
   > index 0000000000000000000000000000000000000000..593f4708db84ac8fd0f5cc47c634f38c013fe9e4
@@ -314,10 +315,10 @@ Multiple binary files:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   18b73a84b4ab
 
-  $ hg manifest --debug | grep mbinary
+  $ sl manifest --debug | grep mbinary
   045c85ba38952325e126c70962cc0f9d9077bc67 644   mbinary1
   a874b471193996e7cb034bb301cac7bdaf3e3f46 644   mbinary2
 
@@ -408,14 +409,14 @@ avoid an unquoted ^, which check-code says breaks sh on Solaris):
   > HcmV?d00001
   > 
   > EOF
-  $ hg import -d "1000000 0" -m delta quote-hack.patch
+  $ sl import -d "1000000 0" -m delta quote-hack.patch
   applying quote-hack.patch
   $ rm quote-hack.patch
 
-  $ hg manifest --debug | grep delta
+  $ sl manifest --debug | grep delta
   9600f98bb60ce732634d126aaa4ac1ec959c573e 644   delta
 
-  $ hg import -d "1000000 0" -m delta - <<'EOF'
+  $ sl import -d "1000000 0" -m delta - <<'EOF'
   > diff --git a/delta b/delta
   > index 8c9b7831b231c2600843e303e66b521353a200b3..0021dd95bc0dba53c39ce81377126d43731d68df 100644
   > GIT binary patch
@@ -430,12 +431,12 @@ avoid an unquoted ^, which check-code says breaks sh on Solaris):
   > EOF
   applying patch from stdin
 
-  $ hg manifest --debug | grep delta
+  $ sl manifest --debug | grep delta
   56094bbea136dcf8dbd4088f6af469bde1a98b75 644   delta
 
 Filenames with spaces:
 
-  $ sed 's,EOL$,,g' <<EOF | hg import -d "1000000 0" -m spaces -
+  $ sed 's,EOL$,,g' <<EOF | sl import -d "1000000 0" -m spaces -
   > diff --git a/foo bar b/foo bar
   > new file mode 100644
   > index 0000000..257cc56
@@ -446,7 +447,7 @@ Filenames with spaces:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   4b79479c9a6d
 
   $ cat "foo bar"
@@ -454,7 +455,7 @@ Filenames with spaces:
 
 Copy then modify the original file:
 
-  $ hg import -d "1000000 0" -m copy-mod-orig - <<EOF
+  $ sl import -d "1000000 0" -m copy-mod-orig - <<EOF
   > diff --git a/foo2 b/foo2
   > index 257cc56..fe08ec6 100644
   > --- a/foo2
@@ -469,7 +470,7 @@ Copy then modify the original file:
   > EOF
   applying patch from stdin
 
-  $ hg tip -q
+  $ sl tip -q
   9cbe44af4ae9
 
   $ cat foo3
@@ -478,9 +479,9 @@ Copy then modify the original file:
 Move text file and patch as binary
 
   $ echo a > text2
-  $ hg ci -Am0
+  $ sl ci -Am0
   adding text2
-  $ hg import -d "1000000 0" -m rename-as-binary - <<"EOF"
+  $ sl import -d "1000000 0" -m rename-as-binary - <<"EOF"
   > diff --git a/text2 b/binary2
   > rename from text2
   > rename to binary2
@@ -497,15 +498,15 @@ Move text file and patch as binary
   b
   \x00 (no-eol) (esc)
 
-  $ hg st --copies --change .
+  $ sl st --copies --change .
   A binary2
     text2
   R text2
 
 Invalid base85 content
 
-  $ hg revert -aq
-  $ hg import -d "1000000 0" -m invalid-binary - <<"EOF"
+  $ sl revert -aq
+  $ sl import -d "1000000 0" -m invalid-binary - <<"EOF"
   > diff --git a/text2 b/binary2
   > rename from text2
   > rename to binary2
@@ -519,8 +520,8 @@ Invalid base85 content
   abort: could not decode "binary2" binary patch: bad base85 character at position 6
   [255]
 
-  $ hg revert -aq
-  $ hg import -d "1000000 0" -m rename-as-binary - <<"EOF"
+  $ sl revert -aq
+  $ sl import -d "1000000 0" -m rename-as-binary - <<"EOF"
   > diff --git a/text2 b/binary2
   > rename from text2
   > rename to binary2
@@ -534,8 +535,8 @@ Invalid base85 content
   abort: "binary2" length is 5 bytes, should be 6
   [255]
 
-  $ hg revert -aq
-  $ hg import -d "1000000 0" -m rename-as-binary - <<"EOF"
+  $ sl revert -aq
+  $ sl import -d "1000000 0" -m rename-as-binary - <<"EOF"
   > diff --git a/text2 b/binary2
   > rename from text2
   > rename to binary2
@@ -550,7 +551,7 @@ Invalid base85 content
 
 Simulate a copy/paste turning LF into CRLF (issue2870)
 
-  $ hg revert -aq
+  $ sl revert -aq
   $ cat > binary.diff <<"EOF"
   > diff --git a/text2 b/binary2
   > rename from text2
@@ -565,9 +566,9 @@ Simulate a copy/paste turning LF into CRLF (issue2870)
   >>> data = fp.read()
   >>> fp.close()
   >>> _ = open('binary.diff', 'wb').write(data.replace(b'\n', b'\r\n'))
-  $ hg mv binary2 text2
-  $ hg commit -m foo
-  $ hg import --no-commit binary.diff
+  $ sl mv binary2 text2
+  $ sl commit -m foo
+  $ sl import --no-commit binary.diff
   applying binary.diff
 
   $ cd ..
@@ -575,43 +576,43 @@ Simulate a copy/paste turning LF into CRLF (issue2870)
 Consecutive import with renames (issue2459)
 
   $ newclientrepo issue2459
-  $ hg import --no-commit --force - <<EOF
+  $ sl import --no-commit --force - <<EOF
   > diff --git a/a b/a
   > new file mode 100644
   > EOF
   applying patch from stdin
-  $ hg import --no-commit --force - <<EOF
+  $ sl import --no-commit --force - <<EOF
   > diff --git a/a b/b
   > rename from a
   > rename to b
   > EOF
   applying patch from stdin
   a has not been committed yet, so no copy data will be stored for b.
-  $ hg debugstate
+  $ sl debugstate
   a   0         -1 unset               b
-  $ hg ci -m done
+  $ sl ci -m done
   $ cd ..
 
 Renames and strip
 
   $ newclientrepo renameandstrip
   $ echo a > a
-  $ hg ci -Am adda
+  $ sl ci -Am adda
   adding a
-  $ hg import --no-commit -p2 - <<EOF
+  $ sl import --no-commit -p2 - <<EOF
   > diff --git a/foo/a b/foo/b
   > rename from foo/a
   > rename to foo/b
   > EOF
   applying patch from stdin
-  $ hg st --copies
+  $ sl st --copies
   A b
     a
   R a
 
 Prefix with strip, renames, creates etc
 
-  $ hg revert -aC
+  $ sl revert -aC
   undeleting a
   forgetting b
   $ rm b
@@ -619,13 +620,13 @@ Prefix with strip, renames, creates etc
   $ echo b > dir/dir2/b
   $ echo c > dir/dir2/c
   $ echo d > dir/d
-  $ hg ci -Am addbcd
+  $ sl ci -Am addbcd
   adding dir/d
   adding dir/dir2/b
   adding dir/dir2/c
 
 prefix '.' is the same as no prefix
-  $ hg import --no-commit --prefix . - <<EOF
+  $ sl import --no-commit --prefix . - <<EOF
   > diff --git a/dir/a b/dir/a
   > --- /dev/null
   > +++ b/dir/a
@@ -644,13 +645,13 @@ prefix '.' is the same as no prefix
   $ cat dir/d
   d
   dddd
-  $ hg revert -aC
+  $ sl revert -aC
   forgetting dir/a
   reverting dir/d
   $ rm dir/a
 
 prefix with default strip
-  $ hg import --no-commit --prefix dir/ - <<EOF
+  $ sl import --no-commit --prefix dir/ - <<EOF
   > diff --git a/a b/a
   > --- /dev/null
   > +++ b/a
@@ -669,14 +670,14 @@ prefix with default strip
   $ cat dir/d
   d
   dd
-  $ hg revert -aC
+  $ sl revert -aC
   forgetting dir/a
   reverting dir/d
   $ rm dir/a
 (test that prefixes are relative to the cwd)
   $ mkdir tmpdir
   $ cd tmpdir
-  $ hg import --no-commit -p2 --prefix ../dir/ - <<EOF
+  $ sl import --no-commit -p2 --prefix ../dir/ - <<EOF
   > diff --git a/foo/a b/foo/a
   > new file mode 100644
   > --- /dev/null
@@ -699,7 +700,7 @@ prefix with default strip
   > -d
   > EOF
   applying patch from stdin
-  $ hg st --copies
+  $ sl st --copies
   M ../dir/dir2/c
   A ../dir/a
   A ../dir/dir2/b2
@@ -710,20 +711,20 @@ prefix with default strip
 
 Renames, similarity and git diff
 
-  $ hg revert -aC
+  $ sl revert -aC
   forgetting dir/a
   undeleting dir/d
   undeleting dir/dir2/b
   forgetting dir/dir2/b2
   reverting dir/dir2/c
   $ rm dir/a dir/dir2/b2
-  $ hg import --similarity 90 --no-commit - <<EOF
+  $ sl import --similarity 90 --no-commit - <<EOF
   > diff --git a/a b/b
   > rename from a
   > rename to b
   > EOF
   applying patch from stdin
-  $ hg st --copies
+  $ sl st --copies
   A b
     a
   R a
@@ -734,10 +735,10 @@ Pure copy with existing destination
   $ newclientrepo copytoexisting
   $ echo a > a
   $ echo b > b
-  $ hg ci -Am add
+  $ sl ci -Am add
   adding a
   adding b
-  $ hg import --no-commit - <<EOF
+  $ sl import --no-commit - <<EOF
   > diff --git a/a b/b
   > copy from a
   > copy to b
@@ -750,7 +751,7 @@ Pure copy with existing destination
 
 Copy and changes with existing destination
 
-  $ hg import --no-commit - <<EOF
+  $ sl import --no-commit - <<EOF
   > diff --git a/a b/b
   > copy from a
   > copy to b
@@ -771,9 +772,9 @@ Copy and changes with existing destination
 #if symlink
 
   $ ln -s b linkb
-  $ hg add linkb
-  $ hg ci -m addlinkb
-  $ hg import --no-commit - <<EOF
+  $ sl add linkb
+  $ sl ci -m addlinkb
+  $ sl import --no-commit - <<EOF
   > diff --git a/linkb b/linkb
   > deleted file mode 120000
   > --- a/linkb
@@ -788,7 +789,7 @@ Copy and changes with existing destination
   1 out of 1 hunks FAILED -- saving rejects to file linkb.rej
   abort: patch failed to apply
   [255]
-  $ hg st
+  $ sl st
   ? b.rej
   ? linkb.rej
 
@@ -796,8 +797,8 @@ Copy and changes with existing destination
 
 Test corner case involving copies and multiple hunks (issue3384)
 
-  $ hg revert -qa
-  $ hg import --no-commit - <<EOF
+  $ sl revert -qa
+  $ sl import --no-commit - <<EOF
   > diff --git a/a b/c
   > copy from a
   > copy to c
@@ -820,8 +821,8 @@ Test corner case involving copies and multiple hunks (issue3384)
 
 Test email metadata
 
-  $ hg revert -qa
-  $ hg --encoding utf-8 import - <<EOF
+  $ sl revert -qa
+  $ sl --encoding utf-8 import - <<EOF
   > From: =?UTF-8?q?Rapha=C3=ABl=20Hertzog?= <hertzog@debian.org>
   > Subject: [PATCH] =?UTF-8?q?=C5=A7=E2=82=AC=C3=9F=E1=B9=AA?=
   > 
@@ -833,7 +834,7 @@ Test email metadata
   > +a
   > EOF
   applying patch from stdin
-  $ hg --encoding utf-8 log -r .
+  $ sl --encoding utf-8 log -r .
   commit:      * (glob)
   user:        Raphaël Hertzog <hertzog@debian.org>
   date:        * (glob)

@@ -4,6 +4,7 @@
 
 Test applying context diffs
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ cat > writepatterns.py <<EOF
@@ -30,22 +31,22 @@ Test applying context diffs
 
 Initialize the test repository
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ $PYTHON ../writepatterns.py a 0 5A 1B 5C 1D
   $ $PYTHON ../writepatterns.py b 1 1A 1B
   $ $PYTHON ../writepatterns.py c 1 5A
   $ $PYTHON ../writepatterns.py d 1 5A 1B
-  $ hg add
+  $ sl add
   adding a
   adding b
   adding c
   adding d
-  $ hg ci -m addfiles
+  $ sl ci -m addfiles
 
 Add file, missing a last end of line
 
-  $ hg import --no-commit - <<EOF
+  $ sl import --no-commit - <<EOF
   > *** /dev/null	2010-10-16 18:05:49.000000000 +0200
   > --- b/newnoeol	2010-10-16 18:23:26.000000000 +0200
   > ***************
@@ -111,7 +112,7 @@ Add file, missing a last end of line
   > --- 2,4 ----
   > EOF
   applying patch from stdin
-  $ hg st
+  $ sl st
   M a
   M c
   M d

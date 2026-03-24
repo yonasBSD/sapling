@@ -1,14 +1,15 @@
 
 #require serve no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
 
 #if no-outer-repo
 no repo
 
-  $ hg id
-  abort: there is no Mercurial repository here (.hg not found)
+  $ sl id
+  abort: there is no Mercurial repository here (.sl not found)
   [255]
 
 #endif
@@ -17,36 +18,36 @@ no repo
 
 create repo
 
-  $ hg init test
+  $ sl init test
   $ cd test
   $ echo a > a
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding a
 
 basic id usage
 
-  $ hg id
+  $ sl id
   cb9a9f314b8b
-  $ hg id --debug
+  $ sl id --debug
   cb9a9f314b8b07ba71012fcdbc544b5a4d82ff5b
-  $ hg id -q
+  $ sl id -q
   cb9a9f314b8b
-  $ hg id -v
+  $ sl id -v
   cb9a9f314b8b
 
 with options
 
-  $ hg id -r.
+  $ sl id -r.
   cb9a9f314b8b
-  $ hg id -n
+  $ sl id -n
   0
-  $ hg id -b
+  $ sl id -b
   default
-  $ hg id -i
+  $ sl id -i
   cb9a9f314b8b
-  $ hg id -n -t -b -i
+  $ sl id -n -t -b -i
   cb9a9f314b8b 0 default
-  $ hg id -Tjson
+  $ sl id -Tjson
   [
    {
     "bookmarks": [],
@@ -63,17 +64,17 @@ not "work" here.  In the future we want to change virtual commits handling to
 use normal (non-special-cased) in-memory-only commits in the Rust DAG instead
 of special casing them in various APIs (ex. partialmatch))
 
-  $ hg id -T '{node|shortest}\n'
+  $ sl id -T '{node|shortest}\n'
   ffffffffffffffffffffffffffffffffffffffff
-  $ hg id -T '{parents % "{node|shortest} {desc}\n"}'
+  $ sl id -T '{parents % "{node|shortest} {desc}\n"}'
   cb9a a
 
 with modifications
 
   $ echo b > a
-  $ hg id -n -t -b -i
+  $ sl id -n -t -b -i
   cb9a9f314b8b+ 0+ default
-  $ hg id -Tjson
+  $ sl id -Tjson
   [
    {
     "bookmarks": [],
@@ -87,71 +88,71 @@ with modifications
 other local repo
 
   $ cd ..
-  $ hg -R test id
+  $ sl -R test id
   cb9a9f314b8b+
 #if no-outer-repo
-  $ hg id test
+  $ sl id test
   cb9a9f314b8b+ tip
 #endif
 
 with remote ssh repo
 
   $ cd test
-  $ hg id ssh://user@dummy/test
+  $ sl id ssh://user@dummy/test
   cb9a9f314b8b
 
 remote with rev number?
 
-  $ hg id -n ssh://user@dummy/test
+  $ sl id -n ssh://user@dummy/test
   abort: can't query remote revision number or branch
   [255]
 
 remote with branch?
 
-  $ hg id -b ssh://user@dummy/test
+  $ sl id -b ssh://user@dummy/test
   abort: can't query remote revision number or branch
   [255]
 
 test bookmark support
 
-  $ hg bookmark Y
-  $ hg bookmark Z
-  $ hg bookmarks
+  $ sl bookmark Y
+  $ sl bookmark Z
+  $ sl bookmarks
      Y                         cb9a9f314b8b
    * Z                         cb9a9f314b8b
-  $ hg id
+  $ sl id
   cb9a9f314b8b+ Y/Z
-  $ hg id --bookmarks
+  $ sl id --bookmarks
   Y Z
 
 test remote identify with bookmarks
 
-  $ hg id ssh://user@dummy/test
+  $ sl id ssh://user@dummy/test
   cb9a9f314b8b Y/Z
-  $ hg id --bookmarks ssh://user@dummy/test
+  $ sl id --bookmarks ssh://user@dummy/test
   Y Z
-  $ hg id -r . ssh://user@dummy/test
+  $ sl id -r . ssh://user@dummy/test
   cb9a9f314b8b Y/Z
-  $ hg id --bookmarks -r . ssh://user@dummy/test
+  $ sl id --bookmarks -r . ssh://user@dummy/test
   Y Z
 
 test invalid lookup
 
-  $ hg id -r noNoNO ssh://user@dummy/test
+  $ sl id -r noNoNO ssh://user@dummy/test
   abort: unknown revision 'noNoNO'!
   [255]
 
 Make sure we do not obscure unknown requires file entries (issue2649)
 
-  $ echo fake >> .hg/requires
-  $ hg id
+  $ echo fake >> .sl/requires
+  $ sl id
   abort: repository requires unknown features: fake
   (consider upgrading Sapling)
   [255]
 
   $ cd ..
 #if no-outer-repo
-  $ hg id test
+  $ sl id test
   abort: repository requires features unknown to this Mercurial: fake!
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]

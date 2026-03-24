@@ -1,7 +1,8 @@
 #debugruntest-incompatible
+  $ export HGIDENTITY=sl
   $ eagerepo
-hg debuginstall
-  $ hg debuginstall 2>&1 | grep -v 'checking Python version ' | grep -v 'checking Python lib '
+sl debuginstall
+  $ sl debuginstall 2>&1 | grep -v 'checking Python version ' | grep -v 'checking Python lib '
   checking encoding (utf-8)...
   checking Python executable (*) (glob)
   checking Python security support (*) (glob)
@@ -17,8 +18,8 @@ hg debuginstall
   checking username (test)
   no problems detected
 
-hg debuginstall JSON
-  $ hg debuginstall -Tjson | sed 's|\\\\|\\|g'
+sl debuginstall JSON
+  $ sl debuginstall -Tjson | sed 's|\\\\|\\|g'
   [
    {
     "compengines": ["bz2", "bz2truncated", "none", "zlib"*], (glob)
@@ -41,8 +42,8 @@ hg debuginstall JSON
    }
   ]
 
-hg debuginstall with no username
-  $ (HGUSER= hg debuginstall; echo [$?]) | grep -v 'checking Python version ' | grep -v 'checking Python lib '
+sl debuginstall with no username
+  $ (HGUSER= sl debuginstall; echo [$?]) | grep -v 'checking Python version ' | grep -v 'checking Python lib '
   checking encoding (utf-8)...
   checking Python executable (*) (glob)
   checking Python security support (*) (glob)
@@ -61,14 +62,14 @@ hg debuginstall with no username
   1 problems detected, please check your install!
   [1]
 
-hg debuginstall with invalid encoding
-  $ HGENCODING=invalidenc hg debuginstall | grep encoding
+sl debuginstall with invalid encoding
+  $ HGENCODING=invalidenc sl debuginstall | grep encoding
   checking encoding (invalidenc)...
    unknown encoding: invalidenc
 
 exception message in JSON
 
-  $ HGENCODING=invalidenc HGUSER= hg debuginstall -Tjson | grep error
+  $ HGENCODING=invalidenc HGUSER= sl debuginstall -Tjson | grep error
     "encodingerror": "unknown encoding: invalidenc",
     "extensionserror": null,
     "usernameerror": "no username supplied"
@@ -79,7 +80,7 @@ path variables are expanded (~ is the same as $TESTTMP)
 #if execbit
   $ chmod 755 tools/testeditor.exe
 #endif
-  $ hg debuginstall --config ui.editor="~/tools/testeditor.exe" | grep -v 'checking Python version ' | grep -v 'checking Python lib '
+  $ sl debuginstall --config ui.editor="~/tools/testeditor.exe" | grep -v 'checking Python version ' | grep -v 'checking Python lib '
   checking encoding (utf-8)...
   checking Python executable (*) (glob)
   checking Python security support (*) (glob)

@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 https://bz.mercurial-scm.org/672
 
@@ -11,25 +12,25 @@ https://bz.mercurial-scm.org/672
 #
 # rename in #1, content change in #4.
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ touch 1
   $ touch 2
-  $ hg commit -Am init  # 0
+  $ sl commit -Am init  # 0
   adding 1
   adding 2
 
-  $ hg rename 1 1a
-  $ hg commit -m rename # 1
+  $ sl rename 1 1a
+  $ sl commit -m rename # 1
 
-  $ hg co -C 'desc(init)'
+  $ sl co -C 'desc(init)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
   $ echo unrelated >> 2
-  $ hg ci -m unrelated1 # 2
+  $ sl ci -m unrelated1 # 2
 
-  $ hg merge --debug 'desc(rename)'
+  $ sl merge --debug 'desc(rename)'
   resolving manifests
    branchmerge: True, force: False
    ancestor: 81f4b099af3d, local: c64f439569a9+, remote: c12dcd37c90a
@@ -40,18 +41,18 @@ https://bz.mercurial-scm.org/672
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
-  $ hg ci -m merge1 # 3
+  $ sl ci -m merge1 # 3
 
-  $ hg co -C 'desc(unrelated1)'
+  $ sl co -C 'desc(unrelated1)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
   $ echo hello >> 1
-  $ hg ci -m unrelated2 # 4
+  $ sl ci -m unrelated2 # 4
 
-  $ hg co -C 'desc(merge1)'
+  $ sl co -C 'desc(merge1)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg log -G -T '{node|short} {desc}'
+  $ sl log -G -T '{node|short} {desc}'
   o  746e9549ea96 unrelated2
   │
   │ @  7aff4c906f45 merge1
@@ -61,12 +62,12 @@ https://bz.mercurial-scm.org/672
   │ o  c12dcd37c90a rename
   ├─╯
   o  81f4b099af3d init
-  $ hg log -r 'p1(7aff4c906f45)' -T '{node|short} {desc}\n'
+  $ sl log -r 'p1(7aff4c906f45)' -T '{node|short} {desc}\n'
   c64f439569a9 unrelated1
 
 # dagcopytrace does not support merge commits (it only searches p1)
 
-  $ hg merge -y --debug 'desc(unrelated2)'
+  $ sl merge -y --debug 'desc(unrelated2)'
   resolving manifests
    branchmerge: True, force: False
    ancestor: c64f439569a9, local: 7aff4c906f45+, remote: 746e9549ea96
@@ -77,15 +78,15 @@ https://bz.mercurial-scm.org/672
   hint: if this is due to a renamed file, you can manually input the renamed path
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? u
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
 # dagcopytrace does not support merge commits (it only searches p1)
 
-  $ hg co -C 'desc(unrelated2)'
+  $ sl co -C 'desc(unrelated2)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg merge -y --debug 'desc(merge1)'
+  $ sl merge -y --debug 'desc(merge1)'
   resolving manifests
    branchmerge: True, force: False
    ancestor: c64f439569a9, local: 746e9549ea96+, remote: 7aff4c906f45
@@ -98,5 +99,5 @@ https://bz.mercurial-scm.org/672
   local [working copy] changed 1 which other [merge rev] deleted
   use (c)hanged version, (d)elete, or leave (u)nresolved? u
   1 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]

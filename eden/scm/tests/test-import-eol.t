@@ -2,6 +2,7 @@
 #debugruntest-incompatible
 
 
+  $ export HGIDENTITY=sl
   $ cat > makepatch.py <<'EOF'
   > f = open('eol.diff', 'wb')
   > w = f.write
@@ -30,7 +31,7 @@
 Test different --eol values
 
   $ printf "a\nbbb\ncc\n\nd\ne" > a
-  $ hg ci -Am adda
+  $ sl ci -Am adda
   adding .gitignore
   adding a
   $ $PYTHON ../makepatch.py
@@ -38,16 +39,16 @@ Test different --eol values
 
 invalid eol
 
-  $ hg --config patch.eol='LFCR' import eol.diff
+  $ sl --config patch.eol='LFCR' import eol.diff
   applying eol.diff
   abort: unsupported line endings type: LFCR
   [255]
-  $ hg revert -a
+  $ sl revert -a
 
 
 force LF
 
-  $ hg --traceback --config patch.eol='LF' import eol.diff
+  $ sl --traceback --config patch.eol='LF' import eol.diff
   applying eol.diff
   $ cat a
   a
@@ -56,14 +57,14 @@ force LF
   
   d
   e (no-eol)
-  $ hg st
+  $ sl st
 
 
 force CRLF
 
-  $ hg up -C 'desc(adda)'
+  $ sl up -C 'desc(adda)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg --traceback --config patch.eol='CRLF' import eol.diff
+  $ sl --traceback --config patch.eol='CRLF' import eol.diff
   applying eol.diff
   $ cat a
   a\r (esc)
@@ -72,14 +73,14 @@ force CRLF
   \r (esc)
   d\r (esc)
   e (no-eol)
-  $ hg st
+  $ sl st
 
 
 auto EOL on LF file
 
-  $ hg up -C 'desc(adda)'
+  $ sl up -C 'desc(adda)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg --traceback --config patch.eol='auto' import eol.diff
+  $ sl --traceback --config patch.eol='auto' import eol.diff
   applying eol.diff
   $ cat a
   a
@@ -88,14 +89,14 @@ auto EOL on LF file
   
   d
   e (no-eol)
-  $ hg st
+  $ sl st
 
 
 auto EOL on CRLF file
 
   $ printf "a\r\nbbb\r\ncc\r\n\r\nd\r\ne" > a
-  $ hg commit -m 'switch EOLs in a'
-  $ hg --traceback --config patch.eol='auto' import eol.diff
+  $ sl commit -m 'switch EOLs in a'
+  $ sl --traceback --config patch.eol='auto' import eol.diff
   applying eol.diff
   $ cat a
   a\r (esc)
@@ -104,21 +105,21 @@ auto EOL on CRLF file
   \r (esc)
   d\r (esc)
   e (no-eol)
-  $ hg st
+  $ sl st
 
 
 auto EOL on new file or source without any EOL
 
   $ printf "noeol" > noeol
-  $ hg add noeol
-  $ hg commit -m 'add noeol'
+  $ sl add noeol
+  $ sl commit -m 'add noeol'
   $ printf "noeol\r\nnoeol\n" > noeol
   $ printf "neweol\nneweol\r\n" > neweol
-  $ hg add neweol
-  $ hg diff --git > noeol.diff
-  $ hg revert --no-backup noeol neweol
+  $ sl add neweol
+  $ sl diff --git > noeol.diff
+  $ sl revert --no-backup noeol neweol
   $ rm neweol
-  $ hg --traceback --config patch.eol='auto' import -m noeol noeol.diff
+  $ sl --traceback --config patch.eol='auto' import -m noeol noeol.diff
   applying noeol.diff
   $ cat noeol
   noeol\r (esc)
@@ -126,25 +127,25 @@ auto EOL on new file or source without any EOL
   $ cat neweol
   neweol
   neweol\r (esc)
-  $ hg st
+  $ sl st
 
 
 Test --eol and binary patches
 
   $ printf "a\x00\nb\r\nd" > b
-  $ hg ci -Am addb
+  $ sl ci -Am addb
   adding b
   $ printf "a\x00\nc\r\nd" > b
-  $ hg diff --git > bin.diff
-  $ hg revert --no-backup b
+  $ sl diff --git > bin.diff
+  $ sl revert --no-backup b
 
 binary patch with --eol
 
-  $ hg import --config patch.eol='CRLF' -m changeb bin.diff
+  $ sl import --config patch.eol='CRLF' -m changeb bin.diff
   applying bin.diff
   $ cat b
   a\x00 (esc)
   c\r (esc)
   d (no-eol)
-  $ hg st
+  $ sl st
   $ cd ..

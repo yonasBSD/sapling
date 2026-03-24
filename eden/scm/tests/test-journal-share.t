@@ -9,6 +9,7 @@
 
 # Journal extension test: tests the share extension support
 
+  $ export HGIDENTITY=sl
   $ configure modern
 
   $ cat >> testmocks.py << 'EOF'
@@ -42,13 +43,13 @@
   > rename.default=remote
   > EOF
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
-  $ hg bookmark bm
+  $ sl bookmark bm
   $ touch file0
-  $ hg commit -Am file0-added
+  $ sl commit -Am file0-added
   adding file0
-  $ hg journal --all
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         commit -Am file0-added
   0fd3805711f9  bm        commit -Am file0-added
@@ -56,11 +57,11 @@
 # A shared working copy initially receives the same bookmarks and working copy
 
   $ cd ..
-  $ hg share repo shared1
+  $ sl share repo shared1
   updating working directory
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd shared1
-  $ hg journal --all
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         share repo shared1
 
@@ -69,11 +70,11 @@
 # control whether bookmarks are shared or not.
 
   $ cd ..
-  $ hg share --bookmarks repo shared2
+  $ sl share --bookmarks repo shared2
   updating working directory
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd shared2
-  $ hg journal --all
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         share --bookmarks repo shared2
 
@@ -84,24 +85,24 @@
 
   $ cd ../repo
   $ touch file1
-  $ hg commit -Am file1-added
+  $ sl commit -Am file1-added
   adding file1
   $ cd ../shared1
-  $ hg journal --all
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         share repo shared1
   $ cd ../shared2
-  $ hg journal --all
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         share --bookmarks repo shared2
 
 # But working copy changes are always 'local'
 
   $ cd ../repo
-  $ hg up 0
+  $ sl up 0
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark bm)
-  $ hg journal --all
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         up 0
   4f354088b094  .         commit -Am file1-added
@@ -109,14 +110,14 @@
   0fd3805711f9  .         commit -Am file0-added
   0fd3805711f9  bm        commit -Am file0-added
   $ cd ../shared2
-  $ hg journal --all
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         share --bookmarks repo shared2
-  $ hg up tip
+  $ sl up tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg up 0
+  $ sl up 0
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg journal
+  $ sl journal
   previous locations of '.':
   0fd3805711f9  up 0
   4f354088b094  up tip
@@ -125,13 +126,13 @@
 # Unsharing works as expected; the journal remains consistent
 
   $ cd ../shared1
-  $ hg unshare
-  $ hg journal --all
+  $ sl unshare
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         share repo shared1
   $ cd ../shared2
-  $ hg unshare
-  $ hg journal --all
+  $ sl unshare
+  $ sl journal --all
   previous locations of the working copy and bookmarks:
   0fd3805711f9  .         up 0
   4f354088b094  .         up tip
@@ -140,22 +141,22 @@
 # New journal entries in the source repo no longer show up in the other working copies
 
   $ cd ../repo
-  $ hg bookmark newbm -r tip
-  $ hg journal newbm
+  $ sl bookmark newbm -r tip
+  $ sl journal newbm
   previous locations of 'newbm':
   4f354088b094  bookmark newbm -r tip
   $ cd ../shared2
-  $ hg journal newbm
+  $ sl journal newbm
   previous locations of 'newbm':
   no recorded locations
 
 # This applies for both directions
 
-  $ hg bookmark shared2bm -r tip
-  $ hg journal shared2bm
+  $ sl bookmark shared2bm -r tip
+  $ sl journal shared2bm
   previous locations of 'shared2bm':
   4f354088b094  bookmark shared2bm -r tip
   $ cd ../repo
-  $ hg journal shared2bm
+  $ sl journal shared2bm
   previous locations of 'shared2bm':
   no recorded locations

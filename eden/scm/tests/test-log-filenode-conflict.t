@@ -4,6 +4,7 @@
 
 Test log FILE history handling with renames / file node collisions.
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/library.sh
 
 Create a repo with two files X and Y. Create 3 branches (B+E, C, D) where X and
@@ -34,7 +35,7 @@ Y are swapped 0 to 2 times, and merge those branches.
 
   $ for i in B C D E H; do
   >   echo log via $i:
-  >   hg log -fr "desc($i)" X -T '{desc}\n' -G
+  >   sl log -fr "desc($i)" X -T '{desc}\n' -G
   > done
   log via B:
   o  B
@@ -71,7 +72,7 @@ Y are swapped 0 to 2 times, and merge those branches.
   
 "--removed" does not change things.
 
-  $ hg log -fr "desc(H)" X -T '{desc}\n' -G
+  $ sl log -fr "desc(H)" X -T '{desc}\n' -G
   o  E
   │
   │ o  D
@@ -83,7 +84,7 @@ Y are swapped 0 to 2 times, and merge those branches.
   o  A
   
 
-  $ hg push -r tip --to book --create -q
+  $ sl push -r tip --to book --create -q
 
 Try the same on a shallow repo
 
@@ -92,7 +93,7 @@ Try the same on a shallow repo
 
   $ for i in B C D E H; do
   >   echo log via $i:
-  >   hg log -fr "desc($i)" X -T '{desc}\n' -G
+  >   sl log -fr "desc($i)" X -T '{desc}\n' -G
   > done
   log via B:
   o  B
@@ -148,7 +149,7 @@ Create a repo with one file X. Delete and recreate a few times.
 
   $ for i in A C E G; do
   >   echo log via $i:
-  >   hg log -fr "desc($i)" X -T '{desc}\n' -G
+  >   sl log -fr "desc($i)" X -T '{desc}\n' -G
   > done
   log via A:
   o  A
@@ -180,7 +181,7 @@ Create a repo with one file X. Delete and recreate a few times.
 
 With "--removed", it is slightly better.
 
-  $ hg log -fr "desc(G)" X -T '{desc}\n' -G --removed
+  $ sl log -fr "desc(G)" X -T '{desc}\n' -G --removed
   o    G
   ├─╮
   o ╷  C
@@ -191,7 +192,7 @@ With "--removed", it is slightly better.
   ├─╯
   o  A
   
-  $ hg push -q -r tip --to book --create
+  $ sl push -q -r tip --to book --create
 
 Try again in a shallow repo:
 
@@ -199,7 +200,7 @@ Try again in a shallow repo:
 
   $ for i in A C E G; do
   >   echo log via $i:
-  >   hg log -fr "desc($i)" X -T '{desc}\n' -G
+  >   sl log -fr "desc($i)" X -T '{desc}\n' -G
   > done
   log via A:
   o  A
@@ -231,7 +232,7 @@ Try again in a shallow repo:
 
 "--removed" does not change things.
 
-  $ hg log -fr "desc(G)" X -T '{desc}\n' -G --removed
+  $ sl log -fr "desc(G)" X -T '{desc}\n' -G --removed
   @    G
   ├─╮
   o ╷  D

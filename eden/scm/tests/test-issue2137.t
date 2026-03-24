@@ -15,6 +15,7 @@
 # 3) test that repo.lookup() works
 # 1 and 2 are preconditions for the bug; 3 is the bug.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat > commitwrapper.py << 'EOF'
   > from sapling import extensions, node, revlog
@@ -38,20 +39,20 @@
   > commitwrapper = $PWD/commitwrapper.py
   > EOF
 
-  $ hg init repo1
+  $ sl init repo1
   $ cd repo1
   $ echo a > a
-  $ hg commit -A '-madd a with a long commit message to make the changelog a bit bigger'
+  $ sl commit -A '-madd a with a long commit message to make the changelog a bit bigger'
   adding a
   new tip: 553596fad57b
 
 # Test that new changesets are visible to repo.lookup():
 
   $ echo a >> a
-  $ hg commit '-mone more commit to demonstrate the bug'
+  $ sl commit '-mone more commit to demonstrate the bug'
   new tip: 799ae3599e0e
 
-  $ hg tip
+  $ sl tip
   commit:      799ae3599e0e
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

@@ -1,28 +1,29 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ echo a > a
-  $ hg ci -Am0
+  $ sl ci -Am0
   adding a
-  $ hg push -q -r . --to book --create
+  $ sl push -q -r . --to book --create
 
   $ newclientrepo foo repo_server book
   $ cd ../repo
 
 Journal is cleaned up automatically.
-  $ echo something > .hg/store/journal
+  $ echo something > .sl/store/journal
 
   $ echo foo > a
-  $ hg ci -Am0
+  $ sl ci -Am0
   couldn't read journal entry 'something\n'!
 
-  $ hg recover
+  $ sl recover
   no interrupted transaction available
   [1]
 
 Empty journal is cleaned up automatically.
-  $ touch .hg/store/journal
-  $ hg ci -Am0
+  $ touch .sl/store/journal
+  $ sl ci -Am0
   nothing changed
   [1]

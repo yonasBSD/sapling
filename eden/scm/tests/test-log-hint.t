@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig tweakdefaults.logdefaultfollow=true
 
   $ newclientrepo
@@ -10,20 +11,20 @@
   > |
   > A
   > EOS
-  $ hg go -q $B
+  $ sl go -q $B
 
-  $ hg log tip
+  $ sl log tip
   abort: cannot follow file not in parent revision: "tip"
-  (did you mean "hg log -r 'tip'", or "hg log -r 'tip' -f" to follow history?)
+  (did you mean "sl log -r 'tip'", or "sl log -r 'tip' -f" to follow history?)
   [255]
 
-  $ hg log -r 'tip'
+  $ sl log -r 'tip'
   commit:      112478962961
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     B
 
-  $ hg log -r 'tip' -f
+  $ sl log -r 'tip' -f
   commit:      112478962961
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

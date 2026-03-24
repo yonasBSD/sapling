@@ -10,6 +10,7 @@ This test checks the pull works when:
 And the client does not limit itself to only be able to resolve ancestors of
 the old master in that case.
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig paths.default=test:e1 ui.ssh=false
   $ shorttraceback
@@ -43,20 +44,20 @@ Prepare Repo:
   > A
   > EOS
 
-  $ hg push -r $E --to master --create -q
+  $ sl push -r $E --to master --create -q
 
 Clone the lazy repo (up to master):
 
-  $ hg clone -U test:e1 --config remotefilelog.reponame=x $TESTTMP/cloned1 -q
+  $ sl clone -U test:e1 --config remotefilelog.reponame=x $TESTTMP/cloned1 -q
 
 Move server-side bookmarks forward:
 
-  $ hg push -r $H --to master -q
+  $ sl push -r $H --to master -q
 
 Create commits in the client repo. Make them overlap with the server-side master group:
 
   $ cd $TESTTMP/cloned1
-  $ DAG_SKIP_FLUSH_VERTEXES=$B LOG=dag::cache=info hg debugdrawdag << EOS
+  $ DAG_SKIP_FLUSH_VERTEXES=$B LOG=dag::cache=info sl debugdrawdag << EOS
   > F       Z
   > |       |
   > master  $B
@@ -65,6 +66,6 @@ Create commits in the client repo. Make them overlap with the server-side master
 
 Pull:
 
-  $ hg pull -B master
+  $ sl pull -B master
   pulling from test:e1
   searching for changes

@@ -2,9 +2,10 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=true
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ cat > foo << EOF
   > 0
@@ -13,7 +14,7 @@
   > 3
   > 4
   > EOF
-  $ hg ci -Am init
+  $ sl ci -Am init
   adding foo
   $ cat > foo << EOF
   > 0
@@ -25,7 +26,7 @@
   > 3
   > 4
   > EOF
-  $ hg ci -m 'more 0'
+  $ sl ci -m 'more 0'
   $ sed 's/2/2+/' foo > foo.new
   $ mv foo.new foo
   $ cat > bar << EOF
@@ -35,8 +36,8 @@
   > d
   > e
   > EOF
-  $ hg add bar
-  $ hg ci -Am "2 -> 2+; added bar"
+  $ sl add bar
+  $ sl ci -Am "2 -> 2+; added bar"
   $ cat >> foo << EOF
   > 5
   > 6
@@ -46,7 +47,7 @@
   > 10
   > 11
   > EOF
-  $ hg ci -m "to 11"
+  $ sl ci -m "to 11"
 
 Add some changes with two diff hunks
 
@@ -54,9 +55,9 @@ Add some changes with two diff hunks
   $ mv foo.new foo
   $ sed 's/^11$/11+/' foo > foo.new
   $ mv foo.new foo
-  $ hg ci -m '11 -> 11+; leading space before "1"'
+  $ sl ci -m '11 -> 11+; leading space before "1"'
 (make sure there are two hunks in "foo")
-  $ hg diff -c .
+  $ sl diff -c .
   diff --git a/foo b/foo
   --- a/foo
   +++ b/foo
@@ -81,9 +82,9 @@ Add some changes with two diff hunks
   $ mv foo.new foo
   $ sed 's/a/a+/' bar > bar.new
   $ mv bar.new bar
-  $ hg ci -m 'foo: 3 -> 3+ and 11+ -> 11-; bar: a -> a+'
+  $ sl ci -m 'foo: 3 -> 3+ and 11+ -> 11-; bar: a -> a+'
 (make sure there are two hunks in "foo")
-  $ hg diff -c . foo
+  $ sl diff -c . foo
   diff --git a/foo b/foo
   --- a/foo
   +++ b/foo
@@ -103,7 +104,7 @@ Add some changes with two diff hunks
   -11+
   +11-
 
-  $ hg log -f -L foo,5:7 -p
+  $ sl log -f -L foo,5:7 -p
   commit:      cfdf972b3971
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -176,12 +177,12 @@ Add some changes with two diff hunks
 
 With --template.
 
-  $ hg log -f -L foo,5:7 -T '{node|short} {desc|firstline}\n'
+  $ sl log -f -L foo,5:7 -T '{node|short} {desc|firstline}\n'
   cfdf972b3971 foo: 3 -> 3+ and 11+ -> 11-; bar: a -> a+
   eaec41c1a0c9 11 -> 11+; leading space before "1"
   63a884426fd0 2 -> 2+; added bar
   5ae1f82b9a00 init
-  $ hg log -f -L foo,5:7 -T json
+  $ sl log -f -L foo,5:7 -T json
   [
    {
     "rev": *, (glob)
@@ -231,7 +232,7 @@ With --template.
 
 With some white-space diff option, respective revisions are skipped.
 
-  $ hg log -f -L foo,5:7 -p --config diff.ignorews=true
+  $ sl log -f -L foo,5:7 -p --config diff.ignorews=true
   commit:      cfdf972b3971
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -286,13 +287,13 @@ With some white-space diff option, respective revisions are skipped.
 
 Regular file patterns are not allowed.
 
-  $ hg log -f -L foo,5:7 -p bar
+  $ sl log -f -L foo,5:7 -p bar
   abort: FILE arguments are not compatible with --line-range option
   [255]
 
 Option --rev acts as a restriction.
 
-  $ hg log -f -L foo,5:7 -p -r 'desc(2)'
+  $ sl log -f -L foo,5:7 -p -r 'desc(2)'
   commit:      63a884426fd0
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -330,7 +331,7 @@ Option --rev acts as a restriction.
 With several -L patterns, changes touching any files in their respective line
 range are show.
 
-  $ hg log -f -L foo,5:7 -L bar,1:2 -p
+  $ sl log -f -L foo,5:7 -L bar,1:2 -p
   commit:      cfdf972b3971
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -423,7 +424,7 @@ range are show.
 Multiple -L options with the same file yields changes touching any of
 specified line ranges.
 
-  $ hg log -f -L foo,5:7 -L foo,14:15 -p
+  $ sl log -f -L foo,5:7 -L foo,14:15 -p
   commit:      cfdf972b3971
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -536,7 +537,7 @@ A file with a comma in its name.
   > t
   > y
   > EOF
-  $ hg ci -Am 'querty'
+  $ sl ci -Am 'querty'
   adding ba,z
   $ cat >> ba,z << EOF
   > u
@@ -544,7 +545,7 @@ A file with a comma in its name.
   > o
   > p
   > EOF
-  $ hg ci -m 'more keys'
+  $ sl ci -m 'more keys'
   $ cat > ba,z << EOF
   > a
   > z
@@ -557,8 +558,8 @@ A file with a comma in its name.
   > o
   > p
   > EOF
-  $ hg ci -m 'azerty'
-  $ hg log -f -L ba,z,1:2 -p
+  $ sl ci -m 'azerty'
+  $ sl log -f -L ba,z,1:2 -p
   commit:      52373265138b
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -598,7 +599,7 @@ Exact prefix kinds work in -L options.
 
   $ mkdir dir
   $ cd dir
-  $ hg log -f -L path:foo,5:7 -p
+  $ sl log -f -L path:foo,5:7 -p
   commit:      cfdf972b3971
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -671,11 +672,11 @@ Exact prefix kinds work in -L options.
 
 Renames are followed.
 
-  $ hg mv ../foo baz
+  $ sl mv ../foo baz
   $ sed 's/1/1+/' baz > baz.new
   $ mv baz.new baz
-  $ hg ci -m 'foo -> dir/baz; 1-1+'
-  $ hg diff -c .
+  $ sl ci -m 'foo -> dir/baz; 1-1+'
+  $ sl diff -c .
   diff --git a/foo b/dir/baz
   rename from foo
   rename to dir/baz
@@ -698,7 +699,7 @@ Renames are followed.
   -11-
   +1+0
   +1+1-
-  $ hg log -f -L relpath:baz,5:7 -p
+  $ sl log -f -L relpath:baz,5:7 -p
   commit:      c0c9f8843170
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -793,10 +794,10 @@ Binary files work but without diff hunks filtering.
 (Checking w/ and w/o diff.git option.)
 
   >>> _ = open('binary', 'wb').write(b'this\nis\na\nbinary\0')
-  $ hg add binary
-  $ hg ci -m 'add a binary file' --quiet
+  $ sl add binary
+  $ sl ci -m 'add a binary file' --quiet
 #if common-zlib
-  $ hg log -f -L binary,1:2 -p
+  $ sl log -f -L binary,1:2 -p
   commit:      fc5ce739fb7c
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -812,7 +813,7 @@ Binary files work but without diff hunks filtering.
   
 #endif
 
-  $ hg log -f -L binary,1:2 -p --config diff.git=false
+  $ sl log -f -L binary,1:2 -p --config diff.git=false
   commit:      fc5ce739fb7c
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -824,27 +825,27 @@ Binary files work but without diff hunks filtering.
 
 Option --follow is required.
 
-  $ hg log -L foo,5:7
+  $ sl log -L foo,5:7
   abort: --line-range requires --follow
   [255]
 
 Non-exact pattern kinds are not allowed.
 
   $ cd ..
-  $ hg log -f -L glob:*a*,1:2
-  hg: parse error: line range pattern 'glob:*a*' must match exactly one file
+  $ sl log -f -L glob:*a*,1:2
+  sl: parse error: line range pattern 'glob:*a*' must match exactly one file
   [255]
 
 We get an error for removed files.
 
-  $ hg rm dir/baz
-  $ hg ci -m 'remove baz' --quiet
-  $ hg log -f -L dir/baz,5:7 -p
+  $ sl rm dir/baz
+  $ sl ci -m 'remove baz' --quiet
+  $ sl log -f -L dir/baz,5:7 -p
   abort: cannot follow file not in parent revision: "dir/baz"
   [255]
 
 Graph log does work yet.
 
-  $ hg log -f -L dir/baz,5:7 --graph
+  $ sl log -f -L dir/baz,5:7 --graph
   abort: graph not supported with line range patterns
   [255]

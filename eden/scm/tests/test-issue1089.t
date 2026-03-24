@@ -9,29 +9,30 @@
 
 # https://bz.mercurial-scm.org/1089
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ mkdir a
   $ echo a > a/b
-  $ hg ci -Am m
+  $ sl ci -Am m
   adding a/b
 
-  $ hg rm a
+  $ sl rm a
   removing a/b
-  $ hg ci -m m a
+  $ sl ci -m m a
 
   $ mkdir a b
   $ echo a > a/b
-  $ hg ci -Am m
+  $ sl ci -Am m
   adding a/b
 
-  $ hg rm a
+  $ sl rm a
   removing a/b
   $ cd b
 
 # Relative delete:
 
-  $ hg ci -m m ../a
+  $ sl ci -m m ../a
 
   $ cd ..

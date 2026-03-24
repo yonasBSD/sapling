@@ -1,6 +1,7 @@
 
 #require execbit no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH <<EOF
   > [ui]
@@ -14,11 +15,11 @@
   > foo = baz
   > EOF
 
-  $ hg config ui.foo
+  $ sl config ui.foo
   baz
 
 An EPERM just causes the include to be ignored:
 
   $ chmod -x eperm
-  $ hg config ui.foo
+  $ sl config ui.foo
   bar

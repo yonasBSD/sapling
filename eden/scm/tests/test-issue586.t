@@ -5,26 +5,27 @@
 Issue586: removing remote files after merge appears to corrupt the
 dirstate
 
+  $ export HGIDENTITY=sl
   $ newserver a
   $ echo a > a
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding a
-  $ hg book master
+  $ sl book master
 
   $ cd
-  $ hg clone -qU test:a b
+  $ sl clone -qU test:a b
   $ cd b
   $ echo b > b
-  $ hg ci -Amb
+  $ sl ci -Amb
   adding b
 
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg rm -f a
-  $ hg ci -Amc
+  $ sl rm -f a
+  $ sl ci -Amc
 
-  $ hg st -A
+  $ sl st -A
   C b
   $ cd ..
 
@@ -33,33 +34,33 @@ a commit (related to issue586)
 
 create test repos
 
-  $ hg init repoa
+  $ sl init repoa
   $ touch repoa/a
-  $ hg -R repoa ci -Am adda
+  $ sl -R repoa ci -Am adda
   adding a
-  $ hg -R repoa whereami
+  $ sl -R repoa whereami
   7132ab4568acf5245eda3a818f5e927761e093bd
 
-  $ hg init repob
+  $ sl init repob
   $ touch repob/b
-  $ hg -R repob ci -Am addb
+  $ sl -R repob ci -Am addb
   adding b
-  $ hg -R repob whereami
+  $ sl -R repob whereami
   5ddceb3496526eca9300ea4b56d384785a1e31ba
 
-  $ hg init repoc
+  $ sl init repoc
   $ cd repoc
-  $ hg pull -fr 7132ab456 ssh://user@dummy/repoa
+  $ sl pull -fr 7132ab456 ssh://user@dummy/repoa
   pulling from ssh://user@dummy/repoa
   adding changesets
   adding manifests
   adding file changes
-  $ hg goto tip
+  $ sl goto tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ mkdir tst
-  $ hg mv * tst
-  $ hg ci -m "import a in tst"
-  $ hg pull -fr 5ddceb349 ../repob
+  $ sl mv * tst
+  $ sl ci -m "import a in tst"
+  $ sl pull -fr 5ddceb349 ../repob
   pulling from ../repob
   searching for changes
   warning: repository is unrelated
@@ -69,16 +70,16 @@ create test repos
 
 merge both repos
 
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ mkdir src
 
 move b content
 
-  $ hg mv b src
-  $ hg ci -m "import b in src"
-  $ hg manifest
+  $ sl mv b src
+  $ sl ci -m "import b in src"
+  $ sl manifest
   src/b
   tst/a
 

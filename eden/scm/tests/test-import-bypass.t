@@ -3,8 +3,9 @@
 
 
 
+  $ export HGIDENTITY=sl
   $ shortlog() {
-  >     hg log -G --template '{node|short} {author} {date|hgdate} - {desc|firstline}\n'
+  >     sl log -G --template '{node|short} {author} {date|hgdate} - {desc|firstline}\n'
   > }
   $ enable amend
 
@@ -12,23 +13,23 @@ Test --bypass with other options
 
   $ newclientrepo repo-options server
   $ echo a > a
-  $ hg ci -Am adda
+  $ sl ci -Am adda
   adding a
   $ echo a >> a
-  $ hg ci -Am changea
-  $ hg push -r . -q --to head1 --create
-  $ hg export . > ../test.diff
-  $ hg up null
+  $ sl ci -Am changea
+  $ sl push -r . -q --to head1 --create
+  $ sl export . > ../test.diff
+  $ sl up null
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
 Test importing an existing revision
-(this also tests that "hg import" disallows combination of '--exact'
+(this also tests that "sl import" disallows combination of '--exact'
 and '--edit')
 
-  $ hg import --bypass --exact --edit ../test.diff
+  $ sl import --bypass --exact --edit ../test.diff
   abort: cannot use --exact with --edit
   [255]
-  $ hg import --bypass --exact ../test.diff
+  $ sl import --bypass --exact ../test.diff
   applying ../test.diff
   $ shortlog
   o  540395c44225 test 0 0 - changea
@@ -38,13 +39,13 @@ and '--edit')
 
 Test failure without --exact
 
-  $ hg import --bypass ../test.diff
+  $ sl import --bypass ../test.diff
   applying ../test.diff
   unable to find 'a' for patching
   (use '--prefix' to apply patch relative to the current directory)
   abort: patch failed to apply
   [255]
-  $ hg st
+  $ sl st
   $ shortlog
   o  540395c44225 test 0 0 - changea
   │
@@ -53,11 +54,11 @@ Test failure without --exact
 
 Test --user, --date and --message
 
-  $ hg up 'desc(adda)'
+  $ sl up 'desc(adda)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg import --bypass --u test2 -d '1 0' -m patch2 ../test.diff
+  $ sl import --bypass --u test2 -d '1 0' -m patch2 ../test.diff
   applying ../test.diff
-  $ cat .hg/last-message.txt
+  $ cat .sl/last-message.txt
   patch2 (no-eol)
   $ shortlog
   o  2e127d1da504 test2 1 0 - patch2
@@ -66,11 +67,11 @@ Test --user, --date and --message
   ├─╯
   @  07f494440405 test 0 0 - adda
   
-  $ hg hide -q tip
+  $ sl hide -q tip
 
 Test --strip
 
-  $ hg import --bypass --strip 0 - <<EOF
+  $ sl import --bypass --strip 0 - <<EOF
   > # HG changeset patch
   > # User test
   > # Date 0 0
@@ -94,7 +95,7 @@ Test --strip with --bypass
   $ echo bb > dir/dir2/b
   $ echo cc > dir/dir2/c
   $ echo d > dir/d
-  $ hg ci -Am 'addabcd'
+  $ sl ci -Am 'addabcd'
   adding dir/d
   adding dir/dir2/b
   adding dir/dir2/c
@@ -105,7 +106,7 @@ Test --strip with --bypass
   ├─╯
   o  07f494440405 test 0 0 - adda
   
-  $ hg import --bypass --strip 2 --prefix dir/ - <<EOF
+  $ sl import --bypass --strip 2 --prefix dir/ - <<EOF
   > # HG changeset patch
   > # User test
   > # Date 0 0
@@ -144,7 +145,7 @@ Test --strip with --bypass
   ├─╯
   o  07f494440405 test 0 0 - adda
   
-  $ hg diff --change 'desc(changeabcd)' --git
+  $ sl diff --change 'desc(changeabcd)' --git
   diff --git a/dir/a b/dir/a
   new file mode 100644
   --- /dev/null
@@ -166,17 +167,17 @@ Test --strip with --bypass
   @@ -1,1 +1,2 @@
    cc
   +cc
-  $ hg -q debugstrip .
+  $ sl -q debugstrip .
 
 Test unsupported combinations
 
-  $ hg import --bypass --no-commit ../test.diff
+  $ sl import --bypass --no-commit ../test.diff
   abort: cannot use --no-commit with --bypass
   [255]
-  $ hg import --bypass --similarity 50 ../test.diff
+  $ sl import --bypass --similarity 50 ../test.diff
   abort: cannot use --similarity with --bypass
   [255]
-  $ hg import --exact --prefix dir/ ../test.diff
+  $ sl import --exact --prefix dir/ ../test.diff
   abort: cannot use --exact with --prefix
   [255]
 
@@ -193,15 +194,15 @@ the commit message, regardless of '--edit')
   > +b
   > +c
   > EOF
-  $ HGEDITOR=cat hg import --bypass ../test.diff
+  $ HGEDITOR=cat sl import --bypass ../test.diff
   applying ../test.diff
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: changed a
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: changed a
   abort: empty commit message
   [255]
 
@@ -210,14 +211,14 @@ Test patch.eol is handled
 commit message is explicitly specified, regardless of '--edit')
 
   $ printf "a\r\n" > a
-  $ hg ci -m makeacrlf
-  $ HGEDITOR=cat hg import -m 'should fail because of eol' --edit --bypass ../test.diff
+  $ sl ci -m makeacrlf
+  $ HGEDITOR=cat sl import -m 'should fail because of eol' --edit --bypass ../test.diff
   applying ../test.diff
   patching file a
   Hunk #1 FAILED at 0
   abort: patch failed to apply
   [255]
-  $ hg --config patch.eol=auto import -d '0 0' -m 'test patch.eol' --bypass ../test.diff
+  $ sl --config patch.eol=auto import -d '0 0' -m 'test patch.eol' --bypass ../test.diff
   applying ../test.diff
   $ shortlog
   o  c606edafba99 test 0 0 - test patch.eol
@@ -231,22 +232,22 @@ commit message is explicitly specified, regardless of '--edit')
 
 Test applying multiple patches
 
-  $ hg up -qC 'desc(adda)'
+  $ sl up -qC 'desc(adda)'
   $ echo e > e
-  $ hg ci -Am adde
+  $ sl ci -Am adde
   adding e
-  $ hg export . > ../patch1.diff
-  $ hg up -qC 'desc(changea)'
+  $ sl export . > ../patch1.diff
+  $ sl up -qC 'desc(changea)'
   $ echo f > f
-  $ hg ci -Am addf
+  $ sl ci -Am addf
   adding f
-  $ hg push -r . -q --to head2 --create
-  $ hg export . > ../patch2.diff
+  $ sl push -r . -q --to head2 --create
+  $ sl export . > ../patch2.diff
   $ cd ..
   $ newclientrepo repo-multi1 server head1 head2
-  $ hg up 'desc(adda)'
+  $ sl up 'desc(adda)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg import --bypass ../patch1.diff ../patch2.diff
+  $ sl import --bypass ../patch1.diff ../patch2.diff
   applying ../patch1.diff
   applying ../patch2.diff
   $ shortlog
@@ -264,9 +265,9 @@ Test applying multiple patches
 Test applying multiple patches with --exact
 
   $ newclientrepo repo-multi2 server head1 head2
-  $ hg up 540395c44225
+  $ sl up 540395c44225
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg import --bypass --exact ../patch1.diff ../patch2.diff
+  $ sl import --bypass --exact ../patch1.diff ../patch2.diff
   applying ../patch1.diff
   applying ../patch2.diff
   $ shortlog
@@ -287,15 +288,15 @@ even if commit message is empty
   $ cd repo-options
 
   $ echo a >> a
-  $ hg commit -m ' '
-  $ hg tip -T "{node}\n"
+  $ sl commit -m ' '
+  $ sl tip -T "{node}\n"
   7bb02e5e6d9de292a9e1b1cb2af5911ed53a378f
-  $ hg export -o ../empty-log.diff .
-  $ hg goto -q -C ".^1"
-  $ hg debugstrip -q tip
-  $ HGEDITOR=cat hg import --exact --bypass ../empty-log.diff
+  $ sl export -o ../empty-log.diff .
+  $ sl goto -q -C ".^1"
+  $ sl debugstrip -q tip
+  $ HGEDITOR=cat sl import --exact --bypass ../empty-log.diff
   applying ../empty-log.diff
-  $ hg tip -T "{node}\n"
+  $ sl tip -T "{node}\n"
   7bb02e5e6d9de292a9e1b1cb2af5911ed53a378f
 
   $ cd ..
@@ -312,32 +313,32 @@ Test complicated patch with --exact
   $ echo f > f
   $ chmod +x f
   $ ln -s c linkc
-  $ hg ci -Am t
+  $ sl ci -Am t
   adding a
   adding c
   adding d
   adding e
   adding f
   adding linkc
-  $ hg cp a aa1
+  $ sl cp a aa1
   $ echo b >> a
   $ echo b > b
-  $ hg add b
-  $ hg cp a aa2
+  $ sl add b
+  $ sl cp a aa2
   $ echo aa >> aa2
   $ chmod +x e
   $ chmod -x f
   $ ln -s a linka
-  $ hg rm d
-  $ hg rm linkc
-  $ hg mv c cc
-  $ hg ci -m patch
-  $ hg export --git . > ../test.diff
-  $ hg up -C null
+  $ sl rm d
+  $ sl rm linkc
+  $ sl mv c cc
+  $ sl ci -m patch
+  $ sl export --git . > ../test.diff
+  $ sl up -C null
   0 files updated, 0 files merged, 7 files removed, 0 files unresolved
-  $ hg purge
-  $ hg st
-  $ hg import --bypass --exact ../test.diff
+  $ sl purge
+  $ sl st
+  $ sl import --bypass --exact ../test.diff
   applying ../test.diff
 
 The patch should have matched the exported revision and generated no additional

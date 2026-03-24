@@ -1180,7 +1180,7 @@
 
   $ sl bookmark babar -r tip
 
-  $ 'HGENCODING=UTF-8' 'LANGUAGE=de' hg log -r tip
+  $ 'HGENCODING=UTF-8' 'LANGUAGE=de' sl log -r tip
   \xc3\x84nderung:        3:91f0fa364897 (esc)
   Lesezeichen:     babar
   Lesezeichen:     test
@@ -1423,7 +1423,7 @@
   summary:     add unrelated old foo
   $ cd ..
 
-# Issue2383: hg log showing _less_ differences than hg diff
+# Issue2383: sl log showing _less_ differences than sl diff
 
   $ sl init issue2383
   $ cd issue2383
@@ -1578,7 +1578,7 @@
   $ echo 'obs=!' >> $HGRCPATH
   $ cd ..
 
-# test hg log on non-existent files and on directories
+# test sl log on non-existent files and on directories
 
   $ newrepo issue1340
   $ mkdir d1 D2 D3.i d4.hg d5.d .d6
@@ -1620,7 +1620,7 @@
   $ sl log -l1 .d6/f1 -T '{node|short}'
   07c07884437f (no-eol)
 
-# issue3772: hg log -r :null showing revision 0 as well
+# issue3772: sl log -r :null showing revision 0 as well
 
   $ sl log -r ':null'
   commit:      * (glob)
@@ -1805,7 +1805,7 @@
 
   $ cd ..
 
-# hg log -f dir across branches
+# sl log -f dir across branches
 
   $ sl init acrossbranches
   $ cd acrossbranches
@@ -1831,7 +1831,7 @@
   o  a
   $ cd ..
 
-# hg log -f with linkrev pointing to another branch
+# sl log -f with linkrev pointing to another branch
 # -------------------------------------------------
 # create history with a filerev whose linkrev points to another branch
 
@@ -1914,7 +1914,7 @@
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     content1
 
-# hg log -f from the grafted changeset
+# sl log -f from the grafted changeset
 # (The bootstrap should properly take the topology in account)
 
   $ sl up 'desc(content3)^'
