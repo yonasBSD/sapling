@@ -3,11 +3,11 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
-"""hg extension for TestTmp
+"""sl extension for TestTmp
 
-- register the "hg" command
-- sets HGRCPATH
-- sets hg related environ variables
+- register the "sl" command (and "hg" for backwards compat)
+- sets HGRCPATH / SL_CONFIG_PATH
+- sets test environ variables
 - source tinit.sh
 """
 
@@ -167,14 +167,23 @@ def testsetup(t: TestTmp):
         # provide access to the real binary
         # set symlink=True, since going through cmd.exe to execute
         # `.bat` is incompatilbe with node IPC channel.
+        t.requireexe("sl", hgpath, symlink=True)
         t.requireexe("hg", hgpath, symlink=True)
         # required for util.hgcmd to work in buck test, where
         # the entry point is a shell script, not argv[0].
         t.setenv("HGEXECUTABLEPATH", hgpath)
 
-    # change the 'hg' shell command to run inline without spawning
+        # Override the "sl" cmdtable entry to include SL_IDENTITY=sl so
+        # that out-of-process "sl" commands use the SL identity.
+        orig_path = os.pathsep.join([str(t.path / "bin"), t._origpathenv])
+        t.shenv.cmdtable["sl"] = wrapexe(
+            hgpath, env_override={"PATH": orig_path, "SL_IDENTITY": "sl"}
+        )
+
+    # change the 'sl' and 'hg' shell commands to run inline without spawning
     # (about 2x faster than chg)
     if run is not None and inprocesshg:
+        t.command(sl)
         t.command(hg)
 
 
@@ -212,8 +221,18 @@ def _is_in_process_incompatible(env: Env) -> bool:
     return False
 
 
+def sl(stdin: BinaryIO, stdout: BinaryIO, stderr: BinaryIO, env: Env) -> int:
+    """run sl commands in-process"""
+    return _sl_impl(stdin, stdout, stderr, env)
+
+
 def hg(stdin: BinaryIO, stdout: BinaryIO, stderr: BinaryIO, env: Env) -> int:
-    """run hg commands
+    """run hg commands in-process (backwards compat alias for sl)"""
+    return _sl_impl(stdin, stdout, stderr, env)
+
+
+def _sl_impl(stdin: BinaryIO, stdout: BinaryIO, stderr: BinaryIO, env: Env) -> int:
+    """run sl/hg commands
 
     Prefer to run in-process using the sapling modules without spawning new
     processes.
@@ -250,6 +269,19 @@ def hg(stdin: BinaryIO, stdout: BinaryIO, stderr: BinaryIO, env: Env) -> int:
             stderr = stdout
         else:
             stderr = BufIO()
+
+    # Set identity based on argv[0] so "$ sl" uses SL identity
+    # and "$ hg" uses HG identity. Check the shell env first
+    # (e.g. "HGIDENTITY=sl hg init" sets it explicitly), then
+    # fall back to deriving from argv[0].
+    explicit_identity = env.getenv("HGIDENTITY") or env.getenv("SL_IDENTITY")
+    identity_val = explicit_identity or (env.args[0] if env.args else "sl")
+
+    # Set SL_IDENTITY directly on the command-level env so shellenv
+    # syncs it to os.environ. Since the command env is discarded after
+    # the command exits, this won't leak into subsequent commands.
+    env.envvars["SL_IDENTITY"] = identity_val
+    env.exportedenvvars.add("SL_IDENTITY")
 
     try:
         with (

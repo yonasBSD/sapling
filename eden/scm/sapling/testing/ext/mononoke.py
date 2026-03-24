@@ -15,7 +15,7 @@ from ..sh.bufio import BufIO
 from ..sh.interp import interpcode
 from ..sh.types import Env, ShellFS
 from ..t.runtime import TestTmp
-from .hg import hg as hgcmd
+from .sl import hg as hgcmd
 
 
 def testsetup(t: TestTmp):

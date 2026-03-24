@@ -2,7 +2,7 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_command_alias", "buck_
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("//antlir/fbpkg/fetch:defs.bzl", "fbpkg_fetch")
 load("//eden:defs.bzl", "get_integration_test_env_and_deps")
-load("//eden/scm/tests:targets.bzl", "generate_trinity_smoketests", "get_hg_edenfs_watchman_run_tests_included", "get_hg_watchman_run_tests_excluded", "run_tests_target")
+load("//eden/scm/tests:targets.bzl", "generate_trinity_smoketests", "get_sl_edenfs_watchman_run_tests_included", "get_sl_watchman_run_tests_excluded", "run_tests_target")
 
 oncall("sapling")
 
@@ -53,17 +53,17 @@ python_binary(
     ],
 )
 
-# Test targets created with run_tests_target are named like `hg_run_tests`,
-# `hg_edenfs_run_tests`, etc. A pre-set up version of run-tests.py is also
+# Test targets created with run_tests_target are named like `sl_run_tests`,
+# `sl_edenfs_run_tests`, etc. A pre-set up version of run-tests.py is also
 # available through the `cli` version of it. For instance,
-# `hg_mononoke_run_tests` also has `hg_mononoke_run_tests_cli`. The `cli`
+# `sl_mononoke_run_tests` also has `sl_mononoke_run_tests_cli`. The `cli`
 # target is particularly useful for using run-tests.py specific features like
 # autofix through the `-i` flag.
 
 run_tests_target()
 
 run_tests_target(
-    excluded = get_hg_watchman_run_tests_excluded(),
+    excluded = get_sl_watchman_run_tests_excluded(),
     watchman = True,
 )
 
@@ -71,7 +71,7 @@ run_tests_target(eden = True)
 
 run_tests_target(
     eden = True,
-    included = get_hg_edenfs_watchman_run_tests_included(),
+    included = get_sl_edenfs_watchman_run_tests_included(),
     watchman = True,
 )
 

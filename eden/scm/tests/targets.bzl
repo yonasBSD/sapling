@@ -74,14 +74,14 @@ def excluded_watchman_t_tests():
         ]
     return excluded
 
-def get_hg_run_tests_excluded():
+def get_sl_run_tests_excluded():
     return "test_(%s)" % "|".join(excluded_t_tests())
 
-def get_hg_watchman_run_tests_excluded():
+def get_sl_watchman_run_tests_excluded():
     excluded = excluded_t_tests() + excluded_watchman_t_tests()
     return "test_(%s)" % "|".join(excluded)
 
-def get_hg_edenfs_watchman_run_tests_included():
+def get_sl_edenfs_watchman_run_tests_included():
     included = [
         "eden_watchman_edenapi_glob_t",
         "eden_watchman_noedenapi_glob_t",
@@ -97,6 +97,9 @@ def get_blocklist():
     return blocklist_prefix + "centos7"
 
 _RT_ENV = {
+    # Keep using hg_test binary for now. Tests still use "$ hg" commands and
+    # expect HG-identity output. Will switch to sl_test after all tests are
+    # converted to use "$ sl".
     "HGEXECUTABLEPATH": "$(location //eden/scm:hg_test)",
     "HGRUNTEST_SKIP_ENV": "1",
     "HGTEST_BLOCKLIST": get_blocklist(),
@@ -104,7 +107,7 @@ _RT_ENV = {
     # used by unittestify.py
     "HGTEST_DIR": "eden/scm/tests",
     "HGTEST_DUMMYSSH": "$(location :dummyssh3)",
-    "HGTEST_EXCLUDED": get_hg_run_tests_excluded(),
+    "HGTEST_EXCLUDED": get_sl_run_tests_excluded(),
     "HGTEST_HG": "$(location //eden/scm:hg_test)",
     "HGTEST_NORMAL_LAYOUT": "0",
     "HGTEST_PYTHON": "fbpython",
@@ -149,7 +152,7 @@ def run_tests_target(
             extras += "watchman_"
         if mononoke:
             extras += "mononoke_"
-        name = "hg_%srun_tests" % extras
+        name = "sl_%srun_tests" % extras
     resources = dict(_RT_RESOURCES)
     if not eden:
         ENV = dict(_RT_ENV)
@@ -202,7 +205,7 @@ def run_tests_target(
     )
 
 def generate_trinity_smoketests(included, **kwargs):
-    hg_d = [
+    sl_d = [
         {},
         {
             # Make sure to keep these in sync with unittestify
@@ -212,7 +215,7 @@ def generate_trinity_smoketests(included, **kwargs):
             "HG_REAL_BIN": None,
         },
     ]
-    hg_s = ["", "prod_hg_"]
+    sl_s = ["", "prod_sl_"]
     eden_d = [
         {},
         {
@@ -231,19 +234,19 @@ def generate_trinity_smoketests(included, **kwargs):
         },
     ]
     mononoke_s = ["", "prod_mononoke_"]
-    for hg in range(2):
+    for sl in range(2):
         for eden in range(2):
             for mononoke in range(2):
-                if hg + eden + mononoke == 0:
+                if sl + eden + mononoke == 0:
                     # This is the default smoke test, so we don't generate one
                     continue
-                name = "trinity_smoke_%stest" % (hg_s[hg] + eden_s[eden] + mononoke_s[mononoke])
+                name = "trinity_smoke_%stest" % (sl_s[sl] + eden_s[eden] + mononoke_s[mononoke])
                 run_tests_target(
                     name = name,
                     eden = True,
                     mononoke = True,
                     watchman = True,
-                    env_overrides = hg_d[hg] | eden_d[eden] | mononoke_d[mononoke],
+                    env_overrides = sl_d[sl] | eden_d[eden] | mononoke_d[mononoke],
                     included = included,
                     **kwargs
                 )

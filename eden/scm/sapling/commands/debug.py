@@ -3756,7 +3756,7 @@ def debugruntest(ui, *paths, **opts) -> int:
     fix = opts.get("fix")
     isolate = not opts.get("direct")
 
-    exts = ["sapling.testing.ext.hg", "sapling.testing.ext.python"]
+    exts = ["sapling.testing.ext.sl", "sapling.testing.ext.python"]
     exts += opts.get("ext") or []
     if opts.get("record"):
         exts.append("sapling.testing.ext.record")

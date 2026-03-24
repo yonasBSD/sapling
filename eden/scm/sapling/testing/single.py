@@ -89,7 +89,7 @@ def main():
     default_exts = (
         []
         if args.no_default_exts
-        else ["sapling.testing.ext.hg", "sapling.testing.ext.python"]
+        else ["sapling.testing.ext.sl", "sapling.testing.ext.python"]
     )
     exts = default_exts + args.ext
     outpath = args.output
