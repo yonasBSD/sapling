@@ -41,6 +41,7 @@ class EdenErrorInfo {
   std::optional<std::string> stackTrace;
   std::optional<std::string> clientCommandName;
   std::optional<uint64_t> inode;
+  std::optional<std::string> filePath;
   std::optional<std::string> mountPoint;
 
   // Per-component factory methods.
@@ -71,6 +72,7 @@ class EdenErrorInfo {
 
   static EdenErrorInfoBuilder prjfs(
       const ErrorArg& error,
+      std::string filePath,
       std::string mountPoint,
       SourceInfo loc = SourceInfo::current());
 

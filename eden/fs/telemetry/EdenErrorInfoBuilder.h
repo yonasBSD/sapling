@@ -20,6 +20,7 @@ class EdenErrorInfoBuilder {
  public:
   EdenErrorInfoBuilder& withMountPoint(std::string mountPoint);
   EdenErrorInfoBuilder& withInode(uint64_t inode);
+  EdenErrorInfoBuilder& withFilePath(std::string filePath);
   EdenErrorInfoBuilder& withClientCommandName(std::string name);
   EdenErrorInfoBuilder& withErrorCode(int64_t code);
   EdenErrorInfoBuilder& withErrorName(std::string name);
@@ -41,6 +42,7 @@ class EdenErrorInfoBuilder {
   std::string sourceLocation_;
   std::optional<std::string> clientCommandName_;
   std::optional<uint64_t> inode_;
+  std::optional<std::string> filePath_;
   std::optional<std::string> mountPoint_;
 };
 

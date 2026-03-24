@@ -22,6 +22,11 @@ EdenErrorInfoBuilder& EdenErrorInfoBuilder::withInode(uint64_t inode) {
   return *this;
 }
 
+EdenErrorInfoBuilder& EdenErrorInfoBuilder::withFilePath(std::string filePath) {
+  filePath_ = std::move(filePath);
+  return *this;
+}
+
 EdenErrorInfoBuilder& EdenErrorInfoBuilder::withClientCommandName(
     std::string name) {
   clientCommandName_ = std::move(name);
@@ -50,6 +55,7 @@ EdenErrorInfo EdenErrorInfoBuilder::create() {
   info.stackTrace = std::move(sourceLocation_);
   info.clientCommandName = std::move(clientCommandName_);
   info.inode = inode_;
+  info.filePath = std::move(filePath_);
   info.mountPoint = std::move(mountPoint_);
   return info;
 }

@@ -46,10 +46,12 @@ EdenErrorInfoBuilder EdenErrorInfo::thrift(
 
 EdenErrorInfoBuilder EdenErrorInfo::prjfs(
     const ErrorArg& error,
+    std::string filePath,
     std::string mountPoint,
     SourceInfo loc) {
-  return EdenErrorInfoBuilder{EdenComponent::Prjfs, error, loc}.withMountPoint(
-      std::move(mountPoint));
+  return EdenErrorInfoBuilder{EdenComponent::Prjfs, error, loc}
+      .withFilePath(std::move(filePath))
+      .withMountPoint(std::move(mountPoint));
 }
 
 EdenErrorInfoBuilder EdenErrorInfo::backingStore(
