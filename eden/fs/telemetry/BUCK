@@ -119,6 +119,7 @@ cpp_library(
     name = "error_info",
     srcs = [
         "EdenComponent.cpp",
+        "EdenErrorInfo.cpp",
         "EdenErrorInfoBuilder.cpp",
         "ErrorArg.cpp",
     ],
