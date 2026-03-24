@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 This is needed to avoid filelog() revset in "log", which isn't compatible w/ eagerepo.
   $ setconfig experimental.pathhistory=true
@@ -9,74 +10,74 @@ This is needed to avoid filelog() revset in "log", which isn't compatible w/ eag
 
 commit date test
 
-  $ hg init test
+  $ sl init test
   $ cd test
   $ echo foo > foo
-  $ hg add foo
+  $ sl add foo
   $ cat > $TESTTMP/checkeditform.sh <<EOF
   > env | grep HGEDITFORM
   > true
   > EOF
-  $ HGEDITOR="sh $TESTTMP/checkeditform.sh" hg commit -m ""
+  $ HGEDITOR="sh $TESTTMP/checkeditform.sh" sl commit -m ""
   HGEDITFORM=commit.normal.normal
   abort: empty commit message
   [255]
-  $ hg commit -d '0 0' -m commit-1
+  $ sl commit -d '0 0' -m commit-1
   $ echo foo >> foo
-  $ hg commit -d '1 4444444' -m commit-3
-  hg: parse error: invalid date: '1 4444444'
+  $ sl commit -d '1 4444444' -m commit-3
+  sl: parse error: invalid date: '1 4444444'
   [255]
-  $ hg commit -d '1	15.1' -m commit-4
-  hg: parse error: invalid date: '1\t15.1'
+  $ sl commit -d '1	15.1' -m commit-4
+  sl: parse error: invalid date: '1\t15.1'
   [255]
-  $ hg commit -d 'foo bar' -m commit-5
-  hg: parse error: invalid date: 'foo bar'
+  $ sl commit -d 'foo bar' -m commit-5
+  sl: parse error: invalid date: 'foo bar'
   [255]
 #if linuxormacos
   $ echo commit-6 > $TESTTMP/commit-msg
-  $ hg commit -d ' 1 4444' -l $TESTTMP/commit-msg
+  $ sl commit -d ' 1 4444' -l $TESTTMP/commit-msg
 #else
-  $ hg commit -d ' 1 4444' -m commit-6
+  $ sl commit -d ' 1 4444' -m commit-6
 #endif
-  $ hg commit -d '1111111111111 0' -m commit-7
-  hg: parse error: invalid date: '1111111111111 0'
+  $ sl commit -d '1111111111111 0' -m commit-7
+  sl: parse error: invalid date: '1111111111111 0'
   [255]
-  $ hg commit -d '-111111111111 0' -m commit-7
-  hg: parse error: invalid date: '-111111111111 0'
+  $ sl commit -d '-111111111111 0' -m commit-7
+  sl: parse error: invalid date: '-111111111111 0'
   [255]
   $ echo foo >> foo
-  $ hg commit -d '1901-12-13 20:45:52 +0000' -m commit-7-2
+  $ sl commit -d '1901-12-13 20:45:52 +0000' -m commit-7-2
   $ echo foo >> foo
-  $ hg commit -d '-2147483648 0' -m commit-7-3
-  $ hg log -T '{date|isodatesec}\n' -l2
+  $ sl commit -d '-2147483648 0' -m commit-7-3
+  $ sl log -T '{date|isodatesec}\n' -l2
   1901-12-13 20:45:52 +0000
   1901-12-13 20:45:52 +0000
-  $ hg commit -d '1899-12-13 20:45:51 +0000' -m commit-7
-  hg: parse error: invalid date: '1899-12-13 20:45:51 +0000'
+  $ sl commit -d '1899-12-13 20:45:51 +0000' -m commit-7
+  sl: parse error: invalid date: '1899-12-13 20:45:51 +0000'
   [255]
-  $ hg commit -d '-3147483649 0' -m commit-7
-  hg: parse error: invalid date: '-3147483649 0'
+  $ sl commit -d '-3147483649 0' -m commit-7
+  sl: parse error: invalid date: '-3147483649 0'
   [255]
 
 commit added file that has been deleted
 
   $ echo bar > bar
-  $ hg add bar
+  $ sl add bar
   $ rm bar
-  $ hg commit -m commit-8
-  nothing changed (1 missing files, see 'hg status')
+  $ sl commit -m commit-8
+  nothing changed (1 missing files, see 'sl status')
   [1]
-  $ hg commit -m commit-8-2 bar
+  $ sl commit -m commit-8-2 bar
   abort: bar: file not found!
   [255]
 
-  $ hg -q revert -a --no-backup
+  $ sl -q revert -a --no-backup
 
   $ mkdir dir
   $ echo boo > dir/file
-  $ hg add
+  $ sl add
   adding dir/file
-  $ hg -v commit -m commit-9 dir
+  $ sl -v commit -m commit-9 dir
   committing files:
   dir/file
   committing manifest
@@ -84,9 +85,9 @@ commit added file that has been deleted
   committed * (glob)
 
   $ echo > dir.file
-  $ hg add
+  $ sl add
   adding dir.file
-  $ hg commit -m commit-10 dir dir.file
+  $ sl commit -m commit-10 dir dir.file
   abort: dir: no match under directory!
   [255]
 
@@ -94,13 +95,13 @@ commit added file that has been deleted
   $ mkdir bleh
   $ mkdir dir2
   $ cd bleh
-  $ hg commit -m commit-11 .
+  $ sl commit -m commit-11 .
   abort: bleh: no match under directory!
   [255]
-  $ hg commit -m commit-12 ../dir ../dir2
+  $ sl commit -m commit-12 ../dir ../dir2
   abort: dir2: no match under directory!
   [255]
-  $ hg -v commit -m commit-13 ../dir
+  $ sl -v commit -m commit-13 ../dir
   committing files:
   dir/file
   committing manifest
@@ -108,25 +109,25 @@ commit added file that has been deleted
   committed * (glob)
   $ cd ..
 
-  $ hg commit -m commit-14 does-not-exist
+  $ sl commit -m commit-14 does-not-exist
   does-not-exist: $ENOENT$
   abort: does-not-exist: $ENOENT$
   [255]
 
 #if symlink
   $ ln -s foo baz
-  $ hg commit -m commit-15 baz
+  $ sl commit -m commit-15 baz
   abort: baz: file not tracked!
   [255]
   $ rm baz
 #endif
 
   $ touch quux
-  $ hg commit -m commit-16 quux
+  $ sl commit -m commit-16 quux
   abort: quux: file not tracked!
   [255]
   $ echo >> dir/file
-  $ hg -v commit -m commit-17 dir/file
+  $ sl -v commit -m commit-17 dir/file
   committing files:
   dir/file
   committing manifest
@@ -136,28 +137,28 @@ commit added file that has been deleted
 An empty date was interpreted as epoch origin
 
   $ echo foo >> foo
-  $ hg commit -d '' -m commit-no-date --config devel.default-date=
-  $ hg tip --template '{date|isodate}\n' | grep '1970'
+  $ sl commit -d '' -m commit-no-date --config devel.default-date=
+  $ sl tip --template '{date|isodate}\n' | grep '1970'
   [1]
 
 Using the advanced --extra flag
 
   $ echo "[extensions]" >> $HGRCPATH
   $ echo "commitextras=" >> $HGRCPATH
-  $ hg status
+  $ sl status
   ? quux
-  $ hg add quux
-  $ hg commit -m "adding internal used extras" --extra amend_source=hash
+  $ sl add quux
+  $ sl commit -m "adding internal used extras" --extra amend_source=hash
   abort: key 'amend_source' is used internally, can't be set manually
   [255]
-  $ hg commit -m "special chars in extra" --extra id@phab=214
+  $ sl commit -m "special chars in extra" --extra id@phab=214
   abort: keys can only contain ascii letters, digits, '_' and '-'
   [255]
-  $ hg commit -m "empty key" --extra =value
+  $ sl commit -m "empty key" --extra =value
   abort: unable to parse '=value', keys can't be empty
   [255]
-  $ hg commit -m "adding extras" --extra sourcehash=foo --extra oldhash=bar
-  $ hg log -r . -T '{extras % "{extra}\n"}'
+  $ sl commit -m "adding extras" --extra sourcehash=foo --extra oldhash=bar
+  $ sl log -r . -T '{extras % "{extra}\n"}'
   branch=default
   oldhash=bar
   sourcehash=foo
@@ -165,20 +166,20 @@ Using the advanced --extra flag
 Failed commit with --addremove should not update dirstate
 
   $ echo foo > newfile
-  $ hg status
+  $ sl status
   ? newfile
-  $ HGEDITOR=false hg ci --addremove
+  $ HGEDITOR=false sl ci --addremove
   adding newfile
   abort: edit failed: false exited with status 1
   [255]
-  $ hg status
+  $ sl status
   ? newfile
 
 Make sure we do not obscure unknown requires file entries (issue2649)
 
   $ echo foo >> foo
-  $ echo fake >> .hg/requires
-  $ hg commit -m bla
+  $ echo fake >> .sl/requires
+  $ sl commit -m bla
   abort: repository requires unknown features: fake
   (consider upgrading Sapling)
   [255]
@@ -188,31 +189,31 @@ Make sure we do not obscure unknown requires file entries (issue2649)
 
 partial subdir commit test
 
-  $ hg init test2
+  $ sl init test2
   $ cd test2
   $ mkdir foo
   $ echo foo > foo/foo
   $ mkdir bar
   $ echo bar > bar/bar
-  $ hg add
+  $ sl add
   adding bar/bar
   adding foo/foo
-  $ HGEDITOR=cat hg ci -e -m commit-subdir-1 foo
+  $ HGEDITOR=cat sl ci -e -m commit-subdir-1 foo
   commit-subdir-1
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added foo/foo
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added foo/foo
 
 
-  $ hg ci -m commit-subdir-2 bar
+  $ sl ci -m commit-subdir-2 bar
 
 subdir log 1
 
-  $ hg log -v foo
+  $ sl log -v foo
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -224,7 +225,7 @@ subdir log 1
 
 subdir log 2
 
-  $ hg log -v bar
+  $ sl log -v bar
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -236,7 +237,7 @@ subdir log 2
 
 full log
 
-  $ hg log -v
+  $ sl log -v
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -258,29 +259,29 @@ full log
 
 dot and subdir commit test
 
-  $ hg init test3
+  $ sl init test3
   $ echo commit-foo-subdir > commit-log-test
   $ cd test3
   $ mkdir foo
   $ echo foo content > foo/plain-file
-  $ hg add foo/plain-file
-  $ HGEDITOR=cat hg ci --edit -l ../commit-log-test foo
+  $ sl add foo/plain-file
+  $ HGEDITOR=cat sl ci --edit -l ../commit-log-test foo
   commit-foo-subdir
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added foo/plain-file
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added foo/plain-file
 
 
   $ echo modified foo content > foo/plain-file
-  $ hg ci -m commit-foo-dot .
+  $ sl ci -m commit-foo-dot .
 
 full log
 
-  $ hg log -v
+  $ sl log -v
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -301,7 +302,7 @@ full log
 subdir log
 
   $ cd foo
-  $ hg log .
+  $ sl log .
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -317,80 +318,80 @@ subdir log
 
 Issue1049: Hg permits partial commit of merge without warning
 
-  $ hg init issue1049
+  $ sl init issue1049
   $ cd issue1049
   $ echo a > a
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding a
   $ echo a >> a
-  $ hg ci -mb
-  $ hg up 'desc(a)'
+  $ sl ci -mb
+  $ sl up 'desc(a)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo b >> a
-  $ hg ci -mc
-  $ HGMERGE=true hg merge
+  $ sl ci -mc
+  $ HGMERGE=true sl merge
   merging a
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
 should fail because we are specifying a file name
 
-  $ hg ci -mmerge a
+  $ sl ci -mmerge a
   abort: cannot partially commit a merge (do not specify files or patterns)
   [255]
 
 should fail because we are specifying a pattern
 
-  $ hg ci -mmerge -I a
+  $ sl ci -mmerge -I a
   abort: cannot partially commit a merge (do not specify files or patterns)
   [255]
 
 should succeed
 
-  $ HGEDITOR="sh $TESTTMP/checkeditform.sh" hg ci -mmerge --edit
+  $ HGEDITOR="sh $TESTTMP/checkeditform.sh" sl ci -mmerge --edit
   HGEDITFORM=commit.normal.merge
   $ cd ..
 
 
 test commit message content
 
-  $ hg init commitmsg
+  $ sl init commitmsg
   $ cd commitmsg
   $ echo changed > changed
   $ echo removed > removed
-  $ hg book activebookmark
-  $ hg ci -qAm init
+  $ sl book activebookmark
+  $ sl ci -qAm init
 
-  $ hg rm removed
+  $ sl rm removed
   $ echo changed >> changed
   $ echo added > added
-  $ hg add added
-  $ HGEDITOR=cat hg ci -A
+  $ sl add added
+  $ HGEDITOR=cat sl ci -A
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: bookmark 'activebookmark'
-  HG: added added
-  HG: changed changed
-  HG: removed removed
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: bookmark 'activebookmark'
+  SL: added added
+  SL: changed changed
+  SL: removed removed
   abort: empty commit message
   [255]
 
 test saving last-message.txt
 
-  $ hg init sub
+  $ sl init sub
   $ echo a > sub/a
-  $ hg -R sub add sub/a
-  $ cat > .hg/hgrc <<EOF
+  $ sl -R sub add sub/a
+  $ cat > .sl/config <<EOF
   > [hooks]
   > precommit.test-saving-last-message = false
   > EOF
 
   $ echo 'sub = sub' > .hgsub
-  $ hg add .hgsub
+  $ sl add .hgsub
 
   $ cat > $TESTTMP/editor.sh <<EOF
   > echo "==== before editing:"
@@ -399,25 +400,25 @@ test saving last-message.txt
   > echo "test saving last-message.txt" >> \$1
   > EOF
 
-  $ rm -f .hg/last-message.txt
-  $ HGEDITOR="sh $TESTTMP/editor.sh" hg commit -q
+  $ rm -f .sl/last-message.txt
+  $ HGEDITOR="sh $TESTTMP/editor.sh" sl commit -q
   ==== before editing:
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: bookmark 'activebookmark'
-  HG: added .hgsub
-  HG: added added
-  HG: changed changed
-  HG: removed removed
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: bookmark 'activebookmark'
+  SL: added .hgsub
+  SL: added added
+  SL: changed changed
+  SL: removed removed
   ====
-  note: commit message saved in .hg/last-message.txt
+  note: commit message saved in .sl/last-message.txt
   abort: precommit.test-saving-last-message hook exited with status 1
   [255]
-  $ cat .hg/last-message.txt
+  $ cat .sl/last-message.txt
   
   
   test saving last-message.txt
@@ -425,7 +426,7 @@ test saving last-message.txt
 test that '[committemplate] changeset' definition and commit log
 specific template keywords work well
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset.commit.normal = '{slprefix}: this is "commit.normal" template
   >     {slprefix}: Leave message empty to abort commit.
@@ -449,47 +450,47 @@ specific template keywords work well
   >    "{slprefix}: subrepo '{subrepo}' is changed\n"}
   > EOF
 
-  $ hg init sub2
+  $ sl init sub2
   $ echo a > sub2/a
-  $ hg -R sub2 add sub2/a
+  $ sl -R sub2 add sub2/a
   $ echo 'sub2 = sub2' >> .hgsub
 
-  $ HGEDITOR=cat hg commit -q
-  HG: this is "commit.normal" template
-  HG: Leave message empty to abort commit.
-  HG: bookmark 'activebookmark' is activated
+  $ HGEDITOR=cat sl commit -q
+  SL: this is "commit.normal" template
+  SL: Leave message empty to abort commit.
+  SL: bookmark 'activebookmark' is activated
   abort: empty commit message
   [255]
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset.commit.normal =
-  > # now, "changeset.commit" should be chosen for "hg commit"
+  > # now, "changeset.commit" should be chosen for "sl commit"
   > EOF
 
-  $ hg bookmark --inactive activebookmark
-  $ hg forget .hgsub
-  $ HGEDITOR=cat hg commit -q
-  HG: this is "commit" template
-  HG: Leave message empty to abort commit.
-  HG: no bookmark is activated
+  $ sl bookmark --inactive activebookmark
+  $ sl forget .hgsub
+  $ HGEDITOR=cat sl commit -q
+  SL: this is "commit" template
+  SL: Leave message empty to abort commit.
+  SL: no bookmark is activated
   abort: empty commit message
   [255]
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset.commit =
-  > # now, "changeset" should be chosen for "hg commit"
+  > # now, "changeset" should be chosen for "sl commit"
   > EOF
 
-  $ HGEDITOR=cat hg commit -q
-  HG: this is customized commit template
-  HG: Leave message empty to abort commit.
-  HG: no bookmark is activated
+  $ HGEDITOR=cat sl commit -q
+  SL: this is customized commit template
+  SL: Leave message empty to abort commit.
+  SL: no bookmark is activated
   abort: empty commit message
   [255]
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset = {desc}
   >     {slprefix}: mods={file_mods}
@@ -504,40 +505,40 @@ specific template keywords work well
   >     {slprefix}: dels={file_dels}
   >     {slprefix}: files={files}\n
   > EOF
-  $ hg status -amr
+  $ sl status -amr
   M changed
   A added
   R removed
-  $ HGEDITOR=cat hg commit -q -e -m "foo bar" changed
+  $ HGEDITOR=cat sl commit -q -e -m "foo bar" changed
   foo bar
-  HG: mods=changed
-  HG: adds=
-  HG: dels=
-  HG: files=changed
-  HG:
-  HG: --- a/changed	Thu Jan 01 00:00:00 1970 +0000
-  HG: +++ b/changed	Thu Jan 01 00:00:00 1970 +0000
-  HG: @@ -1,1 +1,2 @@
-  HG:  changed
-  HG: +changed
-  HG:
-  HG: mods=changed
-  HG: adds=
-  HG: dels=
-  HG: files=changed
-  note: commit message saved in .hg/last-message.txt
+  SL: mods=changed
+  SL: adds=
+  SL: dels=
+  SL: files=changed
+  SL:
+  SL: --- a/changed	Thu Jan 01 00:00:00 1970 +0000
+  SL: +++ b/changed	Thu Jan 01 00:00:00 1970 +0000
+  SL: @@ -1,1 +1,2 @@
+  SL:  changed
+  SL: +changed
+  SL:
+  SL: mods=changed
+  SL: adds=
+  SL: dels=
+  SL: files=changed
+  note: commit message saved in .sl/last-message.txt
   abort: precommit.test-saving-last-message hook exited with status 1
   [255]
-  $ hg status -amr
+  $ sl status -amr
   M changed
   A added
   R removed
-  $ hg parents --template "M {file_mods}\nA {file_adds}\nR {file_dels}\n"
+  $ sl parents --template "M {file_mods}\nA {file_adds}\nR {file_dels}\n"
   M 
   A changed removed
   R 
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset = {desc}
   >     {slprefix}: mods={file_mods}
@@ -566,51 +567,51 @@ specific template keywords work well
   >     {slprefix}: dels={file_dels}
   >     {slprefix}: files={files}\n
   > EOF
-  $ HGEDITOR=cat hg commit -q -e -m "foo bar" added removed
+  $ HGEDITOR=cat sl commit -q -e -m "foo bar" added removed
   foo bar
-  HG: mods=
-  HG: adds=added
-  HG: dels=removed
-  HG: files=added removed
-  HG:
-  HG:
-  HG: mods=
-  HG: adds=added
-  HG: dels=removed
-  HG: files=added removed
-  HG:
-  HG: --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-  HG: +++ b/added	Thu Jan 01 00:00:00 1970 +0000
-  HG: @@ -0,0 +1,1 @@
-  HG: +added
-  HG:
-  HG: mods=
-  HG: adds=added
-  HG: dels=removed
-  HG: files=added removed
-  HG:
-  HG: --- a/removed	Thu Jan 01 00:00:00 1970 +0000
-  HG: +++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
-  HG: @@ -1,1 +0,0 @@
-  HG: -removed
-  HG:
-  HG: mods=
-  HG: adds=added
-  HG: dels=removed
-  HG: files=added removed
-  note: commit message saved in .hg/last-message.txt
+  SL: mods=
+  SL: adds=added
+  SL: dels=removed
+  SL: files=added removed
+  SL:
+  SL:
+  SL: mods=
+  SL: adds=added
+  SL: dels=removed
+  SL: files=added removed
+  SL:
+  SL: --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
+  SL: +++ b/added	Thu Jan 01 00:00:00 1970 +0000
+  SL: @@ -0,0 +1,1 @@
+  SL: +added
+  SL:
+  SL: mods=
+  SL: adds=added
+  SL: dels=removed
+  SL: files=added removed
+  SL:
+  SL: --- a/removed	Thu Jan 01 00:00:00 1970 +0000
+  SL: +++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+  SL: @@ -1,1 +0,0 @@
+  SL: -removed
+  SL:
+  SL: mods=
+  SL: adds=added
+  SL: dels=removed
+  SL: files=added removed
+  note: commit message saved in .sl/last-message.txt
   abort: precommit.test-saving-last-message hook exited with status 1
   [255]
-  $ hg status -amr
+  $ sl status -amr
   M changed
   A added
   R removed
-  $ hg parents --template "M {file_mods}\nA {file_adds}\nR {file_dels}\n"
+  $ sl parents --template "M {file_mods}\nA {file_adds}\nR {file_dels}\n"
   M 
   A changed removed
   R 
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > # disable customizing for subsequent tests
   > [committemplate]
   > changeset =
@@ -621,22 +622,22 @@ specific template keywords work well
 
 commit copy
 
-  $ hg init dir2
+  $ sl init dir2
   $ cd dir2
   $ echo bleh > bar
-  $ hg add bar
-  $ hg ci -m 'add bar'
+  $ sl add bar
+  $ sl ci -m 'add bar'
 
-  $ hg cp bar foo
+  $ sl cp bar foo
   $ echo >> bar
-  $ hg ci -m 'cp bar foo; change bar'
+  $ sl ci -m 'cp bar foo; change bar'
 
-  $ hg debugrename foo
+  $ sl debugrename foo
   foo renamed from bar:26d3ca0dfd18e44d796b564e38dd173c9668d3a9
 
 Test making empty commits
-  $ hg commit --config ui.allowemptycommit=True -m "empty commit"
-  $ hg log -r . -v --stat
+  $ sl commit --config ui.allowemptycommit=True -m "empty commit"
+  $ sl log -r . -v --stat
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -661,14 +662,14 @@ verify pathauditor blocks evil filepaths
   >                    'evil', [notrc], filectxfn, 0)
   > r.commitctx(c)
   > EOF
-  $ hg debugpython -- evil-commit.py
+  $ sl debugpython -- evil-commit.py
 #if windows
-  $ hg co --clean tip
+  $ sl co --clean tip
   abort: path contains illegal component: .h\xe2\x80\x8cg\\hgrc (esc)
   [255]
 #endif
 #if osx
-  $ hg co --clean tip
+  $ sl co --clean tip
   abort: error writing files:
    .h‌g/hgrc: path contains illegal component '.h‌g': .h‌g/hgrc
   [255]
@@ -689,8 +690,8 @@ verify pathauditor blocks evil filepaths
   >                    'evil', [notrc], filectxfn, 0)
   > r.commitctx(c)
   > EOF
-  $ hg debugpython -- evil-commit.py
-  $ hg co --clean tip
+  $ sl debugpython -- evil-commit.py
+  $ sl co --clean tip
   abort: path contains illegal component: HG~1/hgrc
   [255]
 
@@ -708,20 +709,20 @@ verify pathauditor blocks evil filepaths
   >                    'evil', [notrc], filectxfn, 0)
   > r.commitctx(c)
   > EOF
-  $ hg debugpython -- evil-commit.py
-  $ hg co --clean tip
+  $ sl debugpython -- evil-commit.py
+  $ sl co --clean tip
   abort: path contains illegal component: HG8B6C~2/hgrc
   [255]
 #endif
 
 # test that an unmodified commit template message aborts
 
-  $ hg init unmodified_commit_template
+  $ sl init unmodified_commit_template
   $ cd unmodified_commit_template
   $ echo foo > foo
-  $ hg add foo
-  $ hg commit -m "foo"
-  $ cat >> .hg/hgrc <<EOF
+  $ sl add foo
+  $ sl commit -m "foo"
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset.commit = HI THIS IS NOT STRIPPED
   >     {slprefix}: this is customized commit template
@@ -734,8 +735,8 @@ verify pathauditor blocks evil filepaths
   > true
   > EOF
   $ echo foo2 > foo2
-  $ hg add foo2
-  $ HGEDITOR="sh $TESTTMP/notouching.sh" hg commit
+  $ sl add foo2
+  $ HGEDITOR="sh $TESTTMP/notouching.sh" sl commit
   abort: commit message unchanged
   [255]
 
@@ -746,12 +747,12 @@ test that text below the --- >8 --- special string is ignored
   > mv $1.new $1
   > EOF
 
-  $ hg init ignore_below_special_string
+  $ sl init ignore_below_special_string
   $ cd ignore_below_special_string
   $ echo foo > foo
-  $ hg add foo
-  $ hg commit -m "foo"
-  $ cat >> .hg/hgrc <<EOF
+  $ sl add foo
+  $ sl commit -m "foo"
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset.commit = first LINE
   >     {slprefix}: this is customized commit template
@@ -760,27 +761,27 @@ test that text below the --- >8 --- special string is ignored
   >     {diff()}
   > EOF
   $ echo foo2 > foo2
-  $ hg add foo2
-  $ HGEDITOR="sh $TESTTMP/notouching.sh" hg ci
+  $ sl add foo2
+  $ HGEDITOR="sh $TESTTMP/notouching.sh" sl ci
   abort: commit message unchanged
   [255]
-  $ HGEDITOR="sh $TESTTMP/lowercaseline.sh" hg ci
+  $ HGEDITOR="sh $TESTTMP/lowercaseline.sh" sl ci
   first line
-  HG: this is customized commit template
-  HG: Leave message empty to abort commit.
-  HG: ------------------------ >8 ------------------------
+  SL: this is customized commit template
+  SL: Leave message empty to abort commit.
+  SL: ------------------------ >8 ------------------------
   diff -r e63c23eaa88a foo2
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/foo2	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +foo2
-  $ hg log -T '{desc}\n' -r .
+  $ sl log -T '{desc}\n' -r .
   first line
 
 test that the special string --- >8 --- isn't used when not at the beginning of
 a line
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset.commit = first LINE2
   >     another line {slprefix}: ------------------------ >8 ------------------------
@@ -790,26 +791,26 @@ a line
   >     {diff()}
   > EOF
   $ echo foo >> foo
-  $ HGEDITOR="sh $TESTTMP/lowercaseline.sh" hg ci
+  $ HGEDITOR="sh $TESTTMP/lowercaseline.sh" sl ci
   first line2
-  another line HG: ------------------------ >8 ------------------------
-  HG: this is customized commit template
-  HG: Leave message empty to abort commit.
-  HG: ------------------------ >8 ------------------------
+  another line SL: ------------------------ >8 ------------------------
+  SL: this is customized commit template
+  SL: Leave message empty to abort commit.
+  SL: ------------------------ >8 ------------------------
   diff -r 3661b22b0702 foo
   --- a/foo	Thu Jan 01 00:00:00 1970 +0000
   +++ b/foo	Thu Jan 01 00:00:00 1970 +0000
   @@ -1,1 +1,2 @@
    foo
   +foo
-  $ hg log -T '{desc}\n' -r .
+  $ sl log -T '{desc}\n' -r .
   first line2
-  another line HG: ------------------------ >8 ------------------------
+  another line SL: ------------------------ >8 ------------------------
 
 also test that this special string isn't accepted when there is some extra text
 at the end
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset.commit = first LINE3
   >     {slprefix}: ------------------------ >8 ------------------------foobar
@@ -820,21 +821,21 @@ at the end
   >     {diff()}
   > EOF
   $ echo foo >> foo
-  $ HGEDITOR="sh $TESTTMP/lowercaseline.sh" hg ci
+  $ HGEDITOR="sh $TESTTMP/lowercaseline.sh" sl ci
   first line3
-  HG: ------------------------ >8 ------------------------foobar
+  SL: ------------------------ >8 ------------------------foobar
   second line
-  HG: this is customized commit template
-  HG: Leave message empty to abort commit.
-  HG: ------------------------ >8 ------------------------
-  diff -r ce648f5f066f foo
+  SL: this is customized commit template
+  SL: Leave message empty to abort commit.
+  SL: ------------------------ >8 ------------------------
+  diff -r 4e01d9d4e7f8 foo
   --- a/foo	Thu Jan 01 00:00:00 1970 +0000
   +++ b/foo	Thu Jan 01 00:00:00 1970 +0000
   @@ -1,2 +1,3 @@
    foo
    foo
   +foo
-  $ hg log -T '{desc}\n' -r .
+  $ sl log -T '{desc}\n' -r .
   first line3
   second line
 

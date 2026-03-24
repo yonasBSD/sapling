@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ enable amend
@@ -12,17 +13,17 @@
 Basic amend
 
   $ newclientrepo repo1
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > B
   > |
   > A
   > EOS
 
-  $ hg goto B -q
+  $ sl goto B -q
   $ echo 2 >> B
 
-  $ hg amend
-  $ hg log -p -G --hidden -T '{node|short} {desc}\n'
+  $ sl amend
+  $ sl log -p -G --hidden -T '{node|short} {desc}\n'
   @  be169c7e8dbe B
   │  diff --git a/B b/B
   │  new file mode 100644
@@ -51,15 +52,15 @@ Basic amend
   
 Nothing changed
 
-  $ hg amend
+  $ sl amend
   nothing changed
   [1]
 
-  $ hg amend -d "0 0"
+  $ sl amend -d "0 0"
   nothing changed
   [1]
 
-  $ hg amend -d "Thu Jan 01 00:00:00 1970 UTC"
+  $ sl amend -d "Thu Jan 01 00:00:00 1970 UTC"
   nothing changed
   [1]
 
@@ -67,14 +68,14 @@ Matcher and metadata options
 
   $ echo 3 > C
   $ echo 4 > D
-  $ hg add C D
-  $ hg amend -m NEWMESSAGE -I C
-  $ hg log -r . -T '{node|short} {desc} {files}\n'
+  $ sl add C D
+  $ sl amend -m NEWMESSAGE -I C
+  $ sl log -r . -T '{node|short} {desc} {files}\n'
   c7ba14d9075b NEWMESSAGE B C
   $ echo 5 > E
   $ rm C
-  $ hg amend -d '2000 1000' -u 'Foo <foo@example.com>' -A C D
-  $ hg log -r . -T '{node|short} {desc} {files} {author} {date}\n'
+  $ sl amend -d '2000 1000' -u 'Foo <foo@example.com>' -A C D
+  $ sl log -r . -T '{node|short} {desc} {files} {author} {date}\n'
   14f6c4bcc865 NEWMESSAGE B D Foo <foo@example.com> 2000.01000
 
 Amend with editor
@@ -86,26 +87,26 @@ Amend with editor
   > EOF
   $ chmod +x $TESTTMP/prefix.sh
 
-  $ HGEDITOR='sh "$TESTTMP/prefix.sh"' hg amend --edit
-  $ hg log -r . -T '{node|short} {desc}\n'
+  $ HGEDITOR='sh "$TESTTMP/prefix.sh"' sl amend --edit
+  $ sl log -r . -T '{node|short} {desc}\n'
   ba71dfa60431 EDITED: NEWMESSAGE
-  $ HGEDITOR='sh "$TESTTMP/prefix.sh"' hg amend -e -m MSG
-  $ hg log -r . -T '{node|short} {desc}\n'
+  $ HGEDITOR='sh "$TESTTMP/prefix.sh"' sl amend -e -m MSG
+  $ sl log -r . -T '{node|short} {desc}\n'
   41db3c750c91 EDITED: MSG
 
   $ echo FOO > $TESTTMP/msg
-  $ hg amend -l $TESTTMP/msg -m BAR
+  $ sl amend -l $TESTTMP/msg -m BAR
   abort: options --message and --logfile are mutually exclusive
   [255]
-  $ hg amend -l $TESTTMP/msg
-  $ hg log -r . -T '{node|short} {desc}\n'
+  $ sl amend -l $TESTTMP/msg
+  $ sl log -r . -T '{node|short} {desc}\n'
   83eeb3f5a3e6 FOO
 
 Interactive mode
 
   $ touch F G
-  $ hg add F G
-  $ cat <<EOS | hg amend -i --config ui.interactive=1
+  $ sl add F G
+  $ cat <<EOS | sl amend -i --config ui.interactive=1
   > y
   > n
   > EOS
@@ -117,14 +118,14 @@ Interactive mode
   new file mode 100644
   examine changes to 'G'? [Ynesfdaq?] n
   
-  $ hg log -r . -T '{files}\n'
+  $ sl log -r . -T '{files}\n'
   B D F
 
 Amend in the middle of a stack
 
-  $ hg init $TESTTMP/repo2
+  $ sl init $TESTTMP/repo2
   $ cd $TESTTMP/repo2
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > C
   > |
   > B
@@ -132,13 +133,13 @@ Amend in the middle of a stack
   > A
   > EOS
 
-  $ hg goto -q B
+  $ sl goto -q B
   $ echo 2 >> B
-  $ hg amend
-  hint[amend-restack]: descendants of 112478962961 are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
+  $ sl amend
+  hint[amend-restack]: descendants of 112478962961 are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
 
-  $ hg log -T '{node|short} {desc}\n' -G
+  $ sl log -T '{node|short} {desc}\n' -G
   @  be169c7e8dbe B
   │
   │ o  26805aba1e60 C
@@ -149,24 +150,24 @@ Amend in the middle of a stack
   
 Cannot amend public changeset
 
-  $ hg debugmakepublic -r A
-  $ hg goto -C -q A
-  $ hg amend -m AMEND
+  $ sl debugmakepublic -r A
+  $ sl goto -C -q A
+  $ sl amend -m AMEND
   abort: cannot amend public changesets
   [255]
 
 Amend a merge changeset
 
-  $ hg init $TESTTMP/repo3
+  $ sl init $TESTTMP/repo3
   $ cd $TESTTMP/repo3
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   C
   >  /|
   > A B
   > EOS
-  $ hg goto -q C
-  $ hg amend -m FOO
-  $ hg log -G -T '{desc}\n'
+  $ sl goto -q C
+  $ sl amend -m FOO
+  $ sl log -G -T '{desc}\n'
   @    FOO
   ├─╮
   │ o  B
@@ -183,42 +184,42 @@ Generates history of files having 3 states, r0_r1_wc:
  r1: old state to be amended (content/missing, where missing means removed)
  wc: changes to be included in r1 (content/missing-tracked/untracked)
 
-  $ hg init $TESTTMP/wcstates
+  $ sl init $TESTTMP/wcstates
   $ cd $TESTTMP/wcstates
 
   $ $PYTHON $TESTDIR/generateworkingcopystates.py state 2 1
-  $ hg addremove -q --similarity 0
-  $ hg commit -m0
+  $ sl addremove -q --similarity 0
+  $ sl commit -m0
 
   $ $PYTHON $TESTDIR/generateworkingcopystates.py state 2 2
-  $ hg addremove -q --similarity 0
-  $ hg commit -m1
+  $ sl addremove -q --similarity 0
+  $ sl commit -m1
 
   $ $PYTHON $TESTDIR/generateworkingcopystates.py state 2 wc
-  $ hg addremove -q --similarity 0
-  $ hg forget *_*_*-untracked
+  $ sl addremove -q --similarity 0
+  $ sl forget *_*_*-untracked
   $ rm *_*_missing-*
 
 amend r1 to include wc changes
 
-  $ hg amend
+  $ sl amend
 
 clean/modified/removed/added states of the amended revision
 
-  $ hg status --all --change . 'glob:content1_*_content1-tracked'
+  $ sl status --all --change . 'glob:content1_*_content1-tracked'
   C content1_content1_content1-tracked
   C content1_content2_content1-tracked
   C content1_missing_content1-tracked
-  $ hg status --all --change . 'glob:content1_*_content[23]-tracked'
+  $ sl status --all --change . 'glob:content1_*_content[23]-tracked'
   M content1_content1_content3-tracked
   M content1_content2_content2-tracked
   M content1_content2_content3-tracked
   M content1_missing_content3-tracked
-  $ hg status --all --change . 'glob:content1_*_missing-tracked'
+  $ sl status --all --change . 'glob:content1_*_missing-tracked'
   M content1_content2_missing-tracked
   R content1_missing_missing-tracked
   C content1_content1_missing-tracked
-  $ hg status --all --change . 'glob:content1_*_*-untracked'
+  $ sl status --all --change . 'glob:content1_*_*-untracked'
   R content1_content1_content1-untracked
   R content1_content1_content3-untracked
   R content1_content1_missing-untracked
@@ -229,16 +230,16 @@ clean/modified/removed/added states of the amended revision
   R content1_missing_content1-untracked
   R content1_missing_content3-untracked
   R content1_missing_missing-untracked
-  $ hg status --all --change . 'glob:missing_content2_*'
+  $ sl status --all --change . 'glob:missing_content2_*'
   A missing_content2_content2-tracked
   A missing_content2_content3-tracked
   A missing_content2_missing-tracked
-  $ hg status --all --change . 'glob:missing_missing_*'
+  $ sl status --all --change . 'glob:missing_missing_*'
   A missing_missing_content3-tracked
 
 working directory should be all clean (with some missing/untracked files)
 
-  $ hg status --all 'glob:*_content?-tracked'
+  $ sl status --all 'glob:*_content?-tracked'
   C content1_content1_content1-tracked
   C content1_content1_content3-tracked
   C content1_content2_content1-tracked
@@ -249,13 +250,13 @@ working directory should be all clean (with some missing/untracked files)
   C missing_content2_content2-tracked
   C missing_content2_content3-tracked
   C missing_missing_content3-tracked
-  $ hg status --all 'glob:*_missing-tracked'
+  $ sl status --all 'glob:*_missing-tracked'
   ! content1_content1_missing-tracked
   ! content1_content2_missing-tracked
   ! content1_missing_missing-tracked
   ! missing_content2_missing-tracked
   ! missing_missing_missing-tracked
-  $ hg status --all 'glob:*-untracked'
+  $ sl status --all 'glob:*-untracked'
   ? content1_content1_content1-untracked
   ? content1_content1_content3-untracked
   ? content1_content2_content1-untracked

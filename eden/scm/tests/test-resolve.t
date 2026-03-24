@@ -2,105 +2,106 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig commands.update.check=none
 test that a commit clears the merge state.
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo foo > file1
   $ echo foo > file2
-  $ hg commit -Am 'add files'
+  $ sl commit -Am 'add files'
   adding file1
   adding file2
 
   $ echo bar >> file1
   $ echo bar >> file2
-  $ hg commit -Am 'append bar to files'
+  $ sl commit -Am 'append bar to files'
 
 create a second head with conflicting edits
 
-  $ hg up -C 'desc(add)'
+  $ sl up -C 'desc(add)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo baz >> file1
   $ echo baz >> file2
-  $ hg commit -Am 'append baz to files'
+  $ sl commit -Am 'append baz to files'
 
 create a third head with no conflicting edits
-  $ hg up -qC 'desc(add)'
+  $ sl up -qC 'desc(add)'
   $ echo foo > file3
-  $ hg commit -Am 'add non-conflicting file'
+  $ sl commit -Am 'add non-conflicting file'
   adding file3
 
 failing merge
 
-  $ hg up -qC 'max(desc(append))'
-  $ hg merge --tool=internal:fail dc77451844e37f03f5c559e3b8529b2b48d381d1
+  $ sl up -qC 'max(desc(append))'
+  $ sl merge --tool=internal:fail dc77451844e37f03f5c559e3b8529b2b48d381d1
   0 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
 resolve -l should contain unresolved entries
 
-  $ hg resolve -l
+  $ sl resolve -l
   U file1
   U file2
 
-  $ hg resolve -l --no-status
+  $ sl resolve -l --no-status
   file1
   file2
 
 resolving an unknown path should emit a warning, but not for -l
 
-  $ hg resolve -m does-not-exist
+  $ sl resolve -m does-not-exist
   arguments do not match paths that need resolving
-  $ hg resolve -l does-not-exist
+  $ sl resolve -l does-not-exist
 
 tell users how they could have used resolve
 
   $ mkdir nested
   $ cd nested
-  $ hg resolve -m file1
+  $ sl resolve -m file1
   arguments do not match paths that need resolving
-  (try: hg resolve -m path:file1)
-  $ hg resolve -m file1 filez
+  (try: sl resolve -m path:file1)
+  $ sl resolve -m file1 filez
   arguments do not match paths that need resolving
-  (try: hg resolve -m path:file1 path:filez)
-  $ hg resolve -m path:file1 path:filez
+  (try: sl resolve -m path:file1 path:filez)
+  $ sl resolve -m path:file1 path:filez
 
 test --root-relative
-  $ hg resolve -l
+  $ sl resolve -l
   R ../file1
   U ../file2
-  $ hg resolve -l --no-root-relative
+  $ sl resolve -l --no-root-relative
   R ../file1
   U ../file2
-  $ hg resolve -l --root-relative
+  $ sl resolve -l --root-relative
   R file1
   U file2
-  $ HGPLAIN=1 hg resolve -l
+  $ HGPLAIN=1 sl resolve -l
   R file1
   U file2
-  $ HGPLAIN=1 hg resolve -l --no-root-relative
+  $ HGPLAIN=1 sl resolve -l --no-root-relative
   R ../file1
   U ../file2
-  $ HGPLAIN=1 hg resolve -l --root-relative
+  $ HGPLAIN=1 sl resolve -l --root-relative
   R file1
   U file2
 
 continue resolving the conflict
-  $ hg resolve -m filez file2
+  $ sl resolve -m filez file2
   arguments do not match paths that need resolving
-  (try: hg resolve -m path:filez path:file2)
-  $ hg resolve -m path:filez path:file2
+  (try: sl resolve -m path:filez path:file2)
+  $ sl resolve -m path:filez path:file2
   (no more unresolved files)
-  $ hg resolve -l
+  $ sl resolve -l
   R ../file1
   R ../file2
 
 cleanup
-  $ hg resolve -u
+  $ sl resolve -u
   $ cd ..
   $ rmdir nested
 
@@ -130,44 +131,44 @@ don't allow marking or unmarking driver-resolved files
   >     finally:
   >         wlock.release()
   > EOF
-  $ hg --config extensions.markdriver=$TESTTMP/markdriver.py markdriver file1
-  $ hg resolve --list
+  $ sl --config extensions.markdriver=$TESTTMP/markdriver.py markdriver file1
+  $ sl resolve --list
   D file1
   U file2
-  $ hg resolve --mark file1
+  $ sl resolve --mark file1
   not marking file1 as it is driver-resolved
 this should not print out file1
-  $ hg resolve --mark --all
-  (no more unresolved files -- run "hg resolve --all" to conclude)
-  $ hg resolve --mark 'glob:file*'
-  (no more unresolved files -- run "hg resolve --all" to conclude)
-  $ hg resolve --list
+  $ sl resolve --mark --all
+  (no more unresolved files -- run "sl resolve --all" to conclude)
+  $ sl resolve --mark 'glob:file*'
+  (no more unresolved files -- run "sl resolve --all" to conclude)
+  $ sl resolve --list
   D file1
   R file2
-  $ hg resolve --unmark file1
+  $ sl resolve --unmark file1
   not unmarking file1 as it is driver-resolved
-  (no more unresolved files -- run "hg resolve --all" to conclude)
-  $ hg resolve --unmark --all
-  $ hg resolve --list
+  (no more unresolved files -- run "sl resolve --all" to conclude)
+  $ sl resolve --unmark --all
+  $ sl resolve --list
   D file1
   U file2
-  $ hg --config extensions.markdriver=$TESTTMP/markdriver.py markdriver --unmark file1
-  $ hg resolve --list
+  $ sl --config extensions.markdriver=$TESTTMP/markdriver.py markdriver --unmark file1
+  $ sl resolve --list
   U file1
   U file2
 
 resolve the failure
 
   $ echo resolved > file1
-  $ hg resolve -m file1
+  $ sl resolve -m file1
 
 resolve -l should show resolved file as resolved
 
-  $ hg resolve -l
+  $ sl resolve -l
   R file1
   U file2
 
-  $ hg resolve -l -Tjson
+  $ sl resolve -l -Tjson
   [
    {
     "path": "file1",
@@ -181,85 +182,85 @@ resolve -l should show resolved file as resolved
 
 resolve -m without paths should mark all resolved
 
-  $ hg resolve -m
+  $ sl resolve -m
   (no more unresolved files)
-  $ hg commit -m 'resolved'
+  $ sl commit -m 'resolved'
 
 resolve -l should be empty after commit
 
-  $ hg resolve -l
+  $ sl resolve -l
 
-  $ hg resolve -l -Tjson
+  $ sl resolve -l -Tjson
   [
   ]
 
 resolve --all should abort when no merge in progress
 
-  $ hg resolve --all
+  $ sl resolve --all
   abort: resolve command not applicable when not merging
   [255]
 
 resolve -m should abort when no merge in progress
 
-  $ hg resolve -m
+  $ sl resolve -m
   abort: resolve command not applicable when not merging
   [255]
 
 can not update or merge when there are unresolved conflicts
 
-  $ hg up -qC 99726c03216e233810a2564cbc0adfe395007eac
+  $ sl up -qC 99726c03216e233810a2564cbc0adfe395007eac
   $ echo quux >> file1
-  $ hg up dc77451844e37f03f5c559e3b8529b2b48d381d1
+  $ sl up dc77451844e37f03f5c559e3b8529b2b48d381d1
   merging file1
-  warning: 1 conflicts while merging file1! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file1! (edit, then use 'sl resolve --mark')
   1 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
-  $ hg up 99726c03216e233810a2564cbc0adfe395007eac
+  $ sl up 99726c03216e233810a2564cbc0adfe395007eac
   abort: unresolved merge state
-  (use 'hg resolve' to continue or
-       'hg goto --clean' to abort - WARNING: will destroy uncommitted changes)
+  (use 'sl resolve' to continue or
+       'sl goto --clean' to abort - WARNING: will destroy uncommitted changes)
   [255]
-  $ hg merge 'max(desc(append))'
+  $ sl merge 'max(desc(append))'
   abort: outstanding merge conflicts
   [255]
 
 set up conflict-free merge
 
-  $ hg up -qC 'max(desc(add))'
-  $ hg merge dc77451844e37f03f5c559e3b8529b2b48d381d1
+  $ sl up -qC 'max(desc(add))'
+  $ sl merge dc77451844e37f03f5c559e3b8529b2b48d381d1
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
 resolve --all should do nothing in merge without conflicts
-  $ hg resolve --all
+  $ sl resolve --all
   (no more unresolved files)
 
 resolve -m should do nothing in merge without conflicts
 
-  $ hg resolve -m
+  $ sl resolve -m
   (no more unresolved files)
 
 get back to conflicting state
 
-  $ hg up -qC 'max(desc(append))'
-  $ hg merge --tool=internal:fail dc77451844e37f03f5c559e3b8529b2b48d381d1
+  $ sl up -qC 'max(desc(append))'
+  $ sl merge --tool=internal:fail dc77451844e37f03f5c559e3b8529b2b48d381d1
   0 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
 resolve without arguments should suggest --all
-  $ hg resolve
+  $ sl resolve
   abort: no files or directories specified
   (use --all to re-merge all unresolved files)
   [255]
 
 resolve --all should re-merge all unresolved files
-  $ hg resolve --all
+  $ sl resolve --all
   merging file1
-  warning: 1 conflicts while merging file1! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file1! (edit, then use 'sl resolve --mark')
   merging file2
-  warning: 1 conflicts while merging file2! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file2! (edit, then use 'sl resolve --mark')
   [1]
   $ cat file1.orig
   foo
@@ -269,14 +270,14 @@ resolve --all should re-merge all unresolved files
   baz
 
 .orig files should exists where specified
-  $ hg resolve --all --verbose --config 'ui.origbackuppath=.hg/origbackups'
+  $ sl resolve --all --verbose --config 'ui.origbackuppath=.hg/origbackups'
   merging file1
-  creating directory: $TESTTMP/repo/.hg/origbackups
-  warning: 1 conflicts while merging file1! (edit, then use 'hg resolve --mark')
+  creating directory: $TESTTMP/repo/.sl/origbackups
+  warning: 1 conflicts while merging file1! (edit, then use 'sl resolve --mark')
   merging file2
-  warning: 1 conflicts while merging file2! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file2! (edit, then use 'sl resolve --mark')
   [1]
-  $ ls .hg/origbackups
+  $ ls .sl/origbackups
   file1
   file2
   $ grep '<<<' file1 > /dev/null
@@ -284,14 +285,14 @@ resolve --all should re-merge all unresolved files
 
 resolve <file> should re-merge file
   $ echo resolved > file1
-  $ hg resolve -q file1
-  warning: 1 conflicts while merging file1! (edit, then use 'hg resolve --mark')
+  $ sl resolve -q file1
+  warning: 1 conflicts while merging file1! (edit, then use 'sl resolve --mark')
   [1]
   $ grep '<<<' file1 > /dev/null
 
 test .orig behavior with resolve
 
-  $ hg resolve -q file1 --tool "sh -c 'f --dump \"$TESTTMP/repo/file1.orig\"'"
+  $ sl resolve -q file1 --tool "sh -c 'f --dump \"$TESTTMP/repo/file1.orig\"'"
   $TESTTMP/repo/file1.orig:
   >>>
   foo
@@ -300,15 +301,15 @@ test .orig behavior with resolve
 
 resolve <file> should do nothing if 'file' was marked resolved
   $ echo resolved > file1
-  $ hg resolve -m file1
-  $ hg resolve -q file1
+  $ sl resolve -m file1
+  $ sl resolve -q file1
   $ cat file1
   resolved
 
 insert unsupported advisory merge record
 
-  $ hg debugmergestate --add-unsupported-advisory-record
-  $ hg debugmergestate
+  $ sl debugmergestate --add-unsupported-advisory-record
+  $ sl debugmergestate
   local: 57653b9f834a4493f7240b0681efcb9ae7cab745
   other: dc77451844e37f03f5c559e3b8529b2b48d381d1
   labels:
@@ -325,14 +326,14 @@ insert unsupported advisory merge record
     other path: file2 (node 6f4310b00b9a147241b071a60c28a650827fb03d)
     extras: ancestorlinknode=99726c03216e233810a2564cbc0adfe395007eac
   unsupported record "x" (data ["advisory record"])
-  $ hg resolve -l
+  $ sl resolve -l
   R file1
   U file2
 
 insert unsupported mandatory merge record
 
-  $ hg debugmergestate --add-unsupported-mandatory-record
-  $ hg debugmergestate
+  $ sl debugmergestate --add-unsupported-mandatory-record
+  $ sl debugmergestate
   local: 57653b9f834a4493f7240b0681efcb9ae7cab745
   other: dc77451844e37f03f5c559e3b8529b2b48d381d1
   labels:
@@ -349,15 +350,15 @@ insert unsupported mandatory merge record
     other path: file2 (node 6f4310b00b9a147241b071a60c28a650827fb03d)
     extras: ancestorlinknode=99726c03216e233810a2564cbc0adfe395007eac
   unsupported record "X" (data ["mandatory record"])
-  $ hg resolve -l
+  $ sl resolve -l
   abort: unsupported merge state records: X
   (see https://mercurial-scm.org/wiki/MergeStateRecords for more information)
   [255]
-  $ hg resolve -ma
+  $ sl resolve -ma
   abort: unsupported merge state records: X
   (see https://mercurial-scm.org/wiki/MergeStateRecords for more information)
   [255]
-  $ hg summary
+  $ sl summary
   warning: merge state has unsupported record types: X
   parent: 57653b9f834a 
    append baz to files
@@ -368,17 +369,17 @@ insert unsupported mandatory merge record
 
 goto --clean shouldn't abort on unsupported records
 
-  $ hg up -qC dc77451844e37f03f5c559e3b8529b2b48d381d1
-  $ hg debugmergestate
+  $ sl up -qC dc77451844e37f03f5c559e3b8529b2b48d381d1
+  $ sl debugmergestate
   no merge state found
 
 test crashed merge with empty mergestate
 
-  $ mkdir .hg/merge
-  $ touch .hg/merge/state2
+  $ mkdir .sl/merge
+  $ touch .sl/merge/state2
 
 resolve -l should be empty
 
-  $ hg resolve -l
+  $ sl resolve -l
 
   $ cd ..

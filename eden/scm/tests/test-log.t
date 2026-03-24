@@ -12,19 +12,20 @@
 
 # Log on empty repository: checking consistency
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
-  $ hg init empty
+  $ sl init empty
   $ cd empty
-  $ hg log
-  $ hg log -r 1
+  $ sl log
+  $ sl log -r 1
   abort: unknown revision '1'!
   [255]
-  $ hg log -r '-1:0'
+  $ sl log -r '-1:0'
   abort: unknown revision '-1'!
   [255]
-  $ hg log -r 'branch(name)'
-  $ hg log -r null -q
+  $ sl log -r 'branch(name)'
+  $ sl log -r null -q
   000000000000
 
   $ cd ..
@@ -32,41 +33,41 @@
 # The g is crafted to have 2 filelog topological heads in a linear
 # changeset graph
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo a > a
   $ echo f > f
-  $ hg ci -Ama -d '1 0'
+  $ sl ci -Ama -d '1 0'
   adding a
   adding f
 
-  $ hg cp a b
-  $ hg cp f g
-  $ hg ci -mb -d '2 0'
+  $ sl cp a b
+  $ sl cp f g
+  $ sl ci -mb -d '2 0'
 
   $ mkdir dir
-  $ hg mv b dir
+  $ sl mv b dir
   $ echo g >> g
   $ echo f >> f
-  $ hg ci -mc -d '3 0'
+  $ sl ci -mc -d '3 0'
 
-  $ hg mv a b
-  $ hg cp -f f g
+  $ sl mv a b
+  $ sl cp -f f g
   $ echo a > d
-  $ hg add d
-  $ hg ci -md -d '4 0'
+  $ sl add d
+  $ sl ci -md -d '4 0'
 
-  $ hg mv dir/b e
-  $ hg ci -me -d '5 0'
+  $ sl mv dir/b e
+  $ sl ci -me -d '5 0'
 
-  $ hg --debug log a -T '{rev}: {desc}\n'
+  $ sl --debug log a -T '{rev}: {desc}\n'
   0: a
-  $ hg log a
+  $ sl log a
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
   summary:     a
-  $ hg log 'glob:a*'
+  $ sl log 'glob:a*'
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:04 1970 +0000
@@ -76,13 +77,13 @@
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
   summary:     a
-  $ hg --debug log 'glob:a*' -T '{rev}: {desc}\n'
+  $ sl --debug log 'glob:a*' -T '{rev}: {desc}\n'
   3: d
   0: a
 
 # log on directory
 
-  $ hg log dir
+  $ sl log dir
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
@@ -92,7 +93,7 @@
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
   summary:     c
-  $ hg log somethingthatdoesntexist dir
+  $ sl log somethingthatdoesntexist dir
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
@@ -105,15 +106,15 @@
 
 # -f, non-existent directory
 
-  $ hg log -f dir
+  $ sl log -f dir
   abort: cannot follow file not in parent revision: "dir"
   [255]
 
 # -f, directory
 # (The code path using "follow()" revset will follow file renames, so 'b' and 'a' show up)
 
-  $ hg up -q 'desc(d)'
-  $ hg log -f dir
+  $ sl up -q 'desc(d)'
+  $ sl log -f dir
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
@@ -131,7 +132,7 @@
 
 # -f, directory with --patch
 
-  $ hg log -f dir -p
+  $ sl log -f dir -p
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
@@ -156,7 +157,7 @@
 
 # -f, pattern
 
-  $ hg log -f -I 'dir**' -p
+  $ sl log -f -I 'dir**' -p
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
@@ -167,30 +168,30 @@
   +++ b/dir/b	Thu Jan 01 00:00:03 1970 +0000
   @@ -0,0 +1,1 @@
   +a
-  $ hg up -q 'desc(e)'
+  $ sl up -q 'desc(e)'
 
 # -f, a wrong style
 
-  $ hg log -f -l1 --style something
+  $ sl log -f -l1 --style something
   abort: style 'something' not found
   (available styles: bisect, changelog, compact, default, phases, show, sl_default, status, xml)
   [255]
 
 # -f, phases style
 
-  $ hg log -f -l1 --style phases
+  $ sl log -f -l1 --style phases
   commit:      * (glob)
   phase:       draft
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
   summary:     e
 
-  $ hg log -f -l1 --style phases -q
+  $ sl log -f -l1 --style phases -q
   * (glob)
 
 # -f, but no args
 
-  $ hg log -f
+  $ sl log -f
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
@@ -218,8 +219,8 @@
 
 # one rename
 
-  $ hg up -q 'desc(c)'
-  $ hg log -vf a
+  $ sl up -q 'desc(c)'
+  $ sl log -vf a
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -229,8 +230,8 @@
 
 # many renames
 
-  $ hg up -q tip
-  $ hg log -vf e
+  $ sl up -q tip
+  $ sl log -vf e
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
@@ -264,8 +265,8 @@
 
 # log -pf dir/b
 
-  $ hg up -q 'desc(d)'
-  $ hg log -pf dir/b
+  $ sl up -q 'desc(d)'
+  $ sl log -pf dir/b
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
@@ -301,7 +302,7 @@
 
 # log -pf b inside dir
 
-  $ hg '--cwd=dir' log -pf b
+  $ sl '--cwd=dir' log -pf b
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
@@ -337,7 +338,7 @@
 
 # log -pf, but no args
 
-  $ hg log -pf
+  $ sl log -pf
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:04 1970 +0000
@@ -428,7 +429,7 @@
 
 # log -vf dir/b
 
-  $ hg log -vf dir/b
+  $ sl log -vf dir/b
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
@@ -454,20 +455,20 @@
 
 # -f and multiple filelog heads
 
-  $ hg up -q 'desc(c)'
-  $ hg log -f g --template '{rev}\n'
+  $ sl up -q 'desc(c)'
+  $ sl log -f g --template '{rev}\n'
   2
   1
   0
-  $ hg up -q tip
-  $ hg log -f g --template '{rev}\n'
+  $ sl up -q tip
+  $ sl log -f g --template '{rev}\n'
   3
   2
   0
 
 # log copies with --copies
 
-  $ hg log -vC --template '{rev} {file_copies}\n'
+  $ sl log -vC --template '{rev} {file_copies}\n'
   4 e (dir/b)
   3 b (a)g (f)
   2 dir/b (b)
@@ -476,7 +477,7 @@
 
 # log copies switch without --copies, with old filecopy template
 
-  $ hg log -v --template '{rev} {file_copies_switch%filecopy}\n'
+  $ sl log -v --template '{rev} {file_copies_switch%filecopy}\n'
   4 
   3 
   2 
@@ -485,7 +486,7 @@
 
 # log copies switch with --copies
 
-  $ hg log -vC --template '{rev} {file_copies_switch}\n'
+  $ sl log -vC --template '{rev} {file_copies_switch}\n'
   4 e (dir/b)
   3 b (a)g (f)
   2 dir/b (b)
@@ -494,7 +495,7 @@
 
 # log copies with hardcoded style and with --style=default
 
-  $ hg log -vC -r4
+  $ sl log -vC -r4
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
@@ -502,7 +503,7 @@
   copies:      e (dir/b)
   description:
   e
-  $ hg log -vC -r4 '--style=default'
+  $ sl log -vC -r4 '--style=default'
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
@@ -510,7 +511,7 @@
   copies:      e (dir/b)
   description:
   e
-  $ hg log -vC -r4 -Tjson
+  $ sl log -vC -r4 -Tjson
   [
    {
     "rev": 4,
@@ -529,25 +530,25 @@
 
 # log copies, non-linear manifest
 
-  $ hg up -C 'desc(d)'
+  $ sl up -C 'desc(d)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg mv dir/b e
+  $ sl mv dir/b e
   $ echo foo > foo
-  $ hg ci -Ame2 -d '6 0'
+  $ sl ci -Ame2 -d '6 0'
   adding foo
-  $ hg log -v --template '{rev} {file_copies}\n' -r 5
+  $ sl log -v --template '{rev} {file_copies}\n' -r 5
   5 e (dir/b)
 
 #if execbit
   $ chmod +x e
-  $ hg ci -me3 -d '7 0'
-  $ hg log -v --template '{rev} {file_copies}\n' -r 6
+  $ sl ci -me3 -d '7 0'
+  $ sl log -v --template '{rev} {file_copies}\n' -r 6
   6 
 #endif
 
 # log -p d
 
-  $ hg log -pv d
+  $ sl log -pv d
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:04 1970 +0000
@@ -564,7 +565,7 @@
 
 # log --removed file
 
-  $ hg log --removed -v a
+  $ sl log --removed -v a
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:04 1970 +0000
@@ -582,7 +583,7 @@
 
 # log --removed revrange file
 
-  $ hg log --removed -v '-r0:2' a
+  $ sl log --removed -v '-r0:2' a
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -593,25 +594,25 @@
 
 # log --follow tests
 
-  $ hg init follow
+  $ sl init follow
   $ cd follow
 
   $ echo base > base
-  $ hg ci -Ambase -d '1 0'
+  $ sl ci -Ambase -d '1 0'
   adding base
 
   $ echo r1 >> base
-  $ hg ci -Amr1 -d '1 0'
+  $ sl ci -Amr1 -d '1 0'
   $ echo r2 >> base
-  $ hg ci -Amr2 -d '1 0'
+  $ sl ci -Amr2 -d '1 0'
 
-  $ hg up -C 'desc(r1)'
+  $ sl up -C 'desc(r1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo b1 > b1
 
 # log -r "follow('set:clean()')"
 
-  $ hg log -r 'follow('\''set:clean()'\'')'
+  $ sl log -r 'follow('\''set:clean()'\'')'
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -622,12 +623,12 @@
   date:        Thu Jan 01 00:00:01 1970 +0000
   summary:     r1
 
-  $ hg ci -Amb1 -d '1 0'
+  $ sl ci -Amb1 -d '1 0'
   adding b1
 
 # log -f
 
-  $ hg log -f
+  $ sl log -f
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -645,7 +646,7 @@
 
 # log -r follow('glob:b*')
 
-  $ hg log -r 'follow('\''glob:b*'\'')'
+  $ sl log -r 'follow('\''glob:b*'\'')'
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -663,12 +664,12 @@
 
 # log -f -r '1 + 4'
 
-  $ hg up -C 'desc(base)'
+  $ sl up -C 'desc(base)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo b2 > b2
-  $ hg ci -Amb2 -d '1 0'
+  $ sl ci -Amb2 -d '1 0'
   adding b2
-  $ hg log -f -r '1 + 4'
+  $ sl log -f -r '1 + 4'
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -686,7 +687,7 @@
 
 # log -r "follow('set:grep(b2)')"
 
-  $ hg log -r 'follow('\''set:grep(b2)'\'')'
+  $ sl log -r 'follow('\''set:grep(b2)'\'')'
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -694,8 +695,8 @@
 
 # log -r "follow('set:grep(b2)', 4)"
 
-  $ hg up -qC 'desc(base)'
-  $ hg log -r 'follow('\''set:grep(b2)'\'', 4)'
+  $ sl up -qC 'desc(base)'
+  $ sl log -r 'follow('\''set:grep(b2)'\'', 4)'
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -703,17 +704,17 @@
 
 # follow files starting from multiple revisions:
 
-  $ hg log -T '{rev}: {files}\n' -r 'follow('\''glob:b?'\'', startrev=2+3+4)'
+  $ sl log -T '{rev}: {files}\n' -r 'follow('\''glob:b?'\'', startrev=2+3+4)'
   3: b1
   4: b2
 
 # follow files starting from empty revision:
 
-  $ hg log -T '{rev}: {files}\n' -r 'follow('\''glob:*'\'', startrev=.-.)'
+  $ sl log -T '{rev}: {files}\n' -r 'follow('\''glob:*'\'', startrev=.-.)'
 
 # follow starting from revisions:
 
-  $ hg log -Gq -r 'follow(startrev=2+4)'
+  $ sl log -Gq -r 'follow(startrev=2+4)'
   o  ddb82e70d1a1
   │
   │ o  60c670bf5b30
@@ -724,36 +725,36 @@
 
 # follow the current revision:
 
-  $ hg log -Gq -r 'follow()'
+  $ sl log -Gq -r 'follow()'
   @  67e992f2c4f3
 
-  $ hg up -qC 'desc(b2)'
+  $ sl up -qC 'desc(b2)'
 
 # log -f -r null
 
-  $ hg log -f -r null
+  $ sl log -f -r null
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
-  $ hg log -f -r null -G
+  $ sl log -f -r null -G
   o  commit:      000000000000
      user:
      date:        Thu Jan 01 00:00:00 1970 +0000
 
 # log -f with null parent
 
-  $ hg up -C null
+  $ sl up -C null
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg log -f
+  $ sl log -f
 
 # log -r .  with two parents
 
-  $ hg up -C 'desc(b1)'
+  $ sl up -C 'desc(b1)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg merge tip
+  $ sl merge tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg log -r .
+  $ sl log -r .
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -761,19 +762,19 @@
 
 # log -r .  with one parent
 
-  $ hg ci -mm12 -d '1 0'
-  $ hg log -r .
+  $ sl ci -mm12 -d '1 0'
+  $ sl log -r .
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
   summary:     m12
 
   $ echo postm >> b1
-  $ hg ci -Amb1.1 '-d1 0'
+  $ sl ci -Amb1.1 '-d1 0'
 
 # log --follow-first
 
-  $ hg log --follow-first
+  $ sl log --follow-first
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -801,7 +802,7 @@
 
 # log -P 2
 
-  $ hg log -P 2
+  $ sl log -P 2
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -824,7 +825,7 @@
 
 # log -r tip -p --git
 
-  $ hg log -r tip -p --git
+  $ sl log -r tip -p --git
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -839,19 +840,19 @@
 
 # log -r ""
 
-  $ hg log -r ''
-  hg: parse error: empty query
+  $ sl log -r ''
+  sl: parse error: empty query
   [255]
 
 # log -r <some unknown node id>
 
-  $ hg log -r 1000000000000000000000000000000000000000
+  $ sl log -r 1000000000000000000000000000000000000000
   abort: unknown revision '1000000000000000000000000000000000000000'!
   [255]
 
 # log -k r1
 
-  $ hg log -k r1
+  $ sl log -k r1
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -859,7 +860,7 @@
 
 # log -p -l2 --color=always
 
-  $ hg --config 'extensions.color=' --config 'color.mode=ansi' log -p -l2 '--color=always'
+  $ sl --config 'extensions.color=' --config 'color.mode=ansi' log -p -l2 '--color=always'
   [0m[1m[93mcommit:      2404bbcab562[0m
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -885,7 +886,7 @@
 
 # log -r tip --stat
 
-  $ hg log -r tip --stat
+  $ sl log -r tip --stat
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -899,28 +900,28 @@
 # log --follow --patch FILE in repository where linkrev isn't trustworthy
 # (issue5376)
 
-  $ hg init follow-dup
+  $ sl init follow-dup
   $ cd follow-dup
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [ui]
   > logtemplate = '=== {rev}: {desc}\n'
   > [diff]
   > nodates = True
   > EOF
   $ echo 0 >> a
-  $ hg ci -qAm a0
+  $ sl ci -qAm a0
   $ echo 1 >> a
-  $ hg ci -m a1
-  $ hg up -q 'desc(a0)'
+  $ sl ci -m a1
+  $ sl up -q 'desc(a0)'
   $ echo 1 >> a
   $ touch b
-  $ hg ci -qAm 'a1 with b'
+  $ sl ci -qAm 'a1 with b'
   $ echo 3 >> a
-  $ hg ci -m a3
+  $ sl ci -m a3
 
 #  fctx.rev() == 2, but fctx.linkrev() == 1
 
-  $ hg log -pf a
+  $ sl log -pf a
   === 3: a3
   diff -r * -r * a (glob)
   --- a/a
@@ -947,8 +948,8 @@
 
 #  fctx.introrev() == 2, but fctx.linkrev() == 1
 
-  $ hg up -q 'desc("a1 with b")'
-  $ hg log -pf a
+  $ sl up -q 'desc("a1 with b")'
+  $ sl log -pf a
   === 2: a1 with b
   diff -r * -r * a (glob)
   --- a/a
@@ -968,35 +969,35 @@
 
 # Multiple copy sources of a file:
 
-  $ hg init follow-multi
+  $ sl init follow-multi
   $ cd follow-multi
   $ echo 0 >> a
-  $ hg ci -qAm a
-  $ hg cp a b
-  $ hg ci -m 'a->b'
+  $ sl ci -qAm a
+  $ sl cp a b
+  $ sl ci -m 'a->b'
   $ echo 2 >> a
-  $ hg ci -m a
+  $ sl ci -m a
   $ echo 3 >> b
-  $ hg ci -m b
+  $ sl ci -m b
   $ echo 4 >> a
   $ echo 4 >> b
-  $ hg ci -m 'a,b'
+  $ sl ci -m 'a,b'
   $ echo 5 >> a
-  $ hg ci -m a0
+  $ sl ci -m a0
   $ echo 6 >> b
-  $ hg ci -m b0
-  $ hg up -q "desc('a,b')"
+  $ sl ci -m b0
+  $ sl up -q "desc('a,b')"
   $ echo 7 >> b
-  $ hg ci -m b1
+  $ sl ci -m b1
   $ echo 8 >> a
-  $ hg ci -m a1
-  $ hg rm a
-  $ hg mv b a
-  $ hg ci -m 'b1->a1'
-  $ hg merge -qt ':local'
-  $ hg ci -m '(a0,b1->a1)->a'
+  $ sl ci -m a1
+  $ sl rm a
+  $ sl mv b a
+  $ sl ci -m 'b1->a1'
+  $ sl merge -qt ':local'
+  $ sl ci -m '(a0,b1->a1)->a'
 
-  $ hg log -GT '{rev}: {desc}\n'
+  $ sl log -GT '{rev}: {desc}\n'
   @    10: (a0,b1->a1)->a
   ├─╮
   │ o  9: b1->a1
@@ -1022,7 +1023,7 @@
 #  since file 'a' has multiple copy sources at the revision 4, ancestors can't
 #  be indexed solely by fctx.linkrev().
 
-  $ hg log -T '{rev}: {desc}\n' -f a
+  $ sl log -T '{rev}: {desc}\n' -f a
   10: (a0,b1->a1)->a
   9: b1->a1
   7: b1
@@ -1038,32 +1039,32 @@
 # Test that log should respect the order of -rREV even if multiple OR conditions
 # are specified (issue5100):
 
-  $ hg init revorder
+  $ sl init revorder
   $ cd revorder
 
-  $ hg book -q b0
+  $ sl book -q b0
   $ echo 0 >> f0
-  $ hg ci -qAm k0 -u u0
-  $ hg book -q b1
+  $ sl ci -qAm k0 -u u0
+  $ sl book -q b1
   $ echo 1 >> f1
-  $ hg ci -qAm k1 -u u1
-  $ hg book -q b2
+  $ sl ci -qAm k1 -u u1
+  $ sl book -q b2
   $ echo 2 >> f2
-  $ hg ci -qAm k2 -u u2
+  $ sl ci -qAm k2 -u u2
 
-  $ hg goto -q b2
+  $ sl goto -q b2
   $ echo 3 >> f2
-  $ hg ci -qAm k2 -u u2
-  $ hg goto -q b1
+  $ sl ci -qAm k2 -u u2
+  $ sl goto -q b1
   $ echo 4 >> f1
-  $ hg ci -qAm k1 -u u1
-  $ hg goto -q b0
+  $ sl ci -qAm k1 -u u1
+  $ sl goto -q b0
   $ echo 5 >> f0
-  $ hg ci -qAm k0 -u u0
+  $ sl ci -qAm k0 -u u0
 
 #  summary of revisions:
 
-  $ hg log -G -T '{rev} {bookmarks} {author} {desc} {files}\n'
+  $ sl log -G -T '{rev} {bookmarks} {author} {desc} {files}\n'
   @  5 b0 u0 k0 f0
   │
   │ o  4 b1 u1 k1 f1
@@ -1078,12 +1079,12 @@
 
 #  log -u USER in ascending order, against compound set:
 
-  $ hg log '-r::head()' -T '{rev} {author}\n' -u u0 -u u2
+  $ sl log '-r::head()' -T '{rev} {author}\n' -u u0 -u u2
   0 u0
   2 u2
   3 u2
   5 u0
-  $ hg log '-r::head()' -T '{rev} {author}\n' -u u2 -u u0
+  $ sl log '-r::head()' -T '{rev} {author}\n' -u u2 -u u0
   0 u0
   2 u2
   3 u2
@@ -1091,13 +1092,13 @@
 
 #  log -k TEXT in descending order, against compound set:
 
-  $ hg log '-r5 + reverse(::3)' -T '{rev} {desc}\n' -k k0 -k k1 -k k2
+  $ sl log '-r5 + reverse(::3)' -T '{rev} {desc}\n' -k k0 -k k1 -k k2
   5 k0
   3 k2
   2 k2
   1 k1
   0 k0
-  $ hg log '-r5 + reverse(::3)' -T '{rev} {desc}\n' -k k2 -k k1 -k k0
+  $ sl log '-r5 + reverse(::3)' -T '{rev} {desc}\n' -k k2 -k k1 -k k0
   5 k0
   3 k2
   2 k2
@@ -1106,12 +1107,12 @@
 
 #  log FILE in ascending order, against dagrange:
 
-  $ hg log '-r1::' -T '{rev} {files}\n' f1 f2
+  $ sl log '-r1::' -T '{rev} {files}\n' f1 f2
   1 f1
   2 f2
   3 f2
   4 f1
-  $ hg log '-r1::' -T '{rev} {files}\n' f2 f1
+  $ sl log '-r1::' -T '{rev} {files}\n' f2 f1
   1 f1
   2 f2
   3 f2
@@ -1121,22 +1122,22 @@
 
 # User
 
-  $ hg init usertest
+  $ sl init usertest
   $ cd usertest
 
   $ echo a > a
-  $ hg ci -A -m a -u 'User One <user1@example.org>'
+  $ sl ci -A -m a -u 'User One <user1@example.org>'
   adding a
   $ echo b > b
-  $ hg ci -A -m b -u 'User Two <user2@example.org>'
+  $ sl ci -A -m b -u 'User Two <user2@example.org>'
   adding b
 
-  $ hg log -u 'User One <user1@example.org>'
+  $ sl log -u 'User One <user1@example.org>'
   commit:      * (glob)
   user:        User One <user1@example.org>
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     a
-  $ hg log -u user1 -u user2
+  $ sl log -u user1 -u user2
   commit:      * (glob)
   user:        User Two <user2@example.org>
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1146,38 +1147,38 @@
   user:        User One <user1@example.org>
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     a
-  $ hg log -u user3
+  $ sl log -u user3
 
   $ cd ..
 
-  $ hg init branches
+  $ sl init branches
   $ cd branches
 
   $ echo a > a
-  $ hg ci -A -m 'commit on default'
+  $ sl ci -A -m 'commit on default'
   adding a
-  $ hg book test
+  $ sl book test
   $ echo b > b
-  $ hg ci -A -m 'commit on test'
+  $ sl ci -A -m 'commit on test'
   adding b
 
-  $ hg up default
+  $ sl up default
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark test)
   $ echo c > c
-  $ hg ci -A -m 'commit on default'
+  $ sl ci -A -m 'commit on default'
   adding c
-  $ hg up test
+  $ sl up test
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (activating bookmark test)
   $ echo c > c
-  $ hg ci -A -m 'commit on test'
+  $ sl ci -A -m 'commit on test'
   adding c
 
 #if false
 # Test that all log names are translated (e.g. branches, bookmarks):
 
-  $ hg bookmark babar -r tip
+  $ sl bookmark babar -r tip
 
   $ 'HGENCODING=UTF-8' 'LANGUAGE=de' hg log -r tip
   \xc3\x84nderung:        3:91f0fa364897 (esc)
@@ -1188,13 +1189,13 @@
   Nutzer:          test
   Datum:           Thu Jan 01 00:00:00 1970 +0000
   Zusammenfassung: commit on test
-  $ hg bookmark -d babar
+  $ sl bookmark -d babar
 #endif
 
 # log -p --cwd dir (in subdir)
 
   $ mkdir dir
-  $ hg log -p --cwd dir
+  $ sl log -p --cwd dir
   commit:      * (glob)
   bookmark:    test
   user:        test
@@ -1243,7 +1244,7 @@
 # log -p -R repo
 
   $ cd dir
-  $ hg log -p -R .. ../a
+  $ sl log -p -R .. ../a
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1257,7 +1258,7 @@
 
   $ cd ../..
 
-  $ hg init follow2
+  $ sl init follow2
   $ cd follow2
 
 # Build the following history:
@@ -1271,57 +1272,57 @@
 # "x" is a revision without "foo"
 
   $ touch init
-  $ hg ci -A -m 'init, unrelated'
+  $ sl ci -A -m 'init, unrelated'
   adding init
   $ echo foo > init
-  $ hg ci -m 'change, unrelated'
+  $ sl ci -m 'change, unrelated'
   $ echo foo > foo
-  $ hg ci -A -m 'add unrelated old foo'
+  $ sl ci -A -m 'add unrelated old foo'
   adding foo
-  $ hg rm foo
-  $ hg ci -m 'delete foo, unrelated'
+  $ sl rm foo
+  $ sl ci -m 'delete foo, unrelated'
   $ echo related > foo
-  $ hg ci -A -m 'add foo, related'
+  $ sl ci -A -m 'add foo, related'
   adding foo
 
-  $ hg up 'desc("init, unrelated")'
+  $ sl up 'desc("init, unrelated")'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ touch branch
-  $ hg ci -A -m 'first branch, unrelated'
+  $ sl ci -A -m 'first branch, unrelated'
   adding branch
   $ touch foo
-  $ hg ci -A -m 'create foo, related'
+  $ sl ci -A -m 'create foo, related'
   adding foo
   $ echo change > foo
-  $ hg ci -m 'change foo, related'
+  $ sl ci -m 'change foo, related'
 
-  $ hg up 'desc("create foo, related")'
+  $ sl up 'desc("create foo, related")'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo 'change foo in branch' > foo
-  $ hg ci -m 'change foo in branch, related'
-  $ hg merge "desc('change foo, related')"
+  $ sl ci -m 'change foo in branch, related'
+  $ sl merge "desc('change foo, related')"
   merging foo
-  warning: 1 conflicts while merging foo! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging foo! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ echo 'merge 1' > foo
-  $ hg resolve -m foo
+  $ sl resolve -m foo
   (no more unresolved files)
-  $ hg ci -m 'First merge, related'
+  $ sl ci -m 'First merge, related'
 
-  $ hg merge 4
+  $ sl merge 4
   merging foo
-  warning: 1 conflicts while merging foo! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging foo! (edit, then use 'sl resolve --mark')
   1 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ echo 'merge 2' > foo
-  $ hg resolve -m foo
+  $ sl resolve -m foo
   (no more unresolved files)
-  $ hg ci -m 'Last merge, related'
+  $ sl ci -m 'Last merge, related'
 
-  $ hg log --graph
+  $ sl log --graph
   @    commit:      4dae8563d2c5
   ├─╮  user:        test
   │ │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1377,7 +1378,7 @@
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     init, unrelated
 
-  $ hg --traceback log -f foo
+  $ sl --traceback log -f foo
   commit:      4dae8563d2c5
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1410,7 +1411,7 @@
 
 # Also check when maxrev < lastrevfilelog
 
-  $ hg --traceback log -f -r4 foo
+  $ sl --traceback log -f -r4 foo
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1424,36 +1425,36 @@
 
 # Issue2383: hg log showing _less_ differences than hg diff
 
-  $ hg init issue2383
+  $ sl init issue2383
   $ cd issue2383
 
 # Create a test repo:
 
   $ echo a > a
-  $ hg ci -Am0
+  $ sl ci -Am0
   adding a
   $ echo b > b
-  $ hg ci -Am1
+  $ sl ci -Am1
   adding b
-  $ hg co 'desc(0)'
+  $ sl co 'desc(0)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo b > a
-  $ hg ci -m2
+  $ sl ci -m2
 
 # Merge:
 
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
 # Make sure there's a file listed in the merge to trigger the bug:
 
   $ echo c > a
-  $ hg ci -m3
+  $ sl ci -m3
 
 # Two files shown here in diff:
 
-  $ hg diff --rev '2:3'
+  $ sl diff --rev '2:3'
   diff -r * -r * a (glob)
   --- a/a	Thu Jan 01 00:00:00 1970 +0000
   +++ b/a	Thu Jan 01 00:00:00 1970 +0000
@@ -1468,7 +1469,7 @@
 
 # Diff here should be the same:
 
-  $ hg log -vpr 3
+  $ sl log -vpr 3
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1490,17 +1491,17 @@
   +b
   $ cd ..
 
-# 'hg log -r rev fn' when last(filelog(fn)) != rev
+# 'sl log -r rev fn' when last(filelog(fn)) != rev
 
-  $ hg init simplelog
+  $ sl init simplelog
   $ cd simplelog
   $ echo f > a
-  $ hg ci -Ama -d '0 0'
+  $ sl ci -Ama -d '0 0'
   adding a
   $ echo f >> a
-  $ hg ci '-Ama bis' -d '1 0'
+  $ sl ci '-Ama bis' -d '1 0'
 
-  $ hg log -r0 a
+  $ sl log -r0 a
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1508,66 +1509,66 @@
 
 # compatibility with old tests
 
-  $ hg debugobsolete a765632148dc55d38c35c4f247c618701886cb2f
+  $ sl debugobsolete a765632148dc55d38c35c4f247c618701886cb2f
 
 # test that parent prevent a changeset to be hidden
 
-  $ hg up 'desc("a bis")' -q --hidden
-  $ hg log '--template={rev}:{node}\n'
+  $ sl up 'desc("a bis")' -q --hidden
+  $ sl log '--template={rev}:{node}\n'
   1:a765632148dc55d38c35c4f247c618701886cb2f
   0:9f758d63dcde62d547ebfb08e1e7ee96535f2b05
 
 # test that second parent prevent a changeset to be hidden too
 
-  $ hg debugsetparents 0 1
-  $ hg log '--template={rev}:{node}\n'
+  $ sl debugsetparents 0 1
+  $ sl log '--template={rev}:{node}\n'
   1:a765632148dc55d38c35c4f247c618701886cb2f
   0:9f758d63dcde62d547ebfb08e1e7ee96535f2b05
-  $ hg debugsetparents 1
-  $ hg up -q null
+  $ sl debugsetparents 1
+  $ sl up -q null
 
 # bookmarks prevent a changeset being hidden
 
-  $ hg bookmark --hidden -r 1 X
-  $ hg log --template '{rev}:{node}\n'
+  $ sl bookmark --hidden -r 1 X
+  $ sl log --template '{rev}:{node}\n'
   1:a765632148dc55d38c35c4f247c618701886cb2f
   0:9f758d63dcde62d547ebfb08e1e7ee96535f2b05
-  $ hg bookmark -d X
+  $ sl bookmark -d X
 
 # divergent bookmarks are not hidden
 
-  $ hg bookmark --hidden -r 1 'X@foo'
-  $ hg log --template '{rev}:{node}\n'
+  $ sl bookmark --hidden -r 1 'X@foo'
+  $ sl log --template '{rev}:{node}\n'
   1:a765632148dc55d38c35c4f247c618701886cb2f
   0:9f758d63dcde62d547ebfb08e1e7ee96535f2b05
 
 # test hidden revision 0 (issue5385)
 
-  $ hg bookmark -d 'X@foo'
-  $ hg up null -q
-  $ hg debugobsolete 9f758d63dcde62d547ebfb08e1e7ee96535f2b05
+  $ sl bookmark -d 'X@foo'
+  $ sl up null -q
+  $ sl debugobsolete 9f758d63dcde62d547ebfb08e1e7ee96535f2b05
   $ echo f > b
-  $ hg ci -Amb -d '2 0'
+  $ sl ci -Amb -d '2 0'
   adding b
   $ echo f >> b
-  $ hg ci '-mb bis' -d '3 0'
-  $ hg log '-T{rev}:{node}\n'
+  $ sl ci '-mb bis' -d '3 0'
+  $ sl log '-T{rev}:{node}\n'
   3:d7d28b288a6b83d5d2cf49f10c5974deed3a1d2e
   2:94375ec45bddd2a824535fc04855bd058c926ec0
 
-  $ hg log '-T{rev}:{node}\n' '-r:'
+  $ sl log '-T{rev}:{node}\n' '-r:'
   0:9f758d63dcde62d547ebfb08e1e7ee96535f2b05
   1:a765632148dc55d38c35c4f247c618701886cb2f
   2:94375ec45bddd2a824535fc04855bd058c926ec0
   3:d7d28b288a6b83d5d2cf49f10c5974deed3a1d2e
-  $ hg log '-T{rev}:{node}\n' '-r:tip'
+  $ sl log '-T{rev}:{node}\n' '-r:tip'
   0:9f758d63dcde62d547ebfb08e1e7ee96535f2b05
   1:a765632148dc55d38c35c4f247c618701886cb2f
   2:94375ec45bddd2a824535fc04855bd058c926ec0
   3:d7d28b288a6b83d5d2cf49f10c5974deed3a1d2e
-  $ hg log '-T{rev}:{node}\n' '-r:0'
+  $ sl log '-T{rev}:{node}\n' '-r:0'
   0:9f758d63dcde62d547ebfb08e1e7ee96535f2b05
-  $ hg log '-T{rev}:{node}\n' -f
+  $ sl log '-T{rev}:{node}\n' -f
   3:d7d28b288a6b83d5d2cf49f10c5974deed3a1d2e
   2:94375ec45bddd2a824535fc04855bd058c926ec0
 
@@ -1587,46 +1588,46 @@
   $ echo 1 > d4.hg/f1
   $ echo 1 > d5.d/f1
   $ echo 1 > .d6/f1
-  $ hg -q add .
-  $ hg commit -m 'a bunch of weird directories'
-  $ hg log -l1 d1/f1 -T '{node|short}'
+  $ sl -q add .
+  $ sl commit -m 'a bunch of weird directories'
+  $ sl log -l1 d1/f1 -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 f1
-  $ hg log -l1 . -T '{node|short}'
+  $ sl log -l1 f1
+  $ sl log -l1 . -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 ./ -T '{node|short}'
+  $ sl log -l1 ./ -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 d1 -T '{node|short}'
+  $ sl log -l1 d1 -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 D2 -T '{node|short}'
+  $ sl log -l1 D2 -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 D2/f1 -T '{node|short}'
+  $ sl log -l1 D2/f1 -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 D3.i -T '{node|short}'
+  $ sl log -l1 D3.i -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 D3.i/f1 -T '{node|short}'
+  $ sl log -l1 D3.i/f1 -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 d4.hg -T '{node|short}'
+  $ sl log -l1 d4.hg -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 d4.hg/f1 -T '{node|short}'
+  $ sl log -l1 d4.hg/f1 -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 d5.d -T '{node|short}'
+  $ sl log -l1 d5.d -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 d5.d/f1 -T '{node|short}'
+  $ sl log -l1 d5.d/f1 -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 .d6 -T '{node|short}'
+  $ sl log -l1 .d6 -T '{node|short}'
   07c07884437f (no-eol)
-  $ hg log -l1 .d6/f1 -T '{node|short}'
+  $ sl log -l1 .d6/f1 -T '{node|short}'
   07c07884437f (no-eol)
 
 # issue3772: hg log -r :null showing revision 0 as well
 
-  $ hg log -r ':null'
+  $ sl log -r ':null'
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     a bunch of weird directories
-  $ hg log -r 'null:null'
+  $ sl log -r 'null:null'
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1634,11 +1635,11 @@
 # working-directory revision requires special treatment
 # clean:
 
-  $ hg log -r 'wdir()' --debug
+  $ sl log -r 'wdir()' --debug
   phase:       draft
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
-  $ hg log -r 'wdir()' -p --stat
+  $ sl log -r 'wdir()' -p --stat
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
 
@@ -1646,27 +1647,27 @@
 
   $ echo 2 >> d1/f1
   $ echo 2 > d1/f2
-  $ hg add d1/f2
-  $ hg remove .d6/f1
-  $ hg status
+  $ sl add d1/f2
+  $ sl remove .d6/f1
+  $ sl status
   M d1/f1
   A d1/f2
   R .d6/f1
 
-  $ hg log -r 'wdir()'
+  $ sl log -r 'wdir()'
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
-  $ hg log -r 'wdir()' -q
+  $ sl log -r 'wdir()' -q
   ffffffffffff
 
-  $ hg log -r 'wdir()' --debug
+  $ sl log -r 'wdir()' --debug
   phase:       draft
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   files:       d1/f1
   files+:      d1/f2
   files-:      .d6/f1
-  $ hg log -r 'wdir()' -p --stat --git
+  $ sl log -r 'wdir()' -p --stat --git
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   
@@ -1693,7 +1694,7 @@
   +++ b/d1/f2
   @@ -0,0 +1,1 @@
   +2
-  $ hg log -r 'wdir()' -Tjson
+  $ sl log -r 'wdir()' -Tjson
   [
    {
     "rev": null,
@@ -1708,7 +1709,7 @@
    }
   ]
 
-  $ hg log -r 'wdir()' -Tjson -q
+  $ sl log -r 'wdir()' -Tjson -q
   [
    {
     "rev": null,
@@ -1716,7 +1717,7 @@
    }
   ]
 
-  $ hg log -r 'wdir()' -Tjson --debug
+  $ sl log -r 'wdir()' -Tjson --debug
   [
    {
     "rev": null,
@@ -1736,7 +1737,7 @@
    }
   ]
 
-  $ hg revert -aqC
+  $ sl revert -aqC
 
 # Check that adding an arbitrary name shows up in log automatically
 
@@ -1765,19 +1766,19 @@
   >     )
   > EOF
 
-  $ hg --config 'extensions.names=../names.py' log -r 0
+  $ sl --config 'extensions.names=../names.py' log -r 0
   commit:      * (glob)
   barlog:      foo
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     a bunch of weird directories
-  $ hg --config 'extensions.names=../names.py' --config 'extensions.color=' --config 'color.log.barcolor=red' '--color=always' log -r 0
+  $ sl --config 'extensions.names=../names.py' --config 'extensions.color=' --config 'color.log.barcolor=red' '--color=always' log -r 0
   \x1b[0m\x1b[1m\x1b[93mcommit:      07c07884437f\x1b[0m (esc)
   \x1b[31mbarlog:      foo\x1b[39m (esc)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     a bunch of weird directories
-  $ hg --config 'extensions.names=../names.py' log -r 0 --template '{bars}\n'
+  $ sl --config 'extensions.names=../names.py' log -r 0 --template '{bars}\n'
   foo
 
 # revert side effect of names.py
@@ -1788,16 +1789,16 @@
 # Templater parse errors:
 # simple error
 
-  $ hg log -r . -T '{shortest(node}'
-  hg: parse error at 15: unexpected token: end
+  $ sl log -r . -T '{shortest(node}'
+  sl: parse error at 15: unexpected token: end
   ({shortest(node}
                  ^ here)
   [255]
 
 # multi-line template with error
 
-  $ hg log -r . -T 'line 1\nline2\n{shortest(node}\nline4\nline5'
-  hg: parse error at 30: unexpected token: end
+  $ sl log -r . -T 'line 1\nline2\n{shortest(node}\nline4\nline5'
+  sl: parse error at 30: unexpected token: end
   (line 1\nline2\n{shortest(node}\nline4\nline5
                                 ^ here)
   [255]
@@ -1806,25 +1807,25 @@
 
 # hg log -f dir across branches
 
-  $ hg init acrossbranches
+  $ sl init acrossbranches
   $ cd acrossbranches
   $ mkdir d
   $ echo a > d/a
-  $ hg ci -Aqm a
+  $ sl ci -Aqm a
   $ echo b > d/a
-  $ hg ci -Aqm b
-  $ hg up -q 'desc(a)'
+  $ sl ci -Aqm b
+  $ sl up -q 'desc(a)'
   $ echo b > d/a
-  $ hg ci -Aqm c
-  $ hg log -f d -T '{desc}' -G
+  $ sl ci -Aqm c
+  $ sl log -f d -T '{desc}' -G
   @  c
   │
   o  a
-  $ hg log -f d -T '{desc}' -G
+  $ sl log -f d -T '{desc}' -G
   @  c
   │
   o  a
-  $ hg log -f d/a -T '{desc}' -G
+  $ sl log -f d/a -T '{desc}' -G
   @  c
   │
   o  a
@@ -1834,23 +1835,23 @@
 # -------------------------------------------------
 # create history with a filerev whose linkrev points to another branch
 
-  $ hg init branchedlinkrev
+  $ sl init branchedlinkrev
   $ cd branchedlinkrev
   $ echo 1 > a
-  $ hg commit -Am content1
+  $ sl commit -Am content1
   adding a
   $ echo 2 > a
-  $ hg commit -m content2
-  $ hg up --rev 'desc(content1)'
+  $ sl commit -m content2
+  $ sl up --rev 'desc(content1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo unrelated > unrelated
-  $ hg commit -Am unrelated
+  $ sl commit -Am unrelated
   adding unrelated
-  $ hg graft -r 'desc(content2)'
+  $ sl graft -r 'desc(content2)'
   grafting 2294ae80ad84 "content2"
   $ echo 3 > a
-  $ hg commit -m content3
-  $ hg log -G
+  $ sl commit -m content3
+  $ sl log -G
   @  commit:      * (glob)
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1878,7 +1879,7 @@
 
 # log -f on the file should list the graft result.
 
-  $ hg log -Gf a
+  $ sl log -Gf a
   @  commit:      * (glob)
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1897,7 +1898,7 @@
 # plain log lists the original version
 # (XXX we should probably list both)
 
-  $ hg log -G a
+  $ sl log -G a
   @  commit:      * (glob)
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1916,9 +1917,9 @@
 # hg log -f from the grafted changeset
 # (The bootstrap should properly take the topology in account)
 
-  $ hg up 'desc(content3)^'
+  $ sl up 'desc(content3)^'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg log -Gf a
+  $ sl log -Gf a
   @  commit:      * (glob)
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1932,10 +1933,10 @@
 # Test that we use the first non-hidden changeset in that case.
 # (hide the changeset)
 
-  $ hg log -T '{node}\n' -r 1
+  $ sl log -T '{node}\n' -r 1
   2294ae80ad8447bc78383182eeac50cb049df623
-  $ hg debugobsolete 2294ae80ad8447bc78383182eeac50cb049df623
-  $ hg log -G
+  $ sl debugobsolete 2294ae80ad8447bc78383182eeac50cb049df623
+  $ sl log -G
   o  commit:      * (glob)
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1958,7 +1959,7 @@
 
 # Check that log on the file does not drop the file revision.
 
-  $ hg log -G a
+  $ sl log -G a
   o  commit:      * (glob)
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1971,10 +1972,10 @@
 
 # Even when a head revision is linkrev-shadowed.
 
-  $ hg log -T '{node}\n' -r 4
+  $ sl log -T '{node}\n' -r 4
   50b9b36e9c5df2c6fc6dcefa8ad0da929e84aed2
-  $ hg debugobsolete 50b9b36e9c5df2c6fc6dcefa8ad0da929e84aed2
-  $ hg log -G a
+  $ sl debugobsolete 50b9b36e9c5df2c6fc6dcefa8ad0da929e84aed2
+  $ sl log -G a
   o  commit:      * (glob)
      user:        test
      date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1984,26 +1985,26 @@
 
 # Even when the file revision is missing from some head:
 
-  $ hg init issue4490
+  $ sl init issue4490
   $ cd issue4490
-  $ echo '[experimental]' >> .hg/hgrc
-  $ echo 'evolution.createmarkers=True' >> .hg/hgrc
+  $ echo '[experimental]' >> .sl/config
+  $ echo 'evolution.createmarkers=True' >> .sl/config
   $ echo a > a
-  $ hg ci -Am0
+  $ sl ci -Am0
   adding a
   $ echo b > b
-  $ hg ci -Am1
+  $ sl ci -Am1
   adding b
   $ echo B > b
-  $ hg ci --amend -m 1
-  $ hg up 'desc(0)'
+  $ sl ci --amend -m 1
+  $ sl up 'desc(0)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo c > c
-  $ hg ci -Am2
+  $ sl ci -Am2
   adding c
-  $ hg up 'head() and not .'
+  $ sl up 'head() and not .'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg log -G
+  $ sl log -G
   o  commit:      * (glob)
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -2018,12 +2019,12 @@
      user:        test
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     0
-  $ hg log -f -G b
+  $ sl log -f -G b
   @  commit:      * (glob)
   │  user:        test
   ~  date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     1
-  $ hg log -G b
+  $ sl log -G b
   @  commit:      * (glob)
   │  user:        test
   ~  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -2033,28 +2034,28 @@
 # Check proper report when the manifest changes but not the file issue4499
 # ------------------------------------------------------------------------
 
-  $ hg init issue4499
+  $ sl init issue4499
   $ cd issue4499
 
   $ for f in A B C D E F G H I J K L M N O P Q R S T U; do
   >   echo 1 > $f
   > done
 
-  $ hg add A B C D E F G H I J K L M N O P Q R S T U
+  $ sl add A B C D E F G H I J K L M N O P Q R S T U
 
-  $ hg commit -m A1B1C1
+  $ sl commit -m A1B1C1
   $ echo 2 > A
   $ echo 2 > B
   $ echo 2 > C
-  $ hg commit -m A2B2C2
-  $ hg up 'desc(A1B1C1)'
+  $ sl commit -m A2B2C2
+  $ sl up 'desc(A1B1C1)'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo 3 > A
   $ echo 2 > B
   $ echo 2 > C
-  $ hg commit -m A3B2C2
+  $ sl commit -m A3B2C2
 
-  $ hg log -G
+  $ sl log -G
   @  commit:      * (glob)
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -2072,7 +2073,7 @@
 
 # Log -f on B should reports current changesets
 
-  $ hg log -fG B
+  $ sl log -fG B
   @  commit:      fe5fc3d0eb17
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000

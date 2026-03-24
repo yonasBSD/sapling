@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable rebase
 
@@ -14,8 +15,8 @@ Simple case:
   >  \ /
   >   A
   > EOS
-  $ hg debugmakepublic $A::$B
-  $ hg rebase -b $Y -d $X
+  $ sl debugmakepublic $A::$B
+  $ sl rebase -b $Y -d $X
   rebasing d2ed191ef6cc "Y"
   $ tglog
   o  089ea1cc331c 'Y'
@@ -36,10 +37,10 @@ Rebasing public commits:
   > |/
   > A
   > EOS
-  $ hg debugmakepublic $A::$C
-  $ hg rebase -b $C -d $X
+  $ sl debugmakepublic $A::$C
+  $ sl rebase -b $C -d $X
   nothing to rebase from 26805aba1e60 to bacc19fa7254
-  $ hg rebase -b $C -d $X --keep
+  $ sl rebase -b $C -d $X --keep
   rebasing 112478962961 "B" (public/112478962961147124edd43549aedd1a335e44bf)
   rebasing 26805aba1e60 "C" (public/26805aba1e600a82e93661149f2313866a221a7b)
   $ tglog
@@ -74,9 +75,9 @@ Rebasing commits with multiple ancestors:
   >   |
   >   A
   > EOS
-  $ hg debugmakepublic $A::$E
+  $ sl debugmakepublic $A::$E
   $ cp -R ~/multiancestor ~/multiancestor2
-  $ hg rebase -b $Z -d $Y
+  $ sl rebase -b $Z -d $Y
   rebasing bf8908ebeb46 "G"
   rebasing 93c4dd93872a "I"
   rebasing c4691414b4ba "F"
@@ -108,7 +109,7 @@ Rebasing commits with multiple ancestors:
   o  426bada5c675 'A'
   
   $ cd ~/multiancestor2
-  $ hg rebase -b $Z -d $X
+  $ sl rebase -b $Z -d $X
   rebasing be0ef73c17ad "D"
   rebasing bf8908ebeb46 "G"
   rebasing 93c4dd93872a "I"
