@@ -104,7 +104,7 @@ pub(crate) struct TestManifestId(u64);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct TestManifest(
-    BTreeMap<MPathElement, Entry<TestManifestId, (FileType, TestLeafId)>>,
+    pub(crate) BTreeMap<MPathElement, Entry<TestManifestId, (FileType, TestLeafId)>>,
 );
 
 impl TestManifest {

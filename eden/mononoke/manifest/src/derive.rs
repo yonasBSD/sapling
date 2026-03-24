@@ -298,11 +298,12 @@ where
                 }),
             ),
             parents: parents.into_iter().collect(),
-            parent_replacements: PathTree::from_iter(
-                subtree_changes
-                    .into_iter()
-                    .map(|r| (r.path, Some(r.replacements))),
-            ),
+            parent_replacements: PathTree::from_iter(subtree_changes.into_iter().map(|r| {
+                (
+                    r.path.remove_prefix_component(&prefix),
+                    Some(r.replacements),
+                )
+            })),
             // Strip prefix from known_entries keys.
             known_entries: PathTree::from_iter(known_entries.into_iter().map(
                 |(path, maybe_entry)| (path.remove_prefix_component(&prefix), Some(maybe_entry)),
