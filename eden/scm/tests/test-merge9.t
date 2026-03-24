@@ -10,72 +10,73 @@
 # test that we don't interrupt the merge session if
 # a file-level merge failed
 
+  $ export HGIDENTITY=sl
   $ setconfig commands.update.check=none
 
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo foo > foo
   $ echo a > bar
-  $ hg ci -Am 'add foo'
+  $ sl ci -Am 'add foo'
   adding bar
   adding foo
 
-  $ hg mv foo baz
+  $ sl mv foo baz
   $ echo b >> bar
   $ echo quux > quux1
-  $ hg ci -Am 'mv foo baz'
+  $ sl ci -Am 'mv foo baz'
   adding quux1
 
-  $ hg up -qC 'desc("add foo")'
+  $ sl up -qC 'desc("add foo")'
   $ echo >> foo
   $ echo c >> bar
   $ echo quux > quux2
-  $ hg ci -Am 'change foo'
+  $ sl ci -Am 'change foo'
   adding quux2
 
 # test with the rename on the remote side
 
-  $ HGMERGE=false hg merge
+  $ HGMERGE=false sl merge
   merging bar
   merging foo and baz to baz
   merging bar failed!
   1 files updated, 1 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg resolve -l
+  $ sl resolve -l
   U bar
   R baz
 
 # test with the rename on the local side
 
-  $ hg up -C 'desc("mv foo")'
+  $ sl up -C 'desc("mv foo")'
   3 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ HGMERGE=false hg merge
+  $ HGMERGE=false sl merge
   merging bar
   merging baz and foo to baz
   merging bar failed!
   1 files updated, 1 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
 # show unresolved
 
-  $ hg resolve -l
+  $ sl resolve -l
   U bar
   R baz
 
 # unmark baz
 
-  $ hg resolve -u baz
+  $ sl resolve -u baz
 
 # show
 
-  $ hg resolve -l
+  $ sl resolve -l
   U bar
   U baz
-  $ hg st
+  $ sl st
   M bar
   M baz
   M quux2
@@ -83,32 +84,32 @@
 
 # re-resolve baz
 
-  $ hg resolve baz
+  $ sl resolve baz
   merging baz and foo to baz
 
 # after resolve
 
-  $ hg resolve -l
+  $ sl resolve -l
   U bar
   R baz
 
 # resolve all warning
 
-  $ hg resolve
+  $ sl resolve
   abort: no files or directories specified
   (use --all to re-merge all unresolved files)
   [255]
 
 # resolve all
 
-  $ hg resolve -a
+  $ sl resolve -a
   merging bar
-  warning: 1 conflicts while merging bar! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar! (edit, then use 'sl resolve --mark')
   [1]
 
 # after
 
-  $ hg resolve -l
+  $ sl resolve -l
   U bar
   R baz
 

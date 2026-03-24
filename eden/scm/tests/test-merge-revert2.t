@@ -7,61 +7,62 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig commands.update.check=none
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo 'added file1' > file1
   $ echo 'another line of text' >> file1
   $ echo 'added file2' > file2
-  $ hg add file1 file2
-  $ hg commit -m 'added file1 and file2'
+  $ sl add file1 file2
+  $ sl commit -m 'added file1 and file2'
 
   $ echo 'changed file1' >> file1
-  $ hg commit -m 'changed file1'
+  $ sl commit -m 'changed file1'
 
-  $ hg -q log
+  $ sl -q log
   dfab7f3c2efb
   c3fa057dd86f
-  $ hg id
+  $ sl id
   dfab7f3c2efb
 
-  $ hg goto -C c3fa057dd86f
+  $ sl goto -C c3fa057dd86f
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg id
+  $ sl id
   c3fa057dd86f
 
   $ echo 'changed file1' >> file1
-  $ hg id
+  $ sl id
   c3fa057dd86f+
 
-  $ hg revert --no-backup --all
+  $ sl revert --no-backup --all
   reverting file1
-  $ hg diff
-  $ hg status
-  $ hg id
+  $ sl diff
+  $ sl status
+  $ sl id
   c3fa057dd86f
 
-  $ hg goto tip
+  $ sl goto tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg diff
-  $ hg status
-  $ hg id
+  $ sl diff
+  $ sl status
+  $ sl id
   dfab7f3c2efb
 
-  $ hg goto -C c3fa057dd86f
+  $ sl goto -C c3fa057dd86f
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo 'changed file1 different' >> file1
 
-  $ hg goto tip
+  $ sl goto tip
   merging file1
-  warning: 1 conflicts while merging file1! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file1! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
 
-  $ hg diff --nodates
+  $ sl diff --nodates
   diff -r dfab7f3c2efb file1
   --- a/file1
   +++ b/file1
@@ -74,31 +75,31 @@
    changed file1
   +>>>>>>> destination:  dfab7f3c2efb - test: changed file1
 
-  $ hg status
+  $ sl status
   M file1
   ? file1.orig
-  $ hg id
+  $ sl id
   dfab7f3c2efb+
 
-  $ hg revert --no-backup --all
+  $ sl revert --no-backup --all
   reverting file1
-  $ hg diff
-  $ hg status
+  $ sl diff
+  $ sl status
   ? file1.orig
-  $ hg id
+  $ sl id
   dfab7f3c2efb
 
-  $ hg revert -r tip --no-backup --all
-  $ hg diff
-  $ hg status
+  $ sl revert -r tip --no-backup --all
+  $ sl diff
+  $ sl status
   ? file1.orig
-  $ hg id
+  $ sl id
   dfab7f3c2efb
 
-  $ hg goto -C .
+  $ sl goto -C .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg diff
-  $ hg status
+  $ sl diff
+  $ sl status
   ? file1.orig
-  $ hg id
+  $ sl id
   dfab7f3c2efb

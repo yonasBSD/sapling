@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ enable amend rebase
   $ setconfig merge.printcandidatecommmits=True
 
@@ -9,7 +10,7 @@
 
 Encountering a merge conflict prints the number of textual conflicts in each file:
   $ newrepo
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > e
   > |            # "b" has two conflicts between c and d:
   > c d          # b/b = 1\n2\n3\n4\n5\n6\n7\n8
@@ -20,17 +21,17 @@ Encountering a merge conflict prints the number of textual conflicts in each fil
   > |            # c/a = one
   > a            # d/a = two
   > EOS
-  $ hg rebase -r d -d e
+  $ sl rebase -r d -d e
   rebasing 211accd27e10 "d" (d)
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
    1 commits might have introduced this conflict:
     - [21906429c027] c
   merging b
-  warning: 2 conflicts while merging b! (edit, then use 'hg resolve --mark')
+  warning: 2 conflicts while merging b! (edit, then use 'sl resolve --mark')
    1 commits might have introduced this conflict:
     - [21906429c027] c
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat b
   <<<<<<< dest:   2c5d04f1a41f e - test: e
@@ -54,7 +55,7 @@ Encountering a merge conflict prints the number of textual conflicts in each fil
 
 A merge conflict prints the possible conflicting commits:
   $ newrepo
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > j
   > |            # d conflicts with c and h. e changed the file but doesn't
   > i            # conflict. We'll see that it gets included in the list as
@@ -75,17 +76,17 @@ A merge conflict prints the possible conflicting commits:
   > |            # g/a = one
   > a            # d/a = two
   > EOS
-  $ hg rebase -r d -d j
+  $ sl rebase -r d -d j
   rebasing 211accd27e10 "d" (d)
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
    1 commits might have introduced this conflict:
     - [395beecc0ab6] g
   merging b
-  warning: 2 conflicts while merging b! (edit, then use 'hg resolve --mark')
+  warning: 2 conflicts while merging b! (edit, then use 'sl resolve --mark')
    3 commits might have introduced this conflict:
     - [0942ca9aff3d] h
     - [3ebd0a462491] e
     - [3e5843b4b236] c
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]

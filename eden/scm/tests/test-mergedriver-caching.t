@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ enable rebase mergedriver undo
 
   $ setconfig drawdag.defaultfiles=false
@@ -24,14 +25,14 @@ In-memory rebase + merge driver not used:
   > A     # A/foo = a\nb\nc\n
   > EOS
 Don't reload the merge driver for every commit:
-  $ hg rebase -q -s $C -d $B --config rebase.experimental.inmemory=true
+  $ sl rebase -q -s $C -d $B --config rebase.experimental.inmemory=true
   EXPENSIVE
   PREPROCESS
   PREPROCESS
 
 On-disk rebase + merge driver not used:
-  $ hg undo -q
-  $ hg rebase -q -s $C -d $B --config rebase.experimental.inmemory=false
+  $ sl undo -q
+  $ sl rebase -q -s $C -d $B --config rebase.experimental.inmemory=false
   EXPENSIVE
   PREPROCESS
   EXPENSIVE

@@ -2,11 +2,12 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Setup
 
   $ enable myparent
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ touch foo
   $ cat >> ../commitmessage << EOF
@@ -26,74 +27,74 @@ Setup
   > 
   > Tags: mercurial
   > EOF
-  $ hg commit -qAl ../commitmessage
+  $ sl commit -qAl ../commitmessage
   $ touch bar
-  $ hg commit -qAm 'Differential Revision: https://phabricator.fb.com/D2'
+  $ sl commit -qAm 'Differential Revision: https://phabricator.fb.com/D2'
 
 All template keywords work if the current author matches the other of the
 previous commit.
 
-  $ hg log -T '{myparentdiff}\n' -r .
+  $ sl log -T '{myparentdiff}\n' -r .
   D42
-  $ hg log -T '{myparentreviewers}\n' -r .
+  $ sl log -T '{myparentreviewers}\n' -r .
   #sourcecontrol, rmcelroy
-  $ hg log -T '{myparentsubscribers}\n' -r .
+  $ sl log -T '{myparentsubscribers}\n' -r .
   rmcelroy, mjpieters
-  $ hg log -T '{myparenttasks}\n' -r .
+  $ sl log -T '{myparenttasks}\n' -r .
   1337
-  $ hg log -T '{myparenttitleprefix}\n' -r .
+  $ sl log -T '{myparenttitleprefix}\n' -r .
   [prefix]
-  $ hg log -T '{myparenttags}\n' -r .
+  $ sl log -T '{myparenttags}\n' -r .
   mercurial
 
 If the authors do not match the keywords will be empty.
 
-  $ hg commit -q --amend --user hacker2
-  $ hg log -T '{myparentdiff}' -r .
-  $ hg log -T '{myparentreviewers}' -r .
-  $ hg log -T '{myparentsubscribers}' -r .
-  $ hg log -T '{myparenttasks}' -r .
-  $ hg log -T '{myparenttitleprefix}' -r .
-  $ hg log -T '{myparenttags}' -r .
+  $ sl commit -q --amend --user hacker2
+  $ sl log -T '{myparentdiff}' -r .
+  $ sl log -T '{myparentreviewers}' -r .
+  $ sl log -T '{myparentsubscribers}' -r .
+  $ sl log -T '{myparenttasks}' -r .
+  $ sl log -T '{myparenttitleprefix}' -r .
+  $ sl log -T '{myparenttags}' -r .
 
 Ensure multiple prefixes tags are supported
 
   $ touch baz
-  $ hg commit -qAm '[long tag][ tag2][tag3 ] [tags must be connected] Adding baz'
+  $ sl commit -qAm '[long tag][ tag2][tag3 ] [tags must be connected] Adding baz'
   $ touch foobar
-  $ hg commit -qAm 'Child commit'
-  $ hg log -T '{myparenttitleprefix}\n' -r .
+  $ sl commit -qAm 'Child commit'
+  $ sl log -T '{myparenttitleprefix}\n' -r .
   [long tag][ tag2][tag3 ]
 
 Test colon prefix style
 
   $ touch qux
-  $ hg commit -qAm 'eden/fs: fix something'
+  $ sl commit -qAm 'eden/fs: fix something'
   $ touch quux
-  $ hg commit -qAm 'Child of colon style'
-  $ hg log -T '{myparenttitleprefix}\n' -r .
+  $ sl commit -qAm 'Child of colon style'
+  $ sl log -T '{myparenttitleprefix}\n' -r .
 
-  $ hg log -T '{myparenttitleprefix}\n' -r . --config myparent.prefix-style=colon
+  $ sl log -T '{myparenttitleprefix}\n' -r . --config myparent.prefix-style=colon
   eden/fs:
   $ touch corge
-  $ hg commit -qAm 'prefix/tag1/tag2: nested path style'
+  $ sl commit -qAm 'prefix/tag1/tag2: nested path style'
   $ touch grault
-  $ hg commit -qAm 'Another child'
-  $ hg log -T '{myparenttitleprefix}\n' -r . --config myparent.prefix-style=colon
+  $ sl commit -qAm 'Another child'
+  $ sl log -T '{myparenttitleprefix}\n' -r . --config myparent.prefix-style=colon
   prefix/tag1/tag2:
 
 Test colon style with spaces in prefix
 
   $ touch space1
-  $ hg commit -qAm 'rust/some project: add feature'
+  $ sl commit -qAm 'rust/some project: add feature'
   $ touch space2
-  $ hg commit -qAm 'child of spaced prefix'
-  $ hg log -T '{myparenttitleprefix}\n' -r . --config myparent.prefix-style=colon
+  $ sl commit -qAm 'child of spaced prefix'
+  $ sl log -T '{myparenttitleprefix}\n' -r . --config myparent.prefix-style=colon
   rust/some project:
 
 Make sure the template keywords are documented correctly
 
-  $ hg help templates | grep myparent
+  $ sl help templates | grep myparent
       myparentdiff  Show the differential revision of the commit's parent, if it
       myparentreviewers
       myparentsubscribers

@@ -8,38 +8,39 @@
 # GNU General Public License version 2 or any later version.
 
 
+  $ export HGIDENTITY=sl
   $ newclientrepo base
 
   $ echo alpha > alpha
-  $ hg ci -A -m 'add alpha'
+  $ sl ci -A -m 'add alpha'
   adding alpha
-  $ hg push -q --to book --create
+  $ sl push -q --to book --create
   $ cd ..
 
   $ newclientrepo work base_server book
 
   $ echo beta > beta
-  $ hg ci -A -m 'add beta'
+  $ sl ci -A -m 'add beta'
   adding beta
   $ cd ..
 
   $ cd base
   $ echo gamma > gamma
-  $ hg ci -A -m 'add gamma'
+  $ sl ci -A -m 'add gamma'
   adding gamma
-  $ hg push -q --to book
+  $ sl push -q --to book
   $ cd ..
 
   $ cd work
-  $ hg pull -q
-  $ hg merge
+  $ sl pull -q
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
 # Update --clean to revision 1 to simulate a failed merge:
 
   $ rm alpha beta gamma
-  $ hg goto --clean 'desc(beta)'
+  $ sl goto --clean 'desc(beta)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ cd ..

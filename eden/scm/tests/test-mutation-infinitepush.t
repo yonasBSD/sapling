@@ -1,6 +1,7 @@
 #chg-compatible
 #require bash no-eden
 
+  $ export HGIDENTITY=sl
   $ enable amend rebase histedit fbhistedit
   $ setconfig experimental.evolution=obsolete
   $ setconfig visibility.enabled=true
@@ -13,47 +14,47 @@
   $ newserver repo
   $ setupserver
   $ cd ..
-  $ hg clone ssh://user@dummy/repo client -q
+  $ sl clone ssh://user@dummy/repo client -q
   $ cd client
   $ mkcommit initialcommit
-  $ hg push -q -r . --create --to foo
+  $ sl push -q -r . --create --to foo
   $ mkcommit scratchcommit
 
 Make a scratch branch with an initial commit.
-  $ hg push -q -r . --to scratch/mybranch --create
+  $ sl push -q -r . --to scratch/mybranch --create
 
 Amend the commit a couple of times and push to the scratch branch again
-  $ hg amend -m "scratchcommit (amended 1)"
-  $ hg amend -m "scratchcommit (amended 2)"
-  $ hg push -q -r . --to scratch/mybranch --non-forward-move
+  $ sl amend -m "scratchcommit (amended 1)"
+  $ sl amend -m "scratchcommit (amended 2)"
+  $ sl push -q -r . --to scratch/mybranch --non-forward-move
 
 Clone the repo again, and pull the scratch branch.
   $ cd ..
-  $ hg clone ssh://user@dummy/repo client2 -q
+  $ sl clone ssh://user@dummy/repo client2 -q
   $ cd client2
-  $ hg pull -q -B scratch/mybranch
+  $ sl pull -q -B scratch/mybranch
 
 Amend the commit a couple of times again.
-  $ hg up tip
+  $ sl up tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg amend -m "scratchcommit (amended 3)"
-  $ hg amend -m "scratchcommit (amended 4)"
-  $ hg push -q -r . --to scratch/mybranch --non-forward-move
+  $ sl amend -m "scratchcommit (amended 3)"
+  $ sl amend -m "scratchcommit (amended 4)"
+  $ sl push -q -r . --to scratch/mybranch --non-forward-move
 
 Pull the branch back into the original repo.
   $ cd ..
   $ cd client
-  $ hg pull -B scratch/mybranch
+  $ sl pull -B scratch/mybranch
   pulling from ssh://user@dummy/repo
   searching for changes
   adding changesets
   adding manifests
   adding file changes
-  $ hg up -q tip
+  $ sl up -q tip
 
 We have the predecessor chain that links all versions of the commits.
 This works even though we are missing the third amended version.
-  $ hg log -r 'predecessors(.)' -T '{node|short} {desc}\n' --hidden
+  $ sl log -r 'predecessors(.)' -T '{node|short} {desc}\n' --hidden
   20759b6926ce scratchcommit
   ef7d26c88be0 scratchcommit (amended 1)
   598fd30ad501 scratchcommit (amended 2)
@@ -78,10 +79,10 @@ Something more complicated involving splits and folds.
   f1f3b31bcda8 f1f3b
   $ A=f9407b1692b9
   $ C=91713f37cee7
-  $ hg up -q $F
+  $ sl up -q $F
 
 Push commit A to a scratch branch, simulating a pushbackup.
-  $ hg push --to scratch/$A -r $A --create --hidden
+  $ sl push --to scratch/$A -r $A --create --hidden
   pushing to ssh://user@dummy/repo
   searching for changes
   remote: pushing 2 commits:
@@ -89,7 +90,7 @@ Push commit A to a scratch branch, simulating a pushbackup.
   remote:     f9407b1692b9  A
 
 Push the current commit to the scratch branch.
-  $ hg push --to scratch/mybranch -r .
+  $ sl push --to scratch/mybranch -r .
   pushing to ssh://user@dummy/repo
   searching for changes
   remote: pushing 3 commits:
@@ -100,29 +101,29 @@ Push the current commit to the scratch branch.
 Pull the scratch branch and commit A into the repo.
   $ cd ..
   $ cd client2
-  $ hg pull -q -B scratch/mybranch
-  $ hg pull -q -r $A
-  $ hg up -q $F
+  $ sl pull -q -B scratch/mybranch
+  $ sl pull -q -r $A
+  $ sl up -q $F
 
 The predecessor information successfully reaches from F to A
-  $ hg log -r "predecessors(.)" -T "{node|short} {desc}\n" --hidden
+  $ sl log -r "predecessors(.)" -T "{node|short} {desc}\n" --hidden
   9d3e6062ef0c F
   f9407b1692b9 A
 
 The successor information succesfully reaches from A to C and F (it was split)
-  $ hg log -r "successors($A)" -T "{node|short} {desc}\n" --hidden
+  $ sl log -r "successors($A)" -T "{node|short} {desc}\n" --hidden
   91713f37cee7 C
   9d3e6062ef0c F
   f9407b1692b9 A
 
 Clone the repo again, and pull an earlier commit.  This will cause the server to rebundle.
   $ cd ..
-  $ hg clone ssh://user@dummy/repo client3 -q
+  $ sl clone ssh://user@dummy/repo client3 -q
   $ cd client3
-  $ hg pull -q -r $C
+  $ sl pull -q -r $C
 
 Check the history of the commits has been included.
-  $ hg debugmutation -r f1f3b
+  $ sl debugmutation -r f1f3b
    *  f1f3b31bcda86dbc8fe6a31ba7c6893bee792127 amend by test at 1970-01-01T00:00:00 from:
       01c5cd3313b899dca3e059b77aa454e0e2b5df7b amend by test at 1970-01-01T00:00:00 from:
       598fd30ad50172d0389be262a242092f221bd196 amend by test at 1970-01-01T00:00:00 from:
@@ -131,10 +132,10 @@ Check the history of the commits has been included.
   
 
 Pulling in an earlier predecessor makes the predecessor show up.
-  $ hg pull -q -r $A
-  $ hg log -r "predecessors($C)" -T '{node} {desc}\n' --hidden
+  $ sl pull -q -r $A
+  $ sl log -r "predecessors($C)" -T '{node} {desc}\n' --hidden
   91713f37cee74b0145e53c32cf3fef354944ce4d C
   f9407b1692b919f7a3e45186464e2256e67c1be5 A
-  $ hg log -r "successors($A)" -T '{node} {desc}\n' --hidden
+  $ sl log -r "successors($A)" -T '{node} {desc}\n' --hidden
   91713f37cee74b0145e53c32cf3fef354944ce4d C
   f9407b1692b919f7a3e45186464e2256e67c1be5 A

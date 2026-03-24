@@ -2,45 +2,46 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig commands.update.check=none
 
 Criss cross merging
 
-  $ hg init criss-cross
+  $ sl init criss-cross
   $ cd criss-cross
   $ echo '0 base' > f1
   $ echo '0 base' > f2
-  $ hg ci -Aqm '0 base'
+  $ sl ci -Aqm '0 base'
 
   $ echo '1 first change' > f1
-  $ hg ci -m '1 first change f1'
+  $ sl ci -m '1 first change f1'
 
-  $ hg up -qr'desc(0)'
+  $ sl up -qr'desc(0)'
   $ echo '2 first change' > f2
   $ mkdir d1
   $ echo '0 base' > d1/f3
   $ echo '0 base' > d1/f4
-  $ hg add -q d1
-  $ hg ci -qm '2 first change f2'
+  $ sl add -q d1
+  $ sl ci -qm '2 first change f2'
 
-  $ hg merge -qr 'desc(1)'
-  $ hg rm d1/f3
-  $ hg mv -q d1 d2
-  $ hg ci -m '3 merge'
+  $ sl merge -qr 'desc(1)'
+  $ sl rm d1/f3
+  $ sl mv -q d1 d2
+  $ sl ci -m '3 merge'
 
-  $ hg up -qr'desc(2)'
-  $ hg merge -qr'desc(1)'
-  $ hg ci -qm '4 merge'
+  $ sl up -qr'desc(2)'
+  $ sl merge -qr'desc(1)'
+  $ sl ci -qm '4 merge'
 
   $ echo '5 second change' > f1
-  $ hg ci -m '5 second change f1'
+  $ sl ci -m '5 second change f1'
 
-  $ hg up -r'desc(3)'
+  $ sl up -r'desc(3)'
   2 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ echo '6 second change' > f2
-  $ hg ci -m '6 second change f2'
+  $ sl ci -m '6 second change f2'
 
-  $ hg log -G
+  $ sl log -G
   @  commit:      78d7b604d909
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -77,7 +78,7 @@ Criss cross merging
        summary:     0 base
   
 
-  $ hg merge -v --debug --tool internal:dump 'desc(5)' --config merge.preferancestor='!'
+  $ sl merge -v --debug --tool internal:dump 'desc(5)' --config merge.preferancestor='!'
   note: using 0e415ae82418 as ancestor of 78d7b604d909 and f05367a88590
         alternatively, use --config merge.preferancestor=0f6b37dbe527
   resolving manifests
@@ -94,7 +95,7 @@ Criss cross merging
   picked tool ':dump' for path=f1 binary=False symlink=False changedelete=False
   my f1@78d7b604d909+ other f1@f05367a88590 ancestor f1@0e415ae82418
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ f --dump --recurse *
@@ -128,22 +129,22 @@ Criss cross merging
   6 second change
   <<<
 
-  $ hg up -qC .
-  $ hg merge -v --tool internal:dump 'desc(5)' --config merge.preferancestor="null 40663881 3b08d"
+  $ sl up -qC .
+  $ sl merge -v --tool internal:dump 'desc(5)' --config merge.preferancestor="null 40663881 3b08d"
   note: using 0e415ae82418 as ancestor of 78d7b604d909 and f05367a88590
         alternatively, use --config merge.preferancestor=0f6b37dbe527
   resolving manifests
   merging f1
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
 Redo merge with merge.preferancestor="*" to enable bid merge
 dagcopytrace only support copy tracing at file level
 
   $ rm f*
-  $ hg up -qC .
-  $ hg merge -v --debug --tool internal:dump 'desc(5)' --config merge.preferancestor="*"
+  $ sl up -qC .
+  $ sl merge -v --debug --tool internal:dump 'desc(5)' --config merge.preferancestor="*"
   note: merging 78d7b604d909+ and f05367a88590 using bids from ancestors 0e415ae82418 and 0f6b37dbe527
   
   calculating bids for ancestor 0e415ae82418
@@ -206,9 +207,9 @@ dagcopytrace only support copy tracing at file level
 
 The other way around:
 
-  $ hg up -C -r'desc(5)'
+  $ sl up -C -r'desc(5)'
   4 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg merge -v --debug --config merge.preferancestor="*"
+  $ sl merge -v --debug --config merge.preferancestor="*"
   note: merging f05367a88590+ and 78d7b604d909 using bids from ancestors 0e415ae82418 and 0f6b37dbe527
   
   calculating bids for ancestor 0e415ae82418
@@ -266,13 +267,13 @@ The other way around:
 
 Verify how the output looks and how verbose it is:
 
-  $ hg up -qC .
-  $ hg merge
+  $ sl up -qC .
+  $ sl merge
   2 files updated, 0 files merged, 2 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
-  $ hg up -qC tip
-  $ hg merge -v
+  $ sl up -qC tip
+  $ sl merge -v
   note: merging 78d7b604d909+ and f05367a88590 using bids from ancestors 0e415ae82418 and 0f6b37dbe527
   
   calculating bids for ancestor 0e415ae82418
@@ -294,8 +295,8 @@ Verify how the output looks and how verbose it is:
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
-  $ hg up -qC tip
-  $ hg merge -v --debug --config merge.preferancestor="*"
+  $ sl up -qC tip
+  $ sl merge -v --debug --config merge.preferancestor="*"
   note: merging 78d7b604d909+ and f05367a88590 using bids from ancestors 0e415ae82418 and 0f6b37dbe527
   
   calculating bids for ancestor 0e415ae82418
@@ -335,26 +336,26 @@ Verify how the output looks and how verbose it is:
 
 http://stackoverflow.com/questions/9350005/how-do-i-specify-a-merge-base-to-use-in-a-hg-merge/9430810
 
-  $ hg init ancestor-merging
+  $ sl init ancestor-merging
   $ cd ancestor-merging
   $ echo a > x
-  $ hg commit -A -m a x
-  $ hg goto -q 'desc(a)'
+  $ sl commit -A -m a x
+  $ sl goto -q 'desc(a)'
   $ echo b >> x
-  $ hg commit -m b
-  $ hg goto -q 'desc(a)'
+  $ sl commit -m b
+  $ sl goto -q 'desc(a)'
   $ echo c >> x
-  $ hg commit -qm c
-  $ hg goto -q 'desc(b)'
-  $ hg merge -q --tool internal:local 'desc(c)'
+  $ sl commit -qm c
+  $ sl goto -q 'desc(b)'
+  $ sl merge -q --tool internal:local 'desc(c)'
   $ echo c >> x
-  $ hg commit -m bc
-  $ hg goto -q b211bbc6eb3cb30e4cbf0ad2d34159554dfb4ec8
-  $ hg merge -q --tool internal:local 70008a2163f6ed1dec3130b2fd23f815019a6c85
+  $ sl commit -m bc
+  $ sl goto -q b211bbc6eb3cb30e4cbf0ad2d34159554dfb4ec8
+  $ sl merge -q --tool internal:local 70008a2163f6ed1dec3130b2fd23f815019a6c85
   $ echo b >> x
-  $ hg commit -qm cb
+  $ sl commit -qm cb
 
-  $ hg merge --config merge.preferancestor='!'
+  $ sl merge --config merge.preferancestor='!'
   note: using b211bbc6eb3c as ancestor of 0d355fdef312 and 4b8b546a3eef
         alternatively, use --config merge.preferancestor=70008a2163f6
   merging x
@@ -366,9 +367,9 @@ http://stackoverflow.com/questions/9350005/how-do-i-specify-a-merge-base-to-use-
   c
   b
 
-  $ hg up -qC .
+  $ sl up -qC .
 
-  $ hg merge --config merge.preferancestor=b211bbc6eb3c
+  $ sl merge --config merge.preferancestor=b211bbc6eb3c
   note: using b211bbc6eb3c as ancestor of 0d355fdef312 and 4b8b546a3eef
         alternatively, use --config merge.preferancestor=70008a2163f6
   merging x
@@ -380,9 +381,9 @@ http://stackoverflow.com/questions/9350005/how-do-i-specify-a-merge-base-to-use-
   c
   b
 
-  $ hg up -qC .
+  $ sl up -qC .
 
-  $ hg merge -v --config merge.preferancestor="*"
+  $ sl merge -v --config merge.preferancestor="*"
   note: merging 0d355fdef312+ and 4b8b546a3eef using bids from ancestors 70008a2163f6 and b211bbc6eb3c
   
   calculating bids for ancestor 70008a2163f6
@@ -409,13 +410,13 @@ http://stackoverflow.com/questions/9350005/how-do-i-specify-a-merge-base-to-use-
 
 merge.preferancestor does not affect revsets
 
-  $ hg log -r 'ancestor(head())' --config merge.preferancestor=1 -T '{node}\n'
+  $ sl log -r 'ancestor(head())' --config merge.preferancestor=1 -T '{node}\n'
   b211bbc6eb3cb30e4cbf0ad2d34159554dfb4ec8
-  $ hg log -r 'ancestor(head())' --config merge.preferancestor=2 -T '{node}\n'
+  $ sl log -r 'ancestor(head())' --config merge.preferancestor=2 -T '{node}\n'
   b211bbc6eb3cb30e4cbf0ad2d34159554dfb4ec8
-  $ hg log -r 'ancestor(head())' --config merge.preferancestor=3 -T '{node}\n'
+  $ sl log -r 'ancestor(head())' --config merge.preferancestor=3 -T '{node}\n'
   b211bbc6eb3cb30e4cbf0ad2d34159554dfb4ec8
-  $ hg log -r 'ancestor(head())' --config merge.preferancestor='1337 * - 2' -T '{node}\n'
+  $ sl log -r 'ancestor(head())' --config merge.preferancestor='1337 * - 2' -T '{node}\n'
   b211bbc6eb3cb30e4cbf0ad2d34159554dfb4ec8
 
   $ cd ..

@@ -3,15 +3,16 @@
 
 
 initial
+  $ export HGIDENTITY=sl
   $ newclientrepo test-a
   $ cat >test.txt <<"EOF"
   > 1
   > 2
   > 3
   > EOF
-  $ hg add test.txt
-  $ hg commit -m "Initial"
-  $ hg push -q --to book --create
+  $ sl add test.txt
+  $ sl commit -m "Initial"
+  $ sl push -q --to book --create
 
 clone
   $ newclientrepo test-b test-a_server book
@@ -23,8 +24,8 @@ change test-a
   > two
   > three
   > EOF
-  $ hg commit -m "Numbers as words"
-  $ hg push -q --to book
+  $ sl commit -m "Numbers as words"
+  $ sl push -q --to book
 
 change test-b
   $ cd ../test-b
@@ -33,17 +34,17 @@ change test-b
   > 2.5
   > 3
   > EOF
-  $ hg commit -m "2 -> 2.5"
+  $ sl commit -m "2 -> 2.5"
 
 now pull and merge from test-a
-  $ hg pull test:test-a_server
+  $ sl pull test:test-a_server
   pulling from test:test-a_server
   searching for changes
-  $ hg merge 'desc("Numbers as words")'
+  $ sl merge 'desc("Numbers as words")'
   merging test.txt
-  warning: 1 conflicts while merging test.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging test.txt! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 resolve conflict
   $ cat >test.txt <<"EOF"
@@ -52,9 +53,9 @@ resolve conflict
   > three
   > EOF
   $ rm -f *.orig
-  $ hg resolve -m test.txt
+  $ sl resolve -m test.txt
   (no more unresolved files)
-  $ hg commit -m "Merge 1"
+  $ sl commit -m "Merge 1"
 
 change test-a again
   $ cd ../test-a
@@ -63,15 +64,15 @@ change test-a again
   > two-point-one
   > three
   > EOF
-  $ hg commit -m "two -> two-point-one"
-  $ hg push -q --to book
+  $ sl commit -m "two -> two-point-one"
+  $ sl push -q --to book
 
 pull and merge from test-a again
   $ cd ../test-b
-  $ hg pull test:test-a_server
+  $ sl pull test:test-a_server
   pulling from test:test-a_server
   searching for changes
-  $ hg merge --debug
+  $ sl merge --debug
   resolving manifests
    branchmerge: True, force: False
    ancestor: 96b70246a118, local: 50c3a7e29886+, remote: 40d11a4173a8
@@ -81,9 +82,9 @@ pull and merge from test-a again
   picked tool ':merge' for path=test.txt binary=False symlink=False changedelete=False
   merging test.txt
   my test.txt@50c3a7e29886+ other test.txt@40d11a4173a8 ancestor test.txt@96b70246a118
-  warning: 1 conflicts while merging test.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging test.txt! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ cat test.txt
@@ -95,7 +96,7 @@ pull and merge from test-a again
   >>>>>>> merge rev:    40d11a4173a8 - test: two -> two-point-one
   three
 
-  $ hg log
+  $ sl log
   commit:      40d11a4173a8
   bookmark:    remote/book
   hoistedname: book

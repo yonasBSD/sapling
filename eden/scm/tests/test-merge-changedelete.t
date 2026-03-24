@@ -10,15 +10,16 @@ b5605d88dc27: Make ui.prompt repeat on "unrecognized response" again
  (issue556)
 
 Make sure HGMERGE doesn't interfere with the test
+  $ export HGIDENTITY=sl
   $ unset HGMERGE
 
   $ status() {
   >     echo "--- status ---"
-  >     hg st -A file1 file2 file3
+  >     sl st -A file1 file2 file3
   >     echo "--- resolve --list ---"
-  >     hg resolve --list file1 file2 file3
+  >     sl resolve --list file1 file2 file3
   >     echo "--- debugmergestate ---"
-  >     hg debugmergestate
+  >     sl debugmergestate
   >     for file in file1 file2 file3; do
   >         if [ -f $file ]; then
   >             echo "--- $file ---"
@@ -37,37 +38,37 @@ Make sure HGMERGE doesn't interfere with the test
   $ echo 1 > file1
   $ echo 2 > file2
   $ echo 3 > file3
-  $ hg ci -Am 'added files'
+  $ sl ci -Am 'added files'
   adding file1
   adding file2
   adding file3
 
-  $ hg rm file1
+  $ sl rm file1
   $ echo changed >> file2
   $ echo changed1 >> file3
-  $ hg ci -m 'removed file1, changed file2, changed file3'
+  $ sl ci -m 'removed file1, changed file2, changed file3'
 
-  $ hg co 'desc(added)'
+  $ sl co 'desc(added)'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ echo changed >> file1
-  $ hg rm file2
+  $ sl rm file2
   $ echo changed2 >> file3
-  $ hg ci -m 'changed file1, removed file2, changed file3'
+  $ sl ci -m 'changed file1, removed file2, changed file3'
 
 
 Non-interactive merge:
 
-  $ hg merge -y
+  $ sl merge -y
   local [working copy] changed file1 which other [merge rev] deleted
   use (c)hanged version, (d)elete, or leave (u)nresolved? u
   other [merge rev] changed file2 which local [working copy] is missing
   hint: the missing file was probably deleted by commit 13910f48cf7b in the branch rebasing onto
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? u
   merging file3
-  warning: 1 conflicts while merging file3! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file3! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 3 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ status
@@ -117,10 +118,10 @@ Non-interactive merge:
 
 Interactive merge:
 
-  $ hg co -C tip
+  $ sl co -C tip
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg merge --config ui.interactive=true <<EOF
+  $ sl merge --config ui.interactive=true <<EOF
   > c
   > d
   > EOF
@@ -130,9 +131,9 @@ Interactive merge:
   hint: the missing file was probably deleted by commit 13910f48cf7b in the branch rebasing onto
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? d
   merging file3
-  warning: 1 conflicts while merging file3! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file3! (edit, then use 'sl resolve --mark')
   0 files updated, 2 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ status
@@ -180,10 +181,10 @@ Interactive merge:
 
 Interactive merge with bad input:
 
-  $ hg co -C tip
+  $ sl co -C tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg merge --config ui.interactive=true <<EOF
+  $ sl merge --config ui.interactive=true <<EOF
   > foo
   > bar
   > d
@@ -206,9 +207,9 @@ Interactive merge with bad input:
   hint: the missing file was probably deleted by commit 13910f48cf7b in the branch rebasing onto
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? c
   merging file3
-  warning: 1 conflicts while merging file3! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file3! (edit, then use 'sl resolve --mark')
   0 files updated, 1 files merged, 1 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ status
@@ -256,10 +257,10 @@ Interactive merge with bad input:
 
 Interactive merge with not enough input:
 
-  $ hg co -C tip
+  $ sl co -C tip
   2 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg merge --config ui.interactive=true <<EOF
+  $ sl merge --config ui.interactive=true <<EOF
   > d
   > EOF
   local [working copy] changed file1 which other [merge rev] deleted
@@ -268,9 +269,9 @@ Interactive merge with not enough input:
   hint: the missing file was probably deleted by commit 13910f48cf7b in the branch rebasing onto
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? 
   merging file3
-  warning: 1 conflicts while merging file3! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file3! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 1 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ status
@@ -317,10 +318,10 @@ Interactive merge with not enough input:
 
 Choose local versions of files
 
-  $ hg co -C tip
+  $ sl co -C tip
   2 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg merge --tool :local
+  $ sl merge --tool :local
   0 files updated, 3 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ status 2>&1 | tee $TESTTMP/local.status
@@ -363,10 +364,10 @@ Choose local versions of files
 
 Choose other versions of files
 
-  $ hg co -C tip
+  $ sl co -C tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg merge --tool :other
+  $ sl merge --tool :other
   0 files updated, 2 files merged, 1 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ status 2>&1 | tee $TESTTMP/other.status
@@ -409,12 +410,12 @@ Choose other versions of files
 
 Fail
 
-  $ hg co -C tip
+  $ sl co -C tip
   2 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg merge --tool :fail
+  $ sl merge --tool :fail
   0 files updated, 0 files merged, 0 files removed, 3 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ status 2>&1 | tee $TESTTMP/fail.status
   --- status ---
@@ -458,10 +459,10 @@ Fail
 
 Force prompts with no input (should be similar to :fail)
 
-  $ hg co -C tip
+  $ sl co -C tip
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg merge --config ui.interactive=True --tool :prompt
+  $ sl merge --config ui.interactive=True --tool :prompt
   local [working copy] changed file1 which other [merge rev] deleted
   use (c)hanged version, (d)elete, or leave (u)nresolved? 
   other [merge rev] changed file2 which local [working copy] is missing
@@ -469,7 +470,7 @@ Force prompts with no input (should be similar to :fail)
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? 
   keep (l)ocal [working copy], take (o)ther [merge rev], or leave (u)nresolved for file3? 
   0 files updated, 0 files merged, 0 files removed, 3 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ status 2>&1 | tee $TESTTMP/prompt.status
   --- status ---
@@ -515,10 +516,10 @@ Force prompts with no input (should be similar to :fail)
 
 Force prompts
 
-  $ hg co -C tip
+  $ sl co -C tip
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg merge --tool :prompt
+  $ sl merge --tool :prompt
   local [working copy] changed file1 which other [merge rev] deleted
   use (c)hanged version, (d)elete, or leave (u)nresolved? u
   other [merge rev] changed file2 which local [working copy] is missing
@@ -526,7 +527,7 @@ Force prompts
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? u
   keep (l)ocal [working copy], take (o)ther [merge rev], or leave (u)nresolved for file3? u
   0 files updated, 0 files merged, 0 files removed, 3 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ status
   --- status ---
@@ -570,19 +571,19 @@ Force prompts
 
 Choose to merge all files
 
-  $ hg co -C tip
+  $ sl co -C tip
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
-  $ hg merge --tool :merge3
+  $ sl merge --tool :merge3
   local [working copy] changed file1 which other [merge rev] deleted
   use (c)hanged version, (d)elete, or leave (u)nresolved? u
   other [merge rev] changed file2 which local [working copy] is missing
   hint: the missing file was probably deleted by commit 13910f48cf7b in the branch rebasing onto
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? u
   merging file3
-  warning: 1 conflicts while merging file3! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file3! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 3 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ status
   --- status ---
@@ -640,8 +641,8 @@ invocations.)
   >     for tool in $tools; do
   >         echo "=== :$lasttool -> :$tool ==="
   >         ref="$TESTTMP/$tool.status"
-  >         hg resolve --unmark --all
-  >         hg resolve --tool ":$tool" --all --config ui.interactive=True
+  >         sl resolve --unmark --all
+  >         sl resolve --tool ":$tool" --all --config ui.interactive=True
   >         status > "$TESTTMP/compare.status" 2>&1
   >         echo '--- diff of status ---'
   >         if cmp "$TESTTMP/$tool.status" "$TESTTMP/compare.status" || diff -U8 "$TESTTMP/$tool.status" "$TESTTMP/compare.status"; then
@@ -734,18 +735,18 @@ invocations.)
 
 Non-interactive linear update
 
-  $ hg co -C 'desc(added)'
+  $ sl co -C 'desc(added)'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo changed >> file1
-  $ hg rm file2
-  $ hg goto 10f9a0a634e82080907e62f075ab119cbc565ea6 -y
+  $ sl rm file2
+  $ sl goto 10f9a0a634e82080907e62f075ab119cbc565ea6 -y
   local [working copy] changed file1 which other [destination] deleted
   use (c)hanged version, (d)elete, or leave (u)nresolved? u
   other [destination] changed file2 which local [working copy] is missing
   hint: if this is due to a renamed file, you can manually input the renamed path
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? u
   1 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ status
   --- status ---
@@ -783,11 +784,11 @@ Non-interactive linear update
 
 Choose local versions of files
 
-  $ hg co -C 'desc(added)'
+  $ sl co -C 'desc(added)'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo changed >> file1
-  $ hg rm file2
-  $ hg goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --tool :local
+  $ sl rm file2
+  $ sl goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --tool :local
   1 files updated, 2 files merged, 0 files removed, 0 files unresolved
   $ status 2>&1 | tee $TESTTMP/local.status
   --- status ---
@@ -823,11 +824,11 @@ Choose local versions of files
 
 Choose other versions of files
 
-  $ hg co -C 'desc(added)'
+  $ sl co -C 'desc(added)'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo changed >> file1
-  $ hg rm file2
-  $ hg goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --tool :other
+  $ sl rm file2
+  $ sl goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --tool :other
   1 files updated, 1 files merged, 1 files removed, 0 files unresolved
   $ status 2>&1 | tee $TESTTMP/other.status
   --- status ---
@@ -863,13 +864,13 @@ Choose other versions of files
 
 Fail
 
-  $ hg co -C 'desc(added)'
+  $ sl co -C 'desc(added)'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo changed >> file1
-  $ hg rm file2
-  $ hg goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --tool :fail
+  $ sl rm file2
+  $ sl goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --tool :fail
   1 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ status 2>&1 | tee $TESTTMP/fail.status
   --- status ---
@@ -907,18 +908,18 @@ Fail
 
 Force prompts with no input
 
-  $ hg co -C 'desc(added)'
+  $ sl co -C 'desc(added)'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo changed >> file1
-  $ hg rm file2
-  $ hg goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --config ui.interactive=True --tool :prompt
+  $ sl rm file2
+  $ sl goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --config ui.interactive=True --tool :prompt
   local [working copy] changed file1 which other [destination] deleted
   use (c)hanged version, (d)elete, or leave (u)nresolved? 
   other [destination] changed file2 which local [working copy] is missing
   hint: if this is due to a renamed file, you can manually input the renamed path
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? 
   1 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ status 2>&1 | tee $TESTTMP/prompt.status
   --- status ---
@@ -957,18 +958,18 @@ Force prompts with no input
 
 Choose to merge all files
 
-  $ hg co -C 'desc(added)'
+  $ sl co -C 'desc(added)'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo changed >> file1
-  $ hg rm file2
-  $ hg goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --tool :merge3
+  $ sl rm file2
+  $ sl goto 10f9a0a634e82080907e62f075ab119cbc565ea6 --tool :merge3
   local [working copy] changed file1 which other [destination] deleted
   use (c)hanged version, (d)elete, or leave (u)nresolved? u
   other [destination] changed file2 which local [working copy] is missing
   hint: if this is due to a renamed file, you can manually input the renamed path
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? u
   1 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ status
   --- status ---
@@ -1093,17 +1094,17 @@ Test transitions between different merge tools
   > EOS
 
 Take p1 (file deleted):
-  $ hg go -q $C
-  $ hg rebase -qd $B --tool :merge-local
-  $ hg st
+  $ sl go -q $C
+  $ sl rebase -qd $B --tool :merge-local
+  $ sl st
   $ cat file
   cat: file: $ENOENT$
   [1]
 
 Take p1 (contents "bar\n"):
-  $ hg go -q $C
-  $ hg rebase -qd $B --tool :merge-other
-  $ hg st
+  $ sl go -q $C
+  $ sl rebase -qd $B --tool :merge-other
+  $ sl st
   $ cat file
   bar
 

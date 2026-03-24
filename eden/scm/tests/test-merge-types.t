@@ -1,27 +1,28 @@
 #require symlink execbit no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig commands.update.check=none
   $ tellmeabout() {
   >   f -Dxt "$@"
   > }
 
-  $ hg init test1
+  $ sl init test1
   $ cd test1
 
   $ echo a > a
-  $ hg ci -Aqmadd
+  $ sl ci -Aqmadd
   $ chmod +x a
-  $ hg ci -mexecutable
+  $ sl ci -mexecutable
 
-  $ hg up -q 'desc(add)'
+  $ sl up -q 'desc(add)'
   $ rm a
   $ ln -s symlink a
-  $ hg ci -msymlink
+  $ sl ci -msymlink
 
 Symlink is local parent, executable is other:
 
-  $ hg merge --debug
+  $ sl merge --debug
   resolving manifests
    branchmerge: True, force: False
    ancestor: c334dc3be0da, local: 521a1e40188f+, remote: 3574f3e69b1c
@@ -32,30 +33,30 @@ Symlink is local parent, executable is other:
   merging a
   my a@521a1e40188f+ other a@3574f3e69b1c ancestor a@c334dc3be0da
   warning: internal :merge cannot merge symlinks for a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ tellmeabout a
   a -> symlink: link
-  $ hg resolve a --tool internal:other
+  $ sl resolve a --tool internal:other
   (no more unresolved files)
   $ tellmeabout a
   a: file, exe
   >>>
   a
   <<<
-  $ hg st
+  $ sl st
   M a
   ? a.orig
 
 Symlink is other parent, executable is local:
 
-  $ hg goto -C 'desc(executable)'
+  $ sl goto -C 'desc(executable)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg merge --debug --tool :union
+  $ sl merge --debug --tool :union
   resolving manifests
    branchmerge: True, force: False
    ancestor: c334dc3be0da, local: 3574f3e69b1c+, remote: 521a1e40188f
@@ -66,9 +67,9 @@ Symlink is other parent, executable is local:
   merging a
   my a@3574f3e69b1c+ other a@521a1e40188f ancestor a@c334dc3be0da
   warning: internal :union cannot merge symlinks for a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ tellmeabout a
@@ -77,10 +78,10 @@ Symlink is other parent, executable is local:
   a
   <<<
 
-  $ hg goto -C 'desc(executable)'
+  $ sl goto -C 'desc(executable)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg merge --debug --tool :merge3
+  $ sl merge --debug --tool :merge3
   resolving manifests
    branchmerge: True, force: False
    ancestor: c334dc3be0da, local: 3574f3e69b1c+, remote: 521a1e40188f
@@ -91,9 +92,9 @@ Symlink is other parent, executable is local:
   merging a
   my a@3574f3e69b1c+ other a@521a1e40188f ancestor a@c334dc3be0da
   warning: internal :merge3 cannot merge symlinks for a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ tellmeabout a
@@ -102,10 +103,10 @@ Symlink is other parent, executable is local:
   a
   <<<
 
-  $ hg goto -C 'desc(executable)'
+  $ sl goto -C 'desc(executable)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg merge --debug --tool :merge-local
+  $ sl merge --debug --tool :merge-local
   resolving manifests
    branchmerge: True, force: False
    ancestor: c334dc3be0da, local: 3574f3e69b1c+, remote: 521a1e40188f
@@ -124,10 +125,10 @@ Symlink is other parent, executable is local:
   a
   <<<
 
-  $ hg goto -C 'desc(executable)'
+  $ sl goto -C 'desc(executable)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg merge --debug --tool :merge-other
+  $ sl merge --debug --tool :merge-other
   resolving manifests
    branchmerge: True, force: False
    ancestor: c334dc3be0da, local: 3574f3e69b1c+, remote: 521a1e40188f
@@ -145,17 +146,17 @@ Symlink is other parent, executable is local:
 
 Update to link without local change should get us a symlink (issue3316):
 
-  $ hg up -C 'desc(add)'
+  $ sl up -C 'desc(add)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg up 'desc(symlink)'
+  $ sl up 'desc(symlink)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg st
+  $ sl st
 
 Update to link with local change should cause a merge prompt (issue3200):
 
-  $ hg up -Cq 'desc(add)'
+  $ sl up -Cq 'desc(add)'
   $ echo data > a
-  $ HGMERGE= hg up -y --debug 'desc(symlink)'
+  $ HGMERGE= sl up -y --debug 'desc(symlink)'
   resolving manifests
    branchmerge: False, force: False
    ancestor: c334dc3be0da, local: c334dc3be0da+, remote: 521a1e40188f
@@ -167,9 +168,9 @@ Update to link with local change should cause a merge prompt (issue3200):
   picked tool ':prompt' for path=a binary=False symlink=True changedelete=False
   keep (l)ocal [working copy], take (o)ther [destination], or leave (u)nresolved for a? u
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/a b/a
   old mode 120000
   new mode 100644
@@ -184,34 +185,34 @@ Update to link with local change should cause a merge prompt (issue3200):
 Test only 'l' change - happens rarely, except when recovering from situations
 where that was what happened.
 
-  $ hg init test2
+  $ sl init test2
   $ cd test2
   $ printf base > f
-  $ hg ci -Aqm0
+  $ sl ci -Aqm0
   $ echo file > f
   $ echo content >> f
-  $ hg ci -qm1
-  $ hg up -qr'desc(0)'
+  $ sl ci -qm1
+  $ sl up -qr'desc(0)'
   $ rm f
   $ ln -s base f
-  $ hg ci -qm2
-  $ hg merge
+  $ sl ci -qm2
+  $ sl merge
   merging f
   warning: internal :merge cannot merge symlinks for f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ tellmeabout f
   f -> base: link
 
-  $ hg up -Cqr'desc(1)'
-  $ hg merge
+  $ sl up -Cqr'desc(1)'
+  $ sl merge
   merging f
   warning: internal :merge cannot merge symlinks for f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ tellmeabout f
   f: file
@@ -224,34 +225,34 @@ where that was what happened.
 
 Test removed 'x' flag merged with change to symlink
 
-  $ hg init test3
+  $ sl init test3
   $ cd test3
   $ echo f > f
   $ chmod +x f
-  $ hg ci -Aqm0
+  $ sl ci -Aqm0
   $ chmod -x f
-  $ hg ci -qm1
-  $ hg up -qr'desc(0)'
+  $ sl ci -qm1
+  $ sl up -qr'desc(0)'
   $ rm f
   $ ln -s dangling f
-  $ hg ci -qm2
-  $ hg merge
+  $ sl ci -qm2
+  $ sl merge
   merging f
   warning: internal :merge cannot merge symlinks for f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ tellmeabout f
   f -> dangling: link
 
-  $ hg up -Cqr'desc(1)'
-  $ hg merge
+  $ sl up -Cqr'desc(1)'
+  $ sl merge
   merging f
   warning: internal :merge cannot merge symlinks for f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ tellmeabout f
   f: file
@@ -261,10 +262,10 @@ Test removed 'x' flag merged with change to symlink
 
 Test removed 'x' flag merged with content change - both ways
 
-  $ hg up -Cqr'desc(0)'
+  $ sl up -Cqr'desc(0)'
   $ echo change > f
-  $ hg ci -qm3
-  $ hg merge -r'desc(1)'
+  $ sl ci -qm3
+  $ sl merge -r'desc(1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ tellmeabout f
@@ -273,8 +274,8 @@ Test removed 'x' flag merged with content change - both ways
   change
   <<<
 
-  $ hg up -qCr'desc(1)'
-  $ hg merge -r'desc(3)'
+  $ sl up -qCr'desc(1)'
+  $ sl merge -r'desc(3)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ tellmeabout f
@@ -296,10 +297,10 @@ g: - vs l, same
 h: l vs l, different
 (where same means the filelog entry is shared and there thus is an ancestor!)
 
-  $ hg init test4
+  $ sl init test4
   $ cd test4
   $ echo 0 > 0
-  $ hg ci -Aqm0
+  $ sl ci -Aqm0
 
   $ echo 1 > a
   $ echo 1 > b
@@ -315,9 +316,9 @@ h: l vs l, different
   $ echo 1 > f
   $ printf x > g
   $ ln -s 1 h
-  $ hg ci -qAm1
+  $ sl ci -qAm1
 
-  $ hg up -qr'desc(0)'
+  $ sl up -qr'desc(0)'
   $ echo 2 > a
   $ echo 2 > b
   $ echo 2 > bx
@@ -328,30 +329,30 @@ h: l vs l, different
   $ ln -s 2 f
   $ ln -s x g
   $ ln -s 2 h
-  $ hg ci -Aqm2
+  $ sl ci -Aqm2
 
-  $ hg merge
+  $ sl merge
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   warning: cannot merge flags for b without common ancestor - keeping local flags
   merging b
-  warning: 1 conflicts while merging b! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging b! (edit, then use 'sl resolve --mark')
   merging bx
-  warning: 1 conflicts while merging bx! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bx! (edit, then use 'sl resolve --mark')
   warning: cannot merge flags for c without common ancestor - keeping local flags
   merging d
   warning: internal :merge cannot merge symlinks for d
-  warning: 1 conflicts while merging d! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging d! (edit, then use 'sl resolve --mark')
   merging f
   warning: internal :merge cannot merge symlinks for f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   merging h
   warning: internal :merge cannot merge symlinks for h
-  warning: 1 conflicts while merging h! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging h! (edit, then use 'sl resolve --mark')
   3 files updated, 0 files merged, 0 files removed, 6 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg resolve -l
+  $ sl resolve -l
   U a
   U b
   U bx
@@ -392,27 +393,27 @@ h: l vs l, different
   $ tellmeabout h
   h -> 2: link
 
-  $ hg up -Cqr'desc(1)'
-  $ hg merge
+  $ sl up -Cqr'desc(1)'
+  $ sl merge
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   warning: cannot merge flags for b without common ancestor - keeping local flags
   merging b
-  warning: 1 conflicts while merging b! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging b! (edit, then use 'sl resolve --mark')
   merging bx
-  warning: 1 conflicts while merging bx! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bx! (edit, then use 'sl resolve --mark')
   warning: cannot merge flags for c without common ancestor - keeping local flags
   merging d
   warning: internal :merge cannot merge symlinks for d
-  warning: 1 conflicts while merging d! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging d! (edit, then use 'sl resolve --mark')
   merging f
   warning: internal :merge cannot merge symlinks for f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   merging h
   warning: internal :merge cannot merge symlinks for h
-  warning: 1 conflicts while merging h! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging h! (edit, then use 'sl resolve --mark')
   3 files updated, 0 files merged, 0 files removed, 6 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ tellmeabout a
   a: file
@@ -471,15 +472,15 @@ Make sure we don't merge symlinks:
   > | C # C/link = one\ntwo\nbar (symlink)
   > |/
   > A   # A/link = one\ntwo\nthree (symlink)
-  $ hg go -q $B
-  $ hg merge -q --tool :merge-other
+  $ sl go -q $B
+  $ sl merge -q --tool :merge-other
   $ tellmeabout link
   link -> one
   two
   bar: link
 
-  $ hg go -qC $B
-  $ hg merge -q --tool :merge-local
+  $ sl go -qC $B
+  $ sl merge -q --tool :merge-local
   $ tellmeabout link
   link -> foo
   two

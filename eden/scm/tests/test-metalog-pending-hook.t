@@ -10,6 +10,7 @@ The test works as follows:
 - The `showpending` command running in subprocess checks the pending changes in
 metalog.
 
+  $ export HGIDENTITY=sl
   $ configure modern
 
   $ cat > ext.py << 'EOF'
@@ -26,8 +27,8 @@ metalog.
   >         ml["FOO"] = b"BAR"
   > EOF
 
-  $ setconfig 'hooks.pretxnclose=hg showpending' extensions.ext="$TESTTMP/ext.py"
+  $ setconfig 'hooks.pretxnclose=sl showpending' extensions.ext="$TESTTMP/ext.py"
 
   $ newrepo
-  $ hg triggerpending
+  $ sl triggerpending
   FOO: 'BAR'

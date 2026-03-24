@@ -2,8 +2,9 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 Base
@@ -16,7 +17,7 @@ Base
   > S
   > EOF
 
-  $ hg ci -m Base -q -A A
+  $ sl ci -m Base -q -A A
 
 Other
 
@@ -28,12 +29,12 @@ Other
   > S
   > EOF
 
-  $ hg ci -m Other -q
-  $ hg bookmark -qir. other
+  $ sl ci -m Other -q
+  $ sl bookmark -qir. other
 
 Local
 
-  $ hg up '.^' -q
+  $ sl up '.^' -q
 
   $ cat << EOF > A
   > S
@@ -45,13 +46,13 @@ Local
   > S
   > EOF
 
-  $ hg ci -m Local -q
+  $ sl ci -m Local -q
 
 If the diff algorithm tries to group multiple hunks into one. It will cause a
 merge conflict in the middle.
 
-  $ hg merge other -q -t :merge3
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
+  $ sl merge other -q -t :merge3
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
   [1]
 
   $ cat A
@@ -85,7 +86,7 @@ and everything gets auto resolved reasonably.
   > S
   > EOF
 
-  $ hg ci -m Base -q -A A
+  $ sl ci -m Base -q -A A
 
   $ cat << EOF > A
   > S
@@ -97,10 +98,10 @@ and everything gets auto resolved reasonably.
   > S
   > EOF
 
-  $ hg ci -m Other -q
-  $ hg bookmark -qir. other
+  $ sl ci -m Other -q
+  $ sl bookmark -qir. other
 
-  $ hg up '.^' -q
+  $ sl up '.^' -q
 
   $ cat << EOF > A
   > S
@@ -114,10 +115,10 @@ and everything gets auto resolved reasonably.
   > S
   > EOF
 
-  $ hg ci -m Local -q
+  $ sl ci -m Local -q
 
-  $ hg merge other -q -t :merge3
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
+  $ sl merge other -q -t :merge3
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
   [1]
 
   $ cat A

@@ -1,6 +1,7 @@
 #testcases rustcheckout pythoncheckout pythonrustcheckout
 
 #if rustcheckout
+  $ export HGIDENTITY=sl
   $ setconfig checkout.use-rust=true
 #endif
 
@@ -20,7 +21,7 @@
 
 Updating w/ noconflict prints the conflicting changes:
   $ newrepo
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > c            # c/b = foo
   > |            # c/a = bar
   > b            # c/z = foo
@@ -29,12 +30,12 @@ Updating w/ noconflict prints the conflicting changes:
   > |            # b/y = base
   > a
   > EOS
-  $ hg up b
+  $ sl up b
   4 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark b)
   $ echo "conflict" | tee a b y z
   conflict
-  $ hg up c
+  $ sl up c
   abort: 4 conflicting file changes:
    a
    b

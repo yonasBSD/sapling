@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure dummyssh
   $ enable amend rebase histedit fbhistedit fbcodereview absorb
@@ -17,18 +18,18 @@
   > EOF
   $ newrepo
   $ echo "base" > base
-  $ hg commit -Aqm base
+  $ sl commit -Aqm base
   $ echo "1" > file
-  $ hg commit -Aqm c1
+  $ sl commit -Aqm c1
 
 Amend
 
   $ for i in 2 3 4 5 6 7 8
   > do
   >   echo $i >> file
-  >   hg amend -m "c1 (amended $i)"
+  >   sl amend -m "c1 (amended $i)"
   > done
-  $ hg debugmutation
+  $ sl debugmutation
    *  cc809964b02448cb4c84c772b9beba99d4159cff amend by test at 1970-01-01T00:00:00 from:
       8b2e1bbf6c0bea98beb5615f7b1c49b8dc38a593 amend by test at 1970-01-01T00:00:00 from:
       4c454f4e96edd98561fa548e4c24acdcd11b4f75 amend by test at 1970-01-01T00:00:00 from:
@@ -38,19 +39,19 @@ Amend
       6d60953c6009fdd3d6bd870ad37c7f48ea6d1311 amend by test at 1970-01-01T00:00:00 from:
       c5d0fa8770bdde6ef311cc640a78a2f686be28b4
   
-  $ hg log -r . -T '{dict(predecessors)|json}\n'
+  $ sl log -r . -T '{dict(predecessors)|json}\n'
   {"predecessors": ["8b2e1bbf6c0bea98beb5615f7b1c49b8dc38a593"]}
 
 Rebase
 
   $ echo "a" > file2
-  $ hg commit -Aqm c2
+  $ sl commit -Aqm c2
   $ echo "a" > file3
-  $ hg commit -Aqm c3
-  $ hg rebase -q -s ".^" -d 'desc(base)'
-  $ hg rebase -q -s ".^" -d c5d0fa8770bdde6ef311cc640a78a2f686be28b4 --hidden
-  $ hg rebase -q -s ".^" -d 'max(desc(c1))' --hidden
-  $ hg debugmutation -r ".^::."
+  $ sl commit -Aqm c3
+  $ sl rebase -q -s ".^" -d 'desc(base)'
+  $ sl rebase -q -s ".^" -d c5d0fa8770bdde6ef311cc640a78a2f686be28b4 --hidden
+  $ sl rebase -q -s ".^" -d 'max(desc(c1))' --hidden
+  $ sl debugmutation -r ".^::."
    *  33ca17be2228dc288194daade1265b5de0222653 rebase by test at 1970-01-01T00:00:00 from:
       30184ea7dbf74f751464657e167173d1d531e700 rebase by test at 1970-01-01T00:00:00 from:
       dfd7d11783056958dfd2bb5479b3f84c71b698b9 rebase by test at 1970-01-01T00:00:00 from:
@@ -65,7 +66,7 @@ Rebase
 Metaedit
 
  (Before metaedit)
-  $ hg log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
+  $ sl log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
   @  c3 054edf9500f5 draft
   │
   o  c2 33ca17be2228 draft
@@ -74,9 +75,9 @@ Metaedit
   │
   o  base d20a80d4def3 draft
   
-  $ hg meta -m "c3 (metaedited)"
+  $ sl meta -m "c3 (metaedited)"
  (After metaedit)
-  $ hg log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
+  $ sl log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
   @  c3 (metaedited) 374724d5279b draft
   │
   o  c2 33ca17be2228 draft
@@ -85,7 +86,7 @@ Metaedit
   │
   o  base d20a80d4def3 draft
   
-  $ hg debugmutation
+  $ sl debugmutation
    *  374724d5279b5992bf6ec2ccb3d326844e36b4ba metaedit by test at 1970-01-01T00:00:00 from:
       054edf9500f5e849563bf6515446d74654e14fd0 rebase by test at 1970-01-01T00:00:00 from:
       f6dac11b6941b475383af15d69cd0b7363e045d0 rebase by test at 1970-01-01T00:00:00 from:
@@ -96,7 +97,7 @@ Metaedit
 Fold
 
  (Before fold)
-  $ hg log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
+  $ sl log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
   @  c3 (metaedited) 374724d5279b draft
   │
   o  c2 33ca17be2228 draft
@@ -105,11 +106,11 @@ Fold
   │
   o  base d20a80d4def3 draft
   
-  $ hg fold --from ".^"
+  $ sl fold --from ".^"
   2 changesets folded
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
  (After fold)
-  $ hg log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
+  $ sl log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
   @  c2
   │
   │
@@ -118,7 +119,7 @@ Fold
   │
   o  base d20a80d4def3 draft
   
-  $ hg debugmutation
+  $ sl debugmutation
    *  f05234144e37d59b175fa4283563aac4dfe81ec0 fold by test at 1970-01-01T00:00:00 from:
       |-  33ca17be2228dc288194daade1265b5de0222653 rebase by test at 1970-01-01T00:00:00 from:
       |   30184ea7dbf74f751464657e167173d1d531e700 rebase by test at 1970-01-01T00:00:00 from:
@@ -135,8 +136,8 @@ Split, leaving some changes left over at the end
 
   $ echo "b" >> file2
   $ echo "b" >> file3
-  $ hg commit -qm c4
-  $ hg split << EOF
+  $ sl commit -qm c4
+  $ sl split << EOF
   > y
   > y
   > n
@@ -159,7 +160,7 @@ Split, leaving some changes left over at the end
   examine changes to 'file3'? [Ynesfdaq?] n
   
   Done splitting? [yN] y
-  $ hg debugmutation -r ".^::."
+  $ sl debugmutation -r ".^::."
    *  7d383d1b236d896a5adeea8dc390b681e4ccb217
   
    *  9c2c451b82d046da459d807b11c42992324e4e33 split by test at 1970-01-01T00:00:00 (split into this and: 7d383d1b236d896a5adeea8dc390b681e4ccb217) from:
@@ -170,10 +171,10 @@ Split parent, selecting all changes at the end
 
   $ echo "c" >> file2
   $ echo "c" >> file3
-  $ hg commit -qm c5
+  $ sl commit -qm c5
   $ echo "d" >> file3
-  $ hg commit -qm c6
-  $ hg split ".^" << EOF
+  $ sl commit -qm c6
+  $ sl split ".^" << EOF
   > y
   > y
   > n
@@ -214,7 +215,7 @@ Split parent, selecting all changes at the end
 
 Split leaves the checkout at the top of the split commits
 
-  $ hg debugmutation -r ".^::tip"
+  $ sl debugmutation -r ".^::tip"
    *  36e4e93ec194346c3e5a0afefd426dbc14dcaf4a
   
    *  aa10382521dc0799a9ebc1235aa0783149ffcc4e split by test at 1970-01-01T00:00:00 (split into this and: 36e4e93ec194346c3e5a0afefd426dbc14dcaf4a) from:
@@ -227,7 +228,7 @@ Split leaves the checkout at the top of the split commits
 Amend with rebase afterwards (split info should not be propagated)
 
  (Before amend)
-  $ hg log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
+  $ sl log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
   o  c6 0623f07d148d draft
   │
   @  c5 aa10382521dc draft
@@ -246,10 +247,10 @@ Amend with rebase afterwards (split info should not be propagated)
   │
   o  base d20a80d4def3 draft
   
-  $ hg amend --rebase -m "c5 (split)"
+  $ sl amend --rebase -m "c5 (split)"
   rebasing 0623f07d148d "c6"
  (After amend)
-  $ hg log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
+  $ sl log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
   o  c6 c3b5428c707b draft
   │
   @  c5 (split) 48b076c1640c draft
@@ -268,7 +269,7 @@ Amend with rebase afterwards (split info should not be propagated)
   │
   o  base d20a80d4def3 draft
   
-  $ hg debugmutation -r ".::tip"
+  $ sl debugmutation -r ".::tip"
    *  48b076c1640c53afc98cc99922d034e17830a65d amend by test at 1970-01-01T00:00:00 from:
       aa10382521dc0799a9ebc1235aa0783149ffcc4e split by test at 1970-01-01T00:00:00 (split into this and: 36e4e93ec194346c3e5a0afefd426dbc14dcaf4a) from:
       be81d74b508c48b66c74f7c111188be611bb56a7
@@ -282,16 +283,16 @@ Histedit
 
   $ . "$TESTDIR/histedit-helpers.sh"
 
-  $ hg up tip
+  $ sl up tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo "e" >> file4
-  $ hg commit -Aqm c7
+  $ sl commit -Aqm c7
   $ echo "f" >> file4
-  $ hg commit -Aqm c8
+  $ sl commit -Aqm c8
   $ echo "g" >> file4
-  $ hg commit -Aqm c9
+  $ sl commit -Aqm c9
  (Before histedit)
-  $ hg log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
+  $ sl log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
   @  c9 b6ea0faadebf draft
   │
   o  c8 64a3bc96c043 draft
@@ -316,7 +317,7 @@ Histedit
   │
   o  base d20a80d4def3 draft
   
-  $ hg histedit 'max(desc(c1))' --commands - 2>&1 <<EOF | fixbundle
+  $ sl histedit 'max(desc(c1))' --commands - 2>&1 <<EOF | fixbundle
   > pick cc809964b024
   > pick f05234144e37
   > fold 7d383d1b236d
@@ -329,7 +330,7 @@ Histedit
   > pick b6ea0faadebf
   > EOF
  (After histedit)
-  $ hg log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
+  $ sl log -Gr 'all() + draft()' -T '{desc} {node|short} {phase}'
   @  c9 3c3b86a5a351 draft
   │
   o  c6 dd5d0e1bc12e draft
@@ -346,7 +347,7 @@ Histedit
   │
   o  base d20a80d4def3 draft
   
-  $ hg debugmutation -r cc809964b02448cb4c84c772b9beba99d4159cff::tip
+  $ sl debugmutation -r cc809964b02448cb4c84c772b9beba99d4159cff::tip
    *  cc809964b02448cb4c84c772b9beba99d4159cff amend by test at 1970-01-01T00:00:00 from:
       8b2e1bbf6c0bea98beb5615f7b1c49b8dc38a593 amend by test at 1970-01-01T00:00:00 from:
       4c454f4e96edd98561fa548e4c24acdcd11b4f75 amend by test at 1970-01-01T00:00:00 from:
@@ -393,7 +394,7 @@ Histedit
 
 Revsets
 
-  $ hg log -T '{node}\n' -r 'predecessors(1851fa2d6ef0)' --hidden
+  $ sl log -T '{node}\n' -r 'predecessors(1851fa2d6ef0)' --hidden
   a0d726ccf2422e2cbfe7b06d3dc3f81b064b05aa
   d139edd196dd2b5a298932fdd696b96cd8101982
   dfd7d11783056958dfd2bb5479b3f84c71b698b9
@@ -415,7 +416,7 @@ Revsets
   5dbe0bac3aa7743362af3b46d69ea19ea84fd35a
   76fad0d9f8585b5d315b140cf784130e4a23ba28
   1851fa2d6ef001f121536b4d076e8ec6c01e3b34
-  $ hg log -T '{node}\n' -r 'predecessors(1851fa2d6ef0,3)' --hidden
+  $ sl log -T '{node}\n' -r 'predecessors(1851fa2d6ef0,3)' --hidden
   9c2c451b82d046da459d807b11c42992324e4e33
   be81d74b508c48b66c74f7c111188be611bb56a7
   36e4e93ec194346c3e5a0afefd426dbc14dcaf4a
@@ -425,25 +426,25 @@ Revsets
   5dbe0bac3aa7743362af3b46d69ea19ea84fd35a
   76fad0d9f8585b5d315b140cf784130e4a23ba28
   1851fa2d6ef001f121536b4d076e8ec6c01e3b34
-  $ hg log -T '{node}\n' -r 'predecessors(c3b5428c707b)' --hidden
+  $ sl log -T '{node}\n' -r 'predecessors(c3b5428c707b)' --hidden
   0529c1ec7df66092602017d0a5f372316d0bc360
   0623f07d148d6446aeb15deb7ead4cb6f62135ef
   c3b5428c707bb5ec79935064ec9a83084fee1afb
-  $ hg log -T '{node}\n' -r 'predecessors(0529c1ec7df6)' --hidden
+  $ sl log -T '{node}\n' -r 'predecessors(0529c1ec7df6)' --hidden
   0529c1ec7df66092602017d0a5f372316d0bc360
 
-  $ hg log -T '{node}\n' -r 'successors(0529c1ec7df6)' --hidden
+  $ sl log -T '{node}\n' -r 'successors(0529c1ec7df6)' --hidden
   0529c1ec7df66092602017d0a5f372316d0bc360
   0623f07d148d6446aeb15deb7ead4cb6f62135ef
   c3b5428c707bb5ec79935064ec9a83084fee1afb
   e0e94ae5d0b0429f35bb3e14d1532fc861122e32
   e1a0d5ae83cecdbf2a65995535ea1a3cd2009ab8
   dd5d0e1bc12eb7fb11debaa39287fb24c16a80d8
-  $ hg log -T '{node}\n' -r 'successors(0529c1ec7df6,2)' --hidden
+  $ sl log -T '{node}\n' -r 'successors(0529c1ec7df6,2)' --hidden
   0529c1ec7df66092602017d0a5f372316d0bc360
   0623f07d148d6446aeb15deb7ead4cb6f62135ef
   c3b5428c707bb5ec79935064ec9a83084fee1afb
-  $ hg log -T '{node}\n' -r 'successors(a0d726ccf242)' --hidden
+  $ sl log -T '{node}\n' -r 'successors(a0d726ccf242)' --hidden
   a0d726ccf2422e2cbfe7b06d3dc3f81b064b05aa
   dfd7d11783056958dfd2bb5479b3f84c71b698b9
   30184ea7dbf74f751464657e167173d1d531e700
@@ -453,15 +454,15 @@ Revsets
   5dbe0bac3aa7743362af3b46d69ea19ea84fd35a
   76fad0d9f8585b5d315b140cf784130e4a23ba28
   1851fa2d6ef001f121536b4d076e8ec6c01e3b34
-  $ hg log -T '{node}\n' -r 'successors(.)' --hidden
+  $ sl log -T '{node}\n' -r 'successors(.)' --hidden
   3c3b86a5a351839b5fe6905587497121b4b05777
 
 Unhide some old commits and show their mutations in the log
-  $ hg unhide -q dd5d0e1bc12eb7fb11debaa39287fb24c16a80d8
-  $ hg unhide -q 07f94070ed0943f8108119a726522ec4879ed36a
-  $ hg unhide -q 5dbe0bac3aa7743362af3b46d69ea19ea84fd35a
-  $ hg unhide -q 6d60953c6009fdd3d6bd870ad37c7f48ea6d1311
-  $ hg unhide -q c5d0fa8770bdde6ef311cc640a78a2f686be28b4
+  $ sl unhide -q dd5d0e1bc12eb7fb11debaa39287fb24c16a80d8
+  $ sl unhide -q 07f94070ed0943f8108119a726522ec4879ed36a
+  $ sl unhide -q 5dbe0bac3aa7743362af3b46d69ea19ea84fd35a
+  $ sl unhide -q 6d60953c6009fdd3d6bd870ad37c7f48ea6d1311
+  $ sl unhide -q c5d0fa8770bdde6ef311cc640a78a2f686be28b4
   $ tglogm
   @  3c3b86a5a351 'c9'
   │
@@ -484,12 +485,12 @@ Unhide some old commits and show their mutations in the log
   o  d20a80d4def3 'base'
   
 Debugmutatation looking forward
-  $ hg debugmutation -s -r c4484fcb5ac0f15058c6595a56d239d4ed707bee --hidden
+  $ sl debugmutation -s -r c4484fcb5ac0f15058c6595a56d239d4ed707bee --hidden
    *  c4484fcb5ac0f15058c6595a56d239d4ed707bee histedit by test at 1970-01-01T00:00:00 (folded with: e0e94ae5d0b0429f35bb3e14d1532fc861122e32) into:
       e1a0d5ae83cecdbf2a65995535ea1a3cd2009ab8 histedit by test at 1970-01-01T00:00:00 (folded with: 64a3bc96c043ea50b808b3ace4a4c6d2ca92b2d2) into:
       dd5d0e1bc12eb7fb11debaa39287fb24c16a80d8
   
-  $ hg debugmutation -s -r 07f94070ed0943f8108119a726522ec4879ed36a
+  $ sl debugmutation -s -r 07f94070ed0943f8108119a726522ec4879ed36a
    *  07f94070ed0943f8108119a726522ec4879ed36a split by test at 1970-01-01T00:00:00 into:
       |-  7d383d1b236d896a5adeea8dc390b681e4ccb217 histedit by test at 1970-01-01T00:00:00 (folded with: f05234144e37d59b175fa4283563aac4dfe81ec0) into:
       |   419fc47d2ae4909d2cdff5f873c3d9c18eeaa057 histedit by test at 1970-01-01T00:00:00 (folded with: 9c2c451b82d046da459d807b11c42992324e4e33) into:
@@ -509,13 +510,13 @@ Histedit with exec that amends in between folds
   $ for i in 1 2 3 4
   > do
   >   echo $i >> file
-  >   hg commit -Aqm "commit $i"
+  >   sl commit -Aqm "commit $i"
   > done
-  $ hg histedit c2a29f8b7d7a23d58e698384280df426802a1465 --commands - 2>&1 <<EOF | fixbundle
+  $ sl histedit c2a29f8b7d7a23d58e698384280df426802a1465 --commands - 2>&1 <<EOF | fixbundle
   > pick c2a29f8b7d7a
   > pick 08d8367dafb9
   > fold 15a208dbcdc5
-  > exec hg amend -m "commit 3 amended"
+  > exec sl amend -m "commit 3 amended"
   > fold 0d4155d128bf
   > EOF
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
@@ -525,7 +526,7 @@ Histedit with exec that amends in between folds
   │  commit 4'
   o  c2a29f8b7d7a 'commit 1'
   
-  $ hg debugmutation -r "all()" --hidden
+  $ sl debugmutation -r "all()" --hidden
    *  c2a29f8b7d7a23d58e698384280df426802a1465
   
    *  08d8367dafb9bb90c58101707eca32b726ca635a
@@ -558,19 +559,19 @@ Histedit with stop, extra commit, and fold
   $ for i in 1 2 3 4
   > do
   >   echo $i >> file
-  >   hg commit -Aqm "commit $i"
+  >   sl commit -Aqm "commit $i"
   > done
-  $ hg histedit c2a29f8b7d7a23d58e698384280df426802a1465 --commands - 2>&1 <<EOF | fixbundle
+  $ sl histedit c2a29f8b7d7a23d58e698384280df426802a1465 --commands - 2>&1 <<EOF | fixbundle
   > pick c2a29f8b7d7a
   > pick 08d8367dafb9
   > stop 15a208dbcdc5
   > fold 0d4155d128bf
   > EOF
   Changes committed as f8ba6373a87e. You may amend the changeset now.
-  When you are done, run hg histedit --continue to resume
+  When you are done, run sl histedit --continue to resume
   $ echo extra >> file2
-  $ hg commit -Aqm "extra commit"
-  $ hg histedit --continue | fixbundle
+  $ sl commit -Aqm "extra commit"
+  $ sl histedit --continue | fixbundle
   $ tglog
   @  d313be93f9b7 'extra commit
   │  ***
@@ -581,7 +582,7 @@ Histedit with stop, extra commit, and fold
   │
   o  c2a29f8b7d7a 'commit 1'
   
-  $ hg debugmutation -r "all()" --hidden
+  $ sl debugmutation -r "all()" --hidden
    *  c2a29f8b7d7a23d58e698384280df426802a1465
   
    *  08d8367dafb9bb90c58101707eca32b726ca635a
@@ -604,7 +605,7 @@ Drawdag
 
   $ cd ..
   $ newrepo
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >       G
   >       |
   > I D C F   # split: B -> E, F, G
@@ -627,7 +628,7 @@ Drawdag
   ├─╯
   o  426bada5c675 'A' A
   
-  $ hg debugmutation -r "all()" --hidden
+  $ sl debugmutation -r "all()" --hidden
    *  426bada5c67598ca65036d57d9e4b64b0c1ce7a0
   
    *  112478962961147124edd43549aedd1a335e44bf
@@ -663,7 +664,7 @@ Revsets obey visibility rules
   >    A    # revive: C
   > EOS
 
-  $ hg debugmutation -r "all()" --hidden
+  $ sl debugmutation -r "all()" --hidden
    *  426bada5c67598ca65036d57d9e4b64b0c1ce7a0
   
    *  112478962961147124edd43549aedd1a335e44bf
@@ -677,18 +678,18 @@ Revsets obey visibility rules
       2cb21a570bd242eb1225414c6634ed29cc9cfe93 amend by test at 1970-01-01T00:00:00 from:
       112478962961147124edd43549aedd1a335e44bf
   
-  $ hg log -T '{node} {desc}\n' -r "successors(desc(B))"
+  $ sl log -T '{node} {desc}\n' -r "successors(desc(B))"
   112478962961147124edd43549aedd1a335e44bf B
   2cb21a570bd242eb1225414c6634ed29cc9cfe93 C
-  $ hg log -T '{node} {desc}\n' -r "successors(desc(B))" --hidden
+  $ sl log -T '{node} {desc}\n' -r "successors(desc(B))" --hidden
   112478962961147124edd43549aedd1a335e44bf B
   2cb21a570bd242eb1225414c6634ed29cc9cfe93 C
   82b1bbd9d7bb25fa8b9354ca7f6cfd007a6291af D
-  $ hg log -T '{node} {desc}\n' -r "predecessors(desc(C))"
+  $ sl log -T '{node} {desc}\n' -r "predecessors(desc(C))"
   112478962961147124edd43549aedd1a335e44bf B
   2cb21a570bd242eb1225414c6634ed29cc9cfe93 C
-  $ hg hide -q 'desc(B)'
-  $ hg log -T '{node} {desc}\n' -r "predecessors(desc(C))"
+  $ sl hide -q 'desc(B)'
+  $ sl log -T '{node} {desc}\n' -r "predecessors(desc(C))"
   112478962961147124edd43549aedd1a335e44bf B
   2cb21a570bd242eb1225414c6634ed29cc9cfe93 C
 
@@ -708,11 +709,11 @@ Revsets for filtering commits based on mutated status
   >    A         A
   > EOS
 
-  $ hg log -r "obsolete()" -T '{desc}\n'
+  $ sl log -r "obsolete()" -T '{desc}\n'
   Q
   R
   E
-  $ hg log -r "obsolete()" -T '{desc}\n' --hidden
+  $ sl log -r "obsolete()" -T '{desc}\n' --hidden
   Q
   C
   L
@@ -745,9 +746,9 @@ Successors Sets
   ba2b7fa7166d X
   54fe561aeb5b Y
   e67cd4473b7c Z
-  $ hg debugmakepublic $Z --hidden
+  $ sl debugmakepublic $Z --hidden
 
-  $ hg debugsuccessorssets 'all()'
+  $ sl debugsuccessorssets 'all()'
   ba2b7fa7166d
       ba2b7fa7166d
   54fe561aeb5b
@@ -762,7 +763,7 @@ Successors Sets
       5236c38a7e4b
   6583166b698f
       6583166b698f
-  $ hg debugsuccessorssets 'all()' --hidden
+  $ sl debugsuccessorssets 'all()' --hidden
   ba2b7fa7166d
       ba2b7fa7166d
   a3d17304151f
@@ -792,7 +793,7 @@ Successors Sets
       5236c38a7e4b
   6583166b698f
       6583166b698f
-  $ hg debugsuccessorssets 'all()' --hidden --closest
+  $ sl debugsuccessorssets 'all()' --hidden --closest
   ba2b7fa7166d
       ba2b7fa7166d
   a3d17304151f
@@ -843,7 +844,7 @@ Successors Sets
   e0ad3106c6e7 I
   48b9aae0607f Z
 
-  $ hg debugsuccessorssets 'all()' --hidden
+  $ sl debugsuccessorssets 'all()' --hidden
   48b9aae0607f
       48b9aae0607f
   ac2f7407182b
@@ -867,7 +868,7 @@ Successors Sets
       ecd3acbeabe4
   9e63cfda1f79
       9e63cfda1f79
-  $ hg debugsuccessorssets 'all()' --closest
+  $ sl debugsuccessorssets 'all()' --closest
   48b9aae0607f
       48b9aae0607f
   d0b9032f313b
@@ -882,7 +883,7 @@ Successors Sets
       ecd3acbeabe4
   9e63cfda1f79
       9e63cfda1f79
-  $ hg debugsuccessorssets 'all()' --closest --hidden
+  $ sl debugsuccessorssets 'all()' --closest --hidden
   48b9aae0607f
       48b9aae0607f
   ac2f7407182b
@@ -938,7 +939,7 @@ Successors Sets
   5f50ab0b5b00 O
   48b9aae0607f Z
 
-  $ hg debugsuccessorssets 'all()'
+  $ sl debugsuccessorssets 'all()'
   48b9aae0607f
       48b9aae0607f
   e0ad3106c6e7
@@ -951,7 +952,7 @@ Successors Sets
       a50d498b7a3c
   c784f3cd8bdc
       c784f3cd8bdc
-  $ hg debugsuccessorssets 'all()' --hidden
+  $ sl debugsuccessorssets 'all()' --hidden
   48b9aae0607f
       48b9aae0607f
   ac2f7407182b
@@ -993,7 +994,7 @@ Successors Sets
       a50d498b7a3c
   c784f3cd8bdc
       c784f3cd8bdc
-  $ hg debugsuccessorssets 'all()' --closest
+  $ sl debugsuccessorssets 'all()' --closest
   48b9aae0607f
       48b9aae0607f
   e0ad3106c6e7
@@ -1006,7 +1007,7 @@ Successors Sets
       a50d498b7a3c
   c784f3cd8bdc
       c784f3cd8bdc
-  $ hg debugsuccessorssets 'all()' --closest --hidden
+  $ sl debugsuccessorssets 'all()' --closest --hidden
   48b9aae0607f
       48b9aae0607f
   ac2f7407182b
@@ -1083,43 +1084,43 @@ Many splits and folds:
 
   $ A='desc(A)'
   $ L='desc(L)'
-  $ hg debugsuccessorssets $A --hidden
+  $ sl debugsuccessorssets $A --hidden
   ac2f7407182b
       6c7c301750f1 7cd6c6978add 5ac9f6030240 4c1829ae45a4
       d91873bbc3e2 096075241d66 b5712e65f604
       d91873bbc3e2 444227ba9301 114f9718bb14
       d91873bbc3e2 7acf57a544c8
       d91873bbc3e2 cfe3132d4f90
-  $ hg debugsuccessorssets $A --closest --hidden
+  $ sl debugsuccessorssets $A --closest --hidden
   ac2f7407182b
       45724aa2168b 34d53c2267d8 70dd76fd55e1
       f0a671a46792 e8d08dcdab1d
-  $ hg unhide $A $L
-  $ hg debugsuccessorssets $A
+  $ sl unhide $A $L
+  $ sl debugsuccessorssets $A
   ac2f7407182b
       6c7c301750f1 7cd6c6978add 5ac9f6030240 4c1829ae45a4
       d91873bbc3e2
       d91873bbc3e2 096075241d66 b5712e65f604
       d91873bbc3e2 444227ba9301 114f9718bb14
       d91873bbc3e2 7acf57a544c8
-  $ hg debugsuccessorssets $A --closest
+  $ sl debugsuccessorssets $A --closest
   ac2f7407182b
       45724aa2168b 34d53c2267d8
       45724aa2168b 34d53c2267d8 096075241d66 b5712e65f604
       45724aa2168b 34d53c2267d8 444227ba9301 114f9718bb14
       45724aa2168b 34d53c2267d8 7acf57a544c8
       6c7c301750f1 7cd6c6978add 5ac9f6030240 4c1829ae45a4
-  $ hg hide $P
+  $ sl hide $P
   hiding commit b5712e65f604 "P"
   1 changeset hidden
-  $ hg debugsuccessorssets $A
+  $ sl debugsuccessorssets $A
   ac2f7407182b
       6c7c301750f1 7cd6c6978add 5ac9f6030240 4c1829ae45a4
       d91873bbc3e2
       d91873bbc3e2 096075241d66
       d91873bbc3e2 444227ba9301 114f9718bb14
       d91873bbc3e2 7acf57a544c8
-  $ hg log -r "all()" -T "{desc} {mutation_descs}\n"
+  $ sl log -r "all()" -T "{desc} {mutation_descs}\n"
   Z 
   A (Rewritten using split into H, I) (Rewritten using split into H, I, M) (Rewritten using split into H, I, Q, R) (Rewritten using split into H, I, L) (Rewritten using split into D, E, F, G)
   H (Rewritten using fold into K)
@@ -1151,8 +1152,8 @@ Metaedit with descendant amended commits
   >    |
   >    Z
   > EOS
-  $ hg metaedit -r $A -m A1
-  $ hg log -G -T "{desc} {mutation_descs}\n" -r "all()"
+  $ sl metaedit -r $A -m A1
+  $ sl log -G -T "{desc} {mutation_descs}\n" -r "all()"
   o  C4
   │
   │ o  E
@@ -1184,7 +1185,7 @@ Metaedit with descendant folded commits
   >   |
   >   Z
   > EOS
-  $ hg log -G -T "{desc} {mutation_descs}\n" -r "all()"
+  $ sl log -G -T "{desc} {mutation_descs}\n" -r "all()"
   o  F
   │
   │ o  D
@@ -1197,8 +1198,8 @@ Metaedit with descendant folded commits
   │
   o  Z
   
-  $ hg metaedit -r $A -m "A1"
-  $ hg log -G -T "{desc} {mutation_descs}\n" -r "all()"
+  $ sl metaedit -r $A -m "A1"
+  $ sl log -G -T "{desc} {mutation_descs}\n" -r "all()"
   o  F
   │
   │ o  D
@@ -1226,8 +1227,8 @@ Metaedit automatic rebase of amended commit
   >    |
   >    A
   > EOS
-  $ hg metaedit -r $B -m B1
-  $ hg log -G -T "{desc} {mutation_descs}\n" -r "all()"
+  $ sl metaedit -r $B -m B1
+  $ sl log -G -T "{desc} {mutation_descs}\n" -r "all()"
   o  C2
   │
   │ o  D
@@ -1253,10 +1254,10 @@ Absorb
   > |
   > A
   > EOS
-  $ hg up -q $E
+  $ sl up -q $E
   $ echo extra >> E
   $ echo extra >> C
-  $ hg absorb -a
+  $ sl absorb -a
   showing changes for C
           @@ -0,1 +0,1 @@
   26805ab -C
@@ -1309,12 +1310,12 @@ Simulate pushrebase happening remotely and stripping the mutation information.
   > |
   > $Y  $C  # rebase: $C -> X
   > EOS
-  $ hg debugmakepublic $X
+  $ sl debugmakepublic $X
 
 If we unhide B, we don't know that it was landed.
 
-  $ hg unhide 'desc(B)'
-  $ hg log -G -r "all()" -T "{desc} {mutation_descs}\n"
+  $ sl unhide 'desc(B)'
+  $ sl log -G -r "all()" -T "{desc} {mutation_descs}\n"
   o  X
   │
   │ o  B
@@ -1328,8 +1329,8 @@ hack until we write an indexed changelog that lets us do the successor lookup fo
 commit cheaply.  Normally the pullcreatemarkers and pushrebase extensions will do this
 for us, but for this test we do it manually.
 
-  $ hg debugsh --hidden -c "with repo.lock(): s.mutation.recordentries(repo, [s.mutation.createsyntheticentry(repo, [repo[\"$C\"].node()], repo[\"$X\"].node(), \"land\")], skipexisting=False)"
-  $ hg log -G -r "all()" -T "{desc} {mutation_descs}\n"
+  $ sl debugsh --hidden -c "with repo.lock(): s.mutation.recordentries(repo, [s.mutation.createsyntheticentry(repo, [repo[\"$C\"].node()], repo[\"$X\"].node(), \"land\")], skipexisting=False)"
+  $ sl log -G -r "all()" -T "{desc} {mutation_descs}\n"
   o  X
   │
   │ x  B (Rewritten using land into X)
@@ -1342,26 +1343,26 @@ Test debugmutation filtering of mutation info by date
   $ cd ..
   $ newrepo
   $ echo "base" > base
-  $ hg commit -Aqm base
+  $ sl commit -Aqm base
   $ echo "18316800" > file
-  $ hg commit -Aqm c1
+  $ sl commit -Aqm c1
   $ for i in 18403200 18489600 18576000 18662400 18748800
   > do
   >   echo $i >> file
-  >   hg amend -m "c1 (amended $i)" --config devel.default-date="$i 0"
+  >   sl amend -m "c1 (amended $i)" --config devel.default-date="$i 0"
   > done
-  $ hg debugmutation
+  $ sl debugmutation
    *  5ace6d97ba5801022fb3b2b47eba651ee0d6fb00 amend by test at 1970-08-06T00:00:00 from:
       59a4ec3303deb98d755eda1ee2319b543b0db5a6 amend by test at 1970-08-05T00:00:00 from:
       fa37f25c1fbfd999bb6230235f33e2fbdf82944d amend by test at 1970-08-04T00:00:00 from:
       9192e2082d2773b40faea0dae95a4479fdcec7c2 amend by test at 1970-08-03T00:00:00 from:
       8567425fe92afee0db280f2c01783085691903b6 amend by test at 1970-08-02T00:00:00 from:
       315843a7e2114894c0e7345436313f20282907bd
-  $ hg debugmutation -t "1970-08-05 to 1970-08-10"
+  $ sl debugmutation -t "1970-08-05 to 1970-08-10"
    *  5ace6d97ba5801022fb3b2b47eba651ee0d6fb00 amend by test at 1970-08-06T00:00:00 from:
       59a4ec3303deb98d755eda1ee2319b543b0db5a6 amend by test at 1970-08-05T00:00:00 from:
       fa37f25c1fbfd999bb6230235f33e2fbdf82944d ...
-  $ hg debugmutation -s -r 315843a -t "1970-08-01 to 1970-08-04" --hidden
+  $ sl debugmutation -s -r 315843a -t "1970-08-01 to 1970-08-04" --hidden
    *  315843a7e2114894c0e7345436313f20282907bd amend by test at 1970-08-02T00:00:00 into:
       8567425fe92afee0db280f2c01783085691903b6 amend by test at 1970-08-03T00:00:00 into:
       9192e2082d2773b40faea0dae95a4479fdcec7c2 amend by test at 1970-08-04T00:00:00 into:

@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ enable mergedriver rebase
 
   $ newclientrepo
@@ -15,5 +16,5 @@
   > A # A/foo = A
   > B # B/foo = B
   > EOS
-  $ hg rebase -q -r $A -d $B
-  $ hg st
+  $ sl rebase -q -r $A -d $B
+  $ sl st

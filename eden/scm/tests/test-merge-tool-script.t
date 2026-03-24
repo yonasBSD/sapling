@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable rebase
 
@@ -16,24 +17,24 @@
   > A     # A/bar = b\nc\nd\n
   > EOS
 
-  $ hg go -q $C
+  $ sl go -q $C
 
 Test some error handling:
-  $ hg debugpickmergetool --tool "if('foo', other, local)"
-  hg: parse error: merge script produced 'remotefilectx' instead of 'str'
+  $ sl debugpickmergetool --tool "if('foo', other, local)"
+  sl: parse error: merge script produced 'remotefilectx' instead of 'str'
   [255]
 
-  $ hg debugpickmergetool --tool 'if("oops'
-  hg: parse error at 4: unterminated string
+  $ sl debugpickmergetool --tool 'if("oops'
+  sl: parse error at 4: unterminated string
   [255]
 
-  $ hg debugpickmergetool --tool 'if(foo, bar, baz'
-  hg: parse error at 16: unexpected token: end
+  $ sl debugpickmergetool --tool 'if(foo, bar, baz'
+  sl: parse error at 16: unexpected token: end
   [255]
 
 Test that we can vary merge tool based on isabsent():
 
-  $ hg rebase -r $C -d $B --tool "if(isabsent(other), :other, :merge)"
+  $ sl rebase -r $C -d $B --tool "if(isabsent(other), :other, :merge)"
   rebasing 43c61a1c14d8 "C"
   merging bar
 

@@ -1,4 +1,5 @@
 
+  $ export HGIDENTITY=sl
   $ newclientrepo
   $ drawdag << 'EOS'
   >   A01..A20
@@ -6,22 +7,22 @@
   > Z-B01..B20
   > C01..C20
   > EOS
-  $ hg up -Cq $A20
+  $ sl up -Cq $A20
 
   $ setconfig merge.max-distance=25
-  $ hg merge $B20
+  $ sl merge $B20
   abort: merging distant ancestors is not supported for this repository
   (use rebase instead)
   [255]
-  $ hg merge $B20 --config merge.max-distance=40
+  $ sl merge $B20 --config merge.max-distance=40
   20 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg commit -qm "merge b"
+  $ sl commit -qm "merge b"
 
-  $ hg merge $C20 --config merge.max-distance=5
+  $ sl merge $C20 --config merge.max-distance=5
   20 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg commit -qm "merge c"
+  $ sl commit -qm "merge c"
 
   $ tglog -r 'merge() + parents(merge()) + roots(:)'
   @    b6bf8ff632b6 'merge c'

@@ -3,29 +3,30 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ enable rebase commitextras megarepo
   $ setconfig megarepo.lossy-commit-action=abort
 
   $ newclientrepo
 
   $ touch A
-  $ hg commit -Aqm A
-  $ hg go -q null
+  $ sl commit -Aqm A
+  $ sl go -q null
   $ touch B
-  $ hg commit -Aqm B
+  $ sl commit -Aqm B
   $ touch C
-  $ hg commit -Aqm C --extra created_by_lossy_conversion=
+  $ sl commit -Aqm C --extra created_by_lossy_conversion=
 
-  $ hg backout -r .
+  $ sl backout -r .
   abort: operating on lossily synced commit 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 disallowed by default
   (perform operation in source-of-truth repo, or specify '--config megarepo.lossy-commit-action=ignore' to bypass)
   [255]
 
-  $ hg backout -r . --config megarepo.lossy-commit-action=ignore
+  $ sl backout -r . --config megarepo.lossy-commit-action=ignore
   removing C
   changeset 21d06d5633a6 backs out changeset 57c4b16efbb2
 
-  $ hg log -G -T '{node|short} {desc} {join(extras, ",")}'
+  $ sl log -G -T '{node|short} {desc} {join(extras, ",")}'
   @  21d06d5633a6 Back out "C"
   │
   │  Original commit changeset: 57c4b16efbb2 branch=default
@@ -36,20 +37,20 @@
   o  a24b40a3340f A branch=default
 
 
-  $ hg rebase -r 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 -d a24b40a3340fbcaa7e652fbc03d3f2a6958db4c7
+  $ sl rebase -r 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 -d a24b40a3340fbcaa7e652fbc03d3f2a6958db4c7
   rebasing 57c4b16efbb2 "C"
   abort: operating on lossily synced commit 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 disallowed by default
   (perform operation in source-of-truth repo, or specify '--config megarepo.lossy-commit-action=ignore' to bypass)
   [255]
 
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
 
-  $ hg rebase -r 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 -d a24b40a3340fbcaa7e652fbc03d3f2a6958db4c7 --config megarepo.lossy-commit-action=warn
+  $ sl rebase -r 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 -d a24b40a3340fbcaa7e652fbc03d3f2a6958db4c7 --config megarepo.lossy-commit-action=warn
   rebasing 57c4b16efbb2 "C"
   warning: operating on lossily synced commit 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8
 
-  $ hg log -G -T '{node|short} {desc} {join(extras, ",")}'
+  $ sl log -G -T '{node|short} {desc} {join(extras, ",")}'
   o  ccf2db2c8709 C branch=default,rebase_source=57c4b16efbb23b68cbef2f5748e20688a1ebb5f8
   │
   │ @  21d06d5633a6 Back out "C"
@@ -62,29 +63,29 @@
   o  a24b40a3340f A branch=default
 
 
-  $ hg go -q 57c4b16efbb2
-  $ hg amend -m nope
+  $ sl go -q 57c4b16efbb2
+  $ sl amend -m nope
   abort: operating on lossily synced commit 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 disallowed by default
   (perform operation in source-of-truth repo, or specify '--config megarepo.lossy-commit-action=ignore' to bypass)
   [255]
 
-  $ hg go -q a24b40a3340f
-  $ hg graft 57c4b16efbb2
+  $ sl go -q a24b40a3340f
+  $ sl graft 57c4b16efbb2
   grafting 57c4b16efbb2 "C"
   abort: operating on lossily synced commit 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 disallowed by default
   (perform operation in source-of-truth repo, or specify '--config megarepo.lossy-commit-action=ignore' to bypass)
   [255]
 
 
-  $ hg metaedit -r 57c4b16efbb2 -m nope
+  $ sl metaedit -r 57c4b16efbb2 -m nope
   abort: operating on lossily synced commit 57c4b16efbb23b68cbef2f5748e20688a1ebb5f8 disallowed by default
   (perform operation in source-of-truth repo, or specify '--config megarepo.lossy-commit-action=ignore' to bypass)
   [255]
 
 No infinite loop with autopull + titles namespace
 
-  $ hg commit -m 'remote/foo commit' --config ui.allowemptycommit=1
-  $ hg log -r remote/foo
+  $ sl commit -m 'remote/foo commit' --config ui.allowemptycommit=1
+  $ sl log -r remote/foo
   pulling 'foo' from 'test:repo1_server'
   abort: unknown revision 'remote/foo'!
   [255]

@@ -4,6 +4,7 @@ Dummy SSH issues on Windows
 #inprocess-hg-incompatible
 
 Eagerepo doesn't support pushrebase yet.
+  $ export HGIDENTITY=sl
   $ rm $TESTTMP/.eagerepo
 
   $ configure dummyssh
@@ -18,32 +19,32 @@ Set up server repository
   $ newserver server
   $ echo 1 > a
   $ echo 2 > b
-  $ hg commit -Aqm base
-  $ hg bookmark master
+  $ sl commit -Aqm base
+  $ sl bookmark master
 
 Set up client repository
 
   $ cd ..
-  $ hg clone ssh://user@dummy/server client -q
+  $ sl clone ssh://user@dummy/server client -q
 
 Add more commits on the server
 
   $ cd server
   $ echo 3 > c
-  $ hg commit -Aqm s1
+  $ sl commit -Aqm s1
   $ echo 4 > d
-  $ hg commit -Aqm s2
-  $ hg bookmark master
+  $ sl commit -Aqm s2
+  $ sl bookmark master
 
 Pushrebase some commits from the client
 
   $ cd ../client
   $ echo 5 > e
-  $ hg commit -Aqm c1
+  $ sl commit -Aqm c1
   $ echo 6 > f
-  $ hg commit -Aqm c2
+  $ sl commit -Aqm c2
   $ echo 6a > f
-  $ hg amend -qm "c2 (amended)"
+  $ sl amend -qm "c2 (amended)"
   $ tglogp
   @  e52ebff26308 draft 'c2 (amended)'
   │
@@ -51,7 +52,7 @@ Pushrebase some commits from the client
   │
   o  a7d6a32ae4ec public 'base'
   
-  $ hg push --to master
+  $ sl push --to master
   pushing rev e52ebff26308 to destination ssh://user@dummy/server bookmark master
   searching for changes
   adding changesets
@@ -74,7 +75,7 @@ Pushrebase some commits from the client
   │
   o  a7d6a32ae4ec public 'base'
   
-  $ hg debugmutation -r ::tip
+  $ sl debugmutation -r ::tip
    *  a7d6a32ae4ecf473d6f934e731f1868dda4d3fc9
   
    *  06569a64c14156339463c64337f9cb5dc3a25442
@@ -101,7 +102,7 @@ Pushrebase some commits from the client
   │
   o  a7d6a32ae4ec public 'base'
   
-  $ hg debugmutation -r ::tip
+  $ sl debugmutation -r ::tip
    *  a7d6a32ae4ecf473d6f934e731f1868dda4d3fc9
   
    *  06569a64c14156339463c64337f9cb5dc3a25442
@@ -119,7 +120,7 @@ Test pushing to a server that does not have mutation recording enabled.  Synthet
 entries will be contructed from the obsmarkers that pushrebase returns.
 
   $ cd ../server
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [mutation]
   > record=false
   > enabled=false
@@ -129,34 +130,34 @@ Push an original commit to the server.  This doesn't get pushrebased.
 
   $ cd ../client
   $ echo 9 > i
-  $ hg commit -Aqm c3
-  $ hg push --to master
+  $ sl commit -Aqm c3
+  $ sl push --to master
   pushing rev 5cfa12ac15ac to destination ssh://user@dummy/server bookmark master
   searching for changes
   updating bookmark master
   remote: pushing 1 changeset:
   remote:     5cfa12ac15ac  c3
 
-  $ hg debugmutation
+  $ sl debugmutation
    *  5cfa12ac15aca3668b5f91e5a7b92aa309b320a9
   
 
 Add commits on the server to pushrebase over.
 
   $ cd ../server
-  $ hg up -q master
+  $ sl up -q master
   $ echo 7 > g
-  $ hg commit -Aqm s3
+  $ sl commit -Aqm s3
   $ echo 8 > h
-  $ hg commit -Aqm s4
+  $ sl commit -Aqm s4
 
 Add another commit on the client.
 
   $ cd ../client
   $ echo 10 > j
-  $ hg commit -Aqm c4
+  $ sl commit -Aqm c4
   $ echo 10a > j
-  $ hg amend -qm "c4 (amended)"
+  $ sl amend -qm "c4 (amended)"
   $ tglogp
   @  254a42c0dcef draft 'c4 (amended)'
   │
@@ -174,7 +175,7 @@ Add another commit on the client.
   
 Push this commit to the server.  We should create local mutation information.
 
-  $ hg push --to master
+  $ sl push --to master
   pushing rev 254a42c0dcef to destination ssh://user@dummy/server bookmark master
   searching for changes
   adding changesets
@@ -186,7 +187,7 @@ Push this commit to the server.  We should create local mutation information.
   remote: 3 new changesets from the server will be downloaded
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg debugmutation -r ".~4::."
+  $ sl debugmutation -r ".~4::."
    *  bc165ecd11df56066a4d73e8294a85ecb255d3cf pushrebase by test at 1970-01-01T00:00:00 from:
       e52ebff2630810cbc8bc0e3a8de78cb662f0865f amend by test at 1970-01-01T00:00:00 from:
       f558c5855324eea33b5f046b45b85db1fb98bca7

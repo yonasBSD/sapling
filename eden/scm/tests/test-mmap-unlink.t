@@ -1,6 +1,7 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat <<EOF > mmap-unlink.py
   > import mmap
@@ -17,6 +18,6 @@
   > util.unlink("file")
   > EOF
 
-  $ hg debugpython -- ./mmap-unlink.py
+  $ sl debugpython -- ./mmap-unlink.py
   $ ls
   mmap-unlink.py

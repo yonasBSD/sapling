@@ -5,10 +5,11 @@
 Test adding, removing, changing files in both merge parents, without telling
 mergedriver the exact file list to change at "preprocess" time.
 
+  $ export HGIDENTITY=sl
   $ enable mergedriver
 
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ drawdag << 'EOS'
   > B C  # C/A=1
@@ -18,7 +19,7 @@ mergedriver the exact file list to change at "preprocess" time.
   > Z    # C/C_change=C
   >      # B/B_change=B
   > EOS
-  $ hg up -q $B
+  $ sl up -q $B
 
 The merge driver wants to delete B_del and C_del, change B_change and C_change,
 and add B_add and C_add. Note: there are no conflicts.
@@ -63,14 +64,14 @@ and add B_add and C_add. Note: there are no conflicts.
 
 Do the merge:
 
-  $ hg graft $C
+  $ sl graft $C
   grafting cb95dc195621 "C"
   merge driver preprocess
   merge driver conclude
 
 Status should be clean:
 
-  $ hg status
+  $ sl status
 
 Working copy and commit made should have expected changes:
 
@@ -85,7 +86,7 @@ Working copy and commit made should have expected changes:
   C_change: CC
   Z: Z
 
-  $ hg diff -r 'p1(.)' -r '.' --stat
+  $ sl diff -r 'p1(.)' -r '.' --stat
    A        |  1 -
    B_add    |  1 +
    B_change |  2 +-
