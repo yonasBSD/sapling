@@ -966,114 +966,121 @@ impl DerivedDataManager {
                 })?;
             let derivation_ctx_ref = &derivation_ctx;
 
-            // Load all bonsais for this batch.
-            let bonsais = stream::iter(csids.iter().copied().map(async |csid| {
-                let bonsai = csid.load(ctx, derivation_ctx_ref.blobstore()).await?;
-                Ok::<_, Error>(bonsai)
-            }))
-            .buffered(100)
-            .try_collect::<Vec<_>>()
-            .await?;
-
-            // Collect parent csids that are outside the batch.
-            let batch_set: HashSet<ChangesetId> = csids.iter().copied().collect();
-            let mut external_parent_csids: Vec<ChangesetId> = vec![];
-            for bonsai in bonsais.iter() {
-                for parent in bonsai.parents() {
-                    if !batch_set.contains(&parent) {
-                        external_parent_csids.push(parent);
-                    }
-                }
-            }
-            external_parent_csids.sort();
-            external_parent_csids.dedup();
-
-            // Kick off all fetches concurrently: parents + each dependency stage.
-            let parent_fetch = Derivable::fetch_stage_outputs(
-                ctx,
-                derivation_ctx_ref,
-                stage_id,
-                external_parent_csids.clone(),
-            );
-
-            let dep_fetches = stage_config.dependencies.iter().map(async |dep_stage_id| {
-                let outputs = Derivable::fetch_stage_outputs(
-                    ctx,
-                    derivation_ctx_ref,
-                    dep_stage_id,
-                    csids.clone(),
-                )
-                .await?;
-                Ok::<_, Error>((dep_stage_id.clone(), outputs))
-            });
-
-            let (fetched_parents, dep_results) =
-                try_join(parent_fetch, try_join_all(dep_fetches)).await?;
-
-            // Resolve parent stage outputs. For parents missing a stage
-            // output (transitionary period where the stage config changed),
-            // fetch the full derived value and extract the stage output.
-            // The caller must ensure that either the stage output or the
-            // full derived value exists for every external parent.
-            let fallback: HashMap<ChangesetId, Derivable::StageOutput> =
-                stream::iter(
-                    external_parent_csids
-                        .into_iter()
-                        .filter(|csid| !fetched_parents.contains_key(csid))
-                        .map(async |parent_csid| {
-                            let derived = derivation_ctx_ref
-                                .fetch_dependency::<Derivable>(ctx, parent_csid)
-                                .await?;
-                            let stage_output = Derivable::extract_stage_output_from_derived(
-                                ctx,
-                                derivation_ctx_ref,
-                                &derived,
-                                stage_config,
-                            )
-                            .await?;
-                            Ok::<_, Error>((parent_csid, stage_output))
-                        }),
-                )
-                .buffered(100)
-                .try_collect()
-                .await?;
-            let parents: HashMap<ChangesetId, Derivable::StageOutput> =
-                fetched_parents.into_iter().chain(fallback).collect();
-
-            // Build dependency outputs map from the concurrent fetch results.
-            let mut dependency_outputs: HashMap<
-                ChangesetId,
-                HashMap<String, Derivable::StageOutput>,
-            > = Default::default();
-            for (dep_stage_id, dep_outputs) in dep_results {
-                for &csid in &csids {
-                    let output = dep_outputs
-                        .get(&csid)
-                        .ok_or_else(|| {
-                            DerivationError::from(anyhow!(
-                                "missing dependency stage output for stage '{}', changeset {}",
-                                dep_stage_id,
-                                csid,
-                            ))
-                        })?;
-                    dependency_outputs
-                        .entry(csid)
-                        .or_default()
-                        .insert(dep_stage_id.clone(), output.clone());
-                }
-            }
-
-            let ctx = ctx.clone_and_reset();
-            let ctx = self.set_derivation_session_class(ctx)?;
-            borrowed!(ctx);
-
             let mut derived_data_scuba = self.derived_data_scuba::<Derivable>();
-            derived_data_scuba.add_changesets(&bonsais);
             derived_data_scuba.add_stage_id(stage_id);
-            derived_data_scuba.log_batch_derivation_start(ctx);
-            derived_data_scuba.add_metadata(ctx.metadata());
 
             let (overall_stats, result) = async {
+                let setup_start = Instant::now();
+
+                // Load all bonsais for this batch.
+                let bonsais = stream::iter(csids.iter().copied().map(async |csid| {
+                    let bonsai = csid.load(ctx, derivation_ctx_ref.blobstore()).await?;
+                    Ok::<_, Error>(bonsai)
+                }))
+                .buffered(100)
+                .try_collect::<Vec<_>>()
+                .await?;
+
+                derived_data_scuba.add_changesets(&bonsais);
+
+                // Collect parent csids that are outside the batch.
+                let batch_set: HashSet<ChangesetId> = csids.iter().copied().collect();
+                let mut external_parent_csids: Vec<ChangesetId> = vec![];
+                for bonsai in bonsais.iter() {
+                    for parent in bonsai.parents() {
+                        if !batch_set.contains(&parent) {
+                            external_parent_csids.push(parent);
+                        }
+                    }
+                }
+                external_parent_csids.sort();
+                external_parent_csids.dedup();
+
+                // Kick off all fetches concurrently: parents + each dependency stage.
+                let parent_fetch = Derivable::fetch_stage_outputs(
+                    ctx,
+                    derivation_ctx_ref,
+                    stage_id,
+                    external_parent_csids.clone(),
+                );
+
+                let dep_fetches = stage_config.dependencies.iter().map(async |dep_stage_id| {
+                    let outputs = Derivable::fetch_stage_outputs(
+                        ctx,
+                        derivation_ctx_ref,
+                        dep_stage_id,
+                        csids.clone(),
+                    )
+                    .await?;
+                    Ok::<_, Error>((dep_stage_id.clone(), outputs))
+                });
+
+                let (fetched_parents, dep_results) =
+                    try_join(parent_fetch, try_join_all(dep_fetches)).await?;
+
+                // Resolve parent stage outputs. For parents missing a stage
+                // output (transitionary period where the stage config changed),
+                // fetch the full derived value and extract the stage output.
+                // The caller must ensure that either the stage output or the
+                // full derived value exists for every external parent.
+                let fallback: HashMap<ChangesetId, Derivable::StageOutput> =
+                    stream::iter(
+                        external_parent_csids
+                            .into_iter()
+                            .filter(|csid| !fetched_parents.contains_key(csid))
+                            .map(async |parent_csid| {
+                                let derived = derivation_ctx_ref
+                                    .fetch_dependency::<Derivable>(ctx, parent_csid)
+                                    .await?;
+                                let stage_output = Derivable::extract_stage_output_from_derived(
+                                    ctx,
+                                    derivation_ctx_ref,
+                                    &derived,
+                                    stage_config,
+                                )
+                                .await?;
+                                Ok::<_, Error>((parent_csid, stage_output))
+                            }),
+                    )
+                    .buffered(100)
+                    .try_collect()
+                    .await?;
+                let parents: HashMap<ChangesetId, Derivable::StageOutput> =
+                    fetched_parents.into_iter().chain(fallback).collect();
+
+                // Build dependency outputs map from the concurrent fetch results.
+                let mut dependency_outputs: HashMap<
+                    ChangesetId,
+                    HashMap<String, Derivable::StageOutput>,
+                > = Default::default();
+                for (dep_stage_id, dep_outputs) in dep_results {
+                    for &csid in &csids {
+                        let output = dep_outputs
+                            .get(&csid)
+                            .ok_or_else(|| {
+                                DerivationError::from(anyhow!(
+                                    "missing dependency stage output for stage '{}', changeset {}",
+                                    dep_stage_id,
+                                    csid,
+                                ))
+                            })?;
+                        dependency_outputs
+                            .entry(csid)
+                            .or_default()
+                            .insert(dep_stage_id.clone(), output.clone());
+                    }
+                }
+
+                let ctx = ctx.clone_and_reset();
+                let ctx = self.set_derivation_session_class(ctx)?;
+                borrowed!(ctx);
+
+                derived_data_scuba.log_batch_derivation_start(ctx);
+                derived_data_scuba.add_metadata(ctx.metadata());
+
+                let setup_duration = setup_start.elapsed();
+                derived_data_scuba.add_setup_duration(setup_duration);
+
                 let derivation_ctx_ref = &derivation_ctx;
                 let (batch_duration, derived) = {
                     let (stats, derived) = Derivable::derive_stage_batch(

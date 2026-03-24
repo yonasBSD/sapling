@@ -55,6 +55,12 @@ impl<Derivable: BonsaiDerivable> DerivedDataScuba<Derivable> {
         self.scuba.add("stage_id", stage_id.to_string());
     }
 
+    /// Add the duration of the pre-derivation setup phase (loading bonsais,
+    /// fetching parent/dependency stage outputs, building dependency map).
+    pub(super) fn add_setup_duration(&mut self, duration: Duration) {
+        self.scuba.add("setup_time_us", duration.as_micros() as u64);
+    }
+
     /// Description of this operation to log (derived data type and affected
     /// changesets).
     fn description(&self) -> String {
