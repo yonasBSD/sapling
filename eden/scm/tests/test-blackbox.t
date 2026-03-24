@@ -1,6 +1,7 @@
 #require no-fsmonitor no-eden
 
 setup
+  $ export HGIDENTITY=sl
   $ readconfig <<EOF
   > [alias]
   > blackbox = blackbox --no-timestamp --no-sid
@@ -13,16 +14,16 @@ setup
 command, exit codes, and duration
 
   $ echo a > a
-  $ hg add a
-  $ hg blackbox --pattern '{"legacy_log":{"service":["or","command","command_finish"]}}'
+  $ sl add a
+  $ sl blackbox --pattern '{"legacy_log":{"service":["or","command","command_finish"]}}'
   [legacy][command] add a
   [legacy][command_finish] add a exited 0 after 0.00 seconds
   [legacy][command] blackbox --pattern '{"legacy_log":{"service":["or","command","command_finish"]}}'
 
 FIXME: (recursive) alias expansion is not logged
-  $ rm -rf ./.hg/blackbox*
-  $ hg so-confusing
-  $ hg blackbox --pattern '{"start": "_"}'
+  $ rm -rf ./.sl/blackbox*
+  $ sl so-confusing
+  $ sl blackbox --pattern '{"start": "_"}'
   [command] [*, "so-confusing"] * (glob)
   [command] [*, "so-confusing"] * (glob) (?)
   [command] [*, "blackbox", "--pattern", "{\"start\": \"_\"}"] * (glob)
@@ -30,27 +31,27 @@ FIXME: (recursive) alias expansion is not logged
 incoming change tracking
 
 create two heads to verify that we only see one change in the log later
-  $ hg commit -ma
-  $ hg push -q -r . --to head1 --create
-  $ hg up null
+  $ sl commit -ma
+  $ sl push -q -r . --to head1 --create
+  $ sl up null
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo b > b
-  $ hg commit -Amb
+  $ sl commit -Amb
   adding b
 
 clone, commit, pull
-  $ hg push -q -r . --to head2 --create
+  $ sl push -q -r . --to head2 --create
   $ newclientrepo blackboxtest2 blackboxtest_server head1 head2
   $ cd ../blackboxtest
   $ echo c > c
-  $ hg commit -Amc
+  $ sl commit -Amc
   adding c
-  $ hg push -q -r . --to head2
+  $ sl push -q -r . --to head2
   $ cd ../blackboxtest2
-  $ hg pull
+  $ sl pull
   pulling from test:blackboxtest_server
   searching for changes
-  $ hg blackbox --pattern '{"legacy_log":{"service":["or","command","command_finish","command_alias"]}}'
+  $ sl blackbox --pattern '{"legacy_log":{"service":["or","command","command_finish","command_alias"]}}'
   [legacy][command] pull -q -B head1
   [legacy][command_finish] pull -q -B head1 exited 0 after 0.00 seconds
   [legacy][command] pull -q -B head2
@@ -61,30 +62,30 @@ clone, commit, pull
 
 we must not cause a failure if we cannot write to the log
 
-  $ rm -rf .hg/blackbox*
-  $ mkdir -p .hg/blackbox
-  $ touch .hg/blackbox/v1
-  $ hg pull
+  $ rm -rf .sl/blackbox*
+  $ mkdir -p .sl/blackbox
+  $ touch .sl/blackbox/v1
+  $ sl pull
   pulling from test:blackboxtest_server
 
-  $ rm .hg/blackbox/v1
+  $ rm .sl/blackbox/v1
 
 extension and python hooks - use the eol extension for a pythonhook
 
-  $ echo '[extensions]' >> .hg/hgrc
-  $ echo 'eol=' >> .hg/hgrc
-  $ echo '[hooks]' >> .hg/hgrc
-  $ echo 'update = echo hooked' >> .hg/hgrc
-  $ hg goto tip
+  $ echo '[extensions]' >> .sl/config
+  $ echo 'eol=' >> .sl/config
+  $ echo '[hooks]' >> .sl/config
+  $ echo 'update = echo hooked' >> .sl/config
+  $ sl goto tip
   hooked
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > # disable eol, because it is not needed for subsequent tests
   > # (in addition, keeping it requires extra care for fsmonitor)
   > eol=!
   > EOF
-  $ hg blackbox --pattern '{"blocked":{"op":["or","pythonhook","exthook"]}}'
+  $ sl blackbox --pattern '{"blocked":{"op":["or","pythonhook","exthook"]}}'
 
 log rotation (tested in the Rust land)
 
@@ -106,16 +107,16 @@ blackbox does not crash with empty log message
   > EOF
   $ setconfig extensions.uilog=$TESTTMP/uilog.py
   $ setconfig blackbox.track=foo
-  $ hg uilog foo
-  $ hg uilog foo ''
+  $ sl uilog foo
+  $ sl uilog foo ''
 
 blackbox adds "\n" automatically
 
   $ setconfig blackbox.track=bar
-  $ hg uilog bar bar1-NEWLINE
-  $ hg uilog bar bar2
-  $ hg uilog bar bar3
-  $ hg blackbox --pattern '{"legacy_log":{"service":"bar"}}'
+  $ sl uilog bar bar1-NEWLINE
+  $ sl uilog bar bar2
+  $ sl uilog bar bar3
+  $ sl blackbox --pattern '{"legacy_log":{"service":"bar"}}'
   [legacy][bar] bar1
   [legacy][bar] bar2
   [legacy][bar] bar3
@@ -123,8 +124,8 @@ blackbox adds "\n" automatically
 blackbox can log without a ui object using util.log
 
   $ setconfig blackbox.track=withoutui
-  $ hg utillog withoutui "this log is without a ui"
-  $ hg blackbox --pattern '{"legacy_log":{"service":"withoutui"}}'
+  $ sl utillog withoutui "this log is without a ui"
+  $ sl blackbox --pattern '{"legacy_log":{"service":"withoutui"}}'
   [legacy][withoutui] this log is without a ui
 
 blackbox writes Request ID if HGREQUESTID is set
@@ -132,20 +133,20 @@ blackbox writes Request ID if HGREQUESTID is set
 
 Test EDENSCM_BLACKBOX_TAGS
 
-  $ EDENSCM_BLACKBOX_TAGS='foo bar' hg root
+  $ EDENSCM_BLACKBOX_TAGS='foo bar' sl root
   $TESTTMP/repo1
-  $ hg blackbox -p '{"tags": "_"}'
+  $ sl blackbox -p '{"tags": "_"}'
   [tags] foo, bar
   [tags] foo, bar (?)
-  $ hg blackbox -p '{"tags": {"names": ["contain", "bar"]}}'
+  $ sl blackbox -p '{"tags": {"names": ["contain", "bar"]}}'
   [tags] foo, bar
   [tags] foo, bar (?)
 
 blackbox should not fail with "TypeError: not enough arguments for format string"
 
-  $ rm -rf ./.hg/blackbox*
-  $ hg debugshell --command "ui.log('foo', 'ba' + 'r %s %r')"
-  $ hg debugshell --command "ui.log('foo', 'ba' + 'r %s %r', 'arg1')"
-  $ hg blackbox --pattern '{"legacy_log":{"service":"foo"}}'
+  $ rm -rf ./.sl/blackbox*
+  $ sl debugshell --command "ui.log('foo', 'ba' + 'r %s %r')"
+  $ sl debugshell --command "ui.log('foo', 'ba' + 'r %s %r', 'arg1')"
+  $ sl blackbox --pattern '{"legacy_log":{"service":"foo"}}'
   [legacy][foo] bar %s %r
   [legacy][foo] bar %s %r arg1

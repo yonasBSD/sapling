@@ -4,91 +4,92 @@
 
 # init
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo a > a
-  $ hg add a
-  $ hg commit -m'a'
+  $ sl add a
+  $ sl commit -m'a'
   $ echo b > b
-  $ hg add b
-  $ hg commit -m'b'
-  $ hg up -C 'desc(a)'
+  $ sl add b
+  $ sl commit -m'b'
+  $ sl up -C 'desc(a)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo c > c
-  $ hg add c
-  $ hg commit -m'c'
+  $ sl add c
+  $ sl commit -m'c'
 
 # test merging of diverged bookmarks
-  $ hg bookmark -r 'desc(b)' "c@diverge"
-  $ hg bookmark -r 'desc(b)' b
-  $ hg bookmark c
-  $ hg bookmarks
+  $ sl bookmark -r 'desc(b)' "c@diverge"
+  $ sl bookmark -r 'desc(b)' b
+  $ sl bookmark c
+  $ sl bookmarks
      b                         d2ae7f538514
    * c                         d36c0562f908
      c@diverge                 d2ae7f538514
-  $ hg merge "c@diverge"
+  $ sl merge "c@diverge"
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg commit -m'merge'
-  $ hg bookmarks
+  $ sl commit -m'merge'
+  $ sl bookmarks
      b                         d2ae7f538514
    * c                         b8f96cf4688b
 
-  $ hg up -C 'desc(merge)'
+  $ sl up -C 'desc(merge)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark c)
   $ echo d > d
-  $ hg add d
-  $ hg commit -m'd'
+  $ sl add d
+  $ sl commit -m'd'
 
-  $ hg up -C 'desc(merge)'
+  $ sl up -C 'desc(merge)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo e > e
-  $ hg add e
-  $ hg commit -m'e'
-  $ hg up -C 'max(desc(e))'
+  $ sl add e
+  $ sl commit -m'e'
+  $ sl up -C 'max(desc(e))'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bookmark e
-  $ hg bookmarks
+  $ sl bookmark e
+  $ sl bookmarks
      b                         d2ae7f538514
      c                         b8f96cf4688b
    * e                         26bee9c5bcf3
 
 # the picked side is bookmarked
 
-  $ hg up -C 'desc(d)'
+  $ sl up -C 'desc(d)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark e)
-  $ hg merge
+  $ sl merge
   abort: heads are bookmarked - please merge with an explicit rev
-  (run 'hg heads' to see all heads)
+  (run 'sl heads' to see all heads)
   [255]
 
 # our revision is bookmarked
 
-  $ hg up -C e
+  $ sl up -C e
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (activating bookmark e)
-  $ hg merge
+  $ sl merge
   abort: no matching bookmark to merge - please merge with an explicit rev or bookmark
-  (run 'hg heads' to see all heads)
+  (run 'sl heads' to see all heads)
   [255]
 
 # merge bookmark heads
 
-  $ hg up -C 'desc(d)'
+  $ sl up -C 'desc(d)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark e)
   $ echo f > f
-  $ hg commit -Am "f"
+  $ sl commit -Am "f"
   adding f
-  $ hg bookmarks -r 'desc(d)' "e@diverged"
-  $ hg up -q -C "e@diverged"
-  $ hg merge
+  $ sl bookmarks -r 'desc(d)' "e@diverged"
+  $ sl up -q -C "e@diverged"
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg parents
+  $ sl parents
   commit:      a0546fcfe0fb
   bookmark:    e@diverged
   user:        test
@@ -101,38 +102,38 @@
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     e
   
-  $ hg up -C e
+  $ sl up -C e
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (activating bookmark e)
-  $ hg bookmarks
+  $ sl bookmarks
      b                         d2ae7f538514
      c                         b8f96cf4688b
    * e                         26bee9c5bcf3
      e@diverged                a0546fcfe0fb
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg commit -m'merge'
-  $ hg bookmarks
+  $ sl commit -m'merge'
+  $ sl bookmarks
      b                         d2ae7f538514
      c                         b8f96cf4688b
    * e                         ca784329f0ba
 
 # test warning when all heads are inactive bookmarks
 
-  $ hg up -C 'desc(f)'
+  $ sl up -C 'desc(f)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark e)
   $ echo g > g
-  $ hg commit -Am 'g'
+  $ sl commit -Am 'g'
   adding g
-  $ hg bookmark -i g
-  $ hg bookmarks
+  $ sl bookmark -i g
+  $ sl bookmarks
      b                         d2ae7f538514
      c                         b8f96cf4688b
      e                         ca784329f0ba
      g                         04dd21731d95
-  $ hg heads
+  $ sl heads
   commit:      04dd21731d95
   bookmark:    g
   user:        test
@@ -145,7 +146,7 @@
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     merge
   
-  $ hg merge
+  $ sl merge
   abort: heads are bookmarked - please merge with an explicit rev
-  (run 'hg heads' to see all heads)
+  (run 'sl heads' to see all heads)
   [255]

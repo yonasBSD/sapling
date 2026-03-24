@@ -11,82 +11,83 @@
 #        4--5--6--7--8
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo '0' >a
-  $ hg add a
-  $ hg ci -u test -d '0 0' -m '0'
+  $ sl add a
+  $ sl ci -u test -d '0 0' -m '0'
   $ echo '1' >a
-  $ hg ci -u test -d '1 0' -m '1'
+  $ sl ci -u test -d '1 0' -m '1'
 
 branch 2-3
 
   $ echo '2' >b
-  $ hg add b
-  $ hg ci -u test -d '2 0' -m '2'
+  $ sl add b
+  $ sl ci -u test -d '2 0' -m '2'
   $ echo '3' >b
-  $ hg ci -u test -d '3 0' -m '3'
+  $ sl ci -u test -d '3 0' -m '3'
 
 branch 4-8
 
-  $ hg up -r 'desc(1)'
+  $ sl up -r 'desc(1)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo '4' >c
-  $ hg add c
-  $ hg ci -u test -d '4 0' -m '4'
+  $ sl add c
+  $ sl ci -u test -d '4 0' -m '4'
   $ echo '5' >c
-  $ hg ci -u test -d '5 0' -m '5'
+  $ sl ci -u test -d '5 0' -m '5'
   $ echo '6' >c
-  $ hg ci -u test -d '6 0' -m '6'
+  $ sl ci -u test -d '6 0' -m '6'
   $ echo '7' >c
-  $ hg ci -u test -d '7 0' -m '7'
+  $ sl ci -u test -d '7 0' -m '7'
   $ echo '8' >c
-  $ hg ci -u test -d '8 0' -m '8'
+  $ sl ci -u test -d '8 0' -m '8'
 
 merge
 
-  $ hg merge -r 'desc(3)'
+  $ sl merge -r 'desc(3)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg ci -u test -d '9 0' -m '9=8+3'
+  $ sl ci -u test -d '9 0' -m '9=8+3'
 
   $ echo '10' >a
-  $ hg ci -u test -d '10 0' -m '10'
+  $ sl ci -u test -d '10 0' -m '10'
   $ echo '11' >a
-  $ hg ci -u test -d '11 0' -m '11'
+  $ sl ci -u test -d '11 0' -m '11'
   $ echo '12' >a
-  $ hg ci -u test -d '12 0' -m '12'
+  $ sl ci -u test -d '12 0' -m '12'
 
 unrelated branch
 
-  $ hg up -r 8417d459b90c8ff7a70033ab503fab3b1524a8ed
+  $ sl up -r 8417d459b90c8ff7a70033ab503fab3b1524a8ed
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo '13' >d
-  $ hg add d
-  $ hg ci -u test -d '13 0' -m '13'
+  $ sl add d
+  $ sl ci -u test -d '13 0' -m '13'
   $ echo '14' >d
-  $ hg ci -u test -d '14 0' -m '14'
+  $ sl ci -u test -d '14 0' -m '14'
 
 mark changesets
 
-  $ hg bisect --reset
-  $ hg bisect --good 2a1daef14cd4f3d2dd2ca4d90fc67561ed148a24
-  $ hg bisect --good 'desc(6)'
-  $ hg bisect --bad 'desc(12)'
+  $ sl bisect --reset
+  $ sl bisect --good 2a1daef14cd4f3d2dd2ca4d90fc67561ed148a24
+  $ sl bisect --good 'desc(6)'
+  $ sl bisect --bad 'desc(12)'
   Testing changeset 2197c557e14c (6 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg bisect --bad 'desc(10)'
+  $ sl bisect --bad 'desc(10)'
   Testing changeset e74a86251f58 (4 changesets remaining, ~2 tests)
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg bisect --skip 'desc(7)'
+  $ sl bisect --skip 'desc(7)'
   Testing changeset e74a86251f58 (4 changesets remaining, ~2 tests)
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 test template
 
-  $ hg log --template '{node|short} {bisect}\n'
+  $ sl log --template '{node|short} {bisect}\n'
   cbf2f3105bbf 
   e07efca37c43 
   98c6b56349c0 bad
@@ -102,7 +103,7 @@ test template
   e1355ee1f23e ignored
   ce7c85e06a9f good (implicit)
   b4e73ffab476 good (implicit)
-  $ hg log --template '{bisect|shortbisect} {node|short}\n'
+  $ sl log --template '{bisect|shortbisect} {node|short}\n'
     cbf2f3105bbf
     e07efca37c43
   B 98c6b56349c0
@@ -121,7 +122,7 @@ test template
 
 test style
 
-  $ hg log --style bisect
+  $ sl log --style bisect
   commit:      cbf2f3105bbf
   bisect:      
   user:        test
@@ -212,7 +213,7 @@ test style
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     0
   
-  $ hg log --quiet --style bisect
+  $ sl log --quiet --style bisect
     cbf2f3105bbf
     e07efca37c43
   B 98c6b56349c0
@@ -229,7 +230,7 @@ test style
   G ce7c85e06a9f
   G b4e73ffab476
 
-  $ hg --config extensions.color= --color=debug log --quiet --style bisect
+  $ sl --config extensions.color= --color=debug log --quiet --style bisect
   [log.bisect| ] cbf2f3105bbf
   [log.bisect| ] e07efca37c43
   [log.bisect bisect.bad|B] 98c6b56349c0

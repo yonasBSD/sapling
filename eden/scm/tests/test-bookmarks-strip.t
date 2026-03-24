@@ -2,38 +2,39 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo qqq>qqq.txt
 
 add file
 
-  $ hg add
+  $ sl add
   adding qqq.txt
 
 commit first revision
 
-  $ hg ci -m 1
+  $ sl ci -m 1
 
 set bookmark
 
-  $ hg book test
+  $ sl book test
 
   $ echo www>>qqq.txt
 
 commit second revision
 
-  $ hg ci -m 2
+  $ sl ci -m 2
 
 set bookmark
 
-  $ hg book test2
+  $ sl book test2
 
 update to -2 (deactivates the active bookmark)
 
-  $ hg goto -r '.^'
+  $ sl goto -r '.^'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark test2)
 
@@ -41,17 +42,17 @@ update to -2 (deactivates the active bookmark)
 
 commit new head
 
-  $ hg ci -m 3
+  $ sl ci -m 3
 
 bookmarks updated?
 
-  $ hg book
+  $ sl book
      test                      25e1ee7a0081
      test2                     25e1ee7a0081
 
 strip to revision 1
 
-  $ hg hide 'desc(2)'
+  $ sl hide 'desc(2)'
   hiding commit 25e1ee7a0081 "2"
   1 changeset hidden
   removing bookmark 'test' (was at: 25e1ee7a0081)
@@ -60,5 +61,5 @@ strip to revision 1
 
 list bookmarks
 
-  $ hg book
+  $ sl book
   no bookmarks set

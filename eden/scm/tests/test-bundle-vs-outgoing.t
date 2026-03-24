@@ -23,6 +23,7 @@ o  1
 |
 o  0
 
+  $ export HGIDENTITY=sl
   $ mkrev()
   > {
   >     revno=$1
@@ -35,7 +36,7 @@ setup test repo1
 
   $ newclientrepo repo1
   $ echo "rev 0" > foo.txt
-  $ hg ci -Am"rev 0"
+  $ sl ci -Am"rev 0"
   adding foo.txt
   $ mkrev 1
   rev 1
@@ -49,7 +50,7 @@ first branch
 
 back to rev 1 to create second branch
 
-  $ hg up -r6a9ac14c32e0502be005fee0023b823698e3ce41
+  $ sl up -r6a9ac14c32e0502be005fee0023b823698e3ce41
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ mkrev 4
   rev 4
@@ -58,13 +59,13 @@ back to rev 1 to create second branch
 
 merge first branch to second branch
 
-  $ hg up -C -r'max(desc(rev))'
+  $ sl up -C -r'max(desc(rev))'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ HGMERGE=internal:local hg merge
+  $ HGMERGE=internal:local sl merge
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ echo "merge rev 5, rev 3" > foo.txt
-  $ hg ci -m"merge first branch to second branch"
+  $ sl ci -m"merge first branch to second branch"
 
 one more commit following the merge
 
@@ -73,14 +74,14 @@ one more commit following the merge
 
 back to "second branch" to make another head
 
-  $ hg up -ree67ca2f52ac8c7904cc477b8cf04da764fea594
+  $ sl up -ree67ca2f52ac8c7904cc477b8cf04da764fea594
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ mkrev 8
   rev 8
 
 the story so far
 
-  $ hg log -G --template "{node}\n"
+  $ sl log -G --template "{node}\n"
   @  5f52be4fcfe9ac3202b79e6beb8804d871b98e10
   │
   │ o  de61c22a80e9fbe65e3f207212eb55d9c56e491b
@@ -100,11 +101,11 @@ the story so far
   o  6ae4cca4e39a527c4158d3b0fd73882b50e45484
   
 
-check that "hg outgoing" really does the right thing
+check that "sl outgoing" really does the right thing
 
 sanity check of outgoing: expect revs 4 5 6 7 8
 
-  $ hg push -q -r 'desc(3)' --to book --create
+  $ sl push -q -r 'desc(3)' --to book --create
 
 test bundle (destination repo): expect 5 revisions
 
@@ -112,8 +113,8 @@ this should bundle the same 5 revisions that outgoing reported, but it
 
 actually bundles 7
 
-  $ hg pull -q -B book
-  $ hg bundle foo.bundle test:repo1_server
+  $ sl pull -q -B book
+  $ sl bundle foo.bundle test:repo1_server
   searching for changes
   5 changesets found
 
@@ -123,7 +124,7 @@ this should (and does) give exactly the same result as bundle
 
 with a destination repo... i.e. it's wrong too
 
-  $ hg bundle --base 478f191e53f84ddec1d358da2ed34eb796b3ac6f foo.bundle
+  $ sl bundle --base 478f191e53f84ddec1d358da2ed34eb796b3ac6f foo.bundle
   5 changesets found
 
   $ cd ..

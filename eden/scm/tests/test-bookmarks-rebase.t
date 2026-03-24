@@ -2,49 +2,50 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ enable rebase
 
 initialize repository
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo 'a' > a
-  $ hg ci -A -m "0"
+  $ sl ci -A -m "0"
   adding a
 
   $ echo 'b' > b
-  $ hg ci -A -m "1"
+  $ sl ci -A -m "1"
   adding b
 
-  $ hg up 'desc(0)'
+  $ sl up 'desc(0)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo 'c' > c
-  $ hg ci -A -m "2"
+  $ sl ci -A -m "2"
   adding c
 
   $ echo 'd' > d
-  $ hg ci -A -m "3"
+  $ sl ci -A -m "3"
   adding d
 
-  $ hg bookmark -r 'desc(1)' one
-  $ hg bookmark -r 'desc(3)' two
-  $ hg up -q two
+  $ sl bookmark -r 'desc(1)' one
+  $ sl bookmark -r 'desc(3)' two
+  $ sl up -q two
 
 bookmark list
 
-  $ hg bookmark
+  $ sl bookmark
      one                       925d80f479bb
    * two                       2ae46b1d99a7
 
 rebase
 
-  $ hg rebase -s two -d one
+  $ sl rebase -s two -d one
   rebasing 2ae46b1d99a7 "3" (two)
 
-  $ hg log
+  $ sl log
   commit:      42e5ed2cdcf4
   bookmark:    two
   user:        test
@@ -69,37 +70,37 @@ rebase
   
 aborted rebase should restore active bookmark.
 
-  $ hg up 'desc(1)'
+  $ sl up 'desc(1)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark two)
   $ echo 'e' > d
-  $ hg ci -A -m "4"
+  $ sl ci -A -m "4"
   adding d
-  $ hg bookmark three
-  $ hg rebase -s three -d two
+  $ sl bookmark three
+  $ sl rebase -s three -d two
   rebasing dd7c838e8362 "4" (three)
   merging d
-  warning: 1 conflicts while merging d! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging d! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
-  $ hg bookmark
+  $ sl bookmark
      one                       925d80f479bb
    * three                     dd7c838e8362
      two                       42e5ed2cdcf4
 
 after aborted rebase, restoring a bookmark that has been removed should not fail
 
-  $ hg rebase -s three -d two
+  $ sl rebase -s three -d two
   rebasing dd7c838e8362 "4" (three)
   merging d
-  warning: 1 conflicts while merging d! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging d! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg bookmark -d three
-  $ hg rebase --abort
+  $ sl bookmark -d three
+  $ sl rebase --abort
   rebase aborted
-  $ hg bookmark
+  $ sl bookmark
      one                       925d80f479bb
      two                       42e5ed2cdcf4

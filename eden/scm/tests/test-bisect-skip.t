@@ -6,8 +6,9 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 # committing changes
@@ -18,15 +19,15 @@
   > A
   > EOS
 
-  $ hg bisect -s "! (file('path:E') or file('path:M'))"
-  $ cat .hg/bisect.state
+  $ sl bisect -s "! (file('path:E') or file('path:M'))"
+  $ cat .sl/bisect.state
   skip revset:! (file('path:E') or file('path:M'))
 
-  $ hg bisect -g $A
-  $ hg bisect -b $N
+  $ sl bisect -g $A
+  $ sl bisect -b $N
   Testing changeset 9bc730a19041 (13 changesets remaining, ~3 tests)
   5 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -b
+  $ sl bisect -b
   The first bad revision is:
   commit:      9bc730a19041
   user:        test

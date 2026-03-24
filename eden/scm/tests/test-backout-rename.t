@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig copytrace.dagcopytrace=True
   $ setconfig diff.git=true
 
@@ -13,9 +14,9 @@
   > A  # A/foo = foo
   > EOS
 
-  $ hg go -q $C
-  $ hg backout -q $B
-  $ hg status --change . --copies foo
+  $ sl go -q $C
+  $ sl backout -q $B
+  $ sl status --change . --copies foo
   A foo
     bar
 
@@ -30,15 +31,15 @@ test back out a commit before rename
   > A  # A/foo = foo\n
   > EOS
 
-  $ hg go -q $C
-  $ hg backout $B
+  $ sl go -q $C
+  $ sl backout $B
   merging bar and foo to bar
   0 files updated, 1 files merged, 1 files removed, 0 files unresolved
   changeset be9f9340610a backs out changeset 786106f81394
-  $ hg st --change . 
+  $ sl st --change . 
   M bar
   R B
-  $ hg diff -r .^ -r . bar
+  $ sl diff -r .^ -r . bar
   diff --git a/bar b/bar
   --- a/bar
   +++ b/bar
@@ -56,11 +57,11 @@ Back out a commit copying and modifying a file:
   > |
   > A
   > EOF
-  $ hg go -q $C
-  $ hg backout -r $B
+  $ sl go -q $C
+  $ sl backout -r $B
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   changeset 45998aa158d6 backs out changeset 6910c7fd50e3
-  $ hg show
+  $ sl show
   commit:      45998aa158d6
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -89,11 +90,11 @@ Back out a commit copying and modifying a file (case 2)
   > |
   > A
   > EOF
-  $ hg go -q $C
-  $ hg backout -r $B
+  $ sl go -q $C
+  $ sl backout -r $B
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   changeset c4c12f133dca backs out changeset 6910c7fd50e3
-  $ hg show
+  $ sl show
   commit:      c4c12f133dca
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

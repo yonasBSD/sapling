@@ -20,13 +20,14 @@
 #  |                  |
 #  0 <- known good - -
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable sparse amend
   $ setconfig clone.use-rust=true
   $ setconfig edensparse.disable-filter-sync=True
 
 test bisect-sparse
-  $ hg init server
+  $ sl init server
   $ cd server
 
   $ drawdag <<EOS
@@ -58,23 +59,23 @@ test bisect-sparse
   > EOS
 
   $ cd
-  $ hg clone -q test:server client --enable-profile profile
+  $ sl clone -q test:server client --enable-profile profile
   $ cd client
 
 verify bisect skips empty sparse commits (2,3)
 
-  $ hg up -qr $A
-  $ hg bisect --good
-  $ hg up -q $J
+  $ sl up -qr $A
+  $ sl bisect --good
+  $ sl up -q $J
 
-  $ hg bisect --bad
+  $ sl bisect --bad
   Skipping changeset 61165d92eeb6 as there are no changes inside
   the sparse profile from the known good changeset 67d16e36726d
   Skipping changeset b81af7b7acae as there are no changes inside
   the sparse profile from the known bad changeset 96593dec1c75
   Testing changeset cb60aec397f6 (2 changesets remaining, ~1 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect --good
+  $ sl bisect --good
   The first bad revision is:
   commit:      b81af7b7acae
   user:        test
@@ -83,18 +84,18 @@ verify bisect skips empty sparse commits (2,3)
 
 check --nosparseskip flag
 
-  $ hg bisect --reset
-  $ hg bisect -g $A
-  $ hg bisect -b $J -S
+  $ sl bisect --reset
+  $ sl bisect -g $A
+  $ sl bisect -b $J -S
   Testing changeset 61165d92eeb6 (9 changesets remaining, ~3 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect --good --nosparseskip
+  $ sl bisect --good --nosparseskip
   Testing changeset b81af7b7acae (5 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect --bad --nosparseskip
+  $ sl bisect --bad --nosparseskip
   Testing changeset cb60aec397f6 (2 changesets remaining, ~1 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect --good
+  $ sl bisect --good
   The first bad revision is:
   commit:      b81af7b7acae
   user:        test
@@ -114,11 +115,11 @@ verify skipping works with --command flag
   > EOF
   $ chmod +x script.py
 
-  $ hg bisect --reset
-  $ hg bisect -g $A
-  $ hg up $J
+  $ sl bisect --reset
+  $ sl bisect -g $A
+  $ sl up $J
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect --command "hg debugpython -- script.py"
+  $ sl bisect --command "sl debugpython -- script.py"
   changeset 96593dec1c75: bad
   Skipping changeset 61165d92eeb6 as there are no changes inside
   the sparse profile from the known good changeset 67d16e36726d
@@ -155,40 +156,40 @@ verify skipping works with --command flag
 
 New test set
 
-  $ hg bisect --reset
-  $ hg up $H
+  $ sl bisect --reset
+  $ sl up $H
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ echo r > sparse-included-file
   $ echo z > sparse-excluded-file
   $ echo dsf > esFE
-  $ hg ci -Am '10'
+  $ sl ci -Am '10'
 
   $ echo a > sparse-included-file
   $ echo x > sparse-excluded-file
-  $ hg ci -Aqm '11'
+  $ sl ci -Aqm '11'
 
   $ echo r > sparse-included-file
   $ echo z > sparse-excluded-file
-  $ hg ci -Aqm '12'
+  $ sl ci -Aqm '12'
 
-  $ hg merge -r $J
+  $ sl merge -r $J
   temporarily included 1 file(s) in the sparse checkout for merging
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg ci -Aqm '13: merge(9,12)'
+  $ sl ci -Aqm '13: merge(9,12)'
 
   $ echo t > sparse-included-file
   $ echo v > sparse-excluded-file
-  $ hg ci -Aqm '14'
+  $ sl ci -Aqm '14'
 
-  $ hg bisect -g $I
-  $ hg bisect -b 'desc(14)'
+  $ sl bisect -g $I
+  $ sl bisect -b 'desc(14)'
   Skipping changeset 96593dec1c75 as there are no changes inside
   the sparse profile from the known good changeset a1deef3f19b6
   Testing changeset 5208d98c5d2e (2 changesets remaining, ~1 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect --bad
+  $ sl bisect --bad
   The first bad revision is:
   commit:      5208d98c5d2e
   user:        test
@@ -203,13 +204,13 @@ New test set
 
 
 
-  $ hg bisect --extend
+  $ sl bisect --extend
   Extending search to changeset bef5da0179e1
   Skipping changeset bef5da0179e1 as there are no changes inside
   the sparse profile from the known good changeset 96593dec1c75
   Testing changeset 9351b91f8f7a (4 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect --good
+  $ sl bisect --good
   Skipping changeset 8a99ef081954 as there are no changes inside
   the sparse profile from the known bad changeset 5208d98c5d2e
   The first bad revision is:
@@ -243,24 +244,24 @@ Empty case with --command flag: all commits are skipped
   $ echo "known good" > sparse-new-excluded-file
   $ echo "known good" > sparse-included-file
   $ echo sparse-new-excluded-file >> profile
-  $ hg ci -Aqm 'known good - 15'
+  $ sl ci -Aqm 'known good - 15'
 
   $ echo "empty good" > sparse-new-excluded-file
-  $ hg ci -Aqm 'empty good - 16'
+  $ sl ci -Aqm 'empty good - 16'
 
   $ echo "empty bad" > sparse-new-excluded-file
   $ echo "empty bad" > sparse-included-file
-  $ hg ci -Aqm 'empty bad - 17'
+  $ sl ci -Aqm 'empty bad - 17'
 
   $ echo "known bad" > sparse-new-excluded-file
-  $ hg ci -Aqm 'known bad - 18'
+  $ sl ci -Aqm 'known bad - 18'
 
   $ sed -i '/sparse-new-excluded-file/d' profile
-  $ hg amend --to "desc('known good - 15')"
+  $ sl amend --to "desc('known good - 15')"
 
-  $ hg bisect --reset
-  $ hg bisect -g "desc('known good - 15')"
-  $ hg bisect -c "test $(hg log -r . -T '{rev}') -lt 17"
+  $ sl bisect --reset
+  $ sl bisect -g "desc('known good - 15')"
+  $ sl bisect -c "test $(sl log -r . -T '{rev}') -lt 17"
   changeset 03845d757c47: bad
   Skipping changeset 3fd59de51436 as there are no changes inside
   the sparse profile from the known good changeset 8f072b3c6011

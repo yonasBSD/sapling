@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable rebase
   $ setconfig automerge.merge-algos=adjacent-changes,subset-changes
@@ -16,11 +17,11 @@ Successful adjacent-changes merge:
   > |/  # B/A=a\nb'\nc\nd\ne\n
   > A   # A/A=a\nb\nc\nd\ne\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 929db2f4565d "C"
   merging A
    lines 2-4 have been resolved by automerge algorithms
-  $ hg cat -r tip A
+  $ sl cat -r tip A
   a
   b'
   c'
@@ -36,7 +37,7 @@ adjacent-changes merge - prompt:
   > |/  # B/A=a\nb'\nc\nd\ne\n
   > A   # A/A=a\nb\nc\nd\ne\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 929db2f4565d "C"
   merging A
   <<<<<<< dest:   6d1bb9f58190 - test: B
@@ -52,7 +53,7 @@ adjacent-changes merge - prompt:
   +d'
   >>>>>>> source: 929db2f4565d - test: C
   
-  Above conflict can be resolved automatically (see 'hg help automerge' for details):
+  Above conflict can be resolved automatically (see 'sl help automerge' for details):
   <<<<<<< automerge algorithm yields:
    b'
    c'
@@ -60,8 +61,8 @@ adjacent-changes merge - prompt:
   >>>>>>>
   Accept this resolution?
   (a)ccept it, (r)eject it, or review it in (f)ile: r
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat A
   a
@@ -85,11 +86,11 @@ adjacent-changes merge - keep-in-file:
   > |/  # B/A=a\nb'\nc\nd\ne\n
   > A   # A/A=a\nb\nc\nd\ne\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 929db2f4565d "C"
   merging A
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat A
   a
@@ -118,9 +119,9 @@ adjacent-changes merge - disable for noninteractive:
   > |/  # B/A=a\nb'\nc\nd\ne\n
   > A   # A/A=a\nb\nc\nd\ne\n
   > EOS
-  $ hg rebase -r $C -d $B -q
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  $ sl rebase -r $C -d $B -q
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
 Unsuccessful adjacent-changes merge - overlap:
@@ -132,9 +133,9 @@ Unsuccessful adjacent-changes merge - overlap:
   > |/  # B/A=a\na2\nb\nc\nd\ne\n
   > A   # A/A=a\nb\ne\n
   > EOS
-  $ hg rebase -r $C -d $B -q
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  $ sl rebase -r $C -d $B -q
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat A
   a
@@ -157,11 +158,11 @@ Successful subset-changes merge:
   > |/  # B/A=a\nb\nc\nd\n
   > A   # A/A=a\nd\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 58aa52a4f6bb "C"
   merging A
    lines 2-3 have been resolved by automerge algorithms
-  $ hg cat -r tip A
+  $ sl cat -r tip A
   a
   b
   c
@@ -176,9 +177,9 @@ adjacent-changes merge - (keep-in-file & merge3):
   > |/  # B/A=a\nb'\nc\nd\ne\n
   > A   # A/A=a\nb\nc\nd\ne\n
   > EOS
-  $ hg rebase -r $C -d $B -q -t internal:merge3
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  $ sl rebase -r $C -d $B -q -t internal:merge3
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat A
   a
@@ -211,9 +212,9 @@ adjacent-changes merge - (keep-in-file & mergediff):
   > |/  # B/A=a\nb'\nc\nd\ne\n
   > A   # A/A=a\nb\nc\nd\ne\n
   > EOS
-  $ hg rebase -r $C -d $B -q -t internal:mergediff
-  warning: conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  $ sl rebase -r $C -d $B -q -t internal:mergediff
+  warning: conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat A
   a
@@ -246,11 +247,11 @@ Successful sort-inserts merge for Python file:
   > |/  # B/a.py=import a\nimport b\n
   > A   # A/a.py=import a\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 07adb317b9bf "C"
   merging a.py
    lines 2-3 have been resolved by automerge algorithms
-  $ hg cat -r tip a.py
+  $ sl cat -r tip a.py
   import a
   import b
   import c
@@ -265,11 +266,11 @@ Unsuccessful merge for Python file when 'sort-inserts' is False:
   > |/  # B/a.py=import a\nimport b\n
   > A   # A/a.py=import a\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 07adb317b9bf "C"
   merging a.py
-  warning: 1 conflicts while merging a.py! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging a.py! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat a.py
   import a
@@ -289,11 +290,11 @@ Successful sort-inserts merge for Buck file(cross phases):
   > |/  # B/BUCK="repo//third-party/foo:foo",\n"//a/b/c:t",\n
   > A   # A/BUCK="//a/b/c:t",\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 3b394aaff4e9 "C"
   merging BUCK
    lines 1-2 have been resolved by automerge algorithms
-  $ hg cat -r tip BUCK
+  $ sl cat -r tip BUCK
   "repo//third-party/foo:foo",
   "//a/b/bar:bar",
   "//a/b/c:t",
@@ -308,11 +309,11 @@ Successful sort-inserts merge for Buck file(within phases):
   > |/  # B/BUCK="//a/b/c/api/base:base",\n"//a/b/c/cancellation:cancellation",\n
   > A   # A/BUCK="//a/b/c/cancellation:cancellation",\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 74708167909f "C"
   merging BUCK
    lines 1-2 have been resolved by automerge algorithms
-  $ hg cat -r tip BUCK
+  $ sl cat -r tip BUCK
   "//a/b/c/api/base:base",
   "//a/b/c/api/base/model:model",
   "//a/b/c/cancellation:cancellation",
@@ -326,11 +327,11 @@ Unsuccessful sort-inserts merge for normal Python statements:
   > |/  # B/a.py=a=1\nb=2\n
   > A   # A/a.py=a=1\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing a4de9208fa9e "C"
   merging a.py
-  warning: 1 conflicts while merging a.py! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging a.py! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat a.py
   a=1

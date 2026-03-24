@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ configure dummyssh
 This test is dedicated to test the bundle2 container format
@@ -234,11 +235,11 @@ Create an extension to test bundle2 API
 
 The extension requires a repo (currently unused)
 
-  $ hg init main
+  $ sl init main
   $ cd main
   $ touch a
-  $ hg add a
-  $ hg commit -m 'a'
+  $ sl add a
+  $ sl commit -m 'a'
 
 
 Empty bundle
@@ -249,12 +250,12 @@ Empty bundle
 
 Test bundling
 
-  $ hg bundle2 | f --hexdump
+  $ sl bundle2 | f --hexdump
   
   0000: 48 47 32 30 00 00 00 00 00 00 00 00             |HG20........|
 
 Test timeouts during bundling
-  $ hg bundle2 --timeout --debug --config devel.bundle2.debug=yes
+  $ sl bundle2 --timeout --debug --config devel.bundle2.debug=yes
   bundle2-output-bundle: "HG20", 1 parts total
   bundle2-output: start emission of HG20 stream
   0 chunk
@@ -275,17 +276,17 @@ Test timeouts during bundling
 
 Test unbundling
 
-  $ hg bundle2 | hg statbundle2
+  $ sl bundle2 | sl statbundle2
   options count: 0
   parts count:   0
 
 Test old style bundle are detected and refused
 
-  $ hg bundle --all --type v1 ../bundle.hg --config format.allowbundle1=True
+  $ sl bundle --all --type v1 ../bundle.hg --config format.allowbundle1=True
   devel-warn: using deprecated bundlev1 format
    at: *changegroup* (makechangegroup) (glob)
   1 changesets found
-  $ hg statbundle2 < ../bundle.hg
+  $ sl statbundle2 < ../bundle.hg
   abort: unknown bundle version 10
   [255]
 
@@ -302,28 +303,28 @@ Simplest possible parameters form
 
 Test generation simple option
 
-  $ hg bundle2 --param 'caution' | f --hexdump
+  $ sl bundle2 --param 'caution' | f --hexdump
   
   0000: 48 47 32 30 00 00 00 07 63 61 75 74 69 6f 6e 00 |HG20....caution.|
   0010: 00 00 00                                        |...|
 
 Test unbundling
 
-  $ hg bundle2 --param 'caution' | hg statbundle2
+  $ sl bundle2 --param 'caution' | sl statbundle2
   options count: 1
   - caution
   parts count:   0
 
 Test generation multiple option
 
-  $ hg bundle2 --param 'caution' --param 'meal' | f --hexdump
+  $ sl bundle2 --param 'caution' --param 'meal' | f --hexdump
   
   0000: 48 47 32 30 00 00 00 0c 63 61 75 74 69 6f 6e 20 |HG20....caution |
   0010: 6d 65 61 6c 00 00 00 00                         |meal....|
 
 Test unbundling
 
-  $ hg bundle2 --param 'caution' --param 'meal' | hg statbundle2
+  $ sl bundle2 --param 'caution' --param 'meal' | sl statbundle2
   options count: 2
   - caution
   - meal
@@ -334,7 +335,7 @@ advisory parameters, with value
 
 Test generation
 
-  $ hg bundle2 --param 'caution' --param 'meal=vegan' --param 'elephants' | f --hexdump
+  $ sl bundle2 --param 'caution' --param 'meal=vegan' --param 'elephants' | f --hexdump
   
   0000: 48 47 32 30 00 00 00 1c 63 61 75 74 69 6f 6e 20 |HG20....caution |
   0010: 6d 65 61 6c 3d 76 65 67 61 6e 20 65 6c 65 70 68 |meal=vegan eleph|
@@ -342,7 +343,7 @@ Test generation
 
 Test unbundling
 
-  $ hg bundle2 --param 'caution' --param 'meal=vegan' --param 'elephants' | hg statbundle2
+  $ sl bundle2 --param 'caution' --param 'meal=vegan' --param 'elephants' | sl statbundle2
   options count: 3
   - caution
   - elephants
@@ -355,7 +356,7 @@ parameter with special char in value
 
 Test generation
 
-  $ hg bundle2 --param 'e|! 7/=babar%#==tutu' --param simple | f --hexdump
+  $ sl bundle2 --param 'e|! 7/=babar%#==tutu' --param simple | f --hexdump
   
   0000: 48 47 32 30 00 00 00 29 65 25 37 43 25 32 31 25 |HG20...)e%7C%21%|
   0010: 32 30 37 2f 3d 62 61 62 61 72 25 32 35 25 32 33 |207/=babar%25%23|
@@ -364,7 +365,7 @@ Test generation
 
 Test unbundling
 
-  $ hg bundle2 --param 'e|! 7/=babar%#==tutu' --param simple | hg statbundle2
+  $ sl bundle2 --param 'e|! 7/=babar%#==tutu' --param simple | sl statbundle2
   options count: 2
   - e|! 7/
       babar%#==tutu
@@ -374,7 +375,7 @@ Test unbundling
 Test unknown mandatory option
 ---------------------------------------------------
 
-  $ hg bundle2 --param 'Gravity' | hg statbundle2
+  $ sl bundle2 --param 'Gravity' | sl statbundle2
   abort: unknown parameters: Stream Parameter - Gravity
   [255]
 
@@ -383,7 +384,7 @@ Test debug output
 
 bundling debug
 
-  $ hg bundle2 --debug --param 'e|! 7/=babar%#==tutu' --param simple ../out.hg2 --config progress.debug=true --config devel.bundle2.debug=true
+  $ sl bundle2 --debug --param 'e|! 7/=babar%#==tutu' --param simple ../out.hg2 --config progress.debug=true --config devel.bundle2.debug=true
   bundle2-output-bundle: "HG20", (2 params) 0 parts total
   bundle2-output: start emission of HG20 stream
   bundle2-output: bundle parameter: e%7C%21%207/=babar%25%23%3D%3Dtutu simple
@@ -401,7 +402,7 @@ file content is ok
 
 unbundling debug
 
-  $ hg statbundle2 --debug --config progress.debug=true --config devel.bundle2.debug=true < ../out.hg2
+  $ sl statbundle2 --debug --config progress.debug=true --config devel.bundle2.debug=true < ../out.hg2
   bundle2-input: start processing of HG20 stream
   bundle2-input: reading bundle2 stream parameters
   bundle2-input: ignoring unknown parameter e|! 7/
@@ -421,13 +422,13 @@ Test buggy input
 
 empty parameter name
 
-  $ hg bundle2 --param '' --quiet
+  $ sl bundle2 --param '' --quiet
   abort: empty parameter name
   [255]
 
 bad parameter name
 
-  $ hg bundle2 --param 42babar
+  $ sl bundle2 --param 42babar
   abort: non letter first character: 42babar
   [255]
 
@@ -435,7 +436,7 @@ bad parameter name
 Test part
 =================
 
-  $ hg bundle2 --parts ../parts.hg2 --debug --config progress.debug=true --config devel.bundle2.debug=true
+  $ sl bundle2 --parts ../parts.hg2 --debug --config progress.debug=true --config devel.bundle2.debug=true
   bundle2-output-bundle: "HG20", 7 parts total
   bundle2-output: start emission of HG20 stream
   bundle2-output: bundle parameter: 
@@ -509,7 +510,7 @@ Test part
   0190: 6e 67 00 00 00 06 00 00 00 00 00 00 00 00 00 00 |ng..............|
 
 
-  $ hg statbundle2 < ../parts.hg2
+  $ sl statbundle2 < ../parts.hg2
   options count: 0
     :test:empty:
       mandatory: 0
@@ -541,7 +542,7 @@ Test part
       payload: 0 bytes
   parts count:   7
 
-  $ hg statbundle2 --debug --config progress.debug=true --config devel.bundle2.debug=true < ../parts.hg2
+  $ sl statbundle2 --debug --config progress.debug=true --config devel.bundle2.debug=true < ../parts.hg2
   bundle2-input: start processing of HG20 stream
   bundle2-input: reading bundle2 stream parameters
   options count: 0
@@ -622,7 +623,7 @@ Test actual unbundling of test part
 
 Process the bundle
 
-  $ hg unbundle2 --debug --config progress.debug=true --config devel.bundle2.debug=true < ../parts.hg2
+  $ sl unbundle2 --debug --config progress.debug=true --config devel.bundle2.debug=true < ../parts.hg2
   bundle2-input: start processing of HG20 stream
   bundle2-input: reading bundle2 stream parameters
   bundle2-input-bundle: with-transaction
@@ -696,9 +697,9 @@ Process the bundle
 Unbundle with an unknown mandatory part
 (should abort)
 
-  $ hg bundle2 --parts --unknown ../unknown.hg2
+  $ sl bundle2 --parts --unknown ../unknown.hg2
 
-  $ hg unbundle2 < ../unknown.hg2
+  $ sl unbundle2 < ../unknown.hg2
   The choir starts singing:
       Patali Dirapata, Cromda Cromda Ripalo, Pata Pata, Ko Ko Ko
       Bokoro Dipoulito, Rondi Rondi Pepino, Pata Pata, Ko Ko Ko
@@ -711,17 +712,17 @@ Unbundle with an unknown mandatory part
 Unbundle with an unknown mandatory part parameters
 (should abort)
 
-  $ hg bundle2 --unknownparams ../unknown.hg2
+  $ sl bundle2 --unknownparams ../unknown.hg2
 
-  $ hg unbundle2 < ../unknown.hg2
+  $ sl unbundle2 < ../unknown.hg2
   0 unread bytes
   abort: missing support for test:song - randomparams
   [255]
 
 unbundle with a reply
 
-  $ hg bundle2 --parts --reply ../parts-reply.hg2
-  $ hg unbundle2 ../reply.hg2 < ../parts-reply.hg2
+  $ sl bundle2 --parts --reply ../parts-reply.hg2
+  $ sl unbundle2 ../reply.hg2 < ../parts-reply.hg2
   0 unread bytes
   3 total verses sung
 
@@ -773,7 +774,7 @@ The reply is a bundle
 
 The reply is valid
 
-  $ hg statbundle2 < ../reply.hg2
+  $ sl statbundle2 < ../reply.hg2
   options count: 0
     :output:
       mandatory: 0
@@ -795,7 +796,7 @@ The reply is valid
 
 Unbundle the reply to get the output:
 
-  $ hg unbundle2 < ../reply.hg2
+  $ sl unbundle2 < ../reply.hg2
   remote: The choir starts singing:
   remote:     Patali Dirapata, Cromda Cromda Ripalo, Pata Pata, Ko Ko Ko
   remote:     Bokoro Dipoulito, Rondi Rondi Pepino, Pata Pata, Ko Ko Ko
@@ -814,12 +815,12 @@ Unbundle the reply to get the output:
 Support for changegroup
 ===================================
 
-  $ hg unbundle $TESTDIR/bundles/rebase.hg
+  $ sl unbundle $TESTDIR/bundles/rebase.hg
   adding changesets
   adding manifests
   adding file changes
 
-  $ hg log -G
+  $ sl log -G
   o  02de42196ebe draft Nicolas Dumazet <nicdumz.commits@gmail.com>  H
   │
   │ o  eea13746799a draft Nicolas Dumazet <nicdumz.commits@gmail.com>  G
@@ -842,7 +843,7 @@ Support for changegroup
 Check handling of exception during generation.
 ----------------------------------------------
 
-  $ hg bundle2 --genraise > ../genfailed.hg2
+  $ sl bundle2 --genraise > ../genfailed.hg2
   abort: Someone set up us the bomb!
   [255]
 
@@ -850,7 +851,7 @@ Should still be a valid bundle
 
 And its handling on the other size raise a clean exception
 
-  $ cat ../genfailed.hg2 | hg unbundle2
+  $ cat ../genfailed.hg2 | sl unbundle2
   0 unread bytes
   abort: unexpected error: Someone set up us the bomb!
   [255]

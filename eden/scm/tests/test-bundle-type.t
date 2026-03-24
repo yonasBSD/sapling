@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig format.allowbundle1=true format.usegeneraldelta=yes
 
 bundle w/o type option
@@ -10,37 +11,37 @@ bundle w/o type option
   $ newclientrepo t2
   $ cd ../t1
   $ echo blablablablabla > file.txt
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding file.txt
-  $ hg log | grep summary
+  $ sl log | grep summary
   summary:     a
-  $ hg bundle ../b1 test:t2_server
+  $ sl bundle ../b1 test:t2_server
   searching for changes
   1 changesets found
 
   $ cd ../t2
-  $ hg unbundle ../b1
+  $ sl unbundle ../b1
   adding changesets
   adding manifests
   adding file changes
-  $ hg up tip
+  $ sl up tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg log | grep summary
+  $ sl log | grep summary
   summary:     a
   $ cd ..
 
 Unknown compression type is rejected
 
   $ newclientrepo t3
-  $ hg -q unbundle ../b1
-  $ hg bundle -a -t unknown out.hg
+  $ sl -q unbundle ../b1
+  $ sl bundle -a -t unknown out.hg
   abort: unknown is not a recognized bundle specification
-  (see 'hg help bundlespec' for supported values for --type)
+  (see 'sl help bundlespec' for supported values for --type)
   [255]
 
-  $ hg bundle -a -t unknown-v2 out.hg
+  $ sl bundle -a -t unknown-v2 out.hg
   abort: unknown compression is not supported
-  (see 'hg help bundlespec' for supported values for --type)
+  (see 'sl help bundlespec' for supported values for --type)
   [255]
 
   $ cd ..
@@ -51,11 +52,11 @@ test bundle types
   >   echo % test bundle type $1
   >   newclientrepo t$1
   >   cd ../t1
-  >   hg bundle -t $1 ../b$1 test:t${1}_server
+  >   sl bundle -t $1 ../b$1 test:t${1}_server
   >   f -q -B6 -D ../b$1; echo
   >   cd ../t$1
-  >   hg debugbundle ../b$1
-  >   hg debugbundle --spec ../b$1
+  >   sl debugbundle ../b$1
+  >   sl debugbundle --spec ../b$1
   >   echo
   >   cd ..
   > }
@@ -157,16 +158,16 @@ Compression level can be adjusted for bundle2 bundles
   > with some other content
   > and repeated, repeated, repeated, repeated content
   > EOF
-  $ hg -q commit -A -m initial
+  $ sl -q commit -A -m initial
 
-  $ hg bundle -a -t gzip-v2 gzip-v2.hg
+  $ sl bundle -a -t gzip-v2 gzip-v2.hg
   1 changesets found
 #if common-zlib
   $ f --size gzip-v2.hg
   gzip-v2.hg: size=488
 #endif
 
-  $ hg --config experimental.bundlecomplevel=1 bundle -a -t gzip-v2 gzip-v2-level1.hg
+  $ sl --config experimental.bundlecomplevel=1 bundle -a -t gzip-v2 gzip-v2-level1.hg
   1 changesets found
 #if common-zlib
   $ f --size gzip-v2-level1.hg
@@ -207,16 +208,16 @@ Compression level can be adjusted for bundle2 bundles
 
 zstd-v1 always fails
 
-  $ hg -R tzstd bundle -a -t zstd-v1 zstd-v1
+  $ sl -R tzstd bundle -a -t zstd-v1 zstd-v1
   abort: compression engine zstd is not supported on v1 bundles
-  (see 'hg help bundlespec' for supported values for --type)
+  (see 'sl help bundlespec' for supported values for --type)
   [255]
 
 #else
 
 zstd is a valid engine but isn't available
 
-  $ hg -R t1 bundle -a -t zstd irrelevant.hg
+  $ sl -R t1 bundle -a -t zstd irrelevant.hg
   abort: compression engine zstd could not be loaded
   [255]
 
@@ -226,7 +227,7 @@ test garbage file
 
   $ echo garbage > bgarbage
   $ newclientrepo tgarbage
-  $ hg unbundle ../bgarbage
+  $ sl unbundle ../bgarbage
   abort: ../bgarbage: not a Sapling bundle
   [255]
   $ cd ..
@@ -234,8 +235,8 @@ test garbage file
 test invalid bundle type
 
   $ cd t1
-  $ hg bundle -a -t garbage ../bgarbage
+  $ sl bundle -a -t garbage ../bgarbage
   abort: garbage is not a recognized bundle specification
-  (see 'hg help bundlespec' for supported values for --type)
+  (see 'sl help bundlespec' for supported values for --type)
   [255]
   $ cd ..

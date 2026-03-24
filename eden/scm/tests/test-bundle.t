@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig format.usegeneraldelta=yes
 We're bundling local clones here
   $ setconfig exchange.httpcommitlookup=False
@@ -10,111 +11,111 @@ Setting up test
 
   $ newclientrepo test
   $ echo 0 > afile
-  $ hg add afile
-  $ hg commit -m "0.0"
+  $ sl add afile
+  $ sl commit -m "0.0"
   $ echo 1 >> afile
-  $ hg commit -m "0.1"
+  $ sl commit -m "0.1"
   $ echo 2 >> afile
-  $ hg commit -m "0.2"
+  $ sl commit -m "0.2"
   $ echo 3 >> afile
-  $ hg commit -m "0.3"
-  $ hg push -q -r . --to head1 --create
-  $ hg goto -C 'desc(0.0)'
+  $ sl commit -m "0.3"
+  $ sl push -q -r . --to head1 --create
+  $ sl goto -C 'desc(0.0)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo 1 >> afile
-  $ hg commit -m "1.1"
+  $ sl commit -m "1.1"
   $ echo 2 >> afile
-  $ hg commit -m "1.2"
+  $ sl commit -m "1.2"
   $ echo "a line" > fred
   $ echo 3 >> afile
-  $ hg add fred
-  $ hg commit -m "1.3"
-  $ hg mv afile adifferentfile
-  $ hg commit -m "1.3m"
-  $ hg push -q -r . --to head2 --create
-  $ hg goto -C 'desc(0.3)'
+  $ sl add fred
+  $ sl commit -m "1.3"
+  $ sl mv afile adifferentfile
+  $ sl commit -m "1.3m"
+  $ sl push -q -r . --to head2 --create
+  $ sl goto -C 'desc(0.3)'
   1 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg mv afile anotherfile
-  $ hg commit -m "0.3m"
-  $ hg push -q -r . --to head3 --create
+  $ sl mv afile anotherfile
+  $ sl commit -m "0.3m"
+  $ sl push -q -r . --to head3 --create
   $ cd ..
   $ newclientrepo empty
   $ cd ..
 
 Bundle --all
 
-  $ hg -R test bundle --all all.hg
+  $ sl -R test bundle --all all.hg
   9 changesets found
 
 Bundle test to full.hg
 
-  $ hg -R test bundle full.hg empty_server
+  $ sl -R test bundle full.hg empty_server
   searching for changes
   9 changesets found
 
 Unbundle full.hg in test
 
-  $ hg -R test unbundle full.hg
+  $ sl -R test unbundle full.hg
   adding changesets
   adding manifests
   adding file changes
 
 Verify empty
 
-  $ hg -R empty heads
+  $ sl -R empty heads
   [1]
 
 Pull full.hg into test (using --cwd)
 
-  $ hg --cwd test unbundle ../full.hg
+  $ sl --cwd test unbundle ../full.hg
   adding changesets
   adding manifests
   adding file changes
 
 Verify that there are no leaked temporary files after pull (issue2797)
 
-  $ ls test/.hg | grep .hg10un
+  $ ls test/.sl | grep .hg10un
   [1]
 
 Pull full.hg into empty (using --cwd)
 
-  $ hg --cwd empty unbundle ../full.hg
+  $ sl --cwd empty unbundle ../full.hg
   adding changesets
   adding manifests
   adding file changes
 
 Rollback empty
 
-  $ hg -R empty debugstrip 'desc(0.0)' --no-backup
+  $ sl -R empty debugstrip 'desc(0.0)' --no-backup
 
 Pull full.hg into empty again (using --cwd)
 
-  $ hg --cwd empty unbundle ../full.hg
+  $ sl --cwd empty unbundle ../full.hg
   adding changesets
   adding manifests
   adding file changes
 
 Pull full.hg into test (using -R)
 
-  $ hg -R test unbundle full.hg
+  $ sl -R test unbundle full.hg
   adding changesets
   adding manifests
   adding file changes
 
 Pull full.hg into empty (using -R)
 
-  $ hg -R empty unbundle full.hg
+  $ sl -R empty unbundle full.hg
   adding changesets
   adding manifests
   adding file changes
 
 Rollback empty
 
-  $ hg -R empty debugstrip 'desc(0.0)' --no-backup
+  $ sl -R empty debugstrip 'desc(0.0)' --no-backup
 
 Pull full.hg into empty again (using -R)
 
-  $ hg -R empty unbundle full.hg
+  $ sl -R empty unbundle full.hg
   adding changesets
   adding manifests
   adding file changes
@@ -123,12 +124,12 @@ Pull full.hg into empty again (using -R)
   $ newclientrepo empty
 Pull ../full.hg into empty (with hook)
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [hooks]
   > changegroup = sh -c "env | grep '^HG_' | sort"
   > EOF
 
-  $ hg unbundle ../full.hg
+  $ sl unbundle ../full.hg
   adding changesets
   adding manifests
   adding file changes
@@ -143,12 +144,12 @@ Pull ../full.hg into empty (with hook)
 
 Rollback empty
 
-  $ hg debugstrip 'desc(0.0)' --no-backup
+  $ sl debugstrip 'desc(0.0)' --no-backup
   $ cd ..
 
 Pull full.hg into empty again (using -R; with hook)
 
-  $ hg -R empty unbundle full.hg
+  $ sl -R empty unbundle full.hg
   adding changesets
   adding manifests
   adding file changes
@@ -166,11 +167,11 @@ Unbundle incremental bundles into fresh empty in one go
   $ rm -r empty empty_server
   $ newclientrepo empty
   $ cd ..
-  $ hg -R test bundle --base null -r 'desc(0.0)' ../0.hg
+  $ sl -R test bundle --base null -r 'desc(0.0)' ../0.hg
   1 changesets found
-  $ hg -R test bundle --base 'desc(0.0)'    -r 'desc(0.1)' ../1.hg
+  $ sl -R test bundle --base 'desc(0.0)'    -r 'desc(0.1)' ../1.hg
   1 changesets found
-  $ hg -R empty unbundle -u ../0.hg ../1.hg
+  $ sl -R empty unbundle -u ../0.hg ../1.hg
   adding changesets
   adding manifests
   adding file changes
@@ -180,7 +181,7 @@ Unbundle incremental bundles into fresh empty in one go
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 View full contents of the bundle
-  $ hg -R test bundle --base null -r eebf5a27f8ca9b92ade529321141c1561cc4a9c2  ../partial.hg
+  $ sl -R test bundle --base null -r eebf5a27f8ca9b92ade529321141c1561cc4a9c2  ../partial.hg
   4 changesets found
 
 test for 540d1059c802
@@ -189,15 +190,15 @@ test for 540d1059c802
 
   $ newclientrepo orig
   $ echo foo > foo
-  $ hg add foo
-  $ hg ci -m 'add foo'
-  $ hg push -q -r . --to book --create
+  $ sl add foo
+  $ sl ci -m 'add foo'
+  $ sl push -q -r . --to book --create
 
   $ newclientrepo copy orig_server book
 
   $ echo >> foo
-  $ hg ci -m 'change foo'
-  $ hg bundle ../bundle.hg test:orig_server
+  $ sl ci -m 'change foo'
+  $ sl bundle ../bundle.hg test:orig_server
   searching for changes
   1 changesets found
 
@@ -212,32 +213,32 @@ bundle single branch
   $ newclientrepo branchy
   $ echo a >a
   $ echo x >x
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding a
   adding x
-  $ hg push -q -r . --to head0 --create
+  $ sl push -q -r . --to head0 --create
   $ echo c >c
   $ echo xx >x
-  $ hg ci -Amc
+  $ sl ci -Amc
   adding c
   $ echo c1 >c1
-  $ hg ci -Amc1
+  $ sl ci -Amc1
   adding c1
-  $ hg push -q -r . --to head2 --create
-  $ hg up 'desc(a)'
+  $ sl push -q -r . --to head2 --create
+  $ sl up 'desc(a)'
   1 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ echo b >b
-  $ hg ci -Amb
+  $ sl ci -Amb
   adding b
   $ echo b1 >b1
   $ echo xx >x
-  $ hg ci -Amb1
+  $ sl ci -Amb1
   adding b1
 
 == bundling
 
-  $ hg pull -q -B head0 -B head2
-  $ hg bundle bundle.hg test:branchy_server --debug --config progress.debug=true
+  $ sl pull -q -B head0 -B head2
+  $ sl bundle bundle.hg test:branchy_server --debug --config progress.debug=true
   query 1; heads
   searching for changes
   local heads: 1; remote heads: 2 (explicit: 0); initial common: 2
@@ -268,7 +269,7 @@ bundle single branch
 
 == Test bundling no commits
 
-  $ hg bundle -r 'desc("banana")' no-output.hg
+  $ sl bundle -r 'desc("banana")' no-output.hg
   abort: no commits to bundle
   [255]
 
@@ -279,27 +280,27 @@ it should show warning that second parent of the working
 directory does not exist
 
   $ newclientrepo update2bundled
-  $ cat <<EOF >> .hg/hgrc
+  $ cat <<EOF >> .sl/config
   > [extensions]
   > strip =
   > EOF
   $ echo "aaa" >> a
-  $ hg commit -A -m 0
+  $ sl commit -A -m 0
   adding a
   $ echo "bbb" >> b
-  $ hg commit -A -m 1
+  $ sl commit -A -m 1
   adding b
   $ echo "ccc" >> c
-  $ hg commit -A -m 2
+  $ sl commit -A -m 2
   adding c
-  $ hg goto -r 'desc(1)'
+  $ sl goto -r 'desc(1)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo "ddd" >> d
-  $ hg commit -A -m 3
+  $ sl commit -A -m 3
   adding d
-  $ hg goto -r 'desc(2)'
+  $ sl goto -r 'desc(2)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg log -G
+  $ sl log -G
   o  commit:      8bd3e1f196af
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -320,6 +321,6 @@ directory does not exist
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     0
   
-  $ hg bundle --base 'desc(1)' -r 'desc(3)' ../update2bundled.hg
+  $ sl bundle --base 'desc(1)' -r 'desc(3)' ../update2bundled.hg
   1 changesets found
-  $ hg debugstrip -r 'desc(3)'
+  $ sl debugstrip -r 'desc(3)'

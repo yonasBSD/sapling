@@ -10,9 +10,10 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
-  $ hg debugdrawdag << 'EOS'
+  $ sl debugdrawdag << 'EOS'
   > J K
   > |/|
   > H I
@@ -26,16 +27,16 @@
   > B C
   > EOS
 
-  $ hg debugbindag -r '::A' -o a.dag
-  $ hg debugpreviewbindag a.dag
+  $ sl debugbindag -r '::A' -o a.dag
+  $ sl debugpreviewbindag a.dag
   o    2
   ├─╮
   o │  1
     │
     o  0
 
-  $ hg debugbindag -r '::J' -o j.dag
-  $ hg debugpreviewbindag j.dag
+  $ sl debugbindag -r '::J' -o j.dag
+  $ sl debugpreviewbindag j.dag
   o  7
   │
   o  6
@@ -52,8 +53,8 @@
   │
   o  0
 
-  $ hg debugbindag -r 'all()' -o all.dag
-  $ hg debugpreviewbindag all.dag
+  $ sl debugbindag -r 'all()' -o all.dag
+  $ sl debugpreviewbindag all.dag
   o    10
   ├─╮
   │ │ o  9

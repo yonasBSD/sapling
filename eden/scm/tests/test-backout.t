@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ configure modern
@@ -15,29 +16,29 @@
   > |
   > A
   > EOS
-  $ hg up -qC $D
+  $ sl up -qC $D
 
 should complain
 
-  $ hg backout
+  $ sl backout
   abort: please specify a revision to backout
   [255]
-  $ hg backout -r $A $B
+  $ sl backout -r $A $B
   abort: please specify just one revision
   [255]
-  $ hg backout $E
+  $ sl backout $E
   abort: cannot backout change that is not an ancestor
   [255]
 
 basic operation
 
-  $ hg backout -d '1000 +0800' $C --no-edit
+  $ sl backout -d '1000 +0800' $C --no-edit
   2 files updated, 0 files merged, 1 files removed, 0 files unresolved
   changeset d2f56590172c backs out changeset 2e4218cf3ee0
 
 backout of backout is as if nothing happened
 
-  $ hg backout -d '2000 +0800' tip --no-edit
+  $ sl backout -d '2000 +0800' tip --no-edit
   removing A
   reverting B
   adding C
@@ -45,7 +46,7 @@ backout of backout is as if nothing happened
 
 check the changes
 
-  $ hg log -Gr 'desc(Back)' -T '{desc}' -p --config diff.git=1
+  $ sl log -Gr 'desc(Back)' -T '{desc}' -p --config diff.git=1
   @  Back out "Back out "C""
   │
   │  Original commit changeset: d2f56590172cdiff --git a/A b/A
@@ -98,11 +99,11 @@ check the changes
   
 test --no-commit
 
-  $ hg up -qC $E
-  $ hg backout --no-commit .
+  $ sl up -qC $E
+  $ sl backout --no-commit .
   removing E
   changeset 49cb92066bfd backed out, don't forget to commit.
-  $ hg diff --config diff.git=1
+  $ sl diff --config diff.git=1
   diff --git a/E b/E
   deleted file mode 100644
   --- a/E
@@ -114,54 +115,54 @@ test --no-commit
   $ cd ..
 
 Test backing out a mv keeps the blame history even if copytracing is off
-  $ hg init mv-backout
+  $ sl init mv-backout
   $ cd mv-backout
   $ setconfig copytrace.dagcopytrace=False
   $ echo a > foo
-  $ hg commit -Aqm a
+  $ sl commit -Aqm a
   $ echo b >> foo
-  $ hg commit -Aqm b
-  $ hg mv foo bar
-  $ hg commit -Aqm move
-  $ hg backout -r . -m backout
+  $ sl commit -Aqm b
+  $ sl mv foo bar
+  $ sl commit -Aqm move
+  $ sl backout -r . -m backout
   removing bar
   adding foo
   changeset b53c2dfb1fb7 backs out changeset 863da64a0012
-  $ hg status --change . -C
+  $ sl status --change . -C
   A foo
     bar
   R bar
-  $ hg blame -c foo
+  $ sl blame -c foo
   3e92d79f743a: a
   998f4c3a2bdf: b
 
   $ cd ..
 
 Make sure editor sees proper message
-  $ hg init backout-msg
+  $ sl init backout-msg
   $ cd backout-msg
   $ echo a > foo
-  $ hg commit -Aqm a
+  $ sl commit -Aqm a
   $ echo b > bar
-  $ hg commit -Aqm b
+  $ sl commit -Aqm b
 No output means editor was not invoked
-  $ HGEDITOR=cat hg backout .
+  $ HGEDITOR=cat sl backout .
   removing bar
   changeset 4dc95485382f backs out changeset 20b005551096
 Now we see the default commit message
-  $ hg up -qC 'desc(b)'
-  $ HGEDITOR=cat hg backout . --edit
+  $ sl up -qC 'desc(b)'
+  $ HGEDITOR=cat sl backout . --edit
   adding bar
   Back out "Back out "b""
   
   Original commit changeset: 4dc95485382f
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added bar
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added bar
   changeset 9b702c98cd4b backs out changeset 4dc95485382f
 
 Test with conflicts (interesting because there are no merge labels):
@@ -173,9 +174,9 @@ Test with conflicts (interesting because there are no merge labels):
   > |
   > A  # A/foo=one
   > EOS
-  $ hg go -q $C
-  $ hg backout $B --tool :prompt
+  $ sl go -q $C
+  $ sl backout $B --tool :prompt
   keep (l)ocal, take (o)ther, or leave (u)nresolved for foo? u
   0 files updated, 0 files merged, 1 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]

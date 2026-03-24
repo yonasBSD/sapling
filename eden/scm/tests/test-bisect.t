@@ -6,9 +6,10 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 # enable morestatus outputs
@@ -20,10 +21,10 @@
   $ echo >> a
   $ for i in `seq 0 31`; do
   >   echo a >> a
-  >   hg ci -m "msg $i" -d "$i 0" -A a -q
+  >   sl ci -m "msg $i" -d "$i 0" -A a -q
   > done
 
-  $ hg log
+  $ sl log
   commit:      58c80a7c8a40
   user:        test
   date:        Thu Jan 01 00:00:31 1970 +0000
@@ -184,49 +185,49 @@
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     msg 0
 
-  $ hg up -C tip
+  $ sl up -C tip
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 # bisect test
 
-  $ hg bisect -r
-  $ hg bisect -b
-  $ hg status
+  $ sl bisect -r
+  $ sl bisect -b
+  $ sl status
   
   # The repository is in an unfinished *bisect* state.
   # Current bisect state: 0 good commit(s), 1 bad commit(s), 0 skip commit(s)
-  # To mark the commit good:     hg bisect --good
-  # To mark the commit bad:      hg bisect --bad
-  # To abort:                    hg bisect --reset
+  # To mark the commit good:     sl bisect --good
+  # To mark the commit bad:      sl bisect --bad
+  # To abort:                    sl bisect --reset
   
-  $ hg status --config 'morestatus.skipstates=bisect'
-  $ hg summary
+  $ sl status --config 'morestatus.skipstates=bisect'
+  $ sl summary
   parent: 58c80a7c8a40 
    msg 31
   commit: (clean)
   phases: 32 draft
-  $ hg bisect -g 1
+  $ sl bisect -g 1
   Testing changeset a2e6ea4973e9 (30 changesets remaining, ~4 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   Testing changeset 5ec79163bff4 (15 changesets remaining, ~3 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 # skip
 
-  $ hg bisect -s
+  $ sl bisect -s
   Testing changeset 10e0acd3809e (15 changesets remaining, ~3 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   Testing changeset 288867a866e9 (7 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   Testing changeset b5bd63375ab9 (4 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -b
+  $ sl bisect -b
   Testing changeset 8e0c2264c8af (2 changesets remaining, ~1 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   The first bad revision is:
   commit:      b5bd63375ab9
   user:        test
@@ -235,13 +236,13 @@
 
 # mark revsets instead of single revs
 
-  $ hg bisect -r
-  $ hg bisect -b '0::3'
-  $ hg bisect -s '13::16'
-  $ hg bisect -g '26::tip'
+  $ sl bisect -r
+  $ sl bisect -b '0::3'
+  $ sl bisect -s '13::16'
+  $ sl bisect -g '26::tip'
   Testing changeset 1941b52820a5 (23 changesets remaining, ~4 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ cat .hg/bisect.state
+  $ cat .sl/bisect.state
   bad b99c7b9c8e11558adef3fad9af211c58d46f325b
   bad 5cd978ea51499179507ee7b6f340d2dbaa401185
   bad db07c04beaca44cf24832541e7f4a2346a95275b
@@ -260,64 +261,64 @@
 
 # bisect reverse test
 
-  $ hg bisect -r
-  $ hg bisect -b 'roots(all())'
-  $ hg bisect -g tip
+  $ sl bisect -r
+  $ sl bisect -b 'roots(all())'
+  $ sl bisect -g tip
   Testing changeset e7fa0811edb0 (31 changesets remaining, ~4 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   Testing changeset 03750880c6b5 (15 changesets remaining, ~3 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 # skip
 
-  $ hg bisect -s
+  $ sl bisect -s
   Testing changeset 453eb4dba229 (15 changesets remaining, ~3 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   Testing changeset 9b2ba8336a65 (8 changesets remaining, ~3 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   Testing changeset db07c04beaca (4 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -b
+  $ sl bisect -b
   Testing changeset b53bea5e2fcb (2 changesets remaining, ~1 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   The first good revision is:
   commit:      b53bea5e2fcb
   user:        test
   date:        Thu Jan 01 00:00:03 1970 +0000
   summary:     msg 3
 
-  $ hg bisect -r
-  $ hg bisect -g tip
-  $ hg bisect -b tip
+  $ sl bisect -r
+  $ sl bisect -g tip
+  $ sl bisect -b tip
   abort: inconsistent state, 58c80a7c8a40 is good and bad
   [255]
 
-  $ hg bisect -r
-  $ hg bisect -g 'roots(all())'
-  $ hg bisect -bU tip
+  $ sl bisect -r
+  $ sl bisect -g 'roots(all())'
+  $ sl bisect -bU tip
   Testing changeset e7fa0811edb0 (31 changesets remaining, ~4 tests)
-  $ hg id
+  $ sl id
   b53bea5e2fcb
 
-# Issue1228: hg bisect crashes when you skip the last rev in bisection
-# Issue1182: hg bisect exception
+# Issue1228: sl bisect crashes when you skip the last rev in bisection
+# Issue1182: sl bisect exception
 
-  $ hg bisect -r
-  $ hg bisect -b 4
-  $ hg bisect -g 0
+  $ sl bisect -r
+  $ sl bisect -b 4
+  $ sl bisect -g 0
   Testing changeset db07c04beaca (4 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -s
+  $ sl bisect -s
   Testing changeset 5cd978ea5149 (4 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -s
+  $ sl bisect -s
   Testing changeset b53bea5e2fcb (4 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -s
+  $ sl bisect -s
   The first bad revision is:
   commit:      9b2ba8336a65
   user:        test
@@ -342,12 +343,12 @@
 
 # reproduce non converging bisect, issue1182
 
-  $ hg bisect -r
-  $ hg bisect -g 0
-  $ hg bisect -b 2
+  $ sl bisect -r
+  $ sl bisect -g 0
+  $ sl bisect -b 2
   Testing changeset 5cd978ea5149 (2 changesets remaining, ~1 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -s
+  $ sl bisect -s
   The first bad revision is:
   commit:      db07c04beaca
   user:        test
@@ -362,37 +363,37 @@
 
 # test no action
 
-  $ hg bisect -r
-  $ hg bisect
+  $ sl bisect -r
+  $ sl bisect
   abort: cannot bisect (no known good revisions)
   [255]
 
 # reproduce AssertionError, issue1445
 
-  $ hg bisect -r
-  $ hg bisect -b 6
-  $ hg bisect -g 0
+  $ sl bisect -r
+  $ sl bisect -b 6
+  $ sl bisect -g 0
   Testing changeset b53bea5e2fcb (6 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -s
+  $ sl bisect -s
   Testing changeset db07c04beaca (6 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -s
+  $ sl bisect -s
   Testing changeset 9b2ba8336a65 (6 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -s
+  $ sl bisect -s
   Testing changeset 5cd978ea5149 (6 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -s
+  $ sl bisect -s
   Testing changeset 7874a09ea728 (6 changesets remaining, ~2 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bisect -g
+  $ sl bisect -g
   The first bad revision is:
   commit:      a3d5c6fdf0d3
   user:        test
   date:        Thu Jan 01 00:00:06 1970 +0000
   summary:     msg 6
-  $ hg log -r 'bisect(good)'
+  $ sl log -r 'bisect(good)'
   commit:      b99c7b9c8e11
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -402,17 +403,17 @@
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
   summary:     msg 5
-  $ hg log -r 'bisect(bad)'
+  $ sl log -r 'bisect(bad)'
   commit:      a3d5c6fdf0d3
   user:        test
   date:        Thu Jan 01 00:00:06 1970 +0000
   summary:     msg 6
-  $ hg log -r 'bisect(current)'
+  $ sl log -r 'bisect(current)'
   commit:      7874a09ea728
   user:        test
   date:        Thu Jan 01 00:00:05 1970 +0000
   summary:     msg 5
-  $ hg log -r 'bisect(skip)'
+  $ sl log -r 'bisect(skip)'
   commit:      5cd978ea5149
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -435,7 +436,7 @@
 
 # test legacy bisected() keyword
 
-  $ hg log -r 'bisected(bad)'
+  $ sl log -r 'bisected(bad)'
   commit:      a3d5c6fdf0d3
   user:        test
   date:        Thu Jan 01 00:00:06 1970 +0000
@@ -444,21 +445,21 @@
 # test invalid command
 # assuming that the shell returns 127 if command not found ...
 
-  $ hg bisect -r
-  $ hg bisect --command 'exit 127'
+  $ sl bisect -r
+  $ sl bisect --command 'exit 127'
   abort: failed to execute exit 127
   [255]
 
 # test bisecting command
 
-  $ hg bisect -r
-  $ hg up -qr tip
-  $ hg bisect --command "hg debugshell -c \"sys.exit(1 if (repo['.'].rev() < 6) else 0)\""
+  $ sl bisect -r
+  $ sl up -qr tip
+  $ sl bisect --command "sl debugshell -c \"sys.exit(1 if (repo['.'].rev() < 6) else 0)\""
   changeset 58c80a7c8a40: good
   abort: cannot bisect (no known bad revisions)
   [255]
-  $ hg up -qr 0
-  $ hg bisect --command "hg debugshell -c \"sys.exit(1 if (repo['.'].rev() < 6) else 0)\""
+  $ sl up -qr 0
+  $ sl bisect --command "sl debugshell -c \"sys.exit(1 if (repo['.'].rev() < 6) else 0)\""
   changeset b99c7b9c8e11: bad
   Testing changeset e7fa0811edb0 (31 changesets remaining, ~4 tests)
   changeset e7fa0811edb0: good
@@ -481,18 +482,18 @@
 # ensure that the bisect state file is updated before running a test
 # command
 
-  $ hg goto null
+  $ sl goto null
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ cat > script.sh << 'EOF'
-  > rev=$(hg log -r $HG_NODE --template '{rev}')
+  > rev=$(sl log -r $SL_NODE --template '{rev}')
   > [ "$rev" -ge 6 ]
   > EOF
   $ chmod +x script.sh
-  $ hg bisect -r
-  $ hg bisect --good tip --noupdate
-  $ hg bisect --bad 0 --noupdate
+  $ sl bisect -r
+  $ sl bisect --good tip --noupdate
+  $ sl bisect --bad 0 --noupdate
   Testing changeset e7fa0811edb0 (31 changesets remaining, ~4 tests)
-  $ hg bisect --command 'sh script.sh and some params' --noupdate
+  $ sl bisect --command 'sh script.sh and some params' --noupdate
   changeset e7fa0811edb0: good
   Testing changeset 03750880c6b5 (15 changesets remaining, ~3 tests)
   changeset 03750880c6b5: good
@@ -511,18 +512,18 @@
 
 # ensure that we still don't have a working dir
 
-  $ hg parents
+  $ sl parents
 
 # test the same case, this time with updating
 
-  $ hg bisect -r
-  $ hg up -qr tip
-  $ hg bisect --command 'sh script.sh and some params'
+  $ sl bisect -r
+  $ sl up -qr tip
+  $ sl bisect --command 'sh script.sh and some params'
   changeset 58c80a7c8a40: good
   abort: cannot bisect (no known bad revisions)
   [255]
-  $ hg up -qr 0
-  $ hg bisect --command 'sh script.sh and some params'
+  $ sl up -qr 0
+  $ sl bisect --command 'sh script.sh and some params'
   changeset b99c7b9c8e11: bad
   Testing changeset e7fa0811edb0 (31 changesets remaining, ~4 tests)
   changeset e7fa0811edb0: good
@@ -540,60 +541,60 @@
   user:        test
   date:        Thu Jan 01 00:00:06 1970 +0000
   summary:     msg 6
-  $ hg graft -q 15
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  $ sl graft -q 15
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
-  $ hg graft -q --abort
-  $ hg bisect --reset
-  $ hg up -qC .
+  $ sl graft -q --abort
+  $ sl bisect --reset
+  $ sl up -qC .
 
 # Test the validation message when exclusive options are used:
 
-  $ hg bisect -r
-  $ hg bisect -b -c false
+  $ sl bisect -r
+  $ sl bisect -b -c false
   abort: --bad and --command are incompatible
   [255]
-  $ hg bisect -b -e
+  $ sl bisect -b -e
   abort: --bad and --extend are incompatible
   [255]
-  $ hg bisect -b -g
+  $ sl bisect -b -g
   abort: --bad and --good are incompatible
   [255]
-  $ hg bisect -b -r
+  $ sl bisect -b -r
   abort: --bad and --reset are incompatible
   [255]
-  $ hg bisect -b -s
+  $ sl bisect -b -s
   abort: --bad and --skip are incompatible
   [255]
-  $ hg bisect -c false -e
+  $ sl bisect -c false -e
   abort: --command and --extend are incompatible
   [255]
-  $ hg bisect -c false -g
+  $ sl bisect -c false -g
   abort: --command and --good are incompatible
   [255]
-  $ hg bisect -c false -r
+  $ sl bisect -c false -r
   abort: --command and --reset are incompatible
   [255]
-  $ hg bisect -c false -s
+  $ sl bisect -c false -s
   abort: --command and --skip are incompatible
   [255]
-  $ hg bisect -e -g
+  $ sl bisect -e -g
   abort: --extend and --good are incompatible
   [255]
-  $ hg bisect -e -r
+  $ sl bisect -e -r
   abort: --extend and --reset are incompatible
   [255]
-  $ hg bisect -e -s
+  $ sl bisect -e -s
   abort: --extend and --skip are incompatible
   [255]
-  $ hg bisect -g -r
+  $ sl bisect -g -r
   abort: --good and --reset are incompatible
   [255]
-  $ hg bisect -g -s
+  $ sl bisect -g -s
   abort: --good and --skip are incompatible
   [255]
-  $ hg bisect -r -s
+  $ sl bisect -r -s
   abort: --reset and --skip are incompatible
   [255]

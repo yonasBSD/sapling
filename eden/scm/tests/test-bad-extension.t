@@ -3,6 +3,7 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.collapse-traceback=true
 
@@ -16,9 +17,9 @@ ensure that failing ui.atexit handlers report sensibly
   > def extsetup(ui):
   >     ui.atexit(bail)
   > EOF
-  $ hg -q --config extensions.bailatexit=$TESTTMP/bailatexit.py \
+  $ sl -q --config extensions.bailatexit=$TESTTMP/bailatexit.py \
   >  help help
-  hg help [-ecks] [TOPIC]
+  sl help [-ecks] [TOPIC]
   
   show help for a given topic or a help overview
   error in exit handlers:
@@ -48,13 +49,13 @@ another bad extension
   > badext2 =
   > EOF
 
-  $ hg -q help help 2>&1 |grep extension
+  $ sl -q help help 2>&1 |grep extension
   warning: extension badext is disabled because it cannot be imported from $TESTTMP/badext.py: bit bucket overflow
   warning: extension badext2 is disabled because it cannot be imported: No module named 'sapling.ext.badext2'
 
 show traceback
 
-  $ hg -q help help --traceback 2>&1 | egrep ' extension|^Exception|Traceback|ImportError'
+  $ sl -q help help --traceback 2>&1 | egrep ' extension|^Exception|Traceback|ImportError'
   warning: extension badext is disabled because it cannot be imported from $TESTTMP/badext.py: bit bucket overflow
   Traceback (most recent call last):
   Exception: bit bucket overflow
@@ -71,13 +72,13 @@ names of extensions failed to load can be accessed via extensions.notloaded()
   > def showbadexts(ui, *pats, **opts):
   >     ui.write('BADEXTS: %s\n' % ' '.join(sorted(extensions.notloaded())))
   > EOF
-  $ hg --config extensions.badexts=showbadexts.py showbadexts 2>&1 | grep '^BADEXTS'
+  $ sl --config extensions.badexts=showbadexts.py showbadexts 2>&1 | grep '^BADEXTS'
   BADEXTS: badext badext2
 
 show traceback for ImportError of ext.name if debug is set
 (note that --debug option isn't applied yet when loading extensions)
 
-  $ (hg -q help help --traceback --config ui.debug=True 2>&1) \
+  $ (sl -q help help --traceback --config ui.debug=True 2>&1) \
   > | grep -v '^ ' \
   > | egrep 'extension..[^p]|^Exception|Traceback|ImportError|not import'
   warning: extension badext is disabled because it cannot be imported from $TESTTMP/badext.py: bit bucket overflow
@@ -88,7 +89,7 @@ show traceback for ImportError of ext.name if debug is set
 
 confirm that there's no crash when an extension's documentation is bad
 
-  $ hg help --keyword baddocext
+  $ sl help --keyword baddocext
   warning: extension badext is disabled because it cannot be imported from $TESTTMP/badext.py: bit bucket overflow
   warning: extension badext2 is disabled because it cannot be imported: No module named 'sapling.ext.badext2'
   Topics:
