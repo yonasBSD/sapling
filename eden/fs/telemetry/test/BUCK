@@ -63,6 +63,18 @@ cpp_benchmark(
 )
 
 cpp_unittest(
+    name = "error_info_builder_test",
+    srcs = [
+        "EdenErrorInfoBuilderTest.cpp",
+    ],
+    supports_static_listing = False,
+    deps = [
+        "fbsource//third-party/googletest:gtest",
+        "//eden/fs/telemetry:error_info",
+    ],
+)
+
+cpp_unittest(
     name = "scuba_test",
     srcs = [
         "EdenStructuredLoggerTest.cpp",
