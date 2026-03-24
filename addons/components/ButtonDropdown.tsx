@@ -64,7 +64,8 @@ export const styles = stylex.create({
     appearance: 'none',
     lineHeight: '0',
     border: '1px solid var(--button-border)',
-    borderLeft: '1px solid var(--button-secondary-foreground)',
+    borderLeft:
+      '1px solid var(--button-border, hsl(from var(--button-secondary-foreground) h s l / 0.3))',
   },
   builtinButtonBorder: {
     borderLeft: 'unset',
