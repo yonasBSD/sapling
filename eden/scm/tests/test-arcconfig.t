@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
@@ -14,9 +15,9 @@
 
 # Sanity check expectations when there is no arcconfig
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
-  $ hg debugarcconfig
+  $ sl debugarcconfig
   abort: no .arcconfig found
   [255]
 
@@ -24,13 +25,13 @@
 # the repo dir
 
   $ echo '{"hello": "world"}' > .arcconfig
-  $ hg debugarcconfig
+  $ sl debugarcconfig
   {"_arcconfig_path": "$TESTTMP/repo", "hello": "world"}
 
 # We expect to see the combination of the user arcrc and the repo rc
 
   $ echo '{"user": true}' > $HOME/.arcrc
-  $ hg debugarcconfig
+  $ sl debugarcconfig
   {"_arcconfig_path": "$TESTTMP/repo", "hello": "world", "user": true}
 
 # .arcconfig lookup is scoped at $HOME
@@ -39,9 +40,9 @@
   $ mkdir -p x/y
   $ echo '{"foo": "bar"}' > x/.arcconfig
   $ cd x/y
-  $ hg init
-  $ hg debugarcconfig
+  $ sl init
+  $ sl debugarcconfig
   {"_arcconfig_path": "$TESTTMP/x", "foo": "bar", "user": true}
-  $ HOME=$PWD hg debugarcconfig
+  $ HOME=$PWD sl debugarcconfig
   abort: no .arcconfig found
   [255]

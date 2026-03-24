@@ -7,7 +7,7 @@
   $ enable absorb
   $ export HGIDENTITY=sl
 
-  $ hg init repo1
+  $ sl init repo1
   $ cd repo1
 
 Make some commits:
@@ -19,10 +19,10 @@ Make some commits:
 
 absorb --edit-lines will run the editor if filename is provided:
 
-  $ hg absorb --apply-changes --edit-lines
+  $ sl absorb --apply-changes --edit-lines
   nothing applied
   [1]
-  $ HGEDITOR=cat hg absorb --apply-changes --edit-lines a
+  $ HGEDITOR=cat sl absorb --apply-changes --edit-lines a
   SL: editing a
   SL: "y" means the line to the right exists in the changeset to the top
   SL:
@@ -47,18 +47,18 @@ Edit the file using --edit-lines:
   >     y   : f
   >     yyy : g
   > EOF
-  $ HGEDITOR='cat editortext >' hg absorb -q --apply-changes --edit-lines a
-  $ hg cat -r '.^^' a
+  $ HGEDITOR='cat editortext >' sl absorb -q --apply-changes --edit-lines a
+  $ sl cat -r '.^^' a
   d  
   e
   f
   g
-  $ hg cat -r '.^' a
+  $ sl cat -r '.^' a
    b
   c
   d  
   g
-  $ hg cat -r . a
+  $ sl cat -r . a
   a
    b
   e

@@ -1,5 +1,6 @@
 #require bash no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat > a.py << EOF
   > import os
@@ -14,7 +15,7 @@
 
 This should not trigger StdioError (IOError), or BrokenPipeError (OSError):
 
-  $ hg --config extensions.a=a.py init foo1 | head -1
+  $ sl --config extensions.a=a.py init foo1 | head -1
   line1
 
 'executed-here1' should exist to indicate the execution flow:
@@ -43,7 +44,7 @@ Try again, using a pager:
 
 This should not raise SignalInterrupt (KeyboardInterrupt):
 
-  $ hg --config extensions.b=b.py --config 'pager.pager=head -1' init foo2
+  $ sl --config extensions.b=b.py --config 'pager.pager=head -1' init foo2
   line1
 
 'executed-here2' should exist to indicate the execution flow:

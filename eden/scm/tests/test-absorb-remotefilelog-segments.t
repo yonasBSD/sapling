@@ -1,12 +1,13 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ enable absorb remotefilelog
 
 Create repo
 
   $ newrepo
-  $ echo remotefilelog >> .hg/requires
+  $ echo remotefilelog >> .sl/requires
 
   $ drawdag << 'EOS'
   > C
@@ -15,13 +16,13 @@ Create repo
   > |
   > A
   > EOS
-  $ hg up $C -q
+  $ sl up $C -q
 
 Edit & absorb
 
   $ echo 1 >> A
   $ echo 2 >> B
-  $ hg absorb
+  $ sl absorb
   showing changes for A
           @@ -0,1 +0,1 @@
   426bada -A
@@ -39,7 +40,7 @@ Edit & absorb
 
 Check result
 
-  $ hg log -Gpr 'all()' --config diff.git=1 -T '{desc}\n'
+  $ sl log -Gpr 'all()' --config diff.git=1 -T '{desc}\n'
   @  C
   │  diff --git a/C b/C
   │  new file mode 100644

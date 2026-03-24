@@ -9,6 +9,7 @@
 
 # Set up test environment.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig workingcopy.rust-checkout=true
   $ cat >> $HGRCPATH << 'EOF'
@@ -26,9 +27,9 @@
 
 # Test that rebases that cause an orphan commit are not a problem.
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
-  $ hg debugbuilddag -m '+3 *3'
+  $ sl debugbuilddag -m '+3 *3'
   $ showgraph
   o  e5d56d7a7894 r3
   │
@@ -37,7 +38,7 @@
   │ o  22094967a90d r1
   ├─╯
   o  1ad88bca4140 r0
-  $ hg rebase -r 'desc(r1)' -d 'desc(r3)'
+  $ sl rebase -r 'desc(r1)' -d 'desc(r3)'
   rebasing 22094967a90d "r1"
   merging mf
   $ showgraph

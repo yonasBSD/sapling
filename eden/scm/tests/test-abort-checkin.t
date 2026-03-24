@@ -11,6 +11,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat > abortcommit.py << 'EOF'
   > from sapling import error
@@ -27,19 +28,19 @@
   > abortcommit = $abspath
   > EOF
 
-  $ hg init foo
+  $ sl init foo
   $ cd foo
   $ echo foo > foo
-  $ hg add foo
+  $ sl add foo
 
 # mq may keep a reference to the repository so __del__ will not be
-# called and .hg/journal.dirstate will not be deleted:
+# called and .sl/journal.dirstate will not be deleted:
 
-  $ hg ci -m foo
+  $ sl ci -m foo
   error: pretxncommit.nocommits hook failed: no commits allowed
   abort: no commits allowed
   [255]
-  $ hg ci -m foo
+  $ sl ci -m foo
   error: pretxncommit.nocommits hook failed: no commits allowed
   abort: no commits allowed
   [255]

@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ configure mutation
@@ -12,16 +13,16 @@ Test adding, modifying, removing, and renaming files in amend.
   $ echo foo > foo
   $ echo bar > bar
   $ echo baz > baz
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo qux > qux
-  $ hg ci -m "two" -Aq
-  $ hg mv foo foo_renamed
-  $ hg rm bar
+  $ sl ci -m "two" -Aq
+  $ sl mv foo foo_renamed
+  $ sl rm bar
   $ echo morebaz >> baz
   $ echo new > new
-  $ hg add new
-  $ hg amend --to .^
-  $ hg log -G -vp -T "{desc} {join(extras, ' ')} {mutations} {node|short}"
+  $ sl add new
+  $ sl amend --to .^
+  $ sl log -G -vp -T "{desc} {join(extras, ' ')} {mutations} {node|short}"
   @  two branch=default mutdate=0 0 mutop=rebase mutpred=hg/7d3606fd19e3e6bb309681ed5af095d173314ab5 mutuser=test rebase_source=7d3606fd19e3e6bb309681ed5af095d173314ab5  01f78cddc939diff --git a/qux b/qux
   │  new file mode 100644
   │  --- /dev/null
@@ -61,16 +62,16 @@ Test removing, modifying and renaming files in subsequent commit.
   $ echo foo > foo
   $ echo bar > bar
   $ echo baz > baz
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo two > two
-  $ hg ci -m "two" -Aq
+  $ sl ci -m "two" -Aq
   $ echo three > three
-  $ hg ci -m "three" -Aq
-  $ hg mv foo foo_renamed
-  $ hg rm bar
+  $ sl ci -m "three" -Aq
+  $ sl mv foo foo_renamed
+  $ sl rm bar
   $ echo morebaz >> baz
-  $ hg amend --to 'desc(two)'
-  $ hg log -G -vp -T "{desc} {join(extras, ' ')} {mutations} {node|short}"
+  $ sl amend --to 'desc(two)'
+  $ sl log -G -vp -T "{desc} {join(extras, ' ')} {mutations} {node|short}"
   @  three branch=default mutdate=0 0 mutop=rebase mutpred=hg/0b73272bdcf2bf38c71192959d0e3f750de85ea0 mutuser=test rebase_source=0b73272bdcf2bf38c71192959d0e3f750de85ea0  7b8c275b5725diff --git a/three b/three
   │  new file mode 100644
   │  --- /dev/null
@@ -129,13 +130,13 @@ Test removing, modifying and renaming files in subsequent commit.
 Test three way merge during rebase.
   $ newclientrepo
   $ printf "one\n\ntwo\n\nthree\n" > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ printf "one\n\ntwo\n\nfour\n" > foo
-  $ hg ci -m "two"
+  $ sl ci -m "two"
   $ printf "five\n\ntwo\n\nfour\n" > foo
-  $ hg amend --to .^
+  $ sl amend --to .^
   merging foo
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two 706f867d1a33diff --git a/foo b/foo
   │  --- a/foo
   │  +++ b/foo
@@ -169,15 +170,15 @@ Test three way merge during rebase.
 Test replacing file with directory.
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar > bar
-  $ hg ci -m "two" -Aq
-  $ hg rm foo
+  $ sl ci -m "two" -Aq
+  $ sl rm foo
   $ mkdir foo
   $ echo foo > foo/foo
-  $ hg add foo/foo
-  $ hg amend --to .^
-  $ hg log -G -vp -T "{desc}\n"
+  $ sl add foo/foo
+  $ sl amend --to .^
+  $ sl log -G -vp -T "{desc}\n"
   @  two
   │  diff --git a/bar b/bar
   │  new file mode 100644
@@ -206,12 +207,12 @@ Test replacing file with directory.
 Test replacing file with symlink.
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar > bar
-  $ hg ci -m "two" -Aq
+  $ sl ci -m "two" -Aq
   $ ln -sf bar foo
-  $ hg amend --to .^
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl amend --to .^
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two 6e7cc816fa6fdiff --git a/bar b/bar
   │  new file mode 100644
   │  --- /dev/null
@@ -235,12 +236,12 @@ Test replacing file with symlink.
 Test replacing file with symlink in subsequent commit.
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar > bar
-  $ hg ci -m "two" -Aq
+  $ sl ci -m "two" -Aq
   $ ln -sf bar foo
-  $ hg amend --to .
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl amend --to .
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two d17906564d89diff --git a/bar b/bar
   │  new file mode 100644
   │  --- /dev/null
@@ -273,17 +274,17 @@ Test replacing file with symlink in subsequent commit.
 Test renaming a file modified by later commit (not supported).
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar >> foo
-  $ hg ci -m "two"
-  $ hg mv foo bar
-  $ hg amend --to .^
+  $ sl ci -m "two"
+  $ sl mv foo bar
+  $ sl amend --to .^
   abort: amend would conflict in foo
   [255]
-  $ hg status
+  $ sl status
   A bar
   R foo
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two 7fa82f87fe73diff --git a/foo b/foo
   │  --- a/foo
   │  +++ b/foo
@@ -310,18 +311,18 @@ Test renaming a file modified by later commit (not supported).
 Test conflict during initial patch.
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar > foo
-  $ hg ci -m "two"
+  $ sl ci -m "two"
   $ echo baz > foo
-  $ hg amend --to .^
+  $ sl amend --to .^
   patching file foo
   Hunk #1 FAILED at 0
   abort: amend would conflict in foo
   [255]
-  $ hg status
+  $ sl status
   M foo
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two 171ec227cf58diff --git a/foo b/foo
   │  --- a/foo
   │  +++ b/foo
@@ -348,19 +349,19 @@ Test conflict during initial patch.
 Test conflict during rebase.
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar > foo
-  $ hg ci -m "two"
+  $ sl ci -m "two"
   $ echo foo > foo
-  $ hg ci -m "three"
+  $ sl ci -m "three"
   $ echo baz > foo
-  $ hg amend --to 'desc(one)'
+  $ sl amend --to 'desc(one)'
   merging foo
   abort: amend would conflict in foo
   [255]
-  $ hg status
+  $ sl status
   M foo
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  three f2c76c6d797ediff --git a/foo b/foo
   │  --- a/foo
   │  +++ b/foo
@@ -391,16 +392,16 @@ Test conflict during rebase.
 Test amending when target commit has other children.
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "root" -Aq
+  $ sl ci -m "root" -Aq
   $ echo bar > bar
-  $ hg ci -m "a" -Aq
-  $ hg up 'desc(root)'
+  $ sl ci -m "a" -Aq
+  $ sl up 'desc(root)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo baz > baz
-  $ hg ci -m "b" -Aq
+  $ sl ci -m "b" -Aq
   $ echo more >> foo
-  $ hg amend --to 'desc(root)'
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl amend --to 'desc(root)'
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  b 016648f10c01diff --git a/baz b/baz
   │  new file mode 100644
   │  --- /dev/null
@@ -443,12 +444,12 @@ Test amending when target commit has other children.
 Test amending a renamed file (don't lose copysource).
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
-  $ hg mv foo bar
-  $ hg ci -m "two"
+  $ sl ci -m "one" -Aq
+  $ sl mv foo bar
+  $ sl ci -m "two"
   $ echo foo >> bar
-  $ hg amend --to .
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl amend --to .
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two 1560771da02ediff --git a/foo b/bar
   │  rename from foo
   │  rename to bar
@@ -471,19 +472,19 @@ Test amending a renamed file (don't lose copysource).
 Test rebasing across multiple changes to multiple files.
   $ newclientrepo
   $ echo baz > baz
-  $ hg ci -m "zero" -Aq
+  $ sl ci -m "zero" -Aq
   $ echo foo > foo
   $ echo bar > bar
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo foo >> foo
   $ echo bar >> bar
-  $ hg ci -m "two"
+  $ sl ci -m "two"
   $ echo foo >> foo
   $ echo bar >> bar
-  $ hg ci -m "three"
+  $ sl ci -m "three"
   $ echo baz >> baz
-  $ hg amend --to "desc(zero)"
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl amend --to "desc(zero)"
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  three bd9189084dc0diff --git a/bar b/bar
   │  --- a/bar
   │  +++ b/bar
@@ -540,25 +541,25 @@ Test amending past other changes to the file
   $ echo >> baz
   $ echo >> baz
   $ echo baz_end >> baz
-  $ hg ci -m "base" -Aq
+  $ sl ci -m "base" -Aq
   $ echo >> foo
-  $ hg ci -Aqm "intermediate"
+  $ sl ci -Aqm "intermediate"
   $ echo baz_begin_X > baz
   $ echo >> baz
   $ echo >> baz
   $ echo baz_end >> baz
-  $ hg ci -m "add begin_X" -Aq
+  $ sl ci -m "add begin_X" -Aq
   $ echo >> foo
-  $ hg ci -Aqm "intermediate"
+  $ sl ci -Aqm "intermediate"
   $ echo baz_begin_X > baz
   $ echo >> baz
   $ echo >> baz
   $ echo baz_end_X >> baz
-  $ hg amend --to "desc('base')"
+  $ sl amend --to "desc('base')"
   patching file baz
   Hunk #1 succeeded at 2 with fuzz 1 (offset 0 lines).
   merging baz
-  $ hg log -r '::. & (desc("base") + desc("add begin_X"))' -T '{desc}\n' -p
+  $ sl log -r '::. & (desc("base") + desc("add begin_X"))' -T '{desc}\n' -p
   base
   diff --git a/baz b/baz
   new file mode 100644
@@ -586,30 +587,30 @@ Test amending past other changes to the file
 Test various error cases.
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
-  $ hg debugmakepublic .
+  $ sl ci -m "one" -Aq
+  $ sl debugmakepublic .
   $ echo bar > bar
-  $ hg ci -m "two" -Aq
+  $ sl ci -m "two" -Aq
   $ echo more >> bar
-  $ hg amend --to .^
+  $ sl amend --to .^
   abort: cannot amend public changesets
   [255]
-  $ hg amend --to banana
+  $ sl amend --to banana
   abort: unknown revision 'banana'!
   [255]
-  $ hg revert bar
-  $ hg up .^
+  $ sl revert bar
+  $ sl up .^
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo fork > fork
-  $ hg ci -m "fork" -Aq
+  $ sl ci -m "fork" -Aq
   $ echo more >> bar
-  $ hg amend --to 'desc(two)'
+  $ sl amend --to 'desc(two)'
   abort: revision 'desc(two)' is not an ancestor of the working copy
   [255]
-  $ hg amend --to '::.'
+  $ sl amend --to '::.'
   abort: '::.' must refer to a single changeset
   [255]
-  $ hg amend --to '.' --edit
+  $ sl amend --to '.' --edit
   abort: --to does not support --edit
   [255]
 
@@ -620,16 +621,16 @@ Test modifying in interactive mode combined with to
   $ newclientrepo
   $ echo foo > foo
   $ echo baz > baz
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar > bar
-  $ hg ci -m "two" -Aq
+  $ sl ci -m "two" -Aq
   $ echo more >> baz
   $ cat > foo << EOF
   > start
   > foo
   > end
   > EOF
-  $ cat <<EOS | hg amend -i --to "desc(one)" --config ui.interactive=1
+  $ cat <<EOS | sl amend -i --to "desc(one)" --config ui.interactive=1
   > n
   > y
   > y
@@ -657,7 +658,7 @@ Test modifying in interactive mode combined with to
 
 
 
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two 031e3653e811diff --git a/bar b/bar
   │  new file mode 100644
   │  --- /dev/null
@@ -680,7 +681,7 @@ Test modifying in interactive mode combined with to
      +foo
   
 
-  $ hg diff
+  $ sl diff
   diff --git a/baz b/baz
   --- a/baz
   +++ b/baz
@@ -701,14 +702,14 @@ Test adding, renaming, removing files in interactive mode combined with to
   $ newclientrepo
   $ echo bar > bar
   $ echo qux > qux
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo foo > foo
-  $ hg ci -m "two" -Aq
+  $ sl ci -m "two" -Aq
   $ echo baz > baz
-  $ hg add baz
-  $ hg mv bar bar_renamed
-  $ hg rm qux
-  $ cat <<EOS | hg amend -i --to "desc(one)" --config ui.interactive=1
+  $ sl add baz
+  $ sl mv bar bar_renamed
+  $ sl rm qux
+  $ cat <<EOS | sl amend -i --to "desc(one)" --config ui.interactive=1
   > y
   > y
   > y
@@ -735,7 +736,7 @@ Test adding, renaming, removing files in interactive mode combined with to
 
 
 
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two f8ebc2414cd5diff --git a/foo b/foo
   │  new file mode 100644
   │  --- /dev/null
@@ -762,14 +763,14 @@ Test adding, renaming, removing files in interactive mode combined with to
 Test combining --include with --to
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar > bar
-  $ hg ci -m "two" -Aq
+  $ sl ci -m "two" -Aq
   $ echo baz > baz
-  $ hg add baz
+  $ sl add baz
   $ echo more >> foo
-  $ hg amend --to "desc(one)" --include baz
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl amend --to "desc(one)" --include baz
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two dc26d8aef7a9diff --git a/bar b/bar
   │  new file mode 100644
   │  --- /dev/null
@@ -795,14 +796,14 @@ Test combining --include with --to
 Test combining --exclude with --to
   $ newclientrepo
   $ echo foo > foo
-  $ hg ci -m "one" -Aq
+  $ sl ci -m "one" -Aq
   $ echo bar > bar
-  $ hg ci -m "two" -Aq
+  $ sl ci -m "two" -Aq
   $ echo baz > baz
-  $ hg add baz
+  $ sl add baz
   $ echo more >> foo
-  $ hg amend --to "desc(one)" --exclude baz
-  $ hg log -G -vp -T "{desc} {node|short}"
+  $ sl amend --to "desc(one)" --exclude baz
+  $ sl log -G -vp -T "{desc} {node|short}"
   @  two f1b6beb7e0b4diff --git a/bar b/bar
   │  new file mode 100644
   │  --- /dev/null

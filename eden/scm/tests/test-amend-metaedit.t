@@ -60,18 +60,18 @@ Setup the Base Repo
 
 We start with a plain base repo::
 
-  $ hg init $TESTTMP/metaedit; cd $TESTTMP/metaedit
+  $ sl init $TESTTMP/metaedit; cd $TESTTMP/metaedit
   $ mkcommit "ROOT"
-  $ hg debugmakepublic "desc(ROOT)"
+  $ sl debugmakepublic "desc(ROOT)"
   $ mkcommit "A"
   $ mkcommit "B"
-  $ hg up "desc(A)"
+  $ sl up "desc(A)"
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ mkcommit "C"
   $ mkcommit "D"
   $ echo "D'" > D
-  $ hg commit --amend -m "D2"
-  $ hg up "desc(C)"
+  $ sl commit --amend -m "D2"
+  $ sl up "desc(C)"
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ mkcommit "E"
   $ mkcommit "F"
@@ -79,7 +79,7 @@ We start with a plain base repo::
 Test
 ----
 
-  $ hg log -G
+  $ sl log -G
   @  : F - test
   │
   o  : E - test
@@ -95,33 +95,33 @@ Test
   o  : ROOT - test
   
 
-  $ hg goto --clean .
+  $ sl goto --clean .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg metaedit -r 'desc(ROOT)'
+  $ sl metaedit -r 'desc(ROOT)'
   abort: cannot edit commit information for public revisions
   [255]
-  $ hg metaedit --fold
+  $ sl metaedit --fold
   abort: revisions must be specified with --fold
   [255]
-  $ hg metaedit -r 'desc(ROOT)' --fold
+  $ sl metaedit -r 'desc(ROOT)' --fold
   abort: cannot fold public revisions
   [255]
-  $ hg metaedit 'desc(C) + desc(F)' --fold
+  $ sl metaedit 'desc(C) + desc(F)' --fold
   abort: cannot fold non-linear revisions (multiple roots given)
   [255]
-  $ hg metaedit "desc(C)::desc(D2) + desc(E)" --fold
+  $ sl metaedit "desc(C)::desc(D2) + desc(E)" --fold
   abort: cannot fold non-linear revisions (multiple heads given)
   [255]
 
-  $ hg metaedit --user foobar  -T "{nodechanges|json}\n"
+  $ sl metaedit --user foobar  -T "{nodechanges|json}\n"
   {"587528abfffe33d49f94f9d6223dbbd58d6197c6": ["212b2a2b87cdbae992f001e9baba64db389fbce7"]}
-  $ hg log --template '{author}\n' -r 'desc(F):' --hidden
+  $ sl log --template '{author}\n' -r 'desc(F):' --hidden
   test
   foobar
-  $ hg log --template '{author}\n' -r .
+  $ sl log --template '{author}\n' -r .
   foobar
 
-  $ HGEDITOR=cat hg metaedit '.^::.' --fold
+  $ HGEDITOR=cat sl metaedit '.^::.' --fold
   SL: This is a fold of 2 changesets.
   SL: Commit message of c2bd843aa246.
   
@@ -154,7 +154,7 @@ Test
   ~
 
 no new commit is created here because the date is the same
-  $ HGEDITOR=cat hg metaedit
+  $ HGEDITOR=cat sl metaedit
   SL: Commit message of changeset a08d35fd7d9d
   E
   
@@ -186,34 +186,34 @@ TODO: don't create a new commit in this case, we should take the date of the
 old commit (we add a default date with a value to show that metaedit is taking
 the current date to generate the hash, this way we still have a stable hash
 but highlight the bug)
-  $ hg metaedit --config defaults.metaedit= --config devel.default-date="42 0"
-  $ hg log -r '.^::.' --template '{desc|firstline}\n'
+  $ sl metaedit --config defaults.metaedit= --config devel.default-date="42 0"
+  $ sl log -r '.^::.' --template '{desc|firstline}\n'
   C
   E
 
-  $ hg up '.^'
+  $ sl up '.^'
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg metaedit --user foobar2 tip
-  $ hg log --template '{author}\n' -r "user(foobar):" --hidden
+  $ sl metaedit --user foobar2 tip
+  $ sl log --template '{author}\n' -r "user(foobar):" --hidden
   foobar
   test
   test
   foobar2
-  $ hg diff -r "10" -r "11" --hidden
+  $ sl diff -r "10" -r "11" --hidden
 
 'fold' one commit
-  $ hg metaedit "desc(D2)" --fold --user foobar3 --hidden
+  $ sl metaedit "desc(D2)" --fold --user foobar3 --hidden
   1 changesets folded
-  $ hg log -r "tip" --template '{author}\n'
+  $ sl log -r "tip" --template '{author}\n'
   foobar3
 
 metaedit a commit in the middle of the stack:
 
   $ cd $TESTTMP
-  $ hg init metaedit2
+  $ sl init metaedit2
   $ cd metaedit2
-  $ hg debugbuilddag '+5'
-  $ hg goto tip
+  $ sl debugbuilddag '+5'
+  $ sl goto tip
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ glog -r 'all()'
@@ -228,7 +228,7 @@ metaedit a commit in the middle of the stack:
   o  1ea73414a91b@default(draft) r0
   
 
-  $ hg metaedit -m "metaedit" -r 'desc(r2)'
+  $ sl metaedit -m "metaedit" -r 'desc(r2)'
   $ glog -r 'all()'
   @  8c1f124031e7@default(draft) r4
   │
@@ -241,12 +241,12 @@ metaedit a commit in the middle of the stack:
   o  1ea73414a91b@default(draft) r0
   
 
-  $ hg metaedit -m "metaedit" -r 1aed0f31debd
+  $ sl metaedit -m "metaedit" -r 1aed0f31debd
   nothing changed
   [1]
 
 metaedit more than one commit at once without --fold
-  $ hg metaedit -m "metaedit" -r 'desc(metaedit)'::
+  $ sl metaedit -m "metaedit" -r 'desc(metaedit)'::
   $ glog -r 'all()'
   @  972f190d63f3@default(draft) metaedit
   │
@@ -261,8 +261,8 @@ metaedit more than one commit at once without --fold
 
 make the top commit non-empty
   $ echo xx > xx
-  $ hg add xx
-  $ hg amend
+  $ sl add xx
+  $ sl amend
   $ glog -r 'all()'
   @  90ef4d40a825@default(draft) metaedit
   │
@@ -281,7 +281,7 @@ test histedit compat
   $ echo "fbhistedit=" >> $HGRCPATH
   $ echo "histedit=" >> $HGRCPATH
 
-  $ hg export -r .
+  $ sl export -r .
   # SL changeset patch
   # User debugbuilddag
   # Date 0 0
@@ -298,7 +298,7 @@ test histedit compat
   +xx
 
 
-  $ hg histedit ".^^" --commands - <<EOF
+  $ sl histedit ".^^" --commands - <<EOF
   > pick 1aed0f31debd
   > x hg metaedit -m "histedit test"
   > x hg commit --amend -m 'message from exec'
@@ -322,10 +322,10 @@ test histedit compat
 metaedit noncontinuous set of commits in the stack:
 
   $ cd $TESTTMP
-  $ hg init metaeditnoncontinues
+  $ sl init metaeditnoncontinues
   $ cd metaeditnoncontinues
-  $ hg debugbuilddag '+5'
-  $ hg goto tip
+  $ sl debugbuilddag '+5'
+  $ sl goto tip
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ glog -r 'all()'
@@ -340,7 +340,7 @@ metaedit noncontinuous set of commits in the stack:
   o  1ea73414a91b@default(draft) r0
   
 
-  $ hg metaedit -m "metaedit" 0 2 4
+  $ sl metaedit -m "metaedit" 0 2 4
   $ glog -r 'all()'
   @  2b037168acb5@default(draft) metaedit
   │
@@ -355,7 +355,7 @@ metaedit noncontinuous set of commits in the stack:
 
 Test copying obsmarkers
 
-  $ hg init $TESTTMP/autorel
+  $ sl init $TESTTMP/autorel
   $ cd $TESTTMP/autorel
   $ drawdag<<'EOS'
   > D
@@ -366,7 +366,7 @@ Test copying obsmarkers
   > |
   > A
   > EOS
-  $ hg metaedit -r $B -m B1
+  $ sl metaedit -r $B -m B1
   $ glog -r 'all()'
   o  52bc6136aa97@default(draft) D
   │
@@ -379,13 +379,13 @@ Test copying obsmarkers
   o  426bada5c675@default(draft) A
   
 
-  $ hg log -r 'successors(19437442f9e4)-19437442f9e4' -T '{node}\n'
+  $ sl log -r 'successors(19437442f9e4)-19437442f9e4' -T '{node}\n'
   1be7301b35ae8ac3543a07a5d0ce5ca615be709f
 
-  $ hg log -r 'precursors(19437442f9e4)-19437442f9e4' -T '{desc} {node}\n' --hidden
+  $ sl log -r 'precursors(19437442f9e4)-19437442f9e4' -T '{desc} {node}\n' --hidden
   C 26805aba1e600a82e93661149f2313866a221a7b
 
-  $ hg debugmutation -r 'desc(C1)'
+  $ sl debugmutation -r 'desc(C1)'
    *  5577c14fa08d51a4644b9b4b6e001835594cadd2 amend by test at 1970-01-01T00:00:00 from:
       26805aba1e600a82e93661149f2313866a221a7b
   
@@ -408,7 +408,7 @@ Slightly more complex: with double amends
   >   |
   >   A
   > EOS
-  $ hg metaedit -r $B -m B1
+  $ sl metaedit -r $B -m B1
   $ glog -r 'all()'
   o  1be7301b35ae@default(draft) C1
   │
@@ -421,13 +421,13 @@ Slightly more complex: with double amends
   o  426bada5c675@default(draft) A
   
 
-  $ hg log -r 'successors(19437442f9e4)-19437442f9e4' -T '{node}\n'
+  $ sl log -r 'successors(19437442f9e4)-19437442f9e4' -T '{node}\n'
   1be7301b35ae8ac3543a07a5d0ce5ca615be709f
 
-  $ hg log -r 'precursors(19437442f9e4)-19437442f9e4' -T '{desc} {node}\n' --hidden
+  $ sl log -r 'precursors(19437442f9e4)-19437442f9e4' -T '{desc} {node}\n' --hidden
   C 26805aba1e600a82e93661149f2313866a221a7b
 
-  $ hg debugmutation -r 'desc(C1)'
+  $ sl debugmutation -r 'desc(C1)'
    *  5577c14fa08d51a4644b9b4b6e001835594cadd2 amend by test at 1970-01-01T00:00:00 from:
       bf080f2103efc214ac3a4638254d4c5370a9294b amend by test at 1970-01-01T00:00:00 from:
       26805aba1e600a82e93661149f2313866a221a7b
@@ -441,9 +441,9 @@ Slightly more complex: with double amends
   
 
 Test empty commit
-  $ hg co -q 1be7301b35ae
-  $ hg commit --config ui.allowemptycommit=true -m empty
-  $ hg metaedit -r ".^" -m "parent of empty commit"
+  $ sl co -q 1be7301b35ae
+  $ sl commit --config ui.allowemptycommit=true -m empty
+  $ sl metaedit -r ".^" -m "parent of empty commit"
   $ glog -r 'all()'
   @  e582f22eefc0@default(draft) empty
   │
@@ -471,7 +471,7 @@ option
 
 Editing a single commit using `--batch` uses the single-commit template
 
-  $ HGEDITOR=cat hg metaedit --batch -r 'tip'
+  $ HGEDITOR=cat sl metaedit --batch -r 'tip'
   SL: Commit message of changeset dad6906767c0
   A3
   
@@ -486,7 +486,7 @@ Editing a single commit using `--batch` uses the single-commit template
 
 Test editing mutiple commits in a batch (--batch)
 
-  $ HGEDITOR=cat hg metaedit --batch -r 'all()'
+  $ HGEDITOR=cat sl metaedit --batch -r 'all()'
   SL: Editing 3 commits in batch. Do not change lines starting with 'SL:'.
   SL: Begin of commit b008d5d798a3
   A1
@@ -501,7 +501,7 @@ Test editing mutiple commits in a batch (--batch)
   SL: End of commit dad6906767c0
   nothing changed
   [1]
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   o  A3
   │
   o  A2
@@ -514,8 +514,8 @@ Test actually editing the commits
 
 - Test editing a single commit
 (BSD-flavored sed has an incompatible -'i')
-  $ HGEDITOR="s'e'd -i 's/A/B/g'" hg metaedit --batch -r 'tip'
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ HGEDITOR="s'e'd -i 's/A/B/g'" sl metaedit --batch -r 'tip'
+  $ sl log -Gr 'all()' -T '{desc}'
   o  B3
   │
   o  A2
@@ -524,8 +524,8 @@ Test actually editing the commits
   
 - Test editing multiple commits
 (BSD-flavored sed has an incompatible -'i')
-  $ HGEDITOR="s'e'd -i 's/A/B/g'" hg metaedit --batch -r 'all()'
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ HGEDITOR="s'e'd -i 's/A/B/g'" sl metaedit --batch -r 'all()'
+  $ sl log -Gr 'all()' -T '{desc}'
   o  B3
   │
   o  B2
@@ -558,9 +558,9 @@ Create some commits for testing the editing of commits in batch using JSON input
   > }
   > EOF
 
-  $ hg metaedit -r "$A2::" --json-input-file jsoninput
+  $ sl metaedit -r "$A2::" --json-input-file jsoninput
 
-  $ hg log -Gr 'all()' -T '{desc|firstline} {author}'
+  $ sl log -Gr 'all()' -T '{desc|firstline} {author}'
   o  C3 C3PO <c3po@tatooine.com>
   │
   o  R2 R2D2 <r2d2@naboo.com>
@@ -575,7 +575,7 @@ Create some commits for testing the editing of commits in batch using JSON input
   >     "user": "C3PO <c3po@tatooine.com>"
   >   },
   > EOF
-  $ hg metaedit -r "$A2::" --json-input-file jsoninput
+  $ sl metaedit -r "$A2::" --json-input-file jsoninput
   abort: can't decode JSON input file 'jsoninput': * (glob)
   [255]
 
@@ -587,11 +587,11 @@ Create some commits for testing the editing of commits in batch using JSON input
   >   }
   > }
   > EOF
-  $ hg metaedit -r "$A2::" --json-input-file jsoninput
+  $ sl metaedit -r "$A2::" --json-input-file jsoninput
   abort: invalid JSON input
   [255]
 
-  $ hg metaedit -r "$A2::" --json-input-file jsoninput_other
+  $ sl metaedit -r "$A2::" --json-input-file jsoninput_other
   abort: can't read JSON input file 'jsoninput_other': $ENOENT$
   [255]
 
@@ -605,8 +605,8 @@ Test reusing commit message from another commit
   > A
   > EOS
 
-  $ hg metaedit -r "$B" -M "$A"
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl metaedit -r "$B" -M "$A"
+  $ sl log -Gr 'all()' -T '{desc}'
   o  A
   │
   o  A
@@ -614,7 +614,7 @@ Test reusing commit message from another commit
 Test commit template.
 
   $ setconfig committemplate.changeset='SL: ParentCount={parents|count}\n'
-  $ HGEDITOR=cat hg metaedit -r 'max(all())'
+  $ HGEDITOR=cat sl metaedit -r 'max(all())'
   SL: ParentCount=1
   abort: empty commit message
   [255]

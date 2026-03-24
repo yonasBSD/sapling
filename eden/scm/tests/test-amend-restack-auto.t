@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ enable amend rebase
@@ -16,143 +17,143 @@
 Test invalid value for amend.autorestack
   $ newrepo
   $ setconfig amend.autorestack=test
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > C              # C/file = 1\n2\n3\n4\n
   > |              # B/file = 1\n2\n
   > B
   > |
   > A
   > EOS
-  $ hg goto B -q
-  $ hg amend -m "new message"
+  $ sl goto B -q
+  $ sl amend -m "new message"
   invalid amend.autorestack config of "test"; falling back to only-trivial
   rebasing ca039b450ae0 "C" (C)
   hint[amend-autorebase]: descendants have been auto-rebased because no merge conflict could have happened - use --no-rebase or set commands.amend.autorebase=False to disable auto rebase
-  hint[hint-ack]: use 'hg hint --ack amend-autorebase' to silence these hints
+  hint[hint-ack]: use 'sl hint --ack amend-autorebase' to silence these hints
 
 If they disabled amend.autorestack, disable the new behavior (for now, during rollout)
   $ newrepo
   $ setconfig commands.amend.autorebase=False
   $ setconfig amend.autorestack=always
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > C              # C/file = 1\n2\n3\n4\n
   > |              # B/file = 1\n2\n
   > B
   > |
   > A
   > EOS
-  $ hg goto B -q
-  $ hg amend -m "new message"
-  hint[amend-restack]: descendants of fe14e2b67b65 are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
+  $ sl goto B -q
+  $ sl amend -m "new message"
+  hint[amend-restack]: descendants of fe14e2b67b65 are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
 
 amend.autorestack=only-trivial, and simple changes (expect restack)
   $ newrepo
   $ setconfig amend.autorestack=only-trivial
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > C
   > |
   > B
   > |
   > A
   > EOS
-  $ hg goto B -q
-  $ hg amend -m 'Unchanged manifest for B'
+  $ sl goto B -q
+  $ sl amend -m 'Unchanged manifest for B'
   rebasing 26805aba1e60 "C" (C)
   hint[amend-autorebase]: descendants have been auto-rebased because no merge conflict could have happened - use --no-rebase or set commands.amend.autorebase=False to disable auto rebase
-  hint[hint-ack]: use 'hg hint --ack amend-autorebase' to silence these hints
-  $ hg prev
+  hint[hint-ack]: use 'sl hint --ack amend-autorebase' to silence these hints
+  $ sl prev
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark B)
   [426bad] (A) A
   (activating bookmark A)
-  $ hg amend -m 'Unchanged manifest for A'
+  $ sl amend -m 'Unchanged manifest for A'
   rebasing 5357953e3ea3 "Unchanged manifest for B" (B)
   rebasing b635bd2cf20b "C" (C)
   hint[amend-autorebase]: descendants have been auto-rebased because no merge conflict could have happened - use --no-rebase or set commands.amend.autorebase=False to disable auto rebase
-  hint[hint-ack]: use 'hg hint --ack amend-autorebase' to silence these hints
+  hint[hint-ack]: use 'sl hint --ack amend-autorebase' to silence these hints
 
 amend.autorestack=never
   $ newrepo
   $ setconfig amend.autorestack=never
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > C
   > |
   > B
   > |
   > A
   > EOS
-  $ hg goto B -q
-  $ hg amend -m 'Unchanged manifest for B'
-  hint[amend-restack]: descendants of 112478962961 are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
-  $ hg prev
+  $ sl goto B -q
+  $ sl amend -m 'Unchanged manifest for B'
+  hint[amend-restack]: descendants of 112478962961 are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
+  $ sl prev
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark B)
   [426bad] (A) A
   (activating bookmark A)
-  $ hg amend -m 'Unchanged manifest for A'
-  hint[amend-restack]: descendants of 426bada5c675 are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
+  $ sl amend -m 'Unchanged manifest for A'
+  hint[amend-restack]: descendants of 426bada5c675 are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
 
 amend.autorestack=only-trivial, and manifest changes (expect no restack)
   $ newrepo
   $ setconfig amend.autorestack=only-trivial
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > C
   > |
   > B
   > |
   > A
   > EOS
-  $ hg goto B -q
+  $ sl goto B -q
   $ echo 'new b' > B
-  $ hg amend -m 'Change manifest for B'
-  hint[amend-restack]: descendants of 112478962961 are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
+  $ sl amend -m 'Change manifest for B'
+  hint[amend-restack]: descendants of 112478962961 are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
 
 amend.autorestack=only-trivial, and dirty working copy (expect no restack)
   $ newrepo
   $ setconfig amend.autorestack=only-trivial
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > C
   > |
   > B
   > |
   > A
   > EOS
-  $ hg goto B -q
+  $ sl goto B -q
   $ echo 'new b' > B
-  $ hg amend doesnt-exist -m 'Unchanged manifest, but dirty workdir'
+  $ sl amend doesnt-exist -m 'Unchanged manifest, but dirty workdir'
   doesnt-exist: $ENOENT$
-  hint[amend-restack]: descendants of 112478962961 are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
+  hint[amend-restack]: descendants of 112478962961 are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
 
 amend.autorestack=only-trivial, and no manifest changes, but no children (expect no restack)
   $ newrepo
   $ setconfig amend.autorestack=only-trivial
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > B
   > |
   > A
   > EOS
-  $ hg goto B -q
-  $ hg amend -m 'Unchanged manifest for B'
+  $ sl goto B -q
+  $ sl amend -m 'Unchanged manifest for B'
 
 amend.autorestack=no-conflict, and mergeable changes (expect restack)
   $ newrepo
   $ setconfig amend.autorestack=no-conflict
   $ setconfig amend.autorestackmsg="custom autorestack message"
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > C              # C/file = 1\n2\n3\n4\n
   > |              # B/file = 1\n2\n
   > B
   > |
   > A
   > EOS
-  $ hg goto B -q
+  $ sl goto B -q
   $ seq 0 2 > file
-  $ hg amend
+  $ sl amend
   custom autorestack message
   rebasing ca039b450ae0 "C" (C)
   merging file
@@ -170,17 +171,17 @@ amend.autorestack=no-conflict, and mergeable changes (expect restack)
 amend.autorestack=no-conflict, and mergeable changes, but dirty WC (expect no restack)
   $ newrepo
   $ setconfig amend.autorestack=no-conflict
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > C              # C/file = 1\n2\n3\n4\n
   > |              # B/file = 1\n2\n
   > B              # A/other = i don't matter
   > |
   > A
   > EOS
-  $ hg goto B -q
+  $ sl goto B -q
   $ echo "new content" > other
   $ seq 0 2 > file
-  $ cat <<EOS | hg amend -i --config ui.interactive=1
+  $ cat <<EOS | sl amend -i --config ui.interactive=1
   > y
   > y
   > n
@@ -200,8 +201,8 @@ amend.autorestack=no-conflict, and mergeable changes, but dirty WC (expect no re
   examine changes to 'other'? [Ynesfdaq?] n
   
   not restacking because working copy is dirty
-  hint[amend-restack]: descendants of bf943f2ff2de are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
+  hint[amend-restack]: descendants of bf943f2ff2de are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
 
 
 
@@ -209,7 +210,7 @@ amend.autorestack=no-conflict, and mergeable changes, but dirty WC (expect no re
 amend.autorestack=no-conflict, and conflicting changes (expect cancelled restack)
   $ newrepo
   $ setconfig amend.autorestack=no-conflict
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > D
   > |
   > C              # D/file = 1\n2\n3\n4\n
@@ -218,15 +219,15 @@ amend.autorestack=no-conflict, and conflicting changes (expect cancelled restack
   > |
   > A
   > EOS
-  $ hg goto B -q
+  $ sl goto B -q
   $ echo 'unmergeable!' > file
-  $ hg amend
+  $ sl amend
   restacking children automatically (unless they conflict)
   rebasing b6c0d35dc9e9 "C" (C)
   rebasing 02cc3cc1d010 "D" (D)
   merging file
   restacking would create conflicts (hit merge conflicts in file), so you must run it manually
-  (run `hg restack` manually to restack this commit's children)
+  (run `sl restack` manually to restack this commit's children)
   $ showgraph
   @  3000de962fa1 B
   │
@@ -243,7 +244,7 @@ amend.autorestack=no-conflict, and conflicting changes (expect cancelled restack
 amend.autorestack=always, and conflicting changes (expect restack)
   $ newrepo
   $ setconfig amend.autorestack=always
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > D
   > |
   > C              # D/file = 1\n2\n3\n4\n
@@ -252,19 +253,19 @@ amend.autorestack=always, and conflicting changes (expect restack)
   > |
   > A
   > EOS
-  $ hg goto B -q
+  $ sl goto B -q
   $ echo 'unmergeable!' > file
-  $ hg amend
+  $ sl amend
   rebasing b6c0d35dc9e9 "C" (C)
   rebasing 02cc3cc1d010 "D" (D)
   merging file
   hit merge conflicts (in file); switching to on-disk merge
   rebasing 02cc3cc1d010 "D" (D)
   merging file
-  warning: 1 conflicts while merging file! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging file! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
   $ cat file
   unmergeable!
@@ -282,7 +283,7 @@ amend.autorestack=always, and conflicting changes (expect restack)
 Test rebasing children with obsolete children themselves needing a restack.
   $ newrepo
   $ setconfig amend.autorestack=no-conflict
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > D
   > |
   > C C2  # amend: C -> C2
@@ -293,9 +294,9 @@ Test rebasing children with obsolete children themselves needing a restack.
   > |
   > Z
   > EOS
-  $ hg goto A -q
+  $ sl goto A -q
   $ echo "new value" > A
-  $ hg amend
+  $ sl amend
   restacking children automatically (unless they conflict)
   rebasing 917a077edb8d "B" (B)
   rebasing ff9eba5e2480 "C2" (C2)
@@ -316,7 +317,7 @@ Rebasing commits outside X:: can be surprising and more easily cause conflicts.
 
   $ newrepo
   $ setconfig amend.autorestack=no-conflict
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > D  C
   > |  |
   > B2 B1  # amend: B1 -> B2
@@ -326,8 +327,8 @@ Rebasing commits outside X:: can be surprising and more easily cause conflicts.
   > |
   > Z
   > EOS
-  $ hg up -q B2
-  $ hg amend -m B3
+  $ sl up -q B2
+  $ sl amend -m B3
   restacking children automatically (unless they conflict)
   rebasing afb1812f5f28 "D" (D)
   $ showgraph
@@ -354,6 +355,6 @@ Test that invisible children do not trigger auto restack.
   >  |/
   >  A
   > EOS
-  $ hg hide -q $D
-  $ hg up -q $B2
-  $ hg amend -m B3 --config hint.ack='*'
+  $ sl hide -q $D
+  $ sl up -q $B2
+  $ sl amend -m B3 --config hint.ack='*'

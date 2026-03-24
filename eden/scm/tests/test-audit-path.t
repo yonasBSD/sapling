@@ -2,12 +2,13 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ newclientrepo
 
-audit of .hg
+audit of .sl
 
-  $ hg add .hg/00changelog.i
-  abort: path contains illegal component '.hg': .hg/00changelog.i
+  $ sl add .sl/00changelog.i
+  abort: path contains illegal component '.sl': .sl/00changelog.i
   [255]
 
 #if symlink
@@ -16,22 +17,22 @@ Symlinks
 
   $ mkdir a
   $ echo a > a/a
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding a/a
   $ ln -s a b
   $ echo b > a/b
-  $ hg add b/b
+  $ sl add b/b
   abort: path 'b/b' traverses symbolic link 'b'
   [255]
-  $ hg add b
+  $ sl add b
 
 should still fail - maybe
 
-  $ hg add b/b
+  $ sl add b/b
   abort: path 'b/b' traverses symbolic link 'b'
   [255]
 
-  $ hg commit -m 'add symlink b'
+  $ sl commit -m 'add symlink b'
 
 
 Test symlink traversing when accessing history:
@@ -39,31 +40,31 @@ Test symlink traversing when accessing history:
 
 (build a changeset where the path exists as a directory)
 
-  $ hg up .^
+  $ sl up .^
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ mkdir b
   $ echo c > b/a
-  $ hg add b/a
-  $ hg ci -m 'add directory b'
+  $ sl add b/a
+  $ sl ci -m 'add directory b'
 
 Test that hg cat does not do anything wrong the working copy has 'b' as directory
 
-  $ hg cat b/a
+  $ sl cat b/a
   c
-  $ hg cat -r "desc(directory)" b/a
+  $ sl cat -r "desc(directory)" b/a
   c
-  $ hg cat -r "desc(symlink)" b/a
+  $ sl cat -r "desc(symlink)" b/a
   [1]
 
 Test that hg cat does not do anything wrong the working copy has 'b' as a symlink (issue4749)
 
-  $ hg up 'desc(symlink)'
+  $ sl up 'desc(symlink)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg cat b/a
+  $ sl cat b/a
   [1]
-  $ hg cat -r "desc(directory)" b/a
+  $ sl cat -r "desc(directory)" b/a
   c
-  $ hg cat -r "desc(symlink)" b/a
+  $ sl cat -r "desc(symlink)" b/a
   [1]
 
 #endif
@@ -79,14 +80,14 @@ set up symlink hell
   $ mkdir merge-symlink-out
   $ newclientrepo
   $ touch base
-  $ hg commit -qAm base
+  $ sl commit -qAm base
   $ ln -s ../merge-symlink-out a
-  $ hg commit -qAm 'symlink a -> ../merge-symlink-out'
-  $ hg up -q 'desc(base)'
+  $ sl commit -qAm 'symlink a -> ../merge-symlink-out'
+  $ sl up -q 'desc(base)'
   $ mkdir a
   $ echo not-owned > a/poisoned
-  $ hg commit -qAm 'file a/poisoned'
-  $ hg log -G -T '{desc}\n'
+  $ sl commit -qAm 'file a/poisoned'
+  $ sl log -G -T '{desc}\n'
   @  file a/poisoned
   │
   │ o  symlink a -> ../merge-symlink-out
@@ -96,9 +97,9 @@ set up symlink hell
 
 try trivial merge
 
-  $ hg up -qC 'desc(symlink)'
-  $ hg merge -q 'desc(file)'
-  $ hg st
+  $ sl up -qC 'desc(symlink)'
+  $ sl merge -q 'desc(file)'
+  $ sl st
   M a/poisoned
   ! a
   $ cat a/poisoned
@@ -108,8 +109,8 @@ try trivial merge
 try rebase onto other revision: cache of audited paths should be discarded,
 and the rebase should fail (issue5628)
 
-  $ hg up -qC 'desc(file)'
-  $ hg rebase -q -s 'desc(file)' -d 'desc(symlink)' --config extensions.rebase=
+  $ sl up -qC 'desc(file)'
+  $ sl rebase -q -s 'desc(file)' -d 'desc(symlink)' --config extensions.rebase=
   $ cat a/poisoned
   not-owned
   $ ls ../merge-symlink-out
@@ -121,15 +122,15 @@ Test symlink traversal on update:
   $ mkdir update-symlink-out
   $ newclientrepo
   $ ln -s ../update-symlink-out a
-  $ hg commit -qAm 'symlink a -> ../update-symlink-out'
-  $ hg rm a
+  $ sl commit -qAm 'symlink a -> ../update-symlink-out'
+  $ sl rm a
   $ mkdir a && echo b > a/b
-  $ hg ci -qAm 'file a/b' a/b
-  $ hg up -qC 'desc(symlink)'
-  $ hg rm a
+  $ sl ci -qAm 'file a/b' a/b
+  $ sl up -qC 'desc(symlink)'
+  $ sl rm a
   $ mkdir a && echo c > a/c
-  $ hg ci -qAm 'rm a, file a/c'
-  $ hg log -G -T '{desc}\n'
+  $ sl ci -qAm 'rm a, file a/c'
+  $ sl log -G -T '{desc}\n'
   @  rm a, file a/c
   │
   │ o  file a/b
@@ -139,8 +140,8 @@ Test symlink traversal on update:
 
 try linear update where symlink already exists:
 
-  $ hg up -qC 'desc(symlink)'
-  $ hg up -q 'desc("file a/b")'
+  $ sl up -qC 'desc(symlink)'
+  $ sl up -q 'desc("file a/b")'
   $ cat a/b
   b
 
@@ -148,8 +149,8 @@ try linear update including symlinked directory and its content: paths are
 audited first by calculateupdates(), where no symlink is created so both
 'a' and 'a/b' are taken as good paths. still applyupdates() should fail.
 
-  $ hg up -qC null
-  $ hg up -q 'desc("file a/b")'
+  $ sl up -qC null
+  $ sl up -q 'desc("file a/b")'
   $ cat a/b
   b
   $ ls ../update-symlink-out
@@ -159,8 +160,8 @@ path 'a' is audited as a directory first, which should be audited again as
 a symlink.
 
   $ rm -f a
-  $ hg up -qC 'desc(rm)'
-  $ hg up -q 'desc("file a/b")'
+  $ sl up -qC 'desc(rm)'
+  $ sl up -q 'desc("file a/b")'
   $ cat a/b
   b
   $ ls ../update-symlink-out
@@ -170,6 +171,6 @@ a symlink.
 Works for .sl repos also
 
   $ HGIDENTITY=sl newrepo
-  $ hg add .sl/00changelog.i
+  $ sl add .sl/00changelog.i
   abort: path contains illegal component '.sl': .sl/00changelog.i
   [255]

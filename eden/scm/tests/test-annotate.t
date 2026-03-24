@@ -2,64 +2,65 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
   $ HGMERGE=true; export HGMERGE
 
 init
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 commit
 
   $ echo 'a' > a
-  $ hg ci -A -m test -u nobody -d '1 0'
+  $ sl ci -A -m test -u nobody -d '1 0'
   adding a
 
 annotate -c
 
-  $ hg annotate -c a
+  $ sl annotate -c a
   8435f90966e4: a
 
 annotate -cl
 
-  $ hg annotate -cl a
+  $ sl annotate -cl a
   8435f90966e4:1: a
 
 annotate -d
 
-  $ hg annotate -d a
+  $ sl annotate -d a
   Thu Jan 01 00:00:01 1970 +0000: a
 
 annotate -n
 
-  $ hg annotate -n a
+  $ sl annotate -n a
   0: a
 
 annotate -nl
 
-  $ hg annotate -nl a
+  $ sl annotate -nl a
   0:1: a
 
 annotate -u
 
-  $ hg annotate -u a
+  $ sl annotate -u a
   nobody: a
 
 annotate -cdnu
 
-  $ hg annotate -cdnu a
+  $ sl annotate -cdnu a
   nobody 0 8435f90966e4 Thu Jan 01 00:00:01 1970 +0000: a
 
 annotate -cdnul
 
-  $ hg annotate -cdnul a
+  $ sl annotate -cdnul a
   nobody 0 8435f90966e4 Thu Jan 01 00:00:01 1970 +0000:1: a
 
 annotate (JSON)
 
-  $ hg annotate -Tjson a
+  $ sl annotate -Tjson a
   [
    {
     "abspath": "a",
@@ -68,7 +69,7 @@ annotate (JSON)
    }
   ]
 
-  $ hg annotate -Tjson -cdfnul a
+  $ sl annotate -Tjson -cdfnul a
   [
    {
     "abspath": "a",
@@ -81,19 +82,19 @@ annotate (JSON)
   > a
   > a
   > EOF
-  $ hg ci -ma1 -d '1 0'
-  $ hg cp a b
-  $ hg ci -mb -d '1 0'
+  $ sl ci -ma1 -d '1 0'
+  $ sl cp a b
+  $ sl ci -mb -d '1 0'
   $ cat <<EOF >> b
   > b4
   > b5
   > b6
   > EOF
-  $ hg ci -mb2 -d '2 0'
+  $ sl ci -mb2 -d '2 0'
 
 annotate multiple files (JSON)
 
-  $ hg annotate -Tjson a b
+  $ sl annotate -Tjson a b
   [
    {
     "abspath": "a",
@@ -109,7 +110,7 @@ annotate multiple files (JSON)
 
 annotate multiple files (template)
 
-  $ hg annotate -T'== {abspath} ==\n{lines % "{line}"}' a b
+  $ sl annotate -T'== {abspath} ==\n{lines % "{line}"}' a b
   == a ==
   a
   a
@@ -124,7 +125,7 @@ annotate multiple files (template)
 
 annotate -n b
 
-  $ hg annotate -n b
+  $ sl annotate -n b
   0: a
   1: a
   1: a
@@ -134,7 +135,7 @@ annotate -n b
 
 annotate --no-follow b
 
-  $ hg annotate --no-follow b
+  $ sl annotate --no-follow b
   3086dbafde1c: a
   3086dbafde1c: a
   3086dbafde1c: a
@@ -144,7 +145,7 @@ annotate --no-follow b
 
 annotate -nl b
 
-  $ hg annotate -nl b
+  $ sl annotate -nl b
   0:1: a
   1:2: a
   1:3: a
@@ -154,7 +155,7 @@ annotate -nl b
 
 annotate -nf b
 
-  $ hg annotate -nf b
+  $ sl annotate -nf b
   0 a: a
   1 a: a
   1 a: a
@@ -164,7 +165,7 @@ annotate -nf b
 
 annotate -nlf b
 
-  $ hg annotate -nlf b
+  $ sl annotate -nlf b
   0 a:1: a
   1 a:2: a
   1 a:3: a
@@ -172,23 +173,23 @@ annotate -nlf b
   3 b:5: b5
   3 b:6: b6
 
-  $ hg up -C 3086dbafde1ce745abfc8d2d367847280aabae9d
+  $ sl up -C 3086dbafde1ce745abfc8d2d367847280aabae9d
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat <<EOF >> b
   > b4
   > c
   > b5
   > EOF
-  $ hg ci -mb2.1 -d '2 0'
-  $ hg merge
+  $ sl ci -mb2.1 -d '2 0'
+  $ sl merge
   merging b
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg ci -mmergeb -d '3 0'
+  $ sl ci -mmergeb -d '3 0'
 
 annotate after merge
 
-  $ hg annotate -nf b
+  $ sl annotate -nf b
   0 a: a
   1 a: a
   1 a: a
@@ -198,7 +199,7 @@ annotate after merge
 
 annotate after merge with -l
 
-  $ hg annotate -nlf b
+  $ sl annotate -nlf b
   0 a:1: a
   1 a:2: a
   1 a:3: a
@@ -206,16 +207,16 @@ annotate after merge with -l
   4 b:5: c
   3 b:5: b5
 
-  $ hg up -C 'desc(a1)'
+  $ sl up -C 'desc(a1)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg cp a b
+  $ sl cp a b
   $ cat <<EOF > b
   > a
   > z
   > a
   > EOF
-  $ hg ci -mc -d '3 0'
-  $ hg merge
+  $ sl ci -mc -d '3 0'
+  $ sl merge
   merging b
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -225,11 +226,11 @@ annotate after merge with -l
   > b5
   > EOF
   $ echo d >> b
-  $ hg ci -mmerge2 -d '4 0'
+  $ sl ci -mmerge2 -d '4 0'
 
 annotate after rename merge
 
-  $ hg annotate -nf b
+  $ sl annotate -nf b
   0 a: a
   6 b: z
   1 a: a
@@ -240,7 +241,7 @@ annotate after rename merge
 
 annotate after rename merge with -l
 
-  $ hg annotate -nlf b
+  $ sl annotate -nlf b
   0 a:1: a
   6 b:2: z
   1 a:3: a
@@ -252,12 +253,12 @@ annotate after rename merge with -l
 Issue2807: alignment of line numbers with -l
 
   $ echo more >> b
-  $ hg ci -mmore -d '5 0'
+  $ sl ci -mmore -d '5 0'
   $ echo more >> b
-  $ hg ci -mmore -d '6 0'
+  $ sl ci -mmore -d '6 0'
   $ echo more >> b
-  $ hg ci -mmore -d '7 0'
-  $ hg annotate -nlf b
+  $ sl ci -mmore -d '7 0'
+  $ sl annotate -nlf b
    0 a: 1: a
    6 b: 2: z
    1 a: 3: a
@@ -271,14 +272,14 @@ Issue2807: alignment of line numbers with -l
 
 linkrev vs rev
 
-  $ hg annotate -r tip -n a
+  $ sl annotate -r tip -n a
   0: a
   1: a
   1: a
 
 linkrev vs rev with -l
 
-  $ hg annotate -r tip -nl a
+  $ sl annotate -r tip -nl a
   0:1: a
   1:2: a
   1:3: a
@@ -292,31 +293,31 @@ like A -> B -> A
 generate ABA rename configuration
 
   $ echo foo > foo
-  $ hg add foo
-  $ hg ci -m addfoo
-  $ hg rename foo bar
-  $ hg ci -m renamefoo
-  $ hg rename bar foo
-  $ hg ci -m renamebar
+  $ sl add foo
+  $ sl ci -m addfoo
+  $ sl rename foo bar
+  $ sl ci -m renamefoo
+  $ sl rename bar foo
+  $ sl ci -m renamebar
 
 annotate after ABA with follow
 
-  $ hg annotate --file foo
+  $ sl annotate --file foo
   foo: foo
 
 missing file (tofix: treemanifest.walk should abort with no such file error)
 
-  $ hg ann nosuchfile
+  $ sl ann nosuchfile
 
 annotate file without '\n' on last line
 
   $ printf "" > c
-  $ hg ci -A -m test -u nobody -d '1 0'
+  $ sl ci -A -m test -u nobody -d '1 0'
   adding c
-  $ hg annotate c
+  $ sl annotate c
   $ printf "a\nb" > c
-  $ hg ci -m test
-  $ hg annotate c
+  $ sl ci -m test
+  $ sl annotate c
   8c47368c200b: a
   8c47368c200b: b
 
@@ -324,7 +325,7 @@ Issue3841: check annotation of the file of which filelog includes
 merging between the revision and its ancestor
 
 to reproduce the situation with recent Mercurial, this script uses (1)
-"hg debugsetparents" to merge without ancestor check by "hg merge",
+"sl debugsetparents" to merge without ancestor check by "sl merge",
 and (2) the extension to allow filelog merging between the revision
 and its ancestor by overriding "repo._filecommit".
 
@@ -359,8 +360,8 @@ and its ancestor by overriding "repo._filecommit".
   > 4
   > 5
   > EOF
-  $ hg add baz
-  $ hg commit -m "baz:0"
+  $ sl add baz
+  $ sl commit -m "baz:0"
 
   $ cat > baz <<EOF
   > 1 baz:1
@@ -369,7 +370,7 @@ and its ancestor by overriding "repo._filecommit".
   > 4
   > 5
   > EOF
-  $ hg commit -m "baz:1"
+  $ sl commit -m "baz:1"
 
   $ cat > baz <<EOF
   > 1 baz:1
@@ -378,9 +379,9 @@ and its ancestor by overriding "repo._filecommit".
   > 4
   > 5
   > EOF
-  $ hg debugsetparents 933981f264573acb5782b58f8f6fba0f5c815ac7 933981f264573acb5782b58f8f6fba0f5c815ac7
-  $ hg --config extensions.legacyrepo=../legacyrepo.py  commit -m "baz:2"
-  $ hg annotate baz
+  $ sl debugsetparents 933981f264573acb5782b58f8f6fba0f5c815ac7 933981f264573acb5782b58f8f6fba0f5c815ac7
+  $ sl --config extensions.legacyrepo=../legacyrepo.py  commit -m "baz:2"
+  $ sl annotate baz
   933981f26457: 1 baz:1
   be4ba992a055: 2 baz:2
   6bf217a7698a: 3
@@ -394,7 +395,7 @@ and its ancestor by overriding "repo._filecommit".
   > 4
   > 5
   > EOF
-  $ hg commit -m "baz:3"
+  $ sl commit -m "baz:3"
 
   $ cat > baz <<EOF
   > 1 baz:1
@@ -403,9 +404,9 @@ and its ancestor by overriding "repo._filecommit".
   > 4 baz:4
   > 5
   > EOF
-  $ hg debugsetparents 79574f0f4414c85637f114949d21baf1e189f7fa be4ba992a05544692d87c941b05d044a3ebe48a0
-  $ hg --config extensions.legacyrepo=../legacyrepo.py  commit -m "baz:4"
-  $ hg annotate baz
+  $ sl debugsetparents 79574f0f4414c85637f114949d21baf1e189f7fa be4ba992a05544692d87c941b05d044a3ebe48a0
+  $ sl --config extensions.legacyrepo=../legacyrepo.py  commit -m "baz:4"
+  $ sl annotate baz
   933981f26457: 1 baz:1
   be4ba992a055: 2 baz:2
   79574f0f4414: 3 baz:3
@@ -414,33 +415,33 @@ and its ancestor by overriding "repo._filecommit".
 
 annotate clean file
 
-  $ hg annotate -ncr "wdir()" foo
+  $ sl annotate -ncr "wdir()" foo
   11 472b18db256d: foo
 
 annotate modified file
 
   $ echo foofoo >> foo
-  $ hg annotate -r "wdir()" foo
+  $ sl annotate -r "wdir()" foo
   472b18db256d : foo
   3a681db4976d+: foofoo
 
-  $ hg annotate -cr "wdir()" foo
+  $ sl annotate -cr "wdir()" foo
   472b18db256d : foo
   3a681db4976d+: foofoo
 
-  $ hg annotate -ncr "wdir()" foo
+  $ sl annotate -ncr "wdir()" foo
   11 472b18db256d : foo
   20 3a681db4976d+: foofoo
 
-  $ hg annotate --debug -ncr "wdir()" foo
+  $ sl annotate --debug -ncr "wdir()" foo
   11 472b18db256d1e8282064eab4bfdaf48cbfe83cd : foo
   20 3a681db4976d5f6c78ca87a4d6f933ff7867ccca+: foofoo
 
-  $ hg annotate -udr "wdir()" foo
+  $ sl annotate -udr "wdir()" foo
   test Thu Jan 01 00:00:00 1970 +0000: foo
   test [A-Za-z0-9:+ ]+: foofoo (re)
 
-  $ hg annotate -ncr "wdir()" -Tjson foo
+  $ sl annotate -ncr "wdir()" -Tjson foo
   [
    {
     "abspath": "foo",
@@ -452,14 +453,14 @@ annotate modified file
 annotate added file
 
   $ echo bar > bar
-  $ hg add bar
-  $ hg annotate -ncr "wdir()" bar
+  $ sl add bar
+  $ sl annotate -ncr "wdir()" bar
   20 3a681db4976d+: bar
 
 annotate renamed file
 
-  $ hg rename foo renamefoo2
-  $ hg annotate -ncr "wdir()" renamefoo2
+  $ sl rename foo renamefoo2
+  $ sl annotate -ncr "wdir()" renamefoo2
   11 472b18db256d : foo
   20 3a681db4976d+: foofoo
 
@@ -467,34 +468,34 @@ annotate missing file
 
   $ rm baz
 
-  $ hg annotate -ncr "wdir()" baz
+  $ sl annotate -ncr "wdir()" baz
   abort: $TESTTMP\repo\baz: $ENOENT$ (windows !)
   abort: $ENOENT$: $TESTTMP/repo/baz (no-windows !)
   [255]
 
 annotate removed file
 
-  $ hg rm baz
+  $ sl rm baz
 
-  $ hg annotate -ncr "wdir()" baz
+  $ sl annotate -ncr "wdir()" baz
   abort: $TESTTMP\repo\baz: $ENOENT$ (windows !)
   abort: $ENOENT$: $TESTTMP/repo/baz (no-windows !)
   [255]
 
-  $ hg revert --all --no-backup --quiet
-  $ hg id -n
+  $ sl revert --all --no-backup --quiet
+  $ sl id -n
   20
 
 Test empty annotate output
 
   $ printf '\0' > binary
   $ touch empty
-  $ hg ci -qAm 'add binary and empty files'
+  $ sl ci -qAm 'add binary and empty files'
 
-  $ hg annotate binary empty
+  $ sl annotate binary empty
   binary: binary file
 
-  $ hg annotate -Tjson binary empty
+  $ sl annotate -Tjson binary empty
   [
    {
     "abspath": "binary",
@@ -510,14 +511,14 @@ Test empty annotate output
 Test annotate with whitespace options
 
   $ cd ..
-  $ hg init repo-ws
+  $ sl init repo-ws
   $ cd repo-ws
   $ cat > a <<EOF
   > aa
   > 
   > b b
   > EOF
-  $ hg ci -Am "adda"
+  $ sl ci -Am "adda"
   adding a
   $ sed 's/EOL$//g' > a <<EOF
   > a  a
@@ -525,11 +526,11 @@ Test annotate with whitespace options
   >  EOL
   > b  b
   > EOF
-  $ hg ci -m "changea"
+  $ sl ci -m "changea"
 
 Annotate with no option
 
-  $ hg annotate a
+  $ sl annotate a
   08f1b20a6199: a  a
   9ba9c410f1ce: 
   08f1b20a6199:  
@@ -537,7 +538,7 @@ Annotate with no option
 
 Annotate with --ignore-space-change
 
-  $ hg annotate --ignore-space-change a
+  $ sl annotate --ignore-space-change a
   08f1b20a6199: a  a
   08f1b20a6199: 
   9ba9c410f1ce:  
@@ -545,7 +546,7 @@ Annotate with --ignore-space-change
 
 Annotate with --ignore-all-space
 
-  $ hg annotate --ignore-all-space a
+  $ sl annotate --ignore-all-space a
   9ba9c410f1ce: a  a
   9ba9c410f1ce: 
   08f1b20a6199:  
@@ -553,7 +554,7 @@ Annotate with --ignore-all-space
 
 Annotate with --ignore-blank-lines (similar to no options case)
 
-  $ hg annotate --ignore-blank-lines a
+  $ sl annotate --ignore-blank-lines a
   08f1b20a6199: a  a
   9ba9c410f1ce: 
   08f1b20a6199:  
@@ -566,24 +567,24 @@ Annotate with linkrev pointing to another branch
 
 create history with a filerev whose linkrev points to another branch
 
-  $ hg init branchedlinkrev
+  $ sl init branchedlinkrev
   $ cd branchedlinkrev
   $ echo A > a
-  $ hg commit -Am 'contentA'
+  $ sl commit -Am 'contentA'
   adding a
   $ echo B >> a
-  $ hg commit -m 'contentB'
-  $ hg up --rev 'desc(contentA)'
+  $ sl commit -m 'contentB'
+  $ sl up --rev 'desc(contentA)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo unrelated > unrelated
-  $ hg commit -Am 'unrelated'
+  $ sl commit -Am 'unrelated'
   adding unrelated
-  $ hg graft -r 'desc(contentB)'
+  $ sl graft -r 'desc(contentB)'
   grafting fd27c222e3e6 "contentB"
   $ echo C >> a
-  $ hg commit -m 'contentC'
+  $ sl commit -m 'contentC'
   $ echo W >> a
-  $ hg log -G
+  $ sl log -G
   @  commit:      072f1e8df249
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -612,12 +613,12 @@ create history with a filerev whose linkrev points to another branch
 
 Annotate should list ancestor of starting revision only
 
-  $ hg annotate a
+  $ sl annotate a
   f0932f74827e: A
   ff38df03cc4b: B
   072f1e8df249: C
 
-  $ hg annotate a -r 'wdir()'
+  $ sl annotate a -r 'wdir()'
   f0932f74827e : A
   ff38df03cc4b : B
   072f1e8df249 : C
@@ -625,7 +626,7 @@ Annotate should list ancestor of starting revision only
 
 Even when the starting revision is the linkrev-shadowed one:
 
-  $ hg annotate a -r 'max(desc(contentB))'
+  $ sl annotate a -r 'max(desc(contentB))'
   f0932f74827e: A
   ff38df03cc4b: B
 
@@ -633,18 +634,18 @@ Even when the starting revision is the linkrev-shadowed one:
 
 Issue5360: Deleted chunk in p1 of a merge changeset
 
-  $ hg init repo-5360
+  $ sl init repo-5360
   $ cd repo-5360
   $ echo 1 > a
-  $ hg commit -A a -m 1
+  $ sl commit -A a -m 1
   $ echo 2 >> a
-  $ hg commit -m 2
+  $ sl commit -m 2
   $ echo a > a
-  $ hg commit -m a
-  $ hg goto '.^' -q
+  $ sl commit -m a
+  $ sl goto '.^' -q
   $ echo 3 >> a
-  $ hg commit -m 3 -q
-  $ hg merge 'desc(a)' -q
+  $ sl commit -m 3 -q
+  $ sl merge 'desc(a)' -q
   $ cat > a << EOF
   > b
   > 1
@@ -652,9 +653,9 @@ Issue5360: Deleted chunk in p1 of a merge changeset
   > 3
   > a
   > EOF
-  $ hg resolve --mark -q
-  $ hg commit -m m
-  $ hg annotate a
+  $ sl resolve --mark -q
+  $ sl commit -m m
+  $ sl annotate a
   af87e62e663e: b
   eff892de26ec: 1
   1ed24be7e7a0: 2

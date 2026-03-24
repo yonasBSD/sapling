@@ -3,6 +3,7 @@
 
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ enable amend rebase
@@ -24,12 +25,12 @@ Restack does topological sort and only rebases "D" once:
   > |
   > A
   > EOS
-  $ hg goto $B -q
-  $ hg commit --amend -m B2 -q --no-rebase 2>/dev/null
-  $ B2=`hg log -r . -T '{node}'`
-  $ hg rebase -r $C -d $B2 -q
-  $ hg commit --amend -m B3 -q --no-rebase 2>/dev/null
-  $ B3=`hg log -r . -T '{node}'`
+  $ sl goto $B -q
+  $ sl commit --amend -m B2 -q --no-rebase 2>/dev/null
+  $ B2=`sl log -r . -T '{node}'`
+  $ sl rebase -r $C -d $B2 -q
+  $ sl commit --amend -m B3 -q --no-rebase 2>/dev/null
+  $ B3=`sl log -r . -T '{node}'`
   $ showgraph
   @  da1d4fe88e84 B3
   │
@@ -44,7 +45,7 @@ Restack does topological sort and only rebases "D" once:
   │ x  112478962961 B
   ├─╯
   o  426bada5c675 A
-  $ hg rebase --restack
+  $ sl rebase --restack
   rebasing ca53c8ceb284 "C"
   rebasing f585351a92f8 "D"
   $ showgraph
@@ -67,23 +68,23 @@ Restack will only restack the "current" stack and leave other stacks untouched.
   >  A   E   I   Z  # amend: J -> L
   > EOS
 
-  $ hg debugmakepublic -r $Z+$I+$A+$E
+  $ sl debugmakepublic -r $Z+$I+$A+$E
 
-  $ hg goto -q $Z
-  $ hg rebase --restack
+  $ sl goto -q $Z
+  $ sl rebase --restack
   nothing to restack
   [1]
 
-  $ hg goto -q $D
-  $ hg rebase --restack
+  $ sl goto -q $D
+  $ sl rebase --restack
   rebasing be0ef73c17ad "D"
 
-  $ hg goto -q $G
-  $ hg rebase --restack
+  $ sl goto -q $G
+  $ sl rebase --restack
   rebasing cc209258a732 "H"
 
-  $ hg goto -q $I
-  $ hg rebase --restack
+  $ sl goto -q $I
+  $ sl rebase --restack
   rebasing 59760668f0e1 "K"
 
   $ showgraph
@@ -123,29 +124,29 @@ Restack could resume after resolving merge conflicts.
   >  A
   > EOS
 
-  $ hg goto -q $F
-  $ hg rebase --restack
+  $ sl goto -q $F
+  $ sl rebase --restack
   rebasing ed8545a5c22a "F"
   merging C
-  warning: 1 conflicts while merging C! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging C! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
   $ echo R > C
-  $ hg resolve --mark -q
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  $ sl resolve --mark -q
+  continue: sl rebase --continue
+  $ sl rebase --continue
   rebasing ed8545a5c22a "F"
   rebasing 4d1ef7d890c5 "G"
   merging E
-  warning: 1 conflicts while merging E! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging E! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
   $ echo R > E
-  $ hg resolve --mark -q
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  $ sl resolve --mark -q
+  continue: sl rebase --continue
+  $ sl rebase --continue
   already rebased ed8545a5c22a "F" as 2282fe522d5c
   rebasing 4d1ef7d890c5 "G"
 

@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Set up test environment.
   $ configure mutation
@@ -21,19 +22,19 @@ Set up test environment.
   $ showgraph() {
   >   hg log --graph -r '(::.)::' -T "{desc|firstline}" | sed \$d
   > }
-  $ hg init userestack && cd userestack
+  $ sl init userestack && cd userestack
 
 Test that no preamend bookmark is created.
   $ mkcommit a
   $ mkcommit b
   $ mkcommit c
   $ mkcommit d
-  $ hg up 7c3bad9141dcb46ff89abf5f61856facd56e476c
+  $ sl up 7c3bad9141dcb46ff89abf5f61856facd56e476c
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg amend -m "amended" --no-rebase
-  hint[amend-restack]: descendants of 7c3bad9141dc are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
-  $ hg book
+  $ sl amend -m "amended" --no-rebase
+  hint[amend-restack]: descendants of 7c3bad9141dc are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
+  $ sl book
   no bookmarks set
 
 Test hg amend --fixup.
@@ -48,8 +49,8 @@ Test hg amend --fixup.
   ├─╯
   o  add a
 
-  $ hg amend --fixup
-  warning: --fixup is deprecated and WILL BE REMOVED. use 'hg restack' instead.
+  $ sl amend --fixup
+  warning: --fixup is deprecated and WILL BE REMOVED. use 'sl restack' instead.
   rebasing 4538525df7e2 "add c"
   rebasing 47d2a3944de8 "add d"
   $ showgraph
@@ -62,7 +63,7 @@ Test hg amend --fixup.
   o  add a
 
 Test that the operation field on the metadata is correctly set.
-  $ hg debugmutation -r "all()"
+  $ sl debugmutation -r "all()"
    *  1f0dee641bb7258c56bd60e93edfa2405381c41e
   
    * amend by test at 1970-01-01T00:00:00 from: (glob)
@@ -76,7 +77,7 @@ Test that the operation field on the metadata is correctly set.
   
 
 Test hg amend --rebase
-  $ hg amend -m "amended again" --rebase
+  $ sl amend -m "amended again" --rebase
   rebasing * "add c" (glob)
   rebasing * "add d" (glob)
   $ showgraph

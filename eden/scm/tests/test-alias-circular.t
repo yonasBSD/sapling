@@ -2,39 +2,40 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Alias can override builtin commands.
 
   $ newrepo
   $ setconfig alias.log="log -T 'x\n'"
-  $ hg log -r null
+  $ sl log -r null
   x
 
 Alias can override a builtin command to another builtin command.
 
   $ newrepo
   $ setconfig alias.log=id
-  $ hg log -r null
+  $ sl log -r null
   000000000000
 
 Alias can refer to another alias. Order does not matter.
 
   $ newrepo
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [alias]
   > a = b
   > b = log -r null -T 'x\n'
   > c = b
   > EOF
-  $ hg a
+  $ sl a
   x
-  $ hg c
+  $ sl c
   x
 
 Alias cannot form a cycle.
 
   $ newrepo
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > [alias]
   > c = a
   > a = b
@@ -43,21 +44,21 @@ Alias cannot form a cycle.
   > log = log
   > EOF
 
-  $ hg a
+  $ sl a
   abort: circular alias: a
   [255]
-  $ hg b
+  $ sl b
   abort: circular alias: b
   [255]
-  $ hg c
+  $ sl c
   abort: circular alias: c
   [255]
-  $ hg log -r null -T 'x\n'
+  $ sl log -r null -T 'x\n'
   x
 
 Prefix matching is disabled in aliases
 
-  $ hg logwithsuffix
+  $ sl logwithsuffix
   unknown command 'logwithsuff'
-  (use 'hg help' to get help)
+  (use 'sl help' to get help)
   [255]

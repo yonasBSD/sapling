@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Set up test environment.
   $ configure mutation-norecord
@@ -18,7 +19,7 @@ Set up test environment.
   > }
 
 Initialize repo.
-  $ hg init repo && cd repo
+  $ sl init repo && cd repo
   $ mkcommit a
   $ mkcommit b
   $ mkcommit c
@@ -33,15 +34,15 @@ Initialize repo.
   o  c20cc4d302fc add a1 and a2
 
 Test that split behaves correctly on error.
-  $ hg split -r 0 1 2
+  $ sl split -r 0 1 2
   abort: more than one revset is given
-  (use either `hg split <rs>` or `hg split --rev <rs>`, not both)
+  (use either `sl split <rs>` or `sl split --rev <rs>`, not both)
   [255]
 
 Test exitting a split early leaves you on the same commit
-  $ hg log -r . -T {node}
+  $ sl log -r . -T {node}
   d86136f6dbffaed724ce39c03f4028178355246d (no-eol)
-  $ hg split << EOF
+  $ sl split << EOF
   > q
   > EOF
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
@@ -53,11 +54,11 @@ Test exitting a split early leaves you on the same commit
   
   abort: user quit
   [255]
-  $ hg log -r . -T {node}
+  $ sl log -r . -T {node}
   d86136f6dbffaed724ce39c03f4028178355246d (no-eol)
 
 Test basic case of splitting a head.
-  $ hg split << EOF
+  $ sl split << EOF
   > y
   > y
   > n
@@ -92,9 +93,9 @@ Test basic case of splitting a head.
   o  c20cc4d302fc add a1 and a2
 
 Split in the middle of a stack.
-  $ hg up e5cbbeb3434b2ce1b3d802a8326f8bf5e4e46119
+  $ sl up e5cbbeb3434b2ce1b3d802a8326f8bf5e4e46119
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg split << EOF
+  $ sl split << EOF
   > y
   > y
   > n
@@ -133,10 +134,10 @@ Split in the middle of a stack.
   o  c20cc4d302fc add a1 and a2
 
 Split with multiple children and using hash.
-  $ hg up c20cc4d302fc
+  $ sl up c20cc4d302fc
   0 files updated, 0 files merged, 4 files removed, 0 files unresolved
   $ mkcommit d
-  $ hg split c20cc4d302fc << EOF
+  $ sl split c20cc4d302fc << EOF
   > y
   > y
   > n
@@ -183,10 +184,10 @@ Split with multiple children and using hash.
   o  5a5595e342b1 add a1 and a2
 
 Split using revset.
-  $ hg hide 'max(desc(add))'
+  $ sl hide 'max(desc(add))'
   hiding commit 5ad76779e999 "add d1 and d2"
   1 changeset hidden
-  $ hg split "children(.)" << EOF
+  $ sl split "children(.)" << EOF
   > y
   > y
   > n
@@ -231,14 +232,14 @@ Split using revset.
   o  5a5595e342b1 add a1 and a2
 
 Test that command aborts when given multiple commits.
-  $ hg split 11 12
+  $ sl split 11 12
   abort: more than one revset is given
-  (use either `hg split <rs>` or `hg split --rev <rs>`, not both)
+  (use either `sl split <rs>` or `sl split --rev <rs>`, not both)
   [255]
 
 Test --no-rebase flag.
   $ mkcommit e
-  $ hg rebase -s 216c1cfd66baf1e1febc262d5c0771c4db0da5dd -d .
+  $ sl rebase -s 216c1cfd66baf1e1febc262d5c0771c4db0da5dd -d .
   rebasing 216c1cfd66ba "add c1 and c2"
   rebasing 6b6c4cdbcb5c "add c1 and c2"
   rebasing e3e63b66173e "add d1 and d2"
@@ -261,7 +262,7 @@ Test --no-rebase flag.
   o  a265b3c6c419 add a1 and a2
   │
   o  5a5595e342b1 add a1 and a2
-  $ hg split --no-rebase << EOF
+  $ sl split --no-rebase << EOF
   > y
   > y
   > n
@@ -310,12 +311,12 @@ Test --no-rebase flag.
 Test that bookmarks are correctly moved.
   $ reset
   $ mkcommit a
-  $ hg book test1
-  $ hg book test2
-  $ hg bookmarks
+  $ sl book test1
+  $ sl book test2
+  $ sl bookmarks
      test1                     c20cc4d302fc
    * test2                     c20cc4d302fc
-  $ hg split << EOF
+  $ sl split << EOF
   > y
   > y
   > n
@@ -343,7 +344,7 @@ Test that bookmarks are correctly moved.
   @  a265b3c6c419 add a1 and a2
   │
   o  5a5595e342b1 add a1 and a2
-  $ hg bookmarks
+  $ sl bookmarks
      test1                     a265b3c6c419
    * test2                     a265b3c6c419
 
@@ -352,8 +353,8 @@ Test the hint for Phabricator Diffs being duplicated
   $ newrepo
   $ echo 1 > a1
   $ echo 2 > a2
-  $ hg commit -Aqm "Differential Revision: http://example.com/D1234"
-  $ hg split --config split.phabricatoradvice="amend the commit messages to remove them" << EOF
+  $ sl commit -Aqm "Differential Revision: http://example.com/D1234"
+  $ sl split --config split.phabricatoradvice="amend the commit messages to remove them" << EOF
   > y
   > y
   > n

@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Set up test environment.
@@ -13,15 +14,15 @@ Set up test environment.
   $ newclientrepo
 
 Check help text for new options and removal of unsupported options.
-  $ hg next --help
-  hg next [OPTIONS]... [STEPS]
+  $ sl next --help
+  sl next [OPTIONS]... [STEPS]
   
   aliases: n
   
   check out a descendant commit
   
       Update to a descendant commit of the current commit. When working with a
-      stack of commits, you can use 'hg next' to move up your stack with ease.
+      stack of commits, you can use 'sl next' to move up your stack with ease.
   
       - Use the "--newest" flag to always pick the newest of multiple child
         commits. You can set "amend.alwaysnewest" to true in your global Sapling
@@ -36,15 +37,15 @@ Check help text for new options and removal of unsupported options.
   
       - Move 1 level up the stack:
   
-          hg next
+          sl next
   
       - Move 2 levels up the stack:
   
-          hg next 2
+          sl next 2
   
       - Move to the top of the stack:
   
-          hg next --top
+          sl next --top
   
   Options:
   
@@ -63,10 +64,10 @@ Check help text for new options and removal of unsupported options.
   
   (some details hidden, use --verbose to show complete help)
 Create stack of commits and go to the bottom.
-  $ hg debugbuilddag --mergeable-file +6
-  $ hg up 'desc(r0)'
+  $ sl debugbuilddag --mergeable-file +6
+  $ sl up 'desc(r0)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg book bottom
+  $ sl book bottom
   $ showgraph
   o   r5
   │
@@ -81,48 +82,48 @@ Create stack of commits and go to the bottom.
   @  bottom r0
 
 Test invalid argument combinations.
-  $ hg next --top 1
+  $ sl next --top 1
   abort: cannot use both number and --top
   [255]
-  $ hg next --bookmark 1
+  $ sl next --bookmark 1
   abort: cannot use both number and --bookmark
   [255]
-  $ hg next --top --bookmark
+  $ sl next --top --bookmark
   abort: cannot use both --top and --bookmark
   [255]
-  $ hg next --top --towards top
+  $ sl next --top --towards top
   abort: cannot use both --top and --towards
   [255]
 
 Test basic usage.
-  $ hg next
+  $ sl next
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [*] r1 (glob)
 
 With positional argument.
-  $ hg next 2
+  $ sl next 2
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [*] r3 (glob)
 
 Overshoot top of repo.
-  $ hg next 5
+  $ sl next 5
   reached head commit
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [*] r5 (glob)
 
 Test --top flag.
-  $ hg up bottom
+  $ sl up bottom
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark bottom)
-  $ hg next --top
+  $ sl next --top
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [*] r5 (glob)
 
 Test bookmark navigation.
-  $ hg book -r 'desc(r5)' top
-  $ hg book -r 'desc(r3)' bookmark
+  $ sl book -r 'desc(r5)' top
+  $ sl book -r 'desc(r3)' bookmark
   $ showgraph
   @  top r5
   │
@@ -135,80 +136,80 @@ Test bookmark navigation.
   o   r1
   │
   o  bottom r0
-  $ hg up bottom
+  $ sl up bottom
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark bottom)
-  $ hg next --bookmark
+  $ sl next --bookmark
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [*] (bookmark) r3 (glob)
   (activating bookmark bookmark)
-  $ hg next --bookmark
+  $ sl next --bookmark
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bookmark)
   [*] (top) r5 (glob)
   (activating bookmark top)
 
 Test bookmark activation.
-  $ hg up bottom
+  $ sl up bottom
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (changing active bookmark from top to bottom)
-  $ hg next 3
+  $ sl next 3
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [*] (bookmark) r3 (glob)
   (activating bookmark bookmark)
-  $ hg next 2 --no-activate-bookmark
+  $ sl next 2 --no-activate-bookmark
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bookmark)
   [*] (top) r5 (glob)
 
 Test dirty working copy and --clean.
-  $ hg up bottom
+  $ sl up bottom
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark bottom)
   $ touch test
-  $ hg add test
-  $ hg st
+  $ sl add test
+  $ sl st
   A test
-  $ hg next --check
+  $ sl next --check
   abort: uncommitted changes
   [255]
-  $ hg next --clean
+  $ sl next --clean
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [*] r1 (glob)
-  $ hg st
+  $ sl st
   ? test
   $ rm test
 
 Test dirty working copy and --merge.
-  $ hg up bottom
+  $ sl up bottom
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark bottom)
   $ echo test >> mf
-  $ hg st
+  $ sl st
   M mf
-  $ hg next --check
+  $ sl next --check
   abort: uncommitted changes
   [255]
-  $ hg next --merge
+  $ sl next --merge
   merging mf
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [*] r1 (glob)
-  $ hg st
+  $ sl st
   M mf
-  $ hg up -C .
+  $ sl up -C .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Test --newest flag.
-  $ hg up 'desc(r3)'
+  $ sl up 'desc(r3)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ touch test
-  $ hg add test
-  $ hg commit -m "test"
-  $ hg book other
+  $ sl add test
+  $ sl commit -m "test"
+  $ sl book other
   $ showgraph
   @  other test
   │
@@ -223,31 +224,31 @@ Test --newest flag.
   o   r1
   │
   o  bottom r0
-  $ hg up bottom
+  $ sl up bottom
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (changing active bookmark from other to bottom)
-  $ hg next --top
+  $ sl next --top
   current stack has multiple heads, namely:
   [*] (top) r5 (glob)
   [*] (other) test (glob)
   abort: ambiguous next commit
   (use the --newest flag to always pick the newest child at each step)
   [255]
-  $ hg log -r .
+  $ sl log -r .
   commit:      fdaccbb26270
   bookmark:    bottom
   user:        debugbuilddag
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     r0
   
-  $ hg next --top --newest
+  $ sl next --top --newest
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [*] (other) test (glob)
   (activating bookmark other)
 
 Test --towards flag.
-  $ hg up bottom
+  $ sl up bottom
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (changing active bookmark from other to bottom)
   $ showgraph
@@ -264,28 +265,28 @@ Test --towards flag.
   o   r1
   │
   @  bottom r0
-  $ hg next 4 --towards 'desc(r1)'
+  $ sl next 4 --towards 'desc(r1)'
   commit cb14eba0ad9c has multiple children, namely:
   [*] r4 (glob)
   [*] (other) test (glob)
   abort: ambiguous next commit
   (use the --newest or --towards flags to specify which child to pick)
   [255]
-  $ hg next 4 --towards 'top+other'
+  $ sl next 4 --towards 'top+other'
   abort: 'top+other' refers to multiple commits
   [255]
-  $ hg next 4 --towards top
+  $ sl next 4 --towards top
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [*] r4 (glob)
-  $ hg next --towards other
+  $ sl next --towards other
   abort: the current commit is not an ancestor of 'other'
   [255]
 
 Test interactive:
-  $ hg up 'desc(test)' -q && touch a && hg add a && hg commit -m "branch a"
-  $ hg up 'desc(test)' -q && touch b && hg add b && hg commit -m "branch b"
-  $ hg up bottom -q
+  $ sl up 'desc(test)' -q && touch a && sl add a && sl commit -m "branch a"
+  $ sl up 'desc(test)' -q && touch b && sl add b && sl commit -m "branch b"
+  $ sl up bottom -q
   $ showgraph
   o   branch b
   │
@@ -304,7 +305,7 @@ Test interactive:
   o   r1
   │
   @  bottom r0
-  $ hg --config ui.interactive=true next 5 <<EOF
+  $ sl --config ui.interactive=true next 5 <<EOF
   > 2
   > 1
   > EOF
@@ -319,8 +320,8 @@ Test interactive:
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bottom)
   [ae9b2b] branch a
-  $ hg up bottom -q
-  $ hg --config ui.interactive=true next --top <<EOF
+  $ sl up bottom -q
+  $ sl --config ui.interactive=true next --top <<EOF
   > 3
   > EOF
   current stack has multiple heads, namely:
@@ -340,7 +341,7 @@ Test interactive >= 10 choices:
   >    \ \|/ / /
   >   desc('b')
   > EOS
-  $ hg --config ui.interactive=true next << EOS
+  $ sl --config ui.interactive=true next << EOS
   > 10
   > EOS
   commit 9913ce0137a4 has multiple children, namely:
@@ -357,8 +358,8 @@ Test interactive >= 10 choices:
   which commit to select [1-10/(c)ancel]?  10
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [1e290b] j
-  $ hg up bottom -q
-  $ hg --config ui.interactive=true next --top << EOS
+  $ sl up bottom -q
+  $ sl --config ui.interactive=true next --top << EOS
   > 10
   > EOS
   current stack has multiple heads, namely:
@@ -381,8 +382,8 @@ Test interactive >= 10 choices:
 
 
 Test next prefer draft commit.
-  $ hg up 'desc(r3)' -q
-  $ hg log -Gr '.+children(.)' -T '{desc}'
+  $ sl up 'desc(r3)' -q
+  $ sl log -Gr '.+children(.)' -T '{desc}'
   o  test
   │
   │ o  r4
@@ -391,7 +392,7 @@ Test next prefer draft commit.
   │
   ~
 Here we have 2 draft children.
-  $ hg next
+  $ sl next
   commit cb14eba0ad9c has multiple children, namely:
   [*] r4 (glob)
   [*] (other) test (glob)
@@ -399,9 +400,9 @@ Here we have 2 draft children.
   (use the --newest or --towards flags to specify which child to pick)
   [255]
 Let's make one of child commits public.
-  $ hg debugmakepublic top
+  $ sl debugmakepublic top
 Now we have only 1 draft child.
-  $ hg next
+  $ sl next
   commit cb14eba0ad9c has multiple children, namely:
   [*] r4 (glob)
   [*] (other) test (glob)

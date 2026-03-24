@@ -1,30 +1,31 @@
 
 #require serve tar unzip no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ enable share
-  $ hg init test
+  $ sl init test
   $ cd test
   $ echo foo>foo
-  $ hg commit -Am 1 -d '1 0'
+  $ sl commit -Am 1 -d '1 0'
   adding foo
   $ echo bar>bar
-  $ hg commit -Am 2 -d '2 0'
+  $ sl commit -Am 2 -d '2 0'
   adding bar
   $ mkdir baz
   $ echo bletch>baz/bletch
-  $ hg commit -Am 3 -d '1000000000 0'
+  $ sl commit -Am 3 -d '1000000000 0'
   adding baz/bletch
 
-  $ echo "[web]" >> .hg/hgrc
-  $ echo "name = test-archive" >> .hg/hgrc
-  $ cp .hg/hgrc .hg/hgrc-base
+  $ echo "[web]" >> .sl/config
+  $ echo "name = test-archive" >> .sl/config
+  $ cp .sl/config .sl/config-base
   > test_archtype() {
-  >     echo "allow_archive = $1" >> .hg/hgrc
+  >     echo "allow_archive = $1" >> .sl/config
   >     test_archtype_run "$@"
   > }
   > test_archtype_deprecated() {
-  >     echo "allow$1 = True" >> .hg/hgrc
+  >     echo "allow$1 = True" >> .sl/config
   >     test_archtype_run "$@"
   > }
   > test_archtype_run() {
@@ -38,14 +39,14 @@
   >     get-with-headers.py localhost:$HGPORT "archive/tip.$4" | head -n 1
   >     killdaemons.py
   >     cat errors.log
-  >     cp .hg/hgrc-base .hg/hgrc
+  >     cp .sl/config-base .sl/config
   > }
 
 The '-t' should override autodetection
 
-  $ hg archive -t tar autodetect_override_test.zip
+  $ sl archive -t tar autodetect_override_test.zip
   $ tar tf autodetect_override_test.zip
-  autodetect_override_test.zip/.hg_archival.txt
+  autodetect_override_test.zip/.sl_archival.txt
   autodetect_override_test.zip/bar
   autodetect_override_test.zip/baz/bletch
   autodetect_override_test.zip/foo
@@ -70,20 +71,20 @@ The '-t' should override autodetection
 archive name is stored in the archive, so create similar archives and
 rename them afterwards.
 
-  $ hg archive -t tgz tip.tar.gz
+  $ sl archive -t tgz tip.tar.gz
   $ mv tip.tar.gz tip1.tar.gz
   $ sleep 1
-  $ hg archive -t tgz tip.tar.gz
+  $ sl archive -t tgz tip.tar.gz
   $ mv tip.tar.gz tip2.tar.gz
   $ $PYTHON md5comp.py tip1.tar.gz tip2.tar.gz
   True
 
-  $ hg archive -t zip -p /illegal test.zip
+  $ sl archive -t zip -p /illegal test.zip
   abort: archive prefix contains illegal components
   [255]
-  $ hg archive -t zip -p very/../bad test.zip
+  $ sl archive -t zip -p very/../bad test.zip
 
-  $ hg archive --config ui.archivemeta=false -t zip -r 'desc(3)' test.zip
+  $ sl archive --config ui.archivemeta=false -t zip -r 'desc(3)' test.zip
   $ unzip -t test.zip
   Archive:  test.zip
       testing: test/bar*OK (glob)
@@ -91,75 +92,75 @@ rename them afterwards.
       testing: test/foo*OK (glob)
   No errors detected in compressed data of test.zip.
 
-  $ hg archive -t tar - | tar tf - 2>/dev/null
-  test-*/.hg_archival.txt (glob)
+  $ sl archive -t tar - | tar tf - 2>/dev/null
+  test-*/.sl_archival.txt (glob)
   test-*/bar (glob)
   test-*/baz/bletch (glob)
   test-*/foo (glob)
 
-  $ hg archive -r 'desc(1)' -t tar rev-%r.tar
+  $ sl archive -r 'desc(1)' -t tar rev-%r.tar
   $ [ -f rev-0.tar ]
 
-test .hg_archival.txt
+test .sl_archival.txt
 
-  $ hg archive ../test-tags
-  $ cat ../test-tags/.hg_archival.txt
+  $ sl archive ../test-tags
+  $ cat ../test-tags/.sl_archival.txt
   repo: * (glob)
   node: * (glob)
   branch: default
-  $ hg archive -r 'desc(3)' ../test-lasttag
-  $ cat ../test-lasttag/.hg_archival.txt
+  $ sl archive -r 'desc(3)' ../test-lasttag
+  $ cat ../test-lasttag/.sl_archival.txt
   repo: * (glob)
   node: * (glob)
   branch: default
 
-  $ hg archive -t bogus test.bogus
+  $ sl archive -t bogus test.bogus
   abort: unknown archive type 'bogus'
   [255]
 
 empty repo
 
-  $ hg init ../empty
+  $ sl init ../empty
   $ cd ../empty
-  $ hg archive ../test-empty
+  $ sl archive ../test-empty
   abort: no working directory: please specify a revision
   [255]
 
 old file -- date clamped to 1980
 
   $ touch -t 197501010000 old
-  $ hg add old
-  $ hg commit -m old
-  $ hg archive ../old.zip
+  $ sl add old
+  $ sl commit -m old
+  $ sl archive ../old.zip
   $ unzip -l ../old.zip | grep -v -- ----- | egrep -v files$
   Archive:  ../old.zip
   \s*Length.* (re)
-  *110*80*00:00*old/.hg_archival.txt (glob)
+  *110*80*00:00*old/.sl_archival.txt (glob)
   *0*80*00:00*old/old (glob)
 
 show an error when a provided pattern matches no files
 
-  $ hg archive -I file_that_does_not_exist.foo ../empty.zip
+  $ sl archive -I file_that_does_not_exist.foo ../empty.zip
   abort: no files match the archive pattern
   [255]
 
-  $ hg archive -X '*' ../empty.zip
+  $ sl archive -X '*' ../empty.zip
   abort: no files match the archive pattern
   [255]
 
   $ cd ..
 
-issue3600: check whether "hg archive" can create archive files which
+issue3600: check whether "sl archive" can create archive files which
 are extracted with expected timestamp, even though TZ is not
 configured as GMT.
 
   $ mkdir issue3600
   $ cd issue3600
 
-  $ hg init repo
+  $ sl init repo
   $ echo a > repo/a
-  $ hg -R repo add repo/a
-  $ hg -R repo commit -m '#0' -d '456789012 21600'
+  $ sl -R repo add repo/a
+  $ sl -R repo commit -m '#0' -d '456789012 21600'
   $ cat > show_mtime.py <<EOF
   > from __future__ import absolute_import, print_function
   > import os
@@ -167,12 +168,12 @@ configured as GMT.
   > print(int(os.stat(sys.argv[1]).st_mtime))
   > EOF
 
-  $ hg -R repo archive --prefix tar-extracted archive.tar
+  $ sl -R repo archive --prefix tar-extracted archive.tar
   $ (TZ=UTC-3; export TZ; tar xf archive.tar)
   $ $PYTHON show_mtime.py tar-extracted/a
   456789012
 
-  $ hg -R repo archive --prefix zip-extracted archive.zip
+  $ sl -R repo archive --prefix zip-extracted archive.zip
   $ (TZ=UTC-3; export TZ; unzip -q archive.zip)
   $ $PYTHON show_mtime.py zip-extracted/a
   456789012
@@ -181,7 +182,7 @@ configured as GMT.
 
 Disallow default archive in repositories with large working copies
 
-  $ hg -R test archive --config scale.largeworkingcopy=True result.zip
+  $ sl -R test archive --config scale.largeworkingcopy=True result.zip
   abort: this repository has a very large working copy and requires an explicit set of files to be archived
   [255]
-  $ hg -R test archive --config scale.largeworkingcopy=True -I 'relglob:**' result.zip
+  $ sl -R test archive --config scale.largeworkingcopy=True -I 'relglob:**' result.zip

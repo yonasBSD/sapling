@@ -1,62 +1,63 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init rep; cd rep
+  $ sl init rep; cd rep
 
   $ touch empty-file
-  $ hg debugsh -c 'for x in range(10000): ui.write("%s\n" % x)' > large-file
+  $ sl debugsh -c 'for x in range(10000): ui.write("%s\n" % x)' > large-file
 
-  $ hg addremove
+  $ sl addremove
   adding empty-file
   adding large-file
 
-  $ hg commit -m A
+  $ sl commit -m A
 
   $ rm large-file empty-file
-  $ hg debugsh -c 'for x in range(10,10000): ui.write("%s\n" % x)' > another-file
+  $ sl debugsh -c 'for x in range(10,10000): ui.write("%s\n" % x)' > another-file
 
-  $ hg addremove -s50
+  $ sl addremove -s50
   adding another-file
   removing empty-file
   removing large-file
   recording removal of large-file as rename to another-file (99% similar)
 
-  $ hg commit -m B
+  $ sl commit -m B
 
 comparing two empty files caused ZeroDivisionError in the past
 
-  $ hg goto -C 'desc(A)'
+  $ sl goto -C 'desc(A)'
   2 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ rm empty-file
   $ touch another-empty-file
-  $ hg addremove -s50
+  $ sl addremove -s50
   adding another-empty-file
   removing empty-file
 
   $ cd ..
 
-  $ hg init rep2; cd rep2
+  $ sl init rep2; cd rep2
 
-  $ hg debugsh -c 'for x in range(10000): ui.write("%s\n" % x)' > large-file
-  $ hg debugsh -c 'for x in range(50): ui.write("%s\n" % x)' > tiny-file
+  $ sl debugsh -c 'for x in range(10000): ui.write("%s\n" % x)' > large-file
+  $ sl debugsh -c 'for x in range(50): ui.write("%s\n" % x)' > tiny-file
 
-  $ hg addremove
+  $ sl addremove
   adding large-file
   adding tiny-file
 
-  $ hg commit -m A
+  $ sl commit -m A
 
-  $ hg debugsh -c 'for x in range(70): ui.write("%s\n" % x)' > small-file
+  $ sl debugsh -c 'for x in range(70): ui.write("%s\n" % x)' > small-file
   $ rm tiny-file
   $ rm large-file
 
-  $ hg addremove -s50
+  $ sl addremove -s50
   removing large-file
   adding small-file
   removing tiny-file
   recording removal of tiny-file as rename to small-file (71% similar)
 
-  $ hg commit -m B
+  $ sl commit -m B
 
 should be sorted by path for stable result
 
@@ -64,7 +65,7 @@ should be sorted by path for stable result
   >     cp small-file $i
   > done
   $ rm small-file
-  $ hg addremove
+  $ sl addremove
   adding 0
   adding 1
   adding 2
@@ -86,13 +87,13 @@ should be sorted by path for stable result
   recording removal of small-file as rename to 7 (100% similar)
   recording removal of small-file as rename to 8 (100% similar)
   recording removal of small-file as rename to 9 (100% similar)
-  $ hg commit -m '10 same files'
+  $ sl commit -m '10 same files'
 
 pick one from many identical files
 
   $ cp 0 a
   $ rm `seq 0 9`
-  $ hg addremove
+  $ sl addremove
   removing 0
   removing 1
   removing 2
@@ -105,7 +106,7 @@ pick one from many identical files
   removing 9
   adding a
   recording removal of 0 as rename to a (100% similar)
-  $ hg revert -aq
+  $ sl revert -aq
 
 pick one from many similar files
 
@@ -113,9 +114,9 @@ pick one from many similar files
   $ for i in `seq 0 9`; do
   >     echo $i >> $i
   > done
-  $ hg commit -m 'make them slightly different'
+  $ sl commit -m 'make them slightly different'
   $ rm `seq 0 9`
-  $ hg addremove -s50
+  $ sl addremove -s50
   removing 0
   removing 1
   removing 2
@@ -128,17 +129,17 @@ pick one from many similar files
   removing 9
   adding a
   recording removal of 0 as rename to a (98% similar)
-  $ hg commit -m 'always the same file should be selected'
+  $ sl commit -m 'always the same file should be selected'
 
 should all fail
 
-  $ hg addremove -s foo
+  $ sl addremove -s foo
   abort: similarity must be a number
   [255]
-  $ hg addremove -s -1
+  $ sl addremove -s -1
   abort: similarity must be between 0 and 100
   [255]
-  $ hg addremove -s 1e6
+  $ sl addremove -s 1e6
   abort: similarity must be between 0 and 100
   [255]
 
@@ -146,18 +147,18 @@ should all fail
 
 Issue1527: repeated addremove causes Abort
 
-  $ hg init rep3; cd rep3
+  $ sl init rep3; cd rep3
   $ mkdir d
   $ echo a > d/a
-  $ hg add d/a
-  $ hg commit -m 1
+  $ sl add d/a
+  $ sl commit -m 1
 
   $ mv d/a d/b
-  $ hg addremove -s80
+  $ sl addremove -s80
   removing d/a
   adding d/b
   recording removal of d/a as rename to d/b (100% similar)
-  $ hg debugstate
+  $ sl debugstate
   r   0          0 unset               d/a
   a   0         -1 unset               d/b
   copy: d/a -> d/b
@@ -165,12 +166,12 @@ Issue1527: repeated addremove causes Abort
 
 no copies found here (since the target isn't in d
 
-  $ hg addremove -s80 d
+  $ sl addremove -s80 d
   removing d/b
 
 copies here
 
-  $ hg addremove -s80
+  $ sl addremove -s80
   adding c
   recording removal of d/a as rename to c (100% similar)
 

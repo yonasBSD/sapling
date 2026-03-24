@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ enable amend rebase
@@ -16,7 +17,7 @@
 
 Test invalid value for amend.autorestack
   $ newrepo
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   >    D
   >    |
   > C  C_old
@@ -26,7 +27,7 @@ Test invalid value for amend.autorestack
   > |/
   > A
   > EOS
-  $ hg goto -qC B
+  $ sl goto -qC B
   $ echo "new content" > B
   $ showgraph
   o  3c36beb5705f D
@@ -40,7 +41,7 @@ Test invalid value for amend.autorestack
   x │  3326d5194fc9 B_old
   ├─╯
   o  426bada5c675 A
-  $ hg amend -m "B'"
+  $ sl amend -m "B'"
   restacking children automatically (unless they conflict)
   rebasing 26805aba1e60 "C" (C)
   $ showgraph
@@ -55,7 +56,7 @@ Test invalid value for amend.autorestack
   │ x  3326d5194fc9 B_old
   ├─╯
   o  426bada5c675 A
-  $ hg rebase --restack
+  $ sl rebase --restack
   rebasing 3c36beb5705f "D" (D)
   $ showgraph
   o  d1e904d06977 D

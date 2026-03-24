@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Set up test environment.
@@ -11,15 +12,15 @@ Set up test environment.
   $ newrepo amendprevious
 
 Check help text for new options and removal of unsupported options.
-  $ hg previous --help
-  hg previous [OPTIONS]... [STEPS]
+  $ sl previous --help
+  sl previous [OPTIONS]... [STEPS]
   
   aliases: prev
   
   check out an ancestor commit
   
       Update to an ancestor commit of the current commit. When working with a
-      stack of commits, you can use 'hg previous' to move down your stack with
+      stack of commits, you can use 'sl previous' to move down your stack with
       ease.
   
       - Use the "--newest" flag to always pick the newest of multiple parents
@@ -34,15 +35,15 @@ Check help text for new options and removal of unsupported options.
   
       - Move 1 level down the stack:
   
-          hg prev
+          sl prev
   
       - Move 2 levels down the stack:
   
-          hg prev 2
+          sl prev 2
   
       - Move to the bottom of the stack:
   
-          hg prev --bottom
+          sl prev --bottom
   
   Options:
   
@@ -61,110 +62,110 @@ Check help text for new options and removal of unsupported options.
   (some details hidden, use --verbose to show complete help)
 
 Create stack of commits and go to the top.
-  $ hg debugbuilddag --mergeable-file +6
-  $ hg up tip
+  $ sl debugbuilddag --mergeable-file +6
+  $ sl up tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg book top
+  $ sl book top
 
 Test invalid argument combinations.
-  $ hg previous --bottom 1
+  $ sl previous --bottom 1
   abort: cannot use both number and --bottom
   [255]
-  $ hg previous --bookmark 1
+  $ sl previous --bookmark 1
   abort: cannot use both number and --bookmark
   [255]
-  $ hg previous --bottom --bookmark
+  $ sl previous --bottom --bookmark
   abort: cannot use both --bottom and --bookmark
   [255]
 
 Test basic usage.
-  $ hg previous
+  $ sl previous
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark top)
   [*] r4 (glob)
 
 With positional argument.
-  $ hg previous 2
+  $ sl previous 2
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [*] r2 (glob)
 
 Overshoot bottom of repo.
-  $ hg previous 5
+  $ sl previous 5
   reached root commit
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [*] r0 (glob)
 
 Test --bottom flag.
-  $ hg up top
+  $ sl up top
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark top)
-  $ hg previous --bottom
+  $ sl previous --bottom
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark top)
   [*] r0 (glob)
 
 Test bookmark navigation.
-  $ hg book -r 'desc(r0)' root
-  $ hg book -r 'desc(r2)' bookmark
-  $ hg up top
+  $ sl book -r 'desc(r0)' root
+  $ sl book -r 'desc(r2)' bookmark
+  $ sl up top
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark top)
-  $ hg previous --bookmark
+  $ sl previous --bookmark
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark top)
   [*] (bookmark) r2 (glob)
   (activating bookmark bookmark)
-  $ hg previous --bookmark
+  $ sl previous --bookmark
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bookmark)
   [*] (root) r0 (glob)
   (activating bookmark root)
 
 Test bookmark activation.
-  $ hg up top
+  $ sl up top
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (changing active bookmark from root to top)
-  $ hg previous 3
+  $ sl previous 3
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark top)
   [*] (bookmark) r2 (glob)
   (activating bookmark bookmark)
-  $ hg previous 2 --no-activate-bookmark
+  $ sl previous 2 --no-activate-bookmark
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark bookmark)
   [*] (root) r0 (glob)
 
 Test dirty working copy and --merge.
-  $ hg up top
+  $ sl up top
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark top)
   $ echo "test" >> mf
-  $ hg st
+  $ sl st
   M mf
-  $ hg previous --check
+  $ sl previous --check
   abort: uncommitted changes
   [255]
-  $ hg previous --merge
+  $ sl previous --merge
   merging mf
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark top)
   [*] r4 (glob)
-  $ hg st
+  $ sl st
   M mf
 
 Test dirty working copy and --clean.
-  $ hg previous --check
+  $ sl previous --check
   abort: uncommitted changes
   [255]
-  $ hg previous --clean
+  $ sl previous --clean
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [*] r3 (glob)
-  $ hg st
+  $ sl st
 
 Test multiple parents
-  $ hg up 'desc(r3)' -q
-  $ echo a > a && hg add a && hg commit -m a
-  $ hg merge 'desc(r5)' -q && hg commit -m merge
+  $ sl up 'desc(r3)' -q
+  $ echo a > a && sl add a && sl commit -m a
+  $ sl merge 'desc(r5)' -q && sl commit -m merge
   $ showgraph
   @    55f23eb33584 merge
   ├─╮
@@ -181,14 +182,14 @@ Test multiple parents
   o  09bb8c08de89 r1
   │
   o  fdaccbb26270 r0
-  $ hg previous
+  $ sl previous
   commit 55f23eb33584 has multiple parents, namely:
   [f2987e] (top) r5
   [830512] a
   abort: ambiguous previous commit
   (use the --newest flag to always pick the newest parent at each step)
   [255]
-  $ hg --config ui.interactive=true previous 3 <<EOF
+  $ sl --config ui.interactive=true previous 3 <<EOF
   > 1
   > EOF
   commit 55f23eb33584 has multiple parents, namely:
@@ -197,8 +198,8 @@ Test multiple parents
   which commit to select [1-2/(c)ancel]?  1
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   [cb14eb] r3
-  $ hg up 'desc(merge)' -q
-  $ hg --config ui.interactive=true previous 3 <<EOF
+  $ sl up 'desc(merge)' -q
+  $ sl --config ui.interactive=true previous 3 <<EOF
   > 2
   > EOF
   commit 55f23eb33584 has multiple parents, namely:
@@ -210,15 +211,15 @@ Test multiple parents
   (activating bookmark bookmark)
 
 Mix with bottom:
-  $ hg debugmakepublic 'desc(r4)'
-  $ hg up 'desc(merge)' -q
-  $ hg prev --bottom
+  $ sl debugmakepublic 'desc(r4)'
+  $ sl up 'desc(merge)' -q
+  $ sl prev --bottom
   current stack has multiple bottom commits, namely:
   [f2987e] (top) r5
   [830512] a
   abort: ambiguous bottom commit
   [255]
-  $ hg --config ui.interactive=true previous --bottom <<EOF
+  $ sl --config ui.interactive=true previous --bottom <<EOF
   > 2
   > EOF
   current stack has multiple bottom commits, namely:

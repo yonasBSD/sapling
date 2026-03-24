@@ -7,15 +7,16 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init rep
+  $ sl init rep
   $ cd rep
   $ mkdir dir
   $ touch foo dir/bar
-  $ hg -v addremove
+  $ sl -v addremove
   adding dir/bar
   adding foo
-  $ hg -v commit -m 'add 1'
+  $ sl -v commit -m 'add 1'
   committing files:
   dir/bar
   foo
@@ -24,10 +25,10 @@
   committed * (glob)
   $ cd dir/
   $ touch ../foo_2 bar_2
-  $ hg -v addremove
+  $ sl -v addremove
   adding dir/bar_2
   adding foo_2
-  $ hg -v commit -m 'add 2'
+  $ sl -v commit -m 'add 2'
   committing files:
   dir/bar_2
   foo_2
@@ -35,80 +36,80 @@
   committing changelog
   committed * (glob)
   $ cd ..
-  $ hg forget foo
-  $ hg -v addremove
+  $ sl forget foo
+  $ sl -v addremove
   adding foo
-  $ hg forget foo
+  $ sl forget foo
 
-  $ hg -v addremove nonexistent
+  $ sl -v addremove nonexistent
   nonexistent: $ENOENT$
   [1]
 
   $ cd ..
 
-  $ hg init subdir
+  $ sl init subdir
   $ cd subdir
   $ mkdir dir
   $ cd dir
   $ touch a.py
-  $ hg addremove 'glob:*.py'
+  $ sl addremove 'glob:*.py'
   adding a.py
-  $ hg forget a.py
-  $ hg addremove -I 'glob:*.py'
+  $ sl forget a.py
+  $ sl addremove -I 'glob:*.py'
   adding a.py
-  $ hg forget a.py
-  $ hg addremove
+  $ sl forget a.py
+  $ sl addremove
   adding dir/a.py
   $ cd ..
   $ cd ..
 
-  $ hg init sim
+  $ sl init sim
   $ cd sim
   $ echo a > a
   $ echo a >> a
   $ echo a >> a
   $ echo c > c
-  $ hg commit -Ama
+  $ sl commit -Ama
   adding a
   adding c
   $ mv a b
   $ rm c
   $ echo d > d
-  $ hg addremove -n -s 50
+  $ sl addremove -n -s 50
   removing a
   adding b
   removing c
   adding d
   recording removal of a as rename to b (100% similar)
-  $ hg addremove -s 50
+  $ sl addremove -s 50
   removing a
   adding b
   removing c
   adding d
   recording removal of a as rename to b (100% similar)
-  $ hg commit -mb
+  $ sl commit -mb
   $ cp b c
-  $ hg forget b
-  $ hg addremove -s 50
+  $ sl forget b
+  $ sl addremove -s 50
   adding b
   adding c
 
   $ rm c
 
-  $ hg ci -A -m c nonexistent
+  $ sl ci -A -m c nonexistent
   nonexistent: $ENOENT$
   abort: failed to mark all new/missing files as added/removed
   [255]
 
-  $ hg st
+  $ sl st
   ! c
 
-  $ hg forget c
+  $ sl forget c
   $ touch foo
-  $ hg addremove
+  $ sl addremove
   adding foo
   $ rm foo
-  $ hg addremove
+  $ sl addremove
   removing foo
 
   $ cd ..
