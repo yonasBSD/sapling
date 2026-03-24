@@ -830,6 +830,7 @@ export type PlatformSpecificClientToServerMessages =
       source: 'commitInfoView' | 'smartAction';
       reviewScope: CodeReviewScope;
       userContext?: string;
+      agentBackend?: 'devmate' | 'claude';
     }
   | {
       type: 'platform/subscribeToAIReviewComments';
