@@ -3,7 +3,7 @@
 # fix the mercurial code to use fbcode-relative includes.
 #
 
-load("@fbcode//eden/scm:targets.bzl", "gen_hgpython", "hg_binary")
+load("@fbcode//eden/scm:targets.bzl", "gen_hgpython", "gen_slpython", "hg_binary", "sl_binary")
 load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
 load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
@@ -110,6 +110,15 @@ gen_hgpython(
     suffix = "_test",
 )
 
+# Similar to "sl".
+# The main executable uses argv[0] to decide to run as a Python interpreter.
+gen_slpython(sl_target = "fbcode//eden/scm:sl")
+
+gen_slpython(
+    sl_target = "fbcode//eden/scm:sl_test",
+    suffix = "_test",
+)
+
 export_file(
     name = "windows-manifest",
     src = "exec/hgmain/manifest.xml",
@@ -185,6 +194,31 @@ rust_universal_binary(
     visibility = ["PUBLIC"],
 )
 
+sl_binary(
+    name = "sl",
+    autocargo = {"ignore_rule": True},
+    link_group_map = select({
+        "DEFAULT": None,
+        "ovr_config//build_mode/constraints:dev": EVICT_FBCODE_DEFAULT_DEV_GROUP_MAP,
+    }),
+    link_group_min_binary_node_count = select({
+        "DEFAULT": None,
+        "ovr_config//build_mode/constraints:dev": PYTHON_EXTREME_LINK_GROUP_THRESHOLD,
+    }),
+)
+
+sl_binary(
+    name = "sl_test",
+    allow_oss_build = False,
+    autocargo = {"ignore_rule": True},
+)
+
+rust_universal_binary(
+    name = "sl_universal_binary",
+    source = ":sl",
+    visibility = ["PUBLIC"],
+)
+
 cpp_library(
     # @autodeps-skip
     name = "chg",
@@ -208,6 +242,11 @@ cpp_library(
 buck_command_alias(
     name = "runhg",
     exe = ":hg",
+)
+
+buck_command_alias(
+    name = "runsl",
+    exe = ":sl",
 )
 
 buck_sh_binary(
