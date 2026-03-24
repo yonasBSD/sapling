@@ -79,7 +79,8 @@ const styles = stylex.create({
     gap: '5px',
     opacity: '0.9',
     fontSize: '90%',
-    padding: '0 var(--halfpad)',
+    paddingBlock: '0',
+    paddingInline: 'var(--halfpad)',
   },
   diffFollowerIcon: {
     '::before': {

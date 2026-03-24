@@ -82,14 +82,12 @@ const styles = stylex.create({
     position: 'relative',
   },
   dragHandle: {
-    padding: '0 var(--pad)',
+    paddingBlock: '0',
+    paddingInline: 'var(--pad)',
     alignItems: 'center',
     height: '100%',
     userSelect: 'none',
     cursor: 'grab',
-  },
-  candidateDropTarget: {
-    backgroundColor: 'var(--tooltip-background)',
   },
   sendToCommitButton: {
     position: 'absolute',
@@ -103,27 +101,9 @@ const styles = stylex.create({
       borderRadius: '5px',
     },
   },
-  absorbEditCode: {
-    borderCollapse: 'collapse',
-    wordBreak: 'break-all',
-    whiteSpace: 'pre-wrap',
-    // Fill the width when there are long lines in another diff chunk.
-    flexGrow: 1,
-  },
-  absorbEditPathTitle: {
-    padding: 'var(--halfpad) var(--pad)',
-  },
-  addLine: {
-    backgroundColor: 'var(--diffEditor-insertedLineBackground)',
-  },
-  delLine: {
-    backgroundColor: 'var(--diffEditor-removedLineBackground)',
-  },
-  lineContentCell: {
-    minWidth: 300,
-  },
   commitTitle: {
-    padding: 'var(--halfpad) var(--pad)',
+    paddingBlock: 'var(--halfpad)',
+    paddingInline: 'var(--pad)',
     transition: 'opacity 0.1s ease-out',
   },
   deemphasizeCommitTitle: {
@@ -152,7 +132,9 @@ const styles = stylex.create({
   },
   fileHint: {
     padding: 'var(--pad)',
-    outline: '1px solid var(--panel-view-border)',
+    outlineWidth: '1px',
+    outlineStyle: 'solid',
+    outlineColor: 'var(--panel-view-border)',
     backgroundColor: 'var(--hint-background)',
     display: 'flex',
     gap: 'var(--halfpad)',

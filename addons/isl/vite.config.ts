@@ -39,7 +39,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [
-    stylex.vite({useCSSLayers: true}),
+    stylex.vite({useCSSLayers: true, styleResolution: 'application-order'}),
     react(),
     // babel({
     //   plugins: [

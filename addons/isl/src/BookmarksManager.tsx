@@ -70,7 +70,8 @@ const styles = stylex.create({
   },
   masterBookmarkDropdown: {
     fontSize: '11px',
-    padding: '1px 2px',
+    paddingBlock: '1px',
+    paddingInline: '2px',
     height: '20px',
   },
 });

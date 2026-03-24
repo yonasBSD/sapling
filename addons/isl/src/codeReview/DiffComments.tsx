@@ -41,7 +41,8 @@ const styles = stylex.create({
     alignItems: 'flex-start',
     width: 'calc(100% - 12px)',
     backgroundColor: colors.bg,
-    padding: '2px 6px',
+    paddingBlock: '2px',
+    paddingInline: '6px',
     borderRadius: radius.round,
   },
   commentInfo: {

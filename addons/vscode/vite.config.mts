@@ -123,7 +123,7 @@ export default defineConfig(({mode}) => ({
       },
     ]),
 
-    stylex.vite({useCSSLayers: true}),
+    stylex.vite({useCSSLayers: true, styleResolution: 'application-order'}),
     react(),
     // babel({
     //   plugins: [

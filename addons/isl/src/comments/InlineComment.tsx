@@ -22,7 +22,6 @@ import InlineCommentSuggestionActionBottomBar from './InlineCommentSuggestionAct
 const InlineCommentComparisonView = lazy(() => import('./InlineCommentComparisonView'));
 
 const styles = stylex.create({
-  alignTop: {alignItems: 'flex-start'},
   subheadingsAlignBaseline: {alignItems: 'baseline', gap: '4px'},
   tooltipBar: {width: '100%', justifyContent: 'space-between'},
   boldText: {fontWeight: '700', fontSize: '100%'},
@@ -40,18 +39,6 @@ const styles = stylex.create({
   },
   headerControl: {
     gap: '4px',
-  },
-  shortCutTipLink: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    fontSize: '12px',
-    color: 'var(--vscode-descriptionForeground)',
-    cursor: 'pointer',
-  },
-  underlineOnHoverText: {
-    textDecoration: {
-      ':hover': 'underline',
-    },
   },
 });
 

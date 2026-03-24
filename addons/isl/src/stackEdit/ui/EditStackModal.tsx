@@ -31,7 +31,8 @@ const styles = stylex.create({
   },
   tab: {
     fontSize: '110%',
-    padding: 'var(--halfpad) calc(2 * var(--pad))',
+    paddingBlock: 'var(--halfpad)',
+    paddingInline: 'calc(2 * var(--pad))',
   },
 });
 
