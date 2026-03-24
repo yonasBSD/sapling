@@ -35,17 +35,20 @@ from .i18n import _
 
 _DEFAULT_CACHE_SIZE = 10000
 _automerge_cache = util.lrucachedict(_DEFAULT_CACHE_SIZE)
-_automerge_prompt_msg = _(
-    "%(conflict)s\n"
-    "Above conflict can be resolved automatically "
-    "(see '@prog@ help automerge' for details):\n"
-    "<<<<<<< automerge algorithm yields:\n"
-    " %(merged_lines)s"
-    ">>>>>>>\n"
-    "Accept this resolution?\n"
-    "(a)ccept it, (r)eject it, or review it in (f)ile:"
-    "$$ &Accept $$ &Reject $$ &File"
-)
+
+
+def _automerge_prompt_msg():
+    return _(
+        "%(conflict)s\n"
+        "Above conflict can be resolved automatically "
+        "(see '@prog@ help automerge' for details):\n"
+        "<<<<<<< automerge algorithm yields:\n"
+        " %(merged_lines)s"
+        ">>>>>>>\n"
+        "Accept this resolution?\n"
+        "(a)ccept it, (r)eject it, or review it in (f)ile:"
+        "$$ &Accept $$ &Reject $$ &File"
+    )
 
 
 class AutomergeSummary:
@@ -770,7 +773,7 @@ def try_automerge_conflict(
                     "merged_lines": b" ".join(merged_lines).decode(),
                     "merge_algorithm": merge_algorithm,
                 }
-                index = ui.promptchoice(_automerge_prompt_msg % prompt, 1)
+                index = ui.promptchoice(_automerge_prompt_msg() % prompt, 1)
                 _automerge_cache[cache_key] = index
             index = _automerge_cache[cache_key]
             if index == 0:  # accept

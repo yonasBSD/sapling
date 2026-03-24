@@ -769,13 +769,21 @@ def _imerge3(repo, mynode, orig, fcd, fco, fca, toolconf, files, labels=None):
     return _merge(repo, mynode, orig, fcd, fco, fca, toolconf, files, labels, "merge3")
 
 
+def _mergediff_onfailure(r, repo, mynode, orig, fcd, fco, fca):
+    relpath = repo.pathto(fcd.path())
+    return (
+        _(
+            "warning: conflicts while merging %s! "
+            "(edit, then use '@prog@ resolve --mark')\n"
+        )
+        % relpath
+    )
+
+
 @internaltool(
     "mergediff",
     mergeonly,
-    _(
-        "warning: conflicts while merging %s! "
-        "(edit, then use '@prog@ resolve --mark')\n"
-    ),
+    _mergediff_onfailure,
     precheck=_ismergeable,
 )
 def _imergediff(repo, mynode, orig, fcd, fco, fca, toolconf, files, labels=None):
@@ -797,10 +805,7 @@ def _imergediff(repo, mynode, orig, fcd, fco, fca, toolconf, files, labels=None)
 @internaltool(
     "mergediffs",
     mergeonly,
-    _(
-        "warning: conflicts while merging %s! "
-        "(edit, then use '@prog@ resolve --mark')\n"
-    ),
+    _mergediff_onfailure,
     precheck=_ismergeable,
 )
 def _imergediffs(repo, mynode, orig, fcd, fco, fca, toolconf, files, labels=None):

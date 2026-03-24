@@ -163,6 +163,13 @@ def testsetup(t: TestTmp):
     else:
         hgpath = util.hgcmd()[0]
 
+    # Resolve hgpath to an absolute path. The telemetry wrapper
+    # (scm/telemetry/hg) sets HGEXECUTABLEPATH from argv[0], which may
+    # be a bare name like "sl". We need the full path so that symlinks
+    # in $TESTTMP/bin and subprocess spawning work correctly.
+    if hgpath and not os.path.isabs(hgpath):
+        hgpath = sys.executable
+
     if hgpath:
         # provide access to the real binary
         # set symlink=True, since going through cmd.exe to execute
