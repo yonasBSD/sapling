@@ -1112,7 +1112,7 @@ async function maybeWarnAboutDistantRebase(commit: CommitInfo): Promise<WarningC
             'Do you want to `rebase` anyway?',
         {
           replace: {
-            $age: relativeDate(onto.date, {reference: commit.date, useRelativeForm: true}),
+            $age: relativeDate(destBase.date, {reference: currentBase.date, useRelativeForm: true}),
           },
         },
       ),
