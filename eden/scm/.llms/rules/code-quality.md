@@ -1,0 +1,1 @@
+../../../fs/.llms/rules/code-quality.md
