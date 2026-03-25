@@ -4736,4 +4736,184 @@ mod tests {
 
         Ok(())
     }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_merge_resolution_lost_on_cas_retry(fb: FacebookInit) -> Result<(), Error> {
+        // Regression test: When merge resolution succeeds on the first
+        // pushrebase attempt but the CAS fails, the retry's conflict check
+        // range shifts to (old_bookmark → new_bookmark). The original
+        // conflict is no longer in this range, so the retry proceeds
+        // without merge resolution, silently overwriting server changes.
+        //
+        // This test demonstrates the bug by simulating the two conflict
+        // check ranges and showing that the server's change is lost.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base_content = "\
+line 1
+line 2
+line 3
+line 4
+line 5
+line 6
+line 7
+line 8
+";
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", base_content)
+            .commit()
+            .await?;
+
+        // Server commit S1: adds "line 2.1" between line 2 and line 3
+        let s1_content = "\
+line 1
+line 2
+line 2.1
+line 3
+line 4
+line 5
+line 6
+line 7
+line 8
+";
+        let s1 = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", s1_content)
+            .commit()
+            .await?;
+
+        // Server commit S2: unrelated change (different file) — simulates
+        // another push that moves the bookmark after S1
+        let s2 = CreateCommitContext::new(&ctx, &repo, vec![s1])
+            .add_file("unrelated.txt", "unrelated change\n")
+            .commit()
+            .await?;
+
+        // Set bookmark to S2 (after both server commits)
+        let book = BookmarkKey::new("master")?;
+        let hg_s2 = repo.derive_hg_changeset(&ctx, s2).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_s2)).await?;
+
+        // Client commit: adds "line 6.1" between line 6 and line 7
+        // (based on base, NOT on server commits)
+        let client_content = "\
+line 1
+line 2
+line 3
+line 4
+line 5
+line 6
+line 6.1
+line 7
+line 8
+";
+        let client = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", client_content)
+            .commit()
+            .await?;
+
+        let client_bcs = client.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_merge_test();
+
+        // --- Simulate attempt 1: conflict check range = base → S2 ---
+        // This range includes S1's change to file.txt, so a conflict is
+        // detected and merge resolution succeeds.
+        let client_cf = find_changed_files(&ctx, &repo, base, client).await?;
+        let result1 = check_pushrebase_conflicts(
+            &ctx,
+            &repo,
+            &Default::default(),
+            base,
+            base, // ancestor = root (first attempt)
+            s2,   // descendant = current bookmark
+            std::slice::from_ref(&client_bcs),
+            &client_cf,
+        )
+        .await?;
+        assert!(
+            result1.merged_file_overrides.is_some(),
+            "Attempt 1 should detect the conflict and produce merge overrides"
+        );
+
+        // --- Simulate attempt 2: CAS failed, retry with shifted range ---
+        // Now the conflict check range shifts to S1 → S2 (only the new
+        // server changes since the last attempt). S1's file.txt change is
+        // no longer in this range.
+        let result2 = check_pushrebase_conflicts(
+            &ctx,
+            &repo,
+            &Default::default(),
+            base,
+            s1, // ancestor = old_bookmark_value from attempt 1
+            s2, // descendant = new bookmark
+            std::slice::from_ref(&client_bcs),
+            &client_cf,
+        )
+        .await?;
+
+        // BUG: The retry finds no conflict, so no merge overrides are
+        // produced. The rebase will proceed without merge resolution,
+        // and commit's file.txt will overwrite S1's "line 2.1" addition.
+        assert!(
+            result2.merged_file_overrides.is_none(),
+            "BUG DEMONSTRATED: Retry's shifted range misses the conflict. \
+             No merge overrides produced, server changes will be lost."
+        );
+
+        // Verify the data loss: rebase without overrides onto S2
+        let (new_head, _, rebased_bonsais) = create_rebased_changesets(
+            &ctx,
+            &repo,
+            &Default::default(),
+            base,
+            client,
+            s2,
+            &mut [],
+            result2.merged_file_overrides, // None — no overrides
+        )
+        .await?;
+        changesets_creation::save_changesets(&ctx, &repo, rebased_bonsais).await?;
+
+        // Check the file content at the rebased head
+        let result_hg = repo.derive_hg_changeset(&ctx, new_head).await?;
+        let result_cs = result_hg.load(&ctx, repo.repo_blobstore()).await?;
+        let manifest = result_cs.manifestid();
+        let file_path = NonRootMPath::new("file.txt")?;
+        let file_entry = manifest
+            .find_entry(ctx.clone(), repo.repo_blobstore().clone(), file_path.into())
+            .await?
+            .expect("file.txt should exist");
+
+        let file_content = match file_entry {
+            Entry::Leaf((_, filenode_id)) => {
+                let content_id = filenode_id
+                    .load(&ctx, repo.repo_blobstore())
+                    .await?
+                    .content_id();
+                let bytes =
+                    filestore::fetch_concat(repo.repo_blobstore(), &ctx, content_id).await?;
+                String::from_utf8(bytes.to_vec())?
+            }
+            _ => panic!("file.txt should be a file"),
+        };
+
+        // The client's change (line 6.1) is present
+        assert!(
+            file_content.contains("line 6.1"),
+            "rebased commit should have client's line 6.1"
+        );
+
+        // BUG: The server's change (line 2.1) is MISSING because the
+        // merge override was lost on the CAS retry.
+        assert!(
+            !file_content.contains("line 2.1"),
+            "BUG DEMONSTRATED: Server's 'line 2.1' is missing because \
+             the merge override was discarded on CAS retry.\n\
+             Actual file.txt:\n{}",
+            file_content,
+        );
+
+        Ok(())
+    }
 }
