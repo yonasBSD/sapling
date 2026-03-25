@@ -128,6 +128,32 @@ mononoke_queries! {
          (id, repo_id, name, category, from_changeset_id, to_changeset_id, reason, timestamp)
          VALUES {values}"
     }
+
+    // Per-bookmark lock acquisition. MySQL uses FOR UPDATE for row-level
+    // locking; SQLite relies on its database-level write lock.
+    pub read AcquireBookmarkLock(repo_id: RepositoryId, name: BookmarkName) -> (i32) {
+        mysql("SELECT 1 FROM bookmark_update_locks WHERE repo_id = {repo_id} AND name = {name} FOR UPDATE")
+        sqlite("SELECT 1 FROM bookmark_update_locks WHERE repo_id = {repo_id} AND name = {name}")
+    }
+
+    // Insert a lock row if it doesn't exist (graceful fallback for
+    // bookmarks that predate the lock table).
+    pub write EnsureBookmarkLockRow(values: (repo_id: RepositoryId, name: BookmarkName)) {
+        insert_or_ignore,
+        "{insert_or_ignore} INTO bookmark_update_locks (repo_id, name) VALUES {values}"
+    }
+
+    // Allocate a globally unique monotonic log ID via auto-increment.
+    pub write AllocateBookmarkLogId() {
+        none,
+        "INSERT INTO bookmark_log_id_sequence VALUES (NULL)"
+    }
+
+    // Read the auto-increment ID that was just allocated.
+    pub read ReadLastInsertId() -> (u64) {
+        mysql("SELECT LAST_INSERT_ID()")
+        sqlite("SELECT last_insert_rowid()")
+    }
 }
 
 struct NewUpdateLogEntry {
