@@ -793,6 +793,14 @@ async fn rebase_in_loop(
     let mut latest_rebase_attempt = root;
     let mut pushrebase_distance = PushrebaseDistance(0);
 
+    // Carry forward merge overrides across CAS retries. When a conflict is
+    // detected and merge resolution succeeds, but the CAS fails (bookmark
+    // moved), the retry's conflict check range shifts to (old_bookmark →
+    // new_bookmark). The original conflict may no longer be in this range.
+    // Without carrying forward, the retry would proceed without merge
+    // resolution, silently overwriting server changes.
+    let mut carried_merge_overrides: Option<Vec<(NonRootMPath, FileChange)>> = None;
+
     let repo_args = (repo.repo_identity().name().to_string(),);
     for retry_num in 0..MAX_REBASE_ATTEMPTS {
         let retry_num = PushrebaseRetryNum(retry_num);
@@ -819,9 +827,38 @@ async fn rebase_in_loop(
         .await?;
         pushrebase_distance = pushrebase_distance.add(conflict_result.server_changeset_count);
 
+        // Combine merge overrides: merge new overrides with carried-over
+        // ones. New overrides for the same path take precedence (re-merged
+        // against latest server state), but carried-over overrides for
+        // paths NOT in the new set are preserved. This handles the case
+        // where retry N resolves files A,B and retry N+1 resolves C,D:
+        // the effective set is A,B,C,D.
+        let effective_overrides = match (
+            conflict_result.merged_file_overrides,
+            &carried_merge_overrides,
+        ) {
+            (Some(new_overrides), Some(prev_overrides)) => {
+                // Merge: start with previous overrides, then apply new
+                // ones (which take precedence for overlapping paths).
+                let mut merged: HashMap<NonRootMPath, FileChange> =
+                    prev_overrides.iter().cloned().collect();
+                for (path, fc) in new_overrides {
+                    merged.insert(path, fc);
+                }
+                Some(merged.into_iter().collect())
+            }
+            (Some(new_overrides), None) => Some(new_overrides),
+            (None, Some(prev_overrides)) => {
+                // No new conflicts in this attempt's range, but a previous
+                // attempt resolved conflicts that are still valid. Carry
+                // forward.
+                Some(prev_overrides.clone())
+            }
+            (None, None) => None,
+        };
+
         // Extract merged paths for observability before overrides are consumed
-        let merge_resolved_paths = conflict_result
-            .merged_file_overrides
+        let merge_resolved_paths = effective_overrides
             .as_ref()
             .map(|overrides| overrides.iter().map(|(path, _)| path.clone()).collect());
 
@@ -834,7 +871,7 @@ async fn rebase_in_loop(
             old_bookmark_value,
             onto_bookmark,
             hooks,
-            conflict_result.merged_file_overrides,
+            effective_overrides.clone(),
         )
         .await?;
         // CRITICAL SECTION END: Right after writing new value of bookmark
@@ -868,6 +905,8 @@ async fn rebase_in_loop(
                 .add_value(critical_section_duration_us, repo_args.clone());
         }
 
+        // CAS failed — carry forward overrides for the next attempt
+        carried_merge_overrides = effective_overrides;
         latest_rebase_attempt = old_bookmark_value.unwrap_or(root);
     }
     if should_log {
@@ -4852,16 +4891,36 @@ line 8
         )
         .await?;
 
-        // BUG: The retry finds no conflict, so no merge overrides are
-        // produced. The rebase will proceed without merge resolution,
-        // and commit's file.txt will overwrite S1's "line 2.1" addition.
+        // The retry finds no NEW conflict in its range (S1→S2).
         assert!(
             result2.merged_file_overrides.is_none(),
-            "BUG DEMONSTRATED: Retry's shifted range misses the conflict. \
-             No merge overrides produced, server changes will be lost."
+            "Retry's shifted range should not detect a new conflict"
         );
 
-        // Verify the data loss: rebase without overrides onto S2
+        // FIX: Merge overrides from attempt 1 with any from attempt 2.
+        // New overrides take precedence for overlapping paths, but
+        // carried-over overrides for non-overlapping paths are preserved.
+        let effective_overrides = match (
+            result2.merged_file_overrides,
+            &result1.merged_file_overrides,
+        ) {
+            (Some(new), Some(prev)) => {
+                let mut merged: HashMap<NonRootMPath, FileChange> = prev.iter().cloned().collect();
+                for (path, fc) in new {
+                    merged.insert(path, fc);
+                }
+                Some(merged.into_iter().collect())
+            }
+            (Some(new), None) => Some(new),
+            (None, Some(prev)) => Some(prev.clone()),
+            (None, None) => None,
+        };
+        assert!(
+            effective_overrides.is_some(),
+            "Carried-over overrides from attempt 1 should be used"
+        );
+
+        // Rebase with the carried-over overrides
         let (new_head, _, rebased_bonsais) = create_rebased_changesets(
             &ctx,
             &repo,
@@ -4870,7 +4929,7 @@ line 8
             client,
             s2,
             &mut [],
-            result2.merged_file_overrides, // None — no overrides
+            effective_overrides,
         )
         .await?;
         changesets_creation::save_changesets(&ctx, &repo, rebased_bonsais).await?;
@@ -4898,21 +4957,142 @@ line 8
             _ => panic!("file.txt should be a file"),
         };
 
-        // The client's change (line 6.1) is present
+        // Both changes are preserved
         assert!(
             file_content.contains("line 6.1"),
             "rebased commit should have client's line 6.1"
         );
-
-        // BUG: The server's change (line 2.1) is MISSING because the
-        // merge override was lost on the CAS retry.
         assert!(
-            !file_content.contains("line 2.1"),
-            "BUG DEMONSTRATED: Server's 'line 2.1' is missing because \
-             the merge override was discarded on CAS retry.\n\
-             Actual file.txt:\n{}",
+            file_content.contains("line 2.1"),
+            "rebased commit should have server's line 2.1 \
+             (carried-over merge override). Actual:\n{}",
             file_content,
         );
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_merge_resolution_cas_retry_merges_overrides(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // Test: When retry N resolves files A,B and retry N+1 resolves
+        // files C,D, the effective override set should be A,B,C,D.
+        // New overrides for the same path take precedence over old ones.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("a.txt", "a1\na2\na3\na4\na5\na6\na7\na8\n")
+            .add_file("b.txt", "b1\nb2\nb3\nb4\nb5\nb6\nb7\nb8\n")
+            .commit()
+            .await?;
+
+        // Server commit S1: modifies a.txt line 1 (conflict with client)
+        let s1 = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("a.txt", "SERVER_a1\na2\na3\na4\na5\na6\na7\na8\n")
+            .commit()
+            .await?;
+
+        // Server commit S2: modifies b.txt line 1 (conflict with client)
+        let s2 = CreateCommitContext::new(&ctx, &repo, vec![s1])
+            .add_file("b.txt", "SERVER_b1\nb2\nb3\nb4\nb5\nb6\nb7\nb8\n")
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_s2 = repo.derive_hg_changeset(&ctx, s2).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_s2)).await?;
+
+        // Client modifies both files at the END (non-overlapping with server)
+        let client = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("a.txt", "a1\na2\na3\na4\na5\na6\na7\nCLIENT_a8\n")
+            .add_file("b.txt", "b1\nb2\nb3\nb4\nb5\nb6\nb7\nCLIENT_b8\n")
+            .commit()
+            .await?;
+
+        let client_bcs = client.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_merge_test();
+
+        let client_cf = find_changed_files(&ctx, &repo, base, client).await?;
+
+        // Attempt 1: range = base → S1. Only a.txt conflict is in range.
+        let result1 = check_pushrebase_conflicts(
+            &ctx,
+            &repo,
+            &Default::default(),
+            base,
+            base,
+            s1,
+            std::slice::from_ref(&client_bcs),
+            &client_cf,
+        )
+        .await?;
+        assert!(
+            result1.merged_file_overrides.is_some(),
+            "Attempt 1 should resolve a.txt conflict"
+        );
+        let overrides1 = result1.merged_file_overrides.unwrap();
+        assert_eq!(overrides1.len(), 1, "Should have 1 override (a.txt)");
+
+        // Attempt 2: range = S1 → S2. Only b.txt conflict is in range.
+        let result2 = check_pushrebase_conflicts(
+            &ctx,
+            &repo,
+            &Default::default(),
+            base,
+            s1,
+            s2,
+            std::slice::from_ref(&client_bcs),
+            &client_cf,
+        )
+        .await?;
+        assert!(
+            result2.merged_file_overrides.is_some(),
+            "Attempt 2 should resolve b.txt conflict"
+        );
+        let overrides2 = result2.merged_file_overrides.unwrap();
+        assert_eq!(overrides2.len(), 1, "Should have 1 override (b.txt)");
+
+        // Merge overrides: both a.txt and b.txt should be in the result
+        let mut merged: HashMap<NonRootMPath, FileChange> = overrides1.into_iter().collect();
+        for (path, fc) in overrides2 {
+            merged.insert(path, fc);
+        }
+        let effective_overrides: Vec<_> = merged.into_iter().collect();
+        assert_eq!(
+            effective_overrides.len(),
+            2,
+            "Merged overrides should have 2 entries (a.txt + b.txt)"
+        );
+
+        // Rebase with merged overrides
+        let (new_head, _, rebased_bonsais) = create_rebased_changesets(
+            &ctx,
+            &repo,
+            &Default::default(),
+            base,
+            client,
+            s2,
+            &mut [],
+            Some(effective_overrides),
+        )
+        .await?;
+        changesets_creation::save_changesets(&ctx, &repo, rebased_bonsais).await?;
+
+        // Verify both files have merged content
+        let result_hg = repo.derive_hg_changeset(&ctx, new_head).await?;
+        ensure_content(
+            &ctx,
+            result_hg,
+            &repo,
+            btreemap! {
+                "a.txt".to_string() => "SERVER_a1\na2\na3\na4\na5\na6\na7\nCLIENT_a8\n".to_string(),
+                "b.txt".to_string() => "SERVER_b1\nb2\nb3\nb4\nb5\nb6\nb7\nCLIENT_b8\n".to_string(),
+            },
+        )
+        .await?;
 
         Ok(())
     }
