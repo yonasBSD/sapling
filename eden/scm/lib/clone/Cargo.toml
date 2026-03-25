@@ -33,7 +33,7 @@ toml = { version = "0.9.12", features = ["preserve_order"] }
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 
 [dev-dependencies]
-tempfile = "3.26.0"
+tempfile = "3.27.0"
 
 [features]
 eden = ["sapling-edenfs-client"]

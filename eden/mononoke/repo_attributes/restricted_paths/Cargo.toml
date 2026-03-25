@@ -49,6 +49,6 @@ repo_blobstore = { version = "0.1.0", path = "../repo_blobstore" }
 serde_json = { version = "1.0.140", features = ["alloc", "float_roundtrip", "raw_value", "unbounded_depth"] }
 sql_construct = { version = "0.1.0", path = "../../common/sql_construct" }
 strum = { version = "0.27.1", features = ["derive"] }
-tempfile = "3.26.0"
+tempfile = "3.27.0"
 test_repo_factory = { version = "0.1.0", path = "../../repo_factory/test_repo_factory" }
 tests_utils = { version = "0.1.0", path = "../../tests/utils" }
