@@ -386,6 +386,8 @@ async fn watch_and_update(
                             STATS::refresh_failure_count.add_value(1);
                         } else {
                             info!("Successfully applied config update");
+                            // Emit 0 to keep the time series alive for OneDetection alerting.
+                            STATS::refresh_failure_count.add_value(0);
                         }
                     }
                     Err(e) => {
@@ -608,6 +610,8 @@ async fn watch_manifest_and_repos(
                     STATS::refresh_failure_count.add_value(1);
                 } else {
                     info!("Successfully applied per-repo config update");
+                    // Emit 0 to keep the time series alive for OneDetection alerting.
+                    STATS::refresh_failure_count.add_value(0);
                 }
             }
             Err(e) => {
