@@ -12,6 +12,7 @@
     "scm/mononoke:derived_data_enable_remote_derivation_local_fallback": false,
     "scm/mononoke:derived_data_use_content_manifests": false,
     "scm/mononoke:derived_data_use_store_mapping_batch": false,
+    "scm/mononoke:derivation_queue_evict_sync_after_dep_delete": false,
     "scm/mononoke:derivation_queue_read_priority_queue": false,
     "scm/mononoke:derivation_queue_write_priority_queue": false,
     "scm/mononoke:disable_hooks_on_plain_push": false,
