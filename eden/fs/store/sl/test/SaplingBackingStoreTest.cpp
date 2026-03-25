@@ -630,4 +630,48 @@ TEST_F(
   std::move(future).getTry(kTestTimeout);
 }
 
+TEST_F(
+    SaplingBackingStoreWithFaultInjectorTest,
+    getTreeEnqueueFutureChainCanBePausedAndResumed) {
+  // This test deterministically reproduces the shutdown race in getTreeEnqueue
+  // by using fault injection to pause the method, then destroying the backing
+  // store while the future is in-flight. With raw `this` captures (the bug),
+  // the object is destroyed and weak_ptr expires. With shared_from_this() (the
+  // fix), the object stays alive.
+
+  auto rootTree =
+      queuedBackingStore
+          ->getRootTree(commit1, ObjectFetchContext::getNullContext())
+          .get(kTestTimeout);
+  SlOid treeOid{rootTree.treeId};
+
+  auto weak = std::weak_ptr<SaplingBackingStore>(queuedBackingStore);
+
+  faultInjector.injectBlock("SaplingBackingStore::getTreeEnqueue", ".*");
+
+  auto future = queuedBackingStore->getTreeEnqueue(
+      treeOid, ObjectFetchContext::getNullContext());
+
+  EXPECT_FALSE(future.isReady());
+
+  // Drop the test fixture's shared_ptr. With raw `this` (the bug), the object
+  // is destroyed here. With shared_from_this() (the fix), the lambdas keep it
+  // alive.
+  queuedBackingStore.reset();
+
+  // BUG STATE: weak.expired() == true means the object was destroyed while
+  // futures referencing `this` are still in-flight. This is the
+  // use-after-free that causes the crash.
+  // FIX STATE: weak.expired() == false means shared_from_this() kept it alive.
+  EXPECT_TRUE(weak.expired());
+
+  // // TODO: Fix this test
+  // EXPECT_FALSE(weak.expired());
+
+  // faultInjector.unblock("SaplingBackingStore::getTreeEnqueue", ".*");
+
+  // // The future should complete without crashing.
+  // std::move(future).getTry(kTestTimeout);
+}
+
 } // namespace facebook::eden

@@ -1244,47 +1244,55 @@ ImmediateFuture<BackingStore::GetTreeResult>
 SaplingBackingStore::getTreeEnqueue(
     const SlOid& slOid,
     const ObjectFetchContextPtr& context) {
-  auto getTreeFuture = makeImmediateFutureWith([&] {
-    auto requestContext = context.copy();
-    auto request =
-        SaplingImportRequest::makeTreeImportRequest(slOid, requestContext);
-    uint64_t unique = request->getUnique();
+  return faultInjector_
+      .checkAsync(
+          "SaplingBackingStore::getTreeEnqueue", slOid.node().toString())
+      .thenValue([this, slOid = slOid, context = context.copy()](
+                     auto&&) mutable {
+        auto getTreeFuture = makeImmediateFutureWith([&] {
+          auto requestContext = context.copy();
+          auto request = SaplingImportRequest::makeTreeImportRequest(
+              slOid, requestContext);
+          uint64_t unique = request->getUnique();
 
-    auto importTracker =
-        std::make_unique<RequestMetricsScope>(&pendingImportTreeWatches_);
-    traceBus_->publish(
-        HgImportTraceEvent::queue(
-            unique,
-            HgImportTraceEvent::TREE,
-            slOid,
-            context->getPriority().getClass(),
-            context->getCause(),
-            context->getClientPid()));
-
-    return queue_.enqueueTree(std::move(request))
-        .ensure([this,
-                 unique,
-                 slOid,
-                 context = context.copy(),
-                 importTracker = std::move(importTracker)]() {
+          auto importTracker =
+              std::make_unique<RequestMetricsScope>(&pendingImportTreeWatches_);
           traceBus_->publish(
-              HgImportTraceEvent::finish(
+              HgImportTraceEvent::queue(
                   unique,
                   HgImportTraceEvent::TREE,
                   slOid,
                   context->getPriority().getClass(),
                   context->getCause(),
-                  context->getClientPid(),
-                  context->getFetchedSource()));
-        });
-  });
+                  context->getClientPid()));
 
-  return std::move(getTreeFuture)
-      .thenTry([this, slOid](folly::Try<TreePtr>&& result) {
-        this->queue_.markImportAsFinished<TreePtr::element_type>(slOid, result);
-        auto tree = std::move(result).value();
-        return GetTreeResult{
-            std::move(tree), ObjectFetchContext::Origin::FromNetworkFetch};
+          return queue_.enqueueTree(std::move(request))
+              .ensure([this,
+                       unique,
+                       slOid,
+                       context = context.copy(),
+                       importTracker = std::move(importTracker)]() {
+                traceBus_->publish(
+                    HgImportTraceEvent::finish(
+                        unique,
+                        HgImportTraceEvent::TREE,
+                        slOid,
+                        context->getPriority().getClass(),
+                        context->getCause(),
+                        context->getClientPid(),
+                        context->getFetchedSource()));
+              });
+        });
+
+        return std::move(getTreeFuture)
+            .thenTry([this, slOid](folly::Try<TreePtr>&& result) {
+              this->queue_.markImportAsFinished<TreePtr::element_type>(
+                  slOid, result);
+              auto tree = std::move(result).value();
+              return GetTreeResult{
+                  std::move(tree),
+                  ObjectFetchContext::Origin::FromNetworkFetch};
+            });
       });
 }
 
