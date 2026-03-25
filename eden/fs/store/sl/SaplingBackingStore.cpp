@@ -1302,6 +1302,10 @@ folly::coro::now_task<BackingStore::GetTreeResult>
 SaplingBackingStore::co_getTreeEnqueue(
     const SlOid& slOid,
     const ObjectFetchContextPtr& context) {
+  co_await faultInjector_
+      .checkAsync(
+          "SaplingBackingStore::co_getTreeEnqueue", slOid.node().toString())
+      .semi();
   XLOGF(DBG4, "making tree import request for {}", slOid);
   auto requestContext = context.copy();
   auto request =

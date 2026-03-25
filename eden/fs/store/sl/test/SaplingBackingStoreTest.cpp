@@ -5,6 +5,9 @@
  * GNU General Public License version 2.
  */
 
+#include <folly/ScopeGuard.h>
+#include <folly/coro/GtestHelpers.h>
+#include <folly/coro/Task.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/logging/xlog.h>
 #include <folly/testing/TestUtil.h>
@@ -666,6 +669,68 @@ TEST_F(
 
   // The future should complete without crashing.
   std::move(future).getTry(kTestTimeout);
+}
+
+TEST_F(
+    SaplingBackingStoreWithFaultInjectorTest,
+    coGetTreeEnqueueCoroutineKeepsObjectAlive) {
+  // This test demonstrates the use-after-free bug in the coroutine version
+  // of getTreeEnqueue. The coroutine frame captures `this` implicitly, so
+  // destroying the SaplingBackingStore while the coroutine is suspended
+  // leaves a dangling `this` that will be accessed on resumption.
+
+  // Get a valid tree ObjectId from the repo so we can construct a real SlOid.
+  auto rootTree =
+      queuedBackingStore
+          ->getRootTree(commit1, ObjectFetchContext::getNullContext())
+          .get(kTestTimeout);
+  SlOid treeOid{rootTree.treeId};
+
+  auto baselineUseCount = queuedBackingStore.use_count();
+
+  faultInjector.injectBlock("SaplingBackingStore::co_getTreeEnqueue", ".*");
+
+  // Use CPUThreadPoolExecutor — InlineExecutor is forbidden for coro::Task
+  // (DCHECK in debug builds at Task.h:470).
+  folly::CPUThreadPoolExecutor pool(1);
+  auto future =
+      folly::coro::co_withExecutor(
+          &pool,
+          folly::coro::co_invoke(
+              [&]() -> folly::coro::Task<BackingStore::GetTreeResult> {
+                co_return co_await queuedBackingStore->co_getTreeEnqueue(
+                    treeOid, ObjectFetchContext::getNullContext());
+              }))
+          .start();
+
+  // Ensure the coroutine is unblocked before test exit to prevent deadlock
+  // in the CPUThreadPoolExecutor destructor.
+  SCOPE_EXIT {
+    faultInjector.removeFault("SaplingBackingStore::co_getTreeEnqueue", ".*");
+    faultInjector.unblockWithError(
+        "SaplingBackingStore::co_getTreeEnqueue",
+        ".*",
+        folly::make_exception_wrapper<std::runtime_error>("test cleanup"));
+    try {
+      std::move(future).get(kTestTimeout);
+    } catch (...) {
+    }
+  };
+
+  ASSERT_TRUE(faultInjector.waitUntilBlocked(
+      "SaplingBackingStore::co_getTreeEnqueue",
+      std::chrono::milliseconds(5000)));
+
+  EXPECT_FALSE(future.isReady());
+
+  // BUG STATE: The coroutine frame captures `this` implicitly but does not
+  // hold a shared_ptr copy via shared_from_this(). The reference count is
+  // unchanged, proving the object could be destroyed while the coroutine is
+  // suspended, leaving a dangling `this`.
+  // FIX STATE: shared_from_this() in the coroutine would increase use_count.
+  EXPECT_EQ(queuedBackingStore.use_count(), baselineUseCount);
+  // TODO: fix the bug and verify the use count is higher.
+  // EXPECT_GT(queuedBackingStore.use_count(), baselineUseCount);
 }
 
 } // namespace facebook::eden
