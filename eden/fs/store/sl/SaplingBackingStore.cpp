@@ -1302,7 +1302,8 @@ folly::coro::now_task<BackingStore::GetTreeResult>
 SaplingBackingStore::co_getTreeEnqueue(
     const SlOid& slOid,
     const ObjectFetchContextPtr& context) {
-  co_await faultInjector_
+  auto self = shared_from_this();
+  co_await self->faultInjector_
       .checkAsync(
           "SaplingBackingStore::co_getTreeEnqueue", slOid.node().toString())
       .semi();
@@ -1313,9 +1314,9 @@ SaplingBackingStore::co_getTreeEnqueue(
   uint64_t unique = request->getUnique();
 
   auto importTracker =
-      std::make_unique<RequestMetricsScope>(&pendingImportTreeWatches_);
+      std::make_unique<RequestMetricsScope>(&self->pendingImportTreeWatches_);
 
-  traceBus_->publish(
+  self->traceBus_->publish(
       HgImportTraceEvent::queue(
           unique,
           HgImportTraceEvent::TREE,
@@ -1323,8 +1324,8 @@ SaplingBackingStore::co_getTreeEnqueue(
           context->getPriority().getClass(),
           context->getCause(),
           context->getClientPid()));
-  auto guard = folly::makeGuard([&] {
-    traceBus_->publish(
+  auto guard = folly::makeGuard([&unique, &slOid, &context, self] {
+    self->traceBus_->publish(
         HgImportTraceEvent::finish(
             unique,
             HgImportTraceEvent::TREE,
@@ -1337,16 +1338,16 @@ SaplingBackingStore::co_getTreeEnqueue(
 
   folly::Try<TreePtr> result;
   try {
-    auto tree = co_await queue_.co_enqueueTree(std::move(request));
+    auto tree = co_await self->queue_.co_enqueueTree(std::move(request));
     result = folly::Try<TreePtr>{tree};
 
-    this->queue_.markImportAsFinished<TreePtr::element_type>(slOid, result);
+    self->queue_.markImportAsFinished<TreePtr::element_type>(slOid, result);
 
     co_return BackingStore::GetTreeResult{
         std::move(tree), ObjectFetchContext::Origin::FromNetworkFetch};
   } catch (const std::exception&) {
     result.emplaceException(std::current_exception());
-    this->queue_.markImportAsFinished<TreePtr::element_type>(slOid, result);
+    self->queue_.markImportAsFinished<TreePtr::element_type>(slOid, result);
     throw;
   }
 }
@@ -1528,6 +1529,7 @@ SaplingBackingStore::co_getBlobEnqueue(
     const SlOid& slOid,
     const ObjectFetchContextPtr& context,
     const SaplingImportRequest::FetchType fetch_type) {
+  auto self = shared_from_this();
   XLOGF(DBG4, "making blob import request for {}", slOid);
   auto requestContext = context.copy();
   auto request =
@@ -1537,16 +1539,16 @@ SaplingBackingStore::co_getBlobEnqueue(
   std::unique_ptr<RequestMetricsScope> importTracker;
   switch (fetch_type) {
     case SaplingImportRequest::FetchType::Fetch:
-      importTracker =
-          std::make_unique<RequestMetricsScope>(&pendingImportBlobWatches_);
+      importTracker = std::make_unique<RequestMetricsScope>(
+          &self->pendingImportBlobWatches_);
       break;
     case SaplingImportRequest::FetchType::Prefetch:
-      importTracker =
-          std::make_unique<RequestMetricsScope>(&pendingImportPrefetchWatches_);
+      importTracker = std::make_unique<RequestMetricsScope>(
+          &self->pendingImportPrefetchWatches_);
       break;
   }
 
-  traceBus_->publish(
+  self->traceBus_->publish(
       HgImportTraceEvent::queue(
           unique,
           HgImportTraceEvent::BLOB,
@@ -1555,8 +1557,8 @@ SaplingBackingStore::co_getBlobEnqueue(
           context->getCause(),
           context->getClientPid()));
   // Setup guard to publish 'finish' event when current scope is destroyed
-  auto guard = folly::makeGuard([&] {
-    traceBus_->publish(
+  auto guard = folly::makeGuard([&unique, &slOid, &context, self] {
+    self->traceBus_->publish(
         HgImportTraceEvent::finish(
             unique,
             HgImportTraceEvent::BLOB,
@@ -1569,16 +1571,16 @@ SaplingBackingStore::co_getBlobEnqueue(
 
   folly::Try<BlobPtr> result;
   try {
-    auto blob = co_await queue_.co_enqueueBlob(std::move(request));
+    auto blob = co_await self->queue_.co_enqueueBlob(std::move(request));
     result = folly::Try<BlobPtr>{blob};
 
-    this->queue_.markImportAsFinished<BlobPtr::element_type>(slOid, result);
+    self->queue_.markImportAsFinished<BlobPtr::element_type>(slOid, result);
 
     co_return BackingStore::GetBlobResult{
         std::move(blob), ObjectFetchContext::Origin::FromNetworkFetch};
   } catch (const std::exception&) {
     result.emplaceException(std::current_exception());
-    this->queue_.markImportAsFinished<BlobPtr::element_type>(slOid, result);
+    self->queue_.markImportAsFinished<BlobPtr::element_type>(slOid, result);
     throw;
   }
 }

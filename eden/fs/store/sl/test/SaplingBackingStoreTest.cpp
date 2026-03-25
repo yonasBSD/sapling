@@ -674,10 +674,9 @@ TEST_F(
 TEST_F(
     SaplingBackingStoreWithFaultInjectorTest,
     coGetTreeEnqueueCoroutineKeepsObjectAlive) {
-  // This test demonstrates the use-after-free bug in the coroutine version
-  // of getTreeEnqueue. The coroutine frame captures `this` implicitly, so
-  // destroying the SaplingBackingStore while the coroutine is suspended
-  // leaves a dangling `this` that will be accessed on resumption.
+  // Verify that co_getTreeEnqueue captures shared_from_this(), keeping the
+  // object alive while the coroutine is suspended. Removing the
+  // shared_from_this() capture would cause a use-after-free on resumption.
 
   // Get a valid tree ObjectId from the repo so we can construct a real SlOid.
   auto rootTree =
@@ -723,14 +722,11 @@ TEST_F(
 
   EXPECT_FALSE(future.isReady());
 
-  // BUG STATE: The coroutine frame captures `this` implicitly but does not
-  // hold a shared_ptr copy via shared_from_this(). The reference count is
-  // unchanged, proving the object could be destroyed while the coroutine is
-  // suspended, leaving a dangling `this`.
-  // FIX STATE: shared_from_this() in the coroutine would increase use_count.
-  EXPECT_EQ(queuedBackingStore.use_count(), baselineUseCount);
-  // TODO: fix the bug and verify the use count is higher.
-  // EXPECT_GT(queuedBackingStore.use_count(), baselineUseCount);
+  // The coroutine captures shared_from_this(), so the reference count should
+  // increase while the coroutine is suspended. If someone removes the
+  // shared_from_this() capture, this assertion will fail, catching a
+  // use-after-free regression.
+  EXPECT_GT(queuedBackingStore.use_count(), baselineUseCount);
 }
 
 } // namespace facebook::eden
