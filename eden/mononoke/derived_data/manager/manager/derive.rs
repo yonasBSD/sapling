@@ -969,6 +969,10 @@ impl DerivedDataManager {
             let mut derived_data_scuba = self.derived_data_scuba::<Derivable>();
             derived_data_scuba.add_stage_id(stage_id);
 
+            let ctx = ctx.clone_and_reset();
+            let ctx = self.set_derivation_session_class(ctx)?;
+            borrowed!(ctx);
+
             let (overall_stats, result) = async {
                 let setup_start = Instant::now();
 
@@ -1070,10 +1074,6 @@ impl DerivedDataManager {
                             .insert(dep_stage_id.clone(), output.clone());
                     }
                 }
-
-                let ctx = ctx.clone_and_reset();
-                let ctx = self.set_derivation_session_class(ctx)?;
-                borrowed!(ctx);
 
                 derived_data_scuba.log_batch_derivation_start(ctx);
                 derived_data_scuba.add_metadata(ctx.metadata());
