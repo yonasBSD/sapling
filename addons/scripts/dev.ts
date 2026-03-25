@@ -72,7 +72,7 @@ function parseArgs(): Args {
   }
 
   const isProduction = args.includes('--production');
-  // vite/rollup look for this env var
+  // vite/rolldown look for this env var
   process.env.NODE_ENV = isProduction ? 'production' : 'development';
 
   let launchDir;
@@ -406,7 +406,7 @@ async function main() {
       customStatus: isProduction
         ? undefined
         : (chunk: string, status?: string) => {
-            if (chunk.includes('created ')) {
+            if (chunk.includes('Rebuilt dist in')) {
               serverReady.resolve(null);
               return (
                 chalk.green(kind === 'vscode' ? 'Extension Ready' : 'Server Ready') +

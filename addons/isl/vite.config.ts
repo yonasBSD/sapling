@@ -13,7 +13,7 @@ import path, {resolve} from 'node:path';
 import {defineConfig} from 'vite';
 
 // Normalize `c:\foo\index.html` to `c:/foo/index.html`.
-// This affects Rollup's `facadeModuleId` (which expects the `c:/foo/bar` format),
+// This affects Rolldown's `facadeModuleId` (which expects the `c:/foo/bar` format),
 // and is important for Vite to replace the script tags in HTML files.
 // See https://github.com/vitejs/vite/blob/7440191715b07a50992fcf8c90d07600dffc375e/packages/vite/src/node/plugins/html.ts#L804
 // Without this, building on Windows might produce HTML entry points with

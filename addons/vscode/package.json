@@ -307,9 +307,9 @@
   "scripts": {
     "eslint": "eslint extension webview --ext .ts --ext .tsx",
     "test": "jest",
-    "watch-extension": "rollup --config rollup.extension.config.mjs --watch",
+    "watch-extension": "rolldown -c rolldown.extension.config.ts --watch",
     "watch-webview": "vite",
-    "build-extension": "rollup --config rollup.extension.config.mjs --environment NODE_ENV:production",
+    "build-extension": "rolldown -c rolldown.extension.config.ts --environment NODE_ENV:production",
     "build-webview": "vite build",
     "vscode:prepublish": "node ./buildForPublish.js"
   },
@@ -317,8 +317,6 @@
     "vsce": "^2.15.0"
   },
   "devDependencies": {
-    "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-replace": "^5.0.5",
     "@stylexjs/stylex": "^0.18.1",
     "@stylexjs/unplugin": "^0.18.1",
     "@types/jest": "29.5.12",

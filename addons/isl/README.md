@@ -377,6 +377,6 @@ Should also work in `vscode/` for the webview code.
 
 **Server:**
 Install [rollup-plugin-visualizer](https://www.npmjs.com/package/rollup-plugin-visualizer)
-and add it to the server's rollup.config.mjs, then `yarn build` and inspect the stats.html file.
+and add it to the server's rolldown.config.ts, then `yarn build` and inspect the stats.html file.
 
 Should also work for the vscode extension config.
