@@ -35,6 +35,10 @@
   cursor: pointer;
 }
 
+.diff-version-label {
+  opacity: 0.7;
+}
+
 .diff-comments-count {
   font-size: 90%;
   align-items: center;

@@ -201,7 +201,9 @@ function DiffInfoInner({
           </Suspense>
         )}
       <DiffComments diffId={diffId} diff={info} />
-      <DiffNumber url={info.url}>{provider.formatDiffNumber(diffId)}</DiffNumber>
+      <DiffNumber url={info.url} versionLabel={Internal.getDiffVersionLabel?.(info, commit.hash)}>
+        {provider.formatDiffNumber(diffId)}
+      </DiffNumber>
       {shouldHideActions ? null : syncStatus === SyncStatus.RemoteIsNewer ? (
         <DownloadNewVersionButton diffId={diffId} provider={provider} />
       ) : syncStatus === SyncStatus.BothChanged ? (
@@ -292,7 +294,15 @@ function ResubmitSyncButton({
   );
 }
 
-function DiffNumber({children, url}: {children: string; url?: string}) {
+function DiffNumber({
+  children,
+  url,
+  versionLabel,
+}: {
+  children: string;
+  url?: string;
+  versionLabel?: string;
+}) {
   const [showing, setShowing] = useState(false);
   const showDiffNumber = useAtomValue(showDiffNumberConfig);
   if (!children || !showDiffNumber) {
@@ -310,6 +320,7 @@ function DiffNumber({children, url}: {children: string; url?: string}) {
           e.stopPropagation();
         }}>
         {children}
+        {versionLabel != null && <span className="diff-version-label"> {versionLabel}</span>}
       </span>
     </Tooltip>
   );
