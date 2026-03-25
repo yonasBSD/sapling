@@ -633,11 +633,10 @@ TEST_F(
 TEST_F(
     SaplingBackingStoreWithFaultInjectorTest,
     getTreeEnqueueFutureChainCanBePausedAndResumed) {
-  // This test deterministically reproduces the shutdown race in getTreeEnqueue
-  // by using fault injection to pause the method, then destroying the backing
-  // store while the future is in-flight. With raw `this` captures (the bug),
-  // the object is destroyed and weak_ptr expires. With shared_from_this() (the
-  // fix), the object stays alive.
+  // This test verifies that getTreeEnqueue captures shared_from_this() instead
+  // of raw `this`, keeping the object alive while futures are in-flight. If
+  // someone reverts to raw `this`, the weak_ptr would expire after reset() and
+  // the continuation would access freed memory.
 
   auto rootTree =
       queuedBackingStore
@@ -654,24 +653,19 @@ TEST_F(
 
   EXPECT_FALSE(future.isReady());
 
-  // Drop the test fixture's shared_ptr. With raw `this` (the bug), the object
-  // is destroyed here. With shared_from_this() (the fix), the lambdas keep it
-  // alive.
+  // Drop the test fixture's shared_ptr. The lambdas in the future chain hold
+  // shared_ptr copies via shared_from_this(), keeping the object alive.
   queuedBackingStore.reset();
 
-  // BUG STATE: weak.expired() == true means the object was destroyed while
-  // futures referencing `this` are still in-flight. This is the
-  // use-after-free that causes the crash.
-  // FIX STATE: weak.expired() == false means shared_from_this() kept it alive.
-  EXPECT_TRUE(weak.expired());
+  // The object is still alive because the lambdas captured
+  // shared_from_this(). If someone reverts to raw `this`, this fails
+  // because the object was destroyed by reset() above.
+  EXPECT_FALSE(weak.expired());
 
-  // // TODO: Fix this test
-  // EXPECT_FALSE(weak.expired());
+  faultInjector.unblock("SaplingBackingStore::getTreeEnqueue", ".*");
 
-  // faultInjector.unblock("SaplingBackingStore::getTreeEnqueue", ".*");
-
-  // // The future should complete without crashing.
-  // std::move(future).getTry(kTestTimeout);
+  // The future should complete without crashing.
+  std::move(future).getTry(kTestTimeout);
 }
 
 } // namespace facebook::eden
