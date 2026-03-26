@@ -48,11 +48,15 @@ use mysql_client::ConnectionOptionsBuilder;
 use mysql_client::ConnectionPoolOptionsBuilder;
 use panichandler::Fate;
 use scs_methods::source_control_impl::SourceControlServiceImpl;
+use service_framework_load_monitor_module::LoadMonitorModule;
 use sharding_ext::RepoShard;
 use source_control_services::make_SourceControlService_server;
 use sql_construct::SqlConstruct;
 use sql_storage::Destination;
 use sql_storage::XdbFactory;
+use srserver::BetterOverloadHandlerConfig;
+use srserver::BohPidConfig;
+use srserver::BohResourceConfig;
 use srserver::ThriftExecutor;
 use srserver::ThriftServer;
 use srserver::ThriftServerBuilder;
@@ -361,6 +365,15 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
     service_framework.add_module(Fb303Module)?;
     service_framework.add_module(ProfileModule)?;
     service_framework.add_module(ContextPropModule)?;
+    service_framework.add_module(
+        LoadMonitorModule::builder()
+            .fb(fb)
+            .memory_stats_ttl(Duration::from_millis(50))
+            .cgroup_stats_ttl(Duration::from_millis(50))
+            .counters_update_interval(Duration::from_millis(100))
+            .cgroup_root_path("/cgroup2".into())
+            .build(),
+    )?;
 
     service_framework
         .serve_background()
@@ -441,6 +454,29 @@ fn setup_thrift_server(
         }
     };
 
+    // BetterOverloadHandler: memory-based overload protection at the Thrift
+    // layer, before requests are dispatched to Rust. This is a safety net
+    // against OOMs from large request payloads (see S627561).
+    // PID values from recommended starting config:
+    // https://www.internalfb.com/wiki/Users/sazonovk/Thrift/BetterOverloadHandler/
+    let mem_limit = 0.9;
+    let mem_boh_config = BohResourceConfig {
+        setpoint: 0.8,
+        limit: Some(&mem_limit),
+        pid_config: BohPidConfig {
+            k_p: 4.0,
+            k_i: 0.3,
+            k_d: 0.1,
+            dt: 0.1,
+        },
+    };
+    let boh_config = BetterOverloadHandlerConfig {
+        interval_ms: 100,
+        cpu_config: None,
+        mem_config: Some(&mem_boh_config),
+        net_config: None,
+    };
+
     Ok(ThriftServerBuilder::new(fb)
         .with_name(SERVICE_NAME)
         .expect("failed to set name")
@@ -448,6 +484,8 @@ fn setup_thrift_server(
         .with_tls()
         .expect("failed to enable TLS")
         .with_cancel_if_client_disconnected()
+        .with_static_better_overload_handler(&boh_config)
+        .context("Failed to configure BetterOverloadHandler")?
         .add_factory(exec, move || service, Some(metadata::create_metadata()))
         .build())
 }

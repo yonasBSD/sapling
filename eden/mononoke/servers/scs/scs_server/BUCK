@@ -30,6 +30,7 @@ rust_binary(
         "//common/rust/shed/cloned:cloned",
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/panichandler:panichandler",
+        "//common/rust/srserver:load_monitor_module",
         "//common/rust/srserver:srserver",
         "//eden/mononoke/cmdlib:cmdlib_logging",
         "//eden/mononoke/cmdlib:environment",
