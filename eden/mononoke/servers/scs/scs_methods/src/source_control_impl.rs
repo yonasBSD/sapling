@@ -739,29 +739,10 @@ impl SourceControlServiceImpl {
     }
 }
 
-/// Identity types covered by KCB's REQUEST_PRIMARY_IDENTITY_TYPES
-/// (from core_infra_security/thrift_authentication_module/client_identifier.thrift).
-/// TODO: Import REQUEST_PRIMARY_IDENTITY_TYPES directly once Rust codegen is added
-/// to the client_identifier_structs thrift library.
-const REQUEST_PRIMARY_IDENTITY_TYPES: &[&str] = &[
-    "ASYNC_JOB_ID",
-    "CATHODE_USE_CASE_ID",
-    "DATA_PROJECT",
-    "DEVELOPER_ENVIRONMENT_TYPE",
-    "DRP_ANALYZER_GROUP",
-    "INTERN_CONTROLLER",
-    "NETGRAM_WORKFLOW",
-    "PROD_CONTROLLER",
-    "SANDBOX",
-    "SERVICE_IDENTITY",
-    "TEE_ATTESTED_SERVICE",
-    "USER",
-];
-
 /// Returns true if the given identity type is covered by KCB's
 /// REQUEST_PRIMARY_IDENTITY_TYPES.
 fn is_kcb_covered(id_type: &str) -> bool {
-    REQUEST_PRIMARY_IDENTITY_TYPES.contains(&id_type)
+    client_identifier_structs::consts::REQUEST_PRIMARY_IDENTITY_TYPES.contains(id_type)
 }
 
 /// Returns true if the nocache flag should be set, given the repo-level and
@@ -1851,7 +1832,7 @@ mod tests {
     #[mononoke::test]
     fn test_is_kcb_covered_known_types() {
         // All types in REQUEST_PRIMARY_IDENTITY_TYPES should be covered.
-        for id_type in REQUEST_PRIMARY_IDENTITY_TYPES {
+        for id_type in client_identifier_structs::consts::REQUEST_PRIMARY_IDENTITY_TYPES.iter() {
             assert!(
                 is_kcb_covered(id_type),
                 "Expected '{}' to be covered by KCB",

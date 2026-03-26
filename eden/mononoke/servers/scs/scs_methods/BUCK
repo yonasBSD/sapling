@@ -9,6 +9,7 @@ rust_library(
     crate_root = "src/lib.rs",
     named_deps = ({} if rust_oss.is_oss_build() else {
         "MononokeScsRequest_ods3_types": "//eden/mononoke/facebook/ods3_schemas:MononokeScsRequest_ods3-rust",
+        "client_identifier_structs": "//core_infra_security/thrift_authentication_module:client_identifier_structs-rust",
     }),
     test_deps = [
         "//common/rust/shed/fbinit:fbinit-tokio",
