@@ -528,6 +528,16 @@ ImmediateFuture<folly::Unit> ObjectStore::prefetchBlobs(
   return backingStore_->prefetchBlobs(ids, fetchContext);
 }
 
+folly::coro::now_task<folly::Unit> ObjectStore::co_prefetchBlobs(
+    ObjectIdRange ids,
+    const ObjectFetchContextPtr& fetchContext) const {
+  if (ids.empty()) {
+    co_return folly::unit;
+  }
+  co_await backingStore_->prefetchBlobs(ids, fetchContext);
+  co_return folly::unit;
+}
+
 ObjectId ObjectStore::stripObjectId(const ObjectId& id) const {
   return backingStore_->stripObjectId(id);
 }

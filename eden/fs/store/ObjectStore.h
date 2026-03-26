@@ -268,6 +268,10 @@ class ObjectStore : public IObjectStore,
       ObjectIdRange ids,
       const ObjectFetchContextPtr& context) const override;
 
+  folly::coro::now_task<folly::Unit> co_prefetchBlobs(
+      ObjectIdRange ids,
+      const ObjectFetchContextPtr& context) const;
+
   /**
    * Strip the ObjectId to a smaller representation for memory optimization.
    * For example, in SaplingBackingStore, this strips the path portion of the
