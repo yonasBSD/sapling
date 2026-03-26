@@ -40,6 +40,7 @@ dott_test(
             "test-pushrebase.t",
             "test-pushrebase-per-bookmark-locking.t",
             "test-pushrebase-per-bookmark-locking-conflict.t",
+            "test-pushrebase-per-bookmark-locking-shadow.t",
             "test-pushrebase-per-bookmark-locking-stack.t",
             "test-server-init.t",
             "test-server-lookup.t",
