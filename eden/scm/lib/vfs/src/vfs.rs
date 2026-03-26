@@ -617,12 +617,11 @@ mod unix_tests {
 
 /// Since Windows determines if a file is executable based on its extension, it doesn't support
 /// marking files as executable.
-fn supports_executables(fs_type: &FsType) -> bool {
-    match *fs_type {
-        FsType::NTFS => false,
-        FsType::EDENFS => !cfg!(windows),
-        _ => true,
-    }
+fn supports_executables(_fs_type: &FsType) -> bool {
+    // No Windows filesystem supports Unix-style executable permissions.
+    // Previously only NTFS was explicitly handled, causing false "modified"
+    // reports on other filesystems like ReFS (used by Dev Drives).
+    !cfg!(windows)
 }
 
 /// determines whether FS located at root is case sensitive
