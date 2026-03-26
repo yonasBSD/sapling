@@ -658,6 +658,217 @@ class GlobNodeImpl {
     co_return folly::unit;
   }
 
+  /**
+   * Coroutine version of evaluateImpl.
+   *
+   * Replaces .thenValue chains and collectAll with co_await and
+   * collectAllRange.
+   */
+  template <typename ROOT, typename ROOTPtr>
+  folly::coro::now_task<folly::Unit> co_evaluateImpl(
+      const ObjectStore* store,
+      const ObjectFetchContextPtr& context,
+      RelativePathPiece rootPath,
+      ROOT&& root,
+      PrefetchList* fileBlobsToPrefetch,
+      ResultList* globResult,
+      const RootId& originRootId) const {
+    TaskTraceBlock block{"GlobNodeImpl::co_evaluateImpl"};
+    std::vector<std::pair<PathComponentPiece, GlobNodeImpl*>> recurse;
+    std::vector<folly::coro::Task<void>> tasks;
+    std::vector<ObjectId> localFileBlobsToPrefetch;
+    std::vector<GlobResult> localGlobResults;
+
+    if (!recursiveChildren_.empty()) {
+      tasks.emplace_back(
+          folly::coro::co_invoke(
+              [store,
+               context = context.copy(),
+               rootPath = rootPath.copy(),
+               root2 = ROOT(root),
+               this,
+               fileBlobsToPrefetch,
+               globResult,
+               &originRootId]() mutable -> folly::coro::Task<void> {
+                co_await co_evaluateRecursiveComponentImpl<ROOT, ROOTPtr>(
+                    store,
+                    context,
+                    rootPath,
+                    RelativePathPiece{""},
+                    std::move(root2),
+                    fileBlobsToPrefetch,
+                    globResult,
+                    originRootId,
+                    0);
+              }));
+    }
+
+    auto recurseIfNecessary = [&](PathComponentPiece name,
+                                  GlobNodeImpl* node,
+                                  const auto& entry) {
+      TaskTraceBlock block2{
+          "GlobNodeImpl::co_evaluateImpl::recurseIfNecessary"};
+      if ((!node->children_.empty() || !node->recursiveChildren_.empty()) &&
+          root.entryIsTree(entry)) {
+        if (root.entryShouldLoadChildTree(entry)) {
+          recurse.emplace_back(name, node);
+        } else {
+          tasks.emplace_back(
+              folly::coro::co_invoke(
+                  [candidateName = rootPath + name,
+                   store,
+                   context = context.copy(),
+                   innerNode = node,
+                   fileBlobsToPrefetch,
+                   globResult,
+                   &originRootId,
+                   objectId = entry->getObjectId()]() mutable
+                      -> folly::coro::Task<void> {
+                    auto dir = co_await store->co_getTree(objectId, context);
+                    co_await innerNode->co_evaluateImpl<TreeRoot, TreeRootPtr>(
+                        store,
+                        context,
+                        candidateName,
+                        TreeRoot(std::move(dir)),
+                        fileBlobsToPrefetch,
+                        globResult,
+                        originRootId);
+                  }));
+        }
+      }
+    };
+
+    {
+      const auto& contents = root.lockContents();
+      for (auto& node : children_) {
+        if (!node->hasSpecials_) {
+          // We can try a lookup for the exact name
+          PathComponentPiece name{node->pattern_};
+          auto entry = root.lookupEntry(contents, name);
+          if (entry) {
+            // Matched!
+
+            // Update the name to reflect the entry's actual case
+            name = entry->first;
+
+            if (node->isLeaf_) {
+              if (globResult) {
+                if (prefetchOptimizations_) {
+                  localGlobResults.emplace_back(
+                      rootPath + name, entry->second.getDtype(), originRootId);
+                } else {
+                  globResult->wlock()->emplace_back(
+                      rootPath + name, entry->second.getDtype(), originRootId);
+                }
+              }
+
+              if (fileBlobsToPrefetch &&
+                  root.entryShouldPrefetch(&entry->second)) {
+                if (prefetchOptimizations_) {
+                  localFileBlobsToPrefetch.emplace_back(
+                      store->stripObjectId(entry->second.getObjectId()));
+                } else {
+                  fileBlobsToPrefetch->wlock()->emplace_back(
+                      entry->second.getObjectId());
+                }
+              }
+            }
+
+            // Not the leaf of a pattern; if this is a dir, we need to recurse
+            recurseIfNecessary(name, node.get(), &entry->second);
+          }
+        } else {
+          // We need to match it out of the entries in this inode
+          for (auto& entry : root.iterate(contents)) {
+            PathComponentPiece name = entry.first;
+            if (node->alwaysMatch_ || node->matcher_.match(name.view())) {
+              if (node->isLeaf_) {
+                if (globResult) {
+                  if (prefetchOptimizations_) {
+                    localGlobResults.emplace_back(
+                        rootPath + name, entry.second.getDtype(), originRootId);
+                  } else {
+                    globResult->wlock()->emplace_back(
+                        rootPath + name, entry.second.getDtype(), originRootId);
+                  }
+                }
+                if (fileBlobsToPrefetch &&
+                    root.entryShouldPrefetch(&entry.second)) {
+                  if (prefetchOptimizations_) {
+                    localFileBlobsToPrefetch.emplace_back(
+                        store->stripObjectId(entry.second.getObjectId()));
+                  } else {
+                    fileBlobsToPrefetch->wlock()->emplace_back(
+                        entry.second.getObjectId());
+                  }
+                }
+              }
+              // Not the leaf of a pattern; if this is a dir, we need to
+              // recurse
+              recurseIfNecessary(name, node.get(), &entry.second);
+            }
+          }
+        }
+      }
+    }
+
+    if (globResult && !localGlobResults.empty()) {
+      auto locked = globResult->wlock();
+      locked->insert(
+          locked->end(),
+          std::make_move_iterator(localGlobResults.begin()),
+          std::make_move_iterator(localGlobResults.end()));
+    }
+
+    if (fileBlobsToPrefetch && !localFileBlobsToPrefetch.empty()) {
+      auto locked = fileBlobsToPrefetch->wlock();
+      locked->insert(
+          locked->end(),
+          std::make_move_iterator(localFileBlobsToPrefetch.begin()),
+          std::make_move_iterator(localFileBlobsToPrefetch.end()));
+    }
+
+    // Recursively load child inodes and evaluate matches
+    for (auto& item : recurse) {
+      tasks.emplace_back(
+          folly::coro::co_invoke(
+              [store,
+               context = context.copy(),
+               candidateName = rootPath + item.first,
+               node = item.second,
+               fileBlobsToPrefetch,
+               globResult,
+               &originRootId,
+               &root,
+               name = item.first]() mutable -> folly::coro::Task<void> {
+                auto dir = co_await root.co_getOrLoadChildTree(name, context);
+                co_await node->co_evaluateImpl<ROOT, ROOTPtr>(
+                    store,
+                    context,
+                    candidateName,
+                    ROOT(std::move(dir)),
+                    fileBlobsToPrefetch,
+                    globResult,
+                    originRootId);
+              }));
+    }
+
+    if (tasks.size() == 1) {
+      co_await std::move(tasks[0]);
+    } else if (!tasks.empty()) {
+      // Note: we use collectAllTryRange() rather than collectAllRange()
+      // here because collectAllRange() sends cooperative cancellation
+      // to sibling tasks on first failure, which could cause incomplete
+      // writes to globResult/fileBlobsToPrefetch. collectAllTryRange()
+      // lets all tasks run to completion before propagating errors.
+      auto tries = co_await folly::coro::collectAllTryRange(std::move(tasks));
+      for (auto& t : tries) {
+        t.throwUnlessValue();
+      }
+    }
+    co_return folly::unit;
+  }
+
  private:
   // Returns the next glob node token.
   // This is the text from the start of pattern up to the first
