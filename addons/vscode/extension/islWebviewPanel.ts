@@ -30,7 +30,7 @@ import {defer} from 'shared/utils';
 import * as vscode from 'vscode';
 import {executeVSCodeCommand} from './commands';
 import {getCLICommand, PERSISTED_STORAGE_KEY_PREFIX, shouldOpenBeside} from './config';
-import {getWebviewOptions, htmlForWebview} from './htmlForWebview';
+import {assignWebviewHtml, getWebviewOptions} from './htmlForWebview';
 import {locale, t} from './i18n';
 import {extensionVersion} from './utils';
 
@@ -450,12 +450,11 @@ function populateAndSetISLWebview<W extends vscode.WebviewPanel | vscode.Webview
       'Sapling_favicon-light-green-transparent.svg',
     );
   }
-  panelOrView.webview.html = htmlForWebview({
+  assignWebviewHtml({
     context,
     extensionRelativeBase: 'dist/webview',
     entryPointFile: 'webview.js',
     cssEntryPointFile: 'res/style.css', // TODO: this is global to all webviews, but should instead be per webview
-    devModeScripts: ['/webview/islWebviewEntry.tsx'],
     title: t('isl.title'),
     rootClass: `webview-${isPanel(panelOrView) ? 'panel' : 'view'}`,
     webview: panelOrView.webview,

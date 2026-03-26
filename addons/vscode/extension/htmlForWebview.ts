@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 
 export const devPort = 3015;
 export const devUri = `http://localhost:${devPort}`;
+const IS_DEV_BUILD = process.env.NODE_ENV === 'development';
 
 export function getWebviewOptions(
   context: vscode.ExtensionContext,
@@ -65,59 +66,96 @@ function getVSCodeCompatibilityStyles(): string {
 
 /**
  * When built in dev mode using vite, files are not written to disk.
- * In order to get files to load, we need to set up the server path ourself.
+ * Instead of manually recreating vite's HTML transforms, we fetch the
+ * fully-transformed HTML from the vite dev server and inject our custom content.
  *
  * Note: no CSPs in dev mode. This should not be used in production!
  */
-function devModeHtmlForWebview(
-  /**
-   * CSS to inject into the HTML in a <style> tag
-   */
+async function fetchDevModeHtml(
   extraStyles: string,
-  /**
-   * javascript to inject into the HTML in a <script> tag
-   * IMPORTANT: this MUST be sanitized to avoid XSS attacks
-   */
   initialScript: (nonce: string) => string,
-  devModeScripts: Array<string>,
   rootClass: string,
+  entryPointFile: string,
   placeholderHtml?: string,
-) {
-  return `<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<base href="${vscode.Uri.parse(devUri)}">
+): Promise<string> {
+  const htmlFile = entryPointFile.replace('.js', '.html');
+  const response = await fetch(`${devUri}/${htmlFile}`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  let html = await response.text();
 
-    <!-- Hot reloading code from Vite. Normally, vite injects this into the HTML.
-    But since we have to load this statically, we insert it manually here.
-    See https://github.com/vitejs/vite/blob/734a9e3a4b9a0824a5ba4a5420f9e1176ce74093/docs/guide/backend-integration.md?plain=1#L50-L56 -->
-    <script type="module">
-      import RefreshRuntime from "/@react-refresh"
-      RefreshRuntime.injectIntoGlobalHook(window)
-      window.$RefreshReg$ = () => {}
-      window.$RefreshSig$ = () => (type) => type
-      window.__vite_plugin_react_preamble_installed__ = true
-    </script>
-    <script type="module" src="/@vite/client"></script>
-    <style>
-        ${getVSCodeCompatibilityStyles()}
-        ${extraStyles}
-    </style>
-    ${initialScript('')}
-    ${devModeScripts.map(script => `<script type="module" src="${script}"></script>`).join('\n')}
-	</head>
-	<body>
-		<div id="root" class="${rootClass}">
-      ${placeholderHtml ?? 'loading (dev mode)'}
-    </div>
-	</body>
-	</html>`;
+  // Inject <base> so relative/absolute URLs resolve to the Vite dev server
+  html = html.replace('<head>', `<head>\n<base href="${devUri}/">`);
+
+  // Inject custom styles and scripts before </head>
+  const customHead = `
+  <style>
+      ${getVSCodeCompatibilityStyles()}
+      ${extraStyles}
+  </style>
+  ${initialScript('')}
+  `;
+  html = html.replace('</head>', `${customHead}\n</head>`);
+
+  // Add rootClass and placeholder to the root div
+  html = html.replace(
+    '<div id="root"></div>',
+    `<div id="root" class="${rootClass}">${placeholderHtml ?? 'loading (dev mode)'}</div>`,
+  );
+
+  return html;
 }
 
-const IS_DEV_BUILD = process.env.NODE_ENV === 'development';
-export function htmlForWebview({
+function devModeErrorHtml(error: Error): string {
+  return `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      body {
+        font-size: 14px;
+        color: tomato;
+        font-weight: bold;
+        border: 2px solid tomato;
+        padding: 20px;
+        margin: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+Error Loading Dev Mode Webview:
+${error.message}
+    </div>
+  </body>
+  </html>`;
+}
+
+function devModeShimHtml(rootClass: string, placeholderHtml?: string): string {
+  return `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      ${getVSCodeCompatibilityStyles()}
+    </style>
+  </head>
+  <body>
+    <div id="root" class="${rootClass}">
+      ${placeholderHtml ?? 'loading (dev mode)'}
+    </div>
+  </body>
+  </html>`;
+}
+
+/**
+ * Sets the HTML content of a webview. In production, this synchronously assigns
+ * the final HTML with CSP, scripts, and styles. In dev mode, it synchronously
+ * assigns a lightweight loading shim, then fetches the fully-transformed HTML
+ * from the Vite dev server and swaps it in when ready.
+ */
+export function assignWebviewHtml({
   webview,
   context,
   extraStyles,
@@ -127,7 +165,6 @@ export function htmlForWebview({
   extensionRelativeBase,
   entryPointFile,
   cssEntryPointFile,
-  devModeScripts,
   placeholderHtml,
 }: {
   webview: vscode.Webview;
@@ -151,11 +188,9 @@ export function htmlForWebview({
   entryPointFile: string;
   /** Built bundle .css file name to load, relative to extensionRelativeBase */
   cssEntryPointFile: string;
-  /** Entry point scripts used in dev mode, needed for hot reloading */
-  devModeScripts: Array<string>;
   /** Placeholder HTML element to show while the webview is loading */
   placeholderHtml?: string;
-}) {
+}): void {
   // Only allow accessing resources relative to webview dir,
   // and make paths relative to here.
   const baseUri = webview.asWebviewUri(
@@ -163,13 +198,17 @@ export function htmlForWebview({
   );
 
   if (IS_DEV_BUILD) {
-    return devModeHtmlForWebview(
-      extraStyles,
-      initialScript,
-      devModeScripts,
-      rootClass,
-      placeholderHtml,
-    );
+    webview.html = devModeShimHtml(rootClass, placeholderHtml);
+    fetchDevModeHtml(extraStyles, initialScript, rootClass, entryPointFile, placeholderHtml)
+      .then(h => {
+        webview.html = h;
+      })
+      .catch(e => {
+        // eslint-disable-next-line no-console
+        console.error('Error loading dev mode webview:', e);
+        webview.html = devModeErrorHtml(e);
+      });
+    return;
   }
 
   const scriptUri = entryPointFile;
@@ -189,7 +228,7 @@ export function htmlForWebview({
     `worker-src ${webview.cspSource} 'nonce-${nonce}' blob:`,
   ].join('; ');
 
-  return `<!DOCTYPE html>
+  webview.html = `<!DOCTYPE html>
 	<html lang="en">
 	<head>
 		<meta charset="UTF-8">
