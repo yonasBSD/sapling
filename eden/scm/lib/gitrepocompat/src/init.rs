@@ -8,8 +8,29 @@
 use std::path::Path;
 
 use anyhow::Result;
+use fs_err as fs;
 use identity::Identity;
 
+/// Initialize and update Sapling's dotdir inside `.repo/`.
+///
+/// `dot_dir` is expected to be `**/.repo/sl`
 pub fn maybe_init_inside_dotrepo(root_path: &Path, ident: Identity) -> Result<()> {
-    unimplemented!();
+    if !ident.is_dot_repo() {
+        return Ok(());
+    }
+
+    let dot_repo_path = root_path.join(".repo");
+    let dot_dir = dot_repo_path.join("sl");
+    let store_dir = dot_dir.join("store");
+
+    if !dot_dir.join("requires").exists() {
+        fs::create_dir_all(&dot_dir)?;
+        fs::write(dot_dir.join("requires"), "store\ndotrepo\n")?;
+    }
+    if !store_dir.join("requires").exists() {
+        fs::create_dir_all(&store_dir)?;
+        fs::write(store_dir.join("requires"), "dotrepo\n")?;
+    }
+
+    Ok(())
 }
