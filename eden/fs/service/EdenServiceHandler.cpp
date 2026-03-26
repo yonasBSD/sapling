@@ -4681,9 +4681,87 @@ EdenServiceHandler::semifuture_prefetchFilesV2Impl(
       std::move(prefetchResult), server_, isBackground);
 }
 
+folly::coro::now_task<std::unique_ptr<PrefetchResult>>
+EdenServiceHandler::co_prefetchFilesV2Impl(
+    std::unique_ptr<PrefetchParams> params) {
+  TaskTraceBlock block{"EdenServiceHandler::prefetchFilesV2"};
+  auto mountHandle = lookupMount(params->mountPoint());
+  if (!params->revisions().value().empty()) {
+    params->revisions() =
+        resolveRootsWithLastFilter(params->revisions().value(), mountHandle);
+  }
+  ThriftGlobImpl globber{
+      *params,
+      server_->getServerState()
+          ->getEdenConfig()
+          ->prefetchOptimizations.getValue()};
+  auto helper = INSTRUMENT_THRIFT_CALL(
+      DBG2,
+      *params->mountPoint(),
+      toLogArg(*params->globs()),
+      globber.logString());
+  auto& context = helper->getFetchContext();
+  auto returnPrefetchedFiles = *params->returnPrefetchedFiles();
+
+  co_await folly::coro::co_reschedule_on_current_executor;
+
+  maybeLogExpensiveGlob(
+      *params->globs(),
+      *params->searchRoot(),
+      globber,
+      context,
+      server_->getServerState());
+
+  auto glob = co_await globber
+                  .glob(
+                      mountHandle.getEdenMountPtr(),
+                      server_->getServerState(),
+                      std::move(*params->globs()),
+                      helper->getPrefetchFetchContext().copy())
+                  .semi();
+
+  auto result = std::make_unique<PrefetchResult>();
+  if (returnPrefetchedFiles) {
+    result->prefetchedFiles() = std::move(*glob);
+  }
+  co_return result;
+}
+
 folly::SemiFuture<std::unique_ptr<PrefetchResult>>
 EdenServiceHandler::semifuture_prefetchFilesV2(
     std::unique_ptr<PrefetchParams> params) {
+  auto isBackground = *params->background();
+  if (server_->getServerState()
+          ->getEdenConfig()
+          ->enableCoroutinesPhase2.getValue()) {
+    auto prefetchResult = ImmediateFuture{
+        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+        folly::coro::co_invoke(
+            [self = shared_from_this()](std::unique_ptr<PrefetchParams> p)
+                -> folly::coro::Task<std::unique_ptr<PrefetchResult>> {
+              co_return co_await self->co_prefetchFilesV2Impl(std::move(p));
+            },
+            std::move(params))
+            .semi()};
+
+    // Reuse the same executor selection logic as the futures path
+    if (server_->usingPrefetchExecutor()) {
+      if (isBackground) {
+        folly::futures::detachOn(
+            server_->getPrefetchFilesV2Executor().get(),
+            std::move(prefetchResult).semi());
+        return ImmediateFuture<std::unique_ptr<PrefetchResult>>(
+                   std::make_unique<PrefetchResult>())
+            .semi();
+      } else {
+        return std::move(prefetchResult)
+            .semi()
+            .via(server_->getPrefetchFilesV2Executor().get());
+      }
+    }
+    return serialDetachIfBackgrounded<PrefetchResult>(
+        std::move(prefetchResult), server_, isBackground);
+  }
   return semifuture_prefetchFilesV2Impl(std::move(params));
 }
 
