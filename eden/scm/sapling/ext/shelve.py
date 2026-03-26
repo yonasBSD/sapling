@@ -38,6 +38,7 @@ from sapling import (
     error,
     exchange,
     hg,
+    identity,
     lock as lockmod,
     mdiff,
     merge,
@@ -770,12 +771,13 @@ def _unshelverestorecommit(ui, repo, basename):
         try:
             shelvectx = repo[shelvenode]
         except error.RepoLookupError:
+            dotdir = identity.default().dotdir()
             m = _(
                 "shelved node %s not found in repo\nIf you think this shelve "
-                "should exist, try running '@prog@ import --no-commit .hg/shelved/%s.patch' "
+                "should exist, try running '@prog@ import --no-commit %s/shelved/%s.patch' "
                 "from the root of the repository."
             )
-            raise error.Abort(m % (md["node"], basename))
+            raise error.Abort(m % (md["node"], dotdir, basename))
     return repo, shelvectx
 
 
@@ -987,7 +989,9 @@ def _dounshelve(ui, repo, *shelved, **opts):
             ui.debug(str(err) + "\n")
             if continuef:
                 msg = _("corrupted shelved state file")
-                hint = _("please run hg unshelve --abort to abort unshelve operation")
+                hint = _(
+                    "please run @prog@ unshelve --abort to abort unshelve operation"
+                )
                 raise error.Abort(msg, hint=hint)
             elif abortf:
                 msg = _(
