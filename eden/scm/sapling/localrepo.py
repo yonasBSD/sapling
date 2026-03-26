@@ -504,7 +504,8 @@ class localrepository:
             s = sharedvfs.base
             if not sharedvfs.exists():
                 raise errormod.RepoError(
-                    _(".hg/sharedpath points to nonexistent directory %s") % s
+                    _("%s/sharedpath points to nonexistent directory %s")
+                    % (identity.default().dotdir(), s)
                 )
             self.sharedpath = s
             self.sharedroot = sharedvfs.dirname(s)

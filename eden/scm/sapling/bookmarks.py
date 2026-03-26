@@ -24,6 +24,7 @@ from . import (
     encoding,
     error,
     git,
+    identity,
     lock as lockmod,
     mutation,
     scmutil,
@@ -109,8 +110,8 @@ class bmstore(dict):
                             feature="fix-bookmark-changelog-order-failed",
                         )
                         repo.ui.warn(
-                            _("unknown reference in .hg/bookmarks: %s %s\n")
-                            % (refspec, hex(node))
+                            _("unknown reference in %s/bookmarks: %s %s\n")
+                            % (identity.default().dotdir(), refspec, hex(node))
                         )
 
         except IOError as inst:

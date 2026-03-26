@@ -17,6 +17,7 @@ from sapling import (
     extensions,
     hg,
     hintutil,
+    identity,
     localrepo,
     lock as lockmod,
     merge,
@@ -67,7 +68,9 @@ def hintuncommit(command, oldhash):
 @hint("undo-corrupt")
 def hintundocorrupt(path=None):
     msg = _("undo history is corrupted\n")
-    msg += _("(try deleting %s to recover)\n") % (path or ".hg/undolog")
+    msg += _("(try deleting %s to recover)\n") % (
+        path or "%s/undolog" % identity.default().dotdir()
+    )
     return msg
 
 

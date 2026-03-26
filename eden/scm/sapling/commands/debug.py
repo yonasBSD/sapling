@@ -54,6 +54,7 @@ from .. import (
     git,
     hg,
     httpconnection,
+    identity,
     json,
     lock as lockmod,
     match as matchmod,
@@ -820,7 +821,10 @@ def debugcheckstate(ui, repo) -> None:
             ui.warn(_("%s in manifest1, but listed as state %s") % (f, state))
             errors += 1
     if errors:
-        msg = _(".hg/dirstate inconsistent with current parent's manifest")
+        msg = (
+            _("%s/dirstate inconsistent with current parent's manifest")
+            % identity.default().dotdir()
+        )
         raise error.Abort(msg)
 
 

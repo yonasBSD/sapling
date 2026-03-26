@@ -35,6 +35,7 @@ from sapling import (
     extensions,
     hg,
     i18n,
+    identity,
     lock,
     match as matchmod,
     merge as mergemod,
@@ -358,7 +359,8 @@ class rebaseruntime:
             cmdutil.wrongtooltocontinue(repo, _("rebase"))
 
         if originalwd is None:
-            raise error.Abort(_(".hg/rebasestate is incomplete"))
+            dotdir = identity.default().dotdir()
+            raise error.Abort(_("%s/rebasestate is incomplete") % dotdir)
 
         # recompute the predecessor map
         skipped = set()
@@ -2211,7 +2213,10 @@ def restorecollapsemsg(repo, isabort) -> str:
             # Oh well, just abort like normal
             collapsemsg = ""
         else:
-            raise error.Abort(_("missing .hg/last-message.txt for rebase"))
+            raise error.Abort(
+                _("missing %s/last-message.txt for rebase")
+                % identity.default().dotdir()
+            )
     return collapsemsg
 
 
