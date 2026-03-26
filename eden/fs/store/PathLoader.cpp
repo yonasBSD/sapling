@@ -77,4 +77,28 @@ ImmediateFuture<std::shared_ptr<const Tree>> resolveTree(
       std::move(ctx), objectStore, fetchContext, std::move(root), 0);
 }
 
+folly::coro::now_task<std::shared_ptr<const Tree>> co_resolveTree(
+    ObjectStore& objectStore,
+    const ObjectFetchContextPtr& fetchContext,
+    std::shared_ptr<const Tree> root,
+    RelativePathPiece path) {
+  auto tree = std::move(root);
+  for (auto component : path.components()) {
+    auto child = tree->find(component);
+    if (child == tree->end()) {
+      throw newEdenError(
+          ENOENT, EdenErrorType::POSIX_ERROR, "no child with name ", component);
+    }
+
+    if (!child->second.isTree()) {
+      throw newEdenError(
+          ENOTDIR, EdenErrorType::POSIX_ERROR, "child is not tree ", component);
+    }
+
+    tree = co_await objectStore.co_getTree(
+        child->second.getObjectId(), fetchContext);
+  }
+  co_return tree;
+}
+
 } // namespace facebook::eden
