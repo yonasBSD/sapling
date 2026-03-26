@@ -5,9 +5,10 @@
 #chg-compatible
 
 
+  $ export HGIDENTITY=sl
   $ enable rebase
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ drawdag <<EOS
   > C    # C/A = A\nC\n
@@ -22,19 +23,19 @@
   $ cd ..
 
   $ function save_off_rebasestate() {
-  >   mv $(hg root)/.hg/rebasestate $(hg root)/.hg/rebasestate.bak
+  >   mv $(sl root)/.sl/rebasestate $(sl root)/.sl/rebasestate.bak
   > }
 
   $ function restore_rebasestate() {
-  >   mv $(hg root)/.hg/rebasestate.bak $(hg root)/.hg/rebasestate
+  >   mv $(sl root)/.sl/rebasestate.bak $(sl root)/.sl/rebasestate
   > }
 
 Changes during an interruption - continue:
 
-  $ hg clone -q a a1
+  $ sl clone -q a a1
   $ cd a1
-  $ hg pull -q -r $C -r $E
-  $ hg go -q $E
+  $ sl pull -q -r $C -r $E
+  $ sl go -q $E
 
   $ tglog
   @  a0c831b27e4d 'E'
@@ -48,24 +49,24 @@ Changes during an interruption - continue:
   o  4a2df7238c3b 'A'
 Rebasing B onto E:
 
-  $ hg rebase -s 'desc(B)' -d 'desc(E)'
+  $ sl rebase -s 'desc(B)' -d 'desc(E)'
   rebasing 27547f69f254 "B"
   rebasing 9adab7336c0e "C"
   merging A
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
 Force a commit on C during the interruption:
 
   $ save_off_rebasestate
-  $ hg up -q -C 'desc(C)'
+  $ sl up -q -C 'desc(C)'
   $ restore_rebasestate
 
   $ echo 'Extra' > Extra
-  $ hg add Extra
+  $ sl add Extra
   $ save_off_rebasestate
-  $ hg ci -m 'Extra'
+  $ sl ci -m 'Extra'
   $ restore_rebasestate
 
   $ tglogp
@@ -84,23 +85,23 @@ Force a commit on C during the interruption:
   o  4a2df7238c3b draft 'A'
 Resume the rebasing:
 
-  $ hg rebase --continue
+  $ sl rebase --continue
   already rebased 27547f69f254 "B" as 8e6c056dc407
   rebasing 9adab7336c0e "C"
   merging A
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
 Solve the conflict and go on:
 
   $ echo 'conflict solved' > A
   $ rm A.orig
-  $ hg resolve -m A
+  $ sl resolve -m A
   (no more unresolved files)
-  continue: hg rebase --continue
+  continue: sl rebase --continue
 
-  $ hg rebase --continue
+  $ sl rebase --continue
   already rebased 27547f69f254 "B" as 8e6c056dc407
   rebasing 9adab7336c0e "C"
 
@@ -125,10 +126,10 @@ Solve the conflict and go on:
 
 Changes during an interruption - abort:
 
-  $ hg clone -q a a2
+  $ sl clone -q a a2
   $ cd a2
-  $ hg pull -q -r $C -r $E
-  $ hg go -q $E
+  $ sl pull -q -r $C -r $E
+  $ sl go -q $E
 
   $ tglog
   @  a0c831b27e4d 'E'
@@ -142,24 +143,24 @@ Changes during an interruption - abort:
   o  4a2df7238c3b 'A'
 Rebasing B onto E:
 
-  $ hg rebase -s 'desc(B)' -d 'desc(E)'
+  $ sl rebase -s 'desc(B)' -d 'desc(E)'
   rebasing 27547f69f254 "B"
   rebasing 9adab7336c0e "C"
   merging A
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
 Force a commit on B' during the interruption:
 
   $ save_off_rebasestate
-  $ hg up -q -C 'max(desc(B))'
+  $ sl up -q -C 'max(desc(B))'
   $ restore_rebasestate
 
   $ echo 'Extra' > Extra
-  $ hg add Extra
+  $ sl add Extra
   $ save_off_rebasestate
-  $ hg ci -m 'Extra'
+  $ sl ci -m 'Extra'
   $ restore_rebasestate
 
   $ tglog
@@ -178,7 +179,7 @@ Force a commit on B' during the interruption:
   o  4a2df7238c3b 'A'
 Abort the rebasing:
 
-  $ hg rebase --abort
+  $ sl rebase --abort
   warning: new changesets detected on destination branch, can't strip
   rebase aborted
 
@@ -200,10 +201,10 @@ Abort the rebasing:
 
 Changes during an interruption - abort (again):
 
-  $ hg clone -q a a3
+  $ sl clone -q a a3
   $ cd a3
-  $ hg pull -q -r $C -r $E
-  $ hg go -q $E
+  $ sl pull -q -r $C -r $E
+  $ sl go -q $E
 
   $ tglogp
   @  a0c831b27e4d draft 'E'
@@ -217,20 +218,20 @@ Changes during an interruption - abort (again):
   o  4a2df7238c3b draft 'A'
 Rebasing B onto E:
 
-  $ hg rebase -s 'desc(B)' -d 'desc(E)'
+  $ sl rebase -s 'desc(B)' -d 'desc(E)'
   rebasing 27547f69f254 "B"
   rebasing 9adab7336c0e "C"
   merging A
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
 Change phase on B and B'
 
   $ save_off_rebasestate
-  $ hg up -q -C 'max(desc(B))'
+  $ sl up -q -C 'max(desc(B))'
   $ restore_rebasestate
-  $ hg debugmakepublic 'desc(B)'
+  $ sl debugmakepublic 'desc(B)'
 
   $ tglogp
   @  8e6c056dc407 public 'B'
@@ -246,7 +247,7 @@ Change phase on B and B'
   o  4a2df7238c3b public 'A'
 Abort the rebasing:
 
-  $ hg rebase --abort
+  $ sl rebase --abort
   warning: can't clean up public changesets 8e6c056dc407
   rebase aborted
 
@@ -264,11 +265,11 @@ Abort the rebasing:
   o  4a2df7238c3b public 'A'
 Test rebase interrupted by hooks
 
-  $ hg up 'desc(C)'
+  $ sl up 'desc(C)'
   2 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ echo F > F
-  $ hg add F
-  $ hg ci -m F
+  $ sl add F
+  $ sl ci -m F
 
   $ cd ..
 
@@ -276,7 +277,7 @@ Test rebase interrupted by hooks
 
   $ cp -R a3 hook-precommit
   $ cd hook-precommit
-  $ hg rebase --source 'desc(C)' --dest 'max(desc(B))' --tool internal:other --config 'hooks.precommit=hg status | grep "M A"'
+  $ sl rebase --source 'desc(C)' --dest 'max(desc(B))' --tool internal:other --config 'hooks.precommit=sl status | grep "M A"'
   rebasing 9adab7336c0e "C"
   M A
   rebasing 096735ac862c "F"
@@ -298,7 +299,7 @@ Test rebase interrupted by hooks
   │ o  27547f69f254 public 'B'
   ├─╯
   o  4a2df7238c3b public 'A'
-  $ hg rebase --continue
+  $ sl rebase --continue
   already rebased 9adab7336c0e "C" as 0004de432eb5
   rebasing 096735ac862c "F"
   $ tglogp
@@ -318,30 +319,30 @@ Test rebase interrupted by hooks
   $ cd ..
 
 Make sure merge state is cleaned up after a no-op rebase merge (issue5494)
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo a > a
-  $ hg commit -qAm base
+  $ sl commit -qAm base
   $ echo b >> a
-  $ hg commit -qm b
-  $ hg up '.^'
+  $ sl commit -qm b
+  $ sl up '.^'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo c >> a
-  $ hg commit -qm c
-  $ hg rebase -s 'max(desc(b))' -d 'desc(c)' --noninteractive
+  $ sl commit -qm c
+  $ sl rebase -s 'max(desc(b))' -d 'desc(c)' --noninteractive
   rebasing fdaca8533b86 "b"
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ echo a > a
   $ echo c >> a
-  $ hg resolve --mark a
+  $ sl resolve --mark a
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  continue: sl rebase --continue
+  $ sl rebase --continue
   rebasing fdaca8533b86 "b"
   note: not rebasing fdaca8533b86, its destination (rebasing onto) commit already has all its changes
-  $ hg resolve --list
-  $ test -f .hg/merge
+  $ sl resolve --list
+  $ test -f .sl/merge
   [1]

@@ -7,6 +7,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
   > reset=
@@ -15,19 +16,19 @@
   $ newclientrepo repo
 
   $ echo x > x
-  $ hg commit -qAm x
-  $ hg book foo
+  $ sl commit -qAm x
+  $ sl book foo
   $ echo x >> x
-  $ hg commit -qAm x2
-  $ hg push -q -r . --to foo --create
+  $ sl commit -qAm x2
+  $ sl push -q -r . --to foo --create
 
 # Resetting past a remote bookmark should not delete the remote bookmark
 
   $ newclientrepo client repo_server foo
-  $ hg book --list-remote *
-  $ hg book bar
-  $ hg reset --clean 'remote/foo^'
-  $ hg log -G -T '{node|short} {bookmarks} {remotebookmarks}\n'
+  $ sl book --list-remote *
+  $ sl book bar
+  $ sl reset --clean 'remote/foo^'
+  $ sl log -G -T '{node|short} {bookmarks} {remotebookmarks}\n'
   o  a89d614e2364  remote/foo
   │
   @  b292c1e3311f bar

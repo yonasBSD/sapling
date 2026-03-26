@@ -1,5 +1,6 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig drawdag.defaultfiles=false
 
 Test repoless "cat" command using eagerepo.
@@ -15,66 +16,66 @@ Create an eagerepo server with some files:
   > A  # A/foo = foo content\n
   >    # A/bar = bar content\n
   > EOS
-  $ hg book -r $B main
+  $ sl book -r $B main
 
 Test repoless cat with full commit hash:
 
-  $ hg cat -R test:server -r $B foo
+  $ sl cat -R test:server -r $B foo
   foo content
 
-  $ hg cat -R test:server -r $B dir/file
+  $ sl cat -R test:server -r $B dir/file
   dir content
 
 Test cat with multiple files:
 
-  $ hg cat -R test:server -r $B foo bar | sort
+  $ sl cat -R test:server -r $B foo bar | sort
   bar content
   foo content
 
-  $ hg cat -R test:server -r $B dir/file other | sort
+  $ sl cat -R test:server -r $B dir/file other | sort
   dir content
   other content
 
 Test cat from earlier commit:
 
-  $ hg cat -R test:server -r $A foo
+  $ sl cat -R test:server -r $A foo
   foo content
 
-  $ hg cat -R test:server -r $A bar
+  $ sl cat -R test:server -r $A bar
   bar content
 
 Test cat with short commit hash prefix:
 
   $ SHORT_B=$(echo $B | python -c "import sys; print(sys.stdin.read()[:12], end='')")
-  $ hg cat -R test:server -r $SHORT_B foo
+  $ sl cat -R test:server -r $SHORT_B foo
   foo content
 
 Test cat with bookmark:
 
-  $ LOG=edenapi=debug hg cat -R test:server -r main foo
+  $ LOG=edenapi=debug sl cat -R test:server -r main foo
   foo content
 
 Test cat with file that doesn't exist in commit:
 
-  $ hg cat -R test:server -r $A dir/file
+  $ sl cat -R test:server -r $A dir/file
   [1]
 
 Test cat with nonexistent commit:
 
-  $ hg cat -R test:server -r deadbeef1234567890abcdef1234567890abcdef foo
+  $ sl cat -R test:server -r deadbeef1234567890abcdef1234567890abcdef foo
   abort: unknown revision 'deadbeef1234567890abcdef1234567890abcdef'
   [255]
 
 Test cat with nonexistent bookmark:
 
-  $ hg cat -R test:server -r nonexistent foo
+  $ sl cat -R test:server -r nonexistent foo
   abort: unknown revision 'nonexistent'
   [255]
 
 Test cat --output with format specifiers:
 
   $ mkdir output
-  $ hg cat -R test:server -r $B --output 'output/%s' foo dir/file
+  $ sl cat -R test:server -r $B --output 'output/%s' foo dir/file
   $ cat output/foo
   foo content
   $ cat output/file
@@ -83,61 +84,61 @@ Test cat --output with format specifiers:
 Test --output with %p (full path):
 
   $ rm -rf output
-  $ hg cat -R test:server -r $B --output 'output/%p' dir/file
+  $ sl cat -R test:server -r $B --output 'output/%p' dir/file
   $ cat output/dir/file
   dir content
 
 Test --output with %d (dirname):
 
   $ rm -rf output
-  $ hg cat -R test:server -r $B --output 'output/%d_file' dir/file
+  $ sl cat -R test:server -r $B --output 'output/%d_file' dir/file
   $ cat output/dir_file
   dir content
 
 Test --output with %H (full hash):
 
   $ rm -rf output
-  $ hg cat -R test:server -r $B --output 'output/%H' foo
+  $ sl cat -R test:server -r $B --output 'output/%H' foo
   $ ls output
   e852cc83929aae9b8d3b025c327dbbc858924676
 
 Test --output with %h (short hash):
 
   $ rm -rf output
-  $ hg cat -R test:server -r $SHORT_B --output 'output/%h_%s' foo
+  $ sl cat -R test:server -r $SHORT_B --output 'output/%h_%s' foo
   $ cat output/${SHORT_B}_foo
   foo content
 
 Test --output with %% (literal percent):
 
   $ rm -rf output
-  $ hg cat -R test:server -r $B --output 'output/%%test' foo
+  $ sl cat -R test:server -r $B --output 'output/%%test' foo
   $ cat 'output/%test'
   foo content
 
 Test --output with absolute path:
 
   $ rm -rf output
-  $ hg cat -R test:server -r $B --output "$TESTTMP/output/%s" foo
+  $ sl cat -R test:server -r $B --output "$TESTTMP/output/%s" foo
   $ cat "$TESTTMP/output/foo"
   foo content
 
 Test --output with %% in directory name:
 
   $ rm -rf output
-  $ hg cat -R test:server -r $B --output 'output/%%dir%%/%s' foo
+  $ sl cat -R test:server -r $B --output 'output/%%dir%%/%s' foo
   $ cat 'output/%dir%/foo'
   foo content
 
 Test --output with deeper path (multiple components):
 
   $ rm -rf output
-  $ hg cat -R test:server -r $B --output 'output/a/b/c/%s' foo
+  $ sl cat -R test:server -r $B --output 'output/a/b/c/%s' foo
   $ cat output/a/b/c/foo
   foo content
 
   $ rm -rf output
-  $ hg cat -R test:server -r $B --output 'output/%h/files/%p' dir/file
+  $ sl cat -R test:server -r $B --output 'output/%h/files/%p' dir/file
   $ cat output/${SHORT_B}/files/dir/file
   dir content
 
@@ -146,7 +147,7 @@ Test we don't blow away existing directories:
   $ rm -rf output
   $ mkdir -p output/precious
   $ echo "precious content" > output/precious/file
-  $ hg cat -R test:server -r $B --output output/precious dir/file
+  $ sl cat -R test:server -r $B --output output/precious dir/file
   abort: can't clear conflicts after handling error "failed to open file `*precious`: *": cannot write to "*precious": conflicting directory exists at "*precious" (glob)
   [255]
   $ cat output/precious/file
@@ -164,7 +165,7 @@ Test cat --output preserves executable and symlink metadata:
   > EOS
 
   $ rm -rf output
-  $ hg cat -R test:server2 -r $A --output 'output/%p' script link normal
+  $ sl cat -R test:server2 -r $A --output 'output/%p' script link normal
   $ ls -l output
   l* link -> script (glob)
   -rw-r--r-- normal
@@ -181,7 +182,7 @@ Test cat handles identical files with different paths:
   > EOS
 
   $ rm -rf output
-  $ hg cat -R test:server-identical -r $A --output 'output/%p'
+  $ sl cat -R test:server-identical -r $A --output 'output/%p'
   $ ls output | sort
   one
   two
@@ -203,27 +204,27 @@ Test code tenting (sparse profile filtering):
 
 Cat without sparse profile shows all files:
 
-  $ hg cat -R test:server3 -r $A allowed/file1 blocked/secret | sort
+  $ sl cat -R test:server3 -r $A allowed/file1 blocked/secret | sort
   allowed file 1
   secret content
 
 Cat with sparse profile filters to allowed paths:
 
-  $ hg cat -R test:server3 -r $A --config clone.eden-sparse-filter.foo=sparse/profile allowed/file1
+  $ sl cat -R test:server3 -r $A --config clone.eden-sparse-filter.foo=sparse/profile allowed/file1
   allowed file 1
 
-  $ hg cat -R test:server3 -r $A --config clone.eden-sparse-filter.foo=sparse/profile blocked/secret
+  $ sl cat -R test:server3 -r $A --config clone.eden-sparse-filter.foo=sparse/profile blocked/secret
   [1]
 
   $ rm -rf output
-  $ hg cat -R test:server3 -r $A --config clone.eden-sparse-filter.foo=sparse/profile --output 'output/%p' 'glob:**'
+  $ sl cat -R test:server3 -r $A --config clone.eden-sparse-filter.foo=sparse/profile --output 'output/%p' 'glob:**'
   $ find output -type f | sort
   output/allowed/file1
   output/allowed/file2
 
   $ rm -rf output
 Empty profile should allow everything:
-  $ hg cat -R test:server3 -r $A --config clone.eden-sparse-filter.foo= --output 'output/%p' path:
+  $ sl cat -R test:server3 -r $A --config clone.eden-sparse-filter.foo= --output 'output/%p' path:
   $ find output -type f | sort
   output/allowed/file1
   output/allowed/file2
@@ -244,7 +245,7 @@ Test pager is used for stdout output:
   >       f.write('paged! %r\n' % line.decode())
   > EOF
 
-  $ hg cat -R test:server -r $B foo --pager=true --config 'pager.pager=hg debugpython $TESTTMP/fakepager.py'
+  $ sl cat -R test:server -r $B foo --pager=true --config 'pager.pager=sl debugpython $TESTTMP/fakepager.py'
   $ cat paged
   paged! 'foo content\n'
 

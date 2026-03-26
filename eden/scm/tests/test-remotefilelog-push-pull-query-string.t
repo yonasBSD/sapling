@@ -1,19 +1,20 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [remotefilelog]
   > server=True
   > EOF
   $ echo x > x
-  $ hg commit -qAm x
-  $ hg book master
+  $ sl commit -qAm x
+  $ sl book master
   $ echo x >> x
-  $ hg commit -qAm x2
+  $ sl commit -qAm x2
 
 Test that query parameters are ignored when grouping paths, so that
 when pushing to one path, the bookmark for the other path gets updated
@@ -23,14 +24,14 @@ as well
   $ hgcloneshallow ssh://user@dummy/repo client -q
   1 files fetched over 1 fetches - (1 misses, 0.00% hit ratio) over 0.00s (?)
   $ cd client
-  $ hg path
+  $ sl path
   default = ssh://user@dummy/repo
-  $ hg path -a default ssh://user@dummy/repo?read
-  $ hg path -a default-push ssh://user@dummy/repo?write
-  $ hg path
+  $ sl path -a default ssh://user@dummy/repo?read
+  $ sl path -a default-push ssh://user@dummy/repo?write
+  $ sl path
   default = ssh://user@dummy/repo?read
   default-push = ssh://user@dummy/repo?write
-  $ hg log -r .
+  $ sl log -r .
   commit:      a89d614e2364
   bookmark:    remote/master
   hoistedname: master
@@ -39,15 +40,15 @@ as well
   summary:     x2
   
   $ echo x >> x
-  $ hg commit -qAm x3
-  $ hg push --to master
+  $ sl commit -qAm x3
+  $ sl push --to master
   pushing rev 421535db10b6 to destination ssh://user@dummy/repo?write bookmark master
   searching for changes
   updating bookmark master
   remote: adding changesets
   remote: adding manifests
   remote: adding file changes
-  $ hg log -r .
+  $ sl log -r .
   commit:      421535db10b6
   bookmark:    remote/master
   hoistedname: master
@@ -55,9 +56,9 @@ as well
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     x3
   
-  $ hg pull
+  $ sl pull
   pulling from ssh://user@dummy/repo?read
-  $ hg log -r .
+  $ sl log -r .
   commit:      421535db10b6
   bookmark:    remote/master
   hoistedname: master

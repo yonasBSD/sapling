@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
 Test mergedriver invalidation with IMM.
@@ -38,9 +39,9 @@ A dummy file (FILE) is created to force a simple three-way merge (without
 conflicts, though a conflict would work too). Otherwise, mergedriver won't run.
 
   $ seq 1 10 > FILE
-  $ hg add FILE
-  $ hg commit -Aq -m "base mergedriver"
-  $ hg book -r . "base"
+  $ sl add FILE
+  $ sl commit -Aq -m "base mergedriver"
+  $ sl book -r . "base"
 
 Next, off of BASE, make an API change to the driver.
 
@@ -68,21 +69,21 @@ Next, off of BASE, make an API change to the driver.
   >     pass
   > EOF
   $ seq 1 11 > FILE
-  $ hg com -m "new driver"
-  $ hg book -r . new_driver
-  $ hg up -q .~1
+  $ sl com -m "new driver"
+  $ sl book -r . new_driver
+  $ sl up -q .~1
 
 
 Next make a change to the dummy file off BASE.
-  $ hg up base
+  $ sl up base
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark base)
-  $ hg up -C .
+  $ sl up -C .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark base)
   $ seq 0 10 > FILE
-  $ hg commit -m "prefix FILE with 0"
-  $ hg book -r . "base_1"
+  $ sl commit -m "prefix FILE with 0"
+  $ sl book -r . "base_1"
 
 Rebase on top of the new driver, with the old driver checked out.
 - We expect to see "generators version = BASE" as we run preprocess() with the old driver.
@@ -90,7 +91,7 @@ Rebase on top of the new driver, with the old driver checked out.
 we expect to see "generators version = NEW".
 - If mergedriver isn't invalidated correctly, it'll say "generators version = BASE".
 
-  $ hg rebase -d new_driver
+  $ sl rebase -d new_driver
   rebasing in-memory!
   rebasing * "prefix FILE with 0" (base_1) (glob)
   generators version = BASE

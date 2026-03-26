@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig format.dirstate=2
 
@@ -9,14 +10,14 @@
   $ export HGENCODING
 
   $ try() {
-  >   hg debugrevspec --debug $@
+  >   sl debugrevspec --debug $@
   > }
 
   $ log() {
-  >   hg log --template '{node}\n' -r "$1"
+  >   sl log --template '{node}\n' -r "$1"
   > }
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ try 'p1()'
@@ -45,7 +46,7 @@ null revision
 
 working dir with a single parent
   $ echo a > a
-  $ hg ci -Aqm0
+  $ sl ci -Aqm0
   $ log 'p1()'
   f7b1eb17ad24730a1651fccd46c43826d1bbc2ac
   $ log 'p2()'
@@ -54,11 +55,11 @@ working dir with a single parent
 
 merge in progress
   $ echo b > b
-  $ hg ci -Aqm1
-  $ hg up -q 'desc(0)'
+  $ sl ci -Aqm1
+  $ sl up -q 'desc(0)'
   $ echo c > c
-  $ hg ci -Aqm2
-  $ hg merge -q
+  $ sl ci -Aqm2
+  $ sl merge -q
   $ log 'p1()'
   db815d6d32e69058eadefc8cffbad37675707975
   $ log 'p2()'

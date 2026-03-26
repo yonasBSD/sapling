@@ -1,4 +1,5 @@
 setup
+  $ export HGIDENTITY=sl
   $ enable rebase morestatus smartlog
   $ setconfig morestatus.show=True
   $ newclientrepo
@@ -14,15 +15,15 @@ setup
   > A   # A/x = 1\n2\n3\n4\n5\n
   > EOS
 
-  $ hg rebase -s $C -d $B
+  $ sl rebase -s $C -d $B
   rebasing 46825fa938fd "C"
   merging x
   rebasing af52e0612645 "D"
   merging x
-  warning: 1 conflicts while merging x! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging x! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg st
+  $ sl st
   M D
   M x
   ? x.orig
@@ -32,18 +33,18 @@ setup
   # 
   #     x
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg rebase --continue
-  # To abort:                   hg rebase --abort
-  # To quit:                    hg rebase --quit
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl rebase --continue
+  # To abort:                   sl rebase --abort
+  # To quit:                    sl rebase --quit
   # 
   # Rebasing af52e0612645 (D)
   #       to ef1eede16aff (C)
 
 'rebase --quit' quits from the rebase state and keep the already rebased commits
-  $ hg rebase --quit
+  $ sl rebase --quit
   rebase quited
-  $ hg log -G -T '{node|short} {desc}\n'
+  $ sl log -G -T '{node|short} {desc}\n'
   @  ef1eede16aff C
   │
   │ o  2b871263512c E
@@ -69,17 +70,17 @@ test --quit when --keep is passed
   > |/
   > A   # A/x = 1\n2\n3\n4\n5\n
   > EOS
-  $ hg rebase -s $C -d $B --keep
+  $ sl rebase -s $C -d $B --keep
   rebasing 46825fa938fd "C"
   merging x
   rebasing af52e0612645 "D"
   merging x
-  warning: 1 conflicts while merging x! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging x! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg rebase --quit
+  $ sl rebase --quit
   rebase quited
-  $ hg log -G -T '{node|short} {desc}\n'
+  $ sl log -G -T '{node|short} {desc}\n'
   @  ef1eede16aff C
   │
   │ o  2b871263512c E

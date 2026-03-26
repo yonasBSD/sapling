@@ -10,6 +10,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ setconfig remotenames.selectivepulldefault=master,norebase
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
@@ -20,46 +21,46 @@
   > tglog = log -G --template "{rev}: {node|short} '{desc}' {branches}\n"
   > EOF
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
   $ echo C1 > C1
-  $ hg ci -Am C1
+  $ sl ci -Am C1
   adding C1
 
   $ echo C2 > C2
-  $ hg ci -Am C2
+  $ sl ci -Am C2
   adding C2
 
-  $ hg book master
+  $ sl book master
 
   $ cd ..
 
-  $ hg clone a b
+  $ sl clone a b
   updating to tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg clone a c
+  $ sl clone a c
   updating to tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ cd b
 
   $ echo L1 > L1
-  $ hg ci -Am L1
+  $ sl ci -Am L1
   adding L1
 
   $ cd ../a
 
   $ echo R1 > R1
-  $ hg ci -Am R1
+  $ sl ci -Am R1
   adding R1
 
   $ cd ../b
 
 # Now b has one revision to be pulled from a:
 
-  $ hg pull --rebase -d tip
+  $ sl pull --rebase -d tip
   pulling from $TESTTMP/a
   searching for changes
   adding changesets
@@ -78,60 +79,60 @@
 
 # Re-run:
 
-  $ hg pull --rebase -d tip
+  $ sl pull --rebase -d tip
   pulling from $TESTTMP/a
   nothing to rebase - working directory parent is also destination
 
 # Abort pull early if working dir is not clean:
 
   $ echo L1-mod > L1
-  $ hg pull -q --rebase -d tip
+  $ sl pull -q --rebase -d tip
   abort: uncommitted changes
   [255]
-  $ hg goto --clean --quiet .
+  $ sl goto --clean --quiet .
 
 # Abort pull early if another operation (histedit) is in progress:
 
-  $ hg histedit . -q --commands - << 'EOS'
+  $ sl histedit . -q --commands - << 'EOS'
   > edit d80cc2da061e histedit: generate unfinished state
   > EOS
   Editing (d80cc2da061e), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   [1]
-  $ hg pull --rebase -d tip
+  $ sl pull --rebase -d tip
   abort: histedit in progress
-  (use 'hg histedit --continue' to continue or
-       'hg histedit --abort' to abort)
+  (use 'sl histedit --continue' to continue or
+       'sl histedit --abort' to abort)
   [255]
-  $ hg histedit --abort --quiet
+  $ sl histedit --abort --quiet
 
 # Abort pull early with pending uncommitted merge:
 
   $ cd ..
-  $ hg clone -q c d
+  $ sl clone -q c d
   $ cd d
   $ tglog
   @  783333faa078 'C2'
   │
   o  05d58a0c15dd 'C1'
-  $ hg goto --quiet 'desc(C1)'
+  $ sl goto --quiet 'desc(C1)'
   $ echo M1 > M1
-  $ hg commit --quiet -Am M1
-  $ hg goto --quiet 'desc(C2)'
-  $ hg merge 'desc(M1)'
+  $ sl commit --quiet -Am M1
+  $ sl goto --quiet 'desc(C2)'
+  $ sl merge 'desc(M1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg pull -q --rebase -d tip
+  $ sl pull -q --rebase -d tip
   abort: outstanding uncommitted merge
   [255]
-  $ hg goto --clean --quiet .
+  $ sl goto --clean --quiet .
 
 # Invoke pull --rebase and nothing to rebase:
 
   $ cd ../c
 
-  $ hg book norebase
-  $ hg pull --rebase -d tip
+  $ sl book norebase
+  $ sl pull --rebase -d tip
   pulling from $TESTTMP/a
   searching for changes
   adding changesets
@@ -147,9 +148,9 @@
 
 # pull --rebase doesn't update if nothing has been pulled:
 
-  $ hg up -q 'desc(C2)'
+  $ sl up -q 'desc(C2)'
 
-  $ hg pull --rebase -d tip
+  $ sl pull --rebase -d tip
   pulling from $TESTTMP/a
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   nothing to rebase - fast-forwarded to tip
@@ -169,10 +170,10 @@
   │
   o  05d58a0c15dd 'C1'
   $ echo R2 > R2
-  $ hg ci -Am R2
+  $ sl ci -Am R2
   adding R2
   $ echo R3 > R3
-  $ hg ci -Am R3
+  $ sl ci -Am R3
   adding R3
   $ cd ../c
   $ tglog
@@ -181,16 +182,16 @@
   o  783333faa078 'C2'
   │
   o  05d58a0c15dd 'C1'
-  $ hg co -q norebase
+  $ sl co -q norebase
   $ echo L1 > L1
-  $ hg ci -Am L1
+  $ sl ci -Am L1
   adding L1
 
 # pull --rebase works with bundle2 turned on
 
   $ cd ../a
   $ echo R4 > R4
-  $ hg ci -Am R4
+  $ sl ci -Am R4
   adding R4
   $ tglog
   @  00e3b7781125 'R4' master
@@ -205,7 +206,7 @@
   │
   o  05d58a0c15dd 'C1'
   $ cd ../c
-  $ hg pull --rebase -d tip
+  $ sl pull --rebase -d tip
   pulling from $TESTTMP/a
   searching for changes
   adding changesets
@@ -231,7 +232,7 @@
 
   $ cd ../a
   $ echo R5 > R5
-  $ hg ci -Am R5
+  $ sl ci -Am R5
   adding R5
   $ tglog
   @  88dd24261747 'R5' master
@@ -249,12 +250,12 @@
   o  05d58a0c15dd 'C1'
   $ cd ../c
   $ echo L2 > L2
-  $ hg ci -Am L2
+  $ sl ci -Am L2
   adding L2
-  $ hg up 'desc(L1)'
+  $ sl up 'desc(L1)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark norebase)
-  $ hg pull --rebase -d tip
+  $ sl pull --rebase -d tip
   pulling from $TESTTMP/a
   searching for changes
   adding changesets
@@ -286,12 +287,12 @@
 
   $ cd ../a
   $ echo R6 > R6
-  $ hg ci -Am R6
+  $ sl ci -Am R6
   adding R6
   $ cd ../c
-  $ hg up 'desc(R5)'
+  $ sl up 'desc(R5)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg pull --rebase -d tip
+  $ sl pull --rebase -d tip
   pulling from $TESTTMP/a
   searching for changes
   adding changesets

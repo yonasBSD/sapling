@@ -2,6 +2,7 @@
 #require no-eden
 
 #chg-compatible
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord dummyssh
   $ enable rebase
@@ -12,7 +13,7 @@
   > EOF
 
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ drawdag <<'EOS'
   > I   D # I/I = I
@@ -49,72 +50,72 @@
 Version with only two heads (to allow default destination to work)
 
   $ newclientrepo a2heads a
-  $ hg pull -r $D
+  $ sl pull -r $D
   pulling from test:a
   searching for changes
 
 These fail:
 
   $ newclientrepo a0 a
-  $ hg pull -r $I -r $G -r $D
+  $ sl pull -r $I -r $G -r $D
   pulling from test:a
   searching for changes
 
-  $ hg rebase -s 'desc(I)' -d 'desc(H)'
+  $ sl rebase -s 'desc(I)' -d 'desc(H)'
   nothing to rebase
 
-  $ hg rebase --continue --abort
+  $ sl rebase --continue --abort
   abort: can only use one of the following: abort, continue or quit
   [255]
 
-  $ hg rebase --continue --collapse
+  $ sl rebase --continue --collapse
   abort: cannot use collapse with continue, abort or quit
   [255]
 
-  $ hg rebase --continue --dest 4
+  $ sl rebase --continue --dest 4
   abort: abort, continue and quit do not allow specifying revisions
   [255]
 
-  $ hg rebase --base 5 --source 4
+  $ sl rebase --base 5 --source 4
   abort: you must specify a destination (-d) for the rebase
   [255]
 
-  $ hg rebase --rev 5 --source 4
+  $ sl rebase --rev 5 --source 4
   abort: you must specify a destination (-d) for the rebase
   [255]
-  $ hg rebase --base 5 --rev 4
-  abort: you must specify a destination (-d) for the rebase
-  [255]
-
-  $ hg rebase --base 'desc(G)'
+  $ sl rebase --base 5 --rev 4
   abort: you must specify a destination (-d) for the rebase
   [255]
 
-  $ hg rebase --rev 'desc(B) & !desc(B)' --dest 8
+  $ sl rebase --base 'desc(G)'
+  abort: you must specify a destination (-d) for the rebase
+  [255]
+
+  $ sl rebase --rev 'desc(B) & !desc(B)' --dest 8
   empty "rev" revision set - nothing to rebase
 
-  $ hg rebase --source 'desc(B) & !desc(B)' --dest 8
+  $ sl rebase --source 'desc(B) & !desc(B)' --dest 8
   empty "source" revision set - nothing to rebase
 
-  $ hg rebase --base 'desc(B) & !desc(B)' --dest 8
+  $ sl rebase --base 'desc(B) & !desc(B)' --dest 8
   empty "base" revision set - can't compute rebase set
 
-  $ hg rebase --dest 'desc(I)'
+  $ sl rebase --dest 'desc(I)'
   nothing to rebase - working directory parent is also destination
 
-  $ hg rebase -b . --dest 'desc(I)'
+  $ sl rebase -b . --dest 'desc(I)'
   nothing to rebase - 3e65a434aea7 is both "base" and destination
 
-  $ hg up -q 'desc(H)'
+  $ sl up -q 'desc(H)'
 
-  $ hg rebase --dest 'desc(I)' --traceback
+  $ sl rebase --dest 'desc(I)' --traceback
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   nothing to rebase - fast-forwarded to 3e65a434aea7
 
-  $ hg rebase --dest 'desc(I)' -b.
+  $ sl rebase --dest 'desc(I)' -b.
   nothing to rebase - 3e65a434aea7 is both "base" and destination
 
-  $ hg rebase --dest 'desc(B) & !desc(B)'
+  $ sl rebase --dest 'desc(B) & !desc(B)'
   abort: empty revision set
   [255]
 
@@ -125,9 +126,9 @@ Rebase with no arguments (from 3 onto 8):
   $ cd ..
   $ cp -R a2heads a1
   $ cd a1
-  $ hg up -q -C 'desc(D)'
+  $ sl up -q -C 'desc(D)'
 
-  $ hg rebase -d master
+  $ sl rebase -d master
   rebasing 112478962961 "B"
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
@@ -153,9 +154,9 @@ Rebase with base == '.' => same as no arguments (from 3 onto 8):
 
   $ cp -R a2heads a2
   $ cd a2
-  $ hg goto -q 'desc(D)'
+  $ sl goto -q 'desc(D)'
 
-  $ hg rebase --base . -d master
+  $ sl rebase --base . -d master
   rebasing 112478962961 "B"
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
@@ -183,7 +184,7 @@ Specify only source (from 2 onto 8):
   $ cp -R a2heads a4
   $ cd a4
 
-  $ hg rebase --source 'desc("C")' -d master
+  $ sl rebase --source 'desc("C")' -d master
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
 
@@ -209,9 +210,9 @@ Specify only dest (from 3 onto 6):
 
   $ cp -R a a5
   $ cd a5
-  $ hg goto -q $D
+  $ sl goto -q $D
 
-  $ hg rebase --dest 'desc(G)'
+  $ sl rebase --dest 'desc(G)'
   rebasing 112478962961 "B"
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
@@ -243,7 +244,7 @@ Specify only base (from 1 onto 8):
   $ cp -R a2heads a6
   $ cd a6
 
-  $ hg rebase --base 'desc("D")' -d master
+  $ sl rebase --base 'desc("D")' -d master
   rebasing 112478962961 "B"
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
@@ -271,7 +272,7 @@ Specify source and dest (from 2 onto 7):
   $ cp -R a2heads a7
   $ cd a7
 
-  $ hg rebase --source 'desc(C)' --dest 'desc(H)'
+  $ sl rebase --source 'desc(C)' --dest 'desc(H)'
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
 
@@ -298,7 +299,7 @@ Specify base and dest (from 1 onto 7):
   $ cp -R a a8
   $ cd a8
 
-  $ hg rebase --base 'desc(D)' --dest 'desc(H)'
+  $ sl rebase --base 'desc(D)' --dest 'desc(H)'
   rebasing 112478962961 "B"
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
@@ -330,7 +331,7 @@ Specify only revs (from 2 onto 8)
   $ cp -R a2heads a9
   $ cd a9
 
-  $ hg rebase --rev 'desc("C")::' -d master
+  $ sl rebase --rev 'desc("C")::' -d master
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
 
@@ -355,27 +356,27 @@ Rebasing both a single revision and a merge in one command
 
   $ cp -R a aX
   $ cd aX
-  $ hg rebase -r $D -r $G --dest 'desc(I)'
+  $ sl rebase -r $D -r $G --dest 'desc(I)'
   rebasing c6001eacfde5 "G"
   rebasing f585351a92f8 "D"
   $ cd ..
 
 Test --tool parameter:
 
-  $ hg init b
+  $ sl init b
   $ cd b
 
   $ echo c1 > c1
-  $ hg ci -Am c1
+  $ sl ci -Am c1
   adding c1
 
   $ echo c2 > c2
-  $ hg ci -Am c2
+  $ sl ci -Am c2
   adding c2
 
-  $ hg up -q 'desc(c1)'
+  $ sl up -q 'desc(c1)'
   $ echo c2b > c2
-  $ hg ci -Am c2b
+  $ sl ci -Am c2b
   adding c2
 
   $ cd ..
@@ -383,10 +384,10 @@ Test --tool parameter:
   $ cp -R b b1
   $ cd b1
 
-  $ hg rebase -s 'desc(c2b)' -d 56daeba07f4b2d0735ba0d40955813b42b4e4a4b --tool internal:local
+  $ sl rebase -s 'desc(c2b)' -d 56daeba07f4b2d0735ba0d40955813b42b4e4a4b --tool internal:local
   rebasing e4e3f3546619 "c2b"
 
-  $ hg cat c2
+  $ sl cat c2
   c2
 
   $ cd ..
@@ -395,10 +396,10 @@ Test --tool parameter:
   $ cp -R b b2
   $ cd b2
 
-  $ hg rebase -s 'desc(c2b)' -d 56daeba07f4b2d0735ba0d40955813b42b4e4a4b --tool internal:other
+  $ sl rebase -s 'desc(c2b)' -d 56daeba07f4b2d0735ba0d40955813b42b4e4a4b --tool internal:other
   rebasing e4e3f3546619 "c2b"
 
-  $ hg cat c2
+  $ sl cat c2
   c2b
 
   $ cd ..
@@ -407,12 +408,12 @@ Test --tool parameter:
   $ cp -R b b3
   $ cd b3
 
-  $ hg rebase -s 'desc(c2b)' -d 56daeba07f4b2d0735ba0d40955813b42b4e4a4b --tool internal:fail
+  $ sl rebase -s 'desc(c2b)' -d 56daeba07f4b2d0735ba0d40955813b42b4e4a4b --tool internal:fail
   rebasing e4e3f3546619 "c2b"
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
-  $ hg summary
+  $ sl summary
   parent: 56daeba07f4b 
    c2
   parent: e4e3f3546619 
@@ -421,24 +422,24 @@ Test --tool parameter:
   phases: 3 draft
   rebase: 0 rebased, 1 remaining (rebase --continue)
 
-  $ hg resolve -l
+  $ sl resolve -l
   U c2
 
-  $ hg resolve -m c2
+  $ sl resolve -m c2
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg graft --continue
+  continue: sl rebase --continue
+  $ sl graft --continue
   abort: no graft in progress
-  (continue: hg rebase --continue)
+  (continue: sl rebase --continue)
   [255]
-  $ hg rebase -c --tool internal:fail
+  $ sl rebase -c --tool internal:fail
   rebasing e4e3f3546619 "c2b"
 
-  $ hg rebase -i -d null
+  $ sl rebase -i -d null
   abort: interactive history editing is supported by the 'histedit' extension (see "hg --config extensions.histedit= help -e histedit")
   [255]
 
-  $ hg rebase --interactive -d null
+  $ sl rebase --interactive -d null
   abort: interactive history editing is supported by the 'histedit' extension (see "hg --config extensions.histedit= help -e histedit")
   [255]
 
@@ -446,13 +447,13 @@ Test --tool parameter:
 
 No common ancestor
 
-  $ hg init separaterepo
+  $ sl init separaterepo
   $ cd separaterepo
   $ touch a
-  $ hg commit -Aqm a
-  $ hg up -q null
+  $ sl commit -Aqm a
+  $ sl up -q null
   $ touch b
-  $ hg commit -Aqm b
-  $ hg rebase -d 'desc(a)'
+  $ sl commit -Aqm b
+  $ sl rebase -d 'desc(a)'
   nothing to rebase from d7486e00c6f1 to 3903775176ed
   $ cd ..

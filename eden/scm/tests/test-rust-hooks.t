@@ -6,10 +6,11 @@ Note that Rust hook execution escapes the debugruntest execution environment.
 For now that is desirable since I also want to test the platform specific Rust spawn logic.
 
 
-  $ hg debugtestcommand
+  $ export HGIDENTITY=sl
+  $ sl debugtestcommand
 
 Make sure alias marked "legacy:" works.
-  $ hg debugoldtestcommand
+  $ sl debugoldtestcommand
 
 Test hooks outside of repo:
 
@@ -18,20 +19,20 @@ Test hooks outside of repo:
   $ setconfig 'hooks.pre-debugtestcommand.pwd=cd'
   $ setconfig 'hooks.pre-debugtestcommand.background=background:echo background & type nul > touched'
   $ setconfig 'hooks.fail-debugtestcommand=echo FAIL'
-  $ hg debugtestcommand "hello ' there" foo
+  $ sl debugtestcommand "hello ' there" foo
   PRE_ARGS: debugtestcommand "hello ' there" foo\r (esc)
   $TESTTMP\r (esc)
 #else
-  $ setconfig 'hooks.pre-debugtestcommand=echo PRE_ARGS: $HG_ARGS && echo HG: $HG && echo PWD: $PWD'
+  $ setconfig 'hooks.pre-debugtestcommand=echo PRE_ARGS: $HG_ARGS && echo SL: $HG && echo PWD: $PWD'
   $ setconfig 'hooks.pre-debugtestcommand.background=background:echo background > touched'
-  $ setconfig 'hooks.post-debugtestcommand=echo POST_ARGS: $HG_ARGS && echo HG: $HG && echo RESULT: $HG_RESULT && echo PWD: $PWD'
+  $ setconfig 'hooks.post-debugtestcommand=echo POST_ARGS: $HG_ARGS && echo SL: $HG && echo RESULT: $HG_RESULT && echo PWD: $PWD'
   $ setconfig 'hooks.fail-debugtestcommand=echo FAIL'
-  $ hg debugtestcommand "hello ' there" foo
+  $ sl debugtestcommand "hello ' there" foo
   PRE_ARGS: debugtestcommand 'hello '\'' there' foo
-  HG: *hg* (glob)
+  SL: *hg* (glob)
   PWD: $TESTTMP
   POST_ARGS: debugtestcommand 'hello '\'' there' foo
-  HG: *hg* (glob)
+  SL: *hg* (glob)
   RESULT: 0
   PWD: $TESTTMP
 #endif
@@ -47,16 +48,16 @@ Wait for background hook to touch file.
 
 When in repo, hooks run from repo root
 #if windows
-  $ hg debugtestcommand
+  $ sl debugtestcommand
   PRE_ARGS: debugtestcommand\r (esc)
   $TESTTMP\repo1\r (esc)
 #else
-  $ hg debugtestcommand
+  $ sl debugtestcommand
   PRE_ARGS: debugtestcommand
-  HG: *hg* (glob)
+  SL: *hg* (glob)
   PWD: $TESTTMP/repo1
   POST_ARGS: debugtestcommand
-  HG: *hg* (glob)
+  SL: *hg* (glob)
   RESULT: 0
   PWD: $TESTTMP/repo1
 #endif
@@ -65,7 +66,7 @@ When in repo, hooks run from repo root
 
 Wait for background hook to touch file.
   $ sleep 1
-  $ hg st
+  $ sl st
   ? touched
 
 Reset our hook config:
@@ -77,13 +78,13 @@ Test fail hooks:
   $ setconfig 'hooks.fail-debugtestcommand=echo FAIL'
 
 #if windows
-  $ hg debugtestcommand --abort
+  $ sl debugtestcommand --abort
   PRE\r (esc)
   FAIL\r (esc)
   abort: aborting
   [255]
 #else
-  $ hg debugtestcommand --abort
+  $ sl debugtestcommand --abort
   PRE
   FAIL
   abort: aborting
@@ -94,12 +95,12 @@ Test hooks work for legacy command name:
   $ setconfig 'hooks.pre-debugoldtestcommand=echo LEGACY'
 Both fire for new command name:
 #if windows
-  $ hg debugtestcommand
+  $ sl debugtestcommand
   PRE\r (esc)
   LEGACY\r (esc)
   POST\r (esc)
 #else
-  $ hg debugtestcommand
+  $ sl debugtestcommand
   PRE
   LEGACY
   POST
@@ -107,12 +108,12 @@ Both fire for new command name:
 
 Both fire for old command name:
 #if windows
-  $ hg debugoldtestcommand
+  $ sl debugoldtestcommand
   PRE\r (esc)
   LEGACY\r (esc)
   POST\r (esc)
 #else
-  $ hg debugoldtestcommand
+  $ sl debugoldtestcommand
   PRE
   LEGACY
   POST
@@ -127,7 +128,7 @@ Python hooks now work in Rust commands:
   > EOF
 (hook can be defined in base64, too)
   $ setconfig "hooks.post-debugtestcommand.python=python:base64:$(base64 -w0 foo.py):main"
-  $ hg debugtestcommand
+  $ sl debugtestcommand
   repo is $TESTTMP/repo2. kwargs: {'args': ['debugtestcommand']}
   repo is $TESTTMP/repo2. kwargs: {'args': ['debugtestcommand'], 'result': 0}
 
@@ -136,13 +137,13 @@ Python hooks now work in Rust commands:
   $ newclientrepo
   $ setconfig hooks.pre-debugtestcommand=oopsie-daisy hooks.post-debugtestcommand=oopsie-daisy hooks.fail-debugtestcommand=oopsie-daisy
 #if windows
-  $ hg debugtestcommand --echo running
+  $ sl debugtestcommand --echo running
   'oopsie-daisy' is not recognized as an internal or external command,\r (esc)
   operable program or batch file.\r (esc)
   abort: pre-debugtestcommand hook exited with status 1
   [255]
 #else
-  $ hg debugtestcommand --echo running
+  $ sl debugtestcommand --echo running
   * not found (glob)
   abort: pre-debugtestcommand hook exited with status 127
   [255]
@@ -151,7 +152,7 @@ Python hooks now work in Rust commands:
 #if no-windows
 Test client correlator:
   $ newclientrepo
-  $ hg debugtestcommand --config 'hooks.pre-debugtestcommand=echo ENTRY POINT: $SAPLING_CLIENT_ENTRY_POINT && echo CORRELATOR: $SAPLING_CLIENT_CORRELATOR'
+  $ sl debugtestcommand --config 'hooks.pre-debugtestcommand=echo ENTRY POINT: $SAPLING_CLIENT_ENTRY_POINT && echo CORRELATOR: $SAPLING_CLIENT_CORRELATOR'
   ENTRY POINT: sapling
   CORRELATOR: test-correlator
 #endif

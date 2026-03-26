@@ -3,6 +3,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure mutation
   $ enable rebase strip
   $ setconfig phases.publish=0
@@ -35,7 +36,7 @@ Rebasing B onto H and collapsing changesets:
 
   $ cp -r a a1
   $ cd a1
-  $ hg go -q $D
+  $ sl go -q $D
 
   $ cat > $TESTTMP/editor.sh <<EOF
   > echo "==== before editing"
@@ -43,7 +44,7 @@ Rebasing B onto H and collapsing changesets:
   > echo "===="
   > echo "edited manually" >> \$1
   > EOF
-  $ HGEDITOR="sh $TESTTMP/editor.sh" hg rebase --collapse -e --dest $H
+  $ HGEDITOR="sh $TESTTMP/editor.sh" sl rebase --collapse -e --dest $H
   rebasing 112478962961 "B"
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
@@ -54,16 +55,16 @@ Rebasing B onto H and collapsing changesets:
   * D
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added B
-  HG: added C
-  HG: added D
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added B
+  SL: added C
+  SL: added D
   ====
 
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   @  Collapsed revision
   │  * B
   │  * C
@@ -81,7 +82,7 @@ Rebasing B onto H and collapsing changesets:
   ├─╯
   o  A
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   B
   C
@@ -95,13 +96,13 @@ Rebasing E onto H:
 
   $ cp -r a a2
   $ cd a2
-  $ hg go -q $H
+  $ sl go -q $H
 
-  $ hg rebase --source $E --collapse --dest $H
+  $ sl rebase --source $E --collapse --dest $H
   rebasing 7fb047a69f22 "E"
   rebasing c6001eacfde5 "G"
 
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   o  Collapsed revision
   │  * E
   │  * G
@@ -117,7 +118,7 @@ Rebasing E onto H:
   ├─╯
   o  A
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   E
   F
@@ -129,9 +130,9 @@ Rebasing G onto H with custom message:
 
   $ cp -r a a3
   $ cd a3
-  $ hg go -q $H
+  $ sl go -q $H
 
-  $ hg rebase --base 6 -m 'custom message' -d .
+  $ sl rebase --base 6 -m 'custom message' -d .
   abort: message can only be specified with collapse
   [255]
 
@@ -139,12 +140,12 @@ Rebasing G onto H with custom message:
   > env | grep HGEDITFORM
   > true
   > EOF
-  $ HGEDITOR="sh $TESTTMP/checkeditform.sh" hg rebase --source $E --collapse -m 'custom message' -e --dest $H
+  $ HGEDITOR="sh $TESTTMP/checkeditform.sh" sl rebase --source $E --collapse -m 'custom message' -e --dest $H
   rebasing 7fb047a69f22 "E"
   rebasing c6001eacfde5 "G"
   HGEDITFORM=rebase.collapse
 
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   o  custom message
   │
   │ o  D
@@ -159,7 +160,7 @@ Rebasing G onto H with custom message:
   ├─╯
   o  A
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   E
   F
@@ -194,20 +195,20 @@ Rebase and collapse - more than one external (fail):
 
   $ cp -r b b1
   $ cd b1
-  $ hg go -q $H
+  $ sl go -q $H
 
-  $ hg rebase -s $C --dest $H --collapse
+  $ sl rebase -s $C --dest $H --collapse
   abort: unable to collapse on top of 575c4b5ec114, there is more than one external parent: 112478962961, 11abe3fb10b8
   [255]
 
 Rebase and collapse - E onto H:
 
-  $ hg rebase -s $E --dest $H --collapse # root (E) is not a merge
+  $ sl rebase -s $E --dest $H --collapse # root (E) is not a merge
   rebasing 49cb92066bfd "E"
   rebasing 11abe3fb10b8 "F"
   rebasing 202d1982ae8b "G"
 
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   o    Collapsed revision
   ├─╮  * E
   │ │  * F
@@ -222,7 +223,7 @@ Rebase and collapse - E onto H:
   ├─╯
   o  A
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   C
   D
@@ -258,15 +259,15 @@ Rebase and collapse - E onto I:
 
   $ cp -r c c1
   $ cd c1
-  $ hg go -q $I
+  $ sl go -q $I
 
-  $ hg rebase -s $E --dest $I --collapse # root (E) is not a merge
+  $ sl rebase -s $E --dest $I --collapse # root (E) is not a merge
   rebasing 49cb92066bfd "E"
   rebasing 3cf8a9483881 "F"
   rebasing 066fd31e12b9 "G"
   rebasing c8947cb2e149 "H"
 
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   o    Collapsed revision
   ├─╮  * E
   │ │  * F
@@ -282,7 +283,7 @@ Rebase and collapse - E onto I:
   ├─╯
   o  A
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   C
   D
@@ -290,7 +291,7 @@ Rebase and collapse - E onto I:
   G
   I
 
-  $ hg up tip -q
+  $ sl up tip -q
   $ cat E
   F
 
@@ -317,15 +318,15 @@ Rebase and collapse - B onto F:
 
   $ cp -r d d1
   $ cd d1
-  $ hg go -q $F
+  $ sl go -q $F
 
-  $ hg rebase -s $B --collapse --dest $F
+  $ sl rebase -s $B --collapse --dest $F
   rebasing 112478962961 "B"
   rebasing 26805aba1e60 "C"
   rebasing be0ef73c17ad "D"
   rebasing 02c4367d6973 "E"
 
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   o  Collapsed revision
   │  * B
   │  * C
@@ -335,7 +336,7 @@ Rebase and collapse - B onto F:
   │
   o  A
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   B
   C
@@ -363,8 +364,8 @@ Rebase, collapse and copies
   >     # drawdag.defaultfiles=false
   > EOS
 
-  $ hg up -q $Q
-  $ hg rebase --collapse -d $Y
+  $ sl up -q $Q
+  $ sl rebase --collapse -d $Y
   rebasing 24b95cf2173d "P"
   merging a and d to d
   merging b and e to e
@@ -372,14 +373,14 @@ Rebase, collapse and copies
   rebasing 2ccc3426bf6d "Q"
   merging f and c to c
   merging e and g to g
-  $ hg st
-  $ hg st --copies --change tip
+  $ sl st
+  $ sl st --copies --change tip
   A d
     a
   A g
     b
   R b
-  $ hg up tip -q
+  $ sl up tip -q
   $ cat c
   c
   c
@@ -389,10 +390,10 @@ Rebase, collapse and copies
   $ cat g
   b
   b
-  $ hg log -r . --template "{file_copies}\n"
+  $ sl log -r . --template "{file_copies}\n"
   d (a)g (b)
 
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   @  Collapsed revision
   │  * P
   │  * Q
@@ -402,10 +403,10 @@ Rebase, collapse and copies
   
 Test collapsing in place
 
-  $ hg rebase --collapse -b . -d $X
+  $ sl rebase --collapse -b . -d $X
   rebasing 71cf332de4cf "Y"
   rebasing 2dddb285069e "Collapsed revision"
-  $ hg st --change tip --copies
+  $ sl st --change tip --copies
   M a
   M c
   A d
@@ -413,7 +414,7 @@ Test collapsing in place
   A g
     b
   R b
-  $ hg up tip -q
+  $ sl up tip -q
   $ cat a
   a
   a
@@ -431,29 +432,29 @@ Test collapsing in place
 
 Test collapsing changes that add then remove a file
 
-  $ hg init collapseaddremove
+  $ sl init collapseaddremove
   $ cd collapseaddremove
 
   $ touch base
-  $ hg commit -Am base
+  $ sl commit -Am base
   adding base
   $ touch a
-  $ hg commit -Am a
+  $ sl commit -Am a
   adding a
-  $ hg rm a
+  $ sl rm a
   $ touch b
-  $ hg commit -Am b
+  $ sl commit -Am b
   adding b
-  $ hg book foo
-  $ hg rebase -d 'desc(base)' -r "max(desc(a))::max(desc(b))" --collapse -m collapsed
+  $ sl book foo
+  $ sl rebase -d 'desc(base)' -r "max(desc(a))::max(desc(b))" --collapse -m collapsed
   rebasing 6d8d9f24eec3 "a"
   rebasing 1cc73eca5ecc "b" (foo)
-  $ hg log -G --template "'{desc}' {bookmarks}"
+  $ sl log -G --template "'{desc}' {bookmarks}"
   @  'collapsed' foo
   │
   o  'base'
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   b
   base
 
@@ -462,30 +463,30 @@ Test collapsing changes that add then remove a file
 Test that rebase --collapse will remember message after
 running into merge conflict and invoking rebase --continue.
 
-  $ hg init collapse_remember_message
+  $ sl init collapse_remember_message
   $ cd collapse_remember_message
   $ touch a
-  $ hg add a
-  $ hg commit -m "a"
+  $ sl add a
+  $ sl commit -m "a"
   $ echo "a-default" > a
-  $ hg commit -m "a-default"
-  $ hg goto -r 3903775176ed42b1458a6281db4a0ccf4d9f287a
+  $ sl commit -m "a-default"
+  $ sl goto -r 3903775176ed42b1458a6281db4a0ccf4d9f287a
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo "a-dev" > a
-  $ hg commit -m "a-dev"
-  $ hg rebase --collapse -m "a-default-dev" -d 3c8db56a44bcb7c2afe3a7b368ecdd09efaff115
+  $ sl commit -m "a-dev"
+  $ sl rebase --collapse -m "a-default-dev" -d 3c8db56a44bcb7c2afe3a7b368ecdd09efaff115
   rebasing 1fb04abbc715 "a-dev"
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ rm a.orig
-  $ hg resolve --mark a
+  $ sl resolve --mark a
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  continue: sl rebase --continue
+  $ sl rebase --continue
   rebasing 1fb04abbc715 "a-dev"
-  $ hg log
+  $ sl log
   commit:      925b342b51db
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -517,10 +518,10 @@ Collapsed commits have internal conflict:
 
 Rebase should fail due to merge conflict when inmemory=true:
 
-  $ hg rebase -r $B -r $C -d $D --collapse --config rebase.experimental.inmemory=true
+  $ sl rebase -r $B -r $C -d $D --collapse --config rebase.experimental.inmemory=true
   rebasing 02385eab34c0 "C"
   rebasing 15544ab8d64e "B"
   merging foo
-  warning: 1 conflicts while merging foo! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging foo! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]

@@ -1,35 +1,36 @@
 #chg-compatible
 #debugruntest-incompatible
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
   $ eagerepo
   $ enable rebase amend
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
   $ echo A > A
-  $ hg commit -Aqm "A"
+  $ sl commit -Aqm "A"
   $ echo B > B
-  $ hg commit -Aqm "B"
+  $ sl commit -Aqm "B"
   $ echo C > C
-  $ hg commit -Aqm "C"
+  $ sl commit -Aqm "C"
   $ echo D > D
-  $ hg commit -Aqm "D"
-  $ hg up -q .~3
+  $ sl commit -Aqm "D"
+  $ sl up -q .~3
   $ echo E > E
-  $ hg commit -Aqm "E"
-  $ hg book E
-  $ hg up -q .~1
+  $ sl commit -Aqm "E"
+  $ sl book E
+  $ sl up -q .~1
   $ echo F > F
-  $ hg commit -Aqm "F"
-  $ hg merge -q E
-  $ hg book -d E
+  $ sl commit -Aqm "F"
+  $ sl merge -q E
+  $ sl book -d E
   $ echo G > G
-  $ hg commit -Aqm "G"
-  $ hg up -q .^
+  $ sl commit -Aqm "G"
+  $ sl up -q .^
   $ echo H > H
-  $ hg commit -Aqm "H"
+  $ sl commit -Aqm "H"
   $ cd ..
 
 
@@ -59,20 +60,20 @@ can abort or warn for colliding untracked files)
   o  4a2df7238c3b 'A'
   
 
-  $ hg status --rev "desc(D)^1" --rev 'desc(D)'
+  $ sl status --rev "desc(D)^1" --rev 'desc(D)'
   A D
   $ echo collide > D
-  $ HGEDITOR=cat hg rebase -s 'desc(D)' -d 'desc(H)' --edit --config merge.checkunknown=warn
+  $ HGEDITOR=cat sl rebase -s 'desc(D)' -d 'desc(H)' --edit --config merge.checkunknown=warn
   rebasing b3325c91a4d9 "D"
   D: replacing untracked file
   D
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added D
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added D
 
   $ tglog
   o  bdad251407f5 'D'
@@ -102,7 +103,7 @@ that we can ignore for colliding untracked files)
   $ cd a2
   $ echo collide > D
 
-  $ HGEDITOR=cat hg rebase -s 'desc(D)' -d 'desc(F)' --config merge.checkunknown=ignore
+  $ HGEDITOR=cat sl rebase -s 'desc(D)' -d 'desc(F)' --config merge.checkunknown=ignore
   rebasing b3325c91a4d9 "D"
 
   $ tglog
@@ -131,10 +132,10 @@ if they have the same contents)
 
   $ cp -R a a3
   $ cd a3
-  $ hg cat -r 'desc(E)' E | tee E
+  $ sl cat -r 'desc(E)' E | tee E
   E
 
-  $ hg rebase -s 'desc(E)' -d 'desc(H)'
+  $ sl rebase -s 'desc(E)' -d 'desc(H)'
   rebasing 4e18486b3568 "E"
   rebasing 3dbfcf9931fb "G"
   $ f E.orig
@@ -165,7 +166,7 @@ F onto E - rebase of a branching point (skip G):
   $ cp -R a a4
   $ cd a4
 
-  $ hg rebase -s 'desc(F)' -d 'desc(E)'
+  $ sl rebase -s 'desc(F)' -d 'desc(E)'
   rebasing c137c2b8081f "F"
   rebasing 3dbfcf9931fb "G"
   rebasing 15ed2d917603 "H"
@@ -195,7 +196,7 @@ G onto H - merged revision having a parent in ancestors of target:
   $ cp -R a a5
   $ cd a5
 
-  $ hg rebase -s 'desc(G)' -d 'desc(H)'
+  $ sl rebase -s 'desc(G)' -d 'desc(H)'
   rebasing 3dbfcf9931fb "G"
 
   $ tglog
@@ -223,7 +224,7 @@ F onto B - G maintains E as parent:
   $ cp -R a a6
   $ cd a6
 
-  $ hg rebase -s 'desc(F)' -d 'desc(B)'
+  $ sl rebase -s 'desc(F)' -d 'desc(B)'
   rebasing c137c2b8081f "F"
   rebasing 3dbfcf9931fb "G"
   rebasing 15ed2d917603 "H"
@@ -256,44 +257,44 @@ G onto F - rebase onto an ancestor:
   $ cd a7
   $ setconfig paths.default=test:a
 
-  $ hg rebase -s 'desc(G)' -d 'desc(F)'
+  $ sl rebase -s 'desc(G)' -d 'desc(F)'
   nothing to rebase
 
 F onto G - rebase onto a descendant:
 
-  $ hg rebase -s 'desc(F)' -d 'desc(G)'
+  $ sl rebase -s 'desc(F)' -d 'desc(G)'
   abort: source and destination form a cycle
   [255]
 
 G onto B - merge revision with both parents not in ancestors of target:
 
-  $ hg rebase -s 'desc(G)' -d 'desc(B)'
+  $ sl rebase -s 'desc(G)' -d 'desc(B)'
   rebasing 3dbfcf9931fb "G"
   abort: cannot rebase 3dbfcf9931fb without moving at least one of its parents
   [255]
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
 
 These will abort gracefully (using --base):
 
 G onto G - rebase onto same changeset:
 
-  $ hg rebase -b 'desc(G)' -d 'desc(G)'
+  $ sl rebase -b 'desc(G)' -d 'desc(G)'
   nothing to rebase - 3dbfcf9931fb is both "base" and destination
 
 G onto F - rebase onto an ancestor:
 
-  $ hg rebase -b 'desc(G)' -d 'desc(F)'
+  $ sl rebase -b 'desc(G)' -d 'desc(F)'
   nothing to rebase
 
 F onto G - rebase onto a descendant:
 
-  $ hg rebase -b 'desc(F)' -d 'desc(G)'
+  $ sl rebase -b 'desc(F)' -d 'desc(G)'
   nothing to rebase - "base" c137c2b8081f is already an ancestor of destination 3dbfcf9931fb
 
 C onto A - rebase onto an ancestor:
 
-  $ hg rebase -d 'desc(A)' -s 'desc(C)'
+  $ sl rebase -d 'desc(A)' -s 'desc(C)'
   rebasing f838bfaca5c7 "C"
   rebasing b3325c91a4d9 "D"
   $ tglog
@@ -316,20 +317,20 @@ C onto A - rebase onto an ancestor:
 
 Check rebasing public changeset
 
-  $ hg push --config phases.publish=True -q -r 'desc(G)' # update phase of G
-  $ hg rebase -d 'desc(A)' -b 'desc(C)'
+  $ sl push --config phases.publish=True -q -r 'desc(G)' # update phase of G
+  $ sl rebase -d 'desc(A)' -b 'desc(C)'
   nothing to rebase
-  $ hg debugmakepublic 'desc(C)'
-  $ hg rebase -d 'desc(H)' -r 'desc(C)'
+  $ sl debugmakepublic 'desc(C)'
+  $ sl rebase -d 'desc(H)' -r 'desc(C)'
   abort: can't rebase public changeset f838bfaca5c7
-  (see 'hg help phases' for details)
+  (see 'sl help phases' for details)
   [255]
-  $ hg rebase -d 'desc(H)' -r 'desc(B) + (desc(C)::)'
+  $ sl rebase -d 'desc(H)' -r 'desc(B) + (desc(C)::)'
   abort: can't rebase public changeset 27547f69f254
-  (see 'hg help phases' for details)
+  (see 'sl help phases' for details)
   [255]
 
-  $ hg rebase -d 'desc(H)' -b 'desc(C)' --keep
+  $ sl rebase -d 'desc(H)' -b 'desc(C)' --keep
   rebasing 27547f69f254 "B"
   rebasing f838bfaca5c7 "C" (public/f838bfaca5c7226600ebcfd84f3c3c13a28d3757)
   rebasing 7d3e5262cbd7 "C" (public/7d3e5262cbd7c2f6fd18aae7d9373efdc84c9d6b)
@@ -337,26 +338,26 @@ Check rebasing public changeset
 
 Check rebasing mutable changeset
 Source phase greater or equal to destination phase: new changeset get the phase of source:
-  $ hg rebase -s'max(desc(D))' -d'desc(A)'
+  $ sl rebase -s'max(desc(D))' -d'desc(A)'
   rebasing 75424903c9c5 "D"
-  $ hg log --template "{phase}\n" -r 'max(desc(D))'
+  $ sl log --template "{phase}\n" -r 'max(desc(D))'
   draft
-  $ hg rebase -s'max(desc(D))' -d'desc(B)'
+  $ sl rebase -s'max(desc(D))' -d'desc(B)'
   rebasing 90253e7fd6aa "D"
-  $ hg log --template "{phase}\n" -r 'max(desc(D))'
+  $ sl log --template "{phase}\n" -r 'max(desc(D))'
   draft
-  $ hg rebase -s'max(desc(D))' -d'desc(A)'
+  $ sl rebase -s'max(desc(D))' -d'desc(A)'
   rebasing d757f6e44660 "D"
-  $ hg log --template "{phase}\n" -r 'max(desc(D))'
+  $ sl log --template "{phase}\n" -r 'max(desc(D))'
   draft
-  $ hg rebase -s'max(desc(D))' -d'desc(B)'
+  $ sl rebase -s'max(desc(D))' -d'desc(B)'
   rebasing 94a187f19238 "D"
-  $ hg log --template "{phase}\n" -r 'max(desc(D))'
+  $ sl log --template "{phase}\n" -r 'max(desc(D))'
   draft
 Source phase lower than destination phase: new changeset get the phase of destination:
-  $ hg rebase -s'max(desc(C))' -d'max(desc(D))'
+  $ sl rebase -s'max(desc(C))' -d'max(desc(D))'
   rebasing 9ac0d3f9df94 "C"
-  $ hg log --template "{phase}\n" -r 'rev(9)'
+  $ sl log --template "{phase}\n" -r 'rev(9)'
   draft
 
   $ cd ..
@@ -367,31 +368,31 @@ Test for revset
 We need a bit different graph
 All destination are B
 
-  $ hg init ah
+  $ sl init ah
   $ cd ah
 
   $ echo A > A
-  $ hg commit -Aqm "A"
+  $ sl commit -Aqm "A"
   $ echo B > B
-  $ hg commit -Aqm "B"
-  $ hg up 'desc(A)'
+  $ sl commit -Aqm "B"
+  $ sl up 'desc(A)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo C > C
-  $ hg commit -Aqm "C"
+  $ sl commit -Aqm "C"
   $ echo D > D
-  $ hg commit -Aqm "D"
+  $ sl commit -Aqm "D"
   $ echo E > E
-  $ hg commit -Aqm "E"
+  $ sl commit -Aqm "E"
   $ echo F > F
-  $ hg commit -Aqm "F"
-  $ hg up 'desc(D)'
+  $ sl commit -Aqm "F"
+  $ sl up 'desc(D)'
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ echo G > G
-  $ hg commit -Aqm "G"
+  $ sl commit -Aqm "G"
   $ echo H > H
-  $ hg commit -Aqm "H"
+  $ sl commit -Aqm "H"
   $ echo I > I
-  $ hg commit -Aqm "I"
+  $ sl commit -Aqm "I"
 
   $ tglog
   @  b4b8c20ca6ab 'I'
@@ -421,7 +422,7 @@ Source on have two descendant heads but ask for one
 
   $ cp -R ah ah1
   $ cd ah1
-  $ hg rebase -r 'max(desc(C))::desc(I)' -d 'desc(B)' -k
+  $ sl rebase -r 'max(desc(C))::desc(I)' -d 'desc(B)' -k
   rebasing c5cefa58fd55 "C"
   rebasing 36784c4b0d11 "D"
   rebasing 15356cd3838c "G"
@@ -463,7 +464,7 @@ Base on have one descendant heads we ask for but common ancestor have two
 
   $ cp -R ah ah2
   $ cd ah2
-  $ hg rebase -r 'desc(D)::desc(I)' -d 'desc(B)' --keep
+  $ sl rebase -r 'desc(D)::desc(I)' -d 'desc(B)' --keep
   rebasing 36784c4b0d11 "D"
   rebasing 15356cd3838c "G"
   rebasing 7603f67b15cc "H"
@@ -502,7 +503,7 @@ rebase subset
 
   $ cp -R ah ah3
   $ cd ah3
-  $ hg rebase -r 'desc(D)::desc(H)' -d 'desc(B)' --keep
+  $ sl rebase -r 'desc(D)::desc(H)' -d 'desc(B)' --keep
   rebasing 36784c4b0d11 "D"
   rebasing 15356cd3838c "G"
   rebasing 7603f67b15cc "H"
@@ -538,7 +539,7 @@ rebase subset with multiple head
 
   $ cp -R ah ah4
   $ cd ah4
-  $ hg rebase -r 'desc(D)::(desc(H)+desc(F))' -d 'desc(B)' --keep
+  $ sl rebase -r 'desc(D)::(desc(H)+desc(F))' -d 'desc(B)' --keep
   rebasing 36784c4b0d11 "D"
   rebasing e112fea37bd6 "E"
   rebasing f1c425d20bac "F"
@@ -582,7 +583,7 @@ rebase on ancestor with revset
 
   $ cp -R ah ah5
   $ cd ah5
-  $ hg rebase -r 'desc(G)::' -d 'desc(C)'
+  $ sl rebase -r 'desc(G)::' -d 'desc(C)'
   rebasing 15356cd3838c "G"
   rebasing 7603f67b15cc "H"
   rebasing b4b8c20ca6ab "I"
@@ -614,7 +615,7 @@ We would expect heads are I, F if it was supported
 
   $ cp -R ah ah6
   $ cd ah6
-  $ hg rebase -r '(desc(C)+desc(G))::' -d 'desc(B)'
+  $ sl rebase -r '(desc(C)+desc(G))::' -d 'desc(B)'
   rebasing c5cefa58fd55 "C"
   rebasing 36784c4b0d11 "D"
   rebasing e112fea37bd6 "E"
@@ -651,16 +652,16 @@ each root have a different common ancestor with the destination and this is a de
   $ cp -R a a8
   $ cd a8
   $ echo I > I
-  $ hg add I
-  $ hg commit -m I
-  $ hg up 'desc(E)'
+  $ sl add I
+  $ sl commit -m I
+  $ sl up 'desc(E)'
   1 files updated, 0 files merged, 3 files removed, 0 files unresolved
   $ echo I > J
-  $ hg add J
-  $ hg commit -m J
+  $ sl add J
+  $ sl commit -m J
   $ echo I > K
-  $ hg add K
-  $ hg commit -m K
+  $ sl add K
+  $ sl commit -m K
   $ tglog
   @  2fb3a0db434a 'K'
   │
@@ -686,10 +687,10 @@ each root have a different common ancestor with the destination and this is a de
   
 (actual test)
 
-  $ hg rebase --dest 'desc(G)' --rev 'desc(K) + desc(I)'
+  $ sl rebase --dest 'desc(G)' --rev 'desc(K) + desc(I)'
   rebasing bda6f7e0a0ec "I"
   rebasing 2fb3a0db434a "K"
-  $ hg log --rev 'children(desc(G))'
+  $ sl log --rev 'children(desc(G))'
   commit:      786f4bf6631d
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -727,26 +728,26 @@ each root have a different common ancestor with the destination and this is a de
 Test that rebase is not confused by $CWD disappearing during rebase (issue4121)
 
   $ cd ..
-  $ hg init cwd-vanish
+  $ sl init cwd-vanish
   $ cd cwd-vanish
   $ touch initial-file
-  $ hg add initial-file
-  $ hg commit -m 'initial commit'
+  $ sl add initial-file
+  $ sl commit -m 'initial commit'
   $ touch dest-file
-  $ hg add dest-file
-  $ hg commit -m 'dest commit'
-  $ hg up 'desc(initial)'
+  $ sl add dest-file
+  $ sl commit -m 'dest commit'
+  $ sl up 'desc(initial)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ touch other-file
-  $ hg add other-file
-  $ hg commit -m 'first source commit'
+  $ sl add other-file
+  $ sl commit -m 'first source commit'
   $ mkdir subdir
   $ cd subdir
   $ touch subfile
-  $ hg add subfile
-  $ hg commit -m 'second source with subdir'
+  $ sl add subfile
+  $ sl commit -m 'second source with subdir'
 
-  $ hg rebase -b . -d 'desc(dest)' --traceback
+  $ sl rebase -b . -d 'desc(dest)' --traceback
   rebasing 779a07b1b7a0 "first source commit"
   rebasing * "second source with subdir" (glob)
 
@@ -757,23 +758,23 @@ absolute path to get back to the repository.
 
 Test that rebase is done in topo order (issue5370)
 
-  $ hg init order
+  $ sl init order
   $ cd order
-  $ touch a && hg add a && hg ci -m A
-  $ touch b && hg add b && hg ci -m B
-  $ touch c && hg add c && hg ci -m C
-  $ hg up 'desc(B)'
+  $ touch a && sl add a && sl ci -m A
+  $ touch b && sl add b && sl ci -m B
+  $ touch c && sl add c && sl ci -m C
+  $ sl up 'desc(B)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ touch d && hg add d && hg ci -m D
-  $ hg up 'desc(C)'
+  $ touch d && sl add d && sl ci -m D
+  $ sl up 'desc(C)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ touch e && hg add e && hg ci -m E
-  $ hg up 'desc(D)'
+  $ touch e && sl add e && sl ci -m E
+  $ sl up 'desc(D)'
   1 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ touch f && hg add f && hg ci -m F
-  $ hg up 'desc(A)'
+  $ touch f && sl add f && sl ci -m F
+  $ sl up 'desc(A)'
   0 files updated, 0 files merged, 3 files removed, 0 files unresolved
-  $ touch g && hg add g && hg ci -m G
+  $ touch g && sl add g && sl ci -m G
 
   $ tglog
   @  124bb27b6f28 'G'
@@ -791,7 +792,7 @@ Test that rebase is done in topo order (issue5370)
   o  216878401574 'A'
   
 
-  $ hg rebase -s 'desc(B)' -d 'desc(G)'
+  $ sl rebase -s 'desc(B)' -d 'desc(G)'
   rebasing 76035bbd54bd "B"
   rebasing d84f5cfaaf14 "C"
   rebasing 82ae8dc7a9b7 "E"
@@ -821,12 +822,12 @@ Test experimental revset
 
 Make the repo a bit more interesting
 
-  $ hg up 'desc(dest)'
+  $ sl up 'desc(dest)'
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ echo aaa > aaa
-  $ hg add aaa
-  $ hg commit -m aaa
-  $ hg log -G
+  $ sl add aaa
+  $ sl commit -m aaa
+  $ sl log -G
   @  commit:      5f7bc9025ed2
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -856,7 +857,7 @@ Make the repo a bit more interesting
 Testing rebase being called inside another transaction
 
   $ cd $TESTTMP
-  $ hg init tr-state
+  $ sl init tr-state
   $ cd tr-state
   $ cat > $TESTTMP/wraprebase.py <<EOF
   > from __future__ import absolute_import
@@ -874,21 +875,21 @@ Testing rebase being called inside another transaction
   >     extensions.afterloaded('rebase', wraprebase)
   > EOF
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > wraprebase=$TESTTMP/wraprebase.py
   > [experimental]
   > evolution=true
   > EOF
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > B C
   > |/
   > A
   > EOS
 
-  $ hg rebase -s C -d B
+  $ sl rebase -s C -d B
   rebasing dc0947a82db8 "C" (C)
 
-  $ [ -f .hg/rebasestate ] && echo 'WRONG: rebasestate should not exist'
+  $ [ -f .sl/rebasestate ] && echo 'WRONG: rebasestate should not exist'
   [1]

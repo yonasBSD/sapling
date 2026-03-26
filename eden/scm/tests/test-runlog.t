@@ -1,24 +1,25 @@
 #chg-compatible
 #require bash no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable progress
   $ setconfig extensions.rustprogresstest="$TESTDIR/runlogtest.py" runlog.enable=True runlog.progress-refresh=0
   $ export LOG=runlog=warn
 
   $ waitforrunlog() {
-  >   while ! cat .hg/runlog/*.json 2> /dev/null; do
+  >   while ! cat .sl/runlog/*.json 2> /dev/null; do
   >     sleep 0.001
   >   done
-  >   rm .hg/runlog/*
+  >   rm .sl/runlog/*
   >   # ignore windows race condition where runlogtest.py deletes file during touch
   >   touch $TESTTMP/go 2>/dev/null || true
   > }
 
-  $ hg init repo && cd repo
+  $ sl init repo && cd repo
 
 Check basic command start/end.
-  $ hg basiccommandtest --waitfile=$TESTTMP/go 123 &
+  $ sl basiccommandtest --waitfile=$TESTTMP/go 123 &
 
   $ waitforrunlog
   {
@@ -56,7 +57,7 @@ Check basic command start/end.
   } (no-eol)
 
 Make sure runlog works with progress disabled.
-  $ hg progresstest --waitfile=$TESTTMP/go --config progress.disable=True 2 &
+  $ sl progresstest --waitfile=$TESTTMP/go --config progress.disable=True 2 &
   $ waitforrunlog
   {
     "id": ".*", (re)
@@ -147,7 +148,7 @@ Make sure runlog works with progress disabled.
 
 Make sure runlog works with rust renderer.
   $ rm $TESTTMP/go
-  $ hg progresstest --waitfile=$TESTTMP/go --config progress.renderer=simple 2 &
+  $ sl progresstest --waitfile=$TESTTMP/go --config progress.renderer=simple 2 &
   $ waitforrunlog
   {
     "id": ".*", (re)
@@ -238,7 +239,7 @@ Make sure runlog works with rust renderer.
 
 Make sure progress updates when runlog.progress-refresh set.
   $ rm $TESTTMP/go
-  $ hg progresstest --waitfile=$TESTTMP/go --config runlog.progress-refresh=0.001 1 &
+  $ sl progresstest --waitfile=$TESTTMP/go --config runlog.progress-refresh=0.001 1 &
   $ waitforrunlog
   {
     "id": ".*", (re)
@@ -289,25 +290,25 @@ Wait for background process to exit.
 
 Test we don't clean up entries with chance=0
   $ setconfig runlog.cleanup-chance=0 runlog.cleanup-threshold=0
-  $ rm -f .hg/runlog/*
-  $ hg root > /dev/null
-  $ hg root > /dev/null
-  $ ls .hg/runlog/* | grep -v watchfile | wc -l | sed -e 's/ //g'
+  $ rm -f .sl/runlog/*
+  $ sl root > /dev/null
+  $ sl root > /dev/null
+  $ ls .sl/runlog/* | grep -v watchfile | wc -l | sed -e 's/ //g'
   4
 
 Test we always clean up with chance=1
   $ setconfig runlog.cleanup-chance=1
-  $ hg root > /dev/null
-  $ ls .hg/runlog/* | grep -v watchfile | wc -l | sed -e 's/ //g'
+  $ sl root > /dev/null
+  $ ls .sl/runlog/* | grep -v watchfile | wc -l | sed -e 's/ //g'
   2
 
 Test runlog CLI command
 
 Show completed entries (i.e. exited "root" entry)
   $ setconfig runlog.cleanup-chance=0
-  $ rm -f .hg/runlog/*
-  $ hg root > /dev/null
-  $ hg debugrunlog --ended
+  $ rm -f .sl/runlog/*
+  $ sl root > /dev/null
+  $ sl debugrunlog --ended
   Entry {
       id: ".*", (re)
       command: [
@@ -327,7 +328,7 @@ Show completed entries (i.e. exited "root" entry)
   }
 
 Show only running commands (i.e. "debugrunlog" command itself)
-  $ hg debugrunlog
+  $ sl debugrunlog
   Entry {
       id: ".*", (re)
       command: [
@@ -343,8 +344,8 @@ Show only running commands (i.e. "debugrunlog" command itself)
   }
 
 Test we don't bail out if we can't write runlog.
-  $ rm -rf .hg/runlog
-  $ touch .hg/runlog
-  $ hg root
+  $ rm -rf .sl/runlog
+  $ touch .sl/runlog
+  $ sl root
   Error creating runlogger: * (glob)
   $TESTTMP/repo

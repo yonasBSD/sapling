@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig experimental.rebase-long-labels=True
 
   $ eagerepo
@@ -12,32 +13,32 @@
   $ setconfig morestatus.show=true
 
 # initialize test repo
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo c1 >common
-  $ hg add common
-  $ hg ci -m C1
+  $ sl add common
+  $ sl ci -m C1
 
   $ echo c2 >>common
-  $ hg ci -m C2
+  $ sl ci -m C2
 
   $ echo c3 >>common
-  $ hg ci -m C3
+  $ sl ci -m C3
 
-  $ hg up -q -C 'desc(C2)'
+  $ sl up -q -C 'desc(C2)'
 
   $ echo l1 >>extra
-  $ hg add extra
-  $ hg ci -m L1
+  $ sl add extra
+  $ sl ci -m L1
 
   $ sed -e 's/c2/l2/' common > common.new
   $ mv common.new common
-  $ hg ci -m L2
+  $ sl ci -m L2
 
   $ echo l3 >> extra2
-  $ hg add extra2
-  $ hg ci -m L3
-  $ hg bookmark mybook
+  $ sl add extra2
+  $ sl ci -m L3
+  $ sl bookmark mybook
 
   $ tglogp
   @  8029388f38dc draft 'L3' mybook
@@ -53,21 +54,21 @@
   o  178f1774564f draft 'C1'
 Try to call --continue:
 
-  $ hg rebase --continue
+  $ sl rebase --continue
   abort: no rebase in progress
   [255]
 
 Conflicting rebase:
 
-  $ hg rebase -s 'desc(L1)' -d 'desc(C3)'
+  $ sl rebase -s 'desc(L1)' -d 'desc(C3)'
   rebasing 3163e20567cc "L1"
   rebasing 46f0b057b5c0 "L2"
   merging common
-  warning: 1 conflicts while merging common! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging common! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
-  $ hg status
+  $ sl status
   M common
   ? common.orig
   
@@ -76,27 +77,27 @@ Conflicting rebase:
   # 
   #     common
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg rebase --continue
-  # To abort:                   hg rebase --abort
-  # To quit:                    hg rebase --quit
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl rebase --continue
+  # To abort:                   sl rebase --abort
+  # To quit:                    sl rebase --quit
   # 
   # Rebasing 46f0b057b5c0 (L2)
   #       to 3e046f2ecedb (L1)
 
 Try to continue without solving the conflict:
 
-  $ hg rebase --continue
-  abort: unresolved merge conflicts (see 'hg help resolve')
+  $ sl rebase --continue
+  abort: unresolved merge conflicts (see 'sl help resolve')
   [255]
 
 Conclude rebase:
 
   $ echo 'resolved merge' >common
-  $ hg resolve -m common
+  $ sl resolve -m common
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg continue
+  continue: sl rebase --continue
+  $ sl continue
   already rebased 3163e20567cc "L1" as 3e046f2ecedb
   rebasing 46f0b057b5c0 "L2"
   rebasing 8029388f38dc "L3" (mybook)
@@ -115,31 +116,31 @@ Conclude rebase:
   o  178f1774564f draft 'C1'
 Check correctness:
 
-  $ hg cat -r 'desc(C1)' common
+  $ sl cat -r 'desc(C1)' common
   c1
 
-  $ hg cat -r 'desc(C2)' common
-  c1
-  c2
-
-  $ hg cat -r 'desc(C3)' common
+  $ sl cat -r 'desc(C2)' common
   c1
   c2
-  c3
 
-  $ hg cat -r 'desc(L1)' common
+  $ sl cat -r 'desc(C3)' common
   c1
   c2
   c3
 
-  $ hg cat -r 'desc(L2)' common
+  $ sl cat -r 'desc(L1)' common
+  c1
+  c2
+  c3
+
+  $ sl cat -r 'desc(L2)' common
   resolved merge
 
-  $ hg cat -r 'desc(L3)' common
+  $ sl cat -r 'desc(L3)' common
   resolved merge
 
 Bookmark stays active after --continue
-  $ hg bookmarks
+  $ sl bookmarks
    * mybook                    d67b21408fc0
 
   $ cd ..
@@ -147,22 +148,22 @@ Bookmark stays active after --continue
 Test minimization of merge conflicts
   $ newrepo
   $ echo a > a
-  $ hg add a
-  $ hg commit -q -m 'a'
+  $ sl add a
+  $ sl commit -q -m 'a'
   $ echo b >> a
-  $ hg commit -q -m 'ab'
-  $ hg bookmark ab
-  $ hg up -q '.^'
+  $ sl commit -q -m 'ab'
+  $ sl bookmark ab
+  $ sl up -q '.^'
   $ echo b >> a
   $ echo c >> a
-  $ hg commit -q -m 'abc'
-  $ hg rebase -s 7bc217434fc1 -d ab --keep
+  $ sl commit -q -m 'abc'
+  $ sl rebase -s 7bc217434fc1 -d ab --keep
   rebasing 7bc217434fc1 "abc"
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg diff
+  $ sl diff
   diff -r 328e4ab1f7cc a
   --- a/a	Thu Jan 01 00:00:00 1970 +0000
   +++ b/a	* (glob)
@@ -173,16 +174,16 @@ Test minimization of merge conflicts
   +=======
   +c
   +>>>>>>> source (being rebased):  7bc217434fc1 - test: abc
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
-  $ hg up -q -C 7bc217434fc1
-  $ hg rebase -s . -d ab --keep -t internal:merge3
+  $ sl up -q -C 7bc217434fc1
+  $ sl rebase -s . -d ab --keep -t internal:merge3
   rebasing 7bc217434fc1 "abc"
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg diff
+  $ sl diff
   diff -r 328e4ab1f7cc a
   --- a/a	Thu Jan 01 00:00:00 1970 +0000
   +++ b/a	* (glob)
@@ -199,9 +200,9 @@ Test minimization of merge conflicts
 Test rebase with obsstore turned on and off (issue5606)
 
   $ cd $TESTTMP
-  $ hg init b
+  $ sl init b
   $ cd b
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > D
   > |
   > C
@@ -211,21 +212,21 @@ Test rebase with obsstore turned on and off (issue5606)
   > A
   > EOS
 
-  $ hg goto E -q
+  $ sl goto E -q
   $ echo 3 > B
-  $ hg commit --amend -m E -A B -q
-  $ hg rebase -r B+D -d . --config experimental.evolution=true
+  $ sl commit --amend -m E -A B -q
+  $ sl rebase -r B+D -d . --config experimental.evolution=true
   rebasing 112478962961 "B" (B)
   merging B
-  warning: 1 conflicts while merging B! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging B! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
   $ echo 4 > B
-  $ hg resolve -m
+  $ sl resolve -m
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase --continue --config experimental.evolution=none
+  continue: sl rebase --continue
+  $ sl rebase --continue --config experimental.evolution=none
   rebasing 112478962961 "B" (B)
   rebasing f585351a92f8 "D" (D)
 

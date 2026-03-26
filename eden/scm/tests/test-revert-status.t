@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Quote from test-revert.t but this version is stronger - mtime was changed
 manually.
@@ -17,36 +18,36 @@ manually.
   > A
   > EOS
 
-  $ hg up -q $B
+  $ sl up -q $B
 
 Initially, dirstate does not have mtime set for files if the command was
 executed quickly (mtime == fsnow at the end of the command).
 
-#  $ hg debugdirstate
+#  $ sl debugdirstate
 #  n 644          1 unset               A
 #  n 644          1 unset               B
 
-Calling hg status would update mtimes in dirstate (unless mtime == now)
+Calling sl status would update mtimes in dirstate (unless mtime == now)
 
   $ touch -t 200001010000 A B
-  $ hg status
-  $ hg debugdirstate
+  $ sl status
+  $ sl debugdirstate
   n 644          1 2000-01-01 00:00:00 A
   n 644          1 2000-01-01 00:00:00 B
 
 Revert "A" so its content will change. The size does not change and we set
 mtime to make it unchanged.
 
-  $ hg revert -r $A A
+  $ sl revert -r $A A
   $ touch -t 200001010000 A
 
 dirstate mtime for "A" is changed to "unset"
 
-  $ hg debugdirstate
+  $ sl debugdirstate
   n   0         -1 unset               A
   n 644          1 2000-01-01 00:00:00 B
 
 status can detect "A" is modified
 
-  $ hg status
+  $ sl status
   M A

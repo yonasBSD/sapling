@@ -1,42 +1,43 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ mkcommit()
   > {
   >    echo $1 > $1
-  >    hg add $1
-  >    hg ci -m "$1" -q
-  >    export $1=$(hg log -T '{node}' -r .)
+  >    sl add $1
+  >    sl ci -m "$1" -q
+  >    export $1=$(sl log -T '{node}' -r .)
   > }
 
   $ printdag()
   > {
-  >   hg log -G --template '{desc} | {bookmarks} | {remotebookmarks}'
+  >   sl log -G --template '{desc} | {bookmarks} | {remotebookmarks}'
   > }
 
-Test hg pull --rebase degrades gracefully if rebase extension is not loaded
-  $ hg init remoterepo
+Test sl pull --rebase degrades gracefully if rebase extension is not loaded
+  $ sl init remoterepo
   $ cd remoterepo
   $ mkcommit root
-  $ hg book bookmarkonremote
+  $ sl book bookmarkonremote
 
   $ newclientrepo localrepo remoterepo bookmarkonremote
 
 Make sure to enable tracking
-  $ hg book bmtrackingremote --track remote/bookmarkonremote
-  $ hg pull --rebase > /dev/null
+  $ sl book bmtrackingremote --track remote/bookmarkonremote
+  $ sl pull --rebase > /dev/null
   abort: missing rebase destination - supply --dest / -d
   [255]
 
-Tests 'hg pull --rebase' rebases from the active tracking bookmark onto the appropriate remote changes.
+Tests 'sl pull --rebase' rebases from the active tracking bookmark onto the appropriate remote changes.
   $ setglobalconfig extensions.rebase=
   $ cd ../remoterepo
 
 Create remote changes
   $ mkcommit trackedremotecommit
-  $ hg up -q -r 'desc(root)'
+  $ sl up -q -r 'desc(root)'
   $ mkcommit untrackedremotecommit
   $ printdag
   @  untrackedremotecommit |  |
@@ -48,7 +49,7 @@ Create remote changes
 
 Create local changes and checkout tracking bookmark
   $ cd ../localrepo
-  $ hg up -q bmtrackingremote
+  $ sl up -q bmtrackingremote
   $ mkcommit localcommit
   $ printdag
   @  localcommit | bmtrackingremote |
@@ -56,7 +57,7 @@ Create local changes and checkout tracking bookmark
   o  root |  | remote/bookmarkonremote
   
 Pull remote changes and rebase local changes with tracked bookmark onto them
-  $ hg pull -q --rebase -r $untrackedremotecommit
+  $ sl pull -q --rebase -r $untrackedremotecommit
   $ printdag
   @  localcommit | bmtrackingremote |
   │
@@ -66,10 +67,10 @@ Pull remote changes and rebase local changes with tracked bookmark onto them
   ├─╯
   o  root |  |
   
-Tests 'hg pull --rebase' defaults to original (rebase->pullrebase) behaviour when using non-tracking bookmark
-  $ hg debugstrip -q -r 'desc(localcommit)' -r 7a820e70c81fe1bccfa7c7e3b9a863b4426402b0
-  $ hg book -d bmtrackingremote
-  $ hg book bmnottracking
+Tests 'sl pull --rebase' defaults to original (rebase->pullrebase) behaviour when using non-tracking bookmark
+  $ sl debugstrip -q -r 'desc(localcommit)' -r 7a820e70c81fe1bccfa7c7e3b9a863b4426402b0
+  $ sl book -d bmtrackingremote
+  $ sl book bmnottracking
   $ mkcommit localcommit
   $ printdag
   o  untrackedremotecommit |  |
@@ -78,11 +79,11 @@ Tests 'hg pull --rebase' defaults to original (rebase->pullrebase) behaviour whe
   ├─╯
   o  root |  | remote/bookmarkonremote
   
-  $ hg pull --rebase -d .
+  $ sl pull --rebase -d .
   pulling from test:remoterepo
   searching for changes
   nothing to rebase - working directory parent is also destination
-  $ hg rebase -d 'desc(untrackedremotecommit)'
+  $ sl rebase -d 'desc(untrackedremotecommit)'
   rebasing 6a7c7fb59c1e "localcommit" (bmnottracking)
   $ printdag
   @  localcommit | bmnottracking |
@@ -95,16 +96,16 @@ Tests 'hg pull --rebase' defaults to original (rebase->pullrebase) behaviour whe
   
 Tests the behavior of a pull followed by a pull --rebase
   $ cd ../remoterepo
-  $ hg up bookmarkonremote -q
+  $ sl up bookmarkonremote -q
   $ echo foo > foo
-  $ hg add foo -q
-  $ hg commit -m foo -q
+  $ sl add foo -q
+  $ sl commit -m foo -q
   $ cd ../localrepo
-  $ hg book -t remote/bookmarkonremote tracking
-  $ hg pull
+  $ sl book -t remote/bookmarkonremote tracking
+  $ sl pull
   pulling from test:remoterepo
   searching for changes
-  $ hg debugmakepublic 4557926d2166
+  $ sl debugmakepublic 4557926d2166
 
 Tests that there are no race condition between pulling changesets and remote bookmarks
   $ cd ..
@@ -120,33 +121,33 @@ Tests that there are no race condition between pulling changesets and remote boo
   >     extensions.wrapfunction(remotenames, 'pullremotenames', _pullremotenames)
   > EOF
   $ cd localrepo
-  $ hg --config="extensions.hangpull=$TESTTMP/hangpull.py" -q pull &
+  $ sl --config="extensions.hangpull=$TESTTMP/hangpull.py" -q pull &
   $ sleep 1
   $ cd ../remoterepo
-  $ hg up bookmarkonremote -q
+  $ sl up bookmarkonremote -q
   $ mkcommit between_pull
   $ wait
-  $ hg log -l 1 --template="{desc}\n"
+  $ sl log -l 1 --template="{desc}\n"
   between_pull
   $ cd ../localrepo
-  $ hg up tracking -q
-  $ hg log -l 1 --template="{desc} {remotenames}\n"
+  $ sl up tracking -q
+  $ sl log -l 1 --template="{desc} {remotenames}\n"
   foo remote/bookmarkonremote
-  $ hg -q pull
-  $ hg log -l 1 --template="{desc} {remotenames}\n"
+  $ sl -q pull
+  $ sl log -l 1 --template="{desc} {remotenames}\n"
   between_pull remote/bookmarkonremote
 
 Test pull with --rebase and --tool
   $ cd ../remoterepo
-  $ hg up bookmarkonremote -q
+  $ sl up bookmarkonremote -q
   $ echo remotechanges > editedbyboth
-  $ hg add editedbyboth
+  $ sl add editedbyboth
   $ mkcommit remotecommit
   $ cd ../localrepo
-  $ hg book -t remote/bookmarkonremote -r remote/bookmarkonremote tracking2
-  $ hg goto tracking2 -q
+  $ sl book -t remote/bookmarkonremote -r remote/bookmarkonremote tracking2
+  $ sl goto tracking2 -q
   $ echo localchanges > editedbyboth
-  $ hg add editedbyboth
+  $ sl add editedbyboth
   $ mkcommit somelocalchanges
   $ printdag
   @  somelocalchanges | tracking2 |
@@ -163,7 +164,7 @@ Test pull with --rebase and --tool
   ├─╯
   o  root |  |
   
-  $ hg pull --rebase --tool internal:union
+  $ sl pull --rebase --tool internal:union
   pulling from test:remoterepo
   searching for changes
   rebasing 1d01e32a0efb "somelocalchanges" (tracking2)

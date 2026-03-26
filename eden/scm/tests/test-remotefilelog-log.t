@@ -8,11 +8,11 @@
   $ clone master_bookmark client1
   $ cd client1
   $ echo x > x
-  $ hg commit -qAm x
+  $ sl commit -qAm x
   $ mkdir dir
   $ echo y > dir/y
-  $ hg commit -qAm y
-  $ hg push -r tip --to master_bookmark --create --config paths.default=mononoke://$(mononoke_address)/master_bookmark
+  $ sl commit -qAm y
+  $ sl push -r tip --to master_bookmark --create --config paths.default=mononoke://$(mononoke_address)/master_bookmark
   remote: adding changesets (?)
   remote: adding manifests (?)
   remote: adding file changes (?)
@@ -26,7 +26,7 @@ Shallow clone from full
 
   $ clone master_bookmark shallow --noupdate
   $ cd shallow
-  $ cat .hg/requires
+  $ cat .sl/requires
   generaldelta
   remotefilelog
   revlogv1
@@ -34,12 +34,12 @@ Shallow clone from full
   treestate
   windowssymlinks
 
-  $ hg goto tip
+  $ sl goto tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Log on a file without -f
 
-  $ hg log dir/y
+  $ sl log dir/y
   warning: file log can be slow on large repos - use -f to speed it up
   commit:      79c51fb96423
   bookmark:    remote/master_bookmark
@@ -50,7 +50,7 @@ Log on a file without -f
   
 Log on a file with -f
 
-  $ hg log -f dir/y
+  $ sl log -f dir/y
   commit:      79c51fb96423
   bookmark:    remote/master_bookmark
   hoistedname: master_bookmark
@@ -59,13 +59,13 @@ Log on a file with -f
   summary:     y
   
 Log on a file with kind in path
-  $ hg log -r "filelog('path:dir/y')"
+  $ sl log -r "filelog('path:dir/y')"
 FIXME: enable selective pull
 Output used to be not empty
 
 Log on multiple files with -f
 
-  $ hg log -f dir/y x
+  $ sl log -f dir/y x
   commit:      79c51fb96423
   bookmark:    remote/master_bookmark
   hoistedname: master_bookmark
@@ -80,7 +80,7 @@ Log on multiple files with -f
   
 Log on a directory
 
-  $ hg log dir
+  $ sl log dir
   commit:      79c51fb96423
   bookmark:    remote/master_bookmark
   hoistedname: master_bookmark
@@ -91,7 +91,7 @@ Log on a directory
 Log on a file from inside a directory
 
   $ cd dir
-  $ hg log y
+  $ sl log y
   warning: file log can be slow on large repos - use -f to speed it up
   commit:      79c51fb96423
   bookmark:    remote/master_bookmark
@@ -102,15 +102,15 @@ Log on a file from inside a directory
   
 Log on a file via -fr
   $ cd ..
-  $ hg log -fr tip dir/ --template '{node}\n'
+  $ sl log -fr tip dir/ --template '{node}\n'
   79c51fb9642383579314de1dcd88e4dd7b1b518a
 
 Trace renames
   $ echo >> x
-  $ hg commit -m "Edit x"
-  $ hg mv x z
-  $ hg commit -m move
-  $ hg log -f z -T '{desc}\n' -G --pager=off
+  $ sl commit -m "Edit x"
+  $ sl mv x z
+  $ sl commit -m move
+  $ sl log -f z -T '{desc}\n' -G --pager=off
   @  move
   │
   o  Edit x
@@ -119,5 +119,5 @@ Trace renames
   
 
 Verify remotefilelog handles rename metadata stripping when comparing file sizes
-  $ hg debugrebuilddirstate
-  $ hg status
+  $ sl debugrebuilddirstate
+  $ sl status

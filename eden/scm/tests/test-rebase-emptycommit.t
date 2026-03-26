@@ -2,13 +2,14 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ enable rebase
 
-  $ hg init non-merge
+  $ sl init non-merge
   $ cd non-merge
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   >   F
   >   |
   >   E
@@ -20,16 +21,16 @@
   > A
   > EOS
 
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > E
   > |
   > D
   > |
   > B
   > EOS
-  $ hg book -d A B C D E F
+  $ sl book -d A B C D E F
 
-  $ hg log -G -T '{desc} {bookmarks}'
+  $ sl log -G -T '{desc} {bookmarks}'
   o  E
   │
   o  D
@@ -48,12 +49,12 @@
   
 With --keep, bookmark should move
 
-  $ hg rebase -r 'e7b3f00ed42ef8977173765eccff8a861809549b+"BOOK-E"' -d 'max(desc(E))' --keep
+  $ sl rebase -r 'e7b3f00ed42ef8977173765eccff8a861809549b+"BOOK-E"' -d 'max(desc(E))' --keep
   rebasing e7b3f00ed42e "D" (BOOK-D)
   note: not rebasing e7b3f00ed42e, its destination (rebasing onto) commit already has all its changes
   rebasing 69a34c08022a "E" (BOOK-E)
   note: not rebasing 69a34c08022a, its destination (rebasing onto) commit already has all its changes
-  $ hg log -G -T '{desc} {bookmarks}'
+  $ sl log -G -T '{desc} {bookmarks}'
   o  E BOOK-D BOOK-E
   │
   o  D
@@ -72,22 +73,22 @@ With --keep, bookmark should move
   
 Move D and E back for the next test
 
-  $ hg bookmark BOOK-D -fqir e7b3f00ed42ef8977173765eccff8a861809549b
-  $ hg bookmark BOOK-E -fqir 69a34c08022af689d8a6e9be8d266f91f0cc79ec
+  $ sl bookmark BOOK-D -fqir e7b3f00ed42ef8977173765eccff8a861809549b
+  $ sl bookmark BOOK-E -fqir 69a34c08022af689d8a6e9be8d266f91f0cc79ec
 
 Bookmark is usually an indication of a head. For changes that are introduced by
 an ancestor of bookmark B, after moving B to B-NEW, the changes are ideally
 still introduced by an ancestor of changeset on B-NEW. In the below case,
 "BOOK-D", and "BOOK-E" include changes introduced by "C".
 
-  $ hg rebase -s 'desc(C)' -d 'max(desc(E))'
+  $ sl rebase -s 'desc(C)' -d 'max(desc(E))'
   rebasing dc0947a82db8 "C" (BOOK-C)
   rebasing e7b3f00ed42e "D" (BOOK-D)
   note: not rebasing e7b3f00ed42e, its destination (rebasing onto) commit already has all its changes
   rebasing 69a34c08022a "E" (BOOK-E)
   note: not rebasing 69a34c08022a, its destination (rebasing onto) commit already has all its changes
   rebasing 6b2aeab91270 "F" (BOOK-F)
-  $ hg log -G -T '{desc} {bookmarks}'
+  $ sl log -G -T '{desc} {bookmarks}'
   o  F BOOK-F
   │
   o  C BOOK-C BOOK-D BOOK-E
@@ -102,10 +103,10 @@ still introduced by an ancestor of changeset on B-NEW. In the below case,
   
 Merge and its ancestors all become empty
 
-  $ hg init $TESTTMP/merge1
+  $ sl init $TESTTMP/merge1
   $ cd $TESTTMP/merge1
 
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   >     E
   >    /|
   > B C D   # bookmark BOOK-E=E
@@ -113,7 +114,7 @@ Merge and its ancestors all become empty
   >   A     # bookmark BOOK-C=C
   > EOS
 
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > H
   > |
   > D
@@ -122,9 +123,9 @@ Merge and its ancestors all become empty
   > |
   > B
   > EOS
-  $ hg book -d A B C D E
+  $ sl book -d A B C D E
 
-  $ hg rebase -r '(desc(A)::)-(desc(B)::)-desc(A)' -d 'desc(H)'
+  $ sl rebase -r '(desc(A)::)-(desc(B)::)-desc(A)' -d 'desc(H)'
   rebasing b18e25de2cf5 "D" (BOOK-D)
   note: not rebasing b18e25de2cf5, its destination (rebasing onto) commit already has all its changes
   rebasing dc0947a82db8 "C" (BOOK-C)
@@ -132,7 +133,7 @@ Merge and its ancestors all become empty
   rebasing 86a1f6686812 "E" (BOOK-E)
   note: not rebasing 86a1f6686812, its destination (rebasing onto) commit already has all its changes
 
-  $ hg log -G -T '{desc} {bookmarks}'
+  $ sl log -G -T '{desc} {bookmarks}'
   o  H BOOK-C BOOK-D BOOK-E H
   │
   o  D
@@ -145,10 +146,10 @@ Merge and its ancestors all become empty
   
 Part of ancestors of a merge become empty
 
-  $ hg init $TESTTMP/merge2
+  $ sl init $TESTTMP/merge2
   $ cd $TESTTMP/merge2
 
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   >     G
   >    /|
   >   E F  # bookmark BOOK-G=G
@@ -158,7 +159,7 @@ Part of ancestors of a merge become empty
   >   A    # bookmark BOOK-C=C
   > EOS
 
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > H
   > |
   > F
@@ -167,9 +168,9 @@ Part of ancestors of a merge become empty
   > |
   > B
   > EOS
-  $ hg book -d A B C D E F G H
+  $ sl book -d A B C D E F G H
 
-  $ hg rebase -r '(desc(A)::)-(desc(B)::)-desc(A)' -d 'desc(H)'
+  $ sl rebase -r '(desc(A)::)-(desc(B)::)-desc(A)' -d 'desc(H)'
   rebasing dc0947a82db8 "C" (BOOK-C)
   note: not rebasing dc0947a82db8, its destination (rebasing onto) commit already has all its changes
   rebasing 03ca77807e91 "E" (BOOK-E)
@@ -178,7 +179,7 @@ Part of ancestors of a merge become empty
   note: not rebasing ad6717a6a58e, its destination (rebasing onto) commit already has all its changes
   rebasing c58e8bdac1f4 "G" (BOOK-G)
 
-  $ hg log -G -T '{desc} {bookmarks}'
+  $ sl log -G -T '{desc} {bookmarks}'
   o    G BOOK-G
   ├─╮
   │ o  D BOOK-D BOOK-F

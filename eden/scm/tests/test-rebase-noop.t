@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ configure modernclient mutation
   $ enable rebase amend undo
   $ setconfig rebase.reproducible-commits=true
@@ -28,7 +29,7 @@
   ├─╯
   o  426bada5c675 'A'
 
-  $ hg rebase -qs $B -d $D
+  $ sl rebase -qs $B -d $D
 
   $ tglog
   o  29bb7e1252bc 'C'
@@ -42,8 +43,8 @@
   $ setconfig devel.default-date='1 0'
 
 Undo and then redo the same rebase.
-  $ hg undo -q
-  $ hg rebase -qs $B -d $D
+  $ sl undo -q
+  $ sl rebase -qs $B -d $D
 
 B and C have converged back into the same commits as above:
   $ tglog

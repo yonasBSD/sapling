@@ -3,6 +3,7 @@
 #testcases single-transaction multi-transaction
 
 #if single-transaction
+  $ export HGIDENTITY=sl
   $ setconfig rebase.singletransaction=true
 #else
   $ setconfig rebase.singletransaction=false
@@ -18,71 +19,71 @@ Tests the --noconflict rebase flag
   $ configure modern
   $ newclientrepo
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > c
   > |
   > b g
   > |/
   > a
   > EOS
-  $ hg up -q g
+  $ sl up -q g
   $ echo "conflict" > c
-  $ hg add -q
-  $ hg amend -q
-  $ hg up c
+  $ sl add -q
+  $ sl amend -q
+  $ sl up c
   2 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (changing active bookmark from g to c)
   $ echo "local change" > b
 
 
 Confirm it fails when rebasing a change that conflicts:
-  $ hg rebase -r tip -d . --noconflict
+  $ sl rebase -r tip -d . --noconflict
   rebasing in-memory!
   rebasing 955ac081fc7c "g" (g)
   merging c
   hit merge conflicts (in c) and --noconflict passed; exiting
-  $ hg st
+  $ sl st
   M b
   $ cat b
   local change
 
 Confirm rebase without a merge behaves the same:
-  $ hg rebase -r tip -d .~1 --noconflict
+  $ sl rebase -r tip -d .~1 --noconflict
   rebasing in-memory!
   rebasing 955ac081fc7c "g" (g)
 
 Confirm the flag fails without IMM:
 
   $ setconfig rebase.experimental.inmemory=False
-  $ hg up -C .
+  $ sl up -C .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg st
-  $ hg rebase -r tip -d . --noconflict
+  $ sl st
+  $ sl rebase -r tip -d . --noconflict
   abort: --noconflict requires in-memory merge
   [255]
 
 Confirm that it rebases a three-way merge, but no conflict:
   $ newclientrepo
   $ seq 1 5 > a
-  $ hg commit -Aq -m "base"
+  $ sl commit -Aq -m "base"
   $ seq 1 10 > a
-  $ hg commit -q -m "extend to 10"
-  $ hg up -q .~1
+  $ sl commit -q -m "extend to 10"
+  $ sl up -q .~1
   $ seq 0 5 > a
-  $ hg commit -q -m "prepend with 0"
-  $ hg log -G -r 'desc(base)':: -T '{desc}'
+  $ sl commit -q -m "prepend with 0"
+  $ sl log -G -r 'desc(base)':: -T '{desc}'
   @  prepend with 0
   │
   │ o  extend to 10
   ├─╯
   o  base
   
-  $ hg up -qC 'desc(base)'
-  $ hg rebase -r 'desc(extend)' -d 'desc(prepend)' --noconflict
+  $ sl up -qC 'desc(base)'
+  $ sl rebase -r 'desc(extend)' -d 'desc(prepend)' --noconflict
   rebasing in-memory!
   rebasing 12cba56c6d27 "extend to 10"
   merging a
-  $ hg cat -r tip a | wc -l
+  $ sl cat -r tip a | wc -l
   11
 
 
@@ -96,7 +97,7 @@ Test state of non-conflicting parts of stack after conflict:
   > |/
   > A
   > EOS
-  $ hg rebase -s $C -d $B --noconflict
+  $ sl rebase -s $C -d $B --noconflict
   rebasing in-memory!
   rebasing dc0947a82db8 "C"
   rebasing afeb1d864871 "D"

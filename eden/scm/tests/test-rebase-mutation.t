@@ -2,6 +2,7 @@
 #require no-eden
 
 #chg-compatible
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
   $ eagerepo
@@ -17,32 +18,32 @@
 
 Setup rebase canonical repo
 
-  $ hg init base
+  $ sl init base
   $ cd base
 
   $ echo A > A
-  $ hg commit -Aqm "A"
+  $ sl commit -Aqm "A"
   $ echo B > B
-  $ hg commit -Aqm "B"
+  $ sl commit -Aqm "B"
   $ echo C > C
-  $ hg commit -Aqm "C"
+  $ sl commit -Aqm "C"
   $ echo D > D
-  $ hg commit -Aqm "D"
-  $ hg up -q .~3
+  $ sl commit -Aqm "D"
+  $ sl up -q .~3
   $ echo E > E
-  $ hg commit -Aqm "E"
-  $ hg book E
-  $ hg up -q .~1
+  $ sl commit -Aqm "E"
+  $ sl book E
+  $ sl up -q .~1
   $ echo F > F
-  $ hg commit -Aqm "F"
-  $ hg merge -q E
-  $ hg book -d E
+  $ sl commit -Aqm "F"
+  $ sl merge -q E
+  $ sl book -d E
   $ echo G > G
-  $ hg commit -Aqm "G"
-  $ hg up -q .^
+  $ sl commit -Aqm "G"
+  $ sl up -q .^
   $ echo H > H
-  $ hg commit -Aqm "H"
-  $ hg log -G
+  $ sl commit -Aqm "H"
+  $ sl log -G
   @  15ed2d917603 H
   │
   │ o  3dbfcf9931fb G
@@ -66,13 +67,13 @@ simple rebase
 
   $ cp -R base simple
   $ cd simple
-  $ hg up 'desc(D)'
+  $ sl up 'desc(D)'
   3 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg rebase -d 'desc(G)'
+  $ sl rebase -d 'desc(G)'
   rebasing 27547f69f254 "B"
   rebasing f838bfaca5c7 "C"
   rebasing b3325c91a4d9 "D"
-  $ hg log -G
+  $ sl log -G
   @  368c138b79d3 D
   │
   o  9c324c92f058 C
@@ -89,7 +90,7 @@ simple rebase
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg log --hidden -G
+  $ sl log --hidden -G
   @  368c138b79d3 D
   │
   o  9c324c92f058 C
@@ -112,7 +113,7 @@ simple rebase
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg debugmutation -r ::.
+  $ sl debugmutation -r ::.
    *  4a2df7238c3b48766b5e22fafbb8a2f506ec8256
   
    *  4e18486b35689011fba83ca295f65cf08ae151cc
@@ -138,22 +139,22 @@ empty changeset
 
   $ cp -R base empty
   $ cd empty
-  $ hg up 'desc(G)'
+  $ sl up 'desc(G)'
   2 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
 We make a copy of both the first changeset in the rebased and some other in the
 set.
 
-  $ hg graft 'desc(B)' 'desc(D)'
+  $ sl graft 'desc(B)' 'desc(D)'
   grafting 27547f69f254 "B"
   grafting b3325c91a4d9 "D"
-  $ hg rebase  -s 'min(desc(B))' -d .
+  $ sl rebase  -s 'min(desc(B))' -d .
   rebasing 27547f69f254 "B"
   note: not rebasing 27547f69f254, its destination (rebasing onto) commit already has all its changes
   rebasing f838bfaca5c7 "C"
   rebasing b3325c91a4d9 "D"
   note: not rebasing b3325c91a4d9, its destination (rebasing onto) commit already has all its changes
-  $ hg log -G
+  $ sl log -G
   o  47afe0acbe69 C
   │
   @  7feeeb5dcdab D
@@ -170,7 +171,7 @@ set.
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg log --hidden -G
+  $ sl log --hidden -G
   o  47afe0acbe69 C
   │
   @  7feeeb5dcdab D
@@ -193,20 +194,20 @@ set.
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg debugmutation -r 'max(desc(C))'
+  $ sl debugmutation -r 'max(desc(C))'
    *  47afe0acbe69fea7534fd9f3a35fab09f9cb53da rebase by test at 1970-01-01T00:00:00 from:
       f838bfaca5c7226600ebcfd84f3c3c13a28d3757
   
 
 More complex case where part of the rebase set were already rebased
 
-  $ hg rebase --rev 'desc(D) & ::.' --dest 'desc(H)'
+  $ sl rebase --rev 'desc(D) & ::.' --dest 'desc(H)'
   rebasing 7feeeb5dcdab "D"
-  $ hg debugmutation -r 'max(desc(D))'
+  $ sl debugmutation -r 'max(desc(D))'
    *  7d1575e225fe518e88eaa5b98015c3b3c139151f rebase by test at 1970-01-01T00:00:00 from:
       7feeeb5dcdab46bab5a9ab75849446fdde86bbc6
   
-  $ hg log -G
+  $ sl log -G
   @  7d1575e225fe D
   │
   │ o  47afe0acbe69 C
@@ -225,11 +226,11 @@ More complex case where part of the rebase set were already rebased
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg rebase --source 'desc(B)' --dest 'tip' --config experimental.rebaseskipobsolete=True
+  $ sl rebase --source 'desc(B)' --dest 'tip' --config experimental.rebaseskipobsolete=True
   rebasing 0f436dd2ef1b "B"
   note: not rebasing 7feeeb5dcdab "D", already in destination as 7d1575e225fe "D"
   rebasing 47afe0acbe69 "C"
-  $ hg debugmutation -r 'max(desc(D))'::'max(desc(C))'
+  $ sl debugmutation -r 'max(desc(D))'::'max(desc(C))'
    *  7d1575e225fe518e88eaa5b98015c3b3c139151f rebase by test at 1970-01-01T00:00:00 from:
       7feeeb5dcdab46bab5a9ab75849446fdde86bbc6
   
@@ -240,7 +241,7 @@ More complex case where part of the rebase set were already rebased
       47afe0acbe69fea7534fd9f3a35fab09f9cb53da rebase by test at 1970-01-01T00:00:00 from:
       f838bfaca5c7226600ebcfd84f3c3c13a28d3757
   
-  $ hg log -G
+  $ sl log -G
   o  89a4066d69a5 C
   │
   o  ff04f97480fc B
@@ -257,29 +258,29 @@ More complex case where part of the rebase set were already rebased
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg log -r 4596109a6a4328c398bde3a4a3b6737cfade3003
+  $ sl log -r 4596109a6a4328c398bde3a4a3b6737cfade3003
   abort: unknown revision '4596109a6a4328c398bde3a4a3b6737cfade3003'!
   [255]
-  $ hg up -qr 'desc(G)'
-  $ hg graft 'desc(D)'
+  $ sl up -qr 'desc(G)'
+  $ sl graft 'desc(D)'
   grafting b3325c91a4d9 "D"
   grafting 7feeeb5dcdab "D"
   note: graft of 7feeeb5dcdab created no changes to commit
   grafting 7d1575e225fe "D"
   note: graft of 7d1575e225fe created no changes to commit
-  $ hg up -qr 'desc(E)'
-  $ hg rebase -s tip -d .
+  $ sl up -qr 'desc(E)'
+  $ sl rebase -s tip -d .
   rebasing 4ea2ed9d476e "D"
-  $ hg log -r tip
+  $ sl log -r tip
   957b23adf5c4 D (no-eol)
 Start rebase from a commit that is obsolete but not hidden only because it's
 a working copy parent. We should be moved back to the starting commit as usual
 even though it is hidden (until we're moved there).
 
-  $ hg up 'desc(B)' -q
-  $ hg rebase --rev 'max(desc(C))' --dest 'max(desc(D))'
+  $ sl up 'desc(B)' -q
+  $ sl rebase --rev 'max(desc(C))' --dest 'max(desc(D))'
   rebasing 89a4066d69a5 "C"
-  $ hg log -G
+  $ sl log -G
   o  72d2a808a21e C
   │
   o  957b23adf5c4 D
@@ -306,12 +307,12 @@ collapse rebase
 
   $ cp -R base collapse
   $ cd collapse
-  $ hg up 'desc(H)' -q
-  $ hg rebase  -s 'desc(B)' -d 'desc(G)' --collapse
+  $ sl up 'desc(H)' -q
+  $ sl rebase  -s 'desc(B)' -d 'desc(G)' --collapse
   rebasing 27547f69f254 "B"
   rebasing f838bfaca5c7 "C"
   rebasing b3325c91a4d9 "D"
-  $ hg log -G
+  $ sl log -G
   o  38220e8976c3 Collapsed revision
   │
   │ @  15ed2d917603 H
@@ -324,7 +325,7 @@ collapse rebase
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg log --hidden -G
+  $ sl log --hidden -G
   o  38220e8976c3 Collapsed revision
   │
   │ @  15ed2d917603 H
@@ -343,9 +344,9 @@ collapse rebase
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg id --debug -r tip
+  $ sl id --debug -r tip
   38220e8976c3141043fe724fdbf5ba53ef80cd1a
-  $ hg debugmutation -r tip
+  $ sl debugmutation -r tip
    *  38220e8976c3141043fe724fdbf5ba53ef80cd1a rebase by test at 1970-01-01T00:00:00 from:
       |-  27547f69f25460a52fff66ad004e58da7ad3fb56
       |-  f838bfaca5c7226600ebcfd84f3c3c13a28d3757
@@ -362,8 +363,8 @@ be rebased.
 
   $ cp -R base hidden
   $ cd hidden
-  $ hg up -q 'desc(H)'
-  $ hg log -G
+  $ sl up -q 'desc(H)'
+  $ sl log -G
   @  15ed2d917603 H
   │
   │ o  3dbfcf9931fb G
@@ -380,10 +381,10 @@ be rebased.
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg rebase -s 'desc(C)' -d 'desc(G)'
+  $ sl rebase -s 'desc(C)' -d 'desc(G)'
   rebasing f838bfaca5c7 "C"
   rebasing b3325c91a4d9 "D"
-  $ hg log -G
+  $ sl log -G
   o  b9a00f7e0244 D
   │
   o  6c4492b9afc0 C
@@ -400,9 +401,9 @@ be rebased.
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg rebase -s 'desc(B)' -d 'desc(H)'
+  $ sl rebase -s 'desc(B)' -d 'desc(H)'
   rebasing 27547f69f254 "B"
-  $ hg log -G
+  $ sl log -G
   o  6513e8468c61 B
   │
   │ o  b9a00f7e0244 D
@@ -419,7 +420,7 @@ be rebased.
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg log --hidden -G
+  $ sl log --hidden -G
   o  6513e8468c61 B
   │
   │ o  b9a00f7e0244 D
@@ -442,7 +443,7 @@ be rebased.
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg debugmutation -r 8 -r 9 -r 10
+  $ sl debugmutation -r 8 -r 9 -r 10
    *  6c4492b9afc04f340e0e5693b3b00e15ad725280 rebase by test at 1970-01-01T00:00:00 from:
       f838bfaca5c7226600ebcfd84f3c3c13a28d3757
   
@@ -456,11 +457,11 @@ be rebased.
 Test that rewriting leaving instability behind is allowed
 ---------------------------------------------------------------------
 
-  $ hg log -r 'children(max(desc(C)))'
+  $ sl log -r 'children(max(desc(C)))'
   b9a00f7e0244 D (no-eol)
-  $ hg rebase -r 'max(desc(C))' -d 'desc(B)'
+  $ sl rebase -r 'max(desc(C))' -d 'desc(B)'
   rebasing 6c4492b9afc0 "C"
-  $ hg log -G
+  $ sl log -G
   o  fb16c8a4d41d C
   │
   o  6513e8468c61 B
@@ -484,11 +485,11 @@ Test that rewriting leaving instability behind is allowed
 Test multiple root handling
 ------------------------------------
 
-  $ hg rebase --dest 'desc(E)' --rev 'desc(H)+11+9'
+  $ sl rebase --dest 'desc(E)' --rev 'desc(H)+11+9'
   rebasing 15ed2d917603 "H"
   rebasing fb16c8a4d41d "C"
   rebasing b9a00f7e0244 "D"
-  $ hg log -G
+  $ sl log -G
   o  519f68ee3858 D
   │
   │ o  7af31ae01a50 C
@@ -511,7 +512,7 @@ Test multiple root handling
 
 Detach both parents
 
-  $ hg init double-detach
+  $ sl init double-detach
   $ cd double-detach
 
   $ drawdag <<EOF
@@ -524,7 +525,7 @@ Detach both parents
   >   A
   > EOF
 
-  $ hg rebase -d "desc(G)" -r "desc(B) + desc(D) + desc(F)"
+  $ sl rebase -d "desc(G)" -r "desc(B) + desc(D) + desc(F)"
   rebasing b18e25de2cf5 "D"
   rebasing 112478962961 "B"
   rebasing f15c3adaf214 "F"
@@ -539,16 +540,16 @@ test on rebase dropping a merge
 
   $ cp -R base dropmerge
   $ cd dropmerge
-  $ hg up 'desc(D)'
+  $ sl up 'desc(D)'
   3 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg merge 'desc(H)'
+  $ sl merge 'desc(H)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg ci -m 'M'
+  $ sl ci -m 'M'
   $ echo I > I
-  $ hg add I
-  $ hg ci -m I
-  $ hg log -G
+  $ sl add I
+  $ sl ci -m I
+  $ sl log -G
   @  b1503e71269e I
   │
   o    afaad9b542d8 M
@@ -571,11 +572,11 @@ test on rebase dropping a merge
   
 (actual test)
 
-  $ hg rebase --dest 'desc(G)' --rev '((desc(H) + desc(D))::) - desc(M)'
+  $ sl rebase --dest 'desc(G)' --rev '((desc(H) + desc(D))::) - desc(M)'
   rebasing 15ed2d917603 "H"
   rebasing b3325c91a4d9 "D"
   rebasing b1503e71269e "I"
-  $ hg log -G
+  $ sl log -G
   @  81b9c3afc5f1 I
   │
   │ o  783cb424299f D
@@ -603,18 +604,18 @@ test on rebase dropping a merge
 
 Test hidden changesets in the rebase set (issue4504)
 
-  $ hg up --hidden 'min(desc(I))'
+  $ sl up --hidden 'min(desc(I))'
   3 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ echo J > J
-  $ hg add J
-  $ hg commit -m J
-  $ hg --config extensions.amend= hide -q ".^"
-  $ hg up -q --hidden "desc(J)"
+  $ sl add J
+  $ sl commit -m J
+  $ sl --config extensions.amend= hide -q ".^"
+  $ sl up -q --hidden "desc(J)"
 
-  $ hg rebase --rev .~1::. --dest 'max(desc(D))' --traceback --config experimental.rebaseskipobsolete=off
+  $ sl rebase --rev .~1::. --dest 'max(desc(D))' --traceback --config experimental.rebaseskipobsolete=off
   rebasing b1503e71269e "I"
   rebasing 310ee67cd06b "J"
-  $ hg log -G
+  $ sl log -G
   @  b37111507b7f J
   │
   o  d5d779cd3731 I
@@ -643,20 +644,20 @@ Test hidden changesets in the rebase set (issue4504)
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg up 'max(desc(I))' -C
+  $ sl up 'max(desc(I))' -C
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo "K" > K
-  $ hg add K
-  $ hg commit --amend -m "K"
+  $ sl add K
+  $ sl commit --amend -m "K"
   $ echo "L" > L
-  $ hg add L
-  $ hg commit -m "L"
-  $ hg up '.^'
+  $ sl add L
+  $ sl commit -m "L"
+  $ sl up '.^'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo "M" > M
-  $ hg add M
-  $ hg commit --amend -m "M"
-  $ hg log -G
+  $ sl add M
+  $ sl commit --amend -m "M"
+  $ sl log -G
   @  5971eedbdd0c M
   │
   │ o  036ee639b269 L
@@ -691,7 +692,7 @@ Test hidden changesets in the rebase set (issue4504)
   ├─╯
   o  4a2df7238c3b A
   
-  $ hg rebase -s 'max(desc(I))' -d 'desc(L)' --config experimental.rebaseskipobsolete=True
+  $ sl rebase -s 'max(desc(I))' -d 'desc(L)' --config experimental.rebaseskipobsolete=True
   note: not rebasing d5d779cd3731 "I", already in destination as 2aa9c55690c5 "K"
   rebasing b37111507b7f "J"
 
@@ -702,28 +703,28 @@ Skip obsolete changeset even with multiple hops
 
 setup
 
-  $ hg init obsskip
+  $ sl init obsskip
   $ cd obsskip
-  $ cat << EOF >> .hg/hgrc
+  $ cat << EOF >> .sl/config
   > [experimental]
   > rebaseskipobsolete = True
   > [extensions]
   > strip =
   > EOF
   $ echo A > A
-  $ hg add A
-  $ hg commit -m A
+  $ sl add A
+  $ sl commit -m A
   $ echo B > B
-  $ hg add B
-  $ hg commit -m B0
-  $ hg commit --amend -m B1
-  $ hg commit --amend -m B2
-  $ hg up --hidden 'desc(B0)'
+  $ sl add B
+  $ sl commit -m B0
+  $ sl commit --amend -m B1
+  $ sl commit --amend -m B2
+  $ sl up --hidden 'desc(B0)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo C > C
-  $ hg add C
-  $ hg commit -m C
-  $ hg log -G
+  $ sl add C
+  $ sl commit -m C
+  $ sl log -G
   @  212cb178bcbb C
   │
   │ o  261e70097290 B2
@@ -735,22 +736,22 @@ setup
 
 Rebase finds its way in a chain of marker
 
-  $ hg rebase -d 'desc(B2)'
+  $ sl rebase -d 'desc(B2)'
   note: not rebasing a8b11f55fb19 "B0", already in destination as 261e70097290 "B2"
   rebasing 212cb178bcbb "C"
 
 Even when the chain include missing node
 
-  $ hg up --hidden 'desc(B0)'
+  $ sl up --hidden 'desc(B0)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo D > D
-  $ hg add D
-  $ hg commit -m D
+  $ sl add D
+  $ sl commit -m D
 
   $ enable amend
-  $ hg hide 212cb178bcbb8916f22a2bf937232f368b64ace7 -q --hidden
+  $ sl hide 212cb178bcbb8916f22a2bf937232f368b64ace7 -q --hidden
 
-  $ hg log -G
+  $ sl log -G
   @  1a79b7535141 D
   │
   │ o  ff2c4d47b71d C
@@ -762,18 +763,18 @@ Even when the chain include missing node
   o  4a2df7238c3b A
   
 
-  $ hg rebase -d 'desc(B2)'
+  $ sl rebase -d 'desc(B2)'
   note: not rebasing a8b11f55fb19 "B0", already in destination as 261e70097290 "B2"
   rebasing 1a79b7535141 "D"
-  $ hg up 'max(desc(C))'
+  $ sl up 'max(desc(C))'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo "O" > O
-  $ hg add O
-  $ hg commit -m O
+  $ sl add O
+  $ sl commit -m O
   $ echo "P" > P
-  $ hg add P
-  $ hg commit -m P
-  $ hg log -G
+  $ sl add P
+  $ sl commit -m P
+  $ sl log -G
   @  8d47583e023f P
   │
   o  360bbaa7d3ce O
@@ -786,17 +787,17 @@ Even when the chain include missing node
   │
   o  4a2df7238c3b A
   
-  $ hg rebase -d 'max(desc(D))' -r "ff2c4d47b71d942eb1f1914b2cb5fe3a328f1ba9+8d47583e023f"
+  $ sl rebase -d 'max(desc(D))' -r "ff2c4d47b71d942eb1f1914b2cb5fe3a328f1ba9+8d47583e023f"
   rebasing ff2c4d47b71d "C"
   rebasing 8d47583e023f "P"
-  $ hg hide 'desc(O)' --config extensions.amend=
+  $ sl hide 'desc(O)' --config extensions.amend=
   hiding commit 360bbaa7d3ce "O"
   1 changeset hidden
 
 If all the changeset to be rebased are obsolete and present in the destination, we
 should display a friendly error message
 
-  $ hg log -G
+  $ sl log -G
   @  121d9e3bc4c6 P
   │
   o  4be60e099a77 C
@@ -810,7 +811,7 @@ should display a friendly error message
 
 Rebases can create divergence
 
-  $ hg log -G
+  $ sl log -G
   @  121d9e3bc4c6 P
   │
   o  4be60e099a77 C
@@ -822,22 +823,22 @@ Rebases can create divergence
   o  4a2df7238c3b A
   
 
-  $ hg up 'max(desc(C))'
+  $ sl up 'max(desc(C))'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo "john" > doe
-  $ hg add doe
-  $ hg commit -m "john doe"
-  $ hg up 'max(desc(P))'
+  $ sl add doe
+  $ sl commit -m "john doe"
+  $ sl up 'max(desc(P))'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo "foo" > bar
-  $ hg add bar
-  $ hg commit --amend -m "P-amended"
-  $ hg up 121d9e3bc4c60bd1c9c007e7de31d6796b882a45 --hidden
+  $ sl add bar
+  $ sl commit --amend -m "P-amended"
+  $ sl up 121d9e3bc4c60bd1c9c007e7de31d6796b882a45 --hidden
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo "bar" > foo
-  $ hg add foo
-  $ hg commit -m "bar foo"
-  $ hg log -G
+  $ sl add foo
+  $ sl commit -m "bar foo"
+  $ sl log -G
   @  73568ab6879d bar foo
   │
   │ o  e75f87cd16c5 P-amended
@@ -854,10 +855,10 @@ Rebases can create divergence
   │
   o  4a2df7238c3b A
   
-  $ hg rebase -s 121d9e3bc4c60bd1c9c007e7de31d6796b882a45 -d 'desc(john)'
+  $ sl rebase -s 121d9e3bc4c60bd1c9c007e7de31d6796b882a45 -d 'desc(john)'
   rebasing 121d9e3bc4c6 "P"
   rebasing 73568ab6879d "bar foo"
-  $ hg log -G
+  $ sl log -G
   @  61bd55f69bc4 bar foo
   │
   o  5f53594f6882 P
@@ -877,31 +878,31 @@ Rebases can create divergence
 rebase --continue + skipped rev because their successors are in destination
 we make a change in trunk and work on conflicting changes to make rebase abort.
 
-  $ hg log -G -r 'max(desc(bar))'::
+  $ sl log -G -r 'max(desc(bar))'::
   @  61bd55f69bc4 bar foo
   │
   ~
 
 Create a change in trunk
   $ printf "a" > willconflict
-  $ hg add willconflict
-  $ hg commit -m "willconflict first version"
+  $ sl add willconflict
+  $ sl commit -m "willconflict first version"
 
 Create the changes that we will rebase
-  $ hg goto -C 'max(desc(bar))' -q
+  $ sl goto -C 'max(desc(bar))' -q
   $ printf "b" > willconflict
-  $ hg add willconflict
-  $ hg commit -m "willconflict second version"
+  $ sl add willconflict
+  $ sl commit -m "willconflict second version"
   $ printf "dummy" > K
-  $ hg add K
-  $ hg commit -m "dummy change 1"
+  $ sl add K
+  $ sl commit -m "dummy change 1"
   $ printf "dummy" > L
-  $ hg add L
-  $ hg commit -m "dummy change 2"
-  $ hg rebase -r cab092d71c4b6b4c735990a4c35f9bf949c73b12 -d 357ddf1602d5a49a02a6d216eeb0d5cc37a1f036
+  $ sl add L
+  $ sl commit -m "dummy change 2"
+  $ sl rebase -r cab092d71c4b6b4c735990a4c35f9bf949c73b12 -d 357ddf1602d5a49a02a6d216eeb0d5cc37a1f036
   rebasing cab092d71c4b "dummy change 1"
 
-  $ hg log -G -r 'max(desc(bar))'::
+  $ sl log -G -r 'max(desc(bar))'::
   o  59c6f3a91215 dummy change 1
   │
   │ @  ae4ed1351416 dummy change 2
@@ -915,17 +916,17 @@ Create the changes that we will rebase
   o  61bd55f69bc4 bar foo
   │
   ~
-  $ hg rebase -r ".^^ + .^ + ." -d 'max(desc(dummy))'
+  $ sl rebase -r ".^^ + .^ + ." -d 'max(desc(dummy))'
   rebasing b82fb57ea638 "willconflict second version"
   merging willconflict
-  warning: 1 conflicts while merging willconflict! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging willconflict! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
-  $ hg resolve --mark willconflict
+  $ sl resolve --mark willconflict
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  continue: sl rebase --continue
+  $ sl rebase --continue
   rebasing b82fb57ea638 "willconflict second version"
   note: not rebasing cab092d71c4b "dummy change 1", already in destination as 59c6f3a91215 "dummy change 1"
   rebasing ae4ed1351416 "dummy change 2"
@@ -937,9 +938,9 @@ Divergence cases due to obsolete changesets
 We should ignore branches with unstable changesets when they are based on an
 obsolete changeset which successor is in rebase set.
 
-  $ hg init divergence
+  $ sl init divergence
   $ cd divergence
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > [templates]
   > instabilities = '{node|short} {desc|firstline}{if(instabilities," ({instabilities})")}\n'
   > EOF
@@ -955,7 +956,7 @@ obsolete changeset which successor is in rebase set.
   >    \|
   >     a
   > EOF
-  $ hg log -G -r $a::
+  $ sl log -G -r $a::
   o  493e1ea05b71 e
   │
   │ o  1143e9adc121 f
@@ -977,13 +978,13 @@ Changeset d and its descendants are excluded to avoid divergence of d, which
 would occur because the successor of d (d2) is also in rebaseset. As a
 consequence f (descendant of d) is left behind.
 
-  $ hg rebase -b $e -d $x
+  $ sl rebase -b $e -d $x
   rebasing 488e1b7e7341 "b"
   rebasing a82ac2b38757 "c"
   note: not rebasing 76be324c128b "d" and its descendants as this would cause divergence
   rebasing 447acf26a46a "d2"
   rebasing 493e1ea05b71 "e"
-  $ hg log -G -r $a::
+  $ sl log -G -r $a::
   o  1ce56955f155 e
   │
   o  885d062b1232 d2
@@ -1005,22 +1006,22 @@ consequence f (descendant of d) is left behind.
   o  b173517d0057 a
   
 
-  $ hg debugmutation -r "desc(d2) & $a::"
+  $ sl debugmutation -r "desc(d2) & $a::"
    *  885d062b12325adcee99e6cffe64beab3e3fa72d rebase by test at 1970-01-01T00:00:00 from:
       447acf26a46a3399a7d18e2bd63f0762b7198405 replace by test at 1970-01-01T00:00:00 from:
       76be324c128b88631d4bff1b65a6cfe23096d1f6
   
-  $ hg debugstrip --no-backup -q -r 'max(desc(b))':
+  $ sl debugstrip --no-backup -q -r 'max(desc(b))':
 
 If the rebase set has an obsolete (d) with a successor (d2) outside the rebase
 set and none in destination, then divergence is allowed.
 
-  $ hg unhide -r $d2+$e --config extensions.amend=
-  $ hg rebase -r $c::$f -d $x
+  $ sl unhide -r $d2+$e --config extensions.amend=
+  $ sl rebase -r $c::$f -d $x
   rebasing a82ac2b38757 "c"
   rebasing 76be324c128b "d"
   rebasing 1143e9adc121 "f"
-  $ hg log -G -r $a::
+  $ sl log -G -r $a::
   o  e1744ea07510 f
   │
   o  e2b36ea9a0a0 d
@@ -1039,17 +1040,17 @@ set and none in destination, then divergence is allowed.
   ├─╯
   o  b173517d0057 a
   
-  $ hg debugstrip --no-backup -q -r 'max(desc(c))':
+  $ sl debugstrip --no-backup -q -r 'max(desc(c))':
 
 (Not skipping obsoletes means that divergence is allowed.)
 
-  $ hg unhide -r $f --config extensions.amend=
-  $ hg rebase --config experimental.rebaseskipobsolete=false -r $c::$f -d $x
+  $ sl unhide -r $f --config extensions.amend=
+  $ sl rebase --config experimental.rebaseskipobsolete=false -r $c::$f -d $x
   rebasing a82ac2b38757 "c"
   rebasing 76be324c128b "d"
   rebasing 1143e9adc121 "f"
 
-  $ hg debugstrip --no-backup -q -r 'desc(a)':
+  $ sl debugstrip --no-backup -q -r 'desc(a)':
 
 Similar test on a more complex graph
 
@@ -1066,7 +1067,7 @@ Similar test on a more complex graph
   >    \|
   >     a
   > EOF
-  $ hg log -G -r $a:
+  $ sl log -G -r $a:
   o  12df856f4e8e f
   │
   │ o  2876ce66c6eb g
@@ -1085,7 +1086,7 @@ Similar test on a more complex graph
   ├─╯
   o  b173517d0057 a
   
-  $ hg rebase -b $f -d $x
+  $ sl rebase -b $f -d $x
   rebasing 488e1b7e7341 "b"
   rebasing a82ac2b38757 "c"
   rebasing 76be324c128b "d"
@@ -1094,7 +1095,7 @@ Similar test on a more complex graph
   rebasing 12df856f4e8e "f"
 
 FIXME: 121d9e3bc4c6 and 87682c149ad7 should be hidden.
-  $ hg log -G -r "$a::(not obsolete())"
+  $ sl log -G -r "$a::(not obsolete())"
   o  aa3f1f628d29 f
   │
   o  2963fc7a5743 e2
@@ -1128,7 +1129,7 @@ FIXME: 121d9e3bc4c6 and 87682c149ad7 should be hidden.
 
 Rebase merge where successor of one parent is equal to destination (issue5198)
 
-  $ hg init p1-succ-is-dest
+  $ sl init p1-succ-is-dest
   $ cd p1-succ-is-dest
 
   $ drawdag <<EOF
@@ -1139,10 +1140,10 @@ Rebase merge where successor of one parent is equal to destination (issue5198)
   >   A
   > EOF
 
-  $ hg rebase -d $B -s "desc(D)"
+  $ sl rebase -d $B -s "desc(D)"
   note: not rebasing b18e25de2cf5 "D", already in destination as 112478962961 "B"
   rebasing 66f1a38021c9 "F"
-  $ hg log -G
+  $ sl log -G
   o    50e9d60b99c6 F
   ├─╮
   │ o  112478962961 B
@@ -1155,7 +1156,7 @@ Rebase merge where successor of one parent is equal to destination (issue5198)
 
 Rebase merge where successor of other parent is equal to destination
 
-  $ hg init p2-succ-is-dest
+  $ sl init p2-succ-is-dest
   $ cd p2-succ-is-dest
 
   $ drawdag <<EOF
@@ -1166,10 +1167,10 @@ Rebase merge where successor of other parent is equal to destination
   >   A
   > EOF
 
-  $ hg rebase -d "desc(B)" -s "desc(E)"
+  $ sl rebase -d "desc(B)" -s "desc(E)"
   note: not rebasing 7fb047a69f22 "E", already in destination as 112478962961 "B"
   rebasing 66f1a38021c9 "F"
-  $ hg log -G
+  $ sl log -G
   o    aae1787dacee F
   ├─╮
   │ o  112478962961 B
@@ -1182,7 +1183,7 @@ Rebase merge where successor of other parent is equal to destination
 
 Rebase merge where successor of one parent is ancestor of destination
 
-  $ hg init p1-succ-in-dest
+  $ sl init p1-succ-in-dest
   $ cd p1-succ-in-dest
 
   $ drawdag <<EOF
@@ -1193,11 +1194,11 @@ Rebase merge where successor of one parent is ancestor of destination
   >   A
   > EOF
 
-  $ hg rebase -d "desc(C)" -s "desc(D)"
+  $ sl rebase -d "desc(C)" -s "desc(D)"
   note: not rebasing b18e25de2cf5 "D", already in destination as 112478962961 "B"
   rebasing 66f1a38021c9 "F"
 
-  $ hg log -G
+  $ sl log -G
   o    0913febf6439 F
   ├─╮
   │ o  26805aba1e60 C
@@ -1212,7 +1213,7 @@ Rebase merge where successor of one parent is ancestor of destination
 
 Rebase merge where successor of other parent is ancestor of destination
 
-  $ hg init p2-succ-in-dest
+  $ sl init p2-succ-in-dest
   $ cd p2-succ-in-dest
 
   $ drawdag <<EOF
@@ -1223,10 +1224,10 @@ Rebase merge where successor of other parent is ancestor of destination
   >   A
   > EOF
 
-  $ hg rebase -d "desc(C)" -s "desc(E)"
+  $ sl rebase -d "desc(C)" -s "desc(E)"
   note: not rebasing 7fb047a69f22 "E", already in destination as 112478962961 "B"
   rebasing 66f1a38021c9 "F"
-  $ hg log -G
+  $ sl log -G
   o    c6ab0cc6d220 F
   ├─╮
   │ o  26805aba1e60 C
@@ -1241,7 +1242,7 @@ Rebase merge where successor of other parent is ancestor of destination
 
 Rebase merge where successor of one parent is ancestor of destination
 
-  $ hg init p1-succ-in-dest-b
+  $ sl init p1-succ-in-dest-b
   $ cd p1-succ-in-dest-b
 
   $ drawdag <<EOF
@@ -1252,12 +1253,12 @@ Rebase merge where successor of one parent is ancestor of destination
   >   A
   > EOF
 
-  $ hg rebase -d "desc(C)" -b "desc(F)"
+  $ sl rebase -d "desc(C)" -b "desc(F)"
   note: not rebasing 7fb047a69f22 "E", already in destination as 112478962961 "B"
   rebasing b18e25de2cf5 "D"
   rebasing 66f1a38021c9 "F"
   note: not rebasing 66f1a38021c9, its destination (rebasing onto) commit already has all its changes
-  $ hg log -G
+  $ sl log -G
   o  8f47515dda15 D
   │
   o  26805aba1e60 C
@@ -1270,7 +1271,7 @@ Rebase merge where successor of one parent is ancestor of destination
 
 Rebase merge where successor of other parent is ancestor of destination
 
-  $ hg init p2-succ-in-dest-b
+  $ sl init p2-succ-in-dest-b
   $ cd p2-succ-in-dest-b
 
   $ drawdag <<EOF
@@ -1281,13 +1282,13 @@ Rebase merge where successor of other parent is ancestor of destination
   >   A
   > EOF
 
-  $ hg rebase -d "desc(C)" -b "desc(F)"
+  $ sl rebase -d "desc(C)" -b "desc(F)"
   rebasing 7fb047a69f22 "E"
   note: not rebasing b18e25de2cf5 "D", already in destination as 112478962961 "B"
   rebasing 66f1a38021c9 "F"
   note: not rebasing 66f1a38021c9, its destination (rebasing onto) commit already has all its changes
 
-  $ hg log -G
+  $ sl log -G
   o  533690786a86 E
   │
   o  26805aba1e60 C
@@ -1300,7 +1301,7 @@ Rebase merge where successor of other parent is ancestor of destination
 
 Rebase merge where both parents have successors in destination
 
-  $ hg init p12-succ-in-dest
+  $ sl init p12-succ-in-dest
   $ cd p12-succ-in-dest
   $ drawdag <<'EOS'
   >   E   F
@@ -1309,7 +1310,7 @@ Rebase merge where both parents have successors in destination
   > | |
   > X Y
   > EOS
-  $ hg rebase -r "desc(A)+desc(B)+desc(E)" -d "desc(F)"
+  $ sl rebase -r "desc(A)+desc(B)+desc(E)" -d "desc(F)"
   note: not rebasing a3d17304151f "A", already in destination as 96cc3511f894 "C"
   note: not rebasing b23a2cc00842 "B", already in destination as 058c1e1fb10a "D"
   rebasing dac5d11c5a7d "E"
@@ -1320,19 +1321,19 @@ Rebase merge where both parents have successors in destination
 Rebase a non-clean merge. One parent has successor in destination, the other
 parent moves as requested.
 
-  $ hg init p1-succ-p2-move
+  $ sl init p1-succ-p2-move
   $ cd p1-succ-p2-move
   $ drawdag <<'EOS'
   >   D Z
   >  /| | # replace: A -> C
   > A B C # D/D = D
   > EOS
-  $ hg rebase -r "desc(A)+desc(B)+desc(D)" -d "desc(Z)"
+  $ sl rebase -r "desc(A)+desc(B)+desc(D)" -d "desc(Z)"
   note: not rebasing 426bada5c675 "A", already in destination as 96cc3511f894 "C"
   rebasing fc2b737bb2e5 "B"
   rebasing b8ed089c80ad "D"
 
-  $ hg log -G
+  $ sl log -G
   o  e4f78693cc88 D
   │
   o  76840d832e98 B
@@ -1341,7 +1342,7 @@ parent moves as requested.
   │
   o  96cc3511f894 C
   
-  $ hg files -r tip
+  $ sl files -r tip
   B
   C
   D
@@ -1349,19 +1350,19 @@ parent moves as requested.
 
   $ cd ..
 
-  $ hg init p1-move-p2-succ
+  $ sl init p1-move-p2-succ
   $ cd p1-move-p2-succ
   $ drawdag <<'EOS'
   >   D Z
   >  /| |  # replace: B -> C
   > A B C  # D/D = D
   > EOS
-  $ hg rebase -r "desc(B)+desc(A)+desc(D)" -d "desc(Z)"
+  $ sl rebase -r "desc(B)+desc(A)+desc(D)" -d "desc(Z)"
   rebasing 426bada5c675 "A"
   note: not rebasing fc2b737bb2e5 "B", already in destination as 96cc3511f894 "C"
   rebasing b8ed089c80ad "D"
 
-  $ hg log -G
+  $ sl log -G
   o  1b355ed94d82 D
   │
   o  a81a74d764a6 A
@@ -1370,7 +1371,7 @@ parent moves as requested.
   │
   o  96cc3511f894 C
   
-  $ hg files -r tip
+  $ sl files -r tip
   A
   C
   D
@@ -1380,40 +1381,40 @@ parent moves as requested.
 
 Test that bookmark is moved and working dir is updated when all changesets have
 equivalents in destination
-  $ hg init rbsrepo && cd rbsrepo
-  $ echo "[experimental]" > .hg/hgrc
-  $ echo "evolution=true" >> .hg/hgrc
-  $ echo "rebaseskipobsolete=on" >> .hg/hgrc
-  $ echo root > root && hg ci -Am root
+  $ sl init rbsrepo && cd rbsrepo
+  $ echo "[experimental]" > .sl/config
+  $ echo "evolution=true" >> .sl/config
+  $ echo "rebaseskipobsolete=on" >> .sl/config
+  $ echo root > root && sl ci -Am root
   adding root
-  $ echo a > a && hg ci -Am a
+  $ echo a > a && sl ci -Am a
   adding a
-  $ hg up 'desc(root)'
+  $ sl up 'desc(root)'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ echo b > b && hg ci -Am b
+  $ echo b > b && sl ci -Am b
   adding b
-  $ hg rebase -r 'desc(b)' -d 'desc(a)'
+  $ sl rebase -r 'desc(b)' -d 'desc(a)'
   rebasing 1e9a3c00cbe9 "b"
-  $ hg log -r .  # working dir is at rev 3 (successor of 2)
+  $ sl log -r .  # working dir is at rev 3 (successor of 2)
   be1832deae9a b (no-eol)
-  $ hg book -r 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc mybook --hidden  # rev 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc has a bookmark on it now
-  $ hg up 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc && hg log -r .  # working dir is at rev 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc again
+  $ sl book -r 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc mybook --hidden  # rev 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc has a bookmark on it now
+  $ sl up 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc && sl log -r .  # working dir is at rev 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc again
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   1e9a3c00cbe9 b (rewritten using rebase as be1832deae9a) (no-eol)
-  $ hg rebase -r 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc -d 'max(desc(b))'
+  $ sl rebase -r 1e9a3c00cbe90d236ac05ef61efcc5e40b7412bc -d 'max(desc(b))'
   note: not rebasing 1e9a3c00cbe9 "b" (mybook), already in destination as be1832deae9a "b"
 Check that working directory and bookmark was updated to rev 3 although rev 2
 was skipped
-  $ hg log -r .
+  $ sl log -r .
   be1832deae9a b (no-eol)
-  $ hg bookmarks
+  $ sl bookmarks
      mybook                    be1832deae9a
-  $ hg debugobsolete --rev tip
+  $ sl debugobsolete --rev tip
 
 Obsoleted working parent and bookmark could be moved if an ancestor of working
 parent gets moved:
 
-  $ hg init $TESTTMP/ancestor-wd-move
+  $ sl init $TESTTMP/ancestor-wd-move
   $ cd $TESTTMP/ancestor-wd-move
   $ drawdag <<'EOS'
   >  E D1  # rebase: D1 -> D2
@@ -1424,12 +1425,12 @@ parent gets moved:
   >  |/
   >  A
   > EOS
-  $ hg goto "desc(D1)" -q --hidden
-  $ hg bookmark book -i
-  $ hg rebase -r "desc(B)+desc(D1)" -d "desc(E)"
+  $ sl goto "desc(D1)" -q --hidden
+  $ sl bookmark book -i
+  $ sl rebase -r "desc(B)+desc(D1)" -d "desc(E)"
   rebasing 112478962961 "B"
   note: not rebasing 15ecf15e0114 "D1" (book), already in destination as 0807738e0be9 "D2"
-  $ hg log -G -T '{desc} {bookmarks}'
+  $ sl log -G -T '{desc} {bookmarks}'
   @  B book
   │
   o  E
@@ -1444,7 +1445,7 @@ parent gets moved:
   
 Rebasing a merge with one of its parent having a hidden successor
 
-  $ hg init $TESTTMP/merge-p1-hidden-successor
+  $ sl init $TESTTMP/merge-p1-hidden-successor
   $ cd $TESTTMP/merge-p1-hidden-successor
 
   $ drawdag <<'EOS'
@@ -1459,10 +1460,10 @@ Rebasing a merge with one of its parent having a hidden successor
   >  A
   > EOS
 
-  $ hg rebase -r $D -d $E
+  $ sl rebase -r $D -d $E
   rebasing 9e62094e4d94 "D"
 
-  $ hg log -G
+  $ sl log -G
   o    a699d059adcf D
   ├─╮
   │ o  ecc93090a95c E
@@ -1476,7 +1477,7 @@ Rebasing a merge with one of its parent having a hidden successor
 For some reasons (--hidden, rebaseskipobsolete=0, directaccess, etc.),
 rebasestate may contain hidden hashes. "rebase --abort" should work regardless.
 
-  $ hg init $TESTTMP/hidden-state1
+  $ sl init $TESTTMP/hidden-state1
   $ cd $TESTTMP/hidden-state1
   $ setconfig experimental.rebaseskipobsolete=0
 
@@ -1488,25 +1489,25 @@ rebasestate may contain hidden hashes. "rebase --abort" should work regardless.
   >  A
   > EOS
 
-  $ hg hide -q $B --config extensions.amend=
-  $ hg goto -q $C --hidden
-  $ hg rebase -s $B -d $D
+  $ sl hide -q $B --config extensions.amend=
+  $ sl goto -q $C --hidden
+  $ sl rebase -s $B -d $D
   rebasing 2ec65233581b "B"
   merging D
-  warning: 1 conflicts while merging D! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging D! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
 
   $ cp -R . $TESTTMP/hidden-state2
 
-  $ hg log -G
+  $ sl log -G
   @  b18e25de2cf5 D
   │
   │ @  2ec65233581b B
   ├─╯
   o  426bada5c675 A
   
-  $ hg summary
+  $ sl summary
   parent: b18e25de2cf5 
    D
   parent: 2ec65233581b 
@@ -1515,19 +1516,19 @@ rebasestate may contain hidden hashes. "rebase --abort" should work regardless.
   phases: 3 draft
   rebase: 0 rebased, 2 remaining (rebase --continue)
 
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
 
 Also test --continue for the above case
 
   $ cd $TESTTMP/hidden-state2
-  $ hg resolve -m
+  $ sl resolve -m
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  continue: sl rebase --continue
+  $ sl rebase --continue
   rebasing 2ec65233581b "B"
   rebasing 7829726be4dc "C"
-  $ hg log -G
+  $ sl log -G
   @  1964d5d5b547 C
   │
   o  68deb90c12a2 B

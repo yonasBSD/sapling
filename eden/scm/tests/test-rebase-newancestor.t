@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable rebase
   $ readconfig <<EOF
@@ -10,26 +11,26 @@
   > def=desc("def")
   > EOF
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo A > a
   $ echo >> a
-  $ hg ci -Am A
+  $ sl ci -Am A
   adding a
 
   $ echo B > a
   $ echo >> a
-  $ hg ci -m B
+  $ sl ci -m B
 
   $ echo C > a
   $ echo >> a
-  $ hg ci -m C
+  $ sl ci -m C
 
-  $ hg up -q -C 'desc(A)'
+  $ sl up -q -C 'desc(A)'
 
   $ echo D >> a
-  $ hg ci -Am AD
+  $ sl ci -Am AD
 
   $ tglog
   @  3878212183bd 'AD'
@@ -40,7 +41,7 @@
   ├─╯
   o  1e635d440a73 'A'
   
-  $ hg rebase -s 'desc(B)' -d 'desc(AD)'
+  $ sl rebase -s 'desc(B)' -d 'desc(AD)'
   rebasing 0f4f7cb4f549 "B"
   merging a
   rebasing 30ae917c0e4f "C"
@@ -77,7 +78,7 @@ wrong.
 
 The branches are emulated using commit messages.
 
-  $ hg init ancestor-merge
+  $ sl init ancestor-merge
   $ cd ancestor-merge
 
   $ drawdag <<'EOS'
@@ -101,7 +102,7 @@ The branches are emulated using commit messages.
 
 Full rebase all the way back from branching point:
 
-  $ hg rebase -r 'only(dev,def)' -d $default4 --config ui.interactive=True << EOF
+  $ sl rebase -r 'only(dev,def)' -d $default4 --config ui.interactive=True << EOF
   > c
   > EOF
   rebasing 1e48f4172d62 "dev1"
@@ -127,7 +128,7 @@ Grafty cherry picking rebasing:
 
   $ cd ../ancestor-merge-2
 
-  $ hg rebase -r 'children(only(dev,def))' -d $default4 --config ui.interactive=True << EOF
+  $ sl rebase -r 'children(only(dev,def))' -d $default4 --config ui.interactive=True << EOF
   > c
   > EOF
   rebasing aeae94a564c6 "dev2"
@@ -153,29 +154,29 @@ Grafty cherry picking rebasing:
 
 Test order of parents of rebased merged with un-rebased changes as p1.
 
-  $ hg init parentorder
+  $ sl init parentorder
   $ cd parentorder
   $ touch f
-  $ hg ci -Aqm common
+  $ sl ci -Aqm common
   $ touch change
-  $ hg ci -Aqm change
+  $ sl ci -Aqm change
   $ touch target
-  $ hg ci -Aqm target
-  $ hg up -qr 'desc(common)'
+  $ sl ci -Aqm target
+  $ sl up -qr 'desc(common)'
   $ touch outside
-  $ hg ci -Aqm outside
-  $ hg merge -qr 'desc(change)'
-  $ hg ci -m 'merge p1 3=outside p2 1=ancestor'
-  $ hg par
+  $ sl ci -Aqm outside
+  $ sl merge -qr 'desc(change)'
+  $ sl ci -m 'merge p1 3=outside p2 1=ancestor'
+  $ sl par
   commit:      6990226659be
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     merge p1 3=outside p2 1=ancestor
   
-  $ hg up -qr 'desc(change)'
-  $ hg merge -qr f59da8fc0fcf04d44bb0390e824516ed9979b69f
-  $ hg ci -qm 'merge p1 1=ancestor p2 3=outside'
-  $ hg par
+  $ sl up -qr 'desc(change)'
+  $ sl merge -qr f59da8fc0fcf04d44bb0390e824516ed9979b69f
+  $ sl ci -qm 'merge p1 1=ancestor p2 3=outside'
+  $ sl par
   commit:      a57575f79074
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -194,17 +195,17 @@ Test order of parents of rebased merged with un-rebased changes as p1.
   ├─╯
   o  02f0f58d5300 'common'
   
-  $ hg rebase -r 'desc("p1 3=outside")' -d 'desc(target)'
+  $ sl rebase -r 'desc("p1 3=outside")' -d 'desc(target)'
   rebasing 6990226659be "merge p1 3=outside p2 1=ancestor"
-  $ hg tip
+  $ sl tip
   commit:      cca50676b1c5
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     merge p1 3=outside p2 1=ancestor
   
-  $ hg rebase -r 'desc("p1 1=ancestor")' -d 'desc(target)'
+  $ sl rebase -r 'desc("p1 1=ancestor")' -d 'desc(target)'
   rebasing a57575f79074 "merge p1 1=ancestor p2 3=outside"
-  $ hg tip
+  $ sl tip
   commit:      f9daf77ffe76
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -225,11 +226,11 @@ Test order of parents of rebased merged with un-rebased changes as p1.
   
 rebase of merge of ancestors
 
-  $ hg up -qr 'desc(target)'
-  $ hg merge -qr 'desc(outside)-desc(merge)'
+  $ sl up -qr 'desc(target)'
+  $ sl merge -qr 'desc(outside)-desc(merge)'
   $ echo 'other change while merging future "rebase ancestors"' > other
-  $ hg ci -Aqm 'merge rebase ancestors'
-  $ hg rebase -d 'desc("merge p1 1")' -v
+  $ sl ci -Aqm 'merge rebase ancestors'
+  $ sl rebase -d 'desc("merge p1 1")' -v
   rebasing 4c5f12f25ebe "merge rebase ancestors"
   note: merging f9daf77ffe76+ and 4c5f12f25ebe using bids from ancestors a60552eb93fb and f59da8fc0fcf
   
@@ -268,9 +269,9 @@ rebase of merge of ancestors
 Due to the limitation of 3-way merge algorithm (1 merge base), rebasing a merge
 may include unwanted content:
 
-  $ hg init $TESTTMP/dual-merge-base1
+  $ sl init $TESTTMP/dual-merge-base1
   $ cd $TESTTMP/dual-merge-base1
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   F
   >  /|
   > D E
@@ -281,7 +282,7 @@ may include unwanted content:
   > |/
   > R
   > EOS
-  $ hg rebase -r D+E+F -d Z
+  $ sl rebase -r D+E+F -d Z
   rebasing 5f2c926dfecf "D" (D)
   rebasing b296604d9846 "E" (E)
   rebasing caa9781e507d "F" (F)
@@ -290,9 +291,9 @@ may include unwanted content:
 
 The warning does not get printed if there is no unwanted change detected:
 
-  $ hg init $TESTTMP/dual-merge-base2
+  $ sl init $TESTTMP/dual-merge-base2
   $ cd $TESTTMP/dual-merge-base2
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   D
   >  /|
   > B C
@@ -301,11 +302,11 @@ The warning does not get printed if there is no unwanted change detected:
   > |/
   > R
   > EOS
-  $ hg rebase -r B+C+D -d Z
+  $ sl rebase -r B+C+D -d Z
   rebasing c1e6b162678d "B" (B)
   rebasing d6003a550c2c "C" (C)
   rebasing c8f78076273e "D" (D)
-  $ hg manifest -r 'desc(D)'
+  $ sl manifest -r 'desc(D)'
   B
   C
   R
@@ -313,42 +314,42 @@ The warning does not get printed if there is no unwanted change detected:
 
 The merge base could be different from old p1 (changed parent becomes new p1):
 
-  $ hg init $TESTTMP/chosen-merge-base1
+  $ sl init $TESTTMP/chosen-merge-base1
   $ cd $TESTTMP/chosen-merge-base1
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   F
   >  /|
   > D E
   > | |
   > B C Z
   > EOS
-  $ hg rebase -r D+F -d Z
+  $ sl rebase -r D+F -d Z
   rebasing 004dc1679908 "D" (D)
   rebasing 4be4cbf6f206 "F" (F)
-  $ hg manifest -r 'desc(F)'
+  $ sl manifest -r 'desc(F)'
   C
   D
   E
   Z
-  $ hg log -r 'max(desc(F))^' -T '{desc}\n'
+  $ sl log -r 'max(desc(F))^' -T '{desc}\n'
   D
 
-  $ hg init $TESTTMP/chosen-merge-base2
+  $ sl init $TESTTMP/chosen-merge-base2
   $ cd $TESTTMP/chosen-merge-base2
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   F
   >  /|
   > D E
   > | |
   > B C Z
   > EOS
-  $ hg rebase -r E+F -d Z
+  $ sl rebase -r E+F -d Z
   rebasing 974e4943c210 "E" (E)
   rebasing 4be4cbf6f206 "F" (F)
-  $ hg manifest -r 'desc(F)'
+  $ sl manifest -r 'desc(F)'
   B
   D
   E
   Z
-  $ hg log -r 'max(desc(F))^' -T '{desc}\n'
+  $ sl log -r 'max(desc(F))^' -T '{desc}\n'
   E

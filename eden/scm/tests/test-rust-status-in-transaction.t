@@ -1,24 +1,25 @@
 TODO: Remove the inprocess-hg-incompatible. This test requires launching hg
 from dbsh, which doesn't work on Windows because at that point the PATH only
 contains TESTTMP/bin, which doesn't include the Python DLLs required for
-launching Sapling. If one tries to run hg from there it errors out with error
+launching Sapling. If one tries to run sl from there it errors out with error
 code 0xC0000135.
 #inprocess-hg-incompatible
 #require fsmonitor no-eden
 
+  $ export HGIDENTITY=sl
   $ newclientrepo repo
-  $ hg st
-  $ hg debugtreestate list
+  $ sl st
+  $ sl debugtreestate list
 
 Sanity that dirstate is normally updated by status:
   $ touch foo
-  $ hg st
+  $ sl st
   ? foo
-  $ hg debugtreestate list
+  $ sl debugtreestate list
   foo: * NEED_CHECK  (glob)
 
 Mutate dirstate in a transaction - should not be visible outside transaction:
-  $ hg dbsh <<EOF
+  $ sl dbsh <<EOF
   > with repo.wlock(), repo.lock(), repo.transaction("foo"):
   >   repo.dirstate.add("foo")
   >   print("pending adds:", repo.status().added)
@@ -29,12 +30,12 @@ Mutate dirstate in a transaction - should not be visible outside transaction:
   external adds: <none>
 
 Now it should be visible
-  $ hg st
+  $ sl st
   A foo
 
 Make sure things are okay if Rust flushes the treestate and then Python makes a change:
   $ touch bar
-  $ hg dbsh <<EOF
+  $ sl dbsh <<EOF
   > with repo.wlock(), repo.lock(), repo.transaction("foo"):
   >   # This will trigger treestate flush adding "bar".
   >   repo.status()
@@ -45,6 +46,6 @@ Make sure things are okay if Rust flushes the treestate and then Python makes a 
   > EOF
   external unknown: bar
 
-  $ hg st
+  $ sl st
   A bar
   A foo

@@ -3,30 +3,31 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig remotenames.rename.default=remote remotenames.disallowedto="^remote/"
 
 Init the original "remote" repo
 
-  $ hg init orig
+  $ sl init orig
   $ cd orig
   $ echo something > something
-  $ hg ci -Am something
+  $ sl ci -Am something
   adding something
-  $ hg bookmark ababagalamaga
+  $ sl bookmark ababagalamaga
   $ cd ..
 
 Clone original repo
 
-  $ hg clone orig cloned
+  $ sl clone orig cloned
   updating to tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd cloned
   $ echo somethingelse > something
-  $ hg ci -m somethingelse
+  $ sl ci -m somethingelse
 
 Try to push with "remote/"
 
-  $ hg push --to remote/ababagalamaga
+  $ sl push --to remote/ababagalamaga
   pushing rev 71b4c8f22183 to destination $TESTTMP/orig bookmark ababagalamaga
   searching for changes
   adding changesets
@@ -36,7 +37,7 @@ Try to push with "remote/"
 
 Try to push without "remote/", should push to the same bookmark as above
 
-  $ hg push --to ababagalamaga
+  $ sl push --to ababagalamaga
   pushing rev 71b4c8f22183 to destination $TESTTMP/orig bookmark ababagalamaga
   searching for changes
   remote bookmark already points at pushed rev
@@ -45,8 +46,8 @@ Try to push without "remote/", should push to the same bookmark as above
 
 Set up an svn default push path and test behavior
 
-  $ hg paths --add default-push svn+ssh://nowhere/in/particular
-  $ hg push --to foo ../orig
+  $ sl paths --add default-push svn+ssh://nowhere/in/particular
+  $ sl push --to foo ../orig
   pushing rev 71b4c8f22183 to destination ../orig bookmark foo
   searching for changes
   abort: not creating new remote bookmark

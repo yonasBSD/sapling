@@ -8,6 +8,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ enable commitextras
   $ setconfig 'ui.allowemptycommit=1'
@@ -39,15 +40,15 @@
   > EOF
 
   $ try() {
-  >   hg debugrevspec --debug "$@"
+  >   sl debugrevspec --debug "$@"
   > }
 
   $ trylist() {
-  >   hg debugrevlistspec --debug "$@"
+  >   sl debugrevlistspec --debug "$@"
   > }
 
   $ log() {
-  >   hg log -T '{rev}\n' -r "$1"
+  >   sl log -T '{rev}\n' -r "$1"
   > }
 
   $ setbranch() {
@@ -56,12 +57,12 @@
 
   $ commit() {
   >   if [ -n "$BRANCH" ]; then
-  >     # hg bookmark -i
-  >     hg commit "$@"
-  >     hg bookmark -if -- "$BRANCH"
-  >     # export $BRANCH=$(hg log -r . -T '{node}')
+  >     # sl bookmark -i
+  >     sl commit "$@"
+  >     sl bookmark -if -- "$BRANCH"
+  >     # export $BRANCH=$(sl log -r . -T '{node}')
   >   else
-  >     hg commit "$@"
+  >     sl commit "$@"
   >   fi
   > }
 
@@ -106,7 +107,7 @@
   > debugrevlistspec = $TESTTMP/debugrevlistspec.py
   > EOF
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo a > a
@@ -121,32 +122,32 @@
   $ setbranch a-b-c-
   $ commit -Aqm2 -u Bob
 
-  $ hg log -r 'extra('\''branch'\'')' --template '{rev}\n'
+  $ sl log -r 'extra('\''branch'\'')' --template '{rev}\n'
   0
   1
   2
-  $ hg log -r 'extra('\''branch'\'', '\''re:a'\'')' --template '{rev} {branch}\n'
+  $ sl log -r 'extra('\''branch'\'', '\''re:a'\'')' --template '{rev} {branch}\n'
   0 default
   1 default
   2 default
 
-  $ hg co 1
+  $ sl co 1
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ setbranch +a+b+c+
   $ commit -Aqm3
 
-  $ hg co -C 2
+  $ sl co -C 2
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo bb > b
   $ setbranch -a-b-c-
   $ commit -Aqm4 -d 'May 12 2005 UTC'
 
-  $ hg co -C 3
+  $ sl co -C 3
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ setbranch '!a/b/c/'
   $ commit '-Aqm5 bug'
 
-  $ hg merge 4
+  $ sl merge 4
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ setbranch _a_b_c_
@@ -157,12 +158,12 @@
 
   $ setbranch all
 
-  $ hg co 4
+  $ sl co 4
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ setbranch 'é'
   $ commit -Aqm9
 
-  $ hg log -G -T '{node|short} rev={rev} desc={desc|firstline}\n'
+  $ sl log -G -T '{node|short} rev={rev} desc={desc|firstline}\n'
   @  6d98e1a86580 rev=8 desc=9
   │
   │ o  c42d3b18b7b1 rev=7 desc=7
@@ -181,19 +182,19 @@
   │
   o  f7b1eb17ad24 rev=0 desc=0
 
-  $ hg book -ifr 6 1.0
+  $ sl book -ifr 6 1.0
   $ echo 'e0cc66ef77e8b6f711815af4e001a6594fde3ba5 1.0' >> .hgtags
-  $ hg commit -Aqm 'add 1.0 tag'
-  $ hg bookmark -r6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  $ sl commit -Aqm 'add 1.0 tag'
+  $ sl bookmark -r6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-  $ hg clone --quiet -U . ../remote1
+  $ sl clone --quiet -U . ../remote1
 Strip 8 leaving 7 as only head
-  $ hg -R ../remote1 debugstrip -r 8
-  $ hg clone --quiet -U . ../remote2
+  $ sl -R ../remote1 debugstrip -r 8
+  $ sl clone --quiet -U . ../remote2
 Strip 3 leaving 8 as only head
-  $ hg -R ../remote2 debugstrip -r 3
-  $ echo '[paths]' >> .hg/hgrc
-  $ echo 'default = ../remote1' >> .hg/hgrc
+  $ sl -R ../remote2 debugstrip -r 3
+  $ echo '[paths]' >> .sl/config
+  $ echo 'default = ../remote1' >> .sl/config
 
 # trivial
 
@@ -449,26 +450,26 @@ Strip 3 leaving 8 as only head
   $ log 'date(2005)'
   4
   $ log 'date(this is a test)'
-  hg: parse error at 10: unexpected token: symbol
+  sl: parse error at 10: unexpected token: symbol
   (date(this is a test)
              ^ here)
   [255]
   $ log 'date()'
-  hg: parse error: date requires a string
+  sl: parse error: date requires a string
   [255]
   $ log date
   abort: unknown revision 'date'!
   [255]
   $ log 'date('
-  hg: parse error at 5: not a prefix: end
+  sl: parse error at 5: not a prefix: end
   (date(
         ^ here)
   [255]
   $ log 'date("\xy")'
-  hg: parse error: invalid \x escape* (glob)
+  sl: parse error: invalid \x escape* (glob)
   [255]
   $ log 'date(tip)'
-  hg: parse error: invalid date: 'tip'
+  sl: parse error: invalid date: 'tip'
   [255]
   $ log '0:date'
   abort: unknown revision 'date'!
@@ -476,7 +477,7 @@ Strip 3 leaving 8 as only head
   $ log '::"date"'
   abort: unknown revision 'date'!
   [255]
-  $ hg book date -r 4
+  $ sl book date -r 4
   $ log '0:date'
   0
   1
@@ -495,12 +496,12 @@ Strip 3 leaving 8 as only head
   4
   $ log 'date(2005) and 1::'
   4
-  $ hg book -d date
+  $ sl book -d date
 
 # function name should be a symbol
 
   $ log '"date"(2005)'
-  hg: parse error: not a symbol
+  sl: parse error: not a symbol
   [255]
 
 # keyword arguments
@@ -508,19 +509,19 @@ Strip 3 leaving 8 as only head
   $ log 'extra(branch, value=a)'
 
   $ log 'extra(branch, a, b)'
-  hg: parse error: extra takes at most 2 positional arguments
+  sl: parse error: extra takes at most 2 positional arguments
   [255]
   $ log 'extra(a, label=b)'
-  hg: parse error: extra got multiple values for keyword argument 'label'
+  sl: parse error: extra got multiple values for keyword argument 'label'
   [255]
   $ log 'extra(label=branch, default)'
-  hg: parse error: extra got an invalid argument
+  sl: parse error: extra got an invalid argument
   [255]
   $ log 'extra(branch, foo+bar=baz)'
-  hg: parse error: extra got an invalid argument
+  sl: parse error: extra got an invalid argument
   [255]
   $ log 'extra(unknown=branch)'
-  hg: parse error: extra got an unexpected keyword argument 'unknown'
+  sl: parse error: extra got an unexpected keyword argument 'unknown'
   [255]
 
   $ try 'foo=bar|baz'
@@ -530,7 +531,7 @@ Strip 3 leaving 8 as only head
       (list
         (symbol 'bar')
         (symbol 'baz'))))
-  hg: parse error: can't use a key-value pair in this context
+  sl: parse error: can't use a key-value pair in this context
   [255]
 
 #  right-hand side should be optimized recursively
@@ -549,12 +550,12 @@ Strip 3 leaving 8 as only head
     (func
       (symbol '_notpublic')
       None))
-  hg: parse error: can't use a key-value pair in this context
+  sl: parse error: can't use a key-value pair in this context
   [255]
 
 # relation-subscript operator has the highest binding strength (as function call):
 
-  $ hg debugrevspec -p parsed 'tip:tip^#generations[-1]'
+  $ sl debugrevspec -p parsed 'tip:tip^#generations[-1]'
   * parsed:
   (range
     (symbol 'tip')
@@ -571,7 +572,7 @@ Strip 3 leaving 8 as only head
   5
   4
 
-  $ hg debugrevspec -p parsed --no-show-revs 'not public()#generations[0]'
+  $ sl debugrevspec -p parsed --no-show-revs 'not public()#generations[0]'
   * parsed:
   (not
     (relsubscript
@@ -583,7 +584,7 @@ Strip 3 leaving 8 as only head
 
 # left-hand side of relation-subscript operator should be optimized recursively:
 
-  $ hg debugrevspec -p analyzed -p optimized --no-show-revs '(not public())#generations[0]'
+  $ sl debugrevspec -p analyzed -p optimized --no-show-revs '(not public())#generations[0]'
   * analyzed:
   (relsubscript
     (not
@@ -602,34 +603,34 @@ Strip 3 leaving 8 as only head
 
 # resolution of subscript and relation-subscript ternary operators:
 
-  $ hg debugrevspec -p analyzed 'tip[0]'
+  $ sl debugrevspec -p analyzed 'tip[0]'
   * analyzed:
   (subscript
     (symbol 'tip')
     (symbol '0'))
-  hg: parse error: can't use a subscript in this context
+  sl: parse error: can't use a subscript in this context
   [255]
 
-  $ hg debugrevspec -p analyzed 'tip#rel[0]'
+  $ sl debugrevspec -p analyzed 'tip#rel[0]'
   * analyzed:
   (relsubscript
     (symbol 'tip')
     (symbol 'rel')
     (symbol '0'))
-  hg: parse error: unknown identifier: rel
+  sl: parse error: unknown identifier: rel
   [255]
 
-  $ hg debugrevspec -p analyzed '(tip#rel)[0]'
+  $ sl debugrevspec -p analyzed '(tip#rel)[0]'
   * analyzed:
   (subscript
     (relation
       (symbol 'tip')
       (symbol 'rel'))
     (symbol '0'))
-  hg: parse error: can't use a subscript in this context
+  sl: parse error: can't use a subscript in this context
   [255]
 
-  $ hg debugrevspec -p analyzed 'tip#rel[0][1]'
+  $ sl debugrevspec -p analyzed 'tip#rel[0][1]'
   * analyzed:
   (subscript
     (relsubscript
@@ -637,10 +638,10 @@ Strip 3 leaving 8 as only head
       (symbol 'rel')
       (symbol '0'))
     (symbol '1'))
-  hg: parse error: can't use a subscript in this context
+  sl: parse error: can't use a subscript in this context
   [255]
 
-  $ hg debugrevspec -p analyzed 'tip#rel0#rel1[1]'
+  $ sl debugrevspec -p analyzed 'tip#rel0#rel1[1]'
   * analyzed:
   (relsubscript
     (relation
@@ -648,10 +649,10 @@ Strip 3 leaving 8 as only head
       (symbol 'rel0'))
     (symbol 'rel1')
     (symbol '1'))
-  hg: parse error: unknown identifier: rel1
+  sl: parse error: unknown identifier: rel1
   [255]
 
-  $ hg debugrevspec -p analyzed 'tip#rel0[0]#rel1[1]'
+  $ sl debugrevspec -p analyzed 'tip#rel0[0]#rel1[1]'
   * analyzed:
   (relsubscript
     (relsubscript
@@ -660,47 +661,47 @@ Strip 3 leaving 8 as only head
       (symbol '0'))
     (symbol 'rel1')
     (symbol '1'))
-  hg: parse error: unknown identifier: rel1
+  sl: parse error: unknown identifier: rel1
   [255]
 
 # parse errors of relation, subscript and relation-subscript operators:
 
-  $ hg debugrevspec '[0]'
-  hg: parse error at 0: not a prefix: [
+  $ sl debugrevspec '[0]'
+  sl: parse error at 0: not a prefix: [
   ([0]
    ^ here)
   [255]
-  $ hg debugrevspec '.#'
-  hg: parse error at 2: not a prefix: end
+  $ sl debugrevspec '.#'
+  sl: parse error at 2: not a prefix: end
   (.#
      ^ here)
   [255]
-  $ hg debugrevspec '#rel'
-  hg: parse error at 0: not a prefix: #
+  $ sl debugrevspec '#rel'
+  sl: parse error at 0: not a prefix: #
   (#rel
    ^ here)
   [255]
-  $ hg debugrevspec '.#rel[0'
-  hg: parse error at 7: unexpected token: end
+  $ sl debugrevspec '.#rel[0'
+  sl: parse error at 7: unexpected token: end
   (.#rel[0
           ^ here)
   [255]
-  $ hg debugrevspec '.]'
-  hg: parse error at 1: invalid token
+  $ sl debugrevspec '.]'
+  sl: parse error at 1: invalid token
   (.]
     ^ here)
   [255]
 
-  $ hg debugrevspec '.#generations[a]'
-  hg: parse error: relation subscript must be an integer
+  $ sl debugrevspec '.#generations[a]'
+  sl: parse error: relation subscript must be an integer
   [255]
-  $ hg debugrevspec '.#generations[1-2]'
-  hg: parse error: relation subscript must be an integer
+  $ sl debugrevspec '.#generations[1-2]'
+  sl: parse error: relation subscript must be an integer
   [255]
 
 # parsed tree at stages:
 
-  $ hg debugrevspec -p all '()'
+  $ sl debugrevspec -p all '()'
   * parsed:
   (group
     None)
@@ -714,10 +715,10 @@ Strip 3 leaving 8 as only head
   None
   * optimized:
   None
-  hg: parse error: missing argument
+  sl: parse error: missing argument
   [255]
 
-  $ hg debugrevspec --no-optimized -p all '()'
+  $ sl debugrevspec --no-optimized -p all '()'
   * parsed:
   (group
     None)
@@ -729,10 +730,10 @@ Strip 3 leaving 8 as only head
     None)
   * analyzed:
   None
-  hg: parse error: missing argument
+  sl: parse error: missing argument
   [255]
 
-  $ hg debugrevspec -p parsed -p analyzed -p optimized '(0|1)-1'
+  $ sl debugrevspec -p parsed -p analyzed -p optimized '(0|1)-1'
   * parsed:
   (minus
     (group
@@ -757,19 +758,19 @@ Strip 3 leaving 8 as only head
     (symbol '1'))
   0
 
-  $ hg debugrevspec -p unknown 0
+  $ sl debugrevspec -p unknown 0
   abort: invalid stage name: unknown
   [255]
 
-  $ hg debugrevspec -p all --optimize 0
+  $ sl debugrevspec -p all --optimize 0
   abort: cannot use --optimize with --show-stage
   [255]
 
 # verify optimized tree:
 
-  $ hg debugrevspec --verify '0|1'
+  $ sl debugrevspec --verify '0|1'
 
-  $ hg debugrevspec --verify -v -p analyzed -p optimized 'r3232() & 2'
+  $ sl debugrevspec --verify -v -p analyzed -p optimized 'r3232() & 2'
   * analyzed:
   (and
     (func
@@ -792,14 +793,14 @@ Strip 3 leaving 8 as only head
   +2
   [1]
 
-  $ hg debugrevspec --no-optimized --verify-optimized 0
+  $ sl debugrevspec --no-optimized --verify-optimized 0
   abort: cannot use --verify-optimized with --no-optimized
   [255]
 
 # Test that symbols only get parsed as functions if there's an opening
 # parenthesis.
 
-  $ hg book only -r 9
+  $ sl book only -r 9
   $ log 'only(only)'
   8
   9
@@ -903,7 +904,7 @@ Strip 3 leaving 8 as only head
     (group
       (rangepre
         (symbol '2'))))
-  hg: parse error: ^ expects a number 0, 1, or 2
+  sl: parse error: ^ expects a number 0, 1, or 2
   [255]
 
 #  x^:y should be resolved recursively
@@ -1007,7 +1008,7 @@ Strip 3 leaving 8 as only head
   $ try '::'
   (dagrangeall
     None)
-  hg: parse error: can't use '::' in this context
+  sl: parse error: can't use '::' in this context
   [255]
 
 #  x^ in alias should also be resolved
@@ -1054,7 +1055,7 @@ Strip 3 leaving 8 as only head
     (symbol '1')
     (rangepre
       (symbol '2')))
-  hg: parse error: ^ expects a number 0, 1, or 2
+  sl: parse error: ^ expects a number 0, 1, or 2
   [255]
 
 # ancestor can accept 0 or more arguments
@@ -1076,7 +1077,7 @@ Strip 3 leaving 8 as only head
 
 # test ancestors
 
-  $ hg log -G -T '{rev}\n' --config 'experimental.graphshorten=True'
+  $ sl log -G -T '{rev}\n' --config 'experimental.graphshorten=True'
   @  9
   o  8
   │ o  7
@@ -1162,15 +1163,15 @@ Strip 3 leaving 8 as only head
 # test bad arguments passed to ancestors()
 
   $ log 'ancestors(., depth=-1)'
-  hg: parse error: negative depth
+  sl: parse error: negative depth
   [255]
   $ log 'ancestors(., depth=foo)'
-  hg: parse error: ancestors expects an integer depth
+  sl: parse error: ancestors expects an integer depth
   [255]
 
 # test descendants
 
-  $ hg log -G -T '{rev}\n' --config 'experimental.graphshorten=True'
+  $ sl log -G -T '{rev}\n' --config 'experimental.graphshorten=True'
   @  9
   o  8
   │ o  7
@@ -1270,7 +1271,7 @@ Strip 3 leaving 8 as only head
   $ log '.#g[(-1)]'
   8
 
-  $ hg debugrevspec -p parsed 'roots(:)#g[2]'
+  $ sl debugrevspec -p parsed 'roots(:)#g[2]'
   * parsed:
   (relsubscript
     (func
@@ -1330,7 +1331,7 @@ Strip 3 leaving 8 as only head
   5
   $ log 'desc(B)'
   5
-  $ hg log -r 'desc(r"re:S?u")' --template '{rev} {desc|firstline}\n'
+  $ sl log -r 'desc(r"re:S?u")' --template '{rev} {desc|firstline}\n'
   5 5 bug
   6 6 issue619
   $ log 'descendants(2 or 3)'
@@ -1364,7 +1365,7 @@ Strip 3 leaving 8 as only head
   (func
     (symbol 'grep')
     (string '('))
-  hg: parse error: invalid match pattern: * (glob)
+  sl: parse error: invalid match pattern: * (glob)
   [255]
   $ try 'grep("\bissue\\d+")'
   (func
@@ -1386,7 +1387,7 @@ Strip 3 leaving 8 as only head
     <grep '\\bissue\\d+'>>
   6
   $ try 'grep(r"\")'
-  hg: parse error at 7: unterminated string
+  sl: parse error at 7: unterminated string
   (grep(r"\")
           ^ here)
   [255]
@@ -1411,15 +1412,15 @@ Strip 3 leaving 8 as only head
   6
   $ log 'limit(author("re:bob|test"), offset=10)'
   $ log 'limit(all(), 1, -1)'
-  hg: parse error: negative offset
+  sl: parse error: negative offset
   [255]
   $ log 'limit(all(), -1)'
-  hg: parse error: negative number to select
+  sl: parse error: negative number to select
   [255]
   $ log 'limit(all(), 0)'
 
   $ log 'last(all(), -1)'
-  hg: parse error: negative number to select
+  sl: parse error: negative number to select
   [255]
   $ log 'last(all(), 0)'
   $ log 'last(all(), 1)'
@@ -1431,7 +1432,7 @@ Strip 3 leaving 8 as only head
 # Test smartset.slice() by first/last()
 #  (using unoptimized set, filteredset as example)
 
-  $ hg debugrevspec --no-show-revs -s '0:7 & all()'
+  $ sl debugrevspec --no-show-revs -s '0:7 & all()'
   * set:
   <nameset+
     <spans [f7b1eb17ad24730a1651fccd46c43826d1bbc2ac:c42d3b18b7b19d997b65800072b703b19989cc12+0:7]>>
@@ -1449,10 +1450,10 @@ Strip 3 leaving 8 as only head
 
 #  (using baseset)
 
-  $ hg debugrevspec --no-show-revs -s 0+1+2+3+4+5+6+7
+  $ sl debugrevspec --no-show-revs -s 0+1+2+3+4+5+6+7
   * set:
   <baseset [0, 1, 2, 3, 4, 5, 6, 7]>
-  $ hg debugrevspec --no-show-revs -s '0::7'
+  $ sl debugrevspec --no-show-revs -s '0::7'
   * set:
   <nameset+
     <spans [f7b1eb17ad24730a1651fccd46c43826d1bbc2ac:c42d3b18b7b19d997b65800072b703b19989cc12+0:7]>>
@@ -1471,32 +1472,32 @@ Strip 3 leaving 8 as only head
   $ log 'last(sort(0::7, rev), 2)'
   6
   7
-  $ hg debugrevspec -s 'limit(sort(0::7, rev), 3, 6)'
+  $ sl debugrevspec -s 'limit(sort(0::7, rev), 3, 6)'
   * set:
   <nameset+
     <spans [b1166c9cdb4bf159910e366395bee663c8dfb681:c42d3b18b7b19d997b65800072b703b19989cc12+6:7]>>
   6
   7
-  $ hg debugrevspec -s 'limit(sort(0::7, rev), 3, 9)'
+  $ sl debugrevspec -s 'limit(sort(0::7, rev), 3, 9)'
   * set:
   <baseset []>
-  $ hg debugrevspec -s 'limit(sort(0::7, -rev), 3, 6)'
+  $ sl debugrevspec -s 'limit(sort(0::7, -rev), 3, 6)'
   * set:
   <nameset-
     <spans [f7b1eb17ad24730a1651fccd46c43826d1bbc2ac:925d80f479bb026b0fb3deb27503780b13f74123+0:1]>>
   1
   0
-  $ hg debugrevspec -s 'limit(sort(0::7, -rev), 3, 9)'
+  $ sl debugrevspec -s 'limit(sort(0::7, -rev), 3, 9)'
   * set:
   <nameset-
     <spans []>>
-  $ hg debugrevspec -s 'limit(0::7, 0)'
+  $ sl debugrevspec -s 'limit(0::7, 0)'
   * set:
   <baseset []>
 
 #  (using spanset)
 
-  $ hg debugrevspec --no-show-revs -s '0:7'
+  $ sl debugrevspec --no-show-revs -s '0:7'
   * set:
   <nameset+
     <spans [f7b1eb17ad24730a1651fccd46c43826d1bbc2ac:c42d3b18b7b19d997b65800072b703b19989cc12+0:7]>>
@@ -1517,53 +1518,53 @@ Strip 3 leaving 8 as only head
   $ log 'last(0:7, 2)'
   6
   7
-  $ hg debugrevspec -s 'limit(0:7, 3, 6)'
+  $ sl debugrevspec -s 'limit(0:7, 3, 6)'
   * set:
   <nameset+
     <spans [b1166c9cdb4bf159910e366395bee663c8dfb681:c42d3b18b7b19d997b65800072b703b19989cc12+6:7]>>
   6
   7
-  $ hg debugrevspec -s 'limit(0:7, 3, 9)'
+  $ sl debugrevspec -s 'limit(0:7, 3, 9)'
   * set:
   <baseset []>
-  $ hg debugrevspec -s 'limit(7:0, 3, 6)'
+  $ sl debugrevspec -s 'limit(7:0, 3, 6)'
   * set:
   <nameset-
     <spans [f7b1eb17ad24730a1651fccd46c43826d1bbc2ac:925d80f479bb026b0fb3deb27503780b13f74123+0:1]>>
   1
   0
-  $ hg debugrevspec -s 'limit(7:0, 3, 9)'
+  $ sl debugrevspec -s 'limit(7:0, 3, 9)'
   * set:
   <nameset-
     <spans []>>
-  $ hg debugrevspec -s 'limit(0:7, 0)'
+  $ sl debugrevspec -s 'limit(0:7, 0)'
   * set:
   <baseset []>
 
 # Test order of first/last revisions
 
-  $ hg debugrevspec -s 'first(4:0, 3) & 3:'
+  $ sl debugrevspec -s 'first(4:0, 3) & 3:'
   * set:
   <nameset-
     <spans [8c386d836a07c457eff065d28be13dd131ed35ce:f97e7d9434783652739570e7cfdac469336f9e24+3:4]>>
   4
   3
 
-  $ hg debugrevspec -s '3: & first(4:0, 3)'
+  $ sl debugrevspec -s '3: & first(4:0, 3)'
   * set:
   <nameset+
     <spans [8c386d836a07c457eff065d28be13dd131ed35ce:f97e7d9434783652739570e7cfdac469336f9e24+3:4]>>
   3
   4
 
-  $ hg debugrevspec -s 'last(4:0, 3) & :1'
+  $ sl debugrevspec -s 'last(4:0, 3) & :1'
   * set:
   <nameset-
     <spans [f7b1eb17ad24730a1651fccd46c43826d1bbc2ac:925d80f479bb026b0fb3deb27503780b13f74123+0:1]>>
   1
   0
 
-  $ hg debugrevspec -s ':1 & last(4:0, 3)'
+  $ sl debugrevspec -s ':1 & last(4:0, 3)'
   * set:
   <nameset+
     <spans [f7b1eb17ad24730a1651fccd46c43826d1bbc2ac:925d80f479bb026b0fb3deb27503780b13f74123+0:1]>>
@@ -1572,12 +1573,12 @@ Strip 3 leaving 8 as only head
 
 # Test scmutil.revsingle() should return the last revision
 
-  $ hg debugrevspec -s 'last(0::)'
+  $ sl debugrevspec -s 'last(0::)'
   * set:
   <nameset+
     <spans [d57d206a3bab91a65cbc8c7fb6c7de5a235c6bcf+9]>>
   9
-  $ hg identify -r '0::' --num
+  $ sl identify -r '0::' --num
   9
 
 # Test matching
@@ -1744,7 +1745,7 @@ Strip 3 leaving 8 as only head
   9
   $ log 'rev(10)'
   $ log 'rev(tip)'
-  hg: parse error: rev expects a number
+  sl: parse error: rev expects a number
   [255]
 
 # Test hexadecimal revision
@@ -1799,17 +1800,17 @@ Strip 3 leaving 8 as only head
 
 # Test working-directory revision
 
-  $ hg debugrevspec 'wdir()'
+  $ sl debugrevspec 'wdir()'
   9223372036854775807
-  $ hg debugrevspec 'wdir()^'
+  $ sl debugrevspec 'wdir()^'
   9
-  $ hg up 7
+  $ sl up 7
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg debugrevspec 'wdir()^'
+  $ sl debugrevspec 'wdir()^'
   7
-  $ hg debugrevspec 'wdir()^0'
+  $ sl debugrevspec 'wdir()^0'
   9223372036854775807
-  $ hg debugrevspec 'wdir()~3'
+  $ sl debugrevspec 'wdir()~3'
   abort: working directory revision cannot be specified
   [255]
 
@@ -1818,57 +1819,57 @@ One way to fix them is to add the wdir() in the graph
 so it can be used for calculations.
 
 #if false
-  $ hg debugrevspec 'ancestors(wdir())'
+  $ sl debugrevspec 'ancestors(wdir())'
   abort: 9223372036854775807 cannot be found!
   [255]
 #endif
 
-  $ hg debugrevspec 'wdir()~0'
+  $ sl debugrevspec 'wdir()~0'
   abort: working directory revision cannot be specified
   [255]
-  $ hg debugrevspec 'p1(wdir())'
+  $ sl debugrevspec 'p1(wdir())'
   7
-  $ hg debugrevspec 'p2(wdir())'
+  $ sl debugrevspec 'p2(wdir())'
 
 FIXME: This is wrong.
-  $ hg debugrevspec 'parents(wdir())'
-  $ hg debugrevspec 'wdir()^1'
+  $ sl debugrevspec 'parents(wdir())'
+  $ sl debugrevspec 'wdir()^1'
   7
-  $ hg debugrevspec 'wdir()^2'
-  $ hg debugrevspec 'wdir()^3'
-  hg: parse error: ^ expects a number 0, 1, or 2
+  $ sl debugrevspec 'wdir()^2'
+  $ sl debugrevspec 'wdir()^3'
+  sl: parse error: ^ expects a number 0, 1, or 2
   [255]
 
 # DAG ranges with wdir()
 # FIXME: This crashes. We need proper virtual commit support in DAG.
 
 #if false
-  $ hg debugrevspec 'wdir()::1'
-  $ hg debugrevspec 'wdir()::wdir()'
+  $ sl debugrevspec 'wdir()::1'
+  $ sl debugrevspec 'wdir()::wdir()'
   abort: 9223372036854775807 cannot be found!
   [255]
-  $ hg debugrevspec 'wdir()::(1+wdir())'
+  $ sl debugrevspec 'wdir()::(1+wdir())'
   abort: 9223372036854775807 cannot be found!
   [255]
-  $ hg debugrevspec '6::wdir()'
+  $ sl debugrevspec '6::wdir()'
   abort: 9223372036854775807 cannot be found!
   [255]
-  $ hg debugrevspec '5::(wdir()+7)'
+  $ sl debugrevspec '5::(wdir()+7)'
   abort: 9223372036854775807 cannot be found!
   [255]
-  $ hg debugrevspec '(1+wdir())::(2+wdir())'
+  $ sl debugrevspec '(1+wdir())::(2+wdir())'
   abort: 9223372036854775807 cannot be found!
   [255]
 #endif
 
 # For tests consistency
 
-  $ hg up 9
+  $ sl up 9
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg debugrevspec 'tip or wdir()'
+  $ sl debugrevspec 'tip or wdir()'
   9
   9223372036854775807
-  $ hg debugrevspec '0:tip and wdir()'
+  $ sl debugrevspec '0:tip and wdir()'
   $ log '0:wdir()'
   0
   1
@@ -1897,61 +1898,61 @@ FIXME: This is wrong.
 # Test working-directory integer revision and node id
 # (BUG: '0:wdir()' is still needed to populate wdir revision)
 
-  $ hg debugrevspec '0:wdir() & 9223372036854775807'
-  $ hg debugrevspec '0:wdir() & rev(9223372036854775807)'
-  $ hg debugrevspec '0:wdir() & ffffffffffffffffffffffffffffffffffffffff'
-  $ hg debugrevspec '0:wdir() & ffffffffffff'
+  $ sl debugrevspec '0:wdir() & 9223372036854775807'
+  $ sl debugrevspec '0:wdir() & rev(9223372036854775807)'
+  $ sl debugrevspec '0:wdir() & ffffffffffffffffffffffffffffffffffffffff'
+  $ sl debugrevspec '0:wdir() & ffffffffffff'
   abort: unknown revision 'ffffffffffff'!
   [255]
-  $ hg debugrevspec '0:wdir() & id(ffffffffffffffffffffffffffffffffffffffff)'
-  $ hg debugrevspec '0:wdir() & id(ffffffffffff)'
+  $ sl debugrevspec '0:wdir() & id(ffffffffffffffffffffffffffffffffffffffff)'
+  $ sl debugrevspec '0:wdir() & id(ffffffffffff)'
 
   $ cd ..
 
 # Test short 'ff...' hash collision
 # (BUG: '0:wdir()' is still needed to populate wdir revision)
 
-  $ hg init wdir-hashcollision
+  $ sl init wdir-hashcollision
   $ cd wdir-hashcollision
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [experimental]
   > evolution.createmarkers=True
   > EOF
   $ echo 0 > a
-  $ hg ci -qAm 0
+  $ sl ci -qAm 0
 
   $ for i in 2463 2961 6726 78127; do
-  >   hg up -q 0
+  >   sl up -q 0
   >   echo $i > a
-  >   hg ci -qm $i
+  >   sl ci -qm $i
   > done
 
-  $ hg up -q null
-  $ hg log -r '0:wdir()' -T '{rev}:{node} {shortest(node, 3)}\n'
+  $ sl up -q null
+  $ sl log -r '0:wdir()' -T '{rev}:{node} {shortest(node, 3)}\n'
   0:b4e73ffab476aa0ee32ed81ca51e07169844bc6a b4e
   1:fffbae3886c8fbb2114296380d276fd37715d571 fffba
   2:fffb6093b00943f91034b9bdad069402c834e572 fffb6
   3:fff48a9b9de34a4d64120c29548214c67980ade3 fff4
   4:ffff85cff0ff78504fcdc3c0bc10de0c65379249 ffff
-  $ hg debugobsolete fffbae3886c8fbb2114296380d276fd37715d571
+  $ sl debugobsolete fffbae3886c8fbb2114296380d276fd37715d571
 
-  $ hg debugrevspec '0:wdir() & fff'
+  $ sl debugrevspec '0:wdir() & fff'
   abort: 00changelog.i@fff: ambiguous identifier!
   [255]
-  $ hg debugrevspec '0:wdir() & ffff'
+  $ sl debugrevspec '0:wdir() & ffff'
   4
-  $ hg debugrevspec '0:wdir() & fffb'
+  $ sl debugrevspec '0:wdir() & fffb'
   abort: 00changelog.i@fffb: ambiguous identifier!
   [255]
 
 # BROKEN should be '2' (node lookup uses unfiltered repo since dc25ed84bee8)
 
-  $ hg debugrevspec '0:wdir() & id(fffb)'
+  $ sl debugrevspec '0:wdir() & id(fffb)'
   abort: 00changelog.i@fffb: ambiguous identifier!
   [255]
-  $ hg debugrevspec '0:wdir() & ffff8'
+  $ sl debugrevspec '0:wdir() & ffff8'
   4
-  $ hg debugrevspec '0:wdir() & fffff'
+  $ sl debugrevspec '0:wdir() & fffff'
   abort: unknown revision 'fffff'!
   [255]
 
@@ -2161,7 +2162,7 @@ FIXME: This is wrong.
   1
   2
 
-  $ trylist --optimize --bin '2:0 & %ln' $(hg log -T '{node} ' -r0:2)
+  $ trylist --optimize --bin '2:0 & %ln' $(sl log -T '{node} ' -r0:2)
   (and
     (range
       (symbol '2')
@@ -2184,7 +2185,7 @@ FIXME: This is wrong.
   1
   0
 
-  $ trylist --optimize --bin '%ln & 2:0' $(hg log -T '{node} ' -r0+2+1)
+  $ trylist --optimize --bin '%ln & 2:0' $(sl log -T '{node} ' -r0+2+1)
   (and
     (func
       (symbol '_hexlist')
@@ -2352,10 +2353,10 @@ FIXME: This is wrong.
 #  invalid argument passed to noop sort():
 
   $ log '0:2 & sort()'
-  hg: parse error: sort requires one or two arguments
+  sl: parse error: sort requires one or two arguments
   [255]
   $ log '0:2 & sort(all(), -invalid)'
-  hg: parse error: unknown sort key '-invalid'
+  sl: parse error: unknown sort key '-invalid'
   [255]
 
 #  for 'A & f(B)', 'B' should not be affected by the order of 'A':
@@ -2578,16 +2579,16 @@ FIXME: This is wrong.
 # test invalid sort keys
 
   $ log 'sort(all(), -invalid)'
-  hg: parse error: unknown sort key '-invalid'
+  sl: parse error: unknown sort key '-invalid'
   [255]
 
   $ cd ..
 
 # test sorting by multiple keys including variable-length strings
 
-  $ hg init sorting
+  $ sl init sorting
   $ cd sorting
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [ui]
   > logtemplate = '{rev} {desc|p5}{author|p5}{date|hgdate}\n'
   > [templatealias]
@@ -2604,13 +2605,13 @@ FIXME: This is wrong.
 
 #  compare revisions (has fast path):
 
-  $ hg log -r 'sort(all(), rev)'
+  $ sl log -r 'sort(all(), rev)'
   0 m111 u112 111 10800
   1 m12  u111 112 7200
   2 m11  u12  111 3600
   3 m111 u11  120 0
 
-  $ hg log -r 'sort(all(), -rev)'
+  $ sl log -r 'sort(all(), -rev)'
   3 m111 u11  120 0
   2 m11  u12  111 3600
   1 m12  u111 112 7200
@@ -2618,37 +2619,37 @@ FIXME: This is wrong.
 
 #  compare variable-length strings (issue5218):
 
-  $ hg log -r 'sort(all(), branch)'
+  $ sl log -r 'sort(all(), branch)'
   0 m111 u112 111 10800
   1 m12  u111 112 7200
   2 m11  u12  111 3600
   3 m111 u11  120 0
 
-  $ hg log -r 'sort(all(), -branch)'
+  $ sl log -r 'sort(all(), -branch)'
   0 m111 u112 111 10800
   1 m12  u111 112 7200
   2 m11  u12  111 3600
   3 m111 u11  120 0
 
-  $ hg log -r 'sort(all(), desc)'
+  $ sl log -r 'sort(all(), desc)'
   2 m11  u12  111 3600
   0 m111 u112 111 10800
   3 m111 u11  120 0
   1 m12  u111 112 7200
 
-  $ hg log -r 'sort(all(), -desc)'
+  $ sl log -r 'sort(all(), -desc)'
   1 m12  u111 112 7200
   0 m111 u112 111 10800
   3 m111 u11  120 0
   2 m11  u12  111 3600
 
-  $ hg log -r 'sort(all(), user)'
+  $ sl log -r 'sort(all(), user)'
   3 m111 u11  120 0
   1 m12  u111 112 7200
   0 m111 u112 111 10800
   2 m11  u12  111 3600
 
-  $ hg log -r 'sort(all(), -user)'
+  $ sl log -r 'sort(all(), -user)'
   2 m11  u12  111 3600
   0 m111 u112 111 10800
   1 m12  u111 112 7200
@@ -2656,13 +2657,13 @@ FIXME: This is wrong.
 
 #  compare dates (tz offset should have no effect):
 
-  $ hg log -r 'sort(all(), date)'
+  $ sl log -r 'sort(all(), date)'
   0 m111 u112 111 10800
   2 m11  u12  111 3600
   1 m12  u111 112 7200
   3 m111 u11  120 0
 
-  $ hg log -r 'sort(all(), -date)'
+  $ sl log -r 'sort(all(), -date)'
   3 m111 u11  120 0
   1 m12  u111 112 7200
   0 m111 u112 111 10800
@@ -2671,33 +2672,33 @@ FIXME: This is wrong.
 #  be aware that 'sort(x, -k)' is not exactly the same as 'reverse(sort(x, k))'
 #  because '-k' reverses the comparison, not the list itself:
 
-  $ hg log -r 'sort(0 + 2, date)'
+  $ sl log -r 'sort(0 + 2, date)'
   0 m111 u112 111 10800
   2 m11  u12  111 3600
 
-  $ hg log -r 'sort(0 + 2, -date)'
+  $ sl log -r 'sort(0 + 2, -date)'
   0 m111 u112 111 10800
   2 m11  u12  111 3600
 
-  $ hg log -r 'reverse(sort(0 + 2, date))'
+  $ sl log -r 'reverse(sort(0 + 2, date))'
   2 m11  u12  111 3600
   0 m111 u112 111 10800
 
 #  sort by multiple keys:
 
-  $ hg log -r 'sort(all(), "branch -rev")'
+  $ sl log -r 'sort(all(), "branch -rev")'
   3 m111 u11  120 0
   2 m11  u12  111 3600
   1 m12  u111 112 7200
   0 m111 u112 111 10800
 
-  $ hg log -r 'sort(all(), "-desc -date")'
+  $ sl log -r 'sort(all(), "-desc -date")'
   1 m12  u111 112 7200
   3 m111 u11  120 0
   0 m111 u112 111 10800
   2 m11  u12  111 3600
 
-  $ hg log -r 'sort(all(), "user -branch date rev")'
+  $ sl log -r 'sort(all(), "user -branch date rev")'
   3 m111 u11  120 0
   1 m12  u111 112 7200
   0 m111 u112 111 10800
@@ -2705,23 +2706,23 @@ FIXME: This is wrong.
 
 #  toposort prioritises graph branches
 
-  $ hg up 2
+  $ sl up 2
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ touch a
-  $ hg addremove
+  $ sl addremove
   adding a
-  $ hg ci -m t1 -u tu -d '130 0'
+  $ sl ci -m t1 -u tu -d '130 0'
   $ echo a >> a
-  $ hg ci -m t2 -u tu -d '130 0'
-  $ hg book book1
-  $ hg up 4
+  $ sl ci -m t2 -u tu -d '130 0'
+  $ sl book book1
+  $ sl up 4
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark book1)
   $ touch a
-  $ hg addremove
-  $ hg ci -m t3 -u tu -d '130 0'
+  $ sl addremove
+  $ sl ci -m t3 -u tu -d '130 0'
 
-  $ hg log -r 'sort(all(), topo)'
+  $ sl log -r 'sort(all(), topo)'
   6 t3   tu   130 0
   5 t2   tu   130 0
   4 t1   tu   130 0
@@ -2730,7 +2731,7 @@ FIXME: This is wrong.
   1 m12  u111 112 7200
   0 m111 u112 111 10800
 
-  $ hg log -r 'sort(all(), -topo)'
+  $ sl log -r 'sort(all(), -topo)'
   0 m111 u112 111 10800
   1 m12  u111 112 7200
   2 m11  u12  111 3600
@@ -2739,7 +2740,7 @@ FIXME: This is wrong.
   5 t2   tu   130 0
   6 t3   tu   130 0
 
-  $ hg log -r 'sort(all(), topo, topo.firstbranch=book1)'
+  $ sl log -r 'sort(all(), topo, topo.firstbranch=book1)'
   5 t2   tu   130 0
   6 t3   tu   130 0
   4 t1   tu   130 0
@@ -2751,17 +2752,17 @@ FIXME: This is wrong.
 # topographical sorting can't be combined with other sort keys, and you can't
 # use the topo.firstbranch option when topo sort is not active:
 
-  $ hg log -r 'sort(all(), "topo user")'
-  hg: parse error: topo sort order cannot be combined with other sort keys
+  $ sl log -r 'sort(all(), "topo user")'
+  sl: parse error: topo sort order cannot be combined with other sort keys
   [255]
 
-  $ hg log -r 'sort(all(), user, topo.firstbranch=book1)'
-  hg: parse error: topo.firstbranch can only be used when using the topo sort key
+  $ sl log -r 'sort(all(), user, topo.firstbranch=book1)'
+  sl: parse error: topo.firstbranch can only be used when using the topo sort key
   [255]
 
 # topo.firstbranch should accept any kind of expressions:
 
-  $ hg log -r 'sort(0, topo, topo.firstbranch=(book1))'
+  $ sl log -r 'sort(0, topo, topo.firstbranch=(book1))'
   0 m111 u112 111 10800
 
   $ cd ..
@@ -2769,10 +2770,10 @@ FIXME: This is wrong.
 
 # test multiline revset with errors
 
-  $ hg log -r "
+  $ sl log -r "
   > . +
   > .^ +"
-  hg: parse error at 9: not a prefix: end
+  sl: parse error at 9: not a prefix: end
   ( . + .^ +
             ^ here)
   [255]

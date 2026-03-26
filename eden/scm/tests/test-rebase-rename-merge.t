@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ enable rebase
   $ setconfig rebase.experimental.inmemory=true
   $ setconfig drawdag.defaultfiles=false
@@ -10,8 +11,8 @@ Rebase renamed - no content merge:
   > |/
   > A    # A/A = A
   > EOS
-  $ hg rebase -q -r $B -d $C
-  $ hg show "successors($B)"
+  $ sl rebase -q -r $B -d $C
+  $ sl show "successors($B)"
   commit:      140c53e21e48
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -31,8 +32,8 @@ Rebase renamed - yes content merge:
   > |/   # C/A = A\nb\nc\n
   > A    # A/A = a\nb\nc\n
   > EOS
-  $ hg rebase -q -r $B -d $C
-  $ hg show "successors($B)"
+  $ sl rebase -q -r $B -d $C
+  $ sl show "successors($B)"
   commit:      e88db2660a78
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -61,9 +62,9 @@ Rebase rename already in dest:
   > |/   # C/B = A\nb\nc\n (renamed from A)
   > A    # A/A = a\nb\nc\n
   > EOS
-  $ hg rebase -q -r $B -d $D
+  $ sl rebase -q -r $B -d $D
   warning: can't find ancestor for 'B' copied from 'A'!
-  $ hg show "successors($B)"
+  $ sl show "successors($B)"
   commit:      e2e1c46b067b
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -90,11 +91,11 @@ Rebase rename with different rename already in dest:
   > |/   # C/C = A\nb\nc\n (renamed from A)
   > A    # A/A = a\nb\nc\n
   > EOS
-  $ hg rebase -q -r $B -d $D
+  $ sl rebase -q -r $B -d $D
   warning: can't find ancestor for 'B' copied from 'A'!
 
 BUG: doesn't merge rename from both sides
-  $ hg show "successors($B)"
+  $ sl show "successors($B)"
   commit:      a03a9e65db8a
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -122,8 +123,8 @@ Rebase multiple renames with content merge:
   > |/   # C/A = A\nb\nc\n
   > A    # A/A = a\nb\nc\n
   > EOS
-  $ hg rebase -q -s $B -d $C
-  $ hg show "successors($B)"
+  $ sl rebase -q -s $B -d $C
+  $ sl show "successors($B)"
   commit:      e88db2660a78
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -142,7 +143,7 @@ Rebase multiple renames with content merge:
    b
   -c
   +d
-  $ hg show "successors($D)"
+  $ sl show "successors($D)"
   commit:      642994429b16
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

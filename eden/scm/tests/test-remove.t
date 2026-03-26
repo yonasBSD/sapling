@@ -1,13 +1,14 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ remove() {
-  >     hg rm $@
+  >     sl rm $@
   >     echo "exit code: $?"
-  >     hg st
-  >     # do not use ls -R, which recurses in .hg subdirs on Mac OS X 10.5
-  >     find . -name .hg -prune -o -type f -print | sort
-  >     hg up -C .
+  >     sl st
+  >     # do not use ls -R, which recurses in .sl subdirs on Mac OS X 10.5
+  >     find . -name .sl -prune -o -type f -print | sort
+  >     sl up -C .
   > }
 
   $ configure modernclient
@@ -23,16 +24,16 @@ file not managed
   ./foo
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg add foo
-  $ hg commit -m1
+  $ sl add foo
+  $ sl commit -m1
 
 the table cases
 00 state added, options none
 
   $ echo b > bar
-  $ hg add bar
+  $ sl add bar
   $ remove bar
-  not removing bar: file has been marked for add (use 'hg forget' to undo add)
+  not removing bar: file has been marked for add (use 'sl forget' to undo add)
   exit code: 1
   A bar
   ./bar
@@ -73,7 +74,7 @@ the table cases
 10 state added, options -f
 
   $ echo b > bar
-  $ hg add bar
+  $ sl add bar
   $ remove -f bar
   exit code: 0
   ? bar
@@ -108,7 +109,7 @@ the table cases
 20 state added, options --mark
 
   $ echo b > bar
-  $ hg add bar
+  $ sl add bar
   $ remove --mark bar
   not removing bar: file still exists
   exit code: 1
@@ -152,7 +153,7 @@ the table cases
 30 state added, options --mark -f
 
   $ echo b > bar
-  $ hg add bar
+  $ sl add bar
   $ remove --mark -f bar
   exit code: 0
   ? bar
@@ -191,7 +192,7 @@ test some directory stuff
   $ mkdir test
   $ echo a > test/foo
   $ echo b > test/bar
-  $ hg ci -Am2
+  $ sl ci -Am2
   adding test/bar
   adding test/foo
 
@@ -268,21 +269,21 @@ test remove dropping empty trees (issue1861)
   $ mkdir -p issue1861/b/c
   $ echo x > issue1861/x
   $ echo y > issue1861/b/c/y
-  $ hg ci -Am add
+  $ sl ci -Am add
   adding issue1861/b/c/y
   adding issue1861/x
-  $ hg rm issue1861/b
+  $ sl rm issue1861/b
   removing issue1861/b/c/y
-  $ hg ci -m remove
+  $ sl ci -m remove
   $ ls issue1861
   x
 
 test that commit does not crash if the user removes a newly added file
 
   $ touch f1
-  $ hg add f1
+  $ sl add f1
   $ rm f1
-  $ hg ci -A -mx
+  $ sl ci -A -mx
   removing f1
   nothing changed
   [1]
@@ -291,15 +292,15 @@ handling of untracked directories and missing files
 
   $ mkdir d1
   $ echo a > d1/a
-  $ hg rm --mark d1
+  $ sl rm --mark d1
   not removing d1: no tracked files
   [1]
-  $ hg add d1/a
+  $ sl add d1/a
   $ rm d1/a
-  $ hg rm --mark d1
+  $ sl rm --mark d1
   removing d1/a
 
-  $ hg rm --mark nosuch
+  $ sl rm --mark nosuch
   nosuch: $ENOENT$
   [1]
 
@@ -308,7 +309,7 @@ handling root path in remove with matcher
   $ newclientrepo
   $ mkdir dir
   $ echo abc > dir/abc.txt
-  $ hg ci -m "abc" -Aq
-  $ hg remove -f 'glob:**.txt' -X dir
-  $ hg remove -f 'glob:**.txt' -I dir
+  $ sl ci -m "abc" -Aq
+  $ sl remove -f 'glob:**.txt' -X dir
+  $ sl remove -f 'glob:**.txt' -I dir
   removing dir/abc.txt

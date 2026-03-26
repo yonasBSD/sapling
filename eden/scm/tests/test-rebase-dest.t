@@ -2,41 +2,42 @@
 #require no-eden
 
 #chg-compatible
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Require a destination
   $ enable rebase
   $ setconfig commands.rebase.requiredest=true
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo a >> a
-  $ hg commit -qAm aa
+  $ sl commit -qAm aa
   $ echo b >> b
-  $ hg commit -qAm bb
-  $ hg up ".^"
+  $ sl commit -qAm bb
+  $ sl up ".^"
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo c >> c
-  $ hg commit -qAm cc
-  $ hg rebase
+  $ sl commit -qAm cc
+  $ sl rebase
   abort: you must specify a destination (-d) for the rebase
   [255]
-  $ hg rebase -d 'desc(bb)'
+  $ sl rebase -d 'desc(bb)'
   rebasing 5db65b93a12b "cc"
-  $ hg rebase -d 'desc(aa)' -r . -q
-  $ HGPLAIN=1 hg rebase
+  $ sl rebase -d 'desc(aa)' -r . -q
+  $ HGPLAIN=1 sl rebase
   abort: you must specify a destination (-d) for the rebase
   [255]
-  $ hg rebase -d 'desc(aa)' -r . -q
-  $ hg --config commands.rebase.requiredest=False rebase
+  $ sl rebase -d 'desc(aa)' -r . -q
+  $ sl --config commands.rebase.requiredest=False rebase
   abort: you must specify a destination (-d) for the rebase
   [255]
-  $ hg rebase -d 'desc(bb)' -r . -q
+  $ sl rebase -d 'desc(bb)' -r . -q
 
 Requiring dest should not break continue or other rebase options
-  $ hg up 'desc(bb)' -q
+  $ sl up 'desc(bb)' -q
   $ echo d >> c
-  $ hg commit -qAm dc
-  $ hg log -G -T '{desc}'
+  $ sl commit -qAm dc
+  $ sl log -G -T '{desc}'
   @  dc
   │
   │ o  cc
@@ -45,31 +46,31 @@ Requiring dest should not break continue or other rebase options
   │
   o  aa
   
-  $ hg rebase -d 'desc(cc)'
+  $ sl rebase -d 'desc(cc)'
   rebasing 0537f6b50def "dc"
   merging c
-  warning: 1 conflicts while merging c! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging c! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ echo d > c
-  $ hg resolve --mark --all
+  $ sl resolve --mark --all
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  continue: sl rebase --continue
+  $ sl rebase --continue
   rebasing 0537f6b50def "dc"
 
   $ cd ..
 
 Check rebase.requiredest interaction with pull --rebase
-  $ hg clone -q repo clone
+  $ sl clone -q repo clone
   $ cd repo
   $ echo e > e
-  $ hg commit -qAm ee
+  $ sl commit -qAm ee
   $ cd ..
   $ cd clone
   $ echo f > f
-  $ hg commit -qAm ff
-  $ hg pull --rebase
+  $ sl commit -qAm ff
+  $ sl pull --rebase
   abort: missing rebase destination - supply --dest / -d
   [255]
 
@@ -85,12 +86,12 @@ Setup rebase with multiple destinations
 
   $ rebasewithdag() {
   >   N=$((N + 1))
-  >   hg init repo$N && cd repo$N
-  >   hg debugdrawdag
-  >   hg rebase "$@" > _rebasetmp
+  >   sl init repo$N && cd repo$N
+  >   sl debugdrawdag
+  >   sl rebase "$@" > _rebasetmp
   >   r=$?
   >   grep -v 'saved backup bundle' _rebasetmp
-  >   [ $r -eq 0 ] && rm -f .hg/localtags && hg book -d `hg book -T '{bookmark} '` && tglog
+  >   [ $r -eq 0 ] && rm -f .sl/localtags && sl book -d `sl book -T '{bookmark} '` && tglog
   >   cd ..
   >   return $r
   > }

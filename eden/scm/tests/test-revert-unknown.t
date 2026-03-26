@@ -7,29 +7,30 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ touch unknown
 
   $ touch a
-  $ hg add a
-  $ hg ci -m initial
+  $ sl add a
+  $ sl ci -m initial
 
   $ touch b
-  $ hg add b
-  $ hg ci -m second
+  $ sl add b
+  $ sl ci -m second
 
 # Should show unknown
 
-  $ hg status
+  $ sl status
   ? unknown
-  $ hg revert -r 'desc(initial)' --all
+  $ sl revert -r 'desc(initial)' --all
   removing b
 
 # Should show unknown and b removed
 
-  $ hg status
+  $ sl status
   R b
   ? unknown
 

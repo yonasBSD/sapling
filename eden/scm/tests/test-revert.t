@@ -9,6 +9,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 # Prepare test functions
@@ -30,79 +31,79 @@
 
 # init 
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo 123 > a
   $ echo 123 > c
   $ echo 123 > e
-  $ hg add a c e
-  $ hg commit -m first a c e
+  $ sl add a c e
+  $ sl commit -m first a c e
 
 # nothing changed
 
-  $ hg revert
+  $ sl revert
   abort: no files or directories specified
   (use --all to revert all files)
   [255]
-  $ hg revert --all
+  $ sl revert --all
 
 # Introduce some changes and revert them
 # --------------------------------------
 
   $ echo 123 > b
 
-  $ hg status
+  $ sl status
   ? b
   $ echo 12 > c
 
-  $ hg status
+  $ sl status
   M c
   ? b
-  $ hg add b
+  $ sl add b
 
-  $ hg status
+  $ sl status
   M c
   A b
-  $ hg rm a
+  $ sl rm a
 
-  $ hg status
+  $ sl status
   M c
   A b
   R a
 
 # revert removal of a file
 
-  $ hg revert a
-  $ hg status
+  $ sl revert a
+  $ sl status
   M c
   A b
 
 # revert addition of a file
 
-  $ hg revert b
-  $ hg status
+  $ sl revert b
+  $ sl status
   M c
   ? b
 
 # revert modification of a file (--no-backup)
 
-  $ hg revert --no-backup c
-  $ hg status
+  $ sl revert --no-backup c
+  $ sl status
   ? b
 
 # revert deletion (! status) of a added file
 # ------------------------------------------
 
-  $ hg add b
+  $ sl add b
 
-  $ hg status b
+  $ sl status b
   A b
   $ rm b
-  $ hg status b
+  $ sl status b
   ! b
-  $ hg revert -v b
+  $ sl revert -v b
   forgetting b
-  $ hg status b
+  $ sl status b
   b: $ENOENT$
 
   $ ls
@@ -114,7 +115,7 @@
 # -------------------------------------
 
   $ echo z > e
-  $ hg revert --all -v
+  $ sl revert --all -v
   saving current version of e as e.orig
   reverting e
 
@@ -122,47 +123,47 @@
 # ----------------------------------------------------------------
 
   $ echo z > e
-  $ hg revert --all -v --config 'ui.origbackuppath=.hg/origbackups'
-  creating directory: $TESTTMP/repo/.hg/origbackups
-  saving current version of e as $TESTTMP/repo/.hg/origbackups/e
+  $ sl revert --all -v --config 'ui.origbackuppath=.hg/origbackups'
+  creating directory: $TESTTMP/repo/.sl/origbackups
+  saving current version of e as $TESTTMP/repo/.sl/origbackups/e
   reverting e
-  $ rm -rf .hg/origbackups
+  $ rm -rf .sl/origbackups
 
 # revert on clean file (no change)
 # --------------------------------
 
-  $ hg revert a
+  $ sl revert a
   no changes needed to a
 
-  $ hg revert -q a
+  $ sl revert -q a
 
 # revert on an untracked file
 # ---------------------------
 
   $ echo q > q
-  $ hg revert q
+  $ sl revert q
   file not managed: q
   $ rm q
 
 # revert on file that does not exists
 # -----------------------------------
 
-  $ hg revert notfound
+  $ sl revert notfound
   notfound: no such file in rev 334a9e57682c
   $ touch d
-  $ hg add d
-  $ hg rm a
-  $ hg commit -m second
+  $ sl add d
+  $ sl rm a
+  $ sl commit -m second
   $ echo z > z
-  $ hg add z
-  $ hg st
+  $ sl add z
+  $ sl st
   A z
   ? e.orig
 
 # revert to another revision (--rev)
 # ----------------------------------
 
-  $ hg revert --all -r 'desc(first)'
+  $ sl revert --all -r 'desc(first)'
   adding a
   removing d
   forgetting z
@@ -170,7 +171,7 @@
 # revert explicitly to parent (--rev)
 # -----------------------------------
 
-  $ hg revert --all -rtip
+  $ sl revert --all -rtip
   forgetting a
   undeleting d
   $ rm a *.orig
@@ -179,36 +180,36 @@
 # --------------------------------------------------
 # exact match are more silent
 
-  $ hg revert -r 'desc(first)' a
-  $ hg st a
+  $ sl revert -r 'desc(first)' a
+  $ sl st a
   A a
-  $ hg rm d
-  $ hg st d
+  $ sl rm d
+  $ sl st d
   R d
 
 # should keep d removed
 
-  $ hg revert -r 'desc(first)' d
+  $ sl revert -r 'desc(first)' d
   no changes needed to d
-  $ hg st d
+  $ sl st d
   R d
 
-  $ hg goto -C .
+  $ sl goto -C .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 #if execbit
   $ chmod +x c
-  $ hg revert --all
+  $ sl revert --all
   reverting c
 
   $ test -x c
   [1]
 
   $ chmod +x c
-  $ hg commit -m exe
+  $ sl commit -m exe
 
   $ chmod -x c
-  $ hg revert --all
+  $ sl revert --all
   reverting c
 
   $ test -x c
@@ -221,21 +222,21 @@
 # changed on the filesystem (see also issue4583).
 
   $ echo 321 > e
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/e b/e
   --- a/e
   +++ b/e
   @@ -1,1 +1,1 @@
   -123
   +321
-  $ hg commit -m 'ambiguity from size'
+  $ sl commit -m 'ambiguity from size'
 
   $ cat e
   321
   $ touch -t 200001010000 e
-  $ hg debugrebuildstate
+  $ sl debugrebuildstate
 
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [fakedirstatewritetime]
   > # emulate invoking dirstate.write() via repo.status()
   > # at 2000-01-01 00:00
@@ -244,8 +245,8 @@
   > [extensions]
   > fakedirstatewritetime = $TESTDIR/fakedirstatewritetime.py
   > EOF
-  $ hg revert -r 'desc(first)' e
-  $ cat >> .hg/hgrc << 'EOF'
+  $ sl revert -r 'desc(first)' e
+  $ cat >> .sl/config << 'EOF'
   > [extensions]
   > fakedirstatewritetime = !
   > EOF
@@ -253,7 +254,7 @@
   $ cat e
   123
   $ touch -t 200001010000 e
-  $ hg status -A e
+  $ sl status -A e
   M e
 
   $ cd ..
@@ -261,80 +262,80 @@
 # Issue241: update and revert produces inconsistent repositories
 # --------------------------------------------------------------
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo a >> a
-  $ hg commit -A -d '1 0' -m issue241-first
+  $ sl commit -A -d '1 0' -m issue241-first
   adding a
   $ echo a >> a
-  $ hg commit -d '2 0' -m issue241-second
-  $ hg goto 'desc("issue241-first")'
+  $ sl commit -d '2 0' -m issue241-second
+  $ sl goto 'desc("issue241-first")'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ mkdir b
   $ echo b > b/b
 
-# call `hg revert` with no file specified
+# call `sl revert` with no file specified
 # ---------------------------------------
 
-  $ hg revert -rtip
+  $ sl revert -rtip
   abort: no files or directories specified
-  (use --all to revert all files, or 'hg goto e655737eacaa' to update)
+  (use --all to revert all files, or 'sl goto e655737eacaa' to update)
   [255]
 
-# call `hg revert` with -I
+# call `sl revert` with -I
 # ---------------------------
 
   $ echo a >> a
-  $ hg revert -I a
+  $ sl revert -I a
   reverting a
 
-# call `hg revert` with -X
+# call `sl revert` with -X
 # ---------------------------
 
   $ echo a >> a
-  $ hg revert -X d
+  $ sl revert -X d
   reverting a
 
-# call `hg revert` with --all
+# call `sl revert` with --all
 # ---------------------------
 
-  $ hg revert --all -rtip
+  $ sl revert --all -rtip
   reverting a
   $ rm 'a.orig'
 
 # Issue332: confusing message when reverting directory
 # ----------------------------------------------------
 
-  $ hg ci -A -m b
+  $ sl ci -A -m b
   adding b/b
   $ echo foobar > b/b
   $ mkdir newdir
   $ echo foo > newdir/newfile
-  $ hg add newdir/newfile
-  $ hg revert b newdir
+  $ sl add newdir/newfile
+  $ sl revert b newdir
   reverting b/b
   forgetting newdir/newfile
   $ echo foobar > b/b
-  $ hg revert .
+  $ sl revert .
   reverting b/b
 
 # reverting a rename target should revert the source
 # --------------------------------------------------
 
-  $ hg mv a newa
-  $ hg revert newa
-  $ hg st a newa
+  $ sl mv a newa
+  $ sl revert newa
+  $ sl st a newa
   ? newa
 
 # Also true for move overwriting an existing file
 
-  $ hg mv --force a b/b
-  $ hg revert b/b
-  $ hg status a b/b
+  $ sl mv --force a b/b
+  $ sl revert b/b
+  $ sl status a b/b
 
   $ cd ..
 
-  $ hg init ignored
+  $ sl init ignored
   $ cd ignored
   $ echo ignored > .gitignore
   $ echo ignoreddir >> .gitignore
@@ -348,57 +349,57 @@
 
 # 4 ignored files (we will add/commit everything)
 
-  $ hg st -A -X .gitignore
+  $ sl st -A -X .gitignore
   I ignored
   I ignoreddir/file
   I ignoreddir/removed
   I removed
-  $ hg ci -qAm 'add files' ignored ignoreddir/file ignoreddir/removed removed
+  $ sl ci -qAm 'add files' ignored ignoreddir/file ignoreddir/removed removed
 
   $ echo >> ignored
   $ echo >> ignoreddir/file
-  $ hg rm removed ignoreddir/removed
+  $ sl rm removed ignoreddir/removed
 
 # should revert ignored* and undelete *removed
 # --------------------------------------------
 
-  $ hg revert -a --no-backup
+  $ sl revert -a --no-backup
   reverting ignored
   reverting ignoreddir/file
   undeleting ignoreddir/removed
   undeleting removed
-  $ hg st -mardi
+  $ sl st -mardi
 
-  $ hg up -qC .
+  $ sl up -qC .
   $ echo >> ignored
-  $ hg rm removed
+  $ sl rm removed
 
 # should silently revert the named files
 # --------------------------------------
 
-  $ hg revert --no-backup ignored removed
-  $ hg st -mardi
+  $ sl revert --no-backup ignored removed
+  $ sl st -mardi
 
 # Reverting copy (issue3920)
 # --------------------------
 # someone set up us the copies
 
   $ rm .gitignore
-  $ hg goto -C .
+  $ sl goto -C .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg mv ignored allyour
-  $ hg copy removed base
-  $ hg commit -m rename
+  $ sl mv ignored allyour
+  $ sl copy removed base
+  $ sl commit -m rename
 
 # copies and renames, you have no chance to survive make your time (issue3920)
 
-  $ hg goto '.^'
+  $ sl goto '.^'
   1 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg revert -rtip -a
+  $ sl revert -rtip -a
   adding allyour
   adding base
   removing ignored
-  $ hg status -C
+  $ sl status -C
   A allyour
     ignored
   A base
@@ -409,24 +410,24 @@
 # ====================================================
 # remove any pending change
 
-  $ hg revert --all
+  $ sl revert --all
   forgetting allyour
   forgetting base
   undeleting ignored
-  $ hg purge --all
+  $ sl purge --all
 
 # Adds a new commit
 
   $ echo foo > newadd
-  $ hg add newadd
-  $ hg commit -m 'other adds'
+  $ sl add newadd
+  $ sl commit -m 'other adds'
 
 # merge it with the other head
 
-  $ hg merge
+  $ sl merge
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg summary
+  $ sl summary
   parent: 68b989552c4a 
    other adds
   parent: 2b80f4f4fe72 
@@ -436,13 +437,13 @@
 
 # clarifies who added what
 
-  $ hg status
+  $ sl status
   M allyour
   M base
   R ignored
-  $ hg status --change 'p1()'
+  $ sl status --change 'p1()'
   A newadd
-  $ hg status --change 'p2()'
+  $ sl status --change 'p2()'
   A allyour
   A base
   R ignored
@@ -450,8 +451,8 @@
 # revert file added by p1() to p1() state
 # -----------------------------------------
 
-  $ hg revert -r 'p1()' 'glob:newad?'
-  $ hg status
+  $ sl revert -r 'p1()' 'glob:newad?'
+  $ sl status
   M allyour
   M base
   R ignored
@@ -459,9 +460,9 @@
 # revert file added by p1() to p2() state
 # ------------------------------------------
 
-  $ hg revert -r 'p2()' 'glob:newad?'
+  $ sl revert -r 'p2()' 'glob:newad?'
   removing newadd
-  $ hg status
+  $ sl status
   M allyour
   M base
   R ignored
@@ -470,8 +471,8 @@
 # revert file added by p2() to p2() state
 # ------------------------------------------
 
-  $ hg revert -r 'p2()' 'glob:allyou?'
-  $ hg status
+  $ sl revert -r 'p2()' 'glob:allyou?'
+  $ sl status
   M allyour
   M base
   R ignored
@@ -480,9 +481,9 @@
 # revert file added by p2() to p1() state
 # ------------------------------------------
 
-  $ hg revert -r 'p1()' 'glob:allyou?'
+  $ sl revert -r 'p1()' 'glob:allyou?'
   removing allyour
-  $ hg status
+  $ sl status
   M base
   R allyour
   R newadd
@@ -554,14 +555,14 @@
 # Generate appropriate repo state
 # -------------------------------
 
-  $ hg init revert-ref
+  $ sl init revert-ref
   $ cd revert-ref
 
 # Generate base changeset
 
   >>> generateworkingcopystates.main("state", 2, 1)
 
-  $ hg addremove --similarity 0
+  $ sl addremove --similarity 0
   adding content1_content1_content1-tracked
   adding content1_content1_content1-untracked
   adding content1_content1_content3-tracked
@@ -582,7 +583,7 @@
   adding content1_missing_content3-untracked
   adding content1_missing_missing-tracked
   adding content1_missing_missing-untracked
-  $ hg status
+  $ sl status
   A content1_content1_content1-tracked
   A content1_content1_content1-untracked
   A content1_content1_content3-tracked
@@ -603,7 +604,7 @@
   A content1_missing_content3-untracked
   A content1_missing_missing-tracked
   A content1_missing_missing-untracked
-  $ hg commit -m base
+  $ sl commit -m base
 
 # (create a simple text version of the content)
 
@@ -634,7 +635,7 @@
 
   >>> generateworkingcopystates.main("state", 2, 2)
 
-  $ hg addremove --similarity 0
+  $ sl addremove --similarity 0
   removing content1_missing_content1-tracked
   removing content1_missing_content1-untracked
   removing content1_missing_content3-tracked
@@ -647,7 +648,7 @@
   adding missing_content2_content3-untracked
   adding missing_content2_missing-tracked
   adding missing_content2_missing-untracked
-  $ hg status
+  $ sl status
   M content1_content2_content1-tracked
   M content1_content2_content1-untracked
   M content1_content2_content2-tracked
@@ -668,7 +669,7 @@
   R content1_missing_content3-untracked
   R content1_missing_missing-tracked
   R content1_missing_missing-untracked
-  $ hg commit -m parent
+  $ sl commit -m parent
 
 # (create a simple text version of the content)
 
@@ -699,7 +700,7 @@
 
   >>> generateworkingcopystates.main("state", 2, "wc")
 
-  $ hg addremove --similarity 0
+  $ sl addremove --similarity 0
   adding content1_missing_content1-tracked
   adding content1_missing_content1-untracked
   adding content1_missing_content3-tracked
@@ -710,9 +711,9 @@
   adding missing_missing_content3-untracked
   adding missing_missing_missing-tracked
   adding missing_missing_missing-untracked
-  $ hg forget *_*_*-untracked
+  $ sl forget *_*_*-untracked
   $ rm *_*_missing-*
-  $ hg status
+  $ sl status
   M content1_content1_content3-tracked
   M content1_content2_content1-tracked
   M content1_content2_content3-tracked
@@ -739,7 +740,7 @@
   ? content1_missing_content3-untracked
   ? missing_missing_content3-untracked
 
-  $ hg status --rev 'desc("base")'
+  $ sl status --rev 'desc("base")'
   M content1_content1_content3-tracked
   M content1_content2_content2-tracked
   M content1_content2_content3-tracked
@@ -799,7 +800,7 @@
 
 # check revert output
 
-  $ hg revert --all
+  $ sl revert --all
   undeleting content1_content1_content1-untracked
   reverting content1_content1_content3-tracked
   undeleting content1_content1_content3-untracked
@@ -875,7 +876,7 @@
 
 # check revert output
 
-  $ hg revert --all --rev 'desc(base)'
+  $ sl revert --all --rev 'desc(base)'
   undeleting content1_content1_content1-untracked
   reverting content1_content1_content3-tracked
   undeleting content1_content1_content3-untracked
@@ -955,7 +956,7 @@
   ...     output = []
   ...     for myfile in files.split("\n"):
   ...         output.append("### revert for: {}".format(myfile))
-  ...         output.append(sheval("hg revert {}".format(myfile)).rstrip() or ".")
+  ...         output.append(sheval("sl revert {}".format(myfile)).rstrip() or ".")
   ...     print("\n".join(output))
 
   >>> revertoutput()
@@ -1411,21 +1412,21 @@
 # -----------------------------------------------------
 # (prepare the repository)
 
-  $ hg init issue5052
+  $ sl init issue5052
   $ cd issue5052
   $ echo '*\.orig' > .gitignore
   $ echo 0 > root
-  $ hg ci -qAm C0
+  $ sl ci -qAm C0
   $ echo 0 > A
-  $ hg ci -qAm C1
+  $ sl ci -qAm C1
   $ echo 1 >> A
-  $ hg ci -qm C2
-  $ hg up -q 'desc(C0)'
+  $ sl ci -qm C2
+  $ sl up -q 'desc(C0)'
   $ echo 1 > B
-  $ hg ci -qAm C3
-  $ hg status --rev 'ancestor(.,desc(C2))' --rev 'desc(C2)'
+  $ sl ci -qAm C3
+  $ sl status --rev 'ancestor(.,desc(C2))' --rev 'desc(C2)'
   A A
-  $ hg log -G -T '{desc|firstline} ({files})\n'
+  $ sl log -G -T '{desc|firstline} ({files})\n'
   @  C3 (B)
   │
   │ o  C2 (A)
@@ -1436,55 +1437,55 @@
 
 # actual tests: reverting to something else than a merge parent
 
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
-  $ hg status --rev 'p1()'
+  $ sl status --rev 'p1()'
   M A
-  $ hg status --rev 'p2()'
+  $ sl status --rev 'p2()'
   A B
-  $ hg status --rev 'desc(C1)'
+  $ sl status --rev 'desc(C1)'
   M A
   A B
-  $ hg revert --rev 'desc(C1)' --all
+  $ sl revert --rev 'desc(C1)' --all
   reverting A
   removing B
-  $ hg status --rev 'desc(C1)'
+  $ sl status --rev 'desc(C1)'
 
 # From the other parents
 
-  $ hg up -C 'p2()'
+  $ sl up -C 'p2()'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
-  $ hg status --rev 'p1()'
+  $ sl status --rev 'p1()'
   M B
-  $ hg status --rev 'p2()'
+  $ sl status --rev 'p2()'
   A A
-  $ hg status --rev 'desc(C1)'
+  $ sl status --rev 'desc(C1)'
   M A
   A B
-  $ hg revert --rev 'desc(C1)' --all
+  $ sl revert --rev 'desc(C1)' --all
   reverting A
   removing B
-  $ hg status --rev 'desc(C1)'
+  $ sl status --rev 'desc(C1)'
 
 #if symlink
 
 # Don't backup symlink reverts
 
   $ ln -s foo bar
-  $ hg add bar
-  $ hg commit -m symlink
+  $ sl add bar
+  $ sl commit -m symlink
   $ rm bar
   $ ln -s car bar
-  $ hg status
+  $ sl status
   M bar
-  $ hg revert --all --config 'ui.origbackuppath=.hg/origbackups'
+  $ sl revert --all --config 'ui.origbackuppath=.hg/origbackups'
   reverting bar
-  $ ls .hg/origbackups
+  $ ls .sl/origbackups
 
 #endif

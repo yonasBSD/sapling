@@ -3,34 +3,35 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ enable rebase
 
 Create a repo with several bookmarks
-  $ hg init a
+  $ sl init a
   $ cd a
 
   $ echo a > a
-  $ hg ci -Am A
+  $ sl ci -Am A
   adding a
 
   $ echo b > b
-  $ hg ci -Am B
+  $ sl ci -Am B
   adding b
-  $ hg book 'X'
-  $ hg book 'Y'
+  $ sl book 'X'
+  $ sl book 'Y'
 
   $ echo c > c
-  $ hg ci -Am C
+  $ sl ci -Am C
   adding c
-  $ hg book 'Z'
+  $ sl book 'Z'
 
-  $ hg up -q 'desc(A)'
+  $ sl up -q 'desc(A)'
 
   $ echo d > d
-  $ hg ci -Am D
+  $ sl ci -Am D
   adding d
 
-  $ hg book W
+  $ sl book W
 
   $ tglog
   @  41acb9dca9eb 'D' W
@@ -48,16 +49,16 @@ Move only rebased bookmarks
   $ cp -r a a1
 
   $ cd a1
-  $ hg up -q Z
+  $ sl up -q Z
 
 Test deleting divergent bookmarks from dest (issue3685)
 
-  $ hg book -r 'desc(D)' Z@diverge
+  $ sl book -r 'desc(D)' Z@diverge
 
 ... and also test that bookmarks not on dest or not being moved aren't deleted
 
-  $ hg book -r 'desc(D)' X@diverge
-  $ hg book -r 'desc(A)' Y@diverge
+  $ sl book -r 'desc(D)' X@diverge
+  $ sl book -r 'desc(A)' Y@diverge
 
   $ tglog
   o  41acb9dca9eb 'D' W X@diverge Z@diverge
@@ -68,7 +69,7 @@ Test deleting divergent bookmarks from dest (issue3685)
   ├─╯
   o  1994f17a630e 'A' Y@diverge
   
-  $ hg rebase -s Y -d 'desc(D)'
+  $ sl rebase -s Y -d 'desc(D)'
   rebasing 49cb3485fa0c "C" (Y Z)
 
   $ tglog
@@ -86,13 +87,13 @@ Do not try to keep active but deleted divergent bookmark
   $ cp -r a a4
 
   $ cd a4
-  $ hg up -q 'desc(C)'
-  $ hg book W@diverge
+  $ sl up -q 'desc(C)'
+  $ sl book W@diverge
 
-  $ hg rebase -s W -d .
+  $ sl rebase -s W -d .
   rebasing 41acb9dca9eb "D" (W)
 
-  $ hg bookmarks
+  $ sl bookmarks
      W                         0d3554f74897
      X                         6c81ed0049f8
      Y                         49cb3485fa0c
@@ -104,9 +105,9 @@ Keep bookmarks to the correct rebased changeset
   $ cp -r a a2
 
   $ cd a2
-  $ hg up -q Z
+  $ sl up -q Z
 
-  $ hg rebase -s 'desc(B)' -d 'desc(D)'
+  $ sl rebase -s 'desc(B)' -d 'desc(D)'
   rebasing 6c81ed0049f8 "B" (X)
   rebasing 49cb3485fa0c "C" (Y Z)
 
@@ -126,9 +127,9 @@ Keep active bookmark on the correct changeset
   $ cp -r a a3
 
   $ cd a3
-  $ hg up -q X
+  $ sl up -q X
 
-  $ hg rebase -d W
+  $ sl rebase -d W
   rebasing 6c81ed0049f8 "B" (X)
   rebasing 49cb3485fa0c "C" (Y Z)
 
@@ -141,7 +142,7 @@ Keep active bookmark on the correct changeset
   │
   o  1994f17a630e 'A'
   
-  $ hg bookmarks
+  $ sl bookmarks
      W                         41acb9dca9eb
    * X                         e926fccfa8ec
      Y                         3d5fa227f4b5
@@ -149,25 +150,25 @@ Keep active bookmark on the correct changeset
 
 rebase --continue with bookmarks present (issue3802)
 
-  $ hg up 'bookmark(X)'
+  $ sl up 'bookmark(X)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark X)
   $ echo 'C' > c
-  $ hg add c
-  $ hg ci -m 'other C'
-  $ hg up 'bookmark(Y)'
+  $ sl add c
+  $ sl ci -m 'other C'
+  $ sl up 'bookmark(Y)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg rebase --dest 'desc(other)'
+  $ sl rebase --dest 'desc(other)'
   rebasing 3d5fa227f4b5 "C" (Y Z)
   merging c
-  warning: 1 conflicts while merging c! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging c! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ echo 'c' > c
-  $ hg resolve --mark c
+  $ sl resolve --mark c
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  continue: sl rebase --continue
+  $ sl rebase --continue
   rebasing 3d5fa227f4b5 "C" (Y Z)
   $ tglog
   @  45c0f0ec1203 'C' Y Z
@@ -184,31 +185,31 @@ rebase --continue with bookmarks present (issue3802)
 ensure that bookmarks given the names of revset functions can be used
 as --rev arguments (issue3950)
 
-  $ hg goto -q 'desc(other)'
+  $ sl goto -q 'desc(other)'
   $ echo bimble > bimble
-  $ hg add bimble
-  $ hg commit -q -m 'b1'
+  $ sl add bimble
+  $ sl commit -q -m 'b1'
   $ echo e >> bimble
-  $ hg ci -m b2
+  $ sl ci -m b2
   $ echo e >> bimble
-  $ hg ci -m b3
-  $ hg book bisect
-  $ hg goto -q Y
-  $ hg rebase -r '"bisect"^^::"bisect"^' -r bisect -d Z
+  $ sl ci -m b3
+  $ sl book bisect
+  $ sl goto -q Y
+  $ sl rebase -r '"bisect"^^::"bisect"^' -r bisect -d Z
   rebasing 49529c8ce0a4 "b1"
   rebasing 2d12d2701d8f "b2"
   rebasing d19a263ead4a "b3" (bisect)
 
 Bookmark and working parent get moved even if --keep is set (issue5682)
 
-  $ hg init $TESTTMP/book-keep
+  $ sl init $TESTTMP/book-keep
   $ cd $TESTTMP/book-keep
   $ drawdag <<'EOS'
   > B C
   > |/
   > A
   > EOS
-  $ hg up -q $B
+  $ sl up -q $B
   $ tglog
   o  dc0947a82db8 'C'
   │
@@ -216,7 +217,7 @@ Bookmark and working parent get moved even if --keep is set (issue5682)
   ├─╯
   o  426bada5c675 'A'
   
-  $ hg rebase -r $B -d $C --keep
+  $ sl rebase -r $B -d $C --keep
   rebasing 112478962961 "B"
   $ tglog
   @  9769fc65c4c5 'B'

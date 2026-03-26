@@ -2,6 +2,7 @@
 #debugruntest-incompatible
 
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ enable lfs pushrebase
@@ -11,8 +12,8 @@
   $ setconfig remotefilelog.server=True remotefilelog.shallowtrees=True
   $ mkdir dir
   $ echo x > dir/x
-  $ hg commit -qAm x1
-  $ hg book master
+  $ sl commit -qAm x1
+  $ sl book master
   $ cd ..
 
   $ hgcloneshallow ssh://user@dummy/master shallow
@@ -25,14 +26,14 @@
   $ cd shallow
   $ setconfig treemanifest.sendtrees=True
   $ echo >> dir/x
-  $ hg commit -m "Modify dir/x"
-  $ hg push --to master
+  $ sl commit -m "Modify dir/x"
+  $ sl push --to master
   pushing rev 6b73ab2c9773 to destination ssh://user@dummy/master bookmark master
   searching for changes
   updating bookmark master
   remote: pushing 1 changeset:
   remote:     6b73ab2c9773  Modify dir/x
-  $ hg --cwd ../master log -G -l 1 --stat
+  $ sl --cwd ../master log -G -l 1 --stat
   o  commit:      6b73ab2c9773
   │  bookmark:    master
   ~  user:        test

@@ -2,12 +2,13 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable rebase
 
 Rebasing D onto B detaching from C (one commit):
 
-  $ hg init a1
+  $ sl init a1
   $ cd a1
 
   $ drawdag <<EOF
@@ -18,10 +19,10 @@ Rebasing D onto B detaching from C (one commit):
   > A
   > EOF
 
-  $ hg rebase -s $D -d $B
+  $ sl rebase -s $D -d $B
   rebasing e7b3f00ed42e "D"
 
-  $ hg log -G --template "{phase} '{desc}' {branches}\n"
+  $ sl log -G --template "{phase} '{desc}' {branches}\n"
   o  draft 'D'
   │
   │ o  draft 'C'
@@ -30,7 +31,7 @@ Rebasing D onto B detaching from C (one commit):
   ├─╯
   o  draft 'A'
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   B
   D
@@ -40,7 +41,7 @@ Rebasing D onto B detaching from C (one commit):
 
 Rebasing D onto B detaching from C (two commits):
 
-  $ hg init a2
+  $ sl init a2
   $ cd a2
 
   $ drawdag <<EOF
@@ -53,7 +54,7 @@ Rebasing D onto B detaching from C (two commits):
   > A
   > EOF
 
-  $ hg rebase -s $D -d $B
+  $ sl rebase -s $D -d $B
   rebasing e7b3f00ed42e "D"
   rebasing 69a34c08022a "E"
 
@@ -68,7 +69,7 @@ Rebasing D onto B detaching from C (two commits):
   ├─╯
   o  426bada5c675 'A'
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   B
   D
@@ -78,7 +79,7 @@ Rebasing D onto B detaching from C (two commits):
 
 Rebasing C onto B using detach (same as not using it):
 
-  $ hg init a3
+  $ sl init a3
   $ cd a3
 
   $ drawdag <<EOF
@@ -89,7 +90,7 @@ Rebasing C onto B using detach (same as not using it):
   > A
   > EOF
 
-  $ hg rebase -s $C -d $B
+  $ sl rebase -s $C -d $B
   rebasing dc0947a82db8 "C"
   rebasing e7b3f00ed42e "D"
 
@@ -102,7 +103,7 @@ Rebasing C onto B using detach (same as not using it):
   │
   o  426bada5c675 'A'
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   B
   C
@@ -113,7 +114,7 @@ Rebasing C onto B using detach (same as not using it):
 
 Rebasing D onto B detaching from C and collapsing:
 
-  $ hg init a4
+  $ sl init a4
   $ cd a4
 
   $ drawdag <<EOF
@@ -126,11 +127,11 @@ Rebasing D onto B detaching from C and collapsing:
   > A
   > EOF
 
-  $ hg rebase --collapse -s $D -d $B
+  $ sl rebase --collapse -s $D -d $B
   rebasing e7b3f00ed42e "D"
   rebasing 69a34c08022a "E"
 
-  $ hg  log -G --template "{phase} '{desc}' {branches}\n"
+  $ sl  log -G --template "{phase} '{desc}' {branches}\n"
   o  draft 'Collapsed revision
   │  * D
   │  * E'
@@ -140,7 +141,7 @@ Rebasing D onto B detaching from C and collapsing:
   ├─╯
   o  draft 'A'
   
-  $ hg manifest --rev tip
+  $ sl manifest --rev tip
   A
   B
   D
@@ -149,7 +150,7 @@ Rebasing D onto B detaching from C and collapsing:
   $ cd ..
 
 Rebasing across null as ancestor
-  $ hg init a5
+  $ sl init a5
   $ cd a5
 
   $ drawdag <<EOF
@@ -162,7 +163,7 @@ Rebasing across null as ancestor
   > A B
   > EOF
 
-  $ hg rebase -s $C -d $B
+  $ sl rebase -s $C -d $B
   rebasing dc0947a82db8 "C"
   rebasing e7b3f00ed42e "D"
   rebasing 69a34c08022a "E"
@@ -178,7 +179,7 @@ Rebasing across null as ancestor
   
   o  426bada5c675 'A'
   
-  $ hg rebase -d 'desc(B)' -s 'desc(D)'
+  $ sl rebase -d 'desc(B)' -s 'desc(D)'
   rebasing e9153d36a1af "D"
   rebasing e3d0c70d606d "E"
   $ tglog
@@ -196,7 +197,7 @@ Rebasing across null as ancestor
 
 Verify that target is not selected as external rev (issue3085)
 
-  $ hg init a6
+  $ sl init a6
   $ cd a6
 
   $ drawdag <<EOF
@@ -207,17 +208,17 @@ Verify that target is not selected as external rev (issue3085)
   > |/
   > A
   > EOF
-  $ hg up -q $G
+  $ sl up -q $G
 
   $ echo "I" >> E
-  $ hg ci -m "I"
-  $ export I=$(hg log -r . -T "{node}")
-  $ hg merge $H
+  $ sl ci -m "I"
+  $ export I=$(sl log -r . -T "{node}")
+  $ sl merge $H
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg ci -m "Merge"
+  $ sl ci -m "Merge"
   $ echo "J" >> F
-  $ hg ci -m "J"
+  $ sl ci -m "J"
   $ tglog
   @  c6aaf0d259c0 'J'
   │
@@ -235,7 +236,7 @@ Verify that target is not selected as external rev (issue3085)
   ├─╯
   o  426bada5c675 'A'
   
-  $ hg rebase -s $I -d $H --collapse --config ui.merge=internal:other
+  $ sl rebase -s $I -d $H --collapse --config ui.merge=internal:other
   rebasing b92d164ad3cb "I"
   rebasing 0cfbc7e8faaf "Merge"
   rebasing c6aaf0d259c0 "J"
@@ -256,7 +257,7 @@ Verify that target is not selected as external rev (issue3085)
   o  426bada5c675 'A'
   
 
-  $ hg log --rev tip
+  $ sl log --rev tip
   commit:      65079693dac4
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -266,7 +267,7 @@ Verify that target is not selected as external rev (issue3085)
   $ cd ..
 
 Ensure --continue restores a correct state (issue3046) and phase:
-  $ hg init a7
+  $ sl init a7
   $ cd a7
 
   $ drawdag <<EOF
@@ -274,24 +275,24 @@ Ensure --continue restores a correct state (issue3046) and phase:
   > |/
   > A
   > EOF
-  $ hg up -q $C
+  $ sl up -q $C
   $ echo 'B2' > B
-  $ hg ci -A -m 'B2'
+  $ sl ci -A -m 'B2'
   adding B
 
-  $ hg rebase -s . -d $B --config ui.merge=internal:fail
+  $ sl rebase -s . -d $B --config ui.merge=internal:fail
   rebasing 17b4880d2402 "B2"
   merging B
-  warning: 1 conflicts while merging B! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging B! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg resolve --all -t internal:local
+  $ sl resolve --all -t internal:local
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase -c
+  continue: sl rebase --continue
+  $ sl rebase -c
   rebasing 17b4880d2402 "B2"
   note: not rebasing 17b4880d2402, its destination (rebasing onto) commit already has all its changes
-  $ hg  log -G --template "{phase} '{desc}' {branches}\n"
+  $ sl  log -G --template "{phase} '{desc}' {branches}\n"
   o  draft 'C'
   │
   │ @  draft 'B'

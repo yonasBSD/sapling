@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable amend rebase
   $ setconfig 'rebase.singletransaction=True'
@@ -19,26 +20,26 @@
 
   $ newrepo
   $ echo 'original content' > file
-  $ hg add -q
-  $ hg commit -q -m base
+  $ sl add -q
+  $ sl commit -q -m base
   $ echo 'new content' > file
-  $ hg mv file file_new
-  $ hg commit -m a
-  $ hg book -r . a
+  $ sl mv file file_new
+  $ sl commit -m a
+  $ sl book -r . a
 
 # Recreate the same commit:
 
-  $ hg up -q '.~1'
+  $ sl up -q '.~1'
   $ echo 'new content' > file
-  $ hg mv file file_new
-  $ hg commit -m b
-  $ hg book -r . b
+  $ sl mv file file_new
+  $ sl commit -m b
+  $ sl book -r . b
 
   $ cp -R . ../without-imm
 
 # Rebase one version onto the other, confirm it gets rebased out:
 
-  $ hg rebase -r b -d a
+  $ sl rebase -r b -d a
   rebasing in-memory!
   rebasing 811ec875201f "b" (b)
   note: not rebasing 811ec875201f, its destination (rebasing onto) commit already has all its changes
@@ -49,6 +50,6 @@
 
   $ setconfig 'rebase.experimental.inmemory=0'
   $ setconfig 'copytrace.skipduplicatecopies=True'
-  $ hg rebase -r b -d a
+  $ sl rebase -r b -d a
   rebasing 811ec875201f "b" (b)
   note: not rebasing 811ec875201f, its destination (rebasing onto) commit already has all its changes

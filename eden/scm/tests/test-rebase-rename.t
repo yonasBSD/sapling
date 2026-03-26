@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ enable rebase
   $ readconfig <<EOF
   > [alias]
@@ -9,29 +10,29 @@
   > EOF
 
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
   $ mkdir d
   $ echo a > a
-  $ hg ci -Am A
+  $ sl ci -Am A
   adding a
 
   $ echo b > d/b
-  $ hg ci -Am B
+  $ sl ci -Am B
   adding d/b
 
-  $ hg mv d d-renamed
+  $ sl mv d d-renamed
   moving d/b to d-renamed/b
-  $ hg ci -m 'rename B'
+  $ sl ci -m 'rename B'
 
-  $ hg up -q -C .^
+  $ sl up -q -C .^
 
-  $ hg mv a a-renamed
+  $ sl mv a a-renamed
   $ echo x > d/x
-  $ hg add d/x
+  $ sl add d/x
 
-  $ hg ci -m 'rename A'
+  $ sl ci -m 'rename A'
 
   $ tglog
   @  * 'rename A' (glob)
@@ -45,7 +46,7 @@
 
 Rename is tracked:
 
-  $ hg tlog -p --git -r tip
+  $ sl tlog -p --git -r tip
   7685b59c7478 'rename A' 
   diff --git a/a b/a-renamed
   rename from a
@@ -59,7 +60,7 @@ Rename is tracked:
   
 Rebase the revision containing the rename:
 
-  $ hg rebase -s 'max(desc(rename))' -d 'desc("rename B")'
+  $ sl rebase -s 'max(desc(rename))' -d 'desc("rename B")'
   rebasing * "rename A" (glob)
 
   $ tglog
@@ -74,7 +75,7 @@ Rebase the revision containing the rename:
 
 Rename is not lost:
 
-  $ hg tlog -p --git -r tip
+  $ sl tlog -p --git -r tip
   afa7984ba6cb 'rename A' 
   diff --git a/a b/a-renamed
   rename from a
@@ -88,7 +89,7 @@ Rename is not lost:
 
 Rebased revision does not contain information about b (issue3739)
 
-  $ hg log -r 'max(desc(rename))' --debug
+  $ sl log -r 'max(desc(rename))' --debug
   commit:      * (glob)
   phase:       draft
   manifest:    * (glob)
@@ -104,24 +105,24 @@ Rebased revision does not contain information about b (issue3739)
   $ cd ..
 
 
-  $ hg init b
+  $ sl init b
   $ cd b
 
   $ echo a > a
-  $ hg ci -Am A
+  $ sl ci -Am A
   adding a
 
   $ echo b > b
-  $ hg ci -Am B
+  $ sl ci -Am B
   adding b
 
-  $ hg cp b b-copied
-  $ hg ci -Am 'copy B'
+  $ sl cp b b-copied
+  $ sl ci -Am 'copy B'
 
-  $ hg up -q -C 6c81ed0049f86eccdfa07f4d71b328a6c970b13f
+  $ sl up -q -C 6c81ed0049f86eccdfa07f4d71b328a6c970b13f
 
-  $ hg cp a a-copied
-  $ hg ci -m 'copy A'
+  $ sl cp a a-copied
+  $ sl ci -m 'copy A'
 
   $ tglog
   @  0a8162ff18a8 'copy A'
@@ -134,7 +135,7 @@ Rebased revision does not contain information about b (issue3739)
   
 Copy is tracked:
 
-  $ hg tlog -p --git -r tip
+  $ sl tlog -p --git -r tip
   0a8162ff18a8 'copy A' 
   diff --git a/a b/a-copied
   copy from a
@@ -142,7 +143,7 @@ Copy is tracked:
   
 Rebase the revision containing the copy:
 
-  $ hg rebase -s 'max(desc(copy))' -d 39e588434882ff77d01229d169cdc77f29e8855e
+  $ sl rebase -s 'max(desc(copy))' -d 39e588434882ff77d01229d169cdc77f29e8855e
   rebasing 0a8162ff18a8 "copy A"
 
   $ tglog
@@ -157,7 +158,7 @@ Rebase the revision containing the copy:
 
 Copy is not lost:
 
-  $ hg tlog -p --git -r tip
+  $ sl tlog -p --git -r tip
   98f6e6dbf45a 'copy A' 
   diff --git a/a b/a-copied
   copy from a
@@ -166,7 +167,7 @@ Copy is not lost:
 
 Rebased revision does not contain information about b (issue3739)
 
-  $ hg log -r 'max(desc(copy))' --debug
+  $ sl log -r 'max(desc(copy))' --debug
   commit:      98f6e6dbf45ab54079c2237fbd11066a5c41a11d
   phase:       draft
   manifest:    2232f329d66fffe3930d43479ae624f66322b04d
@@ -185,29 +186,29 @@ Rebased revision does not contain information about b (issue3739)
 
 Test rebase across repeating renames:
 
-  $ hg init repo
+  $ sl init repo
 
   $ cd repo
 
   $ echo testing > file1.txt
-  $ hg add file1.txt
-  $ hg ci -m "Adding file1"
+  $ sl add file1.txt
+  $ sl ci -m "Adding file1"
 
-  $ hg rename file1.txt file2.txt
-  $ hg ci -m "Rename file1 to file2"
+  $ sl rename file1.txt file2.txt
+  $ sl ci -m "Rename file1 to file2"
 
   $ echo Unrelated change > unrelated.txt
-  $ hg add unrelated.txt
-  $ hg ci -m "Unrelated change"
+  $ sl add unrelated.txt
+  $ sl ci -m "Unrelated change"
 
-  $ hg rename file2.txt file1.txt
-  $ hg ci -m "Rename file2 back to file1"
+  $ sl rename file2.txt file1.txt
+  $ sl ci -m "Rename file2 back to file1"
 
-  $ hg goto -r 'desc(Unrelated)'
+  $ sl goto -r 'desc(Unrelated)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
 
   $ echo Another unrelated change >> unrelated.txt
-  $ hg ci -m "Another unrelated change"
+  $ sl ci -m "Another unrelated change"
 
   $ tglog
   @  b918d683b091 'Another unrelated change'
@@ -221,31 +222,31 @@ Test rebase across repeating renames:
   o  8ce9a346991d 'Adding file1'
   
 
-  $ hg rebase -s 'desc(Another)' -d 'max(desc(Rename))'
+  $ sl rebase -s 'desc(Another)' -d 'max(desc(Rename))'
   rebasing b918d683b091 "Another unrelated change"
 
-  $ hg diff --stat -c .
+  $ sl diff --stat -c .
    unrelated.txt |  1 +
    1 files changed, 1 insertions(+), 0 deletions(-)
 
   $ cd ..
 
 Verify that copies get preserved (issue4192).
-  $ hg init copy-gets-preserved
+  $ sl init copy-gets-preserved
   $ cd copy-gets-preserved
 
   $ echo a > a
-  $ hg add a
-  $ hg commit --message "File a created"
-  $ hg copy a b
+  $ sl add a
+  $ sl commit --message "File a created"
+  $ sl copy a b
   $ echo b > b
-  $ hg commit --message "File b created as copy of a and modified"
-  $ hg copy b c
+  $ sl commit --message "File b created as copy of a and modified"
+  $ sl copy b c
   $ echo c > c
-  $ hg commit --message "File c created as copy of b and modified"
-  $ hg copy c d
+  $ sl commit --message "File c created as copy of b and modified"
+  $ sl copy c d
   $ echo d > d
-  $ hg commit --message "File d created as copy of c and modified"
+  $ sl commit --message "File d created as copy of c and modified"
 
 Note that there are four entries in the log for d
   $ tglog --follow d
@@ -258,21 +259,21 @@ Note that there are four entries in the log for d
   o  b220cd6d2326 'File a created'
   
 Update back to before we performed copies, and inject an unrelated change.
-  $ hg goto b220cd6d23263f59a707389fdbe7cef2ce3947ad
+  $ sl goto b220cd6d23263f59a707389fdbe7cef2ce3947ad
   0 files updated, 0 files merged, 3 files removed, 0 files unresolved
 
   $ echo unrelated > unrelated
-  $ hg add unrelated
-  $ hg commit --message "Unrelated file created"
-  $ hg goto 'desc(Unrelated)'
+  $ sl add unrelated
+  $ sl commit --message "Unrelated file created"
+  $ sl goto 'desc(Unrelated)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Rebase the copies on top of the unrelated change.
-  $ hg rebase --source 79d255d24ad2cabeb3e52091338517bb09339f2f --dest 'desc(Unrelated)'
+  $ sl rebase --source 79d255d24ad2cabeb3e52091338517bb09339f2f --dest 'desc(Unrelated)'
   rebasing 79d255d24ad2 "File b created as copy of a and modified"
   rebasing 327f772bc074 "File c created as copy of b and modified"
   rebasing 421b7e82bb85 "File d created as copy of c and modified"
-  $ hg goto 'max(desc(File))'
+  $ sl goto 'max(desc(File))'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 There should still be four entries in the log for d
@@ -287,15 +288,15 @@ There should still be four entries in the log for d
   
 Same steps as above, but with --collapse on rebase to make sure the
 copy records collapse correctly.
-  $ hg co 'desc(Unrelated)'
+  $ sl co 'desc(Unrelated)'
   0 files updated, 0 files merged, 3 files removed, 0 files unresolved
   $ echo more >> unrelated
-  $ hg ci -m 'unrelated commit is unrelated'
-  $ hg rebase -s 68bf06433839 --dest 'max(desc(unrelated))' --collapse
+  $ sl ci -m 'unrelated commit is unrelated'
+  $ sl rebase -s 68bf06433839 --dest 'max(desc(unrelated))' --collapse
   rebasing 68bf06433839 "File b created as copy of a and modified"
   rebasing af74b229bc02 "File c created as copy of b and modified"
   rebasing dbb9ba033561 "File d created as copy of c and modified"
-  $ hg co tip
+  $ sl co tip
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 This should show both revision 3 and 0 since 'd' was transitively a

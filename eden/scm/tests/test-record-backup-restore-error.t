@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ enable amend
   $ setconfig diff.git=true
 
@@ -26,11 +27,11 @@ Extension to inject two errors:
   $ newclientrepo
   $ echo foo > foo
   $ echo bar > bar
-  $ hg commit -Aqm one
+  $ sl commit -Aqm one
   $ echo foo >> foo
   $ echo bar >> bar
   $ setconfig extensions.copyfileerror=$TESTTMP/inject_errors.py
-  $ cat <<EOS | hg amend -i --config ui.interactive=true
+  $ cat <<EOS | sl amend -i --config ui.interactive=true
   > y
   > y
   > y
@@ -54,20 +55,20 @@ Extension to inject two errors:
   +foo
   record change 2/2 to 'foo'? [Ynesfdaq?] y
   
-  error restoring $TESTTMP/repo1/.hg/record-backups/* to bar: copyfile error (glob)
+  error restoring $TESTTMP/repo1/.sl/record-backups/* to bar: copyfile error (glob)
   abort: internalpatch error
   [255]
 
 We only lost the change for the one file that failed to restore ("bar"):
-  $ hg st
+  $ sl st
   M foo
 
 Backup file still contains content for "bar":
-  $ cat $TESTTMP/repo1/.hg/record-backups/*
+  $ cat $TESTTMP/repo1/.sl/record-backups/*
   bar
   bar
 
-  $ hg show
+  $ sl show
   commit:      1435984fdceb
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

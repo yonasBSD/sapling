@@ -1,12 +1,13 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation
   $ setconfig extensions.bruterebase="$TESTDIR/bruterebase.py"
   $ init() {
   >   N=`expr ${N:-0} + 1`
-  >   cd $TESTTMP && hg init repo$N && cd repo$N
+  >   cd $TESTTMP && sl init repo$N && cd repo$N
   >   drawdag
   > }
 
@@ -18,7 +19,7 @@ Source looks like "N"
   > A B Z
   > EOS
 
-  $ hg debugbruterebase "all()-$Z" $Z --hidden
+  $ sl debugbruterebase "all()-$Z" $Z --hidden
      A: A':Z
      B: B':Z
     AB: A':Z B':Z
@@ -44,7 +45,7 @@ Moving backwards
   > |
   > Z
   > EOS
-  $ hg debugbruterebase "all()-$Z" $Z --hidden
+  $ sl debugbruterebase "all()-$Z" $Z --hidden
     B: B':Z
     A: 
    BA: B':Z

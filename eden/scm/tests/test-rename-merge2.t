@@ -1,6 +1,7 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ configure modernclient
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ cat <<EOF > merge
@@ -20,25 +21,25 @@ $4 = expected result
   $ tm()
   > {
   >     newclientrepo
-  >     echo "[merge]" >> .hg/hgrc
-  >     echo "followcopies = 1" >> .hg/hgrc
+  >     echo "[merge]" >> .sl/config
+  >     echo "followcopies = 1" >> .sl/config
   > 
   >     # base
   >     echo base > a
   >     echo base > rev # used to force commits
-  >     hg add a rev
-  >     hg ci -m "base"
+  >     sl add a rev
+  >     sl ci -m "base"
   > 
   >     # remote
   >     echo remote > rev
   >     if [ "$2" != "" ] ; then $2 ; fi
-  >     hg ci -m "remote"
+  >     sl ci -m "remote"
   > 
   >     # local
-  >     hg co -q 0
+  >     sl co -q 0
   >     echo local > rev
   >     if [ "$1" != "" ] ; then $1 ; fi
-  >     hg ci -m "local"
+  >     sl ci -m "local"
   > 
   >     # working dir
   >     echo local > rev
@@ -48,28 +49,28 @@ $4 = expected result
   >     echo "--------------"
   >     echo "test L:$1 R:$2 W:$3 - $4"
   >     echo "--------------"
-  >     hg merge -y --debug --traceback --tool="$PYTHON ../merge"
+  >     sl merge -y --debug --traceback --tool="$PYTHON ../merge"
   > 
   >     echo "--------------"
-  >     hg status -camC -X rev
+  >     sl status -camC -X rev
   > 
-  >     hg ci -m "merge"
+  >     sl ci -m "merge"
   > 
   >     echo "--------------"
   >     echo
   > }
   $ up() {
   >     cp rev $1
-  >     hg add $1 2> /dev/null
+  >     sl add $1 2> /dev/null
   >     if [ "$2" != "" ] ; then
   >         cp rev $2
-  >         hg add $2 2> /dev/null
+  >         sl add $2 2> /dev/null
   >     fi
   > }
-  $ uc() { up $1; hg cp $1 $2; } # update + copy
-  $ um() { up $1; hg mv $1 $2; }
-  $ nc() { hg cp $1 $2; } # just copy
-  $ nm() { hg mv $1 $2; } # just move
+  $ uc() { up $1; sl cp $1 $2; } # update + copy
+  $ um() { up $1; sl mv $1 $2; }
+  $ nc() { sl cp $1 $2; } # just copy
+  $ nm() { sl mv $1 $2; } # just move
   $ tm "up a  " "nc a b" "      " "1  get local a to b"
   --------------
   test L:up a   R:nc a b W:       - 1  get local a to b
@@ -714,13 +715,13 @@ m "um a c" "um x c" "      " "10 do merge with no ancestor"
   launching merge tool: * ../merge *$TESTTMP/*/rev* * * (glob)
   merge tool returned: 0
   0 files updated, 2 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   --------------
   M a
   M b
   abort: unresolved merge state
-  (use 'hg resolve' to continue or
-       'hg goto --clean' to abort - WARNING: will destroy uncommitted changes)
+  (use 'sl resolve' to continue or
+       'sl goto --clean' to abort - WARNING: will destroy uncommitted changes)
   --------------
   
   $ tm "up a b" "nm a b" "      " "19 merge b no ancestor, prompt remove a"
@@ -764,13 +765,13 @@ m "um a c" "um x c" "      " "10 do merge with no ancestor"
   launching merge tool: * ../merge *$TESTTMP/*/rev* * * (glob)
   merge tool returned: 0
   0 files updated, 2 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   --------------
   M b
   C a
   abort: unresolved merge state
-  (use 'hg resolve' to continue or
-       'hg goto --clean' to abort - WARNING: will destroy uncommitted changes)
+  (use 'sl resolve' to continue or
+       'sl goto --clean' to abort - WARNING: will destroy uncommitted changes)
   --------------
   
   $ tm "up a  " "um a b" "      " "20 merge a and b to b, remove a"
@@ -930,29 +931,29 @@ Expected result:
 
   $ newclientrepo
   $ for x in 1 2 3 4 5 6 8; do mkdir $x; echo a > $x/f; done
-  $ hg ci -Aqm "a"
+  $ sl ci -Aqm "a"
   $ mkdir 0
   $ touch 0/f
-  $ hg mv 1/f 1/g
-  $ hg cp 5/f 5/g
-  $ hg mv 6/f 6/g
-  $ hg rm 8/f
+  $ sl mv 1/f 1/g
+  $ sl cp 5/f 5/g
+  $ sl mv 6/f 6/g
+  $ sl rm 8/f
   $ for x in */*; do echo m1 > $x; done
-  $ hg ci -Aqm "m1"
-  $ hg up -qr'desc(a)'
+  $ sl ci -Aqm "m1"
+  $ sl up -qr'desc(a)'
   $ mkdir 0 7
   $ touch 0/f 7/f
-  $ hg mv 1/f 1/g
-  $ hg cp 3/f 3/g
-  $ hg mv 4/f 4/g
+  $ sl mv 1/f 1/g
+  $ sl cp 3/f 3/g
+  $ sl mv 4/f 4/g
   $ for x in */*; do echo m2 > $x; done
-  $ hg ci -Aqm "m2"
-  $ hg up -qr'desc(m1)'
+  $ sl ci -Aqm "m2"
+  $ sl up -qr'desc(m1)'
   $ mkdir 7 8
   $ echo m > 7/f
   $ echo m > 8/f
-  $ hg merge -f --tool internal:dump -v --debug -r'desc(m2)' 2>&1 | sed '/^resolving manifests/,$d' 2> /dev/null
-  $ hg mani
+  $ sl merge -f --tool internal:dump -v --debug -r'desc(m2)' 2>&1 | sed '/^resolving manifests/,$d' 2> /dev/null
+  $ sl mani
   0/f
   1/g
   2/f

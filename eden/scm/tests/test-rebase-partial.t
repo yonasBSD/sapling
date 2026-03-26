@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Tests rebasing with part of the rebase set already in the
 destination (issue5422)
@@ -11,9 +12,9 @@ destination (issue5422)
 
   $ rebasewithdag() {
   >   N=$((N + 1))
-  >   hg init repo$N && cd repo$N
-  >   hg debugdrawdag
-  >   hg rebase "$@" && tglog
+  >   sl init repo$N && cd repo$N
+  >   sl debugdrawdag
+  >   sl rebase "$@" && tglog
   >   cd ..
   >   return $r
   > }
@@ -80,20 +81,20 @@ the hole (B below), not on top of the destination (A).
 Abort doesn't lose the commits that were already in the right place
 
   $ newrepo abort
-  $ hg debugdrawdag <<EOF
+  $ sl debugdrawdag <<EOF
   > C
   > |
   > B D  # B/file = B
   > |/   # D/file = D
   > A
   > EOF
-  $ hg rebase -r C+D -d B
+  $ sl rebase -r C+D -d B
   rebasing ef8c0fe0897b "D" (D)
   merging file
-  warning: 1 conflicts while merging file! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging file! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
   $ tglog
   o  79f6d6ab7b14 'C' C
@@ -114,19 +115,19 @@ test rebase sapling copy commit can introduce partial changes
   > A    # A/foo/x = 1\n2\n3\n
   >      # A/foo2/x = 1\n2\n3\n
   > EOS
-  $ hg go -q $B
+  $ sl go -q $B
   $ ls foo2
   x
-  $ hg rm foo2 -q
-  $ hg cp foo foo2 -q
-  $ hg ci -m 'cp foo foo2'
+  $ sl rm foo2 -q
+  $ sl cp foo foo2 -q
+  $ sl ci -m 'cp foo foo2'
   $ ls foo2
   x
   y
-  $ hg rebase -r . -d $C
+  $ sl rebase -r . -d $C
   rebasing d62b595077f8 "cp foo foo2"
   merging foo/y and foo2/y to foo2/y
-  $ hg log -G -T '{node|short} {desc|firstline}\n'
+  $ sl log -G -T '{node|short} {desc|firstline}\n'
   @  deee512b4511 cp foo foo2
   │
   o  cb9362f65bb1 C
@@ -135,7 +136,7 @@ test rebase sapling copy commit can introduce partial changes
   │
   o  de0c4b853cce A
 rebase introduce partial changes of commit C
-  $ hg show
+  $ sl show
   commit:      deee512b4511
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

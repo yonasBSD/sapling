@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ enable commitextras
   $ setconfig ui.allowemptycommit=1
@@ -29,15 +30,15 @@
   > EOF
 
   $ try() {
-  >   hg debugrevspec --debug "$@"
+  >   sl debugrevspec --debug "$@"
   > }
 
   $ log() {
-  >   hg log --template '{node}\n' -r "$1"
+  >   sl log --template '{node}\n' -r "$1"
   > }
 
   $ commit() {
-  >   hg commit "$@"
+  >   sl commit "$@"
   > }
 
 extension to build '_intlist()' and '_hexlist()', which is necessary because
@@ -80,10 +81,10 @@ these predicates use '\0' as a separator:
   > debugrevlistspec = $TESTTMP/debugrevlistspec.py
   > EOF
   $ trylist() {
-  >   hg debugrevlistspec --debug "$@"
+  >   sl debugrevlistspec --debug "$@"
   > }
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
   $ echo a > a
@@ -95,29 +96,29 @@ these predicates use '\0' as a separator:
   $ rm a
   $ commit -Aqm2 -u Bob
 
-  $ hg log -r "extra('branch')" --template '{node}\n'
+  $ sl log -r "extra('branch')" --template '{node}\n'
   f7b1eb17ad24730a1651fccd46c43826d1bbc2ac
   925d80f479bb026b0fb3deb27503780b13f74123
   ca0049c702f186378942cfea3da87905eea720a3
-  $ hg log -r "extra('branch', 're:a')" --template '{branch}\n'
+  $ sl log -r "extra('branch', 're:a')" --template '{branch}\n'
   default
   default
   default
 
-  $ hg co 1
+  $ sl co 1
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ commit -Aqm3
 
-  $ hg co -C 2  # interleave
+  $ sl co -C 2  # interleave
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo bb > b
   $ commit -Aqm4 -d "May 12 2005"
 
-  $ hg co -C 3
+  $ sl co -C 3
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ commit -Aqm"5 bug"
 
-  $ hg merge 4
+  $ sl merge 4
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ commit -Aqm"6 issue619"
@@ -125,11 +126,11 @@ these predicates use '\0' as a separator:
   $ commit -Aqm7
 
 
-  $ hg co 4
+  $ sl co 4
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ commit -Aqm9
 
-  $ hg log -G -T '{node|short} rev={rev} desc={desc|firstline}\n'
+  $ sl log -G -T '{node|short} rev={rev} desc={desc|firstline}\n'
   @  6d98e1a86580 rev=8 desc=9
   │
   │ o  c42d3b18b7b1 rev=7 desc=7
@@ -148,20 +149,20 @@ these predicates use '\0' as a separator:
   │
   o  f7b1eb17ad24 rev=0 desc=0
 
-  $ hg book -fr 6 1.0
+  $ sl book -fr 6 1.0
   $ echo "e0cc66ef77e8b6f711815af4e001a6594fde3ba5 1.0" >> .hgtags
-  $ hg add .hgtags
-  $ hg commit -Aqm "add 1.0 tag"
-  $ hg bookmark -r6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  $ sl add .hgtags
+  $ sl commit -Aqm "add 1.0 tag"
+  $ sl bookmark -r6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-  $ hg clone --quiet -U . ../remote1
+  $ sl clone --quiet -U . ../remote1
 Strip 8 leaving 7 as only head
-  $ hg -R ../remote1 debugstrip -r 8
-  $ hg clone --quiet -U . ../remote2
+  $ sl -R ../remote1 debugstrip -r 8
+  $ sl clone --quiet -U . ../remote2
 Strip 3 leaving 8 as only head
-  $ hg -R ../remote2 debugstrip -r 3
-  $ echo "[paths]" >> .hg/hgrc
-  $ echo "default = ../remote1" >> .hg/hgrc
+  $ sl -R ../remote2 debugstrip -r 3
+  $ echo "[paths]" >> .sl/config
+  $ echo "default = ../remote1" >> .sl/config
 
 test subtracting something from an addset
 
@@ -203,7 +204,7 @@ order is no longer preserved with `idset`, which enforces DESC order internally.
 
 test that more than one `-r`s are combined in the right order and deduplicated:
 
-  $ hg log -T '{node}\n' -r 3 -r 3 -r 4 -r 5:2 -r 'ancestors(4)'
+  $ sl log -T '{node}\n' -r 3 -r 3 -r 4 -r 5:2 -r 'ancestors(4)'
   8c386d836a07c457eff065d28be13dd131ed35ce
   f97e7d9434783652739570e7cfdac469336f9e24
   cbd103c35a18fb5ef34e414924807969a3ed80ae
@@ -414,16 +415,16 @@ test '0000' != '0' in `_list`
 
 test ',' in `_list`
   $ log '0,1'
-  hg: parse error: can't use a list in this context
-  (see hg help "revsets.x or y")
+  sl: parse error: can't use a list in this context
+  (see sl help "revsets.x or y")
   [255]
   $ try '0,1,2'
   (list
     (symbol '0')
     (symbol '1')
     (symbol '2'))
-  hg: parse error: can't use a list in this context
-  (see hg help "revsets.x or y")
+  sl: parse error: can't use a list in this context
+  (see sl help "revsets.x or y")
   [255]
 
 test that chained `or` operations make balanced addsets
@@ -469,13 +470,13 @@ no crash by empty group "()" while optimizing `or` operations
     (list
       (symbol '0')
       None))
-  hg: parse error: missing argument
+  sl: parse error: missing argument
   [255]
 
 test that chained `or` operations never eat up stack (issue4624)
 (uses `0:1` instead of `0` to avoid future optimization of trivial revisions)
 
-  $ hg log -T '{node}\n' -r `hg debugsh -c "ui.write('+'.join(['0:1'] * 500))"`
+  $ sl log -T '{node}\n' -r `sl debugsh -c "ui.write('+'.join(['0:1'] * 500))"`
   devel-warn: excess usage of repo.__contains__ at: * (glob)
   f7b1eb17ad24730a1651fccd46c43826d1bbc2ac
   925d80f479bb026b0fb3deb27503780b13f74123
@@ -483,7 +484,7 @@ test that chained `or` operations never eat up stack (issue4624)
 test that repeated `-r` options never eat up stack (issue4565)
 (uses `-r 0::1` to avoid possible optimization at old-style parser)
 
-  $ hg log -T '{node}\n' `hg debugsh -c "for i in range(500): ui.write('-r 0::1 '),"`
+  $ sl log -T '{node}\n' `sl debugsh -c "for i in range(500): ui.write('-r 0::1 '),"`
   devel-warn: excess usage of repo.__contains__ at: * (glob)
   f7b1eb17ad24730a1651fccd46c43826d1bbc2ac
   925d80f479bb026b0fb3deb27503780b13f74123
@@ -578,12 +579,12 @@ no crash by empty group "()" while optimizing to "only()"
       (symbol 'ancestors')
       (symbol '1'))
     None)
-  hg: parse error: missing argument
+  sl: parse error: missing argument
   [255]
 
 optimization to only() works only if ancestors() takes only one argument
 
-  $ hg debugrevspec -p optimized 'ancestors(6) - ancestors(4, 1)'
+  $ sl debugrevspec -p optimized 'ancestors(6) - ancestors(4, 1)'
   * optimized:
   (difference
     (func
@@ -599,7 +600,7 @@ optimization to only() works only if ancestors() takes only one argument
   3
   5
   6
-  $ hg debugrevspec -p optimized 'ancestors(6, 1) - ancestors(4)'
+  $ sl debugrevspec -p optimized 'ancestors(6, 1) - ancestors(4)'
   * optimized:
   (difference
     (func
@@ -616,7 +617,7 @@ optimization to only() works only if ancestors() takes only one argument
 optimization disabled if keyword arguments passed (because we're too lazy
 to support it)
 
-  $ hg debugrevspec -p optimized 'ancestors(set=6) - ancestors(set=4)'
+  $ sl debugrevspec -p optimized 'ancestors(set=6) - ancestors(set=4)'
   * optimized:
   (difference
     (func
@@ -636,11 +637,11 @@ to support it)
 invalid function call should not be optimized to only()
 
   $ log '"ancestors"(6) and not ancestors(4)'
-  hg: parse error: not a symbol
+  sl: parse error: not a symbol
   [255]
 
   $ log 'ancestors(6) and not "ancestors"(4)'
-  hg: parse error: not a symbol
+  sl: parse error: not a symbol
   [255]
 
   $ log 'user(bob)'
@@ -707,13 +708,13 @@ issue2437
   ca0049c702f186378942cfea3da87905eea720a3
   $ log 'roots(all()) or roots(all())'
   f7b1eb17ad24730a1651fccd46c43826d1bbc2ac
-  $ hg debugrevspec 'roots(all()) or roots(all())'
+  $ sl debugrevspec 'roots(all()) or roots(all())'
   0
 
 issue2654: report a parse error if the revset was not completely parsed
 
   $ log '1 OR 2'
-  hg: parse error at 2: invalid token
+  sl: parse error at 2: invalid token
   (1 OR 2
      ^ here)
   [255]
@@ -742,7 +743,7 @@ parentrevspec
   $ log 'merge()^^^'
   925d80f479bb026b0fb3deb27503780b13f74123
 
-  $ hg debugrevspec -s '(merge() | 0)~-1'
+  $ sl debugrevspec -s '(merge() | 0)~-1'
   * set:
   <baseset+ [1, 7]>
   1
@@ -769,41 +770,41 @@ parentrevspec
   6d98e1a8658014ae6501fab0b5e4d1be2d393880
 
   $ log 'tip^foo'
-  hg: parse error: ^ expects a number 0, 1, or 2
+  sl: parse error: ^ expects a number 0, 1, or 2
   [255]
 
 Bogus function gets suggestions
   $ log 'add()'
-  hg: parse error: unknown identifier: add
+  sl: parse error: unknown identifier: add
   (did you mean adds?)
   [255]
   $ log 'added()'
-  hg: parse error: unknown identifier: added
+  sl: parse error: unknown identifier: added
   (did you mean adds?)
   [255]
   $ log 'remo()'
-  hg: parse error: unknown identifier: remo
+  sl: parse error: unknown identifier: remo
   (did you mean one of remote, removes?)
   [255]
   $ log 'babar()'
-  hg: parse error: unknown identifier: babar
+  sl: parse error: unknown identifier: babar
   [255]
 
 Bogus function with a similar internal name doesn't suggest the internal name
   $ log 'matches()'
-  hg: parse error: unknown identifier: matches
+  sl: parse error: unknown identifier: matches
   (did you mean matching?)
   [255]
 
 Undocumented functions aren't suggested as similar either
   $ log 'tagged2()'
-  hg: parse error: unknown identifier: tagged2
+  sl: parse error: unknown identifier: tagged2
   [255]
 
 multiple revspecs
 (idset does not preserve '+' order for optimization)
 
-  $ hg log -r 'tip~1:tip' -r 'tip~2:tip~1' --template '{node}\n'
+  $ sl log -r 'tip~1:tip' -r 'tip~2:tip~1' --template '{node}\n'
   f97e7d9434783652739570e7cfdac469336f9e24
   cbd103c35a18fb5ef34e414924807969a3ed80ae
   b1166c9cdb4bf159910e366395bee663c8dfb681
@@ -815,13 +816,13 @@ test usage in revpair (with "+")
 
 (real pair)
 
-  $ hg diff -r 'tip^^' -r 'tip'
+  $ sl diff -r 'tip^^' -r 'tip'
   diff -r f97e7d943478 -r d57d206a3bab .hgtags
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/.hgtags	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +e0cc66ef77e8b6f711815af4e001a6594fde3ba5 1.0
-  $ hg diff -r 'tip^^::tip'
+  $ sl diff -r 'tip^^::tip'
   diff -r f97e7d943478 -r d57d206a3bab .hgtags
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/.hgtags	Thu Jan 01 00:00:00 1970 +0000
@@ -830,18 +831,18 @@ test usage in revpair (with "+")
 
 (single rev)
 
-  $ hg diff -r 'tip^' -r 'tip^'
-  $ hg diff -r 'tip^:tip^'
+  $ sl diff -r 'tip^' -r 'tip^'
+  $ sl diff -r 'tip^:tip^'
 
 (single rev that does not looks like a range)
 
-  $ hg diff -r 'tip^::tip^ or tip^'
+  $ sl diff -r 'tip^::tip^ or tip^'
   diff -r 6d98e1a86580 .hgtags
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/.hgtags	* (glob)
   @@ -0,0 +1,1 @@
   +e0cc66ef77e8b6f711815af4e001a6594fde3ba5 1.0
-  $ hg diff -r 'tip^ or tip^'
+  $ sl diff -r 'tip^ or tip^'
   diff -r 6d98e1a86580 .hgtags
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/.hgtags	* (glob)
@@ -850,20 +851,20 @@ test usage in revpair (with "+")
 
 (no rev)
 
-  $ hg diff -r 'author("babar") or author("celeste")'
+  $ sl diff -r 'author("babar") or author("celeste")'
   abort: empty revision range
   [255]
 
 aliases:
 
-  $ echo '[revsetalias]' >> .hg/hgrc
-  $ echo 'm = merge()' >> .hg/hgrc
+  $ echo '[revsetalias]' >> .sl/config
+  $ echo 'm = merge()' >> .sl/config
 (revset aliases can override builtin revsets)
-  $ echo 'p2($1) = p1($1)' >> .hg/hgrc
-  $ echo 'sincem = descendants(m)' >> .hg/hgrc
-  $ echo 'd($1) = reverse(sort($1, date))' >> .hg/hgrc
-  $ echo 'rs(ARG1, ARG2) = reverse(sort(ARG1, ARG2))' >> .hg/hgrc
-  $ echo 'rs4(ARG1, ARGA, ARGB, ARG2) = reverse(sort(ARG1, ARG2))' >> .hg/hgrc
+  $ echo 'p2($1) = p1($1)' >> .sl/config
+  $ echo 'sincem = descendants(m)' >> .sl/config
+  $ echo 'd($1) = reverse(sort($1, date))' >> .sl/config
+  $ echo 'rs(ARG1, ARG2) = reverse(sort(ARG1, ARG2))' >> .sl/config
+  $ echo 'rs4(ARG1, ARGA, ARGB, ARG2) = reverse(sort(ARG1, ARG2))' >> .sl/config
 
   $ try m
   (symbol 'm')
@@ -955,15 +956,15 @@ test alias recursion
 
 test infinite recursion
 
-  $ echo 'recurse1 = recurse2' >> .hg/hgrc
-  $ echo 'recurse2 = recurse1' >> .hg/hgrc
+  $ echo 'recurse1 = recurse2' >> .sl/config
+  $ echo 'recurse2 = recurse1' >> .sl/config
   $ try recurse1
   (symbol 'recurse1')
-  hg: parse error: infinite expansion of revset alias "recurse1" detected
+  sl: parse error: infinite expansion of revset alias "recurse1" detected
   [255]
 
-  $ echo 'level1($1, $2) = $1 or $2' >> .hg/hgrc
-  $ echo 'level2($1, $2) = level1($2, $1)' >> .hg/hgrc
+  $ echo 'level1($1, $2) = $1 or $2' >> .sl/config
+  $ echo 'level2($1, $2) = level1($2, $1)' >> .sl/config
   $ try "level2(level1(1, 2), 3)"
   (func
     (symbol 'level2')
@@ -992,9 +993,9 @@ test infinite recursion
 
 test nesting and variable passing
 
-  $ echo 'nested($1) = nested2($1)' >> .hg/hgrc
-  $ echo 'nested2($1) = nested3($1)' >> .hg/hgrc
-  $ echo 'nested3($1) = max($1)' >> .hg/hgrc
+  $ echo 'nested($1) = nested2($1)' >> .sl/config
+  $ echo 'nested2($1) = nested3($1)' >> .sl/config
+  $ echo 'nested3($1) = max($1)' >> .sl/config
   $ try 'nested(2:5)'
   (func
     (symbol 'nested')
@@ -1018,7 +1019,7 @@ test nesting and variable passing
 
 test chained `or` operations are flattened at parsing phase
 
-  $ echo 'chainedorops($1, $2, $3) = $1|$2|$3' >> .hg/hgrc
+  $ echo 'chainedorops($1, $2, $3) = $1|$2|$3' >> .sl/config
   $ try 'chainedorops(0:1, 1:2, 2:3)'
   (func
     (symbol 'chainedorops')
@@ -1056,8 +1057,8 @@ test variable isolation, variable placeholders are rewritten as string
 then parsed and matched again as string. Check they do not leak too
 far away.
 
-  $ echo 'injectparamasstring = max("$1")' >> .hg/hgrc
-  $ echo 'callinjection($1) = descendants(injectparamasstring)' >> .hg/hgrc
+  $ echo 'injectparamasstring = max("$1")' >> .sl/config
+  $ echo 'callinjection($1) = descendants(injectparamasstring)' >> .sl/config
   $ try 'callinjection(2:5)'
   (func
     (symbol 'callinjection')
@@ -1076,8 +1077,8 @@ far away.
 test scope of alias expansion: 'universe' is expanded prior to 'shadowall(0)',
 but 'all()' should never be substituted to '0()'.
 
-  $ echo 'universe = all()' >> .hg/hgrc
-  $ echo 'shadowall(all) = all and universe' >> .hg/hgrc
+  $ echo 'universe = all()' >> .sl/config
+  $ echo 'shadowall(all) = all and universe' >> .sl/config
   $ try 'shadowall(0)'
   (func
     (symbol 'shadowall')
@@ -1102,7 +1103,7 @@ test unknown reference:
   abort: bad definition of revset alias "unknownref": invalid symbol '$2'
   [255]
 
-  $ hg debugrevspec --debug --config revsetalias.anotherbadone='branch(' "tip"
+  $ sl debugrevspec --debug --config revsetalias.anotherbadone='branch(' "tip"
   (symbol 'tip')
   warning: bad definition of revset alias "anotherbadone": at 7: not a prefix: end
   * set:
@@ -1115,13 +1116,13 @@ test unknown reference:
   <baseset [9]>
   9
 
-  $ hg debugrevspec --debug --config revsetalias.'bad name'='tip' "tip"
+  $ sl debugrevspec --debug --config revsetalias.'bad name'='tip' "tip"
   (symbol 'tip')
   warning: bad declaration of revset alias "bad name": at 4: invalid token
   * set:
   <baseset [9]>
   9
-  $ echo 'strictreplacing($1, $10) = $10 or desc("$1")' >> .hg/hgrc
+  $ echo 'strictreplacing($1, $10) = $10 or desc("$1")' >> .sl/config
   $ try 'strictreplacing("foo", tip)'
   (func
     (symbol 'strictreplacing')
@@ -1194,13 +1195,13 @@ test unknown reference:
   (func
     (symbol 'rs')
     None)
-  hg: parse error: unknown identifier: rs
+  sl: parse error: unknown identifier: rs
   [255]
   $ try 'rs(2)'
   (func
     (symbol 'rs')
     (symbol '2'))
-  hg: parse error: unknown identifier: rs
+  sl: parse error: unknown identifier: rs
   [255]
   $ try 'rs(2, data, 7)'
   (func
@@ -1209,7 +1210,7 @@ test unknown reference:
       (symbol '2')
       (symbol 'data')
       (symbol '7')))
-  hg: parse error: unknown identifier: rs
+  sl: parse error: unknown identifier: rs
   [255]
   $ try 'rs4(2 or 3, x, x, date)'
   (func
@@ -1240,10 +1241,10 @@ test unknown reference:
 
 issue4553: check that revset aliases override existing hash prefix
 
-  $ hg log -qr b
+  $ sl log -qr b
   b1166c9cdb4b
 
-  $ hg log -qr b --config revsetalias.b="all()"
+  $ sl log -qr b --config revsetalias.b="all()"
   f7b1eb17ad24
   925d80f479bb
   ca0049c702f1
@@ -1255,7 +1256,7 @@ issue4553: check that revset aliases override existing hash prefix
   6d98e1a86580
   d57d206a3bab
 
-  $ hg log -qr b: --config revsetalias.b="0"
+  $ sl log -qr b: --config revsetalias.b="0"
   f7b1eb17ad24
   925d80f479bb
   ca0049c702f1
@@ -1267,7 +1268,7 @@ issue4553: check that revset aliases override existing hash prefix
   6d98e1a86580
   d57d206a3bab
 
-  $ hg log -qr :b --config revsetalias.b="9"
+  $ sl log -qr :b --config revsetalias.b="9"
   f7b1eb17ad24
   925d80f479bb
   ca0049c702f1
@@ -1279,13 +1280,13 @@ issue4553: check that revset aliases override existing hash prefix
   6d98e1a86580
   d57d206a3bab
 
-  $ hg log -qr b:
+  $ sl log -qr b:
   b1166c9cdb4b
   c42d3b18b7b1
   6d98e1a86580
   d57d206a3bab
 
-  $ hg log -qr :b
+  $ sl log -qr :b
   f7b1eb17ad24
   925d80f479bb
   ca0049c702f1
@@ -1372,16 +1373,16 @@ issue2549 - correct optimizations
       <baseset [2]>>>
 
 issue4289 - ordering of built-ins
-  $ hg log -M -q -r 3:2
+  $ sl log -M -q -r 3:2
   8c386d836a07
   ca0049c702f1
 
 test revsets started with 40-chars hash (issue3669)
 
-  $ ISSUE3669_TIP=`hg tip --template '{node}'`
-  $ hg log -r "${ISSUE3669_TIP}" --template '{node}\n'
+  $ ISSUE3669_TIP=`sl tip --template '{node}'`
+  $ sl log -r "${ISSUE3669_TIP}" --template '{node}\n'
   d57d206a3bab91a65cbc8c7fb6c7de5a235c6bcf
-  $ hg log -r "${ISSUE3669_TIP}^" --template '{node}\n'
+  $ sl log -r "${ISSUE3669_TIP}^" --template '{node}\n'
   6d98e1a8658014ae6501fab0b5e4d1be2d393880
 
 test or-ed indirect predicates (issue3775)
@@ -1421,13 +1422,13 @@ tests for 'remote()' predicate:
 2.  same with local   specified       "default"
 3.  more than local   specified       specified
 
-  $ hg clone --quiet -U . ../remote3
-  $ hg book -r 7 ".a.b.c."
-  $ hg book -r 2 "a-b-c-"
+  $ sl clone --quiet -U . ../remote3
+  $ sl book -r 7 ".a.b.c."
+  $ sl book -r 2 "a-b-c-"
   $ cd ../remote3
-  $ hg goto -q 7
+  $ sl goto -q 7
   $ echo r > r
-  $ hg ci -Aqm 10
+  $ sl ci -Aqm 10
   $ log 'remote()'
   d57d206a3bab91a65cbc8c7fb6c7de5a235c6bcf
   $ log 'remote("a-b-c-")'
@@ -1449,7 +1450,7 @@ tests for concatenation of strings/symbols by "##"
   <baseset [0]>
   0
 
-  $ echo 'cat4($1, $2, $3, $4) = $1 ## $2 ## $3 ## $4' >> .hg/hgrc
+  $ echo 'cat4($1, $2, $3, $4) = $1 ## $2 ## $3 ## $4' >> .sl/config
   $ try "cat4(f7b, '1eb', 17a, 'd24')"
   (func
     (symbol 'cat4')
@@ -1474,14 +1475,14 @@ tests for concatenation of strings/symbols by "##"
 
 (check concatenation in alias nesting)
 
-  $ echo 'cat2($1, $2) = $1 ## $2' >> .hg/hgrc
-  $ echo 'cat2x2($1, $2, $3, $4) = cat2($1 ## $2, $3 ## $4)' >> .hg/hgrc
+  $ echo 'cat2($1, $2) = $1 ## $2' >> .sl/config
+  $ echo 'cat2x2($1, $2, $3, $4) = cat2($1 ## $2, $3 ## $4)' >> .sl/config
   $ log "cat2x2(f7b, '1eb', 17a, 'd24')"
   f7b1eb17ad24730a1651fccd46c43826d1bbc2ac
 
 (check operator priority)
 
-  $ echo 'cat2n2($1, $2, $3, $4) = $1 ## $2 or $3 ## $4~2' >> .hg/hgrc
+  $ echo 'cat2n2($1, $2, $3, $4) = $1 ## $2 or $3 ## $4~2' >> .sl/config
   $ log "cat2n2(f7b1eb, 17ad24, d57d20, 6a3bab)"
   f7b1eb17ad24730a1651fccd46c43826d1bbc2ac
   f97e7d9434783652739570e7cfdac469336f9e24
@@ -1490,24 +1491,24 @@ tests for concatenation of strings/symbols by "##"
 
 prepare repository that has "default" branches of multiple roots
 
-  $ hg init namedbranch
+  $ sl init namedbranch
   $ cd namedbranch
 
   $ echo default0 >> a
-  $ hg ci -Aqm0
+  $ sl ci -Aqm0
   $ echo default1 >> a
-  $ hg ci -m1
+  $ sl ci -m1
 
   $ echo stable2 >> a
   $ commit -m2
   $ echo stable3 >> a
   $ commit -m3
 
-  $ hg goto -q null
+  $ sl goto -q null
   $ echo default4 >> a
-  $ hg ci -Aqm4
+  $ sl ci -Aqm4
   $ echo default5 >> a
-  $ hg ci -m5
+  $ sl ci -m5
 
   $ cd ..
 
@@ -1516,13 +1517,13 @@ test author/desc/keyword in problematic encoding
 # u30A2    0x83 0x41(= 'A')
 # u30C2    0x83 0x61(= 'a')
 
-  $ hg init problematicencoding
+  $ sl init problematicencoding
   $ cd problematicencoding
 
   $ $PYTHON > setup.sh <<EOF
   > print(u'''
   > echo a > text
-  > hg add text
+  > sl add text
   > hg --encoding utf-8 commit -u '\\\u30A2' -m none
   > echo b > text
   > hg --encoding utf-8 commit -u '\\\u30C2' -m none
@@ -1535,8 +1536,8 @@ test author/desc/keyword in problematic encoding
   $ sh < setup.sh
 
 test error message of bad revset
-  $ hg log -r 'foo\\'
-  hg: parse error at 3: syntax error in revset 'foo\\'
+  $ sl log -r 'foo\\'
+  sl: parse error at 3: syntax error in revset 'foo\\'
   (foo\\
       ^ here)
   [255]
@@ -1559,14 +1560,14 @@ loading it
   > 
   > raise error.Abort('intentional failure of loading extension')
   > EOF
-  $ cat <<EOF > .hg/hgrc
+  $ cat <<EOF > .sl/config
   > [extensions]
   > custompredicate = $TESTTMP/custompredicate.py
   > EOF
 
-  $ hg debugrevspec "custom1()"
+  $ sl debugrevspec "custom1()"
   warning: extension custompredicate is disabled because it cannot be imported from $TESTTMP/custompredicate.py: intentional failure of loading extension
-  hg: parse error: unknown identifier: custom1
+  sl: parse error: unknown identifier: custom1
   [255]
 
 Test repo.anyrevs with customized revset overrides
@@ -1585,21 +1586,21 @@ Test repo.anyrevs with customized revset overrides
   >     ui.write('P=%r\n' % list(revs))
   > EOF
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > custompredicate = !
   > printprevset = $TESTTMP/printprevset.py
   > EOF
 
-  $ hg --config revsetalias.P=1 printprevset
+  $ sl --config revsetalias.P=1 printprevset
   P=[1]
-  $ P=3 hg --config revsetalias.P=2 printprevset
+  $ P=3 sl --config revsetalias.P=2 printprevset
   P=[3]
 
   $ cd ..
 
 Test mutation related revsets
 
-  $ hg init repo1
+  $ sl init repo1
   $ cd repo1
 
   $ drawdag <<'EOS'
@@ -1611,7 +1612,7 @@ Test mutation related revsets
   > EOS
 
  (all() revset does not show hidden (obsoleted) commits)
-  $ hg log -G -r "all()" -T '{desc}\n'
+  $ sl log -G -r "all()" -T '{desc}\n'
   o  G
   │
   │ o  D
@@ -1627,30 +1628,30 @@ Test mutation related revsets
   x  A
   
 
-  $ hg log -r "successors($Z)" -T '{desc}\n'
+  $ sl log -r "successors($Z)" -T '{desc}\n'
   Z
 
-  $ hg log -r "successors($F)" -T '{desc}\n' --hidden
+  $ sl log -r "successors($F)" -T '{desc}\n' --hidden
   D
   F
   G
 
-  $ hg log -r "predecessors($Z)" -T '{desc}\n'
+  $ sl log -r "predecessors($Z)" -T '{desc}\n'
   A
   Z
 
-  $ hg log -r "predecessors($A)" -T '{desc}\n'
+  $ sl log -r "predecessors($A)" -T '{desc}\n'
   A
 
  (hidden commits like C and F are not shown)
-  $ hg log -r "successors($B)" -T '{desc}\n'
+  $ sl log -r "successors($B)" -T '{desc}\n'
   B
   E
   D
   G
 
  (hidden commits like C and F are shown with --hidden)
-  $ hg log -r "successors($B)" -T '{desc}\n' --hidden
+  $ sl log -r "successors($B)" -T '{desc}\n' --hidden
   B
   C
   E
@@ -1658,39 +1659,39 @@ Test mutation related revsets
   F
   G
 
-  $ hg log -r "successors($B,1)" -T '{desc}\n' --hidden
+  $ sl log -r "successors($B,1)" -T '{desc}\n' --hidden
   B
   C
   E
   F
 
-  $ hg log -r "predecessors($D)" -T '{desc}\n'
+  $ sl log -r "predecessors($D)" -T '{desc}\n'
   B
   C
   D
   F
 
-  $ hg log -r "predecessors($D)" -T '{desc}\n' --hidden
+  $ sl log -r "predecessors($D)" -T '{desc}\n' --hidden
   B
   C
   D
   F
 
-  $ hg log -r "predecessors($D,1)" -T '{desc}\n' --hidden
+  $ sl log -r "predecessors($D,1)" -T '{desc}\n' --hidden
   C
   D
   F
 
-  $ hg log -r "successors($B)-obsolete()" -T '{desc}\n' --hidden
+  $ sl log -r "successors($B)-obsolete()" -T '{desc}\n' --hidden
   E
   D
   G
 
 Test `draft() & ::x` is not optimized to _phaseandancestors:
 
-  $ hg init $TESTTMP/repo2
+  $ sl init $TESTTMP/repo2
   $ cd $TESTTMP/repo2
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   P5 D2
   >    |  |
   >    : D1
@@ -1699,8 +1700,8 @@ Test `draft() & ::x` is not optimized to _phaseandancestors:
   >    |
   >   P0
   > EOS
-  $ hg debugmakepublic -r P5
-  $ hg debugrevspec --verify -p analyzed -p optimized 'draft() & ::(D1+P5)'
+  $ sl debugmakepublic -r P5
+  $ sl debugrevspec --verify -p analyzed -p optimized 'draft() & ::(D1+P5)'
   * analyzed:
   (and
     (func

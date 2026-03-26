@@ -4,6 +4,7 @@
 
 Test new conflict switching:
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ newrepo
@@ -13,7 +14,7 @@ Test new conflict switching:
   $ setconfig rebase.experimental.inmemory=True
   $ setconfig rebase.experimental.inmemorywarning="rebasing in-memory!"
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   f
   >   |
   >   e
@@ -26,15 +27,15 @@ Test new conflict switching:
   > EOS
 
 Make conflicts halfway up the stack:
-  $ hg up -C f
+  $ sl up -C f
   5 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark f)
   $ echo "conflict" > c
-  $ hg add c
-  $ hg amend -q
-  $ hg rebase -q -s g -d .
+  $ sl add c
+  $ sl amend -q
+  $ sl rebase -q -s g -d .
   rebasing in-memory!
-  $ hg log -G -r 'desc(a)':: -T '{desc}'
+  $ sl log -G -r 'desc(a)':: -T '{desc}'
   o  g
   │
   @  f
@@ -50,7 +51,7 @@ Make conflicts halfway up the stack:
   o  a
   
   $ cp -R . ../control
-  $ hg rebase -d c
+  $ sl rebase -d c
   rebasing in-memory!
   rebasing f4016ed9f5d0 "d" (d)
   rebasing 881eb15e0fdf "e" (e)
@@ -59,18 +60,18 @@ Make conflicts halfway up the stack:
   hit merge conflicts (in c); switching to on-disk merge
   rebasing e692c3b32196 "f" (f)
   merging c
-  warning: 1 conflicts while merging c! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging c! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg resolve --all --tool :other
+  $ sl resolve --all --tool :other
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg rebase --continue
+  continue: sl rebase --continue
+  $ sl rebase --continue
   already rebased f4016ed9f5d0 "d" (d) as 32bb4413a7df
   already rebased 881eb15e0fdf "e" (e) as d82c41319fdd
   rebasing e692c3b32196 "f" (f)
   rebasing 2a19607ff85c "g" (g)
-  $ hg log -G -r 'desc(a)':: -T '{desc} {node|short}'
+  $ sl log -G -r 'desc(a)':: -T '{desc} {node|short}'
   o  g 24c12a3229e2
   │
   @  f c33e7f678afd
@@ -88,17 +89,17 @@ Make conflicts halfway up the stack:
 
 Try it with uncommitted changes, ensure it aborts nicely:
 
-  $ hg up -Cq a
-  $ hg clean
+  $ sl up -Cq a
+  $ sl clean
   $ echo "test" > a
-  $ hg rebase -s d82c41319fdd -d a
+  $ sl rebase -s d82c41319fdd -d a
   rebasing in-memory!
   rebasing d82c41319fdd "e" (e)
   rebasing c33e7f678afd "f" (f)
   abort: must use on-disk merge for this rebase (hit merge conflicts in c), but you have working copy changes
   (commit, revert, or shelve them)
   [255]
-  $ hg st
+  $ sl st
   M a
   $ cat a
   test

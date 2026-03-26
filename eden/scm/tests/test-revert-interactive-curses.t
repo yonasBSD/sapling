@@ -1,5 +1,6 @@
 #require tic no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Revert interactive tests with the Curses interface
 
@@ -13,10 +14,10 @@ Revert interactive tests with the Curses interface
 
 When a line without EOL is selected during "revert -i"
 
-  $ hg init $TESTTMP/revert-i-curses-eol
+  $ sl init $TESTTMP/revert-i-curses-eol
   $ cd $TESTTMP/revert-i-curses-eol
   $ echo 0 > a
-  $ hg ci -qAm 0
+  $ sl ci -qAm 0
   $ echo -n 1 >> a
   $ cat a
   0
@@ -26,22 +27,22 @@ When a line without EOL is selected during "revert -i"
   > c
   > EOF
 
-  $ hg revert -i a
+  $ sl revert -i a
   $ cat a
   0
 
 When a selected line is reverted to have no EOL
 
-  $ hg init $TESTTMP/revert-i-curses-eol2
+  $ sl init $TESTTMP/revert-i-curses-eol2
   $ cd $TESTTMP/revert-i-curses-eol2
   $ echo -n boo > a
-  $ hg ci -qAm 0
+  $ sl ci -qAm 0
   $ echo blah > a
 
   $ cat <<EOF >testModeCommands
   > c
   > EOF
 
-  $ hg revert -i a
+  $ sl revert -i a
   $ cat a
   boo (no-eol)

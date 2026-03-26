@@ -3,41 +3,42 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ mkcommit()
   > {
   >    echo $1 > $1
-  >    hg add $1
-  >    hg ci -m "add $1"
+  >    sl add $1
+  >    sl ci -m "add $1"
   > }
 
 
 Test that remotenames works on a repo without any names file
 
-  $ hg init alpha
+  $ sl init alpha
   $ cd alpha
   $ mkcommit a
   $ mkcommit b
-  $ hg book master
-  $ hg log -r 'upstream()'
-  $ hg log -r . -T '{remotenames} {remotebookmarks}\n'
+  $ sl book master
+  $ sl log -r 'upstream()'
+  $ sl log -r . -T '{remotenames} {remotebookmarks}\n'
    
 
 Continue testing
 
   $ mkcommit c
   $ cd ..
-  $ hg clone alpha beta
+  $ sl clone alpha beta
   updating to tip
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd beta
-  $ hg book babar
+  $ sl book babar
   $ mkcommit d
   $ cd ..
 
-  $ hg init gamma
+  $ sl init gamma
   $ cd gamma
-  $ echo remotefilelog >> .hg/requires
-  $ cat > .hg/hgrc <<EOF
+  $ echo remotefilelog >> .sl/requires
+  $ cat > .sl/config <<EOF
   > [paths]
   > default = ../alpha
   > alpha = ../alpha
@@ -45,13 +46,13 @@ Continue testing
   > [remotenames]
   > selectivepulldefault=babar
   > EOF
-  $ hg pull -q beta
-  $ hg co -C default
+  $ sl pull -q beta
+  $ sl co -C default
   4 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ mkcommit e
 
 graph shows tags for the branch heads of each path
-  $ hg log --graph
+  $ sl log --graph
   @  commit:      9d206ffc875e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -81,40 +82,40 @@ graph shows tags for the branch heads of each path
 
 make sure we can list remote bookmarks with --all
 
-  $ hg bookmarks --all
+  $ sl bookmarks --all
   no bookmarks set
      beta/babar                47d2a3944de8
 
-  $ hg bookmarks --all -T json
+  $ sl bookmarks --all -T json
   [
    {
     "node": "47d2a3944de8b013de3be9578e8e344ea2e6c097",
     "remotebookmark": "beta/babar"
    }
   ]
-  $ hg bookmarks --remote
+  $ sl bookmarks --remote
      remote/master                    4538525df7e2b9f09423636c61ef63a4cb872a2d
 
 Verify missing node doesnt break remotenames
 
-  $ hg dbsh << 'EOS'
+  $ sl dbsh << 'EOS'
   > ml["remotenames"] = ml["remotenames"] + b"18f8e0f8ba54270bf158734c781327581cf43634 bookmarks beta/foo\n"
   > ml.commit("add unknown ref to remotenames")
   > EOS
-  $ hg book --remote
+  $ sl book --remote
      remote/master                    4538525df7e2b9f09423636c61ef63a4cb872a2d
 
-make sure bogus revisions in .hg/store/remotenames do not break hg
+make sure bogus revisions in .sl/store/remotenames do not break hg
   $ echo deadbeefdeadbeefdeadbeefdeadbeefdeadbeef default/default >> \
-  > .hg/store/remotenames
-  $ hg parents
+  > .sl/store/remotenames
+  $ sl parents
   commit:      9d206ffc875e
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     add e
   
 Verify that the revsets operate as expected:
-  $ hg log -r 'not pushed()'
+  $ sl log -r 'not pushed()'
   commit:      9d206ffc875e
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -123,7 +124,7 @@ Verify that the revsets operate as expected:
 
 
 Upstream without configuration is synonymous with upstream('default'):
-  $ hg log -r 'not upstream()'
+  $ sl log -r 'not upstream()'
   commit:      1f0dee641bb7
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -152,9 +153,9 @@ Upstream without configuration is synonymous with upstream('default'):
   
 
 but configured, it'll do the expected thing:
-  $ echo '[remotenames]' >> .hg/hgrc
-  $ echo 'upstream=alpha' >> .hg/hgrc
-  $ hg log --graph -r 'not upstream()'
+  $ echo '[remotenames]' >> .sl/config
+  $ echo 'upstream=alpha' >> .sl/config
+  $ sl log --graph -r 'not upstream()'
   @  commit:      9d206ffc875e
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -181,30 +182,30 @@ but configured, it'll do the expected thing:
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     add a
   
-  $ hg log --limit 2 --graph -r 'heads(upstream())'
+  $ sl log --limit 2 --graph -r 'heads(upstream())'
 
 Test remotenames revset and keyword
 
-  $ hg log -r 'remotenames()' \
+  $ sl log -r 'remotenames()' \
   >   --template '{node|short} {remotenames}\n'
   47d2a3944de8 beta/babar
 
 Test remotebookmark revsets
 
-  $ hg log -r 'remotebookmark()' \
+  $ sl log -r 'remotebookmark()' \
   >   --template '{node|short} {remotebookmarks}\n'
   47d2a3944de8 beta/babar
-  $ hg log -r 'remotebookmark("beta/babar")' \
+  $ sl log -r 'remotebookmark("beta/babar")' \
   >   --template '{node|short} {remotebookmarks}\n'
   47d2a3944de8 beta/babar
-  $ hg log -r 'remotebookmark("beta/stable")' \
+  $ sl log -r 'remotebookmark("beta/stable")' \
   >   --template '{node|short} {remotebookmarks}\n'
   abort: no remote bookmarks exist that match 'beta/stable'!
   [255]
-  $ hg log -r 'remotebookmark("re:beta/.*")' \
+  $ sl log -r 'remotebookmark("re:beta/.*")' \
   >   --template '{node|short} {remotebookmarks}\n'
   47d2a3944de8 beta/babar
-  $ hg log -r 'remotebookmark("re:gamma/.*")' \
+  $ sl log -r 'remotebookmark("re:gamma/.*")' \
   >   --template '{node|short} {remotebookmarks}\n'
   abort: no remote bookmarks exist that match 're:gamma/.*'!
   [255]
@@ -213,14 +214,14 @@ Test remotebookmark revsets
 Test custom paths dont override default
   $ cd ..
   $ cd alpha
-  $ hg book foo bar baz
+  $ sl book foo bar baz
   $ cd ..
-  $ hg init path_overrides
+  $ sl init path_overrides
   $ cd path_overrides
-  $ hg path -a default ../alpha
-  $ hg path -a custom ../alpha
-  $ hg pull -q
-  $ hg book --remote
+  $ sl path -a default ../alpha
+  $ sl path -a custom ../alpha
+  $ sl pull -q
+  $ sl book --remote
      remote/bar                       4538525df7e2b9f09423636c61ef63a4cb872a2d
      remote/baz                       4538525df7e2b9f09423636c61ef63a4cb872a2d
      remote/foo                       4538525df7e2b9f09423636c61ef63a4cb872a2d
@@ -229,10 +230,10 @@ Test custom paths dont override default
 
 Test json formatted bookmarks with tracking data
   $ cd ..
-  $ hg init delta
+  $ sl init delta
   $ cd delta
-  $ hg book mimimi -t lalala
-  $ hg book -v -T json
+  $ sl book mimimi -t lalala
+  $ sl book -v -T json
   [
    {
     "active": true,
@@ -241,5 +242,5 @@ Test json formatted bookmarks with tracking data
     "tracking": "lalala"
    }
   ]
-  $ hg book -v
+  $ sl book -v
    * mimimi                    000000000000           [lalala]

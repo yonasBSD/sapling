@@ -14,30 +14,31 @@ Revert interactive tests
 9 make workdir match 7
 10 run the same test than 8 from within folder1 and check same expectations
 
+  $ export HGIDENTITY=sl
   $ setconfig ui.interactive=true
   $ eagerepo
 
   $ mkdir -p a/folder1 a/folder2
   $ cd a
-  $ hg init
+  $ sl init
   >>> _ = open('f', 'wb').write(b"1\n2\n3\n4\n5\n")
-  $ hg add f ; hg commit -m "adding f"
-  $ cat f > folder1/g ; hg add folder1/g ; hg commit -m "adding folder1/g"
-  $ cat f > folder2/h ; hg add folder2/h ; hg commit -m "adding folder2/h"
-  $ cat f > folder1/i ; hg add folder1/i ; hg commit -m "adding folder1/i"
+  $ sl add f ; sl commit -m "adding f"
+  $ cat f > folder1/g ; sl add folder1/g ; sl commit -m "adding folder1/g"
+  $ cat f > folder2/h ; sl add folder2/h ; sl commit -m "adding folder2/h"
+  $ cat f > folder1/i ; sl add folder1/i ; sl commit -m "adding folder1/i"
   >>> _ = open('f', 'wb').write(b"a\n1\n2\n3\n4\n5\nb\n")
-  $ hg commit -m "modifying f"
+  $ sl commit -m "modifying f"
   >>> _ = open('folder1/g', 'wb').write(b"c\n1\n2\n3\n4\n5\nd\n")
-  $ hg commit -m "modifying folder1/g"
+  $ sl commit -m "modifying folder1/g"
   >>> _ = open('folder2/h', 'wb').write(b"e\n1\n2\n3\n4\n5\nf\n")
-  $ hg commit -m "modifying folder2/h"
-  $ hg tip
+  $ sl commit -m "modifying folder2/h"
+  $ sl tip
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     modifying folder2/h
   
-  $ hg revert -i -r .^^^^ --all -- << EOF
+  $ sl revert -i -r .^^^^ --all -- << EOF
   > y
   > y
   > y
@@ -136,7 +137,7 @@ Revert interactive tests
 
 Test that --interactive lift the need for --all
 
-  $ echo q | hg revert -i -r .~4
+  $ echo q | sl revert -i -r .~4
   reverting folder1/g
   reverting folder2/h
   diff --git a/folder1/g b/folder1/g
@@ -149,7 +150,7 @@ Test that --interactive lift the need for --all
   g
 
 Test that a noop revert doesn't do an unnecessary backup
-  $ (echo y; echo n) | hg revert -i -r .~4 folder1/g
+  $ (echo y; echo n) | sl revert -i -r .~4 folder1/g
   diff --git a/folder1/g b/folder1/g
   1 hunks, 1 lines changed
   examine changes to 'folder1/g'? [Ynesfdaq?] y
@@ -165,7 +166,7 @@ Test that a noop revert doesn't do an unnecessary backup
   g
 
 Test --no-backup
-  $ (echo y; echo y) | hg revert -i -C -r .~4 folder1/g
+  $ (echo y; echo y) | sl revert -i -C -r .~4 folder1/g
   diff --git a/folder1/g b/folder1/g
   1 hunks, 1 lines changed
   examine changes to 'folder1/g'? [Ynesfdaq?] y
@@ -182,9 +183,9 @@ Test --no-backup
   >>> _ = open('folder1/g', 'wb').write(b"1\n2\n3\n4\n5\nd\n")
 
 
-  $ hg goto -C 'max(desc(modifying))'
+  $ sl goto -C 'max(desc(modifying))'
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg revert -i -r .~4 --all -- << EOF
+  $ sl revert -i -r .~4 --all -- << EOF
   > n
   > y
   > y
@@ -268,10 +269,10 @@ Test --no-backup
   4
   5
   f
-  $ hg st
+  $ sl st
   M f
   M folder1/g
-  $ hg revert --interactive f << EOF
+  $ sl revert --interactive f << EOF
   > y
   > ?
   > y
@@ -311,7 +312,7 @@ Test --no-backup
   -b
   discard change 2/2 to 'f'? [Ynesfdaq?] n
   
-  $ hg st
+  $ sl st
   M f
   M folder1/g
   ? f.orig
@@ -329,7 +330,7 @@ Test --no-backup
   4
   5
   $ rm f.orig
-  $ hg goto -C .
+  $ sl goto -C .
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Check editing files newly added by a revert
@@ -342,12 +343,12 @@ Check editing files newly added by a revert
 
 2) Add k
   $ printf "1\n" > k
-  $ hg add k
-  $ hg commit -m "add k"
+  $ sl add k
+  $ sl commit -m "add k"
 
 3) Use interactive revert with editing (replacing +1 with +42):
   $ printf "0\n2\n" > k
-  $ HGEDITOR="\"sh\" \"${TESTTMP}/editor.sh\"" hg revert -i  <<EOF
+  $ HGEDITOR="\"sh\" \"${TESTTMP}/editor.sh\"" sl revert -i  <<EOF
   > y
   > e
   > EOF
@@ -365,41 +366,41 @@ Check editing files newly added by a revert
   $ cat k
   42
 
-  $ hg goto -C .
+  $ sl goto -C .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg purge
+  $ sl purge
   $ touch newfile
-  $ hg add newfile
-  $ hg status
+  $ sl add newfile
+  $ sl status
   A newfile
-  $ hg revert -i <<EOF
+  $ sl revert -i <<EOF
   > n
   > EOF
   forgetting newfile
   forget added file newfile (Yn)? n
-  $ hg status
+  $ sl status
   A newfile
-  $ hg revert -i <<EOF
+  $ sl revert -i <<EOF
   > y
   > EOF
   forgetting newfile
   forget added file newfile (Yn)? y
-  $ hg status
+  $ sl status
   ? newfile
 
 When a line without EOL is selected during "revert -i" (issue5651)
 
-  $ hg init $TESTTMP/revert-i-eol
+  $ sl init $TESTTMP/revert-i-eol
   $ cd $TESTTMP/revert-i-eol
   $ echo 0 > a
-  $ hg ci -qAm 0
+  $ sl ci -qAm 0
   $ printf 1 >> a
-  $ hg ci -qAm 1
+  $ sl ci -qAm 1
   $ cat a
   0
   1 (no-eol)
 
-  $ hg revert -ir'.^' <<EOF
+  $ sl revert -ir'.^' <<EOF
   > y
   > y
   > EOF

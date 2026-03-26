@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ enable rebase
   $ setconfig rebase.experimental.inmemory=True
 
@@ -18,6 +19,6 @@ Prepare repo
 
 # rebase union should succeed
 
-  $ hg rebase -r $C -d $B -t :union
+  $ sl rebase -r $C -d $B -t :union
   rebasing 2c13bd228f8e "C"
   merging x

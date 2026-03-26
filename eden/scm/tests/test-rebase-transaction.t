@@ -2,15 +2,16 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable rebase
   $ setconfig phases.publish=false
 
 Rebasing using a single transaction
 
-  $ hg init singletr && cd singletr
+  $ sl init singletr && cd singletr
   $ setconfig rebase.singletransaction=true
-  $ hg debugdrawdag <<'EOF'
+  $ sl debugdrawdag <<'EOF'
   >   Z
   >   |
   >   | D
@@ -23,7 +24,7 @@ Rebasing using a single transaction
   > EOF
 - We should only see two status stored messages. One from the start, one from
 - the end.
-  $ hg rebase --debug -b D -d Z 2>&1 | grep 'status stored'
+  $ sl rebase --debug -b D -d Z 2>&1 | grep 'status stored'
   rebase status stored
   rebase status stored
   $ tglog

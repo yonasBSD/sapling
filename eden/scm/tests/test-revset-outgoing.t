@@ -3,24 +3,25 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ readconfig <<EOF
   > [alias]
   > tlog = log --template "{node|short}: '{desc}'\n"
   > EOF
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
   $ echo a > a
-  $ hg ci -Aqm0
+  $ sl ci -Aqm0
 
   $ echo foo >> a
-  $ hg ci -Aqm1
+  $ sl ci -Aqm1
 
-  $ hg up -q 'desc(0)'
+  $ sl up -q 'desc(0)'
 
   $ echo bar >> a
-  $ hg ci -qm2
+  $ sl ci -qm2
 
   $ tglog
   @  a578af2cfd0c '2'
@@ -32,16 +33,16 @@
 
   $ cd ..
 
-  $ hg clone -q a b
+  $ sl clone -q a b
 
   $ cd b
-  $ cat .hg/hgrc
-  # example repository config (see 'hg help config' for more info)
+  $ cat .sl/config
+  # example repository config (see 'sl help config' for more info)
   [paths]
   default = $TESTTMP/a
   
   # URL aliases to other repo sources
-  # (see 'hg help config.paths' for more info)
+  # (see 'sl help config.paths' for more info)
   #
   # my-fork = https://example.com/jdoe/example-repo
   
@@ -50,14 +51,14 @@
   # username = Jane Doe <jdoe@example.com>
 
   $ echo red >> a
-  $ hg ci -qm3
+  $ sl ci -qm3
 
-  $ hg up -q default
+  $ sl up -q default
 
   $ echo blue >> a
-  $ hg ci -qm4
+  $ sl ci -qm4
 
-  $ hg pull -q -r 3560197d8331
+  $ sl pull -q -r 3560197d8331
 
   $ tglog
   @  acadbdc73b28 '4'
@@ -71,23 +72,23 @@
   o  f7b1eb17ad24 '0'
   
 
-  $ hg tlog -r 'outgoing()'
+  $ sl tlog -r 'outgoing()'
   5de9cb7d8f67: '3'
   acadbdc73b28: '4'
 
-  $ hg tlog -r 'outgoing("../a")'
+  $ sl tlog -r 'outgoing("../a")'
   5de9cb7d8f67: '3'
   acadbdc73b28: '4'
 
-  $ echo "green = ../a" >> .hg/hgrc
+  $ echo "green = ../a" >> .sl/config
 
-  $ cat .hg/hgrc
-  # example repository config (see 'hg help config' for more info)
+  $ cat .sl/config
+  # example repository config (see 'sl help config' for more info)
   [paths]
   default = $TESTTMP/a
   
   # URL aliases to other repo sources
-  # (see 'hg help config.paths' for more info)
+  # (see 'sl help config.paths' for more info)
   #
   # my-fork = https://example.com/jdoe/example-repo
   
@@ -96,7 +97,7 @@
   # username = Jane Doe <jdoe@example.com>
   green = ../a
 
-  $ hg tlog -r 'outgoing("green")'
+  $ sl tlog -r 'outgoing("green")'
   abort: repository green does not exist!
   [255]
 

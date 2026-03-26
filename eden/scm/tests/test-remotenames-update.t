@@ -2,25 +2,26 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Set up repo
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo 'foo'> a.txt
-  $ hg add a.txt
-  $ hg commit -m "a"
+  $ sl add a.txt
+  $ sl commit -m "a"
   $ echo 'bar' > b.txt
-  $ hg add b.txt
-  $ hg commit -m "b"
-  $ hg bookmark foo -i
+  $ sl add b.txt
+  $ sl commit -m "b"
+  $ sl bookmark foo -i
   $ echo 'bar' > c.txt
-  $ hg add c.txt
-  $ hg commit -q -m "c"
+  $ sl add c.txt
+  $ sl commit -q -m "c"
 
 Testing update -B feature
 
-  $ hg log -G -T '{bookmarks} {remotebookmarks}'
+  $ sl log -G -T '{bookmarks} {remotebookmarks}'
   @
   │
   o  foo
@@ -28,21 +29,21 @@ Testing update -B feature
   o
   
 
-  $ hg goto -B bar foo
+  $ sl goto -B bar foo
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (activating bookmark foo)
-  $ hg log -G -T '{bookmarks} {remotebookmarks}'
+  $ sl log -G -T '{bookmarks} {remotebookmarks}'
   o
   │
   @  bar foo
   │
   o
   
-  $ hg bookmarks -v
+  $ sl bookmarks -v
    * bar                       661086655130[foo]
      foo                       661086655130
 
-  $ hg goto -B foo bar
+  $ sl goto -B foo bar
   abort: bookmark 'foo' already exists
   [255]
 

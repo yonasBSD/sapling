@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ setconfig devel.collapse-traceback=true
@@ -27,23 +28,23 @@ Test a mergedriver that raises exceptions in its preprocess() hook:
 Force a conflicted merge so driver will run:
 
   $ echo "base" > FILE
-  $ hg add FILE
-  $ hg commit -Aq -m "base commit"
-  $ hg book -r . "base"
+  $ sl add FILE
+  $ sl commit -Aq -m "base commit"
+  $ sl book -r . "base"
 
 Now make two conflicting commits:
 
   $ echo "v1" > FILE
-  $ hg com -m "A"
-  $ hg book -r . A
-  $ hg up -q .~1
+  $ sl com -m "A"
+  $ sl book -r . A
+  $ sl up -q .~1
 
   $ echo "conflict" > FILE
-  $ hg com -m "B"
-  $ hg book -r . B
+  $ sl com -m "B"
+  $ sl book -r . B
 
 Without IMM:
-  $ hg rebase -r B -d A --config rebase.experimental.inmemory=0
+  $ sl rebase -r B -d A --config rebase.experimental.inmemory=0
   rebasing * "B" (B) (glob)
   in preprocess()
   error: preprocess hook raised an exception: some exception in preprocess()
@@ -51,14 +52,14 @@ Without IMM:
     # collapsed by devel.collapse-traceback
   Exception: some exception in preprocess()
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
 
 With IMM:
-  $ hg rebase -r B -d A --config rebase.experimental.inmemory=1
+  $ sl rebase -r B -d A --config rebase.experimental.inmemory=1
   rebasing in-memory!
   rebasing * "B" (B) (glob)
   in preprocess()
@@ -67,7 +68,7 @@ With IMM:
     # collapsed by devel.collapse-traceback
   Exception: some exception in preprocess()
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   hit merge conflicts (in FILE); switching to on-disk merge
   rebasing * "B" (B) (glob)
   in preprocess()
@@ -76,10 +77,10 @@ With IMM:
     # collapsed by devel.collapse-traceback
   Exception: some exception in preprocess()
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
 
 ===============================================================================
@@ -93,7 +94,7 @@ The tldr of this case is we can't just quit early if prepocess() is broken; we
 have to try it both ways. (It might be nice to change that.)
 ===============================================================================
 
-  $ hg up base
+  $ sl up base
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark base)
   $ cat > driver/__init__.py <<EOF
@@ -105,21 +106,21 @@ have to try it both ways. (It might be nice to change that.)
   > def conclude(ui, repo, hooktype, mergestate, wctx, labels=None):
   >     pass
   > EOF
-  $ hg commit -m "new base"
-  $ hg rebase -r A+B -d .
+  $ sl commit -m "new base"
+  $ sl rebase -r A+B -d .
   rebasing * "A" (A) (glob)
   rebasing * "B" (B) (glob)
 
 Without IMM, you can see we try to merge FILE twice (once in preprocess() and once later),
 and it fails:
-  $ hg rebase -r B -d A --config rebase.experimental.inmemory=0
+  $ sl rebase -r B -d A --config rebase.experimental.inmemory=0
   rebasing * "B" (B) (glob)
   in preprocess()
-  warning: 1 conflicts while merging FILE! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging FILE! (edit, then use 'sl resolve --mark')
   done with preprocess()
   merging FILE
-  warning: 1 conflicts while merging FILE! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging FILE! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat FILE
   <<<<<<< dest:   * A - test: A (glob)
@@ -127,11 +128,11 @@ and it fails:
   =======
   conflict
   >>>>>>> source: * B - test: B (glob)
-  $ hg rebase --abort
+  $ sl rebase --abort
   rebase aborted
 
 With IMM, it's *very* noisy, but we do eventually get to the same place:
-  $ hg rebase -r B -d A --config rebase.experimental.inmemory=1
+  $ sl rebase -r B -d A --config rebase.experimental.inmemory=1
   rebasing in-memory!
   rebasing * "B" (B) (glob)
   in preprocess()
@@ -140,15 +141,15 @@ With IMM, it's *very* noisy, but we do eventually get to the same place:
     # collapsed by devel.collapse-traceback
   sapling.error.InMemoryMergeConflictsError: in-memory merge does not support merge conflicts
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   hit merge conflicts (in FILE); switching to on-disk merge
   rebasing * "B" (B) (glob)
   in preprocess()
-  warning: 1 conflicts while merging FILE! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging FILE! (edit, then use 'sl resolve --mark')
   done with preprocess()
   merging FILE
-  warning: 1 conflicts while merging FILE! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging FILE! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat FILE
   <<<<<<< dest:   * A - test: A (glob)

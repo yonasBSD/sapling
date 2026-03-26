@@ -8,6 +8,7 @@
 
 # Using modern setup
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable amend rebase
   $ setconfig visibility.enabled=true mutation.record=true mutation.enabled=true experimental.evolution= remotenames.rename.default=remote
@@ -31,10 +32,10 @@
   > |/    # (This suggests a rebase from C1 to B2)
   > A
   > EOS
-  $ hg debugremotebookmark master "$M"
-  $ hg up -q "$D2"
+  $ sl debugremotebookmark master "$M"
+  $ sl up -q "$D2"
 
 # Restack should not rebase C1 to B2, since the user is not on the B2 stack.
 
-  $ hg rebase --restack
+  $ sl rebase --restack
   rebasing 87d9afc4bc4e "E1"

@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig ui.allowemptycommit=1
   $ enable histedit
@@ -18,41 +19,41 @@ Configure repo:
   > EOS
 
 Nothing is lost initially:
-  $ hg log -r 'lost()'
+  $ sl log -r 'lost()'
 
 Hiding a commit also hides its descendants:
-  $ hg hide $B -q
-  $ hg log -r 'lost()' -T '{desc}\n'
+  $ sl hide $B -q
+  $ sl log -r 'lost()' -T '{desc}\n'
   B
   C
   E
   D
 
 `unhide` makes a commit and its ancestors no longer lost:
-  $ hg unhide $D
-  $ hg log -r 'lost()' -T '{desc}\n'
+  $ sl unhide $D
+  $ sl log -r 'lost()' -T '{desc}\n'
   E
-  $ hg unhide $E
-  $ hg log -r 'lost()'
+  $ sl unhide $E
+  $ sl log -r 'lost()'
 
 `drop` in `histedit` can produce lost commits:
-  $ hg up $D -q
-  $ hg histedit $C --commands - <<EOF
+  $ sl up $D -q
+  $ sl histedit $C --commands - <<EOF
   > pick $D
   > drop $C
   > EOF
-  $ hg log -r 'lost()' -T '{desc}\n'
+  $ sl log -r 'lost()' -T '{desc}\n'
   C
 
 `amend` (or `metaedit`) does not make commits lost if they have successors:
   $ newrepo
-  $ hg commit -m A -q
-  $ hg amend -m B
-  $ hg amend -m C
-  $ hg amend -m D
-  $ hg log -r 'lost()' # Nothing is lost initially
-  $ hg hide '.' -q
-  $ hg log -r 'lost()' -T '{desc}\n'
+  $ sl commit -m A -q
+  $ sl amend -m B
+  $ sl amend -m C
+  $ sl amend -m D
+  $ sl log -r 'lost()' # Nothing is lost initially
+  $ sl hide '.' -q
+  $ sl log -r 'lost()' -T '{desc}\n'
   D
 
 Lost nodes are sorted by most recent hidden first:
@@ -65,12 +66,12 @@ Lost nodes are sorted by most recent hidden first:
   > |/
   > A
   > EOS
-  $ hg log -r 'lost()' # Nothing is lost initially
-  $ hg hide $C -q
-  $ hg hide $B -q
-  $ hg hide $E -q
-  $ hg hide $D -q
-  $ hg log -r 'lost()' -T '{desc}\n'
+  $ sl log -r 'lost()' # Nothing is lost initially
+  $ sl hide $C -q
+  $ sl hide $B -q
+  $ sl hide $E -q
+  $ sl hide $D -q
+  $ sl log -r 'lost()' -T '{desc}\n'
   D
   E
   B

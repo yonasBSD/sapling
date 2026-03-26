@@ -1,6 +1,7 @@
 #require no-windows no-eden
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ enable morestatus rebase
   $ setconfig morestatus.show=true
   $ setconfig rebase.experimental.inmemory=true
@@ -73,7 +74,7 @@ Test merge driver is invoked only once
   >      # A/baz = 1\n2\n3\n
   >      # drawdag.defaultfiles=false
   > EOS
-  $ hg log -G -T "{node|short} {desc}"
+  $ sl log -G -T "{node|short} {desc}"
   o  9acff5452ac4 E
   │
   o  5936dc4cac62 D
@@ -84,11 +85,11 @@ Test merge driver is invoked only once
   ├─╯
   o  2cacf0e4c790 A
 
-  $ hg up -q $E
-  $ ( hg dbsh $TESTTMP/myrebase.py; echo $?; ) >out 2>err &
+  $ sl up -q $E
+  $ ( sl dbsh $TESTTMP/myrebase.py; echo $?; ) >out 2>err &
 
-  $ hg debugpython -- $TESTTMP/interrupt.py
-  $ hg st
+  $ sl debugpython -- $TESTTMP/interrupt.py
+  $ sl st
   M baz
   ? err
   ? out
@@ -96,9 +97,9 @@ Test merge driver is invoked only once
   
   # The repository is in an unfinished *rebase* state.
   # No unresolved merge conflicts.
-  # To continue:                hg rebase --continue
-  # To abort:                   hg rebase --abort
-  # To quit:                    hg rebase --quit
+  # To continue:                sl rebase --continue
+  # To abort:                   sl rebase --abort
+  # To quit:                    sl rebase --quit
   $ cat out
   rebasing fbc6d9483227 "C"
   merging foo
@@ -106,7 +107,7 @@ Test merge driver is invoked only once
   rebasing 5936dc4cac62 "D"
     conclude sleeping ...
   130
-  $ hg log -G -T "{node|short} {desc}"
+  $ sl log -G -T "{node|short} {desc}"
   @  cd9c7a0f594d C
   │
   │ o  9acff5452ac4 E
@@ -138,7 +139,7 @@ Test merge driver is invoked multiple times
   >      # A/baz = 1\n2\n3\n
   >      # drawdag.defaultfiles=false
   > EOS
-  $ hg log -G -T "{node|short} {desc}"
+  $ sl log -G -T "{node|short} {desc}"
   o  e29b137ee2c0 F
   │
   o  8ec7c4b0f139 E
@@ -151,11 +152,11 @@ Test merge driver is invoked multiple times
   ├─╯
   o  2cacf0e4c790 A
 
-  $ hg up -q $F
-  $ ( hg dbsh $TESTTMP/myrebase.py; echo $?; ) >out 2>err &
+  $ sl up -q $F
+  $ ( sl dbsh $TESTTMP/myrebase.py; echo $?; ) >out 2>err &
 
-  $ hg debugpython -- $TESTTMP/interrupt.py
-  $ hg st
+  $ sl debugpython -- $TESTTMP/interrupt.py
+  $ sl st
   M baz
   ? err
   ? out
@@ -163,9 +164,9 @@ Test merge driver is invoked multiple times
   
   # The repository is in an unfinished *rebase* state.
   # No unresolved merge conflicts.
-  # To continue:                hg rebase --continue
-  # To abort:                   hg rebase --abort
-  # To quit:                    hg rebase --quit
+  # To continue:                sl rebase --continue
+  # To abort:                   sl rebase --abort
+  # To quit:                    sl rebase --quit
   $ cat out
   rebasing fbc6d9483227 "C"
   merging foo
@@ -177,7 +178,7 @@ Test merge driver is invoked multiple times
   rebasing e29b137ee2c0 "F"
     conclude sleeping ...
   130
-  $ hg log -G -T "{node|short} {desc}"
+  $ sl log -G -T "{node|short} {desc}"
   @  15fd84eef4a1 E
   │
   o  7da75ead7207 D
@@ -211,7 +212,7 @@ Ensure rebase works without ctrl-c
   >      # A/bar = 1\n2\n3\n
   >      # drawdag.defaultfiles=false
   > EOS
-  $ hg log -G -T "{node|short} {desc}"
+  $ sl log -G -T "{node|short} {desc}"
   o  ec1ca26947ef E
   │
   o  743d72ed2f5d D
@@ -222,8 +223,8 @@ Ensure rebase works without ctrl-c
   ├─╯
   o  7b72b8212522 A
 
-  $ hg up -q $E
-  $ hg rebase -s $C -d $B
+  $ sl up -q $E
+  $ sl rebase -s $C -d $B
   rebasing 01bc38cfe078 "C"
   merging foo
   rebasing 743d72ed2f5d "D"
@@ -232,7 +233,7 @@ Ensure rebase works without ctrl-c
     conclude done
   rebasing ec1ca26947ef "E"
   merging foo
-  $ hg log -G -T "{node|short} {desc}"
+  $ sl log -G -T "{node|short} {desc}"
   @  22a6865caf56 E
   │
   o  a4ebb592066f D

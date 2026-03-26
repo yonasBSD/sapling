@@ -2,13 +2,14 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig remotefilelog.reponame=dont/mess/up
   $ setconfig clone.use-rust=true
 
 TODO(sggutier): figure out why shallow is necessary here (replacing test with eager renders the same results)
-  $ hg clone test:dont/mess/up -q
+  $ sl clone test:dont/mess/up -q
   $ cd up
-  $ hg pull -q
+  $ sl pull -q
   $ ls $TESTTMP/default-hgcache
   dont%2Fmess%2Fup

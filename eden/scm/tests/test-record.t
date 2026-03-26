@@ -4,25 +4,26 @@
 
 Set up a repo
 
+  $ export HGIDENTITY=sl
   $ setconfig ui.interactive=true
   $ eagerepo
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
 Record help
 
-  $ hg record -h
-  hg record [OPTION]... [FILE]...
+  $ sl record -h
+  sl record [OPTION]... [FILE]...
   
   interactively select changes to commit
   
-      If a list of files is omitted, all changes reported by 'hg status' will be
+      If a list of files is omitted, all changes reported by 'sl status' will be
       candidates for recording.
   
-      See 'hg help dates' for a list of formats valid for -d/--date.
+      See 'sl help dates' for a list of formats valid for -d/--date.
   
-      If using the text interface (see 'hg help config'), you will be prompted
+      If using the text interface (see 'sl help config'), you will be prompted
       for whether to record changes to each modified file, and for files with
       multiple changes, for each change to use. For each query, the following
       responses are possible:
@@ -65,9 +66,9 @@ Record help
 Select no files
 
   $ touch empty-rw
-  $ hg add empty-rw
+  $ sl add empty-rw
 
-  $ hg record empty-rw<<EOF
+  $ sl record empty-rw<<EOF
   > n
   > EOF
   diff --git a/empty-rw b/empty-rw
@@ -77,7 +78,7 @@ Select no files
   no changes to record
   [1]
 
-  $ hg tip -p
+  $ sl tip -p
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -92,8 +93,8 @@ With "copy from"
   > 2
   > 3
   > EOF
-  $ hg commit -m A -A A
-  $ hg mv A B
+  $ sl commit -m A -A A
+  $ sl mv A B
   $ cat > B << EOF
   > 0
   > 1
@@ -101,7 +102,7 @@ With "copy from"
   > 5
   > EOF
 
-  $ hg commit -i -m B << EOS
+  $ sl commit -i -m B << EOS
   > y
   > n
   > y
@@ -132,7 +133,7 @@ With "copy from"
 
 '+0' is left not committed:
 
-  $ hg log -r . -p -T '{desc}\n' --git
+  $ sl log -r . -p -T '{desc}\n' --git
   B
   diff --git a/A b/B
   rename from A
@@ -145,7 +146,7 @@ With "copy from"
    3
   +5
   
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/B b/B
   --- a/B
   +++ b/B

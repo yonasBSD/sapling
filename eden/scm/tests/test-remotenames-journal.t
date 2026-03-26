@@ -5,46 +5,47 @@ Tests for the journal extension integration with remotenames.
 
 Skip if journal is not available in mercurial
 
-  $ hg help -e journal &>/dev/null || exit 80
+  $ export HGIDENTITY=sl
+  $ sl help -e journal &>/dev/null || exit 80
 
   $ eagerepo
   $ enable journal
 
-  $ hg init remote
+  $ sl init remote
   $ cd remote
   $ touch a
-  $ hg commit -A -m 'a commit' -q
-  $ hg book bmwillnotmove
-  $ hg book bm
+  $ sl commit -A -m 'a commit' -q
+  $ sl book bmwillnotmove
+  $ sl book bm
 
 Test journal with remote bookmarks works on clone
 
   $ cd ..
   $ newclientrepo local remote bm bmwillnotmove
-  $ hg journal remote/bm
+  $ sl journal remote/bm
   previous locations of 'remote/bm':
   94cf1ae9e2c8  pull -q -B bm
 
 Test journal with remote bookmarks works on pull
 
   $ cd ../remote
-  $ hg up bm -q
+  $ sl up bm -q
   $ echo 'modified' > a
-  $ hg commit -m 'a second commit' -q
+  $ sl commit -m 'a second commit' -q
   $ cd ../local
-  $ hg pull -q
-  $ hg journal remote/bm
+  $ sl pull -q
+  $ sl journal remote/bm
   previous locations of 'remote/bm':
   b720e98e7160  pull -q
   94cf1ae9e2c8  pull -q -B bm
 
 Test journal with remote bookmarks works after push
 
-  $ hg up remote/bm -q
+  $ sl up remote/bm -q
   $ echo 'modified locally' > a
-  $ hg commit -m 'local commit' -q
-  $ hg push --to bm -q
-  $ hg journal remote/bm
+  $ sl commit -m 'local commit' -q
+  $ sl push --to bm -q
+  $ sl journal remote/bm
   previous locations of 'remote/bm':
   869ef7e9b417  push --to bm -q
   b720e98e7160  pull -q
@@ -52,7 +53,7 @@ Test journal with remote bookmarks works after push
 
 Test second remotebookmark has not been clobbered or has moved since clone
 
-  $ hg journal remote/bmwillnotmove
+  $ sl journal remote/bmwillnotmove
   previous locations of 'remote/bmwillnotmove':
   94cf1ae9e2c8  pull -q -B bmwillnotmove
 

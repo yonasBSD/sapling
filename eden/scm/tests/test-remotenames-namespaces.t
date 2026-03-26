@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ setconfig remotenames.hoist=default
@@ -16,19 +17,19 @@
   $ enable color
   $ setconfig color.log.remotebookmark=yellow color.log.remotebranch=red color.log.hoistedname=blue
 
-  $ hg init repo1
+  $ sl init repo1
   $ cd repo1
   $ echo a > a
-  $ hg add a
-  $ hg commit -qm a
-  $ hg boo bm2
+  $ sl add a
+  $ sl commit -qm a
+  $ sl boo bm2
   $ cd ..
   $ newclientrepo repo2 repo1 bm2
-  $ hg bookmark local
+  $ sl bookmark local
 
 # Test colors
 
-  $ hg log '--color=always' -l 1
+  $ sl log '--color=always' -l 1
   \x1b[33mcommit:      cb9a9f314b8b\x1b[39m (esc)
   bookmark:    local
   \x1b[0;33mbookmark:    default/bm2\x1b[0m (esc) (?)

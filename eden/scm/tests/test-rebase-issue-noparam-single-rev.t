@@ -11,6 +11,7 @@
 
 # TODO: Make this test compatibile with obsstore enabled.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig 'experimental.evolution='
   $ cat >> $HGRCPATH << 'EOF'
@@ -21,29 +22,29 @@
   > publish=False
   > EOF
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
   $ echo c1 > c1
-  $ hg ci -Am c1
+  $ sl ci -Am c1
   adding c1
 
   $ echo c2 > c2
-  $ hg ci -Am c2
+  $ sl ci -Am c2
   adding c2
 
   $ echo l1 > l1
-  $ hg ci -Am l1
+  $ sl ci -Am l1
   adding l1
 
-  $ hg up -q -C 'desc(c2)'
+  $ sl up -q -C 'desc(c2)'
 
   $ echo r1 > r1
-  $ hg ci -Am r1
+  $ sl ci -Am r1
   adding r1
 
   $ echo r2 > r2
-  $ hg ci -Am r2
+  $ sl ci -Am r2
   adding r2
 
   $ tglog
@@ -59,9 +60,9 @@
 
 # Rebase with no arguments - single revision in source branch:
 
-  $ hg up -q -C 'desc(l1)'
+  $ sl up -q -C 'desc(l1)'
 
-  $ hg rebase -d 'desc(r2)'
+  $ sl rebase -d 'desc(r2)'
   rebasing 87c180a611f2 "l1"
 
   $ tglog
@@ -76,29 +77,29 @@
   o  e8faad3d03ff 'c1'
   $ cd ..
 
-  $ hg init b
+  $ sl init b
   $ cd b
 
   $ echo c1 > c1
-  $ hg ci -Am c1
+  $ sl ci -Am c1
   adding c1
 
   $ echo c2 > c2
-  $ hg ci -Am c2
+  $ sl ci -Am c2
   adding c2
 
   $ echo l1 > l1
-  $ hg ci -Am l1
+  $ sl ci -Am l1
   adding l1
 
   $ echo l2 > l2
-  $ hg ci -Am l2
+  $ sl ci -Am l2
   adding l2
 
-  $ hg up -q -C 'desc(c2)'
+  $ sl up -q -C 'desc(c2)'
 
   $ echo r1 > r1
-  $ hg ci -Am r1
+  $ sl ci -Am r1
   adding r1
 
   $ tglog

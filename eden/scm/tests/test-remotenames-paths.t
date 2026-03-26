@@ -2,47 +2,48 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Init a repo
 
-  $ hg init pathsrepo
+  $ sl init pathsrepo
   $ cd pathsrepo
 
 Check that a new path can be added
 
-  $ hg paths -a yellowbrickroad yellowbrickroad
-  $ hg paths -a stairwaytoheaven stairwaytoheaven
-  $ hg paths
+  $ sl paths -a yellowbrickroad yellowbrickroad
+  $ sl paths -a stairwaytoheaven stairwaytoheaven
+  $ sl paths
   stairwaytoheaven = $TESTTMP/pathsrepo/stairwaytoheaven
   yellowbrickroad = $TESTTMP/pathsrepo/yellowbrickroad
 
 Check that a repo can be deleted
 
-  $ hg paths -d yellowbrickroad
-  $ hg paths
+  $ sl paths -d yellowbrickroad
+  $ sl paths
   stairwaytoheaven = $TESTTMP/pathsrepo/stairwaytoheaven
 
-Delete .hg/hgrc fil
+Delete .sl/config fil
 
-  $ rm .hg/hgrc
+  $ rm .sl/config
 
 Non-existence of config file does not change behavior:
 
-  $ hg paths -d stairwaytoheaven
+  $ sl paths -d stairwaytoheaven
 
-Check that a path can be added when no .hg/hgrc file exists
+Check that a path can be added when no .sl/config file exists
 
-  $ hg paths -a yellowbrickroad yellowbrickroad
-  $ hg paths
+  $ sl paths -a yellowbrickroad yellowbrickroad
+  $ sl paths
   yellowbrickroad = $TESTTMP/pathsrepo/yellowbrickroad
 
 Helpful error with wrong args:
 
-  $ hg paths -a banana
-  abort: invalid URL - invoke as 'hg paths -a NAME URL'
+  $ sl paths -a banana
+  abort: invalid URL - invoke as 'sl paths -a NAME URL'
   [255]
 
-  $ hg paths -a banana too many
-  abort: invalid URL - invoke as 'hg paths -a NAME URL'
+  $ sl paths -a banana too many
+  abort: invalid URL - invoke as 'sl paths -a NAME URL'
   [255]

@@ -1,5 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
+  $ export HGIDENTITY=sl
   $ configure modernclient
 
 no-check-code
@@ -9,16 +10,16 @@ no-check-code
   $ echo x > x
   $ echo y > y
   $ echo z > z
-  $ hg commit -qAm xy
-  $ hg push --to master --create -q
+  $ sl commit -qAm xy
+  $ sl push --to master --create -q
 
   $ newclientrepo shallow master_server
 
 Verify error message when no fallback specified
 
-  $ hg up -q null
-  $ rm .hg/hgrc
+  $ sl up -q null
+  $ rm .sl/config
   $ clearcache
-  $ hg up tip
+  $ sl up tip
   abort: *The commit graph requires a remote peer but the repo does not have one* (glob)
   [255]

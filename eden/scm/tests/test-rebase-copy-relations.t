@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable rebase
   $ setconfig experimental.evolution.allowdivergence=1
@@ -21,12 +22,12 @@
 
 C -> C2 relation is copied with singletransaction.
 
-  $ hg rebase -s $B -d $Z --config rebase.singletransaction=true
+  $ sl rebase -s $B -d $Z --config rebase.singletransaction=true
   rebasing 112478962961 "B"
   rebasing 039c3379aaa9 "C2"
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
-  $ hg log -G -T '{node|short} {desc} {mutations%"{operation} to {successors}"}'
+  $ sl log -G -T '{node|short} {desc} {mutations%"{operation} to {successors}"}'
   o  f7f4f5b9173a D
   │
   x  e709467ba6ed C amend-copy to b97425e89b0c
@@ -42,12 +43,12 @@ C -> C2 relation is copied with singletransaction.
 FIXME: This does not quite work yet without singletransaction.
 
   $ cd $TESTTMP/repob
-  $ hg rebase -s $B -d $Z --config rebase.singletransaction=false
+  $ sl rebase -s $B -d $Z --config rebase.singletransaction=false
   rebasing 112478962961 "B"
   rebasing 039c3379aaa9 "C2"
   rebasing 26805aba1e60 "C"
   rebasing f585351a92f8 "D"
-  $ hg log -G -T '{node|short} {desc}'
+  $ sl log -G -T '{node|short} {desc}'
   o  f7f4f5b9173a D
   │
   o  e709467ba6ed C
