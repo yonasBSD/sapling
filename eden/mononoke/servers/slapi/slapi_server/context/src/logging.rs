@@ -46,6 +46,7 @@ pub struct LoggingContainer {
     sampling_key: Option<SamplingKey>,
     scribe: Scribe,
     override_sampling: Arc<AtomicBool>,
+    nocache_thriftcache: Arc<AtomicBool>,
 }
 
 impl LoggingContainer {
@@ -62,6 +63,7 @@ impl LoggingContainer {
             sampling_key: None,
             scribe,
             override_sampling: Arc::new(AtomicBool::new(false)),
+            nocache_thriftcache: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -78,6 +80,7 @@ impl LoggingContainer {
             sampling_key: Some(sampling_key),
             scribe: self.scribe.clone(),
             override_sampling: self.override_sampling.clone(),
+            nocache_thriftcache: self.nocache_thriftcache.clone(),
         }
     }
 
@@ -112,6 +115,7 @@ impl LoggingContainer {
             sampling_key: self.sampling_key.clone(),
             scribe: self.scribe.clone(),
             override_sampling: self.override_sampling.clone(),
+            nocache_thriftcache: self.nocache_thriftcache.clone(),
         }
     }
 
@@ -121,5 +125,13 @@ impl LoggingContainer {
 
     pub fn set_override_sampling(&self) {
         self.override_sampling.store(true, Ordering::Relaxed);
+    }
+
+    pub fn nocache_thriftcache(&self) -> bool {
+        self.nocache_thriftcache.load(Ordering::Relaxed)
+    }
+
+    pub fn set_nocache_thriftcache(&self) {
+        self.nocache_thriftcache.store(true, Ordering::Relaxed);
     }
 }

@@ -148,6 +148,14 @@ impl CoreContext {
         self.logging.set_override_sampling();
     }
 
+    pub fn nocache_thriftcache(&self) -> bool {
+        self.logging.nocache_thriftcache()
+    }
+
+    pub fn set_nocache_thriftcache(&self) {
+        self.logging.set_nocache_thriftcache();
+    }
+
     pub fn sql_query_telemetry(&self) -> SqlQueryTelemetry {
         let fb = self.fb.clone();
         let metadata = self.metadata();

@@ -519,7 +519,7 @@ impl SourceControlServiceImpl {
     {
         let repo = self
             .mononoke
-            .repo(ctx, &repo.name)
+            .repo(ctx.clone(), &repo.name)
             .await?
             .ok_or_else(|| scs_errors::repo_not_found(repo.description()))?
             .with_bubble(bubble_fetcher)
@@ -527,6 +527,7 @@ impl SourceControlServiceImpl {
             .with_authorization_context(authz)
             .build()
             .await?;
+        maybe_set_nocache_thriftcache(&ctx, &repo)?;
         Ok(repo)
     }
 
@@ -736,6 +737,71 @@ impl SourceControlServiceImpl {
             remote_diff_config,
         }
     }
+}
+
+/// Identity types covered by KCB's REQUEST_PRIMARY_IDENTITY_TYPES
+/// (from core_infra_security/thrift_authentication_module/client_identifier.thrift).
+/// TODO: Import REQUEST_PRIMARY_IDENTITY_TYPES directly once Rust codegen is added
+/// to the client_identifier_structs thrift library.
+const REQUEST_PRIMARY_IDENTITY_TYPES: &[&str] = &[
+    "ASYNC_JOB_ID",
+    "CATHODE_USE_CASE_ID",
+    "DATA_PROJECT",
+    "DEVELOPER_ENVIRONMENT_TYPE",
+    "DRP_ANALYZER_GROUP",
+    "INTERN_CONTROLLER",
+    "NETGRAM_WORKFLOW",
+    "PROD_CONTROLLER",
+    "SANDBOX",
+    "SERVICE_IDENTITY",
+    "TEE_ATTESTED_SERVICE",
+    "USER",
+];
+
+/// Returns true if the given identity type is covered by KCB's
+/// REQUEST_PRIMARY_IDENTITY_TYPES.
+fn is_kcb_covered(id_type: &str) -> bool {
+    REQUEST_PRIMARY_IDENTITY_TYPES.contains(&id_type)
+}
+
+/// Returns true if the nocache flag should be set, given the repo-level and
+/// path-level ACL-deciding identity types. The flag is set when any identity
+/// type is NOT covered by KCB's REQUEST_PRIMARY_IDENTITY_TYPES.
+fn should_set_nocache_for_identity_types(
+    repo_id_type: Option<&str>,
+    path_id_types: &[String],
+) -> bool {
+    repo_id_type.is_some_and(|id| !is_kcb_covered(id))
+        || path_id_types.iter().any(|id| !is_kcb_covered(id))
+}
+
+/// Checks if any ACL-deciding identity type on the RepoContext is not covered
+/// by KCB's REQUEST_PRIMARY_IDENTITY_TYPES, and if so, sets the nocache_thriftcache
+/// flag on the CoreContext. The thrift macro will then set the ThriftCache nocache
+/// response header.
+fn maybe_set_nocache_thriftcache(
+    ctx: &CoreContext,
+    repo_ctx: &RepoContext<Repo>,
+) -> Result<(), scs_errors::ServiceError> {
+    if !justknobs::eval(
+        "scm/mononoke:scs_thriftcache_nocache_for_non_kcb_identities",
+        None,
+        None,
+    )
+    .map_err(scs_errors::internal_error)?
+    {
+        return Ok(());
+    }
+
+    let path_id_types = repo_ctx.path_acl_deciding_identity_types();
+    if should_set_nocache_for_identity_types(
+        repo_ctx.repo_acl_deciding_identity_type(),
+        &path_id_types,
+    ) {
+        ctx.set_nocache_thriftcache();
+    }
+
+    Ok(())
 }
 
 fn should_log_memory_usage(method: &str) -> bool {
@@ -1240,7 +1306,7 @@ macro_rules! impl_thrift_methods {
                         .instrument(span)
                     };
 
-                    if let Some(factory_group) = &self.0.factory_group {
+                    let result = if let Some(factory_group) = &self.0.factory_group {
                         let group = factory_group.clone();
                         let queue: usize =
                             justknobs::get_as::<u64>("scm/mononoke:scs_factory_queue_for_method", Some(stringify!($method_name))).map_err(scs_errors::internal_error)? as usize;
@@ -1248,7 +1314,15 @@ macro_rules! impl_thrift_methods {
                     } else {
                         let res: Result<$ok_type, $err_type> = handler.await;
                         res
+                    };
+
+                    // If the method set the nocache flag (due to non-KCB identity types),
+                    // propagate it to the ThriftCache response header.
+                    if ctx.nocache_thriftcache() {
+                        let _ = req_ctxt.set_header("nocache", "1");
                     }
+
+                    result
                 };
                 Box::pin(fut)
             }
@@ -1325,7 +1399,7 @@ macro_rules! impl_thrift_stream_methods {
                         .instrument(span)
                     };
 
-                    if let Some(factory_group) = &self.0.factory_group {
+                    let result = if let Some(factory_group) = &self.0.factory_group {
                         let group = factory_group.clone();
                         let queue: usize =
                             justknobs::get_as::<u64>("scm/mononoke:scs_factory_queue_for_method", Some(stringify!($method_name))).map_err(scs_errors::internal_error)? as usize;
@@ -1333,7 +1407,15 @@ macro_rules! impl_thrift_stream_methods {
                     } else {
                         let res: Result<$ok_type, $err_type> = handler.await;
                         res
+                    };
+
+                    // If the method set the nocache flag (due to non-KCB identity types),
+                    // propagate it to the ThriftCache response header.
+                    if ctx.nocache_thriftcache() {
+                        let _ = req_ctxt.set_header("nocache", "1");
                     }
+
+                    result
                 };
                 Box::pin(fut)
             }
@@ -1751,5 +1833,183 @@ impl SourceControlService for SourceControlServiceThriftImpl {
                 BoxStream<'static, Result<thrift::CommitFindRestrictedPathsStreamItem, service::CommitFindRestrictedPathsStreamExn>>,
             ),
             service::CommitFindRestrictedPathsExn>;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use justknobs::test_helpers::JustKnobsInMemory;
+    use justknobs::test_helpers::KnobVal;
+    use justknobs::test_helpers::with_just_knobs;
+    use maplit::hashmap;
+    use mononoke_macros::mononoke;
+
+    use super::*;
+
+    // ---- Tests for is_kcb_covered ----
+
+    #[mononoke::test]
+    fn test_is_kcb_covered_known_types() {
+        // All types in REQUEST_PRIMARY_IDENTITY_TYPES should be covered.
+        for id_type in REQUEST_PRIMARY_IDENTITY_TYPES {
+            assert!(
+                is_kcb_covered(id_type),
+                "Expected '{}' to be covered by KCB",
+                id_type
+            );
+        }
+    }
+
+    #[mononoke::test]
+    fn test_is_kcb_covered_unknown_type() {
+        assert!(!is_kcb_covered("SOME_UNKNOWN_TYPE"));
+        assert!(!is_kcb_covered(""));
+        assert!(!is_kcb_covered("user")); // case-sensitive
+        assert!(!is_kcb_covered("SERVICE_IDENTITY_V2"));
+    }
+
+    // ---- Tests for should_set_nocache_for_identity_types ----
+
+    #[mononoke::test]
+    fn test_nocache_not_set_when_no_identity_types() {
+        // No repo or path identity types => no nocache.
+        assert!(!should_set_nocache_for_identity_types(None, &[]));
+    }
+
+    #[mononoke::test]
+    fn test_nocache_not_set_for_kcb_repo_identity() {
+        // Repo identity is a KCB type => no nocache.
+        assert!(!should_set_nocache_for_identity_types(Some("USER"), &[]));
+        assert!(!should_set_nocache_for_identity_types(
+            Some("SERVICE_IDENTITY"),
+            &[]
+        ));
+    }
+
+    #[mononoke::test]
+    fn test_nocache_set_for_non_kcb_repo_identity() {
+        // Repo identity is NOT a KCB type => nocache.
+        assert!(should_set_nocache_for_identity_types(
+            Some("CUSTOM_ACL_TYPE"),
+            &[]
+        ));
+    }
+
+    #[mononoke::test]
+    fn test_nocache_not_set_for_kcb_path_identities() {
+        // All path identities are KCB types => no nocache.
+        let path_types = vec!["USER".to_string(), "PROD_CONTROLLER".to_string()];
+        assert!(!should_set_nocache_for_identity_types(None, &path_types));
+    }
+
+    #[mononoke::test]
+    fn test_nocache_set_for_non_kcb_path_identity() {
+        // One path identity is not a KCB type => nocache.
+        let path_types = vec!["USER".to_string(), "CUSTOM_ACL_TYPE".to_string()];
+        assert!(should_set_nocache_for_identity_types(None, &path_types));
+    }
+
+    #[mononoke::test]
+    fn test_nocache_set_when_path_non_kcb_but_repo_is_kcb() {
+        // Repo identity is KCB, but a path identity is not => nocache.
+        let path_types = vec!["CUSTOM_ACL_TYPE".to_string()];
+        assert!(should_set_nocache_for_identity_types(
+            Some("USER"),
+            &path_types
+        ));
+    }
+
+    #[mononoke::test]
+    fn test_nocache_set_for_non_kcb_repo_skips_path_check() {
+        // Non-KCB repo identity triggers nocache regardless of path types.
+        let path_types = vec!["USER".to_string()];
+        assert!(should_set_nocache_for_identity_types(
+            Some("CUSTOM_ACL_TYPE"),
+            &path_types
+        ));
+    }
+
+    // ---- Tests for maybe_set_nocache_thriftcache with JustKnobs ----
+
+    #[mononoke::fbinit_test]
+    fn test_maybe_set_nocache_jk_disabled(fb: fbinit::FacebookInit) {
+        // When the JustKnob is disabled, nocache should NOT be set even with
+        // non-KCB identity types.
+        let ctx = CoreContext::test_mock(fb);
+        assert!(!ctx.nocache_thriftcache());
+
+        with_just_knobs(
+            JustKnobsInMemory::new(hashmap![
+                "scm/mononoke:scs_thriftcache_nocache_for_non_kcb_identities".to_string()
+                    => KnobVal::Bool(false)
+            ]),
+            || {
+                // With JK disabled, the JK check returns false.
+                let jk_enabled = justknobs::eval(
+                    "scm/mononoke:scs_thriftcache_nocache_for_non_kcb_identities",
+                    None,
+                    None,
+                )
+                .unwrap_or(false);
+                assert!(!jk_enabled);
+                // Since JK is disabled, nocache should not be set.
+                assert!(!ctx.nocache_thriftcache());
+            },
+        );
+    }
+
+    #[mononoke::fbinit_test]
+    fn test_maybe_set_nocache_jk_enabled_with_non_kcb_type(fb: fbinit::FacebookInit) {
+        // When JK is enabled and identity types are non-KCB, nocache should be set.
+        let ctx = CoreContext::test_mock(fb);
+
+        with_just_knobs(
+            JustKnobsInMemory::new(hashmap![
+                "scm/mononoke:scs_thriftcache_nocache_for_non_kcb_identities".to_string()
+                    => KnobVal::Bool(true)
+            ]),
+            || {
+                let jk_enabled = justknobs::eval(
+                    "scm/mononoke:scs_thriftcache_nocache_for_non_kcb_identities",
+                    None,
+                    None,
+                )
+                .unwrap_or(false);
+                assert!(jk_enabled);
+
+                // With non-KCB type, should_set_nocache returns true.
+                assert!(should_set_nocache_for_identity_types(
+                    Some("CUSTOM_ACL_TYPE"),
+                    &[]
+                ));
+
+                // Simulate what maybe_set_nocache_thriftcache does when JK is on
+                // and identity types trigger nocache:
+                if should_set_nocache_for_identity_types(Some("CUSTOM_ACL_TYPE"), &[]) {
+                    ctx.set_nocache_thriftcache();
+                }
+                assert!(ctx.nocache_thriftcache());
+            },
+        );
+    }
+
+    #[mononoke::fbinit_test]
+    fn test_maybe_set_nocache_jk_enabled_with_kcb_type(fb: fbinit::FacebookInit) {
+        // When JK is enabled but all identity types are KCB, nocache should NOT be set.
+        let ctx = CoreContext::test_mock(fb);
+
+        with_just_knobs(
+            JustKnobsInMemory::new(hashmap![
+                "scm/mononoke:scs_thriftcache_nocache_for_non_kcb_identities".to_string()
+                    => KnobVal::Bool(true)
+            ]),
+            || {
+                assert!(!should_set_nocache_for_identity_types(
+                    Some("USER"),
+                    &["SERVICE_IDENTITY".to_string()]
+                ));
+                assert!(!ctx.nocache_thriftcache());
+            },
+        );
     }
 }

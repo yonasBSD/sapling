@@ -23,6 +23,7 @@
     "scm/mononoke:megarepo_serialize_target_config_into_working_copy": true,
     "scm/mononoke:mononoke_server_skip_blobstore_warmup": false,
     "scm/mononoke:scs_commit_find_files_disable_bssm": false,
+    "scm/mononoke:scs_thriftcache_nocache_for_non_kcb_identities": false,
     "scm/mononoke:scs_commit_find_files_use_bssm_for_suffix_queries": false,
     "scm/mononoke:sql_disable_auto_cache": false,
     "scm/mononoke:sql_disable_auto_retries": false,
