@@ -8,17 +8,26 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
 use bookmarks::BookmarkKey;
 use bookmarks::BookmarkKind;
+use bookmarks::BookmarkName;
 use bookmarks::BookmarkTransactionError;
 use bookmarks::BookmarkUpdateReason;
 use context::CoreContext;
+use dbbookmarks::transaction::AcquireBookmarkLock;
 use dbbookmarks::transaction::AddBookmarkLog;
+use dbbookmarks::transaction::AllocateBookmarkLogId;
 use dbbookmarks::transaction::DeleteBookmarkIf;
+use dbbookmarks::transaction::EnsureBookmarkLockRow;
+use dbbookmarks::transaction::FindGlobalMaxBookmarkLogId;
 use dbbookmarks::transaction::FindMaxBookmarkLogId;
 use dbbookmarks::transaction::InsertBookmarks;
+use dbbookmarks::transaction::ReadLastInsertId;
+use dbbookmarks::transaction::ReadMaxSequenceId;
+use dbbookmarks::transaction::SeedSequenceId;
 use dbbookmarks::transaction::UpdateBookmark;
 use mononoke_types::ChangesetId;
 use mononoke_types::RepositoryId;
@@ -83,13 +92,15 @@ impl BookmarkOp {
                 new_cs_id,
                 reason,
             } => {
-                let log_id = log.push(
-                    *repo_id,
-                    bookmark,
-                    Some(*old_cs_id),
-                    Some(*new_cs_id),
-                    *reason,
-                );
+                let log_id = log
+                    .push(
+                        *repo_id,
+                        bookmark,
+                        Some(*old_cs_id),
+                        Some(*new_cs_id),
+                        *reason,
+                    )
+                    .map_err(BookmarkTransactionError::RetryableError)?;
                 let (txn, result) = UpdateBookmark::query_with_transaction(
                     txn,
                     repo_id,
@@ -112,7 +123,9 @@ impl BookmarkOp {
                 cs_id,
                 reason,
             } => {
-                let log_id = log.push(*repo_id, bookmark, None, Some(*cs_id), *reason);
+                let log_id = log
+                    .push(*repo_id, bookmark, None, Some(*cs_id), *reason)
+                    .map_err(BookmarkTransactionError::RetryableError)?;
                 let data = [(
                     repo_id,
                     &Some(log_id),
@@ -133,7 +146,8 @@ impl BookmarkOp {
                 old_cs_id,
                 reason,
             } => {
-                log.push(*repo_id, bookmark, Some(*old_cs_id), None, *reason);
+                log.push(*repo_id, bookmark, Some(*old_cs_id), None, *reason)
+                    .map_err(BookmarkTransactionError::RetryableError)?;
                 let (txn, result) = DeleteBookmarkIf::query_with_transaction(
                     txn,
                     repo_id,
@@ -151,10 +165,13 @@ impl BookmarkOp {
     }
 }
 
-/// Accumulates log entries and assigns sequential IDs per repo.
+/// Accumulates log entries and assigns IDs either sequentially per-repo
+/// (old path) or from pre-allocated auto-increment IDs (new path).
 struct TransactionLog {
     next_log_ids: HashMap<RepositoryId, u64>,
     entries: Vec<LogEntry>,
+    pre_allocated_ids: Option<Vec<u64>>,
+    pre_allocated_cursor: usize,
 }
 
 struct LogEntry {
@@ -171,6 +188,17 @@ impl TransactionLog {
         Self {
             next_log_ids,
             entries: Vec::new(),
+            pre_allocated_ids: None,
+            pre_allocated_cursor: 0,
+        }
+    }
+
+    fn from_pre_allocated(ids: Vec<u64>) -> Self {
+        Self {
+            next_log_ids: HashMap::new(),
+            entries: Vec::new(),
+            pre_allocated_ids: Some(ids),
+            pre_allocated_cursor: 0,
         }
     }
 
@@ -181,9 +209,27 @@ impl TransactionLog {
         old: Option<ChangesetId>,
         new: Option<ChangesetId>,
         reason: BookmarkUpdateReason,
-    ) -> u64 {
-        let next_id = self.next_log_ids.entry(repo_id).or_insert(1);
-        let id = *next_id;
+    ) -> Result<u64> {
+        let id = if let Some(ref ids) = self.pre_allocated_ids {
+            // Safety: pre_allocated_ids contains exactly N IDs where N is
+            // the number of ops, and push() is called exactly once per op.
+            // Use .get() to surface a clear error if this invariant breaks.
+            let id = *ids.get(self.pre_allocated_cursor).ok_or_else(|| {
+                anyhow!(
+                    "Pre-allocated ID cursor {} exceeds available IDs ({})",
+                    self.pre_allocated_cursor,
+                    ids.len()
+                )
+            })?;
+            self.pre_allocated_cursor += 1;
+            id
+        } else {
+            let next_id = self.next_log_ids.entry(repo_id).or_insert(1);
+            let id = *next_id;
+            *next_id += 1;
+            id
+        };
+
         self.entries.push(LogEntry {
             id,
             repo_id,
@@ -192,8 +238,7 @@ impl TransactionLog {
             new,
             reason,
         });
-        *next_id += 1;
-        id
+        Ok(id)
     }
 
     /// Write all accumulated log entries into the SQL transaction.
@@ -324,6 +369,9 @@ impl MultiRepoBookmarksTransaction {
             return Ok(MultiRepoBookmarksTransactionResult::Success);
         }
 
+        let use_new_path = justknobs::eval("scm/mononoke:per_bookmark_locking", None, None)
+            .context("Failed to read per_bookmark_locking JustKnob for multi-repo transaction")?;
+
         let repo_ids: HashSet<_> = self.ops.iter().map(|op| op.repo_id()).collect();
 
         let txn = self
@@ -331,8 +379,16 @@ impl MultiRepoBookmarksTransaction {
             .start_transaction(self.ctx.sql_query_telemetry())
             .await?;
 
-        let (mut txn, next_log_ids) = find_next_log_ids(txn, &repo_ids).await?;
-        let mut log = TransactionLog::new(next_log_ids);
+        // Acquire locks and allocate IDs
+        let (mut txn, mut log) = if use_new_path {
+            let txn = acquire_multi_repo_bookmark_locks(&self.ops, txn).await?;
+            let total_entries = self.ops.len();
+            let (txn, ids) = allocate_multi_log_ids(txn, total_entries).await?;
+            (txn, TransactionLog::from_pre_allocated(ids))
+        } else {
+            let (txn, next_log_ids) = find_next_log_ids(txn, &repo_ids).await?;
+            (txn, TransactionLog::new(next_log_ids))
+        };
 
         // Execute all operations in one SQL transaction
         let result: Result<_, BookmarkTransactionError> = async {
@@ -385,6 +441,96 @@ async fn find_next_log_ids(
         next_ids.insert(repo_id, next_id);
     }
     Ok((txn, next_ids))
+}
+
+/// Acquire per-bookmark locks for all operations, in sorted order to prevent deadlocks.
+async fn acquire_multi_repo_bookmark_locks(
+    ops: &[BookmarkOp],
+    mut txn: SqlTransaction,
+) -> Result<SqlTransaction> {
+    // Collect and sort (repo_id, bookmark_name) pairs for deterministic ordering.
+    // No dedup needed: MultiRepoBookmarksTransaction::push() rejects duplicate
+    // (repo_id, bookmark) pairs via the `seen` HashSet.
+    let mut lock_keys: Vec<(RepositoryId, &BookmarkName)> = ops
+        .iter()
+        .map(|op| (op.repo_id(), op.bookmark().name()))
+        .collect();
+    lock_keys.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+
+    // Acquire locks in sorted order to prevent deadlocks: if two concurrent
+    // transactions lock (repo1, bookmarkA) and (repo1, bookmarkB), both must
+    // acquire them in the same order. Without this, T1 locking A-then-B and
+    // T2 locking B-then-A would deadlock.
+    for (repo_id, name) in lock_keys {
+        let (txn_, rows) = AcquireBookmarkLock::query_with_transaction(txn, &repo_id, name).await?;
+        txn = txn_;
+
+        if rows.is_empty() {
+            let data = [(&repo_id, name)];
+            let (txn_, _) = EnsureBookmarkLockRow::query_with_transaction(txn, &data[..]).await?;
+            let (txn_, _) =
+                AcquireBookmarkLock::query_with_transaction(txn_, &repo_id, name).await?;
+            txn = txn_;
+        }
+    }
+    Ok(txn)
+}
+
+/// Allocate N log IDs from the global auto-increment sequence.
+///
+/// Allocate N log IDs from the global auto-increment sequence.
+///
+/// On first use (empty sequence table), seeds the table from the global
+/// MAX(id) in bookmarks_update_log so that new IDs don't conflict with
+/// existing log entries. Then inserts N rows and reads back the last
+/// generated ID — consecutive single-row INSERTs produce consecutive
+/// auto-increment IDs, so all N IDs can be derived from the last one.
+async fn allocate_multi_log_ids(
+    mut txn: SqlTransaction,
+    count: usize,
+) -> Result<(SqlTransaction, Vec<u64>)> {
+    if count == 0 {
+        return Ok((txn, vec![]));
+    }
+
+    // Seed the sequence table on first use so new IDs start above
+    // existing entries in bookmarks_update_log.
+    let (txn_, rows) = ReadMaxSequenceId::query_with_transaction(txn).await?;
+    txn = txn_;
+    if rows.first().and_then(|r| r.0).is_none() {
+        let (txn_, global_max_rows) =
+            FindGlobalMaxBookmarkLogId::query_with_transaction(txn).await?;
+        txn = txn_;
+        if let Some(max_id) = global_max_rows.first().and_then(|r| r.0) {
+            let (txn_, _) = SeedSequenceId::query_with_transaction(txn, &max_id).await?;
+            txn = txn_;
+        }
+    }
+
+    // N individual INSERTs rather than a single multi-row INSERT because
+    // MySQL's LAST_INSERT_ID() returns the FIRST generated value for
+    // multi-row INSERTs, while SQLite's last_insert_rowid() returns the
+    // LAST. Individual INSERTs give uniform behavior via ReadLastInsertId.
+    // N is typically small (number of bookmarks in one transaction).
+    for _ in 0..count {
+        let (txn_, _) = AllocateBookmarkLogId::query_with_transaction(txn).await?;
+        txn = txn_;
+    }
+    let (txn, rows) = ReadLastInsertId::query_with_transaction(txn).await?;
+    let last_id = rows
+        .into_iter()
+        .next()
+        .ok_or_else(|| anyhow!("ReadLastInsertId returned no rows"))?
+        .0;
+    anyhow::ensure!(
+        last_id >= count as u64,
+        "Auto-increment IDs inconsistent: last_id={} but expected at least {} IDs",
+        last_id,
+        count
+    );
+    let first_id = last_id - (count as u64) + 1;
+    let ids: Vec<u64> = (first_id..=last_id).collect();
+    Ok((txn, ids))
 }
 
 #[cfg(test)]
