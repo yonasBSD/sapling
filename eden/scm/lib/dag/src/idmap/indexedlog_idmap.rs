@@ -113,7 +113,7 @@ impl IdMap {
             .create(true)
             .index("id", |data| {
                 assert!(Self::MAGIC_CLEAR_NON_MASTER.len() < 8);
-                assert!(Group::BITS == 8);
+                const { assert!(Group::BITS == 8) };
                 if data.starts_with(Self::MAGIC_DELETION_PREFIX) {
                     let items =
                         decode_deletion_entry(data).expect("deletion entry should be valid");
