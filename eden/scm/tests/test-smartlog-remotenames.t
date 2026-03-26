@@ -8,6 +8,7 @@
 # GNU General Public License version 2.
 
 
+  $ export HGIDENTITY=sl
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
   > smartlog=
@@ -18,19 +19,19 @@
   $ newclientrepo repo
 
   $ echo x > x
-  $ hg commit -qAm x1
-  $ hg book master1
+  $ sl commit -qAm x1
+  $ sl book master1
   $ echo x >> x
-  $ hg commit -qAm x2
-  $ hg push -r . -q --to master1 --create
+  $ sl commit -qAm x2
+  $ sl push -r . -q --to master1 --create
 
 # Non-bookmarked public heads should not be visible in smartlog
 
   $ newclientrepo client repo_server master1
-  $ hg book mybook -r 'desc(x1)'
-  $ hg up 'desc(x1)'
+  $ sl book mybook -r 'desc(x1)'
+  $ sl up 'desc(x1)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg smartlog -T '{desc} {bookmarks} {remotebookmarks}'
+  $ sl smartlog -T '{desc} {bookmarks} {remotebookmarks}'
   o  x2  remote/master1
   │
   @  x1 mybook
@@ -38,29 +39,29 @@
 # Old head (rev 1) is still visible
 
   $ echo z >> x
-  $ hg commit -qAm x3
-  $ hg push --non-forward-move -q --to master1
-  $ hg smartlog -T '{desc} {bookmarks} {remotebookmarks}'
+  $ sl commit -qAm x3
+  $ sl push --non-forward-move -q --to master1
+  $ sl smartlog -T '{desc} {bookmarks} {remotebookmarks}'
   @  x3  remote/master1
   │
   o  x1 mybook
 
 # Test configuration of "interesting" bookmarks
 
-  $ hg up -q '.^'
+  $ sl up -q '.^'
   $ echo x >> x
-  $ hg commit -qAm x4
-  $ hg push -q --to project/bookmark --create
-  $ hg smartlog -T '{desc} {bookmarks} {remotebookmarks}'
+  $ sl commit -qAm x4
+  $ sl push -q --to project/bookmark --create
+  $ sl smartlog -T '{desc} {bookmarks} {remotebookmarks}'
   o  x3  remote/master1
   │
   │ @  x4
   ├─╯
   o  x1 mybook
 
-  $ hg up '.^'
+  $ sl up '.^'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg smartlog -T '{desc} {bookmarks} {remotebookmarks}'
+  $ sl smartlog -T '{desc} {bookmarks} {remotebookmarks}'
   o  x3  remote/master1
   │
   │ o  x4
@@ -71,7 +72,7 @@
   > repos=remote/
   > names=project/bookmark
   > EOF
-  $ hg smartlog -T '{desc} {bookmarks} {remotebookmarks}'
+  $ sl smartlog -T '{desc} {bookmarks} {remotebookmarks}'
   o  x3  remote/master1
   │
   │ o  x4
@@ -81,7 +82,7 @@
   > [smartlog]
   > names=master project/bookmark
   > EOF
-  $ hg smartlog -T '{desc} {bookmarks} {remotebookmarks}'
+  $ sl smartlog -T '{desc} {bookmarks} {remotebookmarks}'
   o  x3  remote/master1
   │
   │ o  x4

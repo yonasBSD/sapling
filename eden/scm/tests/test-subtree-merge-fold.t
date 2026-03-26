@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig subtree.allow-any-source-commit=True
   $ setconfig subtree.min-path-depth=1
@@ -10,23 +11,23 @@
   >    # drawdag.defaultfiles=false
   > EOS
 
-  $ hg go -q $B
+  $ sl go -q $B
 
 Make a copy.  Note that this is not a subtree copy.
   $ cp -r proj1/foo proj1/bar
   $ cp -r proj2/foo proj2/bar
-  $ hg add proj1/bar proj2/bar
+  $ sl add proj1/bar proj2/bar
   adding proj1/bar/x
   adding proj2/bar/x
-  $ hg commit -m "copy foo to bar"
+  $ sl commit -m "copy foo to bar"
 
   $ echo ccc > proj1/foo/x
   $ echo ccc > proj2/foo/x
-  $ hg commit -m "C"
+  $ sl commit -m "C"
 
   $ echo ddd > proj1/bar/x
   $ echo ddd > proj2/bar/x
-  $ hg commit -m "D"
+  $ sl commit -m "D"
 
   $ tglog
   @  2ef2c3679bcb 'D'
@@ -39,20 +40,20 @@ Make a copy.  Note that this is not a subtree copy.
   │
   o  7b1f8515a385 'A'
 
-  $ hg subtree merge --from-path proj1/bar --to-path proj1/foo
+  $ sl subtree merge --from-path proj1/bar --to-path proj1/foo
   searching for merge base ...
   merge base: 545926ee9897
   merging proj1/foo/x and proj1/bar/x to proj1/foo/x
-  warning: 1 conflicts while merging proj1/foo/x! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging proj1/foo/x! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ echo cdcdcd > proj1/foo/x
-  $ hg resolve --mark proj1/foo/x
+  $ sl resolve --mark proj1/foo/x
   (no more unresolved files)
-  $ hg commit -m "merge proj1"
+  $ sl commit -m "merge proj1"
 
-  $ hg subtree inspect -r .
+  $ sl subtree inspect -r .
   {
     "merges": [
       {
@@ -64,20 +65,20 @@ Make a copy.  Note that this is not a subtree copy.
     ]
   }
 
-  $ hg subtree merge --from-path proj2/bar --to-path proj2/foo -r .^
+  $ sl subtree merge --from-path proj2/bar --to-path proj2/foo -r .^
   searching for merge base ...
   merge base: 545926ee9897
   merging proj2/foo/x and proj2/bar/x to proj2/foo/x
-  warning: 1 conflicts while merging proj2/foo/x! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging proj2/foo/x! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ echo dcdcdc > proj2/foo/x
-  $ hg resolve --mark proj2/foo/x
+  $ sl resolve --mark proj2/foo/x
   (no more unresolved files)
-  $ hg commit -m "merge proj2"
+  $ sl commit -m "merge proj2"
 
-  $ hg subtree inspect -r .
+  $ sl subtree inspect -r .
   {
     "merges": [
       {
@@ -89,11 +90,11 @@ Make a copy.  Note that this is not a subtree copy.
     ]
   }
 
-  $ hg fold --from .^ -m "merge proj1 and proj2"
+  $ sl fold --from .^ -m "merge proj1 and proj2"
   2 changesets folded
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg subtree inspect -r .
+  $ sl subtree inspect -r .
   {
     "merges": [
       {
@@ -113,7 +114,7 @@ Make a copy.  Note that this is not a subtree copy.
 
   $ echo eee > proj1/foo/x
   $ echo eee > proj2/bar/x
-  $ hg commit -m "E"
+  $ sl commit -m "E"
 
   $ tglog
   @  859a27dec08e 'E'
@@ -130,25 +131,25 @@ Make a copy.  Note that this is not a subtree copy.
   │
   o  7b1f8515a385 'A'
 
-  $ hg subtree merge --from-path proj1/bar --to-path proj1/foo
+  $ sl subtree merge --from-path proj1/bar --to-path proj1/foo
   searching for merge base ...
   found the last subtree merge commit a6d4fe868877
   merge base: 2ef2c3679bcb
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (subtree merge, don't forget to commit)
-  $ hg commit -m "second merge proj1" 
+  $ sl commit -m "second merge proj1" 
   nothing changed
   [1]
-  $ hg subtree merge --from-path proj2/bar --to-path proj2/foo -r .^
+  $ sl subtree merge --from-path proj2/bar --to-path proj2/foo -r .^
   searching for merge base ...
   found the last subtree merge commit a6d4fe868877
   merge base: 2ef2c3679bcb
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (subtree merge, don't forget to commit)
-  $ hg commit -m "second merge proj2"
+  $ sl commit -m "second merge proj2"
   nothing changed
   [1]
-  $ hg fold --from .^ -m "second merge proj1 and proj2"
+  $ sl fold --from .^ -m "second merge proj1 and proj2"
   2 changesets folded
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
@@ -165,7 +166,7 @@ Make a copy.  Note that this is not a subtree copy.
   │
   o  7b1f8515a385 'A'
 
-  $ hg subtree inspect -r .
+  $ sl subtree inspect -r .
   {
     "merges": [
       {

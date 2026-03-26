@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Python utilities:
@@ -16,7 +17,7 @@ Python utilities:
     
     def getidtopath():
         """Return a dict mapping from id (in hex form) to path"""
-        output = sheval('hg debugmanifestdirs -r "all()"')
+        output = sheval('sl debugmanifestdirs -r "all()"')
         # debugmanifestdirs prints "<id> <path>" per line
         result = dict(l.split() for l in output.splitlines())
         return result
@@ -62,32 +63,32 @@ Python utilities:
   >    # A/z/x/y/z=A3
   > EOS
 
-  $ hg sparse include x
+  $ sl sparse include x
 
 # Good: Updating to A should avoid downloading y/ or z/
 
-  >>> collectprefetch("hg update -q $A")
+  >>> collectprefetch("sl update -q $A")
   ['x', 'x/x', 'x/x/y']
 
 
 # Good: Updating to B should avoid downloading y/
 
-  >>> collectprefetch("hg update -q $B")
+  >>> collectprefetch("sl update -q $B")
   ['x', 'x/x', 'x/x/y']
 
-  $ hg goto -q $D
+  $ sl goto -q $D
 
 # Good: Rebasing B to D should avoid downloading d/ or c/, or z/.
 # (This is optimized by "rebase: use matcher to optimize manifestmerge",
 #  https://www.mercurial-scm.org/repo/hg/rev/4d504e541d3d,
 #  fbsource-hg: 94ad1b49ede1f8e5897c7c9381304785746fa460)
 
-  >>> collectprefetch("hg rebase -r $B -d $D -q")
+  >>> collectprefetch("sl rebase -r $B -d $D -q")
   ['x', 'x/x', 'x/x/y', 'y', 'y/x', 'y/x/y']
 
 # Good: Changing sparse profile should not download everything.
 
-  >>> collectprefetch("hg sparse exclude y")
+  >>> collectprefetch("sl sparse exclude y")
   ['x', 'x/x', 'x/x/y']
 
 # Test sparse profile change.
@@ -106,17 +107,17 @@ Python utilities:
   > EOS
 
   >>> idtopath = getidtopath()
-  >>> collectprefetch("hg sparse enable profile")
+  >>> collectprefetch("sl sparse enable profile")
   []
 
 # Good: Updating to A should avoid downloading y/ or z/
 
-  >>> collectprefetch("hg update -q $A")
+  >>> collectprefetch("sl update -q $A")
   ['x', 'x/x']
 
 # Good: Updating to B should avoid downloading z/
 
-  >>> collectprefetch("hg update -q $B")
+  >>> collectprefetch("sl update -q $B")
   ['x', 'x/x', 'y', 'y/y']
 
 # Test 'status'.
@@ -128,10 +129,10 @@ Python utilities:
   >     # A/z/z/z=1
   > EOS
 
-  >>> collectprefetch("hg sparse include x")
+  >>> collectprefetch("sl sparse include x")
   []
 
-  $ hg up -q $A
+  $ sl up -q $A
 
   $ printf 2 > y
   $ mkdir -p z
@@ -140,5 +141,5 @@ Python utilities:
 
 # Good: 'status' should avoid downloading y/ or z/.
 
-  >>> sorted(set(collectprefetch("hg status")) - {"x", "x/x"})
+  >>> sorted(set(collectprefetch("sl status")) - {"x", "x/x"})
   []

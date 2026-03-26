@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ newrepo server
@@ -8,10 +9,10 @@
   > EOS
 
   $ newclientrepo client server
-  $ hg pull -qr $B
+  $ sl pull -qr $B
 
 We can fetch tree parents:
-  $ hg debugscmstore -r $B dir --mode=tree --tree-parents
+  $ sl debugscmstore -r $B dir --mode=tree --tree-parents
   Successfully fetched tree: (
       Key {
           path: RepoPathBuf(

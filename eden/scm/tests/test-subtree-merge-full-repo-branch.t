@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig subtree.allow-any-source-commit=True
   $ setconfig subtree.min-path-depth=1
@@ -13,19 +14,19 @@ test warning about changes outside the specified from path
   > |/  # A/bar/y = 1\n2\n3\n
   > A   # A/foo/x = 1\n2\n3\n
   > EOS
-  $ hg go -q $B
+  $ sl go -q $B
 
-  $ hg subtree merge --from-path foo --to-path foo -r $C
+  $ sl subtree merge --from-path foo --to-path foo -r $C
   warning: changes outside the specified from_path are ignored!
-  (use 'hg status --rev a1383e79789b --rev 531d8f7a5755' to see all changed files)
+  (use 'sl status --rev a1383e79789b --rev 531d8f7a5755' to see all changed files)
   merge base: a1383e79789b
   merging foo/x
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (subtree merge, don't forget to commit)
-  $ hg status --rev a1383e79789b --rev 531d8f7a5755
+  $ sl status --rev a1383e79789b --rev 531d8f7a5755
   M bar/y
   M foo/x
-  $ hg diff
+  $ sl diff
   diff --git a/foo/x b/foo/x
   --- a/foo/x
   +++ b/foo/x
@@ -34,14 +35,14 @@ test warning about changes outside the specified from path
    2
   -3
   +3c
-  $ hg go -C . -q
+  $ sl go -C . -q
 
-  $ hg subtree merge --from-path foo --to-path foo --from-path bar --to-path bar -r $C
+  $ sl subtree merge --from-path foo --to-path foo --from-path bar --to-path bar -r $C
   merge base: a1383e79789b
   merging foo/x
   1 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (subtree merge, don't forget to commit)
-  $ hg diff
+  $ sl diff
   diff --git a/bar/y b/bar/y
   --- a/bar/y
   +++ b/bar/y
@@ -58,8 +59,8 @@ test warning about changes outside the specified from path
    2
   -3
   +3c
-  $ hg ci -m "merge foo and bar"
-  $ hg subtree inspect -r .
+  $ sl ci -m "merge foo and bar"
+  $ sl subtree inspect -r .
   {
     "merges": [
       {

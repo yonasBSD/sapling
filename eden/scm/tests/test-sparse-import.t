@@ -2,11 +2,12 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 test sparse
 
   $ enable sparse rebase
-  $ hg init myrepo
+  $ sl init myrepo
   $ cd myrepo
 
   $ echo a > index.html
@@ -16,13 +17,13 @@ test sparse
   > [include]
   > *.sparse
   > EOF
-  $ hg ci -Aqm 'initial'
+  $ sl ci -Aqm 'initial'
   $ cat > webpage.sparse <<EOF
   > %include base.sparse
   > [include]
   > *.html
   > EOF
-  $ hg ci -Aqm 'initial'
+  $ sl ci -Aqm 'initial'
 
 Import a rules file against a 'blank' sparse profile
 
@@ -30,31 +31,31 @@ Import a rules file against a 'blank' sparse profile
   > [include]
   > *.py
   > EOF
-  $ hg sparse --import-rules $TESTTMP/rules_to_import
+  $ sl sparse --import-rules $TESTTMP/rules_to_import
   $ ls
   data.py
 
-  $ hg sparse reset
-  $ rm .hg/sparse
+  $ sl sparse reset
+  $ rm .sl/sparse
 
   $ cat > $TESTTMP/rules_to_import <<EOF
   > %include base.sparse
   > [include]
   > *.py
   > EOF
-  $ hg sparse --import-rules $TESTTMP/rules_to_import
+  $ sl sparse --import-rules $TESTTMP/rules_to_import
   $ ls
   base.sparse
   data.py
   webpage.sparse
 
-  $ hg sparse reset
-  $ rm .hg/sparse
+  $ sl sparse reset
+  $ rm .sl/sparse
 
 Start against an existing profile; rules *already active* should be ignored
 
-  $ hg sparse --enable-profile webpage.sparse
-  $ hg sparse --include *.py
+  $ sl sparse --enable-profile webpage.sparse
+  $ sl sparse --include *.py
   $ cat > $TESTTMP/rules_to_import <<EOF
   > %include base.sparse
   > [include]
@@ -63,13 +64,13 @@ Start against an existing profile; rules *already active* should be ignored
   > [exclude]
   > *.py
   > EOF
-  $ hg sparse --import-rules $TESTTMP/rules_to_import
+  $ sl sparse --import-rules $TESTTMP/rules_to_import
   $ ls
   base.sparse
   index.html
   readme.txt
   webpage.sparse
-  $ cat .hg/sparse
+  $ cat .sl/sparse
   %include webpage.sparse
   [include]
   *.py
@@ -77,8 +78,8 @@ Start against an existing profile; rules *already active* should be ignored
   [exclude]
   *.py
 
-  $ hg sparse reset
-  $ rm .hg/sparse
+  $ sl sparse reset
+  $ rm .sl/sparse
 
 Same tests, with -Tjson enabled to output summaries
 
@@ -86,7 +87,7 @@ Same tests, with -Tjson enabled to output summaries
   > [include]
   > *.py
   > EOF
-  $ hg sparse --import-rules $TESTTMP/rules_to_import -Tjson
+  $ sl sparse --import-rules $TESTTMP/rules_to_import -Tjson
   [
    {
     "exclude_rules_added": 0,
@@ -98,15 +99,15 @@ Same tests, with -Tjson enabled to output summaries
    }
   ]
 
-  $ hg sparse reset
-  $ rm .hg/sparse
+  $ sl sparse reset
+  $ rm .sl/sparse
 
   $ cat > $TESTTMP/rules_to_import <<EOF
   > %include base.sparse
   > [include]
   > *.py
   > EOF
-  $ hg sparse --import-rules $TESTTMP/rules_to_import -Tjson
+  $ sl sparse --import-rules $TESTTMP/rules_to_import -Tjson
   [
    {
     "exclude_rules_added": 0,
@@ -118,11 +119,11 @@ Same tests, with -Tjson enabled to output summaries
    }
   ]
 
-  $ hg sparse reset
-  $ rm .hg/sparse
+  $ sl sparse reset
+  $ rm .sl/sparse
 
-  $ hg sparse --enable-profile webpage.sparse
-  $ hg sparse --include *.py
+  $ sl sparse --enable-profile webpage.sparse
+  $ sl sparse --include *.py
   $ cat > $TESTTMP/rules_to_import <<EOF
   > %include base.sparse
   > [include]
@@ -131,7 +132,7 @@ Same tests, with -Tjson enabled to output summaries
   > [exclude]
   > *.py
   > EOF
-  $ hg sparse --import-rules $TESTTMP/rules_to_import -Tjson
+  $ sl sparse --import-rules $TESTTMP/rules_to_import -Tjson
   [
    {
     "exclude_rules_added": 1,
@@ -165,7 +166,7 @@ If importing results in no new rules being added, no refresh should take place!
   > [include]
   > *.py
   > EOF
-  $ hg sparse --import-rules $TESTTMP/rules_to_import
+  $ sl sparse --import-rules $TESTTMP/rules_to_import
 
 If an exception is raised during refresh, restore the existing rules again.
 
@@ -173,10 +174,10 @@ If an exception is raised during refresh, restore the existing rules again.
   > [exclude]
   > *.html
   > EOF
-  $ hg sparse --import-rules $TESTTMP/rules_to_import
+  $ sl sparse --import-rules $TESTTMP/rules_to_import
   abort: sparse._refresh called!
   [255]
-  $ cat .hg/sparse
+  $ cat .sl/sparse
   %include webpage.sparse
   [include]
   *.py

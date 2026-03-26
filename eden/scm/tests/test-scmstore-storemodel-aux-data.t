@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ setconfig push.edenapi=true
   $ setconfig scmstore.tree-metadata-mode=always
 
@@ -8,17 +9,17 @@
   > A # A/dir/foo = foo
   >   # A/dir/bar = bar
   > EOS
-  $ hg push -qr $A --to main --create
+  $ sl push -qr $A --to main --create
 
 Reset local repo stores
   $ newclientrepo client2 server
-  $ hg pull -qr $A
+  $ sl pull -qr $A
 
 First fetch aux data for root dir (needed to for subsequent fetch).
-  $ hg debugscmstore --mode tree -r $A "" >/dev/null
+  $ sl debugscmstore --mode tree -r $A "" >/dev/null
 
 --store-model uses the storemodel trait (which is what EdenFS uses)
-  $ hg debugscmstore --mode tree -r $A "dir" --store-model
+  $ sl debugscmstore --mode tree -r $A "dir" --store-model
   Tree 'dir' entries
     (PathComponent("bar"), HgId("a324b8bf63f7d56de9d36f8747e3b68a72a4d968"), File(Regular))
     (PathComponent("foo"), HgId("49d8cbb15ce257920447006b46978b7af980a979"), File(Regular))

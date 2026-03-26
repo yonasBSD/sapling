@@ -1,6 +1,7 @@
 #chg-compatible
 #require bash no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Initialize scm prompt compatibility layer
   $ . $TESTDIR/../contrib/scm-prompt.sh
@@ -12,23 +13,23 @@ Initialize scm prompt compatibility layer
 
 A few basic tests
   $ _dotfiles_scm_info
-  $ hg init repo
+  $ sl init repo
   $ cmd cd repo
    (empty) (no-eol)
   $ echo a > a
-  $ cmd hg add a
+  $ cmd sl add a
    (0000000000) (no-eol)
-  $ cmd hg commit -m 'c1'
+  $ cmd sl commit -m 'c1'
    (5cad84d172) (no-eol)
-  $ cmd hg book active
+  $ cmd sl book active
    (active) (no-eol)
 
 Test old mode
   $ export WANT_OLD_SCM_PROMPT
   $ WANT_OLD_SCM_PROMPT=1
-  $ cmd hg book -i
+  $ cmd sl book -i
   5cad84d172 (no-eol)
-  $ cmd hg book active
+  $ cmd sl book active
   active (no-eol)
 
 Test format string
@@ -36,7 +37,7 @@ Test format string
   >   "$@"
   >   _dotfiles_scm_info "g g %s g g\n"
   > }
-  $ hg init repo
+  $ sl init repo
   $ oldcmd cd repo
   g g empty g g
 

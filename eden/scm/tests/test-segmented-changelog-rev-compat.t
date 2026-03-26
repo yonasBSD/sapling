@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ log_fixture() {
   >   newrepo '' "$@"
   >   drawdag "$@" << 'EOS'
@@ -17,7 +18,7 @@
   >   |/
   >   A
   > EOS
-  >   hg log -Gr: -T '{rev} {desc}'
+  >   sl log -Gr: -T '{rev} {desc}'
   > }
 
 With segmented changelog, revs are large numbers:

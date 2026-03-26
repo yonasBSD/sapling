@@ -6,6 +6,7 @@
 To run this test against other shells, use the shell argument, eg:
 run-tests.py --shell=zsh test-scm-prompt*
 
+  $ export HGIDENTITY=sl
   $ configure mutation-norecord
 
 Initialize scm prompt
@@ -30,26 +31,26 @@ Outside of a repo, should have no output
 Test basic repo behaviors
   $ newclientrepo repo
   $ echo a > a
-  $ cmd hg add a
+  $ cmd sl add a
   (0000000000)
-  $ cmd hg commit -m 'c1'
+  $ cmd sl commit -m 'c1'
   (5cad84d172)
-  $ cmd hg book active
+  $ cmd sl book active
   (active)
-  $ cmd hg book -i
+  $ cmd sl book -i
   (5cad84d172)
   $ echo b > b
-  $ cmd hg add b
+  $ cmd sl add b
   (5cad84d172)
-  $ cmd hg commit -m 'c2'
+  $ cmd sl commit -m 'c2'
   (775bfdddc8)
-  $ cmd hg up -q active
+  $ cmd sl up -q active
   (active)
   $ echo bb > b
-  $ hg add b
-  $ cmd hg commit -m 'c3'
+  $ sl add b
+  $ cmd sl commit -m 'c3'
   (active)
-  $ hg log -T '{node|short} {desc}\n' -G
+  $ sl log -T '{node|short} {desc}\n' -G
   @  4b6cc7d5194b c3
   │
   │ o  775bfdddc842 c2
@@ -58,116 +59,116 @@ Test basic repo behaviors
   
 
 Test rebase
-  $ cmd hg rebase -d 775bfdd --config "extensions.rebase="
+  $ cmd sl rebase -d 775bfdd --config "extensions.rebase="
   rebasing 4b6cc7d5194b "c3" (active)
   merging b
-  warning: 1 conflicts while merging b! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging b! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   (775bfdddc8|REBASE)
-  $ cmd hg book rebase
+  $ cmd sl book rebase
   (rebase|REBASE)
-  $ cmd hg rebase --abort --config "extensions.rebase="
+  $ cmd sl rebase --abort --config "extensions.rebase="
   rebase aborted
   (active)
-  $ cmd hg book -i
+  $ cmd sl book -i
   (4b6cc7d519)
 
 Test histedit
   $ command cat > commands <<EOF
   > edit 4b6cc7d5194b
   > EOF
-  $ cmd hg histedit --config "extensions.histedit=" --commands commands
+  $ cmd sl histedit --config "extensions.histedit=" --commands commands
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   adding b
   Editing (4b6cc7d5194b), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   (5cad84d172|HISTEDIT)
-  $ cmd hg histedit --config "extensions.histedit=" --abort
+  $ cmd sl histedit --config "extensions.histedit=" --abort
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (4b6cc7d519)
 
 Test graft
-  $ cmd hg graft 775bfdddc842
+  $ cmd sl graft 775bfdddc842
   grafting 775bfdddc842 "c2" (rebase)
   merging b
-  warning: 1 conflicts while merging b! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging b! (edit, then use 'sl resolve --mark')
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   (4b6cc7d519|GRAFT)
-  $ cmd hg revert -r 775bfdddc842 b
+  $ cmd sl revert -r 775bfdddc842 b
   (4b6cc7d519|GRAFT)
-  $ cmd hg resolve --mark b
+  $ cmd sl resolve --mark b
   (no more unresolved files)
-  continue: hg graft --continue
+  continue: sl graft --continue
   (4b6cc7d519|GRAFT)
-  $ cmd hg graft --continue
+  $ cmd sl graft --continue
   grafting 775bfdddc842 "c2" (rebase)
   (42eaf5ca82)
 
 Test bisect
-  $ cmd hg bisect -b .
+  $ cmd sl bisect -b .
   (42eaf5ca82|BISECT)
-  $ cmd hg bisect -g ".^^"
+  $ cmd sl bisect -g ".^^"
   Testing changeset 4b6cc7d5194b (2 changesets remaining, ~1 tests)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (4b6cc7d519|BISECT)
-  $ cmd hg bisect -r
+  $ cmd sl bisect -r
   (4b6cc7d519)
 
 Test unshelve
   $ echo b >> b
-  $ cmd hg shelve --config "extensions.shelve="
+  $ cmd sl shelve --config "extensions.shelve="
   shelved as default
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (4b6cc7d519)
-  $ cmd hg up -q ".^"
+  $ cmd sl up -q ".^"
   (5cad84d172)
-  $ cmd hg unshelve --config "extensions.shelve="
+  $ cmd sl unshelve --config "extensions.shelve="
   unshelving change 'default'
   rebasing shelved changes
   rebasing 19f7fec7f80b "shelve changes to: c3"
   other [source] changed b which local [dest] is missing
   hint: the missing file was probably added by commit 4b6cc7d5194b in the branch being rebased
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? u
-  unresolved conflicts (see 'hg resolve', then 'hg unshelve --continue')
+  unresolved conflicts (see 'sl resolve', then 'sl unshelve --continue')
   (5cad84d172|UNSHELVE)
-  $ cmd hg unshelve --config "extensions.shelve=" --abort
+  $ cmd sl unshelve --config "extensions.shelve=" --abort
   rebase aborted
   unshelve of 'default' aborted
   (5cad84d172)
 
 Test merge
-  $ cmd hg up -q 4b6cc7d5194b
+  $ cmd sl up -q 4b6cc7d5194b
   (4b6cc7d519)
-  $ cmd hg merge 775bfdddc842
+  $ cmd sl merge 775bfdddc842
   merging b
-  warning: 1 conflicts while merging b! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging b! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   (4b6cc7d519|MERGE)
-  $ cmd hg up -q -C .
+  $ cmd sl up -q -C .
   (4b6cc7d519)
 
 Test out-of-date bookmark
-  $ echo rebase > .hg/bookmarks.current
-  $ cmd hg book
+  $ echo rebase > .sl/bookmarks.current
+  $ cmd sl book
      active                    4b6cc7d5194b
      rebase                    775bfdddc842
   (rebase|UPDATE_NEEDED)
-  $ hg up -q .
+  $ sl up -q .
 
 Test remotenames
-  $ hg log -r . -T '{node}\n'
+  $ sl log -r . -T '{node}\n'
   4b6cc7d5194bd5dbf63970015ec75f8fd1de6dba
-  $ echo 4b6cc7d5194bd5dbf63970015ec75f8fd1de6dba bookmarks remote/@ > .hg/store/remotenames
+  $ echo 4b6cc7d5194bd5dbf63970015ec75f8fd1de6dba bookmarks remote/@ > .sl/store/remotenames
   $ cmd
   (4b6cc7d519|remote/@)
 
 Test with symlinks to inside of subdir of repo
   $ mkdir subdir
   $ echo contents > subdir/file
-  $ hg add subdir/file
-  $ cmd hg commit -m subdir
+  $ sl add subdir/file
+  $ cmd sl commit -m subdir
   (4c449fd971)
   $ cd ..
   $ cmd ln -s repo/subdir
@@ -182,26 +183,26 @@ Test formatting options
   :4c449fd971: (no-eol)
 
 Test locked repo states (generally due to concurrency so tests are kinda fake)
-  $ cmd ln -s "${HOSTNAME}:12345" .hg/wlock
+  $ cmd ln -s "${HOSTNAME}:12345" .sl/wlock
   (4c449fd971|WDIR-LOCKED)
-  $ cmd ln -s "${HOSTNAME}:12345" .hg/store/lock
+  $ cmd ln -s "${HOSTNAME}:12345" .sl/store/lock
   (4c449fd971|STORE-LOCKED)
-  $ cmd rm .hg/wlock
+  $ cmd rm .sl/wlock
   (4c449fd971|STORE-LOCKED)
-  $ cmd rm .hg/store/lock
+  $ cmd rm .sl/store/lock
   (4c449fd971)
 
 Test many remotenames
-  $ hg log -r . -T '{node}\n'
+  $ sl log -r . -T '{node}\n'
   4c449fd97125b3e1dafad3e702a521194c14672a
   $ for i in `seq 1 10`; do
-  > echo 4c449fd97125b3e1dafad3e702a521194c14672a bookmarks remote/remote$i >> .hg/store/remotenames
+  > echo 4c449fd97125b3e1dafad3e702a521194c14672a bookmarks remote/remote$i >> .sl/store/remotenames
   > done
   $ cmd
   (4c449fd971|remote/remote9...)
-  $ echo 97af35b3648c0098cbd8114ae1b1bafab997ac20 bookmarks remote/abc/master >> .hg/store/remotenames
+  $ echo 97af35b3648c0098cbd8114ae1b1bafab997ac20 bookmarks remote/abc/master >> .sl/store/remotenames
   $ cmd
   (4c449fd971|remote/remote9...)
-  $ echo 97af35b3648c0098cbd8114ae1b1bafab997ac20 bookmarks remote/@ >> .hg/store/remotenames
+  $ echo 97af35b3648c0098cbd8114ae1b1bafab997ac20 bookmarks remote/@ >> .sl/store/remotenames
   $ cmd
   (4c449fd971|remote/remote9...)

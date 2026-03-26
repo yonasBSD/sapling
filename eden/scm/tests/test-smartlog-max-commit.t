@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable smartlog rebase
   $ disable commitcloud
@@ -25,10 +26,10 @@ With max-commit-threshold and collapse-obsolete:
   > :
   > A
   > EOS
-  $ hg bookmark -r $G master
-  $ hg sl -T '{desc}' --config smartlog.collapse-obsolete=true --config smartlog.max-commit-threshold=1
+  $ sl bookmark -r $G master
+  $ sl sl -T '{desc}' --config smartlog.collapse-obsolete=true --config smartlog.max-commit-threshold=1
   smartlog: too many (25) commits, not rendering all of them
-  (consider running 'hg doctor' to hide unrelated commits)
+  (consider running 'sl doctor' to hide unrelated commits)
   o  G
   ╷
   ╷ o  C4
@@ -59,11 +60,11 @@ With a root commit:
   > :
   > A
   > EOS
-  $ hg bookmark -r $G master
+  $ sl bookmark -r $G master
 
-  $ hg sl -T '{desc}' --config smartlog.max-commit-threshold=1 --config smartlog.collapse-obsolete=false
+  $ sl sl -T '{desc}' --config smartlog.max-commit-threshold=1 --config smartlog.collapse-obsolete=false
   smartlog: too many (15) commits, not rendering all of them
-  (consider running 'hg doctor' to hide unrelated commits)
+  (consider running 'sl doctor' to hide unrelated commits)
   o  G
   ╷
   ╷ o  C4
@@ -74,9 +75,9 @@ With a root commit:
   │
   ~
 
-  $ hg sl -T '{desc}' --config smartlog.max-commit-threshold=1 --config smartlog.collapse-obsolete=true
+  $ sl sl -T '{desc}' --config smartlog.max-commit-threshold=1 --config smartlog.collapse-obsolete=true
   smartlog: too many (15) commits, not rendering all of them
-  (consider running 'hg doctor' to hide unrelated commits)
+  (consider running 'sl doctor' to hide unrelated commits)
   o  G
   ╷
   ╷ o  C4

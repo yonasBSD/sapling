@@ -1,15 +1,16 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable sparse
   $ newrepo
-  $ hg sparse include src
+  $ sl sparse include src
   $ mkdir src
   $ touch src/x
-  $ hg commit -m x -A src/x
+  $ sl commit -m x -A src/x
 
 The root directory ("") should not be ignored
 
-  $ hg debugshell -c 'ui.write("%s\n" % str(repo.dirstate._ignore.visitdir("")))'
+  $ sl debugshell -c 'ui.write("%s\n" % str(repo.dirstate._ignore.visitdir("")))'
   True

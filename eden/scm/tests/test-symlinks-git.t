@@ -1,5 +1,6 @@
 #require git symlink no-eden
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Test cloning git repos
@@ -12,7 +13,7 @@ Test cloning git repos
   $ ln -s foo/bar salutonlink
   $ git add -A && git commit -am "git commit with symlinks" -q
   $ cd ..
-  $ hg clone --git "$TESTTMP/symlinksgit" clientrepo3 -q
+  $ sl clone --git "$TESTTMP/symlinksgit" clientrepo3 -q
   $ readlink clientrepo3/salutonlink
   foo/bar
   $ cat clientrepo3/salutonlink

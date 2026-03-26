@@ -1,6 +1,7 @@
 #inprocess-hg-incompatible
 #require symlink windows no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable sparse
   $ setconfig unsafe.filtersuspectsymlink=False
@@ -18,49 +19,49 @@ Create a repo to be cloned
   $ mkdir x
   $ ln -s ../a/b/c x/file
   $ ln -s ../a/b x/dir
-  $ hg commit -Am "commit with symlinks" -q
-  $ hg push -r . --to master --create -q
-  $ hg debugtreestate list | grep x
+  $ sl commit -Am "commit with symlinks" -q
+  $ sl push -r . --to master --create -q
+  $ sl debugtreestate list | grep x
   x/dir: 0120777 0 * EXIST_P1 EXIST_NEXT * (glob)
   x/file: 0120666 0 * EXIST_P1 EXIST_NEXT * (glob)
 
 Clone the repo with symlinks disabled and verify that files are regular
 TODO(sggutier): figure out why shallow is necessary here (replacing test with eager renders the same results)
   $ cd
-  $ hg clone --enable-profile all.sparse test:e1 cloned --config experimental.windows-symlinks=False -q
+  $ sl clone --enable-profile all.sparse test:e1 cloned --config experimental.windows-symlinks=False -q
   $ cd cloned
-  $ hg st
-  $ hg go master -q
-  $ hg st
-  $ hg debugtreestate list | grep x
+  $ sl st
+  $ sl go master -q
+  $ sl st
+  $ sl debugtreestate list | grep x
   x/dir: 0666 6 * EXIST_P1 EXIST_NEXT * (glob)
   x/file: 0666 8 * EXIST_P1 EXIST_NEXT * (glob)
-  $ cat .hg/requires | grep -v windowssymlinks > .hg/requires
-  $ hg st
+  $ cat .sl/requires | grep -v windowssymlinks > .sl/requires
+  $ sl st
   $ cat x/file
   ../a/b/c (no-eol)
   $ cat x/dir
   ../a/b (no-eol)
 
 Test migration for enabling symlinks
-  $ hg debugmigratesymlinks
+  $ sl debugmigratesymlinks
   Enabling symlinks for the repo...
   Symlinks enabled for the repo
-  $ hg debugtreestate list | grep x
+  $ sl debugtreestate list | grep x
   x/dir: 0120777 0 * EXIST_P1 EXIST_NEXT NEED_CHECK  (glob)
   x/file: 0120666 0 * EXIST_P1 EXIST_NEXT NEED_CHECK  (glob)
   $ cat x/file
   sup
   $ ls x/dir/
   c
-  $ hg st
+  $ sl st
 
 Test migration for disabling symlinks
-  $ hg debugmigratesymlinks disable
+  $ sl debugmigratesymlinks disable
   Disabling symlinks for the repo...
   Symlinks disabled for the repo
-  $ hg st
-  $ hg debugtreestate list | grep x
+  $ sl st
+  $ sl debugtreestate list | grep x
   x/dir: 0666 6 * EXIST_P1 EXIST_NEXT * (glob)
   x/file: 0666 8 * EXIST_P1 EXIST_NEXT * (glob)
   $ cat x/file
@@ -70,13 +71,13 @@ Test migration for disabling symlinks
 
 Test that migration ignores modified files
   $ echo "I have been modified" > x/dir
-  $ hg debugmigratesymlinks enable
+  $ sl debugmigratesymlinks enable
   Enabling symlinks for the repo...
   Symlinks enabled for the repo
-  $ hg debugtreestate list | grep x
+  $ sl debugtreestate list | grep x
   x/dir: 0666 6 * EXIST_P1 EXIST_NEXT * (glob)
   x/file: 0120666 0 * EXIST_P1 EXIST_NEXT NEED_CHECK * (glob)
-  $ hg st
+  $ sl st
   M x/dir
   $ cat x/dir
   I have been modified

@@ -2,6 +2,7 @@
 #require no-eden
 
 #inprocess-hg-incompatible
+  $ export HGIDENTITY=sl
   $ setconfig clone.use-rust=1 commands.force-rust=clone
 
 test sparse
@@ -22,13 +23,13 @@ test sparse
   > [include]
   > *.py
   > EOF
-  $ hg ci -Aqm 'initial'
-  $ hg push -r . --to master --create -q
+  $ sl ci -Aqm 'initial'
+  $ sl push -r . --to master --create -q
 
 Verify local clone with a sparse profile works
 
   $ cd $TESTTMP
-  $ hg clone --enable-profile webpage.sparse test:e1 clone1
+  $ sl clone --enable-profile webpage.sparse test:e1 clone1
   Cloning * into $TESTTMP/clone1 (glob)
   Checking out 'master'
   1 files updated
@@ -39,7 +40,7 @@ Verify local clone with a sparse profile works
 
 Verify sparse clone with a non-existing sparse profile warns
 
-  $ SL_LOG=workingcopy=warn hg clone --enable-profile nonexisting.sparse test:e1 clone5
+  $ SL_LOG=workingcopy=warn sl clone --enable-profile nonexisting.sparse test:e1 clone5
   Cloning * into $TESTTMP/clone5 (glob)
   Checking out 'master'
    WARN workingcopy::sparse: non-existent sparse profile include repo_path=RepoPathBuf("nonexisting.sparse")
@@ -57,7 +58,7 @@ Verify sparse clone with a non-existing sparse profile warns
 Verify that configured sparse profiles are enabled on clone
 
   $ cd $TESTTMP
-  $ hg clone --enable-profile webpage.sparse test:e1 --config clone.additional-sparse-profiles.backend="backend.sparse" clone6
+  $ sl clone --enable-profile webpage.sparse test:e1 --config clone.additional-sparse-profiles.backend="backend.sparse" clone6
   Cloning * into $TESTTMP/clone6 (glob)
   Checking out 'master'
   2 files updated
@@ -68,7 +69,7 @@ Verify that configured sparse profiles are enabled on clone
   $ cd ..
 
   $ cd $TESTTMP
-  $ hg clone test:e1 --config clone.additional-sparse-profiles.backend="backend.sparse" clone7
+  $ sl clone test:e1 --config clone.additional-sparse-profiles.backend="backend.sparse" clone7
   Cloning * into $TESTTMP/clone7 (glob)
   Checking out 'master'
   1 files updated

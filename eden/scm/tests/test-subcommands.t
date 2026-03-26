@@ -2,12 +2,13 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newext testcommands <<EOF
   > from sapling import registrar
   > cmdtable = {}
   > command = registrar.command(cmdtable)
-  > @command('test', [], 'hg test SUBCOMMAND', subonly=True)
+  > @command('test', [], 'sl test SUBCOMMAND', subonly=True)
   > def test(ui, repo):
   >     """test command"""
   >     ui.status("test command called (should not happen)\n")
@@ -20,7 +21,7 @@
   > def testone(ui, repo):
   >     """second test subcommand"""
   >     ui.status("test subcommand two called\n")
-  > @command('othertest', [], 'hg othertest [SUBCOMMAND]')
+  > @command('othertest', [], 'sl othertest [SUBCOMMAND]')
   > def othertest(ui, repo, parameter):
   >     """other test command"""
   >     ui.status("other test command called with '%s'\n" % parameter)
@@ -46,69 +47,69 @@
   > ytf = othertest foo
   > EOF
 
-  $ hg init
+  $ sl init
 
-  $ hg test
-  hg test: subcommand required
+  $ sl test
+  sl test: subcommand required
   [255]
 
 
-  $ hg test one
+  $ sl test one
   test subcommand one called
-  $ hg test two
+  $ sl test two
   test subcommand two called
-  $ hg test nonexistent
-  hg test: unknown subcommand 'nonexistent'
+  $ sl test nonexistent
+  sl test: unknown subcommand 'nonexistent'
   [255]
 
 
-  $ hg tes o
+  $ sl tes o
   unknown command 'tes'
-  (use 'hg help' to get help)
+  (use 'sl help' to get help)
   [255]
 
-  $ hg xt
-  hg test: subcommand required
+  $ sl xt
+  sl test: subcommand required
   [255]
 
 
-  $ hg xt one
+  $ sl xt one
   test subcommand one called
-  $ hg xt too
-  hg test: unknown subcommand 'too'
+  $ sl xt too
+  sl test: unknown subcommand 'too'
   [255]
-  $ hg xt1
+  $ sl xt1
   test subcommand one called
 
-  $ hg xt0
-  hg test: unknown subcommand 'nonexistent'
+  $ sl xt0
+  sl test: unknown subcommand 'nonexistent'
   [255]
 
-  $ hg othertest
-  hg othertest: invalid arguments
-  (use 'hg othertest -h' to get help)
+  $ sl othertest
+  sl othertest: invalid arguments
+  (use 'sl othertest -h' to get help)
   [255]
-  $ hg othertest foo
+  $ sl othertest foo
   other test command called with 'foo'
-  $ hg othertest alpha
-  hg othertest alpha: invalid arguments
-  (use 'hg othertest alpha -h' to get help)
+  $ sl othertest alpha
+  sl othertest alpha: invalid arguments
+  (use 'sl othertest alpha -h' to get help)
   [255]
-  $ hg othertest alfa foo
+  $ sl othertest alfa foo
   other test command alpha called with 'foo'
-  $ hg othertest alpha beta
+  $ sl othertest alpha beta
   other test command alpha/beta called
-  $ hg yt
-  hg othertest: invalid arguments
-  (use 'hg othertest -h' to get help)
+  $ sl yt
+  sl othertest: invalid arguments
+  (use 'sl othertest -h' to get help)
   [255]
-  $ hg yta foo
+  $ sl yta foo
   other test command alpha called with 'foo'
-  $ hg ytf
+  $ sl ytf
   other test command called with 'foo'
 
-  $ hg help test
-  hg test SUBCOMMAND
+  $ sl help test
+  sl test SUBCOMMAND
   
   test command
   
@@ -120,13 +121,13 @@
   
    two           second test subcommand
   
-  (use 'hg help test SUBCOMMAND' to show complete subcommand help)
+  (use 'sl help test SUBCOMMAND' to show complete subcommand help)
   
   (some details hidden, use --verbose to show complete help)
 
 
-  $ hg help test --quiet
-  hg test SUBCOMMAND
+  $ sl help test --quiet
+  sl test SUBCOMMAND
   
   test command
   
@@ -139,21 +140,21 @@
    two           second test subcommand
 
 
-  $ hg help test one
-  hg test one
+  $ sl help test one
+  sl test one
   
   first test subcommand
   
   (some details hidden, use --verbose to show complete help)
 
 
-  $ hg help test one --quiet
-  hg test one
+  $ sl help test one --quiet
+  sl test one
   
   first test subcommand
 
-  $ hg help test two --verbose
-  hg test two
+  $ sl help test two --verbose
+  sl test two
   
   second test subcommand
   
@@ -191,12 +192,12 @@
 
 
 
-  $ hg help test nonexistent
+  $ sl help test nonexistent
   abort: 'test' has no such subcommand: nonexistent
-  (run 'hg help test' to see available subcommands)
+  (run 'sl help test' to see available subcommands)
   [255]
-  $ hg othertest --help --verbose
-  hg othertest [SUBCOMMAND]
+  $ sl othertest --help --verbose
+  sl othertest [SUBCOMMAND]
   
   other test command
   
@@ -236,13 +237,13 @@
   
    alpha, alfa   other test subcommand alpha
   
-  (use 'hg help othertest SUBCOMMAND' to show complete subcommand help)
+  (use 'sl help othertest SUBCOMMAND' to show complete subcommand help)
 
 
-  $ hg help xt
+  $ sl help xt
   alias for: test
   
-  hg test SUBCOMMAND
+  sl test SUBCOMMAND
   
   test command
   
@@ -254,33 +255,33 @@
   
    two           second test subcommand
   
-  (use 'hg help test SUBCOMMAND' to show complete subcommand help)
+  (use 'sl help test SUBCOMMAND' to show complete subcommand help)
   
   (some details hidden, use --verbose to show complete help)
 
 
-  $ hg help xt one
+  $ sl help xt one
   alias for: test one
   
-  hg test one
+  sl test one
   
   first test subcommand
   
   (some details hidden, use --verbose to show complete help)
 
 
-  $ hg help xt1
+  $ sl help xt1
   alias for: test one
   
-  hg test one
+  sl test one
   
   first test subcommand
   
   (some details hidden, use --verbose to show complete help)
 
 
-  $ hg othertest alpha beta --help
-  hg othertest alpha beta
+  $ sl othertest alpha beta --help
+  sl othertest alpha beta
   
   other test subcommand alpha subcommand beta
   

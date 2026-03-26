@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig subtree.allow-any-source-commit=True
   $ setconfig subtree.min-path-depth=1
@@ -10,12 +11,12 @@ test subtree inspect for subtree metadata
   > A   # A/foo/x = aaa\n
   >     # drawdag.defaultfiles=false
   > EOS
-  $ hg subtree inspect -r $B
+  $ sl subtree inspect -r $B
   no subtree metadata found for commit 9998a5c40732
-  $ hg go -q $B
-  $ hg subtree copy --from-path foo --to-path foo2
+  $ sl go -q $B
+  $ sl subtree copy --from-path foo --to-path foo2
   copying foo to foo2
-  $ hg subtree inspect
+  $ sl subtree inspect
   {
     "copies": [
       {
@@ -27,25 +28,25 @@ test subtree inspect for subtree metadata
       }
     ]
   }
-  $ echo "source" >> foo/x && hg ci -m "update foo"
-  $ echo "dest" >> foo2/y && hg ci -m "update foo2"
-  $ hg subtree merge --from-path foo --to-path foo2
+  $ echo "source" >> foo/x && sl ci -m "update foo"
+  $ echo "dest" >> foo2/y && sl ci -m "update foo2"
+  $ sl subtree merge --from-path foo --to-path foo2
   searching for merge base ...
   found the last subtree copy commit 39067344b0b6
   merge base: 9998a5c40732
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (subtree merge, don't forget to commit)
-  $ hg st
+  $ sl st
   M foo2/x
-  $ hg diff
+  $ sl diff
   diff --git a/foo2/x b/foo2/x
   --- a/foo2/x
   +++ b/foo2/x
   @@ -1,1 +1,2 @@
    aaa
   +source
-  $ hg ci -m "merge foo to foo2"
-  $ hg subtree inspect
+  $ sl ci -m "merge foo to foo2"
+  $ sl subtree inspect
   {
     "merges": [
       {

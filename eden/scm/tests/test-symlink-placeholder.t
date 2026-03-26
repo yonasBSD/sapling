@@ -1,55 +1,56 @@
 #require symlink no-eden windows
 
-  $ hg init unix-repo
+  $ export HGIDENTITY=sl
+  $ sl init unix-repo
   $ cd unix-repo
   $ echo foo > a
   $ ln -s a b
-  $ hg ci -Am0
+  $ sl ci -Am0
   adding a
   adding b
   $ cd ..
 
 Simulate a checkout shared on NFS/Samba:
 
-  $ hg clone -q unix-repo shared
+  $ sl clone -q unix-repo shared
   $ cd shared
   $ rm b
   $ echo foo > b
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg status --debug
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl status --debug
   ignoring suspect symlink placeholder "b" (?)
 
 Make a clone using placeholders:
 
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg clone . ../win-repo
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl clone . ../win-repo
   updating to tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd ../win-repo
   $ cat b
   a (no-eol)
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg st --debug
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl st --debug
 
 Empty placeholder:
 
   $ rm b
   $ touch b
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg st --debug
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl st --debug
   ignoring suspect symlink placeholder "b" (?)
 
 Write binary data to the placeholder:
 
   >>> _ = open('b', 'w').write('this is a binary\0')
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg st --debug
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl st --debug
   ignoring suspect symlink placeholder "b" (?)
 
 Write a long string to the placeholder:
 
   >>> _ = open('b', 'w').write('this' * 1000)
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg st --debug
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl st --debug
   ignoring suspect symlink placeholder "b" (?)
 
 Commit shouldn't succeed:
 
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg ci -m1
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl ci -m1
   nothing changed
   [1]
 
@@ -57,10 +58,10 @@ Write a valid string to the placeholder:
 
   >>> open('b', 'w').write('this')
   4
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg st --debug
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl st --debug
   M b
-  $ SL_DEBUG_DISABLE_SYMLINKS=1 hg ci -m1
-  $ hg manifest tip --verbose
+  $ SL_DEBUG_DISABLE_SYMLINKS=1 sl ci -m1
+  $ sl manifest tip --verbose
   644   a
   644 @ b
 

@@ -1,4 +1,5 @@
 configs unrelated to subtree
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig drawdag.defaultfiles=false
 
@@ -15,15 +16,15 @@ test subtree merge with top level directories
   > A    # A/foo/bar/x = 1\n2\n3\n
   > EOS
 
-  $ hg go $B -q
-  $ hg subtree merge -r $D --from-path foo --to-path foo
+  $ sl go $B -q
+  $ sl subtree merge -r $D --from-path foo --to-path foo
   abort: path should be at least 2 levels deep: 'foo'
   [255]
   $ cd foo
-  $ hg subtree merge -r $D --from-path . --to-path .
+  $ sl subtree merge -r $D --from-path . --to-path .
   abort: path should be at least 2 levels deep: 'foo'
   [255]
-  $ hg subtree merge -r $D --from-path bar --to-path bar
+  $ sl subtree merge -r $D --from-path bar --to-path bar
   merge base: 58265194a7b2
   merging bar/x
   1 files updated, 1 files merged, 0 files removed, 0 files unresolved

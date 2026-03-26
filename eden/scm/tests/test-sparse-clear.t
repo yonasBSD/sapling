@@ -8,8 +8,9 @@
 
 # test sparse
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init myrepo
+  $ sl init myrepo
   $ cd myrepo
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
@@ -24,20 +25,20 @@
   > [include]
   > *.sparse
   > EOF
-  $ hg ci -Aqm initial
+  $ sl ci -Aqm initial
   $ cat > webpage.sparse << 'EOF'
   > %include base.sparse
   > [include]
   > *.html
   > EOF
-  $ hg ci -Aqm initial
+  $ sl ci -Aqm initial
 
 # Clear rules when there are includes
 
-  $ hg sparse --include '*.py'
+  $ sl sparse --include '*.py'
   $ ls
   data.py
-  $ hg sparse --clear-rules
+  $ sl sparse --clear-rules
   $ ls
   base.sparse
   data.py
@@ -47,12 +48,12 @@
 
 # Clear rules when there are excludes
 
-  $ hg sparse --exclude '*.sparse'
+  $ sl sparse --exclude '*.sparse'
   $ ls
   data.py
   index.html
   readme.txt
-  $ hg sparse --clear-rules
+  $ sl sparse --clear-rules
   $ ls
   base.sparse
   data.py
@@ -62,18 +63,18 @@
 
 # Clearing rules should not alter profiles
 
-  $ hg sparse --enable-profile webpage.sparse
+  $ sl sparse --enable-profile webpage.sparse
   $ ls
   base.sparse
   index.html
   webpage.sparse
-  $ hg sparse --include '*.py'
+  $ sl sparse --include '*.py'
   $ ls
   base.sparse
   data.py
   index.html
   webpage.sparse
-  $ hg sparse --clear-rules
+  $ sl sparse --clear-rules
   $ ls
   base.sparse
   index.html

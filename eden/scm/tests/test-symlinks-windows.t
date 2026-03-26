@@ -1,5 +1,6 @@
 #require symlink no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable sparse
 
@@ -9,9 +10,9 @@ Creating a commit on Windows should replace backslashes with forward slashes on 
   $ ln -s foo/bar foobar
   $ readlink foobar
   foo/bar
-  $ hg add -q
-  $ hg commit -m "create_symlink"
-  $ hg show --git
+  $ sl add -q
+  $ sl commit -m "create_symlink"
+  $ sl show --git
   commit:      ff1ffa60d16e
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -27,13 +28,13 @@ Creating a commit on Windows should replace backslashes with forward slashes on 
   @@ -0,0 +1,1 @@
   +foo/bar
   \ No newline at end of file
-  $ hg st # should be empty
+  $ sl st # should be empty
 
 The same should be true for amend
   $ rm foobar
   $ ln -s foo/bar/baz foobar
-  $ hg amend -q -m "amend_symlink"
-  $ hg show --git
+  $ sl amend -q -m "amend_symlink"
+  $ sl show --git
   commit:      4e824d34f7ef
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -51,16 +52,16 @@ The same should be true for amend
   \ No newline at end of file
 
 Test checkout
-  $ hg go -r 'desc(create_symlink)' --config experimental.nativecheckout=False
+  $ sl go -r 'desc(create_symlink)' --config experimental.nativecheckout=False
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ readlink foobar
   foo/bar
-  $ hg st
-  $ hg go -r 'desc(amend_symlink)' --config experimental.nativecheckout=True
+  $ sl st
+  $ sl go -r 'desc(amend_symlink)' --config experimental.nativecheckout=True
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ readlink foobar
   foo/bar/baz
-  $ hg st
+  $ sl st
 
 
 Test cloning repos with sparse profiles
@@ -76,14 +77,14 @@ Test cloning repos with sparse profiles
   $ ln -s foo/bar foolink
   $ cat foolink
   hemlo
-  $ hg add -q && hg commit -m "another one with a symlink"
-  $ hg push -r . --to master --create -q
+  $ sl add -q && sl commit -m "another one with a symlink"
+  $ sl push -r . --to master --create -q
   $ cd
-  $ hg clone --enable-profile all.sparse test:e1 clone1 -q --config commands.force-rust=clone # Rust clone
+  $ sl clone --enable-profile all.sparse test:e1 clone1 -q --config commands.force-rust=clone # Rust clone
   $ cat clone1/foolink
   hemlo
 TODO: Something might be wrong with symlinks on sparse profiles besides the Python clone command
-#  $ hg clone test:e1 clone2 -q --config clone.use-rust=False # Python clone
+#  $ sl clone test:e1 clone2 -q --config clone.use-rust=False # Python clone
 #  $ hg -R clone2 sparse enable all.sparse
 #  $ cat clone2/foolink
 #  hemlo
@@ -93,29 +94,29 @@ Test checkout between directory symlinks
   $ newrepo repo3
   $ mkdir -p foo/bar
   $ echo aoeu > foo/bar/baz
-  $ hg commit -Am "add file" -q
+  $ sl commit -Am "add file" -q
   $ mkdir -p a/b
   $ ln -s ../../foo a/b/c
   $ ls a/b/c/bar
   baz
-  $ hg commit -Am "add dir symlink" -q
-  $ hg prev --config experimental.nativecheckout=False
+  $ sl commit -Am "add dir symlink" -q
+  $ sl prev --config experimental.nativecheckout=False
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   [f4ab5b] add file
-  $ hg st
-  $ hg next --config experimental.nativecheckout=False
+  $ sl st
+  $ sl next --config experimental.nativecheckout=False
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [366768] add dir symlink
-  $ hg st
+  $ sl st
   $ ls a/b/c/bar
   baz
-  $ hg prev --config experimental.nativecheckout=True
+  $ sl prev --config experimental.nativecheckout=True
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   [f4ab5b] add file
-  $ hg st
-  $ hg next --config experimental.nativecheckout=True
+  $ sl st
+  $ sl next --config experimental.nativecheckout=True
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [366768] add dir symlink
-  $ hg st
+  $ sl st
   $ ls a/b/c/bar
   baz

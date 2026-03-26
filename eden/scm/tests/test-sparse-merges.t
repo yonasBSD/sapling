@@ -1,5 +1,6 @@
 #require no-windows no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 test merging things outside of the sparse checkout
@@ -8,22 +9,22 @@ test merging things outside of the sparse checkout
   $ enable sparse
 
   $ echo foo > foo
-  $ hg commit -m initial -A foo
-  $ hg bookmark -ir. initial
+  $ sl commit -m initial -A foo
+  $ sl bookmark -ir. initial
 
   $ echo bar > bar
-  $ hg commit -m 'feature - bar1' -A bar
-  $ hg bookmark -ir. feature1
+  $ sl commit -m 'feature - bar1' -A bar
+  $ sl bookmark -ir. feature1
 
-  $ hg goto --inactive -q initial
+  $ sl goto --inactive -q initial
   $ echo bar2 > bar
-  $ hg commit -m 'feature - bar2' -A bar
-  $ hg bookmark -ir. feature2
+  $ sl commit -m 'feature - bar2' -A bar
+  $ sl bookmark -ir. feature2
 
-  $ hg goto --inactive -q feature1
-  $ hg sparse --exclude 'bar*'
+  $ sl goto --inactive -q feature1
+  $ sl sparse --exclude 'bar*'
 
-  $ hg merge feature2 --tool :merge-other
+  $ sl merge feature2 --tool :merge-other
   temporarily included 1 file(s) in the sparse checkout for merging
   merging bar
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
@@ -34,32 +35,32 @@ Verify bar was merged temporarily
   $ ls
   bar
   foo
-  $ hg status
+  $ sl status
   M bar
 
 Verify bar disappears automatically when the working copy becomes clean
 
-  $ hg commit -m "merged"
+  $ sl commit -m "merged"
   cleaned up 1 temporarily added file(s) from the sparse checkout
-  $ hg bookmark -ir. merged
-  $ hg status
+  $ sl bookmark -ir. merged
+  $ sl status
   $ ls
   foo
 
-  $ hg cat -r . bar
+  $ sl cat -r . bar
   bar2
 
 Test merging things outside of the sparse checkout that are not in the working
 copy
 
-  $ hg debugstrip -q -r .
-  $ hg up --inactive -q feature2
+  $ sl debugstrip -q -r .
+  $ sl up --inactive -q feature2
   $ touch branchonly
-  $ hg ci -Aqm 'add branchonly'
+  $ sl ci -Aqm 'add branchonly'
 
-  $ hg up --inactive -q feature1
-  $ hg sparse -X branchonly
-  $ hg merge feature2 --tool :merge-other
+  $ sl up --inactive -q feature1
+  $ sl sparse -X branchonly
+  $ sl merge feature2 --tool :merge-other
   temporarily included 1 file(s) in the sparse checkout for merging
   merging bar
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved

@@ -1,5 +1,6 @@
 #require git no-windows
 
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig subtree.allow-any-source-commit=True
   $ setconfig subtree.min-path-depth=1
@@ -74,9 +75,9 @@ Prepare a Sapling repo:
   > A   # A/foo/x = aaa\n
   >     # drawdag.defaultfiles=false
   > EOS
-  $ hg go $B -q
+  $ sl go $B -q
 
-  $ hg subtree import --url $GIT_URL --rev 1c8131597324d8fbbdbbdae1e8a48d18559dd303 --to-path bar -m "import gitrepo to bar"
+  $ sl subtree import --url $GIT_URL --rev 1c8131597324d8fbbdbbdae1e8a48d18559dd303 --to-path bar -m "import gitrepo to bar"
   creating git repo at $TESTTMP/default-hgcache/gitrepos/* (glob)
   From file:/*/$TESTTMP/gitrepo (glob)
    * [new ref]         421b13f5014cb2fdb2782fbea8de256066f975c8 -> remote/main
@@ -85,28 +86,28 @@ Prepare a Sapling repo:
   copying / to bar
 
   $ echo "b1\nb2\nb3~" > bar/dir1/beta
-  $ hg ci -m "update bar/dir1/beta"
+  $ sl ci -m "update bar/dir1/beta"
 
 
 Cross-repo subtree merge doesn't support merge-base-strategy option
 
-  $ hg subtree merge --url $GIT_URL --rev b25d15e29c29a8deb2bf55184109c4fb6913bcea --from-path "" --to-path bar --merge-base-strategy --only-to
+  $ sl subtree merge --url $GIT_URL --rev b25d15e29c29a8deb2bf55184109c4fb6913bcea --from-path "" --to-path bar --merge-base-strategy --only-to
   abort: cannot specify both url and merge-base-strategy
   [255]
 
 Subtree merge should fail with conflicts:
 
-  $ hg subtree merge --url $GIT_URL --rev b25d15e29c29a8deb2bf55184109c4fb6913bcea --to-path bar
+  $ sl subtree merge --url $GIT_URL --rev b25d15e29c29a8deb2bf55184109c4fb6913bcea --to-path bar
   using cached git repo at $TESTTMP/default-hgcache/gitrepos/* (glob)
   searching for merge base ...
   found the last subtree import commit * (glob)
   merge base: 1c8131597324
   merging bar/dir1/beta and dir1/beta to bar/dir1/beta
-  warning: 1 conflicts while merging bar/dir1/beta! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar/dir1/beta! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg diff
+  $ sl diff
   diff --git a/bar/dir1/beta b/bar/dir1/beta
   --- a/bar/dir1/beta
   +++ b/bar/dir1/beta
@@ -119,10 +120,10 @@ Subtree merge should fail with conflicts:
   +b33
   +>>>>>>> merge rev:    b25d15e29c29 - test: update beta
   $ echo "b1\nb2\nb33~" > bar/dir1/beta
-  $ hg resolve --mark bar/dir1/beta
+  $ sl resolve --mark bar/dir1/beta
   (no more unresolved files)
-  $ hg ci -m "merge gitrepo to bar"
-  $ hg subtree inspect -r .
+  $ sl ci -m "merge gitrepo to bar"
+  $ sl subtree inspect -r .
   {
     "xmerges": [
       {
@@ -137,15 +138,15 @@ Subtree merge should fail with conflicts:
 
 Subtree merge should succeed without conflicts:
 
-  $ hg subtree merge --url $GIT_URL --rev 421b13f5014cb2fdb2782fbea8de256066f975c8 --from-path "" --to-path bar
+  $ sl subtree merge --url $GIT_URL --rev 421b13f5014cb2fdb2782fbea8de256066f975c8 --from-path "" --to-path bar
   using cached git repo at $TESTTMP/default-hgcache/gitrepos/* (glob)
   searching for merge base ...
   found the last subtree cross-repo merge commit * (glob)
   merge base: b25d15e29c29
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (subtree merge, don't forget to commit)
-  $ hg ci -m "merge gitrepo to bar again"
-  $ hg show
+  $ sl ci -m "merge gitrepo to bar again"
+  $ sl show
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -165,7 +166,7 @@ Subtree merge should succeed without conflicts:
   +g1
   +g2
   +g33
-  $ hg subtree inspect -r .
+  $ sl subtree inspect -r .
   {
     "xmerges": [
       {

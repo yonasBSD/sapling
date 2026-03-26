@@ -2,8 +2,9 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ enable sparse
   $ mkdir show hide
@@ -13,22 +14,22 @@
   $ echo hide-remove-1 > hide/remove
   $ echo show-moveout > show/moveout
   $ echo show-movein > hide/movein
-  $ hg add show/modify show/remove hide/modify hide/remove show/moveout hide/movein
-  $ hg commit -m "first revision"
+  $ sl add show/modify show/remove hide/modify hide/remove show/moveout hide/movein
+  $ sl commit -m "first revision"
   $ echo show-modify-2 > show/modify
-  $ echo show-add-2 > show/add ; hg add show/add
-  $ hg rm show/remove
+  $ echo show-add-2 > show/add ; sl add show/add
+  $ sl rm show/remove
   $ echo hide-modify-2 > hide/modify
-  $ echo hide-add-2 > hide/add ; hg add hide/add
-  $ hg rm hide/remove
-  $ hg mv hide/movein show/movein
-  $ hg mv show/moveout hide/moveout
-  $ hg commit -m "second revision"
-  $ hg sparse --exclude hide
+  $ echo hide-add-2 > hide/add ; sl add hide/add
+  $ sl rm hide/remove
+  $ sl mv hide/movein show/movein
+  $ sl mv show/moveout hide/moveout
+  $ sl commit -m "second revision"
+  $ sl sparse --exclude hide
 
 Run diff.  This should still show the file contents of excluded files (and should not crash).
 
-  $ hg diff -r ".^" --git
+  $ sl diff -r ".^" --git
   diff --git a/hide/add b/hide/add
   new file mode 100644
   --- /dev/null
@@ -74,7 +75,7 @@ Run diff.  This should still show the file contents of excluded files (and shoul
 
 Run diff --sparse.  This should only show files within the sparse profile.
 
-  $ hg diff --sparse --git -r ".^"
+  $ sl diff --sparse --git -r ".^"
   diff --git a/show/add b/show/add
   new file mode 100644
   --- /dev/null

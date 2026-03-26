@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ newrepo server
@@ -13,10 +14,10 @@
   > EOS
 
   $ newclientrepo client server
-  $ hg pull -q -r $A
+  $ sl pull -q -r $A
 
 Sanity check that children metadata isn't fetched by default:
-  $ hg debugscmstore -r $A dir --mode=tree
+  $ sl debugscmstore -r $A dir --mode=tree
   Successfully fetched tree: (
       Key {
           path: RepoPathBuf(
@@ -55,7 +56,7 @@ Sanity check that children metadata isn't fetched by default:
   $ setconfig remotefilelog.cachepath=$TESTTMP/cache2
 
 Fetch a tree with children metadata:
-  $ hg debugscmstore -r $A dir --mode=tree --config scmstore.tree-metadata-mode=always
+  $ sl debugscmstore -r $A dir --mode=tree --config scmstore.tree-metadata-mode=always
   Successfully fetched tree: (
       Key {
           path: RepoPathBuf(
@@ -143,7 +144,7 @@ Fetch a tree with children metadata:
   )
 
 We should also have aux data for the files available as a side effect of tree fetching:
-  $ hg debugscmstore -r $A dir/file1 --mode=file --fetch-mode=LOCAL
+  $ sl debugscmstore -r $A dir/file1 --mode=file --fetch-mode=LOCAL
   Successfully fetched file: StoreFile {
       content: None,
       aux_data: Some(
@@ -163,7 +164,7 @@ We should also have aux data for the files available as a side effect of tree fe
 
 Fetch mode can also trigger tree metadata fetch:
 
-  $ hg debugscmstore -r $A dir --mode=tree --fetch-mode='LOCAL|REMOTE|PREFETCH'
+  $ sl debugscmstore -r $A dir --mode=tree --fetch-mode='LOCAL|REMOTE|PREFETCH'
   Successfully fetched tree: (
       Key {
           path: RepoPathBuf(

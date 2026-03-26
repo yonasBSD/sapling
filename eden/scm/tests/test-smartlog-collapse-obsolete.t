@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable smartlog rebase
   $ disable commitcloud
@@ -22,14 +23,14 @@
   > |/
   > A
   > EOS
-  $ hg bookmark -r $Z master
-  $ hg bookmark -r $G old
-  $ hg bookmark -r $F new
-  $ hg rebase -qr $C::$F -d $Z
+  $ sl bookmark -r $Z master
+  $ sl bookmark -r $G old
+  $ sl bookmark -r $F new
+  $ sl rebase -qr $C::$F -d $Z
 
 The obsoleted C::F should be collapsed:
 
-  $ hg sl -T '{desc}' --config smartlog.collapse-obsolete=true
+  $ sl sl -T '{desc}' --config smartlog.collapse-obsolete=true
   o  F
   │
   o  E
@@ -53,7 +54,7 @@ The obsoleted C::F should be collapsed:
 
 The feature can be turned off:
 
-  $ hg sl -T '{desc}' --config smartlog.collapse-obsolete=false
+  $ sl sl -T '{desc}' --config smartlog.collapse-obsolete=false
   o  F
   │
   o  E
@@ -81,8 +82,8 @@ The feature can be turned off:
 
 The "." is always shown using the default command:
 
-  $ hg up -q 'min(desc(D))'
-  $ hg sl -T '{desc}' --config smartlog.collapse-obsolete=true
+  $ sl up -q 'min(desc(D))'
+  $ sl sl -T '{desc}' --config smartlog.collapse-obsolete=true
   o  F
   │
   o  E
@@ -108,7 +109,7 @@ The "." is always shown using the default command:
 
 "." can still be hidden or shown with explicit `-r`:
 
-  $ hg sl -T '{desc}' -r 'desc(G)' --config smartlog.collapse-obsolete=true
+  $ sl sl -T '{desc}' -r 'desc(G)' --config smartlog.collapse-obsolete=true
   o  Z
   │
   │ o  G
@@ -122,7 +123,7 @@ The "." is always shown using the default command:
   o  A
   
 
-  $ hg sl -T '{desc}' -r 'desc(G)+.' --config smartlog.collapse-obsolete=true
+  $ sl sl -T '{desc}' -r 'desc(G)+.' --config smartlog.collapse-obsolete=true
   o  Z
   │
   │ o  G
@@ -139,9 +140,9 @@ The "." is always shown using the default command:
   
 "-r" with obsoleted stack.
 
-  $ hg hide -q 'desc(G)'
-  $ hg up -q 'desc(Z)'
-  $ hg sl -T '{desc}' -r 'desc(F) - (desc(Z)::)'
+  $ sl hide -q 'desc(G)'
+  $ sl up -q 'desc(Z)'
+  $ sl sl -T '{desc}' -r 'desc(F) - (desc(Z)::)'
   @  Z
   │
   │ o  F
@@ -156,7 +157,7 @@ The "." is always shown using the default command:
   ├─╯
   o  A
   
-  $ hg sl -T '{desc}' -r 'desc(F) - (desc(Z)::)' --config smartlog.collapse-obsolete=false
+  $ sl sl -T '{desc}' -r 'desc(F) - (desc(Z)::)' --config smartlog.collapse-obsolete=false
   @  Z
   │
   │ x  F

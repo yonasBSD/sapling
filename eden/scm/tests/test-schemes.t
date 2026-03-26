@@ -4,19 +4,20 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ mkcommit() {
   >    echo "$1" > "$1"
-  >    hg add "$1"
-  >    hg ci -m "$1"
+  >    sl add "$1"
+  >    sl ci -m "$1"
   > }
 
   $ newserver server
   $ cd ..
 
   $ newremoterepo client1
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > [paths]
   > default = dotdot://server
   > default-push = push:server
@@ -36,7 +37,7 @@
 
 test converting debug output for all paths
 
-  $ hg debugexpandpaths
+  $ sl debugexpandpaths
   paths.default=ssh://user@dummy/server (expanded from dotdot://server)
   paths.default-push=ssh://user@dummy/server (expanded from push:server)
   paths.normal-path=mononoke://mononoke.internal.tfbnw.net/server (not expanded)
@@ -45,21 +46,21 @@ check that paths are expanded
 
 check that debugexpandscheme outputs the canonical form
 
-  $ hg debugexpandscheme fb-test:opsfiles
+  $ sl debugexpandscheme fb-test:opsfiles
   mononoke://mononoke.internal.tfbnw.net/opsfiles
 
 check this still works if someone adds some extra slashes
 
-  $ hg debugexpandscheme fb-test://opsfiles
+  $ sl debugexpandscheme fb-test://opsfiles
   mononoke://mononoke.internal.tfbnw.net/opsfiles
 
 expanding an unknown scheme emits the input
 
-  $ hg debugexpandscheme foobar://this/that
+  $ sl debugexpandscheme foobar://this/that
   foobar://this/that
 
   $ mkcommit foobar
-  $ hg push --create --to master
+  $ sl push --create --to master
   pushing rev 582ab9cb184e to destination push:server bookmark master
   searching for changes
   exporting bookmark master
@@ -68,7 +69,7 @@ expanding an unknown scheme emits the input
   remote: adding file changes
 
   $ mkcommit something
-  $ hg push -r . --to scratch/test123 --create
+  $ sl push -r . --to scratch/test123 --create
   pushing rev 6e16a5f9c216 to destination push:server bookmark scratch/test123
   searching for changes
   exporting bookmark scratch/test123
@@ -76,4 +77,4 @@ expanding an unknown scheme emits the input
   remote: adding manifests
   remote: adding file changes
 
-  $ hg pull -qr 6e16a5f9c216
+  $ sl pull -qr 6e16a5f9c216

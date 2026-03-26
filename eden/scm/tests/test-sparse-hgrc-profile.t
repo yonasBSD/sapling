@@ -1,6 +1,7 @@
 #testcases normalcheckout nativecheckout
 #chg-compatible
 #debugruntest-incompatible
+  $ export HGIDENTITY=sl
   $ configure modernclient
   $ enable sparse
   $ setconfig commands.update.check=none
@@ -11,7 +12,7 @@
 
   $ newclientrepo
   $ touch init
-  $ hg commit -Aqm initial
+  $ sl commit -Aqm initial
   $ touch alwaysincluded
   $ touch excludedbyconfig
   $ touch includedbyconfig
@@ -20,94 +21,94 @@
   > alwaysincluded
   > excludedbyconfig
   > EOF
-  $ hg commit -Aqm 'add files'
+  $ sl commit -Aqm 'add files'
   $ echo >> alwaysincluded
-  $ hg commit -Aqm 'modify'
-  $ hg sparse enable sparseprofile
+  $ sl commit -Aqm 'modify'
+  $ sl sparse enable sparseprofile
   $ ls
   alwaysincluded
   excludedbyconfig
 
-Test hg goto reads new hgrc profile config
-  $ cp .hg/hgrc .hg/hgrc.bak
-  $ cat >> .hg/hgrc <<EOF
+Test sl goto reads new hgrc profile config
+  $ cp .sl/config .sl/config.bak
+  $ cat >> .sl/config <<EOF
   > [sparseprofile]
   > include.foo.sparseprofile=includedbyconfig
   > exclude.bar.sparseprofile=excludedbyconfig
   > EOF
 # Run a no-op command to verify it does not refresh the sparse profile with the
 # new config.
-  $ hg log -r . -T '{desc}\n'
+  $ sl log -r . -T '{desc}\n'
   modify
 
   $ ls
   alwaysincluded
   excludedbyconfig
 
-# hg up should update to use the new config
-  $ hg up -q .^
+# sl up should update to use the new config
+  $ sl up -q .^
   $ ls
   alwaysincluded
   includedbyconfig
 
-  $ cat .hg/sparseprofileconfigs
+  $ cat .sl/sparseprofileconfigs
   {"sparseprofile": "[include]\nincludedbyconfig\n[exclude]\nexcludedbyconfig\n"} (no-eol)
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
 
-Test hg updating back to original location keeps the new hgrc profile config
-  $ hg up -q tip
+Test sl updating back to original location keeps the new hgrc profile config
+  $ sl up -q tip
   $ ls
   alwaysincluded
   includedbyconfig
 
-  $ cat .hg/sparseprofileconfigs
+  $ cat .sl/sparseprofileconfigs
   {"sparseprofile": "[include]\nincludedbyconfig\n[exclude]\nexcludedbyconfig\n"} (no-eol)
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
 
 Reset to remove hgrc profile config
-  $ cp .hg/hgrc.bak .hg/hgrc
-  $ hg up -q .^
-  $ hg up -q .~-1
+  $ cp .sl/config.bak .sl/config
+  $ sl up -q .^
+  $ sl up -q .~-1
   $ ls
   alwaysincluded
   excludedbyconfig
 
-  $ cat .hg/sparseprofileconfigs
+  $ cat .sl/sparseprofileconfigs
   {} (no-eol)
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
 
-Test hg commit does not read new hgrc profile config
-  $ cat >> .hg/hgrc <<EOF
+Test sl commit does not read new hgrc profile config
+  $ cat >> .sl/config <<EOF
   > [sparseprofile]
   > include.foo.sparseprofile=includedbyconfig
   > exclude.bar.sparseprofile=excludedbyconfig
   > EOF
   $ echo >> alwaysincluded
-  $ hg commit -m 'modify alwaysincluded'
+  $ sl commit -m 'modify alwaysincluded'
   $ ls
   alwaysincluded
   excludedbyconfig
 
-  $ cat .hg/sparseprofileconfigs
+  $ cat .sl/sparseprofileconfigs
   {} (no-eol)
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
 
 Update to get latest config
-  $ hg up -q .^
-  $ hg up -q .~-1
-  $ cat .hg/sparseprofileconfigs
+  $ sl up -q .^
+  $ sl up -q .~-1
+  $ cat .sl/sparseprofileconfigs
   {"sparseprofile": "[include]\nincludedbyconfig\n[exclude]\nexcludedbyconfig\n"} (no-eol)
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
 
 Reset
-  $ cp .hg/hgrc.bak .hg/hgrc
-  $ hg up -q .^
-  $ hg up -q .~-1
+  $ cp .sl/config.bak .sl/config
+  $ sl up -q .^
+  $ sl up -q .~-1
 
 Cleanly crash an update and verify the new config was not applied
   $ cat > ../killer.py << EOF
@@ -120,33 +121,33 @@ Cleanly crash an update and verify the new config was not applied
   >                             setparents)
   > EOF
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [sparseprofile]
   > include.foo.sparseprofile=includedbyconfig
   > exclude.bar.sparseprofile=excludedbyconfig
   > EOF
-  $ hg up .^ --config extensions.killer=$TESTTMP/killer.py
+  $ sl up .^ --config extensions.killer=$TESTTMP/killer.py
   abort: bad thing happened
   [255]
-  $ cat .hg/sparseprofileconfigs
+  $ cat .sl/sparseprofileconfigs
   {} (no-eol)
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
 
 But a successful update does get the new config
-  $ hg up -q .^
-  $ cat .hg/sparseprofileconfigs
+  $ sl up -q .^
+  $ cat .sl/sparseprofileconfigs
   {"sparseprofile": "[include]\nincludedbyconfig\n[exclude]\nexcludedbyconfig\n"} (no-eol)
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
 
 Reset
-  $ cp .hg/hgrc.bak .hg/hgrc
-  $ hg up -q .^
-  $ hg up -q .~-1
+  $ cp .sl/config.bak .sl/config
+  $ sl up -q .^
+  $ sl up -q .~-1
 
 Hard killing the process leaves the pending config file around
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [sparseprofile]
   > include.foo.sparseprofile=includedbyconfig
   > exclude.bar.sparseprofile=excludedbyconfig
@@ -163,34 +164,34 @@ Hard killing the process leaves the pending config file around
   >     extensions.wrapfunction(localrepo.localrepository, "setparents",
   >                             setparents)
   > EOF
-  $ hg up .^ --config extensions.killer=$TESTTMP/killer.py
+  $ sl up .^ --config extensions.killer=$TESTTMP/killer.py
   [255]
-  $ cat .hg/sparseprofileconfigs
+  $ cat .sl/sparseprofileconfigs
   {} (no-eol)
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
-  .hg/sparseprofileconfigs.* (glob)
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
+  .sl/sparseprofileconfigs.* (glob)
 
 But it is not consumed (alwaysincluded should show up in the list)
-  $ hg files
+  $ sl files
   alwaysincluded
   excludedbyconfig
 
 And is cleaned up on the next update
-  $ hg up -q .^
-  $ ls .hg/sparseprofileconfigs*
-  .hg/sparseprofileconfigs
-  $ hg files
+  $ sl up -q .^
+  $ ls .sl/sparseprofileconfigs*
+  .sl/sparseprofileconfigs
+  $ sl files
   alwaysincluded
   includedbyconfig
 
 Empty (truncated after power cycle) sparseprofileconfigs does not break things
 
-  $ echo 'x' > .hg/sparseprofileconfigs
-  $ hg status
-  $ hg files
+  $ echo 'x' > .sl/sparseprofileconfigs
+  $ sl status
+  $ sl files
   alwaysincluded
 
 Reset
-  $ cp .hg/hgrc.bak .hg/hgrc
-  $ hg up -q .~-1
+  $ cp .sl/config.bak .sl/config
+  $ sl up -q .~-1

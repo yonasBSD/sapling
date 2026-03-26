@@ -6,7 +6,7 @@
   $ mkdir a b a/1 b/1 b/2
   $ touch in_root a/in_a b/in_b a/1/in_a_1 b/1/in_b_1 b/2/in_b_2
 
-hg status in repo root:
+sl status in repo root:
 
   $ sl status
   ? a/1/in_a_1
@@ -16,7 +16,7 @@ hg status in repo root:
   ? b/in_b
   ? in_root
 
-hg status . in repo root:
+sl status . in repo root:
 
   $ sl status .
   ? a/1/in_a_1
@@ -123,7 +123,7 @@ combining patterns with root and patterns without a root works
   $ sl remove removed
   $ rm deleted
 
-hg status:
+sl status:
 
   $ sl status
   A added
@@ -131,7 +131,7 @@ hg status:
   ! deleted
   ? unknown
 
-hg status modified added removed deleted unknown never-existed ignored:
+sl status modified added removed deleted unknown never-existed ignored:
 
   $ sl status modified added removed deleted unknown never-existed ignored
   never-existed: * (glob) (?)
@@ -142,7 +142,7 @@ hg status modified added removed deleted unknown never-existed ignored:
 
   $ sl copy modified copied
 
-hg status -C:
+sl status -C:
 
   $ sl status -C
   A added
@@ -152,7 +152,7 @@ hg status -C:
   ! deleted
   ? unknown
 
-hg status -A:
+sl status -A:
 
   $ sl status -A
   A added
@@ -243,11 +243,11 @@ Test templater support:
   I: file :: ../file
   C: ../modified :: ../../modified
 
-hg status ignoreddir/file:
+sl status ignoreddir/file:
 
   $ sl status ignoreddir/file
 
-hg status -i ignoreddir/file:
+sl status -i ignoreddir/file:
 
   $ sl status -i ignoreddir/file
   I ignoreddir/file
@@ -269,7 +269,7 @@ Check 'status -q' and some combinations
   $ rm deleted
   $ sl copy modified copied
 
-Ignored but tracked files show up in hg status
+Ignored but tracked files show up in sl status
 
   $ sl status ignored
   $ sl add ignored
@@ -318,8 +318,8 @@ Check if result is the same or different.
 If result is not as expected, raise error
 
   $ assert() {
-  >     hg status $1 > ../a
-  >     hg status $2 > ../b
+  >     sl status $1 > ../a
+  >     sl status $2 > ../b
   >     if diff ../a ../b > /dev/null; then
   >         out=0
   >     else
@@ -362,7 +362,7 @@ Assert flag1 flag2 [0-same | 1-different]
   $ touch unrelated
   $ sl ci -q -A -m 'unrelated checkin' -d "1000002 0"
 
-hg status --change 1:
+sl status --change 1:
 
   $ sl status --change 'desc(test)'
   M modified
@@ -370,11 +370,11 @@ hg status --change 1:
   A copied
   R removed
 
-hg status --change 1 unrelated:
+sl status --change 1 unrelated:
 
   $ sl status --change 'desc(test)' unrelated
 
-hg status -C --change 1 added modified copied removed deleted:
+sl status -C --change 1 added modified copied removed deleted:
 
   $ sl status -C --change 'desc(test)' added modified copied removed deleted
   M modified
@@ -383,7 +383,7 @@ hg status -C --change 1 added modified copied removed deleted:
     modified
   R removed
 
-hg status -A --change 1 and revset:
+sl status -A --change 1 and revset:
 
   $ sl status -A --change 'desc(test)'
   M modified
@@ -393,7 +393,7 @@ hg status -A --change 1 and revset:
   R removed
   C deleted
 
-hg status with --rev and reverted changes:
+sl status with --rev and reverted changes:
 
   $ newclientrepo reverted-changes-repo
   $ echo a > file
@@ -431,7 +431,7 @@ reverted and committed file with changed flag should appear modified
 
 #endif
 
-hg status of binary file starting with '\1\n', a separator for metadata:
+sl status of binary file starting with '\1\n', a separator for metadata:
 
   $ newclientrepo repo5
   >>> _ = open("010a", "wb").write(b"\1\nfoo")

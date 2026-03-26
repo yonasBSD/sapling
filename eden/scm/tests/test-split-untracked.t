@@ -1,13 +1,14 @@
+  $ export HGIDENTITY=sl
   $ enable amend
   $ setconfig ui.interactive=true
 
   $ newclientrepo
   $ touch foo bar baz
-  $ hg commit -Aqm "add foo, bar" foo bar
-  $ hg st
+  $ sl commit -Aqm "add foo, bar" foo bar
+  $ sl st
   ? baz
   
-  $ hg split << EOF
+  $ sl split << EOF
   > y
   > n
   > y
@@ -25,9 +26,9 @@
   
   Done splitting? [yN] y
 
-  $ hg st
+  $ sl st
   ? baz
-  $ hg show
+  $ sl show
   commit:      2bd450b41765
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

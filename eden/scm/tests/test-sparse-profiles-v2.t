@@ -3,6 +3,7 @@
 
 test sparse
 
+  $ export HGIDENTITY=sl
   $ configure modernclient
 
   $ enable sparse rebase
@@ -32,8 +33,8 @@ test sparse
   > [include]
   > path:inc/exc/incfile.txt
   > EOF
-  $ hg ci -Aqm 'initial'
-  $ hg sparse enable main.sparse
+  $ sl ci -Aqm 'initial'
+  $ sl sparse enable main.sparse
 
 # Verify inc/exc/incfile.txt is not included.
   $ ls -R | grep -v :
@@ -45,10 +46,10 @@ test sparse
   file.txt
 
 
-  $ hg debugsparseexplainmatch inc/exc/incfile.txt
-  FALSE by rule !inc/exc/** ($TESTTMP/myrepo/.hg/sparse -> main.sparse -> base.sparse):
+  $ sl debugsparseexplainmatch inc/exc/incfile.txt
+  FALSE by rule !inc/exc/** ($TESTTMP/myrepo/.sl/sparse -> main.sparse -> base.sparse):
 
-  $ hg debugsparseexplainmatch -s main.sparse inc/exc/incfile.txt
+  $ sl debugsparseexplainmatch -s main.sparse inc/exc/incfile.txt
   FALSE by rule !inc/exc/** (<cli> -> main.sparse -> base.sparse):
 
 # Upgrade main.sparse to v2
@@ -59,7 +60,7 @@ test sparse
   > [include]
   > inc/exc/incfile.txt
   > EOF
-  $ hg commit -qm "v2 sparse"
+  $ sl commit -qm "v2 sparse"
 
 # Verify inc/exc/incfile.txt is now included.
   $ ls -R | grep -v :
@@ -73,16 +74,16 @@ test sparse
   
   incfile.txt
 
-  $ hg debugsparseexplainmatch inc/exc/incfile.txt
-  TRUE by rule inc/exc/incfile.txt/** ($TESTTMP/myrepo/.hg/sparse -> main.sparse):
+  $ sl debugsparseexplainmatch inc/exc/incfile.txt
+  TRUE by rule inc/exc/incfile.txt/** ($TESTTMP/myrepo/.sl/sparse -> main.sparse):
 
 
-  $ hg debugsparseprofilev2 main.sparse
+  $ sl debugsparseprofilev2 main.sparse
   V1 includes 4 files
   V2 includes 5 files
   + inc/exc/incfile.txt
 
-Do not union profiles outside the root .hg/sparse config.
+Do not union profiles outside the root .sl/sparse config.
   $ cat > temp.sparse <<EOF
   > [metadata]
   > version: 2
@@ -90,16 +91,16 @@ Do not union profiles outside the root .hg/sparse config.
   > %include main.sparse
   > %include base.sparse
   > EOF
-  $ hg commit -Aqm "add temp.sparse"
-  $ hg debugsparsematch -s temp.sparse inc/exc/incfile.txt
+  $ sl commit -Aqm "add temp.sparse"
+  $ sl debugsparsematch -s temp.sparse inc/exc/incfile.txt
   considering 1 file(s)
   $ rm temp.sparse
 
-Do union profiles in root .hg/sparse config.
-  $ hg sparse enable base.sparse
+Do union profiles in root .sl/sparse config.
+  $ sl sparse enable base.sparse
   $ ls inc/exc/incfile.txt
   inc/exc/incfile.txt
-  $ hg sparse disable base.sparse
+  $ sl sparse disable base.sparse
 
 Test that multiple profiles do not clobber each others includes
 # Exclude inc/exc/incfile.txt which main.sparse includes and
@@ -111,9 +112,9 @@ Test that multiple profiles do not clobber each others includes
   > [exclude]
   > inc/exc/incfile.txt
   > EOF
-  $ hg commit -Aqm 'other.sparse'
-  $ hg sparse enable other.sparse
-  $ find . -type f -not -wholename "**/.hg/**" | sort
+  $ sl commit -Aqm 'other.sparse'
+  $ sl sparse enable other.sparse
+  $ find . -type f -not -wholename "**/.sl/**" | sort
   ./base.sparse
   ./file.txt
   ./inc/exc/excfile.txt
@@ -148,26 +149,26 @@ Test that multiple profiles do not clobber each others includes
   > version: 2
   > EOF
 
-  $ hg ci -Am init s1.sparse s2.sparse s3.sparse s4.sparse
-  $ hg sparse enable s1.sparse s4.sparse
+  $ sl ci -Am init s1.sparse s2.sparse s3.sparse s4.sparse
+  $ sl sparse enable s1.sparse s4.sparse
 
-  $ hg debugsparseexplainmatch ab.sparse
+  $ sl debugsparseexplainmatch ab.sparse
   OR(
-    FALSE by rule !a*.sparse/** ($TESTTMP/repo1/.hg/sparse -> s1.sparse)
-    FALSE by rule !*b.sparse/** ($TESTTMP/repo1/.hg/sparse -> s4.sparse)
+    FALSE by rule !a*.sparse/** ($TESTTMP/repo1/.sl/sparse -> s1.sparse)
+    FALSE by rule !*b.sparse/** ($TESTTMP/repo1/.sl/sparse -> s4.sparse)
   ):
 
-  $ hg sparse enable s2.sparse s3.sparse
-  $ hg debugsparseexplainmatch ab.sparse
+  $ sl sparse enable s2.sparse s3.sparse
+  $ sl debugsparseexplainmatch ab.sparse
   OR(
-    FALSE by rule !a*.sparse/** ($TESTTMP/repo1/.hg/sparse -> s1.sparse)
-    TRUE by rule a*.sparse/** ($TESTTMP/repo1/.hg/sparse -> s2.sparse)
-    TRUE by rule *b.sparse/** ($TESTTMP/repo1/.hg/sparse -> s3.sparse)
-    FALSE by rule !*b.sparse/** ($TESTTMP/repo1/.hg/sparse -> s4.sparse)
+    FALSE by rule !a*.sparse/** ($TESTTMP/repo1/.sl/sparse -> s1.sparse)
+    TRUE by rule a*.sparse/** ($TESTTMP/repo1/.sl/sparse -> s2.sparse)
+    TRUE by rule *b.sparse/** ($TESTTMP/repo1/.sl/sparse -> s3.sparse)
+    FALSE by rule !*b.sparse/** ($TESTTMP/repo1/.sl/sparse -> s4.sparse)
   ):
 
 
   $ newclientrepo
-  $ hg debugsparseexplainmatch something
+  $ sl debugsparseexplainmatch something
   abort: --sparse-profile is required
   [255]

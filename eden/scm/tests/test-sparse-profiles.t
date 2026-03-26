@@ -3,6 +3,7 @@
 
 test sparse
 
+  $ export HGIDENTITY=sl
   $ export LOG=sparse=warn
 
   $ configure modernclient
@@ -24,17 +25,17 @@ test sparse
   > [include]
   > *.py
   > EOF
-  $ hg ci -Aqm 'initial'
+  $ sl ci -Aqm 'initial'
 
 Show with no sparse profile enabled
-  $ hg sparse show
+  $ sl sparse show
   No sparse profile enabled
 
-  $ hg sparse include '*.sparse'
+  $ sl sparse include '*.sparse'
 
 Verify enabling a single profile works
 
-  $ hg sparse enableprofile webpage.sparse
+  $ sl sparse enableprofile webpage.sparse
   $ ls
   backend.sparse
   index.html
@@ -42,7 +43,7 @@ Verify enabling a single profile works
 
  Match files with two sparse profiles
 
-  $ hg debugsparsematch --sparse-profile webpage.sparse --sparse-profile backend.sparse index.html foo.py bar.html
+  $ sl debugsparsematch --sparse-profile webpage.sparse --sparse-profile backend.sparse index.html foo.py bar.html
   considering 3 file(s)
   index.html
   foo.py
@@ -50,7 +51,7 @@ Verify enabling a single profile works
 
 Match files with one sparse profile
 
-  $ hg debugsparsematch --sparse-profile backend.sparse index.html foo.py bar.html
+  $ sl debugsparsematch --sparse-profile backend.sparse index.html foo.py bar.html
   considering 3 file(s)
   foo.py
 
@@ -63,12 +64,12 @@ changing it!
   > second.py
   > something/not/matched.cpp
   > EOF
-  $ hg debugsparsematch --sparse-profile backend.sparse listfile:file_list.txt no_match.cpp third.py
+  $ sl debugsparsematch --sparse-profile backend.sparse listfile:file_list.txt no_match.cpp third.py
   considering 5 file(s)
   first.py
   second.py
   third.py
-  $ hg debugsparsematch --sparse-profile backend.sparse listfile:file_list.txt no_match.cpp third.py -0 > "$TESTTMP/out.bin"
+  $ sl debugsparsematch --sparse-profile backend.sparse listfile:file_list.txt no_match.cpp third.py -0 > "$TESTTMP/out.bin"
   considering 5 file(s)
   $ f --hexdump "$TESTTMP/out.bin"
   $TESTTMP/out.bin:
@@ -78,7 +79,7 @@ changing it!
 
 Verify enabling two profiles works
 
-  $ hg sparse enableprofile backend.sparse
+  $ sl sparse enableprofile backend.sparse
   $ ls
   backend.sparse
   data.py
@@ -87,7 +88,7 @@ Verify enabling two profiles works
 
 Verify disabling a profile works
 
-  $ hg sparse disableprofile webpage.sparse
+  $ sl sparse disableprofile webpage.sparse
   $ ls
   backend.sparse
   data.py
@@ -102,11 +103,11 @@ Verify error checking includes filename and line numbers
   > /absolute/paths/are/ignored
   > [include]
   > EOF
-  $ hg add broken.sparse
-  $ hg ci -m 'Adding a broken file'
-  $ hg sparse enableprofile broken.sparse
+  $ sl add broken.sparse
+  $ sl ci -m 'Adding a broken file'
+  $ sl sparse enableprofile broken.sparse
    WARN sparse: ignoring sparse rule starting with / line=/absolute/paths/are/ignored source=broken.sparse line_num=4
-  $ hg -q debugstrip . --no-backup 2>/dev/null
+  $ sl -q debugstrip . --no-backup 2>/dev/null
 
 Verify that a profile is updated across multiple commits
 
@@ -126,20 +127,20 @@ Verify that a profile is updated across multiple commits
 
   $ echo foo >> data.py
 
-  $ hg ci -m 'edit profile'
+  $ sl ci -m 'edit profile'
   $ ls
   backend.sparse
   data.py
   readme.txt
   webpage.sparse
 
-  $ hg up -q 'desc(initial)'
+  $ sl up -q 'desc(initial)'
   $ ls
   backend.sparse
   data.py
   webpage.sparse
 
-  $ hg up -q 'desc(edit)'
+  $ sl up -q 'desc(edit)'
   $ ls
   backend.sparse
   data.py
@@ -148,7 +149,7 @@ Verify that a profile is updated across multiple commits
 
 Introduce a conflicting .hgsparse change
 
-  $ hg up -q 'desc(initial)'
+  $ sl up -q 'desc(initial)'
   $ cat > backend.sparse <<EOF
   > [metadata]
   > title: Different backend sparse profile
@@ -157,7 +158,7 @@ Introduce a conflicting .hgsparse change
   > EOF
   $ echo bar >> data.py
 
-  $ hg ci -qAm "edit profile other"
+  $ sl ci -qAm "edit profile other"
   $ ls
   backend.sparse
   index.html
@@ -165,14 +166,14 @@ Introduce a conflicting .hgsparse change
 
 Verify conflicting merge pulls in the conflicting changes
 
-  $ hg merge e7901640ca22b6074f2724228278811021be5bd9
+  $ sl merge e7901640ca22b6074f2724228278811021be5bd9
   temporarily included 1 file(s) in the sparse checkout for merging
   merging backend.sparse
-  warning: 1 conflicts while merging backend.sparse! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging backend.sparse! (edit, then use 'sl resolve --mark')
   merging data.py
-  warning: 1 conflicts while merging data.py! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging data.py! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
   $ rm *.orig
@@ -191,31 +192,31 @@ Verify resolving the merge removes the temporarily unioned files
   > *.html
   > *.txt
   > EOF
-  $ hg resolve -m backend.sparse
+  $ sl resolve -m backend.sparse
 
   $ cat > data.py <<EOF
   > x
   > foo
   > bar
   > EOF
-  $ hg resolve -m data.py
+  $ sl resolve -m data.py
   (no more unresolved files)
 
-  $ hg ci -qAm "merge profiles"
+  $ sl ci -qAm "merge profiles"
   $ ls
   backend.sparse
   index.html
   readme.txt
   webpage.sparse
 
-  $ hg cat -r . data.py
+  $ sl cat -r . data.py
   x
   foo
   bar
 
 Verify stripping refreshes dirstate
 
-  $ hg debugstrip -q -r . --no-backup
+  $ sl debugstrip -q -r . --no-backup
   $ ls
   backend.sparse
   index.html
@@ -223,21 +224,21 @@ Verify stripping refreshes dirstate
 
 Verify rebase conflicts pulls in the conflicting changes
 
-  $ hg up -q e7901640ca22b6074f2724228278811021be5bd9
+  $ sl up -q e7901640ca22b6074f2724228278811021be5bd9
   $ ls
   backend.sparse
   data.py
   readme.txt
   webpage.sparse
 
-  $ hg rebase -d 'max(desc(edit))'
+  $ sl rebase -d 'max(desc(edit))'
   rebasing e7901640ca22 "edit profile"
   temporarily included 1 file(s) in the sparse checkout for merging
   merging backend.sparse
-  warning: 1 conflicts while merging backend.sparse! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging backend.sparse! (edit, then use 'sl resolve --mark')
   merging data.py
-  warning: 1 conflicts while merging data.py! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging data.py! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ rm *.orig
   $ ls
@@ -253,25 +254,25 @@ Verify resolving conflict removes the temporary files
   > *.html
   > *.txt
   > EOF
-  $ hg resolve -m backend.sparse
+  $ sl resolve -m backend.sparse
 
   $ cat > data.py <<EOF
   > x
   > foo
   > bar
   > EOF
-  $ hg resolve -m data.py
+  $ sl resolve -m data.py
   (no more unresolved files)
-  continue: hg rebase --continue
+  continue: sl rebase --continue
 
-  $ hg rebase -q --continue
+  $ sl rebase -q --continue
   $ ls
   backend.sparse
   index.html
   readme.txt
   webpage.sparse
 
-  $ hg cat -r . data.py
+  $ sl cat -r . data.py
   x
   foo
   bar
@@ -280,33 +281,33 @@ Test checking out a commit that does not contain the sparse profile. The
 warning message can be suppressed by setting missingwarning = false in
 [sparse] section of your config:
 
-  $ hg sparse reset
-  $ hg rm *.sparse
-  $ hg commit -m "delete profiles"
-  $ hg up -q ".^"
-  $ hg sparse enableprofile backend.sparse
+  $ sl sparse reset
+  $ sl rm *.sparse
+  $ sl commit -m "delete profiles"
+  $ sl up -q ".^"
+  $ sl sparse enableprofile backend.sparse
   $ ls
   index.html
   readme.txt
-  $ hg up tip | grep warning
+  $ sl up tip | grep warning
   [1]
   $ ls
   data.py
   index.html
   readme.txt
-  $ hg sparse disableprofile backend.sparse | grep warning
+  $ sl sparse disableprofile backend.sparse | grep warning
   [1]
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [sparse]
   > missingwarning = true
   > EOF
-  $ hg sparse enableprofile backend.sparse
+  $ sl sparse enableprofile backend.sparse
   the profile 'backend.sparse' does not exist in the current commit, it will only take effect when you check out a commit containing a profile with that name
-  (if the path is a typo, use 'hg sparse disableprofile' to remove it)
+  (if the path is a typo, use 'sl sparse disableprofile' to remove it)
 
 Test file permissions changing across a sparse profile change
   $ newclientrepo
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > sparse=
   > EOF
@@ -314,22 +315,22 @@ Test file permissions changing across a sparse profile change
   $ cat > .hgsparse <<EOF
   > a
   > EOF
-  $ hg commit -Aqm 'initial'
+  $ sl commit -Aqm 'initial'
   $ chmod a+x b
-  $ hg commit -qm 'make executable'
+  $ sl commit -qm 'make executable'
   $ cat >> .hgsparse <<EOF
   > b
   > EOF
-  $ hg commit -qm 'update profile'
-  $ hg up -q 'desc(initial)'
-  $ hg sparse enableprofile .hgsparse
-  $ hg up -q 'desc(update)'
+  $ sl commit -qm 'update profile'
+  $ sl up -q 'desc(initial)'
+  $ sl sparse enableprofile .hgsparse
+  $ sl up -q 'desc(update)'
   $ f -m b
   b: mode=755
 
 Test profile discovery
   $ newclientrepo
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > sparse=
   > [hint]
@@ -380,15 +381,15 @@ Test profile discovery
   > A non-empty file to show that a sparse profile has an impact in terms of
   > file count and bytesize.
   > EOF
-  $ hg add -q profiles hidden interesting
-  $ hg commit -qm 'created profiles and some data'
-  $ hg sparse enableprofile profiles/foo/spam
-  $ hg sparse list
+  $ sl add -q profiles hidden interesting
+  $ sl commit -qm 'created profiles and some data'
+  $ sl sparse enableprofile profiles/foo/spam
+  $ sl sparse list
   Available Profiles:
   
    ~ profiles/bar/eggs  Profile including the profiles directory
    * profiles/foo/spam  Profile that only includes another
-  $ hg sparse list -T json
+  $ sl sparse list -T json
   [
    {
     "active": "included",
@@ -401,11 +402,11 @@ Test profile discovery
     "path": "profiles/foo/spam"
    }
   ]
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [sparse]
   > profile_directory = profiles/
   > EOF
-  $ hg sparse list
+  $ sl sparse list
   Available Profiles:
   
    ~ profiles/bar/eggs    Profile including the profiles directory
@@ -413,7 +414,7 @@ Test profile discovery
      profiles/bar/python
    * profiles/foo/spam    Profile that only includes another
   hint[sparse-list-verbose]: 1 hidden profiles not shown; add '--verbose' to include these
-  $ hg sparse list -T json
+  $ sl sparse list -T json
   [
    {
     "active": "included",
@@ -437,12 +438,12 @@ Test profile discovery
    }
   ]
   hint[sparse-list-verbose]: 1 hidden profiles not shown; add '--verbose' to include these
-  $ hg sparse show
+  $ sl sparse show
   Enabled Profiles:
   
     * profiles/foo/spam    Profile that only includes another
       ~ profiles/bar/eggs  Profile including the profiles directory
-  $ hg sparse show -Tjson
+  $ sl sparse show -Tjson
   [
    {
     "depth": 0,
@@ -464,7 +465,7 @@ The current working directory plays no role in listing profiles:
 
   $ mkdir otherdir
   $ cd otherdir
-  $ hg sparse list
+  $ sl sparse list
   Available Profiles:
   
    ~ profiles/bar/eggs    Profile including the profiles directory
@@ -477,8 +478,8 @@ The current working directory plays no role in listing profiles:
 Profiles are loaded from the manifest, so excluding a profile directory should
 not hamper listing.
 
-  $ hg sparse exclude profiles/bar
-  $ hg sparse list
+  $ sl sparse exclude profiles/bar
+  $ sl sparse list
   Available Profiles:
   
    ~ profiles/bar/eggs    Profile including the profiles directory
@@ -486,7 +487,7 @@ not hamper listing.
      profiles/bar/python
    * profiles/foo/spam    Profile that only includes another
   hint[sparse-list-verbose]: 1 hidden profiles not shown; add '--verbose' to include these
-  $ hg sparse show
+  $ sl sparse show
   Enabled Profiles:
   
     * profiles/foo/spam    Profile that only includes another
@@ -498,7 +499,7 @@ not hamper listing.
 
 Hidden profiles only show up when we use the --verbose switch:
 
-  $ hg sparse list --verbose
+  $ sl sparse list --verbose
   Available Profiles:
   
    ~ profiles/bar/eggs    Profile including the profiles directory
@@ -506,7 +507,7 @@ Hidden profiles only show up when we use the --verbose switch:
      profiles/bar/python
      profiles/foo/monty 
    * profiles/foo/spam    Profile that only includes another
-  $ cat >> .hg/hgrc << EOF  # enough hints now
+  $ cat >> .sl/config << EOF  # enough hints now
   > [hint]
   > ack-sparse-list-verbose = true
   > EOF
@@ -515,14 +516,14 @@ We can filter on fields being present or absent. This is how the --verbose
 switch is implemented. We can invert that test by filtering on the presence
 of the hidden field:
 
-  $ hg sparse list --with-field hidden
+  $ sl sparse list --with-field hidden
   Available Profiles:
   
      profiles/foo/monty
 
 or we can filter on other fields, like missing description:
 
-  $ hg sparse list --without-field description
+  $ sl sparse list --without-field description
   Available Profiles:
   
      profiles/bar/ham     An extended profile including some interesting files
@@ -531,27 +532,27 @@ or we can filter on other fields, like missing description:
 
 multiple tests are cumulative, like a boolean AND operation; both for exclusion
 
-  $ hg sparse list --without-field description --without-field title
+  $ sl sparse list --without-field description --without-field title
   Available Profiles:
   
      profiles/bar/python
 
 and inclusion
 
-  $ hg sparse list --with-field description --with-field title
+  $ sl sparse list --with-field description --with-field title
   Available Profiles:
   
    ~ profiles/bar/eggs  Profile including the profiles directory
 
 Naming the same field in without- and with- filters is an error:
 
-  $ hg sparse list --with-field bar --without-field bar
+  $ sl sparse list --with-field bar --without-field bar
   abort: You can't specify fields in both --with-field and --without-field, please use only one or the other, for bar
   [255]
 
 We can filter on the contents of a field or the path, case-insensitively:
 
-  $ hg sparse list --filter path:/bar/ --filter title:profile
+  $ sl sparse list --filter path:/bar/ --filter title:profile
   Available Profiles:
   
    ~ profiles/bar/eggs  Profile including the profiles directory
@@ -559,7 +560,7 @@ We can filter on the contents of a field or the path, case-insensitively:
 
 We can filter on specific files being included in a sparse profile:
 
-  $ hg sparse list --contains-file interesting/sizeable
+  $ sl sparse list --contains-file interesting/sizeable
   Available Profiles:
   
      profiles/bar/ham  An extended profile including some interesting files
@@ -571,10 +572,10 @@ sparse configuration is ignored; no profile can be 'active' or 'included':
   > [metadata]
   > title: this profile is only available in a later revision, not the current.
   > EOF
-  $ hg commit -Aqm 'Add another profile in a later revision'
-  $ hg up -r ".^"
+  $ sl commit -Aqm 'Add another profile in a later revision'
+  $ sl up -r ".^"
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg sparse list -r tip
+  $ sl sparse list -r tip
   Available Profiles:
   
      profiles/bar/eggs                   Profile including the profiles directory
@@ -582,7 +583,7 @@ sparse configuration is ignored; no profile can be 'active' or 'included':
      profiles/bar/python               
      profiles/foo/new_in_later_revision  this profile is only available in a later revision, not the current.
      profiles/foo/spam                   Profile that only includes another
-  $ hg -q debugstrip -r tip --no-backup
+  $ sl -q debugstrip -r tip --no-backup
 
 The metadata section format can have errors, but those are only listed as
 warnings:
@@ -592,9 +593,9 @@ warnings:
   >   indented line but no current key active
   > not an option line, there is no delimiter
   > EOF
-  $ hg add -q profiles
-  $ hg commit -qm 'Broken profile added'
-  $ hg sparse list
+  $ sl add -q profiles
+  $ sl commit -qm 'Broken profile added'
+  $ sl sparse list
   Available Profiles:
   
   warning: sparse profile [metadata] section indented lines that do not belong to a multi-line entry, ignoring, in profiles/foo/errors:2
@@ -605,13 +606,13 @@ warnings:
      profiles/foo/errors
    * profiles/foo/spam    Profile that only includes another
 
-The .hg/sparse file could list non-existing profiles, these should be ignored
+The .sl/sparse file could list non-existing profiles, these should be ignored
 when listing:
 
-  $ hg sparse enableprofile nonesuch
+  $ sl sparse enableprofile nonesuch
   the profile 'nonesuch' does not exist in the current commit, it will only take effect when you check out a commit containing a profile with that name
-  (if the path is a typo, use 'hg sparse disableprofile' to remove it)
-  $ hg sparse list
+  (if the path is a typo, use 'sl sparse disableprofile' to remove it)
+  $ sl sparse list
   Available Profiles:
   
   warning: sparse profile [metadata] section indented lines that do not belong to a multi-line entry, ignoring, in profiles/foo/errors:2
@@ -621,14 +622,14 @@ when listing:
      profiles/bar/python
      profiles/foo/errors
    * profiles/foo/spam    Profile that only includes another
-  $ hg sparse disableprofile nonesuch
+  $ sl sparse disableprofile nonesuch
 
 Can switch between profiles
 
   $ test -f interesting/sizeable
   [1]
-  $ hg sparse switchprofile profiles/bar/ham
-  $ hg sparse list
+  $ sl sparse switchprofile profiles/bar/ham
+  $ sl sparse list
   Available Profiles:
   
   warning: sparse profile [metadata] section indented lines that do not belong to a multi-line entry, ignoring, in profiles/foo/errors:2
@@ -642,7 +643,7 @@ Can switch between profiles
 
 We can look at invididual profiles:
 
-  $ hg sparse explain profiles/bar/eggs
+  $ sl sparse explain profiles/bar/eggs
   profiles/bar/eggs
   
   Profile including the profiles directory
@@ -666,9 +667,9 @@ We can look at invididual profiles:
   ===============
   
     profiles
-  hint[sparse-explain-verbose]: use 'hg sparse explain --verbose profiles/bar/eggs' to include the total file size for a give profile
+  hint[sparse-explain-verbose]: use 'sl sparse explain --verbose profiles/bar/eggs' to include the total file size for a give profile
 
-  $ hg sparse explain profiles/bar/ham -T json
+  $ sl sparse explain profiles/bar/ham -T json
   [
    {
     "lines": [["profile", "profiles/bar/eggs"], ["include", "interesting"]],
@@ -679,8 +680,8 @@ We can look at invididual profiles:
     "stats": {"filecount": 11, "filecountpercentage": 91.66666666666666}
    }
   ]
-  hint[sparse-explain-verbose]: use 'hg sparse explain --verbose profiles/bar/ham' to include the total file size for a give profile
-  $ hg sparse explain profiles/bar/ham -T json --verbose
+  hint[sparse-explain-verbose]: use 'sl sparse explain --verbose profiles/bar/ham' to include the total file size for a give profile
+  $ sl sparse explain profiles/bar/ham -T json --verbose
   [
    {
     "lines": [["profile", "profiles/bar/eggs"], ["include", "interesting"]],
@@ -691,11 +692,11 @@ We can look at invididual profiles:
     "stats": {"filecount": 11, "filecountpercentage": 91.66666666666666, "totalsize": 4145875}
    }
   ]
-  $ cat >> .hg/hgrc << EOF  # enough hints now
+  $ cat >> .sl/config << EOF  # enough hints now
   > [hint]
   > ack-sparse-explain-verbose = true
   > EOF
-  $ hg sparse explain profiles/bar/eggs
+  $ sl sparse explain profiles/bar/eggs
   profiles/bar/eggs
   
   Profile including the profiles directory
@@ -720,7 +721,7 @@ We can look at invididual profiles:
   
     profiles
 
-  $ hg sparse explain profiles/bar/eggs --verbose
+  $ sl sparse explain profiles/bar/eggs --verbose
   profiles/bar/eggs
   
   Profile including the profiles directory
@@ -746,7 +747,7 @@ We can look at invididual profiles:
   
     profiles
 
-  $ hg sparse explain profiles/bar/eggs profiles/bar/ham profiles/nonsuch --verbose
+  $ sl sparse explain profiles/bar/eggs profiles/bar/ham profiles/nonsuch --verbose
   The profile profiles/nonsuch was not found
   profiles/bar/eggs
   
@@ -794,22 +795,22 @@ We can look at invididual profiles:
   
     interesting
 
-  $ hg sparse explain profiles/bar/eggs -T "{path}\n{metadata.title}\n{stats.filecount}\n"
+  $ sl sparse explain profiles/bar/eggs -T "{path}\n{metadata.title}\n{stats.filecount}\n"
   profiles/bar/eggs
   Profile including the profiles directory
   10
 
-The -r switch tells hg sparse explain to look at something other than the
+The -r switch tells sl sparse explain to look at something other than the
 current working copy:
 
-  $ hg sparse reset
+  $ sl sparse reset
   $ touch interesting/later_revision
-  $ hg commit -Aqm 'Add another file in a later revision'
-  $ hg sparse explain profiles/bar/ham -T "{stats.filecount}\n" -r ".^"
+  $ sl commit -Aqm 'Add another file in a later revision'
+  $ sl sparse explain profiles/bar/ham -T "{stats.filecount}\n" -r ".^"
   11
-  $ hg sparse explain profiles/bar/ham -T "{stats.filecount}\n" -r .
+  $ sl sparse explain profiles/bar/ham -T "{stats.filecount}\n" -r .
   12
-  $ hg sparse list --contains-file interesting/later_revision -r ".^"
+  $ sl sparse list --contains-file interesting/later_revision -r ".^"
   Available Profiles:
   
   warning: sparse profile [metadata] section indented lines that do not belong to a multi-line entry, ignoring, in profiles/foo/errors:2
@@ -817,7 +818,7 @@ current working copy:
    WARN sparse: orphan metadata line line=  indented line but no current key active source=profiles/foo/errors line_num=2
      profiles/bar/ham  An extended profile including some interesting files
    WARN sparse: orphan metadata line line=  indented line but no current key active source=profiles/foo/errors line_num=2
-  $ hg sparse list --contains-file interesting/later_revision -r .
+  $ sl sparse list --contains-file interesting/later_revision -r .
   Available Profiles:
   
   warning: sparse profile [metadata] section indented lines that do not belong to a multi-line entry, ignoring, in profiles/foo/errors:2
@@ -825,11 +826,11 @@ current working copy:
    WARN sparse: orphan metadata line line=  indented line but no current key active source=profiles/foo/errors line_num=2
      profiles/bar/ham  An extended profile including some interesting files
    WARN sparse: orphan metadata line line=  indented line but no current key active source=profiles/foo/errors line_num=2
-  $ hg up -q ".^"
+  $ sl up -q ".^"
 
-We can list the files in a profile with the hg sparse files command:
+We can list the files in a profile with the sl sparse files command:
 
-  $ hg sparse files profiles/bar/eggs
+  $ sl sparse files profiles/bar/eggs
   profiles/README.txt
   profiles/why_is_this_here.py
   profiles/.hidden/nope
@@ -840,18 +841,18 @@ We can list the files in a profile with the hg sparse files command:
   profiles/foo/errors
   profiles/foo/monty
   profiles/foo/spam
-  $ hg sparse files profiles/bar/eggs **/README **/README.*
+  $ sl sparse files profiles/bar/eggs **/README **/README.*
   profiles/README.txt
   profiles/foo/README
 
 Files for included profiles are taken along:
 
-  $ hg sparse files profiles/bar/ham | wc -l
+  $ sl sparse files profiles/bar/ham | wc -l
   \s*11 (re)
 
 Test non-existing profiles are properly reported
   $ newclientrepo
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > sparse=
   > EOF
@@ -873,14 +874,14 @@ Test non-existing profiles are properly reported
   > [metadata]
   > title: This profile includes a non-existing profile
   > EOF
-  $ hg commit -Aqm 'initial'
-  $ hg sparse enableprofile profile-ok
-  $ hg sparse enableprofile profile-wrong
+  $ sl commit -Aqm 'initial'
+  $ sl sparse enableprofile profile-ok
+  $ sl sparse enableprofile profile-wrong
   the profile 'profile-wrong' does not exist in the current commit, it will only take effect when you check out a commit containing a profile with that name
-  (if the path is a typo, use 'hg sparse disableprofile' to remove it)
-  $ hg sparse enableprofile profile-includes-existing
-  $ hg sparse enableprofile profile-includes-non-existing
-  $ hg sparse show
+  (if the path is a typo, use 'sl sparse disableprofile' to remove it)
+  $ sl sparse enableprofile profile-includes-existing
+  $ sl sparse enableprofile profile-includes-non-existing
+  $ sl sparse show
   Enabled Profiles:
   
     * profile-includes-existing        This profile includes an existing profile
@@ -889,7 +890,7 @@ Test non-existing profiles are properly reported
       ! profile-non-existing         
     * profile-ok                       This is a regular profile
     ! profile-wrong                  
-  $ hg sparse show -Tjson
+  $ sl sparse show -Tjson
   [
    {
     "depth": 0,
@@ -943,8 +944,8 @@ Verify that removing from a sparse profile removes from disk
   > *.sparse
   > *.py
   > EOF
-  $ hg ci -Aqm 'initial'
-  $ hg sparse enable webpage.sparse
+  $ sl ci -Aqm 'initial'
+  $ sl sparse enable webpage.sparse
   $ ls
   data.py
   webpage.sparse
@@ -954,6 +955,6 @@ Verify that removing from a sparse profile removes from disk
   > [include]
   > *.sparse
   > EOF
-  $ hg commit -m 'remove py'
+  $ sl commit -m 'remove py'
   $ ls
   webpage.sparse

@@ -1,21 +1,22 @@
 #require fsmonitor no-eden
 
+  $ export HGIDENTITY=sl
   $ newclientrepo
 
   $ echo ignored > .gitignore
   $ touch ignored missing removed modified
-  $ hg commit -Aqm foo
+  $ sl commit -Aqm foo
 
   $ touch untracked added
-  $ hg add added
-  $ hg rm removed
+  $ sl add added
+  $ sl rm removed
 
-  $ hg status
+  $ sl status
   A added
   R removed
   ? untracked
 
-  $ hg dbsh << 'EOS'
+  $ sl dbsh << 'EOS'
   > watchman_command = repo._watchmanclient.command
   > watchman_command('watch-del-all')
   > EOS
@@ -24,12 +25,12 @@
   $ echo foo > modified
 
 This is the code under test - we need to notice things were deleted while watchman wasn't running.
-  $ hg status
+  $ sl status
   M modified
   A added
   R removed
   ! missing
-  $ hg debugtree list
+  $ sl debugtree list
   .gitignore: 0100644 8 * EXIST_P1 EXIST_NEXT * (glob)
   added: 00 -1 * EXIST_NEXT NEED_CHECK  (glob)
   missing: 0100644 0 * EXIST_P1 EXIST_NEXT NEED_CHECK  (glob)

@@ -2,11 +2,12 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 test sparse
 
   $ enable sparse rebase
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ mkdir subdir
 
@@ -18,11 +19,11 @@ test sparse
   > [include]
   > *
   > EOF
-  $ hg ci -Aqm 'initial'
+  $ sl ci -Aqm 'initial'
 
 Sanity check
-  $ hg sparse enable foo.sparse
-  $ hg sparse
+  $ sl sparse enable foo.sparse
+  $ sl sparse
   %include foo.sparse
   [include]
   
@@ -32,11 +33,11 @@ Sanity check
 
 
 
-  $ hg sparse disable foo.sparse
+  $ sl sparse disable foo.sparse
 
 Relative works from root.
-  $ hg sparse enable ./foo.sparse
-  $ hg sparse
+  $ sl sparse enable ./foo.sparse
+  $ sl sparse
   %include foo.sparse
   [include]
   
@@ -46,13 +47,13 @@ Relative works from root.
 
 
 
-  $ hg sparse disable foo.sparse
+  $ sl sparse disable foo.sparse
 
   $ cd subdir
 
 Canonical path works from subdir.
-  $ hg sparse enable foo.sparse
-  $ hg sparse
+  $ sl sparse enable foo.sparse
+  $ sl sparse
   %include foo.sparse
   [include]
   
@@ -62,11 +63,11 @@ Canonical path works from subdir.
 
 
 
-  $ hg sparse disable foo.sparse
+  $ sl sparse disable foo.sparse
 
 Relative path also works
-  $ hg sparse enable ../foo.sparse
-  $ hg sparse
+  $ sl sparse enable ../foo.sparse
+  $ sl sparse
   %include foo.sparse
   [include]
   
@@ -76,10 +77,10 @@ Relative path also works
 
 
 
-  $ hg sparse disable foo.sparse
+  $ sl sparse disable foo.sparse
 
-  $ hg sparse enable bar.sparse
-  $ hg sparse
+  $ sl sparse enable bar.sparse
+  $ sl sparse
   %include subdir/bar.sparse
   [include]
   
@@ -89,4 +90,4 @@ Relative path also works
 
 
 
-  $ hg sparse disable bar.sparse
+  $ sl sparse disable bar.sparse

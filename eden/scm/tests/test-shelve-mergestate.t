@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ enable morestatus shelve
   $ setconfig morestatus.show=true
   $ setconfig ui.interactive=true
@@ -6,10 +7,10 @@
   $ newclientrepo
   $ mkdir foo && cd foo
   $ echo '1\n2\n3\n4\n5\n' > a
-  $ hg ci -Aqm a
+  $ sl ci -Aqm a
   $ echo '11\n2\n3\n4\n55\n' > a
 
-  $ hg shelve -i  <<EOF
+  $ sl shelve -i  <<EOF
   > y
   > y
   > n
@@ -39,10 +40,10 @@
   merging a
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
 
-  $ hg st
+  $ sl st
   M a
 
-  $ hg diff
+  $ sl diff
   diff -r f7e2aa31a34b foo/a
   --- a/foo/a	Thu Jan 01 00:00:00 1970 +0000
   +++ b/foo/a	Thu Jan 01 00:00:00 1970 +0000

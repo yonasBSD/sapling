@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ setconfig drawdag.defaultfiles=false
   $ setconfig diff.git=true
 
@@ -17,14 +18,14 @@
 
 Don't fetch content unnecessarily.
 FIXME: "foo" is not actually modified.
-  $ SL_LOG=file_fetches=trace hg st -q --rev $A --rev $C
+  $ SL_LOG=file_fetches=trace sl st -q --rev $A --rev $C
   M foo
   A middle
   A top
 
 Make sure we do prefetch file content for diff operation:
 FIXME: "header" is seriallly fetched
-  $ SL_LOG=file_fetches=trace hg diff -q --rev $A --rev $C
+  $ SL_LOG=file_fetches=trace sl diff -q --rev $A --rev $C
   TRACE file_fetches: attrs=["content", "header"] keys=["foo", "foo", "middle", "top"]
   TRACE file_fetches: attrs=["header"] keys=["middle"]
   TRACE file_fetches: attrs=["header"] keys=["top"]

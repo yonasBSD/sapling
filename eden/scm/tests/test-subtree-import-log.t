@@ -1,5 +1,6 @@
 #require git no-windows
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable tweakdefaults
   $ setconfig diff.git=True
@@ -39,15 +40,15 @@ Prepare a Sapling repo:
   $ drawdag <<'EOS'
   > A
   > EOS
-  $ hg go $A -q
+  $ sl go $A -q
 
 Test log support subtree import
 
-  $ hg subtree import -q --url $GIT_URL --rev main --to-path bar -m "import gitrepo to bar"
+  $ sl subtree import -q --url $GIT_URL --rev main --to-path bar -m "import gitrepo to bar"
   $ echo 3 >> bar/alpha
-  $ hg ci -m "update bar/alpha"
+  $ sl ci -m "update bar/alpha"
 
-  $ hg log bar/alpha
+  $ sl log bar/alpha
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -72,7 +73,7 @@ Test log support subtree import
 
 Test log with --limit
 
-  $ hg log bar/alpha --limit 2
+  $ sl log bar/alpha --limit 2
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -83,7 +84,7 @@ Test log with --limit
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     import gitrepo to bar
 
-  $ hg log bar/alpha --limit 3
+  $ sl log bar/alpha --limit 3
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -103,7 +104,7 @@ Test log with --limit
 
 Test commit color
 
-  $ hg log bar/alpha --color=debug
+  $ sl log bar/alpha --color=debug
   [log.changeset changeset.draft|commit:      *] (glob)
   [log.user|user:        test]
   [log.date|date:        Thu Jan 01 00:00:00 1970 +0000]
@@ -127,14 +128,14 @@ Test commit color
   [log.summary|summary:     alpha]
 
 Test xreponame keyword
-  $ hg log bar/alpha -T '{xreponame}\n'
+  $ sl log bar/alpha -T '{xreponame}\n'
   
   
   gitrepo
   gitrepo
 
 Test log with --graph
-  $ hg log bar/alpha --graph
+  $ sl log bar/alpha --graph
   @  commit:      * (glob)
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -157,7 +158,7 @@ Test log with --graph
 
 Test commit color with --graph
 
-  $ hg log bar/alpha --graph --color=debug
+  $ sl log bar/alpha --graph --color=debug
   @  [log.changeset changeset.draft|commit:      *] (glob)
   │  [log.user|user:        test]
   │  [log.date|date:        Thu Jan 01 00:00:00 1970 +0000]
@@ -180,7 +181,7 @@ Test commit color with --graph
 
 Test log.follow-xrepo config
 
-  $ hg log bar/alpha --config log.follow-xrepo=False
+  $ sl log bar/alpha --config log.follow-xrepo=False
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -191,7 +192,7 @@ Test log.follow-xrepo config
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     import gitrepo to bar
   
-  $ hg log bar/alpha --graph --config log.follow-xrepo=False
+  $ sl log bar/alpha --graph --config log.follow-xrepo=False
   @  commit:      * (glob)
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000

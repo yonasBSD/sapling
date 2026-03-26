@@ -4,6 +4,7 @@ Test that submodule checkout audits paths for symlink traversal. If a symlink
 exists in the working directory and a submodule shares its name, makedirs()
 would follow the symlink without the audit check. This validates Fix 2.
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Create a payload submodule repo:
@@ -32,7 +33,7 @@ Create a git repo with a submodule named "sub":
 
 Clone the repo but don't update working copy:
 
-  $ hg clone --git "$TESTTMP/repo" workdir --noupdate -q
+  $ sl clone --git "$TESTTMP/repo" workdir --noupdate -q
 
 Plant a symlink "sub" -> ".sl" in the working directory before checkout.
 This simulates what happens on a case-insensitive FS when a symlink "Sub"
@@ -44,7 +45,7 @@ Now update to master which has the submodule at path "sub". The path auditor
 should detect that "sub" is a symlink and reject the operation.
 
   $ cd workdir
-  $ hg up remote/master
+  $ sl up remote/master
   abort: submodule path 'sub' is a symlink
   [255]
 

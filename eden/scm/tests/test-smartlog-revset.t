@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ newrepo
@@ -15,19 +16,19 @@
   > |/   # C has date 200000 0
   > A
   > EOS
-  $ hg bookmark -ir "$A" master
-  $ hg log -r 'smartlog()' -T '{desc}\n'
+  $ sl bookmark -ir "$A" master
+  $ sl log -r 'smartlog()' -T '{desc}\n'
   A
   B
   C
-  $ hg log -r "smartlog($B)" -T '{desc}\n'
+  $ sl log -r "smartlog($B)" -T '{desc}\n'
   A
   B
-  $ hg log -r "smartlog(heads=$C, master=$B)" -T '{desc}\n'
+  $ sl log -r "smartlog(heads=$C, master=$B)" -T '{desc}\n'
   A
   B
   C
-  $ hg log -r "smartlog(master=($A::)-$B-$C)" -T '{desc}\n'
+  $ sl log -r "smartlog(master=($A::)-$B-$C)" -T '{desc}\n'
   A
   B
   C

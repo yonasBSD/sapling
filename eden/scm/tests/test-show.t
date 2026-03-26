@@ -8,9 +8,10 @@ of show that might break even if log works.
 
 Show on empty repository: checking consistency
 
-  $ hg init empty
+  $ export HGIDENTITY=sl
+  $ sl init empty
   $ cd empty
-  $ hg show
+  $ sl show
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -18,21 +19,21 @@ Show on empty repository: checking consistency
   
 
 Add log alias to and make sure show still works
-  $ hg show --config alias.log=log
+  $ sl show --config alias.log=log
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
   
   
 
-  $ hg show 1
+  $ sl show 1
   abort: unknown revision '1'!
   [255]
-  $ hg show 'branch(name)'
+  $ sl show 'branch(name)'
   abort: unknown revision branch(name)
-  (if branch(name) is a file, try `hg show . branch(name)`)
+  (if branch(name) is a file, try `sl show . branch(name)`)
   [255]
-  $ hg show null -q
+  $ sl show null -q
   commit:      000000000000
   user:        
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -40,11 +41,11 @@ Add log alias to and make sure show still works
   
 Check various git-like options:
 
-  $ hg init gitlike
+  $ sl init gitlike
   $ echo one > one
   $ echo two > two
-  $ hg commit -qAm twofiles
-  $ hg show --template status
+  $ sl commit -qAm twofiles
+  $ sl show --template status
   commit:      bf7b98b60f6f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -69,10 +70,10 @@ Check various git-like options:
 
 Check that the command parser always treats the first argument as a revision:
 
-  $ hg show two
+  $ sl show two
   abort: unknown revision 'two'!
   [255]
-  $ hg show . two
+  $ sl show . two
   commit:      bf7b98b60f6f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -90,11 +91,11 @@ Check that the command parser always treats the first argument as a revision:
 
 Check --stat
 
-  $ hg init stat
+  $ sl init stat
   $ cd stat
   $ echo show > x
-  $ hg commit -qAm x
-  $ hg show --stat
+  $ sl commit -qAm x
+  $ sl show --stat
   commit:      852a8d467a01
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -111,8 +112,8 @@ Check --stat
 
 
   $ echo more >> x
-  $ hg commit -qAm longer
-  $ hg show --stat
+  $ sl commit -qAm longer
+  $ sl show --stat
   commit:      b73358b94785
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -129,8 +130,8 @@ Check --stat
 
 
   $ echo remove > x
-  $ hg commit -qAm remove
-  $ hg show --stat
+  $ sl commit -qAm remove
+  $ sl show --stat
   commit:      3d74ea61c11c
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -145,7 +146,7 @@ Check --stat
 
 
 
-  $ hg show --stat 'desc(x)'
+  $ sl show --stat 'desc(x)'
   commit:      852a8d467a01
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -159,7 +160,7 @@ Check --stat
   
 Check --unified and -U
 
-  $ hg init diff
+  $ sl init diff
   $ cd diff
   $ cat >file <<EOF
   > line1
@@ -168,7 +169,7 @@ Check --unified and -U
   > line4
   > line5
   > EOF
-  $ hg commit -qAm file
+  $ sl commit -qAm file
   $ cat >>file <<EOF
   > line6
   > line7
@@ -176,8 +177,8 @@ Check --unified and -U
   > line9
   > line10
   > EOF
-  $ hg commit -qm file
-  $ hg show --unified=1
+  $ sl commit -qm file
+  $ sl show --unified=1
   commit:      8e33115c1596
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -197,7 +198,7 @@ Check --unified and -U
   +line9
   +line10
   
-  $ hg show --unified=2
+  $ sl show --unified=2
   commit:      8e33115c1596
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -220,7 +221,7 @@ Check --unified and -U
   
 
 Check behavior with nonsensical integers.
-  $ hg show --unified=-7
+  $ sl show --unified=-7
   commit:      8e33115c1596
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -243,13 +244,13 @@ Check behavior with nonsensical integers.
 
 
 Check whitespace handling options
-  $ hg init whitespace
+  $ sl init whitespace
   $ cd whitespace
   $ echo "some  text" > file
-  $ hg commit -qAm file
+  $ sl commit -qAm file
   $ echo "some text " > file
-  $ hg commit -qAm file
-  $ hg show
+  $ sl commit -qAm file
+  $ sl show
   commit:      6dbf2c12e2e2
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -265,7 +266,7 @@ Check whitespace handling options
   -some  text
   +some text 
   
-  $ hg show -b
+  $ sl show -b
   commit:      6dbf2c12e2e2
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -276,8 +277,8 @@ Check whitespace handling options
   
   
   $ echo "some text" > file
-  $ hg commit -qAm file
-  $ hg show -Z
+  $ sl commit -qAm file
+  $ sl show -Z
   commit:      600038806867
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -288,8 +289,8 @@ Check whitespace handling options
   
   
   $ echo "some text " > file
-  $ hg commit -qAm file
-  $ hg show -Z
+  $ sl commit -qAm file
+  $ sl show -Z
   commit:      747594f0817c
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -301,10 +302,10 @@ Check whitespace handling options
   
 
   $ printf "some\n\ntext" > file
-  $ hg commit -qAm file
+  $ sl commit -qAm file
   $ printf "some\ntext" > file
-  $ hg commit -qAm file
-  $ hg show -B
+  $ sl commit -qAm file
+  $ sl show -B
   commit:      10f3fc1d00d6
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -317,11 +318,11 @@ Check whitespace handling options
 
 Check --git and -g
 
-  $ hg init git
+  $ sl init git
   $ cd git
   $ echo git > file
-  $ hg commit -qAm file
-  $ hg show --git
+  $ sl commit -qAm file
+  $ sl show --git
   commit:      2a575d662478
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -340,8 +341,8 @@ Check --git and -g
 
 
   $ echo more >> file
-  $ hg commit -qAm file
-  $ hg show -g
+  $ sl commit -qAm file
+  $ sl show -g
   commit:      a23f7b259024
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -359,7 +360,7 @@ Check --git and -g
   
 
 
-  $ hg show -g 2a575d662478590c06bc0cb3988882b46c0b2fee
+  $ sl show -g 2a575d662478590c06bc0cb3988882b46c0b2fee
   commit:      2a575d662478
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -378,7 +379,7 @@ Check --git and -g
 
 
 Check nodates
-  $ hg show --nodates
+  $ sl show --nodates
   commit:      a23f7b259024
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -396,7 +397,7 @@ Check nodates
   
 
 Check noprefix
-  $ hg show --noprefix
+  $ sl show --noprefix
   commit:      a23f7b259024
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -413,25 +414,25 @@ Check noprefix
   +more
   
 
-Check hg show '' fails to parse the revision
+Check sl show '' fails to parse the revision
 
-  $ hg show ''
-  hg: parse error: empty query
+  $ sl show ''
+  sl: parse error: empty query
   [255]
 
 Confirm that --help works (it didn't when we used an alias)
 
-  $ hg show --help
-  hg show [OPTION]... [REV [FILE]...]
+  $ sl show --help
+  sl show [OPTION]... [REV [FILE]...]
   
   show commit in detail
   
       Show the commit message and contents for the specified commit. If no
       commit is specified, shows the current commit.
   
-      'hg show' behaves similarly to 'hg log -vp -r REV [OPTION]... [FILE]...',
-      or if called without a "REV", 'hg log -vp -r . [OPTION]...' Use 'hg log'
-      for more powerful operations than supported by 'hg show'.
+      'sl show' behaves similarly to 'sl log -vp -r REV [OPTION]... [FILE]...',
+      or if called without a "REV", 'sl log -vp -r . [OPTION]...' Use 'sl log'
+      for more powerful operations than supported by 'sl show'.
   
   Options ([+] can be repeated):
   
@@ -450,17 +451,17 @@ Confirm that --help works (it didn't when we used an alias)
    -X --exclude PATTERN [+] exclude files matching the given patterns
   
   (some details hidden, use --verbose to show complete help)
-  $ hg show --help --verbose
-  hg show [OPTION]... [REV [FILE]...]
+  $ sl show --help --verbose
+  sl show [OPTION]... [REV [FILE]...]
   
   show commit in detail
   
       Show the commit message and contents for the specified commit. If no
       commit is specified, shows the current commit.
   
-      'hg show' behaves similarly to 'hg log -vp -r REV [OPTION]... [FILE]...',
-      or if called without a "REV", 'hg log -vp -r . [OPTION]...' Use 'hg log'
-      for more powerful operations than supported by 'hg show'.
+      'sl show' behaves similarly to 'sl log -vp -r REV [OPTION]... [FILE]...',
+      or if called without a "REV", 'sl log -vp -r . [OPTION]...' Use 'sl log'
+      for more powerful operations than supported by 'sl show'.
   
   Options ([+] can be repeated):
   

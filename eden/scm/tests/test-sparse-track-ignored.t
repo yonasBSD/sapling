@@ -1,24 +1,25 @@
 #require fsmonitor no-eden
 
+  $ export HGIDENTITY=sl
   $ enable sparse
 
   $ newclientrepo
-  $ hg sparse include include
+  $ sl sparse include include
 
   $ mkdir include
   $ echo foo > include/include
   $ echo foo > exclude
-  $ hg st
+  $ sl st
   ? include/include
-  $ hg commit -Aqm foo
+  $ sl commit -Aqm foo
 
 Make sure we aren't tracking "exclude" yet.
-  $ hg debugtreestate list
+  $ sl debugtreestate list
   include/include: * (glob)
 
 Now we should.
   $ setconfig fsmonitor.track-ignore-files=true
-  $ hg st
-  $ hg debugtreestate list
+  $ sl st
+  $ sl debugtreestate list
   exclude: * (glob)
   include/include: * (glob)

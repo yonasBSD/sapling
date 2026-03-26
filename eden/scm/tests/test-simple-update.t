@@ -1,51 +1,52 @@
 #require no-eden
 
-  $ hg init test
+  $ export HGIDENTITY=sl
+  $ sl init test
   $ cd test
   $ echo foo>foo
-  $ hg addremove
+  $ sl addremove
   adding foo
-  $ hg commit -m "1"
+  $ sl commit -m "1"
 
-  $ hg verify
+  $ sl verify
   warning: verify does not actually check anything in this repo
 
-  $ hg clone . ../branch
+  $ sl clone . ../branch
   updating to tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd ../branch
-  $ hg co tip
+  $ sl co tip
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo bar>>foo
-  $ hg commit -m "2"
-  $ hg whereami
+  $ sl commit -m "2"
+  $ sl whereami
   30aff43faee11c21aa9036768ad78cc32a171e06
 
   $ cd ../test
 
-  $ hg pull ../branch -r 30aff43faee11c21aa9036768ad78cc32a171e06
+  $ sl pull ../branch -r 30aff43faee11c21aa9036768ad78cc32a171e06
   pulling from ../branch
   searching for changes
   adding changesets
   adding manifests
   adding file changes
 
-  $ hg verify
+  $ sl verify
   warning: verify does not actually check anything in this repo
 
-  $ hg co tip
+  $ sl co tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ cat foo
   foo
   bar
 
-  $ hg manifest --debug
+  $ sl manifest --debug
   6f4310b00b9a147241b071a60c28a650827fb03d 644   foo
 
 update to rev 0 with a date
 
-  $ hg upd -d foo 0
+  $ sl upd -d foo 0
   abort: you can't specify a revision and a date
   [255]
 
@@ -63,9 +64,9 @@ update with worker processes
   >     extensions.wrapfunction(worker, 'worthwhile', nocost)
   > EOF
 
-  $ hg init worker
+  $ sl init worker
   $ cd worker
-  $ cat <<EOF >> .hg/hgrc
+  $ cat <<EOF >> .sl/config
   > [extensions]
   > forceworker = $TESTTMP/forceworker.py
   > [worker]
@@ -74,11 +75,11 @@ update with worker processes
   $ for i in `seq 1 100`; do
   >   echo $i > $i
   > done
-  $ hg ci -qAm 'add 100 files'
+  $ sl ci -qAm 'add 100 files'
 
-  $ hg goto null
+  $ sl goto null
   0 files updated, 0 files merged, 100 files removed, 0 files unresolved
-  $ hg goto tip
+  $ sl goto tip
   100 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ cd ..

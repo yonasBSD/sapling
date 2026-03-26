@@ -5,6 +5,7 @@
 
 Stabilize test
 
+  $ export HGIDENTITY=sl
   $ PYTHONHASHSEED=0
 
 Function to test discovery between two repos in both directions, using both the local shortcut
@@ -12,12 +13,12 @@ Function to test discovery between two repos in both directions, using both the 
 
   $ testdesc() { # revs_a, revs_b, dagdesc
   >     if [ -d foo ]; then rm -rf foo; fi
-  >     hg init foo
+  >     sl init foo
   >     cd foo
-  >     hg debugbuilddag "$3"
-  >     hg init a -q
+  >     sl debugbuilddag "$3"
+  >     sl init a -q
   >     hg -q -R a pull . $1
-  >     hg init b -q
+  >     sl init b -q
   >     hg -q -R b pull . $2
   >     echo
   >     echo "% -- a -> b set"
@@ -415,19 +416,19 @@ Issue 4438 - test coverage for 3ef893520a85 issues.
   $ cd issue4438
 #if false
 generate new bundles:
-  $ hg init r1
-  $ for i in `seq 101`; do hg -R r1 up -qr null && hg -R r1 branch -q b$i && hg -R r1 ci -qmb$i; done
-  $ hg clone -q r1 r2
-  $ for i in `seq 10`; do hg -R r1 up -qr null && hg -R r1 branch -q c$i && hg -R r1 ci -qmc$i; done
-  $ hg -R r2 branch -q r2change && hg -R r2 ci -qmr2change
-  $ hg -R r1 bundle -qa $TESTDIR/bundles/issue4438-r1.hg
-  $ hg -R r2 bundle -qa $TESTDIR/bundles/issue4438-r2.hg
+  $ sl init r1
+  $ for i in `seq 101`; do hg -R r1 up -qr null && sl -R r1 branch -q b$i && sl -R r1 ci -qmb$i; done
+  $ sl clone -q r1 r2
+  $ for i in `seq 10`; do hg -R r1 up -qr null && sl -R r1 branch -q c$i && sl -R r1 ci -qmc$i; done
+  $ sl -R r2 branch -q r2change && sl -R r2 ci -qmr2change
+  $ sl -R r1 bundle -qa $TESTDIR/bundles/issue4438-r1.hg
+  $ sl -R r2 bundle -qa $TESTDIR/bundles/issue4438-r2.hg
 #else
 use existing bundles:
-  $ hg init r1
-  $ hg -R r1 unbundle -q $TESTDIR/bundles/issue4438-r1.hg
-  $ hg init r2
-  $ hg -R r2 unbundle -q $TESTDIR/bundles/issue4438-r2.hg
+  $ sl init r1
+  $ sl -R r1 unbundle -q $TESTDIR/bundles/issue4438-r1.hg
+  $ sl init r2
+  $ sl -R r2 unbundle -q $TESTDIR/bundles/issue4438-r2.hg
 #endif
 
 Set iteration order could cause wrong and unstable results - fixed in 73cfaa348650:
@@ -443,11 +444,11 @@ fixed in 86c35b7ae300:
   > random.sample = sample
   > EOF
 
-  $ cat >> r1/.hg/hgrc << EOF
+  $ cat >> r1/.sl/config << EOF
   > [extensions]
   > unrandomsample = $TESTTMP/unrandomsample.py
   > EOF
 
-  $ rm -rf r1/.hg/blackbox*
-  $ hg -R r1 blackbox --no-timestamp --no-sid --pattern '{"legacy_log":{"service":"discovery"}}'
+  $ rm -rf r1/.sl/blackbox*
+  $ sl -R r1 blackbox --no-timestamp --no-sid --pattern '{"legacy_log":{"service":"discovery"}}'
   $ cd ..

@@ -1,5 +1,6 @@
 #require diff
 
+  $ export HGIDENTITY=sl
   $ setconfig drawdag.defaultfiles=false
   $ enable extdiff
 
@@ -21,15 +22,15 @@
   > EOS
 
 validate from/to paths:
-  $ hg subtree gdiff -r $A -r $A --from-path foo --to-path barbar
+  $ sl subtree gdiff -r $A -r $A --from-path foo --to-path barbar
   abort: path 'barbar' does not exist in commit 112bacaa6bb9
   [255]
-  $ hg subtree gdiff -r $A -r $A --from-path foofoo --to-path bar
+  $ sl subtree gdiff -r $A -r $A --from-path foofoo --to-path bar
   abort: path 'foofoo' does not exist in commit 112bacaa6bb9
   [255]
 
 Basic diff with add, modify, and remove:
-  $ hg subtree gdiff -r $A -r $A --from-path foo --to-path bar
+  $ sl subtree gdiff -r $A -r $A --from-path foo --to-path bar
   diff -ur repo1.112bacaa6bb9.1a/bar/differs repo1.112bacaa6bb9.2/bar/differs
   --- repo1.112bacaa6bb9.1a/bar/differs	* (glob)
   +++ repo1.112bacaa6bb9.2/bar/differs	* (glob)
@@ -43,7 +44,7 @@ Basic diff with add, modify, and remove:
 
 
 Can filter by paths "--to-path" space:
-  $ hg subtree gdiff -r $A -r $A --from-path foo --to-path bar bar/differs
+  $ sl subtree gdiff -r $A -r $A --from-path foo --to-path bar bar/differs
   --- /tmp/extdiff.*/repo1.112bacaa6bb9.1a/bar/differs	* (glob)
   +++ repo1.112bacaa6bb9.2/bar/differs	* (glob)
   @@ -1,2 +1,2 @@
@@ -58,17 +59,17 @@ Can diff with working copy:
   > A  # A/foo/file = cat\n
   >    # A/bar/file = cat\n
   > EOS
-  $ hg go -q $A
-  $ hg subtree gdiff --from-path foo --to-path bar
+  $ sl go -q $A
+  $ sl subtree gdiff --from-path foo --to-path bar
   $ echo dog > bar/file
-  $ hg subtree gdiff --from-path foo --to-path bar
+  $ sl subtree gdiff --from-path foo --to-path bar
   --- /tmp/extdiff.*/repo2.669b16a60a5a.1a/bar/file	* (glob)
   +++ $TESTTMP/repo2/bar/file	* (glob)
   @@ -1 +1 @@
   -cat
   +dog
   [1]
-  $ hg subtree gdiff -r . --from-path foo --to-path bar
+  $ sl subtree gdiff -r . --from-path foo --to-path bar
   --- /tmp/extdiff.*/repo2.669b16a60a5a.1a/bar/file	* (glob)
   +++ $TESTTMP/repo2/bar/file	* (glob)
   @@ -1 +1 @@
@@ -89,7 +90,7 @@ Works with multiple grafts:
   >    # A/baz/fruit = orange\n
   >    # A/baz/animal = horse\n
   > EOS
-  $ hg subtree gdiff -r $A -r $B --from-path foo --to-path bar --from-path foo --to-path baz
+  $ sl subtree gdiff -r $A -r $B --from-path foo --to-path bar --from-path foo --to-path baz
   diff -ur repo3.19d6f42db3d3.1a/bar/animal repo3.7720cd095633.2/bar/animal
   --- repo3.19d6f42db3d3.1a/bar/animal	* (glob)
   +++ repo3.7720cd095633.2/bar/animal	* (glob)

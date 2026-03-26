@@ -1,5 +1,6 @@
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newext signal <<EOF
   > from sapling import registrar
@@ -16,7 +17,7 @@
 
 Test the default SIGUSR1 signal
 
-  $ hg signal USR1 2>&1 | tail -1
+  $ sl signal USR1 2>&1 | tail -1
   * written to $TESTTMP/dump-*.log (glob)
   $ ls $TESTTMP/dump-*.log
   $TESTTMP/dump-*-*.log (glob)
@@ -28,7 +29,7 @@ Test the signal config option
 
   $ echo 'signal=USR2' >> $HGRCPATH
   $ echo 'memsignal=USR1' >> $HGRCPATH
-  $ hg signal USR2  2>&1 | tail -1
+  $ sl signal USR2  2>&1 | tail -1
   * written to $TESTTMP/dump-*.log (glob)
   $ ls $TESTTMP/dump-*.log
   $TESTTMP/dump-*-*.log (glob)
@@ -38,7 +39,7 @@ Test the signal config option
 
   $ echo 'signal=INVALIDSIGNAL' >> $HGRCPATH
   $ echo 'memsignal=INVALIDSIGNAL' >> $HGRCPATH
-  $ hg signal USR1 || false
+  $ sl signal USR1 || false
   * (glob)
   [1]
   $ ls $TESTTMP/dump-*.log || false
@@ -49,6 +50,6 @@ Test the interval config option
 
   $ newrepo
   $ setconfig sigtrace.interval=1
-  $ hg dbsh -c 'import time; time.sleep(2)'
-  $ ls .hg/sigtrace/
+  $ sl dbsh -c 'import time; time.sleep(2)'
+  $ ls .sl/sigtrace/
   pid-*-debugshell (glob)
