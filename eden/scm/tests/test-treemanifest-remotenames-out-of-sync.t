@@ -1,6 +1,7 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ cat >> $HGRCPATH <<EOF
@@ -10,18 +11,18 @@
 
 # Setup repo
 
-  $ hg init repo --config remotefilelog.reponame=repo
+  $ sl init repo --config remotefilelog.reponame=repo
   $ cd repo
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [remotefilelog]
   > reponame=repo
   > server=True
   > EOF
   $ echo x > x
-  $ hg commit -qAm x
-  $ hg book master
+  $ sl commit -qAm x
+  $ sl book master
   $ echo x >> x
-  $ hg commit -qAm x2
+  $ sl commit -qAm x2
 
 # Setup shadow repo that will be 'out of date'
 
@@ -44,14 +45,14 @@
   $ setconfig remotefilelog.cachepath=$ROOTDIR/cache_client_concurrent
   $ setconfig treemanifest.pullprefetchrevs=master
   $ echo x >> y
-  $ hg commit -qAm x3
-  $ hg push --to master
+  $ sl commit -qAm x3
+  $ sl push --to master
   pushing rev 0b41a6a811a2 to destination ssh://user@dummy/repo bookmark master
   searching for changes
   updating bookmark master
   remote: pushing 1 changeset:
   remote:     0b41a6a811a2  x3
-  $ hg log -r .
+  $ sl log -r .
   commit:      0b41a6a811a2
   bookmark:    remote/master
   hoistedname: master
@@ -69,10 +70,10 @@
   $ setconfig treemanifest.pullprefetchrevs=master
   $ setconfig paths.default=ssh://user@dummy/repo?read_copy
   $ setconfig paths.default-push=ssh://user@dummy/repo?write
-  $ hg path
+  $ sl path
   default = ssh://user@dummy/repo?read_copy
   default-push = ssh://user@dummy/repo?write
-  $ hg log -r .
+  $ sl log -r .
   commit:      a89d614e2364
   bookmark:    remote/master
   hoistedname: master
@@ -81,8 +82,8 @@
   summary:     x2
   
   $ echo x >> x
-  $ hg commit -qAm x4
-  $ hg log -r .
+  $ sl commit -qAm x4
+  $ sl log -r .
   commit:      e68715a0fc4c
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -91,7 +92,7 @@
 # Verify that a push succeeds because the read will go to the write server
 # instead of the out-of-date read server
 
-  $ hg push --to master
+  $ sl push --to master
   pushing rev e68715a0fc4c to destination ssh://user@dummy/repo?write bookmark master
   searching for changes
   adding changesets
@@ -102,7 +103,7 @@
   remote:     e68715a0fc4c  x4
   remote: 2 new changesets from the server will be downloaded
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg log -r .
+  $ sl log -r .
   commit:      12f14bedbd28
   bookmark:    remote/master
   hoistedname: master

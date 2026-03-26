@@ -3,6 +3,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure dummyssh
   $ enable amend directaccess commitcloud rebase undo
   $ setconfig infinitepush.branchpattern="re:scratch/.*"
@@ -16,16 +17,16 @@
   $ newrepo server
   $ setconfig infinitepush.server=yes infinitepush.indextype=disk infinitepush.storetype=disk infinitepush.reponame=testrepo
   $ echo base > base
-  $ hg commit -Aqm base
-  $ hg bookmark master
+  $ sl commit -Aqm base
+  $ sl bookmark master
 
 Create a client with some initial commits and sync them to the cloud workspace.
 
   $ cd $TESTTMP
-  $ hg clone ssh://user@dummy/server client1 -q
+  $ sl clone ssh://user@dummy/server client1 -q
   $ cd client1
   $ setconfig commitcloud.servicetype=local commitcloud.servicelocation=$TESTTMP
-  $ hg cloud join
+  $ sl cloud join
   commitcloud: this repository is now connected to the 'user/test/default' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
@@ -51,7 +52,7 @@ Create a client with some initial commits and sync them to the cloud workspace.
   │
   @  d20a80d4def3 'base'
   
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: head '6ba5de8abe43' hasn't been uploaded yet
   commitcloud: head 'c70a9bd6bfd1' hasn't been uploaded yet
@@ -67,10 +68,10 @@ Create a client with some initial commits and sync them to the cloud workspace.
 Create another client and use it to modify the commits and create some new ones.
 
   $ cd $TESTTMP
-  $ hg clone ssh://user@dummy/server client2 -q
+  $ sl clone ssh://user@dummy/server client2 -q
   $ cd client2
   $ setconfig commitcloud.servicetype=local commitcloud.servicelocation=$TESTTMP
-  $ hg cloud join
+  $ sl cloud join
   commitcloud: this repository is now connected to the 'user/test/default' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
@@ -90,11 +91,11 @@ Create another client and use it to modify the commits and create some new ones.
   @  d20a80d4def3 'base'
   
 
-  $ hg rebase -r $D -d $E
+  $ sl rebase -r $D -d $E
   rebasing 6ba5de8abe43 "D"
-  $ hg up -q $Z
+  $ sl up -q $Z
   $ echo X > X
-  $ hg commit -Aqm X
+  $ sl commit -Aqm X
   $ tglogm
   @  dd114d9b2f9e 'X'
   │
@@ -106,7 +107,7 @@ Create another client and use it to modify the commits and create some new ones.
   │
   o  d20a80d4def3 'base'
   
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: head 'd8fc5ae9b7ef' hasn't been uploaded yet
   commitcloud: head 'dd114d9b2f9e' hasn't been uploaded yet
@@ -122,13 +123,13 @@ Create another client and use it to modify the commits and create some new ones.
 Before syncing, create a new commit in the original client
 
   $ cd $TESTTMP/client1
-  $ hg up -q $E
+  $ sl up -q $E
   $ echo F > F
-  $ hg commit -Aqm F
+  $ sl commit -Aqm F
 
 Also introduce some divergence by rebasing the same commit
 
-  $ hg rebase -r $D -d $Z
+  $ sl rebase -r $D -d $Z
   rebasing 6ba5de8abe43 "D"
 
 Now cloud sync.  The sets of commits should be merged.
@@ -144,7 +145,7 @@ Now cloud sync.  The sets of commits should be merged.
   │
   o  d20a80d4def3 'base'
   
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: head 'ba83c5428cb2' hasn't been uploaded yet
   commitcloud: head '6caded0e9807' hasn't been uploaded yet
@@ -177,7 +178,7 @@ Now cloud sync.  The sets of commits should be merged.
 Cloud sync back to the other client, it should get the same smartlog (apart from ordering).
 
   $ cd $TESTTMP/client2
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   pulling ba83c5428cb2 6caded0e9807 from ssh://user@dummy/server

@@ -1,6 +1,7 @@
 #testcases ruststatus pythonstatus
 
 #if pythonstatus
+  $ export HGIDENTITY=sl
   $ setconfig status.use-rust=false
 #endif
 
@@ -19,36 +20,36 @@ Setup repo
   $ configure modern
   $ newclientrepo repo
   $ touch a
-  $ hg commit -Aqm a
+  $ sl commit -Aqm a
   $ mkdir dir
   $ touch dir/b
-  $ hg commit -Aqm b
-  $ hg up -q 'desc(a)'
+  $ sl commit -Aqm b
+  $ sl up -q 'desc(a)'
   $ echo x >> a
-  $ hg commit -Aqm a2
-  $ hg up -q 'desc(b)'
+  $ sl commit -Aqm a2
+  $ sl up -q 'desc(b)'
 
 Updating to a specific date isn't blocked by our extensions'
 
-  $ hg bookmark temp
-  $ hg up -d "<today"
-  hint[date-option]: --date performs a slow scan. Consider using `bsearch` revset (hg help revset) instead.
+  $ sl bookmark temp
+  $ sl up -d "<today"
+  hint[date-option]: --date performs a slow scan. Consider using `bsearch` revset (sl help revset) instead.
   found revision ae5108b653e2f2d15099970dec82ee0198e23d98 from Thu Jan 01 00:00:00 1970 +0000
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark temp)
-  $ hg up temp
+  $ sl up temp
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (activating bookmark temp)
-  $ hg bookmark --delete temp
+  $ sl bookmark --delete temp
 
 Log is -f by default
 
-  $ hg log -G -T '{desc}\n'
+  $ sl log -G -T '{desc}\n'
   @  b
   │
   o  a
   
-  $ hg log -G -T '{desc}\n' --all
+  $ sl log -G -T '{desc}\n' --all
   o  a2
   │
   │ @  b
@@ -58,58 +59,58 @@ Log is -f by default
 Dirty update to different rev fails with --check
 
   $ echo x >> a
-  $ hg st
+  $ sl st
   M a
-  $ hg goto ".^" --check
+  $ sl goto ".^" --check
   abort: uncommitted changes
   [255]
 
 Dirty update allowed to same rev, with no conflicts, and --clean
 
-  $ hg goto .
+  $ sl goto .
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg goto ".^"
+  $ sl goto ".^"
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  hint[update-prev]: use 'hg prev' to move to the parent changeset
-  hint[hint-ack]: use 'hg hint --ack update-prev' to silence these hints
-  $ hg goto --clean 'desc(b)'
+  hint[update-prev]: use 'sl prev' to move to the parent changeset
+  hint[hint-ack]: use 'sl hint --ack update-prev' to silence these hints
+  $ sl goto --clean 'desc(b)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Log on dir's works
 
-  $ hg log -T '{desc}\n' dir
+  $ sl log -T '{desc}\n' dir
   b
 
-  $ hg log -T '{desc}\n' -I 'dir/*'
+  $ sl log -T '{desc}\n' -I 'dir/*'
   b
 
 Empty rebase fails
 
-  $ hg rebase
+  $ sl rebase
   abort: you must specify a destination (-d) for the rebase
   [255]
-  $ hg rebase -d 'desc(a2)'
+  $ sl rebase -d 'desc(a2)'
   rebasing * "b" (glob)
 
 Empty rebase returns exit code 0:
 
-  $ hg rebase -s tip -d "tip^1"
+  $ sl rebase -s tip -d "tip^1"
   nothing to rebase
 
 Rebase fast forwards bookmark
 
-  $ hg book -r 'desc(a2)' mybook
-  $ hg up -q mybook
-  $ hg log -G -T '{desc} {bookmarks}\n'
+  $ sl book -r 'desc(a2)' mybook
+  $ sl up -q mybook
+  $ sl log -G -T '{desc} {bookmarks}\n'
   @  a2 mybook
   │
   o  a
   
-  $ hg rebase -d 'desc(b)'
+  $ sl rebase -d 'desc(b)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   nothing to rebase - fast-forwarded to 5e0171bd5ee2
 
-  $ hg log --all -G -T '{desc} {bookmarks}\n'
+  $ sl log --all -G -T '{desc} {bookmarks}\n'
   @  b mybook
   │
   o  a2
@@ -118,21 +119,21 @@ Rebase fast forwards bookmark
   
 Rebase works with hyphens
 
-  $ hg book -r 'desc(a2)' hyphen-book
-  $ hg book -r 'desc(b)' hyphen-dest
-  $ hg up -q hyphen-book
-  $ hg log --all -G -T '{desc} {bookmarks}\n'
+  $ sl book -r 'desc(a2)' hyphen-book
+  $ sl book -r 'desc(b)' hyphen-dest
+  $ sl up -q hyphen-book
+  $ sl log --all -G -T '{desc} {bookmarks}\n'
   o  b hyphen-dest mybook
   │
   @  a2 hyphen-book
   │
   o  a
   
-  $ hg rebase -d hyphen-dest
+  $ sl rebase -d hyphen-dest
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   nothing to rebase - fast-forwarded to 5e0171bd5ee2
 
-  $ hg log -G -T '{desc} {bookmarks}\n'
+  $ sl log -G -T '{desc} {bookmarks}\n'
   @  b hyphen-book hyphen-dest mybook
   │
   o  a2
@@ -141,15 +142,15 @@ Rebase works with hyphens
   
 Rebase is blocked if you have conflicting changes
 
-  $ hg up -q 3903775176ed42b1458a6281db4a0ccf4d9f287a
+  $ sl up -q 3903775176ed42b1458a6281db4a0ccf4d9f287a
   $ echo y > a
-  $ hg rebase -d tip
+  $ sl rebase -d tip
   abort: 1 conflicting file changes:
    a
   (commit, shelve, goto --clean to discard all your changes, or goto --merge to merge them)
   [255]
-  $ hg revert -q --all
-  $ hg up -qC hyphen-book
+  $ sl revert -q --all
+  $ sl up -qC hyphen-book
   $ rm a.orig
 
 Grep options work
@@ -159,91 +160,91 @@ Grep options work
   $ echo str1-v >> dir1/-v
   $ echo str1space >> 'dir1/file with space'
   $ echo str1sub >> dir1/subdir1/subf1
-  $ hg add -q dir1
+  $ sl add -q dir1
 
-  $ hg grep x
+  $ sl grep x
   a:x
-  $ hg grep -i X
+  $ sl grep -i X
   a:x
-  $ hg grep -l x
+  $ sl grep -l x
   a
-  $ hg grep -n x
+  $ sl grep -n x
   a:1:x
 #if no-osx
-  $ hg grep -V ''
+  $ sl grep -V ''
   [1]
 #endif
 
 Make sure grep works in subdirectories and with strange filenames
   $ cd dir1
-  $ hg grep str1 | sort
+  $ sl grep str1 | sort
   -v:str1-v
   f1:str1f1
   file with space:str1space
   subdir1/subf1:str1sub
-  $ hg grep str1 'relre:f[0-9]+' | sort
+  $ sl grep str1 'relre:f[0-9]+' | sort
   f1:str1f1
   subdir1/subf1:str1sub
 
 Basic vs extended regular expressions
-  $ hg grep 'str\([0-9]\)'
+  $ sl grep 'str\([0-9]\)'
   [1]
-  $ hg grep 'str([0-9])' | sort
+  $ sl grep 'str([0-9])' | sort
   -v:str1-v
   f1:str1f1
   file with space:str1space
   subdir1/subf1:str1sub
-  $ hg grep -F 'str[0-9]'
+  $ sl grep -F 'str[0-9]'
   [1]
-  $ hg grep -E 'str([0-9])' | sort
+  $ sl grep -E 'str([0-9])' | sort
   -v:str1-v
   f1:str1f1
   file with space:str1space
   subdir1/subf1:str1sub
 
 Crazy filenames
-  $ hg grep str1 -- -v
+  $ sl grep str1 -- -v
   -v:str1-v
-  $ hg grep str1 'glob:*v'
+  $ sl grep str1 'glob:*v'
   -v:str1-v
-  $ hg grep str1 'file with space'
+  $ sl grep str1 'file with space'
   file with space:str1space
-  $ hg grep str1 'glob:*with*'
+  $ sl grep str1 'glob:*with*'
   file with space:str1space
-  $ hg grep str1 'glob:*f1'
+  $ sl grep str1 'glob:*f1'
   f1:str1f1
-  $ hg grep str1 subdir1
+  $ sl grep str1 subdir1
   subdir1/subf1:str1sub
-  $ hg grep str1 'glob:**/*f1' | sort
+  $ sl grep str1 'glob:**/*f1' | sort
   f1:str1f1
   subdir1/subf1:str1sub
 
 Test that status is default relative
   $ mkdir foo
   $ cd foo
-  $ hg status
+  $ sl status
   A ../-v
   A ../f1
   A ../file with space
   A ../subdir1/subf1
-  $ hg status --root-relative
+  $ sl status --root-relative
   A dir1/-v
   A dir1/f1
   A dir1/file with space
   A dir1/subdir1/subf1
-  $ hg status .
-  $ hg status ../subdir1
+  $ sl status .
+  $ sl status ../subdir1
   A ../subdir1/subf1
 
 Don't break automation
-  $ HGPLAIN=1 hg status
+  $ HGPLAIN=1 sl status
   A dir1/-v
   A dir1/f1
   A dir1/file with space
   A dir1/subdir1/subf1
 
 But can still manually disable root-relative:
-  $ HGPLAIN=1 hg status --no-root-relative
+  $ HGPLAIN=1 sl status --no-root-relative
   A ../-v
   A ../f1
   A ../file with space
@@ -251,102 +252,102 @@ But can still manually disable root-relative:
 
 This tag is kept to keep the rest of the test consistent:
   $ echo >> ../.hgtags
-  $ hg commit -Aqm "add foo tag"
+  $ sl commit -Aqm "add foo tag"
 
 Test graft date when tweakdefaults.graftkeepdate is not set
-  $ hg revert -a -q
-  $ hg up -q 'desc(a2)'
-  $ hg graft -q 'desc(b) & mybook' --config devel.default-date='2 2'
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl revert -a -q
+  $ sl up -q 'desc(a2)'
+  $ sl graft -q 'desc(b) & mybook' --config devel.default-date='2 2'
+  $ sl log -l 1 -T "{date} {desc}\n"
   2.02 b
 
 Test graft date when tweakdefaults.graftkeepdate is not set and --date is provided
-  $ hg up -q 'desc(a2)'
-  $ hg graft -q 'desc(b) & mybook' --date "1 1"
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl up -q 'desc(a2)'
+  $ sl graft -q 'desc(b) & mybook' --date "1 1"
+  $ sl log -l 1 -T "{date} {desc}\n"
   1.01 b
 
 Test graft date when tweakdefaults.graftkeepdate is set
-  $ hg up -q 'desc(a2)'
-  $ hg graft -q 'max(desc(b))' --config tweakdefaults.graftkeepdate=True
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl up -q 'desc(a2)'
+  $ sl graft -q 'max(desc(b))' --config tweakdefaults.graftkeepdate=True
+  $ sl log -l 1 -T "{date} {desc}\n"
   1.01 b
 
 Test amend date when tweakdefaults.amendkeepdate is not set
-  $ hg up -q 'desc(a2)'
+  $ sl up -q 'desc(a2)'
   $ echo x > a
-  $ hg commit -Aqm "commit for amend"
+  $ sl commit -Aqm "commit for amend"
   $ echo x > a
-  $ hg amend -q -m "amended message" --config devel.default-date='2 2'
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl amend -q -m "amended message" --config devel.default-date='2 2'
+  $ sl log -l 1 -T "{date} {desc}\n"
   2.02 amended message
 
 Test amend date when tweakdefaults.amendkeepdate is set
   $ touch new_file
-  $ hg commit -d "0 0" -Aqm "commit for amend"
+  $ sl commit -d "0 0" -Aqm "commit for amend"
   $ echo x > new_file
-  $ hg amend -q -m "amended message" --config tweakdefaults.amendkeepdate=True
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl amend -q -m "amended message" --config tweakdefaults.amendkeepdate=True
+  $ sl log -l 1 -T "{date} {desc}\n"
   0.00 amended message
 
 Test amend --to doesn't give a flag error when tweakdefaults.amendkeepdate is set
   $ echo q > new_file
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl log -l 1 -T "{date} {desc}\n"
   0.00 amended message
 
 Test commit --amend date when tweakdefaults.amendkeepdate is set
   $ echo a >> new_file
-  $ hg commit -d "0 0" -Aqm "commit for amend"
+  $ sl commit -d "0 0" -Aqm "commit for amend"
   $ echo x > new_file
-  $ hg commit -q --amend -m "amended message" --config tweakdefaults.amendkeepdate=True
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl commit -q --amend -m "amended message" --config tweakdefaults.amendkeepdate=True
+  $ sl log -l 1 -T "{date} {desc}\n"
   0.00 amended message
 
 Test commit --amend date when tweakdefaults.amendkeepdate is not set and --date is provided
   $ echo xxx > a
-  $ hg commit -d "0 0" -Aqm "commit for amend"
+  $ sl commit -d "0 0" -Aqm "commit for amend"
   $ echo x > a
-  $ hg commit -q --amend -m "amended message" --date "1 1"
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl commit -q --amend -m "amended message" --date "1 1"
+  $ sl log -l 1 -T "{date} {desc}\n"
   1.01 amended message
 
 Test rebase date when tweakdefaults.rebasekeepdate is not set
   $ echo test_1 > rebase_dest
-  $ hg commit --date "1 1" -Aqm "dest commit for rebase"
-  $ hg bookmark rebase_dest_test_1
-  $ hg up -q ".^"
-  hint[update-prev]: use 'hg prev' to move to the parent changeset
-  hint[hint-ack]: use 'hg hint --ack update-prev' to silence these hints
+  $ sl commit --date "1 1" -Aqm "dest commit for rebase"
+  $ sl bookmark rebase_dest_test_1
+  $ sl up -q ".^"
+  hint[update-prev]: use 'sl prev' to move to the parent changeset
+  hint[hint-ack]: use 'sl hint --ack update-prev' to silence these hints
   $ echo test_1 > rebase_source
-  $ hg commit --date "1 1" -Aqm "source commit for rebase"
-  $ hg bookmark rebase_source_test_1
-  $ hg rebase -q -s rebase_source_test_1 -d rebase_dest_test_1 --config devel.default-date='2 2'
-  $ hg log -l 1 -T "{date} {desc}\n"
+  $ sl commit --date "1 1" -Aqm "source commit for rebase"
+  $ sl bookmark rebase_source_test_1
+  $ sl rebase -q -s rebase_source_test_1 -d rebase_dest_test_1 --config devel.default-date='2 2'
+  $ sl log -l 1 -T "{date} {desc}\n"
   2.02 source commit for rebase
 
 Test rebase date when tweakdefaults.rebasekeepdate is set
   $ echo test_2 > rebase_dest
-  $ hg commit -Aqm "dest commit for rebase"
-  $ hg bookmark rebase_dest_test_2
-  $ hg up -q ".^"
-  hint[update-prev]: use 'hg prev' to move to the parent changeset
-  hint[hint-ack]: use 'hg hint --ack update-prev' to silence these hints
+  $ sl commit -Aqm "dest commit for rebase"
+  $ sl bookmark rebase_dest_test_2
+  $ sl up -q ".^"
+  hint[update-prev]: use 'sl prev' to move to the parent changeset
+  hint[hint-ack]: use 'sl hint --ack update-prev' to silence these hints
   $ echo test_2 > rebase_source
-  $ hg commit -Aqm "source commit for rebase"
-  $ hg bookmark rebase_source_test_2
-  $ hg rebase -q -s rebase_source_test_2 -d rebase_dest_test_2 --config tweakdefaults.rebasekeepdate=True
-  $ hg log -l 2 -T "{date} {desc}\n"
+  $ sl commit -Aqm "source commit for rebase"
+  $ sl bookmark rebase_source_test_2
+  $ sl rebase -q -s rebase_source_test_2 -d rebase_dest_test_2 --config tweakdefaults.rebasekeepdate=True
+  $ sl log -l 2 -T "{date} {desc}\n"
   0.00 source commit for rebase
   0.00 dest commit for rebase
 
 Test histedit date when tweakdefaults.histeditkeepdate is set
-  $ hg bookmark histedit_test
+  $ sl bookmark histedit_test
   $ echo test_1 > histedit_1
-  $ hg commit -Aqm "commit 1 for histedit"
+  $ sl commit -Aqm "commit 1 for histedit"
   $ echo test_2 > histedit_2
-  $ hg commit -Aqm "commit 2 for histedit"
+  $ sl commit -Aqm "commit 2 for histedit"
   $ echo test_3 > histedit_3
-  $ hg commit -Aqm "commit 3 for histedit"
+  $ sl commit -Aqm "commit 3 for histedit"
   $ tglogp --limit 3
   @  1cd28f082aaa draft 'commit 3 for histedit' histedit_test
   │
@@ -355,12 +356,12 @@ Test histedit date when tweakdefaults.histeditkeepdate is set
   o  08116b82180a draft 'commit 1 for histedit'
   │
   ~
-  $ hg histedit "desc('commit 1 for histedit')" --commands - --config tweakdefaults.histeditkeepdate=True 2>&1 <<EOF| fixbundle
+  $ sl histedit "desc('commit 1 for histedit')" --commands - --config tweakdefaults.histeditkeepdate=True 2>&1 <<EOF| fixbundle
   > pick 08116b82180a
   > pick 1cd28f082aaa
   > pick ae01c7e395dd
   > EOF
-  $ hg log -l 3 -T "{date} {desc}\n"
+  $ sl log -l 3 -T "{date} {desc}\n"
   0.00 commit 2 for histedit
   0.00 commit 3 for histedit
   0.00 commit 1 for histedit
@@ -374,43 +375,39 @@ Test histedit date when tweakdefaults.histeditkeepdate is not set
   o  08116b82180a draft 'commit 1 for histedit'
   │
   ~
-  $ hg histedit "desc('commit 1 for histedit')" --config devel.default-date='2 2' --commands - 2>&1 <<EOF| fixbundle
+  $ sl histedit "desc('commit 1 for histedit')" --config devel.default-date='2 2' --commands - 2>&1 <<EOF| fixbundle
   > pick 08116b82180a
   > pick 8baf563aea27
   > pick 0d8ef43b4a3b
   > EOF
-  $ hg log -l 2 -T "{date} {desc}\n"
+  $ sl log -l 2 -T "{date} {desc}\n"
   2.02 commit 3 for histedit
   2.02 commit 2 for histedit
 
 Test diff --per-file-stat
   $ echo a >> a
   $ echo b > b
-  $ hg add b
-  $ hg ci -m A
-  $ hg diff -r ".^" -r . --per-file-stat-json
+  $ sl add b
+  $ sl ci -m A
+  $ sl diff -r ".^" -r . --per-file-stat-json
   {"dir1/foo/a": {"adds": 1, "isbinary": false, "removes": 0}, "dir1/foo/b": {"adds": 1, "isbinary": false, "removes": 0}}
 
 Test rebase with showupdated=True
   $ cd $TESTTMP
   $ newclientrepo showupdated
-  $ cat >> .hg/hgrc <<EOF
-  > [tweakdefaults]
-  > showupdated=True
-  > rebasekeepdate=True
-  > EOF
-  $ touch a && hg commit -Aqm a
-  $ touch b && hg commit -Aqm b
-  $ hg up -q 'desc(a)'
-  $ touch c && hg commit -Aqm c
-  $ hg log -G -T '{node} {bookmarks}' -r 'all()'
+  $ setconfig tweakdefaults.showupdated=True tweakdefaults.rebasekeepdate=True
+  $ touch a && sl commit -Aqm a
+  $ touch b && sl commit -Aqm b
+  $ sl up -q 'desc(a)'
+  $ touch c && sl commit -Aqm c
+  $ sl log -G -T '{node} {bookmarks}' -r 'all()'
   @  d5e255ef74f8ec83b3a2a3f3254c699451c89e29
   │
   │ o  0e067c57feba1a5694ca4844f05588bb1bf82342
   ├─╯
   o  3903775176ed42b1458a6281db4a0ccf4d9f287a
   
-  $ hg rebase -r 'desc(b)' -d 'desc(c)'
+  $ sl rebase -r 'desc(b)' -d 'desc(c)'
   rebasing 0e067c57feba "b"
   0e067c57feba -> a602e0d56f83 "b"
 
@@ -451,8 +448,8 @@ Test rebase with showupdate=True and a lot of source revisions
   > |/
   > A Z
   > EOS
-  $ hg up -q 'desc(A)'
-  $ hg rebase -r 'all() - roots(all())' -d 'desc(Z)'
+  $ sl up -q 'desc(A)'
+  $ sl rebase -r 'all() - roots(all())' -d 'desc(Z)'
   rebasing 112478962961 "B"
   rebasing dc0947a82db8 "C"
   rebasing b18e25de2cf5 "D"
@@ -484,9 +481,9 @@ Test rebase with showupdate=True and a lot of source revisions
 
 Test rebase with showupdate=True and a long commit message
 
-  $ hg up -q 'desc(A)'
+  $ sl up -q 'desc(A)'
   $ echo 1 > longfile
-  $ hg commit -qm "This is a long commit message which will be truncated." -A longfile
-  $ hg rebase -r . -d 'desc(Z)'
+  $ sl commit -qm "This is a long commit message which will be truncated." -A longfile
+  $ sl rebase -r . -d 'desc(Z)'
   rebasing f5bef8190a99 "This is a long commit message which will be truncated."
   f5bef8190a99 -> 8df4b79a5414 "This is a long commit message which will be tru..."

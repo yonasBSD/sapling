@@ -8,6 +8,7 @@
 
 # TODO: Make this test compatible with obsstore enabled.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig 'experimental.evolution='
 
@@ -21,18 +22,18 @@
 
 # Run test
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ touch a
-  $ hg commit -Aqm a
+  $ sl commit -Aqm a
   $ touch b
-  $ hg commit -Aqm b
-  $ hg bookmark AB
-  $ hg up '.^'
+  $ sl commit -Aqm b
+  $ sl bookmark AB
+  $ sl up '.^'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   (leaving bookmark AB)
   $ touch c
-  $ hg commit -Aqm c
-  $ hg bookmark C -t AB
-  $ hg rebase
+  $ sl commit -Aqm c
+  $ sl bookmark C -t AB
+  $ sl rebase
   rebasing d5e255ef74f8 "c" (C)

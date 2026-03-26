@@ -5,27 +5,28 @@
 #inprocess-hg-incompatible
 
 
-  $ hg init a
+  $ export HGIDENTITY=sl
+  $ sl init a
   $ cd a
   $ echo 123 > a
-  $ hg add a
-  $ hg commit -m "a" -u a
-  $ hg book master
+  $ sl add a
+  $ sl commit -m "a" -u a
+  $ sl book master
 
   $ cd ..
-  $ hg init b
+  $ sl init b
   $ cd b
   $ echo 321 > b
-  $ hg add b
-  $ hg commit -m "b" -u b
+  $ sl add b
+  $ sl commit -m "b" -u b
 
-  $ hg pull ../a
+  $ sl pull ../a
   pulling from ../a
   searching for changes
   abort: repository is unrelated
   [255]
 
-  $ hg pull -f ../a
+  $ sl pull -f ../a
   pulling from ../a
   searching for changes
   warning: repository is unrelated
@@ -33,7 +34,7 @@
   adding manifests
   adding file changes
 
-  $ hg heads
+  $ sl heads
   commit:      9a79c33a9db3
   user:        a
   date:        Thu Jan 01 00:00:00 1970 +0000

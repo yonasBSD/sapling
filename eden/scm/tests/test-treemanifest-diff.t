@@ -8,23 +8,24 @@
 
 # Setup the repository
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init myrepo
+  $ sl init myrepo
   $ cd myrepo
   $ mkdir -p foo/bar-test foo/bartest
   $ echo a > foo/bar-test/a.txt
   $ echo b > foo/bartest/b.txt
-  $ hg add .
+  $ sl add .
   adding foo/bar-test/a.txt
   adding foo/bartest/b.txt
-  $ hg commit -m Init
+  $ sl commit -m Init
 
   $ mkdir foo/bar
   $ echo c > foo/bar/c.txt
-  $ hg add .
+  $ sl add .
   adding foo/bar/c.txt
-  $ hg commit -m 'Add foo/bar/c.txt'
+  $ sl commit -m 'Add foo/bar/c.txt'
 
-  $ hg diff -r .^ -r . --stat
+  $ sl diff -r .^ -r . --stat
    foo/bar/c.txt |  1 +
    1 files changed, 1 insertions(+), 0 deletions(-)

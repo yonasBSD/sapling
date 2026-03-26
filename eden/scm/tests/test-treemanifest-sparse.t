@@ -8,6 +8,7 @@
 
 # test interaction between sparse and treemanifest (sparse file listing)
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << EOF
   > [extensions]
@@ -19,7 +20,7 @@
 
 # Setup the repository
 
-  $ hg init myrepo
+  $ sl init myrepo
   $ cd myrepo
   $ touch show
   $ touch hide
@@ -28,31 +29,31 @@
   $ touch subdir/bar/ham/hide
   $ touch hiddensub/foo/spam
   $ touch hiddensub/bar/ham
-  $ hg add .
+  $ sl add .
   adding hiddensub/bar/ham
   adding hiddensub/foo/spam
   adding hide
   adding show
   adding subdir/bar/ham/hide
   adding subdir/foo/spam/show
-  $ hg commit -m Init
-  $ hg sparse include show
-  $ hg sparse exclude hide
-  $ hg sparse include subdir
-  $ hg sparse exclude subdir/foo
+  $ sl commit -m Init
+  $ sl sparse include show
+  $ sl sparse exclude hide
+  $ sl sparse include subdir
+  $ sl sparse exclude subdir/foo
 
 # Test cwd
 
-  $ hg sparse cwd
+  $ sl sparse cwd
   - hiddensub
   - hide
     show
     subdir
   $ cd subdir
-  $ hg sparse cwd
+  $ sl sparse cwd
     bar
   - foo
-  $ hg sparse include foo
-  $ hg sparse cwd
+  $ sl sparse include foo
+  $ sl sparse cwd
     bar
     foo

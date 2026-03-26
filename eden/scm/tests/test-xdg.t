@@ -4,6 +4,7 @@
 
 #if no-windows no-osx
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig config.use-rust=true
   $ mkdir -p xdgconf/sapling
@@ -12,7 +13,7 @@
   $ XDG_CONFIG_HOME="`pwd`/xdgconf" ; export XDG_CONFIG_HOME
   $ unset HGRCPATH
   $ unset SL_CONFIG_PATH
-  $ hg config ui.username 2>/dev/null
+  $ sl config ui.username 2>/dev/null
   foobar
 
   $ mkdir -p home/.config/sapling
@@ -20,7 +21,7 @@
   $ echo 'username = bazbaz' >> home/.config/sapling/sapling.conf
   $ HOME="`pwd`/home" ; export HOME
   $ unset XDG_CONFIG_HOME
-  $ hg config ui.username 2>/dev/null
+  $ sl config ui.username 2>/dev/null
   bazbaz
 
 #endif

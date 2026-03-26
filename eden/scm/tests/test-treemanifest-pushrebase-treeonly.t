@@ -5,6 +5,7 @@
 
 Push treeonly commits from a treeonly shallow repo to a treeonly server
 
+  $ export HGIDENTITY=sl
   $ setconfig remotefilelog.reponame=x remotefilelog.cachepath=$TESTTMP/cache
   $ configure dummyssh
 
@@ -13,7 +14,7 @@ Push treeonly commits from a treeonly shallow repo to a treeonly server
 
   $ newrepo client
   $ setconfig paths.default=ssh://user@dummy/server
-  $ echo remotefilelog >> .hg/requires
+  $ echo remotefilelog >> .sl/requires
   $ enable pushrebase
   $ drawdag <<'EOS'
   > B
@@ -21,7 +22,7 @@ Push treeonly commits from a treeonly shallow repo to a treeonly server
   > A
   > EOS
 
-  $ hg push --to foo -r $B --create
+  $ sl push --to foo -r $B --create
   pushing rev 112478962961 to destination ssh://user@dummy/server bookmark foo
   searching for changes
   exporting bookmark foo
@@ -33,14 +34,14 @@ Make server treeonly and push trees to it
   $ switchrepo server
 
   $ switchrepo client
-  $ hg up $A
+  $ sl up $A
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ mkdir sub
   $ echo >> sub/C
-  $ hg commit -Aqm "C"
+  $ sl commit -Aqm "C"
   $ echo >> sub/C
-  $ hg commit -qm "D"
-  $ hg push --to foo
+  $ sl commit -qm "D"
+  $ sl push --to foo
   pushing rev 0560779f58ae to destination ssh://user@dummy/server bookmark foo
   searching for changes
   adding changesets

@@ -2,28 +2,29 @@
 #require no-eden
 
 
-  $ hg init repo
+  $ export HGIDENTITY=sl
+  $ sl init repo
   $ cd repo
   $ touch a
 
   $ unset HGUSER
-  $ echo "[ui]" >> .hg/hgrc
-  $ echo "username= foo" >> .hg/hgrc
-  $ echo "          bar1" >> .hg/hgrc
+  $ echo "[ui]" >> .sl/config
+  $ echo "username= foo" >> .sl/config
+  $ echo "          bar1" >> .sl/config
 
-  $ hg ci -Am m
+  $ sl ci -Am m
   adding a
   abort: username 'foo\nbar1' contains a newline
   
   [255]
-  $ rm .hg/hgrc
+  $ rm .sl/config
 
-  $ HGUSER=`(echo foo; echo bar2)` hg ci -Am m
+  $ HGUSER=`(echo foo; echo bar2)` sl ci -Am m
   adding a
   abort: username 'foo\nbar2' contains a newline
   
   [255]
-  $ hg ci -Am m -u "`(echo foo; echo bar3)`"
+  $ sl ci -Am m -u "`(echo foo; echo bar3)`"
   adding a
   abort: username 'foo\nbar3' contains a newline!
   [255]

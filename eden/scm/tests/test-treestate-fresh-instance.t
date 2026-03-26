@@ -1,22 +1,23 @@
 #require fsmonitor no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig format.dirstate=2
   $ newclientrepo repo
   $ touch x
-  $ hg status
+  $ sl status
   ? x
-  $ hg debugshell --command 'print(repo.dirstate.getclock())'
+  $ sl debugshell --command 'print(repo.dirstate.getclock())'
   c:* (glob)
 
 Change the clock to an invalid value
 
-  $ hg debugshell --command 'with repo.wlock(), repo.lock(), repo.transaction("dirstate") as tr: repo.dirstate.setclock("c:11111:22222"); repo.dirstate.write(tr)'
-  $ hg debugshell --command 'print(repo.dirstate.getclock())'
+  $ sl debugshell --command 'with repo.wlock(), repo.lock(), repo.transaction("dirstate") as tr: repo.dirstate.setclock("c:11111:22222"); repo.dirstate.write(tr)'
+  $ sl debugshell --command 'print(repo.dirstate.getclock())'
   c:11111:22222
 
-Run "hg status" again. A new clock value will be written even if no files are changed
+Run "sl status" again. A new clock value will be written even if no files are changed
 
-  $ hg status
+  $ sl status
   ? x
-  $ hg debugshell --command 'print(repo.dirstate.getclock() != "c:11111:22222")'
+  $ sl debugshell --command 'print(repo.dirstate.getclock() != "c:11111:22222")'
   True

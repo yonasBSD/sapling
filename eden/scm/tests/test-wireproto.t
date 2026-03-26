@@ -1,21 +1,22 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
 Test wire protocol argument passing
 
 Setup repo:
 
-  $ hg init repo
+  $ sl init repo
 
 Local:
 
-  $ hg debugwireargs repo eins zwei --three drei --four vier
+  $ sl debugwireargs repo eins zwei --three drei --four vier
   eins zwei drei vier None
-  $ hg debugwireargs repo eins zwei --four vier
+  $ sl debugwireargs repo eins zwei --four vier
   eins zwei None vier None
-  $ hg debugwireargs repo eins zwei
+  $ sl debugwireargs repo eins zwei
   eins zwei None None None
-  $ hg debugwireargs repo eins zwei --five fuenf
+  $ sl debugwireargs repo eins zwei --five fuenf
   eins zwei None None fuenf

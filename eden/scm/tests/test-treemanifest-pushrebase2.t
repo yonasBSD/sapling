@@ -1,6 +1,7 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 Push merge commits from a treeonly shallow repo to a hybrid treemanifest server
 
@@ -12,7 +13,7 @@ Push merge commits from a treeonly shallow repo to a hybrid treemanifest server
   $ enable pushrebase
 
   $ newrepo client
-  $ echo remotefilelog >> .hg/requires
+  $ echo remotefilelog >> .sl/requires
   $ enable pushrebase
   $ setconfig paths.default=ssh://user@dummy/server
   $ drawdag <<'EOS'
@@ -23,7 +24,7 @@ Push merge commits from a treeonly shallow repo to a hybrid treemanifest server
   > A F
   > EOS
 
-  $ hg push --to foo --create -r $D -f  ssh://user@dummy/server
+  $ sl push --to foo --create -r $D -f  ssh://user@dummy/server
   pushing rev 5a587c09248a to destination ssh://user@dummy/server bookmark foo
   searching for changes
   exporting bookmark foo
@@ -38,7 +39,7 @@ Push merge commits from a treeonly shallow repo to a hybrid treemanifest server
 Verify the renames are preserved (commit hashes did not change)
 
   $ cd $TESTTMP/server
-  $ hg log -r "sort(::$D,topo)" -G -T "{desc} {bookmarks}"
+  $ sl log -r "sort(::$D,topo)" -G -T "{desc} {bookmarks}"
   o    D foo
   ├─╮
   │ o  E
@@ -53,13 +54,13 @@ Verify the renames are preserved (commit hashes did not change)
 Push a commit that client1 doesnt have
   $ cd ..
   $ newrepo client2
-  $ echo remotefilelog >> .hg/requires
+  $ echo remotefilelog >> .sl/requires
   $ enable pushrebase
   $ setconfig paths.default=ssh://user@dummy/server
-  $ hg pull -B foo
+  $ sl pull -B foo
   pulling from ssh://user@dummy/server
   fetching revlog data for 5 commits
-  $ hg up -q tip
+  $ sl up -q tip
 - Add a bunch of files, to force it to choose to make a delta
   $ echo >> file1
   $ echo >> file2
@@ -69,8 +70,8 @@ Push a commit that client1 doesnt have
   $ mkdir mydir
   $ echo >> mydir/fileX
   $ echo >> mydir/fileY
-  $ hg commit -Aqm "Add mydir/fileX & mydir/fileY"
-  $ hg push --to foo
+  $ sl commit -Aqm "Add mydir/fileX & mydir/fileY"
+  $ sl push --to foo
   pushing rev 0cfa18081ea6 to destination ssh://user@dummy/server bookmark foo
   searching for changes
   updating bookmark foo
@@ -79,17 +80,17 @@ Push a commit that client1 doesnt have
 
 Push treeonly merge commit to a treeonly server
   $ cd $TESTTMP/client
-  $ hg up -q tip
+  $ sl up -q tip
   $ mkdir -p mydir/subdir
   $ echo X >> mydir/subdir/file
-  $ hg commit -Aqm "Edit file"
-  $ hg up -q 'tip^'
+  $ sl commit -Aqm "Edit file"
+  $ sl up -q 'tip^'
   $ mkdir -p mydir/subdir
   $ echo X >> mydir/subdir/file2
-  $ hg commit -Aqm "Edit file2"
-  $ hg merge -q a1d68bae23eec4b7da0c641c0564dee472c8dbf3
-  $ hg commit -m "Merge 2"
-  $ hg push --to foo ssh://user@dummy/server 2>&1
+  $ sl commit -Aqm "Edit file2"
+  $ sl merge -q a1d68bae23eec4b7da0c641c0564dee472c8dbf3
+  $ sl commit -m "Merge 2"
+  $ sl push --to foo ssh://user@dummy/server 2>&1
   pushing rev b634a5228cef to destination ssh://user@dummy/server bookmark foo
   searching for changes
   adding changesets

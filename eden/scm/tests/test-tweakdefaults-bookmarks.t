@@ -8,6 +8,7 @@
 
 # Set up
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [experimental]
@@ -17,17 +18,17 @@
   > tweakdefaults=
   > EOF
 
-# Test hg bookmark works with hidden commits
+# Test sl bookmark works with hidden commits
 
-  $ hg init repo1
+  $ sl init repo1
   $ cd repo1
   $ touch a
-  $ hg commit -A a -m a
+  $ sl commit -A a -m a
   $ echo 1 >> a
-  $ hg commit a -m a1
-  $ hg hide da7a5140a611 -q
-  $ hg bookmark b -r da7a5140a611 -q
+  $ sl commit a -m a1
+  $ sl hide da7a5140a611 -q
+  $ sl bookmark b -r da7a5140a611 -q
 
 # Same test but with remotenames enabled
 
-  $ hg bookmark b2 -r da7a5140a611 -q
+  $ sl bookmark b2 -r da7a5140a611 -q

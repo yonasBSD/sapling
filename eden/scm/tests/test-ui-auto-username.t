@@ -4,15 +4,16 @@
 
 Do not use usernames from env vars:
 
+  $ export HGIDENTITY=sl
   $ unset HGUSER EMAIL
   $ export HGRCPATH=sys=$HGRCPATH:user=$HOME/.config/sapling/sapling.conf
 
 Without auto username:
 
   $ newrepo
-  $ hg commit --config ui.allowemptycommit=1 -m 1
+  $ sl commit --config ui.allowemptycommit=1 -m 1
   abort: no username supplied
-  (use `hg config --user ui.username "First Last <me@example.com>"` to set your username)
+  (use `sl config --user ui.username "First Last <me@example.com>"` to set your username)
   [255]
 
 With auto username:
@@ -27,12 +28,12 @@ With auto username:
 
   $ setconfig extensions.a=$TESTTMP/a.py
 
-  $ hg commit --config ui.allowemptycommit=1 -m 1
+  $ sl commit --config ui.allowemptycommit=1 -m 1
 
-  $ hg log -r . -T '{author}\n'
+  $ sl log -r . -T '{author}\n'
   A B <c@d.com>
 
 The username is saved in config file:
 
-  $ hg config ui.username
+  $ sl config ui.username
   A B <c@d.com>

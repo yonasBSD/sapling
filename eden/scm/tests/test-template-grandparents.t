@@ -1,6 +1,7 @@
+  $ export HGIDENTITY=sl
   $ newrepo
 
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   >   f g
   >   |/
   > i e d
@@ -14,7 +15,7 @@
 
 Log the whole revset where direct parents are present except for the root. Add --debug to confirm whether the subdag is computed.
 
-  $ hg log -T '{desc} parents: [{parents % "{desc}"}] grandparents: [{grandparents % "{desc}"}]\n' --debug
+  $ sl log -T '{desc} parents: [{parents % "{desc}"}] grandparents: [{grandparents % "{desc}"}]\n' --debug
   commands.log(): finished computing subdag
   g parents: [e] grandparents: []
   f parents: [e] grandparents: []
@@ -28,7 +29,7 @@ Log the whole revset where direct parents are present except for the root. Add -
 
 Specify revs where direct parents are NOT always present.
 
-  $ hg log -r 'a + h + c + d + g' -T '{desc} parents: [{parents % "{desc}"}] grandparents: [{grandparents % "{desc}"}]\n' --debug
+  $ sl log -r 'a + h + c + d + g' -T '{desc} parents: [{parents % "{desc}"}] grandparents: [{grandparents % "{desc}"}]\n' --debug
   commands.log(): finished computing subdag
   a parents: [] grandparents: []
   h parents: [b] grandparents: [a]
@@ -38,7 +39,7 @@ Specify revs where direct parents are NOT always present.
 
 Test log --graph which doesn't involve subdag computation.
 
-  $ hg log --graph -r 'a + h + c + d + g' -T '{desc} parents: [{parents % "{desc}"}] grandparents: [{grandparents % "{desc}"}]\n' --debug
+  $ sl log --graph -r 'a + h + c + d + g' -T '{desc} parents: [{parents % "{desc}"}] grandparents: [{grandparents % "{desc}"}]\n' --debug
   o  g parents: [e] grandparents: [c]
   ╷
   ╷ o  d parents: [c] grandparents: []
@@ -53,7 +54,7 @@ Test log --graph which doesn't involve subdag computation.
 
 Confirm that the subdag is only computed when "grandparents" is requested in the template.
 
-  $ hg log -T '{desc} parents: [{parents % "{desc}"}]\n' --debug
+  $ sl log -T '{desc} parents: [{parents % "{desc}"}]\n' --debug
   g parents: [e]
   f parents: [e]
   i parents: [h]

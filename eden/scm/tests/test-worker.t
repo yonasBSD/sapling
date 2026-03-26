@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Test UI worker interaction
 
@@ -36,7 +37,7 @@ Test UI worker interaction
   > }
   > cmdtable = {}
   > command = registrar.command(cmdtable)
-  > @command('test', [], 'hg test [COST] [FUNC]')
+  > @command('test', [], 'sl test [COST] [FUNC]')
   > def t(ui, repo, cost=1.0, func='runme'):
   >     cost = float(cost)
   >     func = functable[func]
@@ -47,11 +48,11 @@ Test UI worker interaction
   >     ui.status('done\n')
   > EOF
   $ abspath=`pwd`/t.py
-  $ hg init
+  $ sl init
 
 Run tests with worker enable by forcing a heigh cost
 
-  $ hg --config "extensions.t=$abspath" test 100000.0
+  $ sl --config "extensions.t=$abspath" test 100000.0
   start
   run
   run
@@ -65,7 +66,7 @@ Run tests with worker enable by forcing a heigh cost
 
 Run tests without worker by forcing a low cost
 
-  $ hg --config "extensions.t=$abspath" test 0.0000001
+  $ sl --config "extensions.t=$abspath" test 0.0000001
   start
   run
   run
@@ -81,14 +82,14 @@ Run tests without worker by forcing a low cost
 
 Known exception should be caught, but printed if --traceback is enabled
 
-  $ hg --config "extensions.t=$abspath" --config 'worker.numcpus=8' \
+  $ sl --config "extensions.t=$abspath" --config 'worker.numcpus=8' \
   > test 100000.0 abort --traceback 2>&1 | egrep '^(SystemExit|(sapling.error.)?Abort)'
   *Abort: known exception (glob)
   *Abort: known exception (glob)
 
 Traceback must be printed for unknown exceptions
 
-  $ hg --config "extensions.t=$abspath" --config 'worker.numcpus=8' \
+  $ sl --config "extensions.t=$abspath" --config 'worker.numcpus=8' \
   > test 100000.0 exc 2>&1 | grep '^Exception' | sort
   Exception in thread Thread-*: (glob)
   Exception: unknown exception

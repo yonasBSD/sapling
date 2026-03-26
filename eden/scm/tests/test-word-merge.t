@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable rebase
   $ setconfig automerge.mode=accept
@@ -16,11 +17,11 @@ Successful word merge:
   > |/  # B/A=This IS a sentence.\n
   > A   # A/A=This is a sentence.\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 401b52e8a3cc "C"
   merging A
    line 1 has been resolved by automerge algorithms
-  $ hg cat -r tip A
+  $ sl cat -r tip A
   That IS a word.
 
 Unsuccessful. Still show conflicts at line boundary:
@@ -31,9 +32,9 @@ Unsuccessful. Still show conflicts at line boundary:
   > |/  # B/A=That is one sentence.\n
   > A   # A/A=This is a sentence.\n
   > EOS
-  $ hg rebase -r $C -d $B -q
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  $ sl rebase -r $C -d $B -q
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat A
   <<<<<<< dest:   952e28cce513 - test: B
@@ -50,12 +51,12 @@ Partially successful at the second conflict region.
   > |/  # B/A=Foo.\n\nThat is the second line.\n
   > A   # A/A=First line.\n\nThis is the second line.\n
   > EOS
-  $ hg rebase -r $C -d $B
+  $ sl rebase -r $C -d $B
   rebasing 141643ae4b3c "C"
   merging A
    line 7 has been resolved by automerge algorithms
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat A
   <<<<<<< dest:   f32bfbad7819 - test: B
@@ -74,9 +75,9 @@ Conflicted case. Example is from a sparse related test.
   > |/  # B/A=[include]\n*.html\n
   > A   # A/A=[include]\n*.py\n
   > EOS
-  $ hg rebase -r $C -d $B -q
-  warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  $ sl rebase -r $C -d $B -q
+  warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ cat A
   [include]

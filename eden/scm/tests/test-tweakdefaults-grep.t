@@ -1,11 +1,12 @@
 #require xargs env python3 no-eden
 
+  $ export HGIDENTITY=sl
   $ enable rebase
 
 Set up the repository with some simple files.
 This is coupled with the files dictionary in
 eden/scm/tests/fake-biggrep-client.py
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ mkdir grepdir
   $ cd grepdir
@@ -16,86 +17,86 @@ eden/scm/tests/fake-biggrep-client.py
   $ echo 'foobar_subdir' > subdir1/subfile1
   $ mkdir subdir2
   $ echo 'foobar_dirsub' > subdir2/subfile2
-  $ hg add grepfile1
-  $ hg add grepfile2
-  $ hg add subdir1/subfile1
-  $ hg add subdir2/subfile2
-  $ hg commit -m "Added some files"
+  $ sl add grepfile1
+  $ sl add grepfile2
+  $ sl add subdir1/subfile1
+  $ sl add subdir2/subfile2
+  $ sl commit -m "Added some files"
   $ echo 'foobarbazboo' > untracked1
 
 Make sure grep finds patterns in tracked files, and excludes untracked files
-  $ hg grep -n foobar
+  $ sl grep -n foobar
   grepfile1:1:foobarbaz
   grepfile2:1:foobarboo
   subdir1/subfile1:1:foobar_subdir
   subdir2/subfile2:1:foobar_dirsub
-  $ hg grep -n barbaz
+  $ sl grep -n barbaz
   grepfile1:1:foobarbaz
-  $ hg grep -n barbaz .
+  $ sl grep -n barbaz .
   grepfile1:1:foobarbaz
 
 Test searching in subdirectories, from the repository root
-  $ hg grep -n foobar subdir1
+  $ sl grep -n foobar subdir1
   subdir1/subfile1:1:foobar_subdir
-  $ hg grep -n foobar sub*
+  $ sl grep -n foobar sub*
   subdir1/subfile1:1:foobar_subdir
   subdir2/subfile2:1:foobar_dirsub
 
 Test searching in a sibling subdirectory, using a relative path
   $ cd subdir1
-  $ hg grep -n foobar ../subdir2
+  $ sl grep -n foobar ../subdir2
   ../subdir2/subfile2:1:foobar_dirsub
-  $ hg grep -n foobar
+  $ sl grep -n foobar
   subfile1:1:foobar_subdir
-  $ hg grep -n foobar .
+  $ sl grep -n foobar .
   subfile1:1:foobar_subdir
   $ cd ..
 
 Test mercurial file patterns
-  $ hg grep -n foobar 'glob:*rep*'
+  $ sl grep -n foobar 'glob:*rep*'
   grepfile1:1:foobarbaz
   grepfile2:1:foobarboo
 
 Test using alternative grep commands
-  $ hg grep -i FooBarB
+  $ sl grep -i FooBarB
   grepfile1:foobarbaz
   grepfile2:foobarboo
 #if osx
-  $ hg grep FooBarB
+  $ sl grep FooBarB
   [1]
 #else
-  $ hg grep FooBarB
+  $ sl grep FooBarB
   [1]
 #endif
 
 Test --include flag
-  $ hg grep --include '**/*file1' -n foobar
+  $ sl grep --include '**/*file1' -n foobar
   grepfile1:1:foobarbaz
   subdir1/subfile1:1:foobar_subdir
-  $ hg grep -I '**/*file1' -n foobar
+  $ sl grep -I '**/*file1' -n foobar
   grepfile1:1:foobarbaz
   subdir1/subfile1:1:foobar_subdir
 
 Test --exclude flag
-  $ hg grep --exclude '**/*file1' -n foobar
+  $ sl grep --exclude '**/*file1' -n foobar
   grepfile2:1:foobarboo
   subdir2/subfile2:1:foobar_dirsub
-  $ hg grep -X '**/*file1' -n foobar
+  $ sl grep -X '**/*file1' -n foobar
   grepfile2:1:foobarboo
   subdir2/subfile2:1:foobar_dirsub
 
 Test --include and --exclude flags together
-  $ hg grep --include '**/*file1' --exclude '**/grepfile1' -n foobar
+  $ sl grep --include '**/*file1' --exclude '**/grepfile1' -n foobar
   subdir1/subfile1:1:foobar_subdir
-  $ hg grep -I '**/*file1' -X '**/grepfile1' -n foobar
+  $ sl grep -I '**/*file1' -X '**/grepfile1' -n foobar
   subdir1/subfile1:1:foobar_subdir
 
 #if symlink no-osx
 Test symlinks
   $ echo file_content > target_file
   $ ln -s target_file sym_link
-  $ hg add sym_link
-  $ hg grep file_content
+  $ sl add sym_link
+  $ sl grep file_content
   [1]
 #endif
 
@@ -103,7 +104,7 @@ Test symlinks
 
 Test with context
   $ BIGGREP_FILES='{"grepdir/grepfile1": "foobarbaz", "grepdir/grepfile2": "foobarboo", "grepdir/subdir1/subfile1": "foobar_subdir", "grepdir/subdir2/subfile2": "foobar_dirsub"}' \
-  > hg grep --color=off -n foobar | sort
+  > sl grep --color=off -n foobar | sort
   grepfile1:1:foobarbaz_bg
   grepfile2:1:foobarboo_bg
   subdir1/subfile1:1:foobar_subdir_bg
@@ -111,49 +112,49 @@ Test with context
 
 Test basic biggrep client in subdir1
   $ BIGGREP_FILES='{"grepdir/subdir1/subfile1": "foobar_subdir"}' \
-  > hg grep --cwd subdir1 foobar | sort
+  > sl grep --cwd subdir1 foobar | sort
   subfile1:foobar_subdir_bg
 
 Test basic biggrep client with subdir2 matcher
   $ BIGGREP_FILES='{"grepdir/subdir2/subfile2": "foobar_dirsub"}' \
-  > hg grep foobar subdir2 | sort
+  > sl grep foobar subdir2 | sort
   subdir2/subfile2:foobar_dirsub_bg
 
 Test biggrep searching in a sibling subdirectory, using a relative path
   $ cd subdir1
   $ BIGGREP_FILES='{"grepdir/subdir2/subfile2": "foobar_dirsub"}' \
-  > hg grep foobar ../subdir2 -n | sort
+  > sl grep foobar ../subdir2 -n | sort
   ../subdir2/subfile2:1:foobar_dirsub_bg
   $ BIGGREP_FILES='{"grepdir/subdir1/subfile1": "foobar_subdir"}' \
-  > hg grep -n foobar | sort
+  > sl grep -n foobar | sort
   subfile1:1:foobar_subdir_bg
   $ BIGGREP_FILES='{"grepdir/subdir1/subfile1": "foobar_subdir"}' \
-  > hg grep -n foobar . | sort
+  > sl grep -n foobar . | sort
   subfile1:1:foobar_subdir_bg
   $ cd ..
 
 Test escaping of dashes in biggrep expression:
   $ BIGGREP_FILES='{"grepdir/grepfile3": "-g"}' \
-  > hg grep -- -g | sort
+  > sl grep -- -g | sort
   grepfile3:-g_bg
 
 Test biggrep command debug info
   $ cd subdir1
   $ BIGGREP_FILES='{"grepdir/subdir1/subfile1": "foobar_subdir"}' \
-  > hg grep foobar -n --debug
+  > sl grep foobar -n --debug
   biggrep command: ["*/fake-biggrep-client.py", "biggrep.master", "fake", "re2", "--stripdir", "-r", "--expression", "foobar", "-f", "(grepdir/subdir1)"] (glob)
   subfile1:1:foobar_subdir_bg
   $ cd ..
 
 Test biggrep command error handling
-  $ hg grep --config grep.biggrepclient=$TESTDIR/broken-biggrep-client.py foobar
+  $ sl grep --config grep.biggrepclient=$TESTDIR/broken-biggrep-client.py foobar
   abort: biggrep_client failed with exit code 2: broken biggrepclient
   (pass `--config grep.usebiggrep=False` to bypass biggrep)
   [255]
 
 Test biggrep with JSON output (-T json):
   $ BIGGREP_FILES='{"grepdir/grepfile1": "foobarbaz"}' \
-  > hg grep --config grep.biggrepclient=$TESTDIR/fake-biggrep-client.py \
+  > sl grep --config grep.biggrepclient=$TESTDIR/fake-biggrep-client.py \
   > --config grep.usebiggrep=True --config grep.biggrepcorpus=fake \
   > -T json foobar grepfile1
   [
@@ -162,7 +163,7 @@ Test biggrep with JSON output (-T json):
 
 Test biggrep with JSON output and line numbers:
   $ BIGGREP_FILES='{"grepdir/grepfile1": "foobarbaz"}' \
-  > hg grep --config grep.biggrepclient=$TESTDIR/fake-biggrep-client.py \
+  > sl grep --config grep.biggrepclient=$TESTDIR/fake-biggrep-client.py \
   > --config grep.usebiggrep=True --config grep.biggrepcorpus=fake \
   > -T json -n foobar grepfile1
   [
@@ -171,7 +172,7 @@ Test biggrep with JSON output and line numbers:
 
 Test biggrep with JSON Lines output (-T jsonl):
   $ BIGGREP_FILES='{"grepdir/grepfile1": "foobarbaz", "grepdir/grepfile2": "foobarboo"}' \
-  > hg grep --config grep.biggrepclient=$TESTDIR/fake-biggrep-client.py \
+  > sl grep --config grep.biggrepclient=$TESTDIR/fake-biggrep-client.py \
   > --config grep.usebiggrep=True --config grep.biggrepcorpus=fake \
   > -T jsonl foobar grepfile1 grepfile2 | sort
   {"path":"grepfile1","text":"foobarbaz_bg"}
@@ -179,7 +180,7 @@ Test biggrep with JSON Lines output (-T jsonl):
 
 Test biggrep with JSON output and -l (files with matches):
   $ BIGGREP_FILES='{"grepdir/grepfile1": "foobarbaz", "grepdir/grepfile2": "foobarboo"}' \
-  > hg grep --config grep.biggrepclient=$TESTDIR/fake-biggrep-client.py \
+  > sl grep --config grep.biggrepclient=$TESTDIR/fake-biggrep-client.py \
   > --config grep.usebiggrep=True --config grep.biggrepcorpus=fake \
   > -T json -l foobar grepfile1 grepfile2 | pp --sort
   [

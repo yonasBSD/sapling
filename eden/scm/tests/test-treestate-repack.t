@@ -1,6 +1,7 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Fsmonitor makes the size numbers less predicatable.
 
@@ -19,21 +20,21 @@ Make some commits
 
   $ newrepo
   $ touch -t 200001010000 a b c d e
-  $ hg ci -m init -A a b c d e -q --debug 2>&1 | grep treestate
+  $ sl ci -m init -A a b c d e -q --debug 2>&1 | grep treestate
   treestate repack threshold set to 507
-  $ hg debugtreestate
+  $ sl debugtreestate
   dirstate v2 (using treestate/*, offset 169, 5 files tracked) (glob)
   $ echo 1 > a
   $ touch -t 200001010000 a
-  $ hg ci -m modify
-  $ hg debugtreestate
+  $ sl ci -m modify
+  $ sl debugtreestate
   dirstate v2 (using treestate/*, offset 300, 5 files tracked) (glob)
 
 Repack makes the file smaller
 
-  $ hg debugtreestate repack --debug
+  $ sl debugtreestate repack --debug
   created treestate/* (glob)
-  $ hg debugtreestate
+  $ sl debugtreestate
   dirstate v2 (using treestate/*, offset 88, 5 files tracked) (glob)
 
 Auto repack happens when treestate exceeds size threshold
@@ -42,7 +43,7 @@ Auto repack happens when treestate exceeds size threshold
   >   echo .
   >   echo $i > a
   >   touch -t 200001010000 a
-  >   hg ci -m modify -q --debug 2>&1 | grep treestate
+  >   sl ci -m modify -q --debug 2>&1 | grep treestate
   > done
   .
   treestate repack threshold set to 657
@@ -53,16 +54,16 @@ Auto repack happens when treestate exceeds size threshold
   .
   created treestate/* (glob)
   removing old unreferenced treestate/* (glob)
-  $ hg debugtreestate
+  $ sl debugtreestate
   dirstate v2 (using treestate/*, offset 88, 5 files tracked) (glob)
 
 Cleanup removes the leftover files
 
-  $ touch .hg/treestate/00000000-0000-0000-0000-000000000005
-  $ hg debugtreestate cleanup --debug
+  $ touch .sl/treestate/00000000-0000-0000-0000-000000000005
+  $ sl debugtreestate cleanup --debug
   removing old unreferenced treestate/00000000-0000-0000-0000-000000000005
 
 Cleanup does not remove files that are not old enough
 
-  $ touch .hg/treestate/00000000-0000-0000-0000-000000000007
-  $ hg debugtreestate cleanup --debug --config treestate.mingcage=1000
+  $ touch .sl/treestate/00000000-0000-0000-0000-000000000007
+  $ sl debugtreestate cleanup --debug --config treestate.mingcage=1000

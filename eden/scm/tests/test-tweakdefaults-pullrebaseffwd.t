@@ -9,6 +9,7 @@
 
 # Set up without remotenames
 
+  $ export HGIDENTITY=sl
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
   > rebase=
@@ -18,22 +19,22 @@
   $ newclientrepo repo
   $ cd ..
   $ echo a > repo/a
-  $ hg -R repo commit -qAm a
-  $ hg -R repo bookmark master
-  $ hg -R repo push -q -r . --to book --create
+  $ sl -R repo commit -qAm a
+  $ sl -R repo bookmark master
+  $ sl -R repo push -q -r . --to book --create
   $ newclientrepo clone repo_server book
 
 # Pull --rebase with no local changes
 
   $ echo b > ../repo/b
-  $ hg -R ../repo commit -qAm b
-  $ hg -R ../repo push -q -r . --to book
-  $ hg pull --rebase -d book
+  $ sl -R ../repo commit -qAm b
+  $ sl -R ../repo push -q -r . --to book
+  $ sl pull --rebase -d book
   pulling from test:repo_server
   searching for changes
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   nothing to rebase - fast-forwarded to book
-  $ hg log -G -T '{desc} {desc}'
+  $ sl log -G -T '{desc} {desc}'
   @  b b
   │
   o  a a
@@ -41,15 +42,15 @@
 # Make a local commit and check pull --rebase still works.
 
   $ echo x > x
-  $ hg commit -qAm x
+  $ sl commit -qAm x
   $ echo c > ../repo/c
-  $ hg -R ../repo commit -qAm c
-  $ hg -R ../repo push -q -r . --to book
-  $ hg pull --rebase -d book
+  $ sl -R ../repo commit -qAm c
+  $ sl -R ../repo push -q -r . --to book
+  $ sl pull --rebase -d book
   pulling from test:repo_server
   searching for changes
   rebasing 86d71924e1d0 "x"
-  $ hg log -G -T '{desc} {desc}'
+  $ sl log -G -T '{desc} {desc}'
   @  x x
   │
   o  c c

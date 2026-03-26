@@ -1,4 +1,5 @@
 
+  $ export HGIDENTITY=sl
   $ newclientrepo
   $ touch foo.profraw
-  $ hg status
+  $ sl status

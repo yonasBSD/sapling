@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig experimental.nativecheckout=true
 
 test sparse
@@ -17,9 +18,9 @@ test sparse
   > show
   > .sparse-include
   > EOF
-  $ hg add .sparse-include
-  $ hg ci -Aqm 'initial'
-  $ hg sparse enable .sparse-include
+  $ sl add .sparse-include
+  $ sl ci -Aqm 'initial'
+  $ sl sparse enable .sparse-include
   $ ls
   show
   $ cat >> .sparse-include <<EOF
@@ -27,11 +28,11 @@ test sparse
   > show
   > show2
   > EOF
-  $ hg ci -Am 'second'
-  $ hg up -q 'desc(initial)'
+  $ sl ci -Am 'second'
+  $ sl up -q 'desc(initial)'
   $ ls
   show
-  $ hg up -q 'desc(second)'
+  $ sl up -q 'desc(second)'
   $ ls
   show
   show2
@@ -42,14 +43,14 @@ test sparse
   > show2
   > show3
   > EOF
-  $ hg ci -m "third"
+  $ sl ci -m "third"
   $ chmod +x show3
-  $ hg ci -m "fourth"
-  $ hg up -q 'desc(second)'
+  $ sl ci -m "fourth"
+  $ sl up -q 'desc(second)'
   $ ls
   show
   show2
-  $ hg up -q 'desc(fourth)'
+  $ sl up -q 'desc(fourth)'
   $ ls
   show
   show2

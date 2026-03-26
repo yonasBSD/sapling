@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ enable amend rebase
   $ setconfig experimental.evolution=obsolete
   $ setconfig visibility.enabled=true
@@ -31,21 +32,21 @@ Setup
   e5dcb50d5e3c I
 
 Bundle up some of the commits and strip them from the repo.
-  $ hg bundle -r "children($B)::" --base $B -f $TESTTMP/bundle.hg
+  $ sl bundle -r "children($B)::" --base $B -f $TESTTMP/bundle.hg
   7 changesets found
 
-  $ hg debugstrip -r "children($B)::"
+  $ sl debugstrip -r "children($B)::"
 
 The heads are changed when looking at the bundle.
 
-  $ hg log -R $TESTTMP/bundle.hg -r "head()" -T '{node} {desc}\n'
+  $ sl log -R $TESTTMP/bundle.hg -r "head()" -T '{node} {desc}\n'
   bd15fabcb8083473489d54a8edc58126c1facc53 G
   9bc730a19041f9ec7cb33c626e811aa233efb18c E
   e5dcb50d5e3c977ce2bce38e15cabb0a8761c8f0 I
 
 But this doesn't affect the real repo.
 
-  $ hg log -r "head()" -T '{node} {desc}\n'
+  $ sl log -r "head()" -T '{node} {desc}\n'
   112478962961147124edd43549aedd1a335e44bf B
 
 Add some more commits to the main repo so that B is no longer a head.  Hide one of them.
@@ -59,24 +60,24 @@ Add some more commits to the main repo so that B is no longer a head.  Hide one 
   696cbb89a420 J
   200d7f7cf08d K
 
-  $ hg hide $K
+  $ sl hide $K
   hiding commit 200d7f7cf08d "K"
   1 changeset hidden
 
 Logging the heads still works.
 
-  $ hg log -R $TESTTMP/bundle.hg -r "head()" -T '{node} {desc}\n'
+  $ sl log -R $TESTTMP/bundle.hg -r "head()" -T '{node} {desc}\n'
   696cbb89a420ebe8fafeb74ea2da0597a5ae2efa J
   bd15fabcb8083473489d54a8edc58126c1facc53 G
   9bc730a19041f9ec7cb33c626e811aa233efb18c E
   e5dcb50d5e3c977ce2bce38e15cabb0a8761c8f0 I
 
-  $ hg log -r "head()" -T '{node} {desc}\n'
+  $ sl log -r "head()" -T '{node} {desc}\n'
   696cbb89a420ebe8fafeb74ea2da0597a5ae2efa J
 
 Looking at the 'hidden' commits via commit hashes still works.
 
-  $ hg log -R $TESTTMP/bundle.hg -r "head()+$K" -T '{node} {desc}\n'
+  $ sl log -R $TESTTMP/bundle.hg -r "head()+$K" -T '{node} {desc}\n'
   696cbb89a420ebe8fafeb74ea2da0597a5ae2efa J
   bd15fabcb8083473489d54a8edc58126c1facc53 G
   9bc730a19041f9ec7cb33c626e811aa233efb18c E

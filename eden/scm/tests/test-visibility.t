@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ enable amend rebase undo directaccess shelve
   $ setconfig experimental.evolution=obsolete
   $ setconfig visibility.enabled=true visibility.verbose=true
@@ -12,8 +13,8 @@ Useful functions
   $ mkcommit()
   > {
   >   echo "$1" > "$1"
-  >   hg add "$1"
-  >   hg commit -m "$1"
+  >   sl add "$1"
+  >   sl commit -m "$1"
   > }
 
 Setup
@@ -21,17 +22,17 @@ Setup
   $ mkcommit root
   $ mkcommit public1
   $ mkcommit public2
-  $ hg debugmakepublic .
-  $ hg debugvisibility status
+  $ sl debugmakepublic .
+  $ sl debugvisibility status
   commit visibility is tracked explicitly
 
 Simple creation and amending of draft commits
 
   $ mkcommit draft1
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
   ca9d66205acae45570c29bea55877bb8031aa453 draft1
-  $ hg amend -m "draft1 amend1"
-  $ hg debugvisibleheads
+  $ sl amend -m "draft1 amend1"
+  $ sl debugvisibleheads
   5b93956a25ec5ed476b39b46bbdd1efdfdf0ee6a draft1 amend1
   $ mkcommit draft2
   $ tglogp --hidden
@@ -47,10 +48,10 @@ Simple creation and amending of draft commits
   │
   o  1e4be0697311 public 'root'
   
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
   7ff6bbfeb971e769d9f5821bcdd4f42b446603d6 draft2
 
-  $ hg debugstrip -r . --config amend.safestrip=False
+  $ sl debugstrip -r . --config amend.safestrip=False
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ tglogp --hidden
   @  5b93956a25ec draft 'draft1 amend1'
@@ -63,18 +64,18 @@ Simple creation and amending of draft commits
   │
   o  1e4be0697311 public 'root'
   
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
   5b93956a25ec5ed476b39b46bbdd1efdfdf0ee6a draft1 amend1
 
 # Quick test of children revsets when there is a hidden child.
-  $ hg log -r 'desc("public2")~-1' -T '{desc}\n'
+  $ sl log -r 'desc("public2")~-1' -T '{desc}\n'
   draft1 amend1
-  $ hg log -r 'children(desc("public2"))' -T '{desc}\n'
+  $ sl log -r 'children(desc("public2"))' -T '{desc}\n'
   draft1 amend1
 
 
   $ mkcommit draft2a
-  $ hg rebase -s ".^" -d 'desc(public1)'
+  $ sl rebase -s ".^" -d 'desc(public1)'
   rebasing 5b93956a25ec "draft1 amend1"
   rebasing 51e3d0f3d402 "draft2a"
   $ tglogp
@@ -88,9 +89,9 @@ Simple creation and amending of draft commits
   │
   o  1e4be0697311 public 'root'
   
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
   6c98fad065b92f276ba38ad20df31312c0bcf342 draft2a
-  $ hg rebase -s . -d 'desc(public2)'
+  $ sl rebase -s . -d 'desc(public2)'
   rebasing 6c98fad065b9 "draft2a"
   $ tglogp
   @  5b3624aa14e4 draft 'draft2a'
@@ -103,7 +104,7 @@ Simple creation and amending of draft commits
   │
   o  1e4be0697311 public 'root'
   
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
   5b3624aa14e4e48b969670853d0a0eb95dfaa13a draft2a
   e500bf5639fd8c869a8cf4e10b651aaa01bfa42c draft1 amend1
 
@@ -111,12 +112,12 @@ Add more commits
 
   $ mkcommit draft3
   $ mkcommit draft4
-  $ hg merge -q 'max(desc(draft1))'
-  $ hg commit -m "merge1"
-  $ hg up -q 'max(desc(draft1))'
-  $ hg merge -q 'desc(draft4)'
-  $ hg commit -m "merge2"
-  $ hg debugmakepublic 'desc(root)'
+  $ sl merge -q 'max(desc(draft1))'
+  $ sl commit -m "merge1"
+  $ sl up -q 'max(desc(draft1))'
+  $ sl merge -q 'desc(draft4)'
+  $ sl commit -m "merge2"
+  $ sl debugmakepublic 'desc(root)'
 
   $ tglogp
   @    4daf58216052 draft 'merge2'
@@ -139,46 +140,46 @@ Add more commits
   
 Hide and unhide
 
-  $ hg up -q 'desc(root)'
-  $ hg hide 'desc(merge1)'
+  $ sl up -q 'desc(root)'
+  $ sl hide 'desc(merge1)'
   hiding commit 6abdecc48cd1 "merge1"
   1 changeset hidden
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
   4daf58216052b220cae410be4e8607c11f7ad7c2 merge2
-  $ hg hide 'max(desc(draft2a))'
+  $ sl hide 'max(desc(draft2a))'
   hiding commit 5b3624aa14e4 "draft2a"
   hiding commit 4975507bccc9 "draft3"
   hiding commit 02227f0b851e "draft4"
   hiding commit 4daf58216052 "merge2"
   4 changesets hidden
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
   e500bf5639fd8c869a8cf4e10b651aaa01bfa42c draft1 amend1
   4f416a252ac81004d9b35542cb1dc8892b6879eb public2
-  $ hg unhide 'desc(draft3)'
-  $ hg debugvisibleheads
+  $ sl unhide 'desc(draft3)'
+  $ sl debugvisibleheads
   e500bf5639fd8c869a8cf4e10b651aaa01bfa42c draft1 amend1
   4975507bccc988c9fe1822b1ec33e754ae0b0334 draft3
-  $ hg hide 'desc(public2)' 'desc(amend1)'
+  $ sl hide 'desc(public2)' 'desc(amend1)'
   hiding commit 4f416a252ac8 "public2"
   hiding commit e500bf5639fd "draft1 amend1"
   hiding commit 5b3624aa14e4 "draft2a"
   hiding commit 4975507bccc9 "draft3"
   4 changesets hidden
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
   175dbab47dccefd3ece5916c4f92a6c69f65fcf0 public1
-  $ hg unhide 'max(desc(draft1))'
-  $ hg debugvisibleheads
+  $ sl unhide 'max(desc(draft1))'
+  $ sl debugvisibleheads
   e500bf5639fd8c869a8cf4e10b651aaa01bfa42c draft1 amend1
-  $ hg hide 'desc(public1)'
+  $ sl hide 'desc(public1)'
   hiding commit 175dbab47dcc "public1"
   hiding commit e500bf5639fd "draft1 amend1"
   2 changesets hidden
-  $ hg debugvisibleheads
-  $ hg unhide 'desc(merge1)'
-  $ hg debugvisibleheads
+  $ sl debugvisibleheads
+  $ sl unhide 'desc(merge1)'
+  $ sl debugvisibleheads
   6abdecc48cd1aa6c444bb3abed96fee7af294684 merge1
-  $ hg unhide 'desc(merge2)'
-  $ hg debugvisibleheads
+  $ sl unhide 'desc(merge2)'
+  $ sl debugvisibleheads
   6abdecc48cd1aa6c444bb3abed96fee7af294684 merge1
   4daf58216052b220cae410be4e8607c11f7ad7c2 merge2
 
@@ -196,11 +197,11 @@ Stack navigation and rebases
   > |
   > A
   > EOS
-  $ hg up $B
+  $ sl up $B
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg amend -m "B amended" --no-rebase
-  hint[amend-restack]: descendants of 112478962961 are left behind - use 'hg restack' to rebase them
-  hint[hint-ack]: use 'hg hint --ack amend-restack' to silence these hints
+  $ sl amend -m "B amended" --no-rebase
+  hint[amend-restack]: descendants of 112478962961 are left behind - use 'sl restack' to rebase them
+  hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
   $ tglogm
   @  480c8b61ccd9 'B amended'
   │
@@ -214,7 +215,7 @@ Stack navigation and rebases
   ├─╯
   o  426bada5c675 'A'
   
-  $ hg next --rebase
+  $ sl next --rebase
   rebasing 26805aba1e60 "C"
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [a0452d] C
@@ -233,7 +234,7 @@ Stack navigation and rebases
   ├─╯
   o  426bada5c675 'A'
   
-  $ hg next --rebase
+  $ sl next --rebase
   rebasing f585351a92f8 "D"
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [a00f83] D
@@ -254,7 +255,7 @@ Stack navigation and rebases
   ├─╯
   o  426bada5c675 'A'
   
-  $ hg next --rebase
+  $ sl next --rebase
   rebasing 9bc730a19041 "E"
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   [ef1bf9] E
@@ -272,7 +273,7 @@ Stack navigation and rebases
 
 Undo
 
-  $ hg undo
+  $ sl undo
   undone to *, before next --rebase (glob)
   $ tglogm
   @  a00f837dfca6 'D'
@@ -291,7 +292,7 @@ Undo
   ├─╯
   o  426bada5c675 'A'
   
-  $ hg undo
+  $ sl undo
   undone to *, before next --rebase (glob)
   $ tglogm
   @  a0452d36adc9 'C'
@@ -308,7 +309,7 @@ Undo
   ├─╯
   o  426bada5c675 'A'
   
-  $ hg undo
+  $ sl undo
   undone to *, before next --rebase (glob)
   $ tglogm
   @  480c8b61ccd9 'B amended'
@@ -341,7 +342,7 @@ Also check the obsolete revset is consistent.
 
 Unhiding them reveals them as new commits and now the old ones show their relationship
 to the new ones.
-  $ hg unhide ef1bf99db56b
+  $ sl unhide ef1bf99db56b
   $ tglogm
   o  ef1bf99db56b 'E'
   │
@@ -378,7 +379,7 @@ Test that hiddenoverride has no effect on pinning hidden revisions.
   │
   o  48b9aae0607f 'Z'
   
-  $ hg up -q 917a077edb8d # Update to B
+  $ sl up -q 917a077edb8d # Update to B
   $ tglogm
   o  12f43da6ed39 'F'
   │
@@ -390,7 +391,7 @@ Test that hiddenoverride has no effect on pinning hidden revisions.
   ├─╯
   o  48b9aae0607f 'Z'
   
-  $ hg up -q $F
+  $ sl up -q $F
   $ tglogm
   @  12f43da6ed39 'F'
   │
@@ -400,13 +401,13 @@ Test that hiddenoverride has no effect on pinning hidden revisions.
   
 Test that shelve and unshelve work
   $ echo more > file
-  $ hg add file
-  $ hg st
+  $ sl add file
+  $ sl st
   A file
-  $ hg shelve
+  $ sl shelve
   shelved as default
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg st
+  $ sl st
   $ tglogm
   @  12f43da6ed39 'F'
   │
@@ -414,14 +415,14 @@ Test that shelve and unshelve work
   │
   o  48b9aae0607f 'Z'
   
-  $ hg prev
+  $ sl prev
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   [ec4d05] E
-  $ hg unshelve --keep
+  $ sl unshelve --keep
   unshelving change 'default'
   rebasing shelved changes
   rebasing 43c5c8656322 "shelve changes to: F"
-  $ hg st
+  $ sl st
   A file
   $ tglogm
   o  12f43da6ed39 'F'
@@ -430,20 +431,20 @@ Test that shelve and unshelve work
   │
   o  48b9aae0607f 'Z'
   
-  $ hg prev --clean
+  $ sl prev --clean
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   [48b9aa] Z
   $ echo data > other
-  $ hg add other
-  $ hg st
+  $ sl add other
+  $ sl st
   A other
   ? file
-  $ hg unshelve
+  $ sl unshelve
   unshelving change 'default'
-  temporarily committing pending changes (restore with 'hg unshelve --abort')
+  temporarily committing pending changes (restore with 'sl unshelve --abort')
   rebasing shelved changes
   rebasing 43c5c8656322 "shelve changes to: F"
-  $ hg st
+  $ sl st
   A file
   A other
   $ tglogm
@@ -457,12 +458,12 @@ Test undo of split
   $ cd $TESTTMP
   $ newclientrepo
   $ echo base > base
-  $ hg commit -Aqm base
+  $ sl commit -Aqm base
   $ echo file1 > file1
   $ echo file2 > file2
   $ echo file3 > file3
-  $ hg commit -Aqm to-split
-  $ hg split --config ui.interactive=true << EOF
+  $ sl commit -Aqm to-split
+  $ sl split --config ui.interactive=true << EOF
   > y
   > y
   > n
@@ -516,7 +517,7 @@ Test undo of split
   │
   o  d20a80d4def3 'base'
   
-  $ hg undo
+  $ sl undo
   undone to *, before split --config ui.interactive=true (glob)
   $ tglogm
   @  9a8c420e44f2 'to-split'
@@ -527,11 +528,11 @@ Unamend and Uncommit
   $ cd $TESTTMP
   $ newclientrepo
   $ touch base
-  $ hg commit -Aqm base
+  $ sl commit -Aqm base
   $ echo 1 > file
-  $ hg commit -Aqm commit1
+  $ sl commit -Aqm commit1
   $ echo 2 > file
-  $ hg amend -m commit2
+  $ sl amend -m commit2
   $ tglogm --hidden
   @  e70c2acd5a58 'commit2'
   │
@@ -540,7 +541,7 @@ Unamend and Uncommit
   o  df4f53cec30a 'base'
   
 
-  $ hg unamend
+  $ sl unamend
   $ tglogm
   @  4c5b9b3e14b9 'commit1'
   │
@@ -554,7 +555,7 @@ Unamend and Uncommit
   o  df4f53cec30a 'base'
   
 
-  $ hg uncommit
+  $ sl uncommit
   $ tglogm
   @  df4f53cec30a 'base'
   
@@ -567,7 +568,7 @@ Unamend and Uncommit
   
 
 Hidden revset
-  $ hg log --graph -r 'hidden()'
+  $ sl log --graph -r 'hidden()'
   o  commit:      e70c2acd5a58
   │  user:        test
   ~  date:        Thu Jan 01 00:00:00 1970 +0000

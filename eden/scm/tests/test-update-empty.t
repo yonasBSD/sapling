@@ -9,24 +9,25 @@
 
 # Empty update fails with a helpful error:
 
+  $ export HGIDENTITY=sl
   $ setconfig 'ui.disallowemptyupdate=True'
   $ newclientrepo
-  $ hg debugdrawdag << 'EOS'
+  $ sl debugdrawdag << 'EOS'
   > B
   > |
   > A
   > EOS
-  $ hg up -q A
-  $ hg up
-  (If you're trying to move a bookmark forward, try "hg rebase -d <destination>".) (?)
-  abort: you must specify a destination to update to, for example "hg goto main".
+  $ sl up -q A
+  $ sl up
+  (If you're trying to move a bookmark forward, try "sl rebase -d <destination>".) (?)
+  abort: you must specify a destination to update to, for example "sl goto main".
   [255]
 
 # up -r works as intended:
 
-  $ hg up -q -r B
-  $ hg log -r . -T '{desc}\n'
+  $ sl up -q -r B
+  $ sl log -r . -T '{desc}\n'
   B
-  $ hg up -q B
-  $ hg log -r . -T '{desc}\n'
+  $ sl up -q B
+  $ sl log -r . -T '{desc}\n'
   B

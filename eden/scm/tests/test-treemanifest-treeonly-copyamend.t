@@ -1,13 +1,14 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ configure mutation-norecord
   $ . "$TESTDIR/library.sh"
 
 Setup the server
 
   $ newserver master
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > pushrebase=
   > EOF
@@ -17,20 +18,20 @@ history, where the new file content is introduced on a separate branch each
 time.
   $ mkdir -p a/b/c/d/e/f/g/h/i/j
   $ echo "base" > a/b/c/d/e/f/g/h/i/j/file
-  $ hg commit -qAm "base"
+  $ sl commit -qAm "base"
   $ for i in 1 2 3 4 5 6 7 8 9 10 11 12
   > do
   >   echo $i >> a/b/c/d/e/f/g/h/i/j/file
   >   echo $i >> a/b/c/d/e/f/g/h/i/otherfile$i
-  >   hg commit -qAm "commit $i branch"
-  >   hg up -q ".^"
+  >   sl commit -qAm "commit $i branch"
+  >   sl up -q ".^"
   >   echo $i >> a/b/c/d/e/f/g/h/i/j/file
   >   echo $i >> a/b/c/d/e/f/g/h/i/otherfile$i
-  >   hg commit -qAm "commit $i"
+  >   sl commit -qAm "commit $i"
   > done
-  $ hg book master
+  $ sl book master
 
-  $ hg log -G -r 'all()' -T '{desc}'
+  $ sl log -G -r 'all()' -T '{desc}'
   o  commit 1 branch
   │
   │ o  commit 2 branch
@@ -84,7 +85,7 @@ time.
 Create a client
   $ clone master client
   $ cd client
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [experimental]
   > evolution = createmarkers, allowunstable
   > [extensions]
@@ -92,20 +93,20 @@ Create a client
   > EOF
 
 Rename the file in a commit
-  $ hg mv a/b/c/d/e/f/g/h/i/j/file a/b/c/d/e/f/g/h/i/j/file2
+  $ sl mv a/b/c/d/e/f/g/h/i/j/file a/b/c/d/e/f/g/h/i/j/file2
   * files fetched over *s (glob) (?)
-  $ hg commit -m "rename"
+  $ sl commit -m "rename"
   * files fetched over *s (glob) (?)
 
 Amend the commit to add a new file with an empty cache, with descendantrevfastpath enabled
   $ clearcache
   $ echo more >> a/b/c/d/e/f/g/h/i/j/file3
-  $ hg amend -A --config remotefilelog.debug=True --config remotefilelog.descendantrevfastpath=True
+  $ sl amend -A --config remotefilelog.debug=True --config remotefilelog.descendantrevfastpath=True
   adding a/b/c/d/e/f/g/h/i/j/file3
   * files fetched over *s (glob) (?)
 
 Try again, disabling the descendantrevfastpath
   $ clearcache
   $ echo more >> a/b/c/d/e/f/g/h/i/j/file3
-  $ hg amend -A --config remotefilelog.debug=True --config remotefilelog.descendantrevfastpath=False
+  $ sl amend -A --config remotefilelog.debug=True --config remotefilelog.descendantrevfastpath=False
   * files fetched over *s (glob) (?)

@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable tweakdefaults
   $ setconfig devel.segmented-changelog-rev-compat=true
@@ -14,21 +15,21 @@
 
 setup server and client
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo a > a
-  $ hg ci -Aqm a
-  $ hg book main
+  $ sl ci -Aqm a
+  $ sl book main
   $ newclientrepo b a
-  $ hg pull -u -B main
+  $ sl pull -u -B main
   pulling from test:a
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 test a local modification
 
   $ echo aa > a
-  $ hg pull -u -B main
+  $ sl pull -u -B main
   pulling from test:a
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg st
+  $ sl st
   M a
