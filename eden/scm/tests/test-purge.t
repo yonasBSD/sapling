@@ -4,27 +4,28 @@
 
 init
 
+  $ export HGIDENTITY=sl
   $ eagerepo
-  $ hg init t
+  $ sl init t
   $ cd t
   $ setconfig purge.dirs-by-default=True
 
 setup
 
   $ echo r1 > r1
-  $ hg ci -qAmr1 -d'0 0'
+  $ sl ci -qAmr1 -d'0 0'
   $ mkdir directory
   $ echo r2 > directory/r2
-  $ hg ci -qAmr2 -d'1 0'
+  $ sl ci -qAmr2 -d'1 0'
   $ echo 'ignored' > .gitignore
-  $ hg ci -qAmr3 -d'2 0'
+  $ sl ci -qAmr3 -d'2 0'
 
 delete an empty directory
 
   $ mkdir empty_dir
-  $ hg purge -p -v
+  $ sl purge -p -v
   empty_dir
-  $ hg purge -v
+  $ sl purge -v
   removing directory empty_dir
   $ ls
   directory
@@ -35,10 +36,10 @@ delete an untracked directory
   $ mkdir untracked_dir
   $ touch untracked_dir/untracked_file1
   $ touch untracked_dir/untracked_file2
-  $ hg purge -p
+  $ sl purge -p
   untracked_dir/untracked_file1
   untracked_dir/untracked_file2
-  $ hg purge -v
+  $ sl purge -v
   removing file untracked_dir/untracked_file1
   removing file untracked_dir/untracked_file2
   removing directory untracked_dir
@@ -55,10 +56,10 @@ delete an untracked file
   > f= 'untracked_file_readonly'
   > os.chmod(f, stat.S_IMODE(os.stat(f).st_mode) & ~stat.S_IWRITE)
   > EOF
-  $ hg purge -p
+  $ sl purge -p
   untracked_file
   untracked_file_readonly
-  $ hg purge -v
+  $ sl purge -v
   removing file untracked_file
   removing file untracked_file_readonly
   $ ls
@@ -68,9 +69,9 @@ delete an untracked file
 delete an untracked file in a tracked directory
 
   $ touch directory/untracked_file
-  $ hg purge -p
+  $ sl purge -p
   directory/untracked_file
-  $ hg purge -v
+  $ sl purge -v
   removing file directory/untracked_file
   $ ls
   directory
@@ -79,9 +80,9 @@ delete an untracked file in a tracked directory
 delete nested directories
 
   $ mkdir -p untracked_directory/nested_directory
-  $ hg purge -p
+  $ sl purge -p
   untracked_directory/nested_directory
-  $ hg purge -v
+  $ sl purge -v
   removing directory untracked_directory/nested_directory
   removing directory untracked_directory
   $ ls
@@ -92,9 +93,9 @@ delete nested directories from a subdir
 
   $ mkdir -p untracked_directory/nested_directory
   $ cd directory
-  $ hg purge -p
+  $ sl purge -p
   untracked_directory/nested_directory
-  $ hg purge -v
+  $ sl purge -v
   removing directory untracked_directory/nested_directory
   removing directory untracked_directory
   $ cd ..
@@ -107,9 +108,9 @@ delete only part of the tree
   $ mkdir -p untracked_directory/nested_directory
   $ touch directory/untracked_file
   $ cd directory
-  $ hg purge -p ../untracked_directory
+  $ sl purge -p ../untracked_directory
   untracked_directory/nested_directory
-  $ hg purge -v ../untracked_directory
+  $ sl purge -v ../untracked_directory
   removing directory untracked_directory/nested_directory
   removing directory untracked_directory
   $ cd ..
@@ -123,15 +124,15 @@ delete only part of the tree
 skip ignored files if --all not specified
 
   $ touch ignored
-  $ hg purge -p
-  $ hg purge -v
+  $ sl purge -p
+  $ sl purge -v
   $ ls
   directory
   ignored
   r1
-  $ hg purge -p --all
+  $ sl purge -p --all
   ignored
-  $ hg purge -v --all
+  $ sl purge -v --all
   removing file ignored
   $ ls
   directory
@@ -144,38 +145,38 @@ abort with missing files until we support name mangling filesystems
 
 hide error messages to avoid changing the output when the text changes
 
-  $ hg purge -p 2> /dev/null
+  $ sl purge -p 2> /dev/null
   untracked_file
-  $ hg st
+  $ sl st
   ! r1
   ? untracked_file
 
-  $ hg purge -p
+  $ sl purge -p
   untracked_file
-  $ hg purge -v 2> /dev/null
+  $ sl purge -v 2> /dev/null
   removing file untracked_file
-  $ hg st
+  $ sl st
   ! r1
 
-  $ hg purge -v
-  $ hg revert --all --quiet
-  $ hg st -a
+  $ sl purge -v
+  $ sl revert --all --quiet
+  $ sl st -a
 
 tracked file in ignored directory (issue621)
 
   $ echo directory >> .gitignore
-  $ hg ci -m 'ignore directory'
+  $ sl ci -m 'ignore directory'
   $ touch untracked_file
-  $ hg purge -p
+  $ sl purge -p
   untracked_file
-  $ hg purge -v
+  $ sl purge -v
   removing file untracked_file
 
 skip excluded files
 
   $ touch excluded_file
-  $ hg purge -p -X excluded_file
-  $ hg purge -v -X excluded_file
+  $ sl purge -p -X excluded_file
+  $ sl purge -v -X excluded_file
   $ ls
   directory
   excluded_file
@@ -186,8 +187,8 @@ skip files in excluded dirs
 
   $ mkdir excluded_dir
   $ touch excluded_dir/file
-  $ hg purge -p -X excluded_dir
-  $ hg purge -v -X excluded_dir
+  $ sl purge -p -X excluded_dir
+  $ sl purge -v -X excluded_dir
   $ ls
   directory
   excluded_dir
@@ -199,8 +200,8 @@ skip files in excluded dirs
 skip excluded empty dirs
 
   $ mkdir excluded_dir
-  $ hg purge -p -X excluded_dir
-  $ hg purge -v -X excluded_dir
+  $ sl purge -p -X excluded_dir
+  $ sl purge -v -X excluded_dir
   $ ls
   directory
   excluded_dir
@@ -213,8 +214,8 @@ skip patterns
   $ touch .svn/foo
   $ mkdir directory/.svn
   $ touch directory/.svn/foo
-  $ hg purge -p -X .svn -X '*/.svn'
-  $ hg purge -p -X re:.*.svn
+  $ sl purge -p -X .svn -X '*/.svn'
+  $ sl purge -p -X re:.*.svn
 
   $ rm -R .svn directory r1
 
@@ -222,10 +223,10 @@ only remove files
 
   $ mkdir -p empty_dir dir
   $ touch untracked_file dir/untracked_file
-  $ hg purge -p --files
+  $ sl purge -p --files
   dir/untracked_file
   untracked_file
-  $ hg purge -v --files
+  $ sl purge -v --files
   removing file dir/untracked_file
   removing file untracked_file
   $ ls
@@ -237,9 +238,9 @@ only remove dirs
 
   $ mkdir -p empty_dir dir
   $ touch untracked_file dir/untracked_file
-  $ hg purge -p --dirs
+  $ sl purge -p --dirs
   empty_dir
-  $ hg purge -v --dirs
+  $ sl purge -v --dirs
   removing directory empty_dir
   $ ls
   dir
@@ -251,11 +252,11 @@ remove both files and dirs
 
   $ mkdir -p empty_dir dir
   $ touch untracked_file dir/untracked_file
-  $ hg purge -p --files --dirs
+  $ sl purge -p --files --dirs
   dir/untracked_file
   untracked_file
   empty_dir
-  $ hg purge -v --files --dirs
+  $ sl purge -v --files --dirs
   removing file dir/untracked_file
   removing file untracked_file
   removing directory empty_dir
@@ -267,7 +268,7 @@ remove only files when purge.dirs-by-default=False
   $ setconfig purge.dirs-by-default=False
   $ mkdir empty_dir
   $ touch untracked_file
-  $ hg purge -v
+  $ sl purge -v
   removing file untracked_file
   $ ls
   empty_dir

@@ -3,6 +3,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable pushrebase
 
@@ -20,7 +21,7 @@ Push with obsoleted commits with successors not in the destination.
   >   A
   > EOS
 
-  $ hg log -Gr "all()" -T '{desc}\n'
+  $ sl log -Gr "all()" -T '{desc}\n'
   o  D
   │
   │ o  C
@@ -30,8 +31,8 @@ Push with obsoleted commits with successors not in the destination.
   o  A
   
 
-  $ hg bookmark -r $D foo
-  $ hg push -r $D --to foo --create
+  $ sl bookmark -r $D foo
+  $ sl push -r $D --to foo --create
   pushing rev be0ef73c17ad to destination ssh://user@dummy/server bookmark foo
   searching for changes
   exporting bookmark foo
@@ -55,10 +56,10 @@ Push with obsoleted commits with successors in the destination.
   >   A
   > EOS
 
-  $ hg bookmark -r $E foo
-  $ hg push -r $E --to foo --create -q
+  $ sl bookmark -r $E foo
+  $ sl push -r $E --to foo --create -q
 
-  $ hg push -r $D --to foo
+  $ sl push -r $D --to foo
   pushing rev be0ef73c17ad to destination ssh://user@dummy/server2 bookmark foo
   searching for changes
   abort: commits already rebased to destination as dc0947a82db8

@@ -4,17 +4,18 @@
 
 Test avoiding calculating head changes during commit
 
-  $ hg init branchatcommit
+  $ export HGIDENTITY=sl
+  $ sl init branchatcommit
   $ cd branchatcommit
-  $ hg debugdrawdag<<'EOS'
+  $ sl debugdrawdag<<'EOS'
   > B
   > |
   > A
   > EOS
-  $ hg up -q A
+  $ sl up -q A
   $ echo C > C
-  $ hg commit -m C -A C
-  $ hg up -q A
+  $ sl commit -m C -A C
+  $ sl up -q A
   $ echo D > D
-  $ hg commit -m D -A D
+  $ sl commit -m D -A D
 

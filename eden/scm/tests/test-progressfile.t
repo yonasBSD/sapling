@@ -1,6 +1,7 @@
 #chg-compatible
 #require bash no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable progress progressfile
   $ setconfig extensions.progresstest="$TESTDIR/progresstest.py"
@@ -15,7 +16,7 @@
   > }
 
 simple test
-  $ withprogress hg progresstest 4 4
+  $ withprogress sl progresstest 4 4
   {"state": {"progress test": {"active": false, "estimate_sec": null, "estimate_str": null, "item": "loop 0", "pid": 42, "pos": 0, "speed_str": null, "topic": "progress test", "total": 4, "unit": "cycles", "units_per_sec": null}}, "topics": ["progress test"]}
   {"state": {"progress test": {"active": true, "estimate_sec": 4, "estimate_str": "04s", "item": "loop 1", "pid": 42, "pos": 1, "speed_str": "1 cycles/sec", "topic": "progress test", "total": 4, "unit": "cycles", "units_per_sec": 1}}, "topics": ["progress test"]}
   {"state": {"progress test": {"active": true, "estimate_sec": 3, "estimate_str": "03s", "item": "loop 2", "pid": 42, "pos": 2, "speed_str": "1 cycles/sec", "topic": "progress test", "total": 4, "unit": "cycles", "units_per_sec": 1}}, "topics": ["progress test"]}
@@ -24,7 +25,7 @@ simple test
   {"state": {}, "topics": []}
 
 test nested short-lived topics (which shouldn't display with changedelay)
-  $ withprogress hg progresstest --nested 4 4
+  $ withprogress sl progresstest --nested 4 4
   {"state": {"progress test": {"active": false, "estimate_sec": null, "estimate_str": null, "item": "loop 0", "pid": 42, "pos": 0, "speed_str": null, "topic": "progress test", "total": 4, "unit": "cycles", "units_per_sec": null}}, "topics": ["progress test"]}
   {"state": {"nested progress": {"active": false, "estimate_sec": null, "estimate_str": null, "item": "nest 0", "pid": 42, "pos": 0, "speed_str": null, "topic": "nested progress", "total": 2, "unit": null, "units_per_sec": null}, "progress test": {"active": true, "estimate_sec": null, "estimate_str": null, "item": "loop 0", "pid": 42, "pos": 0, "speed_str": "0 cycles/sec", "topic": "progress test", "total": 4, "unit": "cycles", "units_per_sec": null}}, "topics": ["progress test", "nested progress"]}
   {"state": {"nested progress": {"active": false, "estimate_sec": null, "estimate_str": null, "item": "nest 1", "pid": 42, "pos": 1, "speed_str": null, "topic": "nested progress", "total": 2, "unit": null, "units_per_sec": null}, "progress test": {"active": true, "estimate_sec": null, "estimate_str": null, "item": "loop 0", "pid": 42, "pos": 0, "speed_str": "0 cycles/sec", "topic": "progress test", "total": 4, "unit": "cycles", "units_per_sec": null}}, "topics": ["progress test", "nested progress"]}
@@ -48,7 +49,7 @@ test nested short-lived topics (which shouldn't display with changedelay)
   {"state": {}, "topics": []}
 
 test rendering with bytes
-  $ withprogress hg bytesprogresstest
+  $ withprogress sl bytesprogresstest
   {"state": {"bytes progress test": {"active": false, "estimate_sec": null, "estimate_str": null, "item": "0 bytes", "pid": 42, "pos": 0, "speed_str": null, "topic": "bytes progress test", "total": 1111111111, "unit": "bytes", "units_per_sec": null}}, "topics": ["bytes progress test"]}
   {"state": {"bytes progress test": {"active": true, "estimate_sec": 111111111, "estimate_str": "3y28w", "item": "10 bytes", "pid": 42, "pos": 10, "speed_str": "10 bytes/sec", "topic": "bytes progress test", "total": 1111111111, "unit": "bytes", "units_per_sec": 10}}, "topics": ["bytes progress test"]}
   {"state": {"bytes progress test": {"active": true, "estimate_sec": 8888887, "estimate_str": "14w05d", "item": "250 bytes", "pid": 42, "pos": 250, "speed_str": "125 bytes/sec", "topic": "bytes progress test", "total": 1111111111, "unit": "bytes", "units_per_sec": 125}}, "topics": ["bytes progress test"]}
@@ -64,7 +65,7 @@ test rendering with bytes
   {"state": {"bytes progress test": {"active": true, "estimate_sec": 1, "estimate_str": "01s", "item": "1111111111 bytes", "pid": 42, "pos": 1111111111, "speed_str": "88.3 MB/sec", "topic": "bytes progress test", "total": 1111111111, "unit": "bytes", "units_per_sec": 92592592}}, "topics": ["bytes progress test"]}
   {"state": {}, "topics": []}
 test immediate completion
-  $ withprogress hg progresstest 0 0
+  $ withprogress sl progresstest 0 0
   {"state": {"progress test": {"active": false, "estimate_sec": null, "estimate_str": null, "item": "loop 0", "pid": 42, "pos": 0, "speed_str": null, "topic": "progress test", "total": 0, "unit": "cycles", "units_per_sec": null}}, "topics": ["progress test"]}
 
 test unicode topic

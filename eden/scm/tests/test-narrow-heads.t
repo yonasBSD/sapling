@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 'narrow-heads' requires remotenames and visibility
 
@@ -19,8 +20,8 @@ Prepare the server repo
   > A
   > EOS
 
-  $ hg push -q -r $B --to fake_master --create
-  $ hg push -q -r $A --to stable --create
+  $ sl push -q -r $B --to fake_master --create
+  $ sl push -q -r $A --to stable --create
 
 Prepare the client repo
 
@@ -28,18 +29,18 @@ Prepare the client repo
 
 Verify the commits
 
-  $ hg bookmarks --list-subscriptions
+  $ sl bookmarks --list-subscriptions
      remote/fake_master        112478962961
      remote/stable             426bada5c675
 
 Revsets after the initial clone
 
-  $ hg log -Gr 'all()' -T '{desc} {remotenames} {phase}'
+  $ sl log -Gr 'all()' -T '{desc} {remotenames} {phase}'
   @  B remote/fake_master public
   │
   o  A remote/stable public
   
-  $ hg log -Gr 'head()' -T '{desc} {remotenames}'
+  $ sl log -Gr 'head()' -T '{desc} {remotenames}'
   @  B remote/fake_master
   │
   ~
@@ -53,15 +54,15 @@ Make some client-side commits based on A
   > |
   > A
   > EOS
-  $ hg up -r $D -q
-  $ hg up -r $C -q
-  $ hg metaedit -m C2
+  $ sl up -r $D -q
+  $ sl up -r $C -q
+  $ sl metaedit -m C2
 
 Revsets after the local edits
 
 head() should include one 'D' commit, and one 'B'
 
-  $ hg log -Gr 'head()' -T '{desc}'
+  $ sl log -Gr 'head()' -T '{desc}'
   o  D
   │
   ~
@@ -73,7 +74,7 @@ head() should include one 'D' commit, and one 'B'
 all() should not show C
 Commits under ::fake_master should be public
 
-  $ hg log -Gr 'all()' -T '{desc} {phase} {remotebookmarks}'
+  $ sl log -Gr 'all()' -T '{desc} {phase} {remotebookmarks}'
   o  D draft
   │
   @  C2 draft
@@ -84,7 +85,7 @@ Commits under ::fake_master should be public
   
 draft() should not show C
 
-  $ hg log -Gr 'draft()' -T '{desc}'
+  $ sl log -Gr 'draft()' -T '{desc}'
   o  D
   │
   @  C2
@@ -92,7 +93,7 @@ draft() should not show C
   ~
 not public() should not show C
 
-  $ hg log -Gr 'not public()' -T '{desc}'
+  $ sl log -Gr 'not public()' -T '{desc}'
   o  D
   │
   @  C2
@@ -100,7 +101,7 @@ not public() should not show C
   ~
 A:: should not show C
 
-  $ hg log -Gr "$A::" -T '{desc}'
+  $ sl log -Gr "$A::" -T '{desc}'
   o  D
   │
   @  C2
@@ -111,7 +112,7 @@ A:: should not show C
   
 children(A) should not show C
 
-  $ hg log -Gr "children($A)" -T '{desc}'
+  $ sl log -Gr "children($A)" -T '{desc}'
   @  C2
   │
   ~
@@ -122,7 +123,7 @@ children(A) should not show C
 
 predecessors(C2) should include C
 
-  $ hg log -Gr "predecessors(desc('C2'))" -T '{desc}'
+  $ sl log -Gr "predecessors(desc('C2'))" -T '{desc}'
   @  C2
   │
   ~
@@ -133,19 +134,19 @@ predecessors(C2) should include C
 
 Using commit hash to access C should be allowed
 
-  $ hg log -r $C -T '{desc}'
+  $ sl log -r $C -T '{desc}'
   C (no-eol)
 
 Phases
 
-  $ hg phase --public $D
+  $ sl phase --public $D
   (phases are now managed by remotenames and heads; manually editing phases is a no-op)
-  $ hg phase $D
+  $ sl phase $D
   e7b3f00ed42ef8977173765eccff8a861809549b: secret
 
-  $ hg phase --force --draft $A
+  $ sl phase --force --draft $A
   (phases are now managed by remotenames and heads; manually editing phases is a no-op)
-  $ hg phase $A
+  $ sl phase $A
   426bada5c67598ca65036d57d9e4b64b0c1ce7a0: public
 
 Rebase
@@ -159,11 +160,11 @@ Rebase
   > |/
   > A
   > EOS
-  $ hg debugremotebookmark fake_master $B
-  $ hg hide $D -q
-  $ hg rebase -s $D -d $B
+  $ sl debugremotebookmark fake_master $B
+  $ sl hide $D -q
+  $ sl rebase -s $D -d $B
   "source" revision set is invisible - nothing to rebase
-  (hint: use 'hg unhide' to make commits visible first)
+  (hint: use 'sl unhide' to make commits visible first)
 
 Visible heads got out of sync with "." or bookmarks
 
@@ -177,13 +178,13 @@ Visible heads got out of sync with "." or bookmarks
   > |/
   > A
   > EOS
-  $ hg debugremotebookmark fake_master $M
-  $ hg hide -q $B+$C+$D
-  $ hg up -q $C
-  $ hg bookmark -r $D book-D
+  $ sl debugremotebookmark fake_master $M
+  $ sl hide -q $B+$C+$D
+  $ sl up -q $C
+  $ sl bookmark -r $D book-D
 
  (Both C and D should show up since they are working parents and bookmarked)
-  $ hg log -Gr 'all()' -T '{desc} {phase}'
+  $ sl log -Gr 'all()' -T '{desc} {phase}'
   o  M public
   │
   │ o  D draft
@@ -193,7 +194,7 @@ Visible heads got out of sync with "." or bookmarks
   o  A public
   
  (Both C and D should show up here, too)
-  $ hg log -Gr 'draft()' -T '{desc} {phase}'
+  $ sl log -Gr 'draft()' -T '{desc} {phase}'
   o  D draft
   │
   ~

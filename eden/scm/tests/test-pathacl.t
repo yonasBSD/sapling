@@ -1,5 +1,6 @@
 #require eden
 
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig subtree.min-path-depth=1
   $ setconfig subtree.allow-any-source-commit=True
@@ -18,30 +19,30 @@
   > [exclude]
   > foo/protected
   > EOF
-  $ hg ci -Am "add tent-filter file"
+  $ sl ci -Am "add tent-filter file"
   adding tent-filter
 
   $ mkdir -p foo/protected
   $ echo "1\n2\n3\n"> foo/protected/x
   $ echo "a\nb\nc\n" > foo/y
-  $ hg ci -Am "add foo"
+  $ sl ci -Am "add foo"
   adding foo/protected/x
   adding foo/y
 
   $ mkdir bar
   $ echo "a2\nb\nc\n"> bar/y
-  $ hg ci -Am "add bar"
+  $ sl ci -Am "add bar"
   adding bar/y
 
   $ echo "11\n2\n3\n"> foo/protected/x
-  $ hg ci -m "update foo"
+  $ sl ci -m "update foo"
 
   $ echo "a\nb\nc2\n" > foo/y
-  $ hg ci -m "update foo/y"
+  $ sl ci -m "update foo/y"
 
-  $ hg book master
+  $ sl book master
 
-  $ hg log -G -T '{node|short} {desc}\n'
+  $ sl log -G -T '{node|short} {desc}\n'
   @  3dbe1a097d57 update foo/y
   │
   o  bf60887fbaff update foo
@@ -55,12 +56,12 @@
 Setup client repo without enabling tent-filer profile
 
   $ cd
-  $ hg clone -q --eden test:server client1
+  $ sl clone -q --eden test:server client1
   $ cd client1
 
 Test copy/move protected path to outside (should prompt warning and fail by default)
 
-  $ hg cp foo baz
+  $ sl cp foo baz
   WARNING: You are attempting to copy protected data to an unprotected location:
    * from-path: foo/protected/x (contains protected data)
    * to-path: baz
@@ -68,7 +69,7 @@ Test copy/move protected path to outside (should prompt warning and fail by defa
   abort: copying protected path to an unprotected path is not allowed
   [255]
 
-  $ hg mv foo baz
+  $ sl mv foo baz
   WARNING: You are attempting to move protected data to an unprotected location:
    * from-path: foo/protected/x (contains protected data)
    * to-path: baz
@@ -78,22 +79,22 @@ Test copy/move protected path to outside (should prompt warning and fail by defa
 
 Test copy/move within protected path (should succeed)
 
-  $ hg cp foo/protected/x foo/protected/x2
-  $ hg st
+  $ sl cp foo/protected/x foo/protected/x2
+  $ sl st
   A foo/protected/x2
-  $ hg go -C . && hg clean
+  $ sl go -C . && sl clean
   update complete
 
-  $ hg mv foo/protected/x foo/protected/x2
-  $ hg st
+  $ sl mv foo/protected/x foo/protected/x2
+  $ sl st
   A foo/protected/x2
   R foo/protected/x
-  $ hg go -C . && hg clean
+  $ sl go -C . && sl clean
   update complete
 
 Test subtree copy protected path
 
-  $ hg subtree copy --from-path foo --to-path baz
+  $ sl subtree copy --from-path foo --to-path baz
   WARNING: You are attempting to copy protected data to an unprotected location:
    * from-path: foo (contains protected data)
    * to-path: baz
@@ -101,7 +102,7 @@ Test subtree copy protected path
   abort: copying protected path to an unprotected path is not allowed
   [255]
 
-  $ hg subtree copy --from-path foo/protected/x --to-path baz/x
+  $ sl subtree copy --from-path foo/protected/x --to-path baz/x
   WARNING: You are attempting to copy protected data to an unprotected location:
    * from-path: foo/protected/x (contains protected data)
    * to-path: baz/x
@@ -111,7 +112,7 @@ Test subtree copy protected path
 
 Test subtree copy protected path with absolute path
 
-  $ hg subtree copy --from-path $TESTTMP/client1/foo --to-path $TESTTMP/client1/baz
+  $ sl subtree copy --from-path $TESTTMP/client1/foo --to-path $TESTTMP/client1/baz
   WARNING: You are attempting to copy protected data to an unprotected location:
    * from-path: foo (contains protected data)
    * to-path: baz
@@ -122,7 +123,7 @@ Test subtree copy protected path with absolute path
 Test subtree copy protected path in a non-root directory
 
   $ cd foo
-  $ hg subtree copy --from-path ../foo --to-path ../baz
+  $ sl subtree copy --from-path ../foo --to-path ../baz
   WARNING: You are attempting to copy protected data to an unprotected location:
    * from-path: foo (contains protected data)
    * to-path: baz
@@ -133,7 +134,7 @@ Test subtree copy protected path in a non-root directory
 
 Test subtree merge protected path
 
-  $ hg subtree merge --from-path foo --to-path bar
+  $ sl subtree merge --from-path foo --to-path bar
   WARNING: You are attempting to merge protected data to an unprotected location:
    * from-path: foo (contains protected data)
    * to-path: bar
@@ -143,7 +144,7 @@ Test subtree merge protected path
 
 Test subtree merge protected path with absolute path
 
-  $ hg subtree merge --from-path $TESTTMP/client1/foo --to-path $TESTTMP/client1/bar
+  $ sl subtree merge --from-path $TESTTMP/client1/foo --to-path $TESTTMP/client1/bar
   WARNING: You are attempting to merge protected data to an unprotected location:
    * from-path: foo (contains protected data)
    * to-path: bar
@@ -154,7 +155,7 @@ Test subtree merge protected path with absolute path
 Test subtree merge protected path in a non-root directory
 
   $ cd foo
-  $ hg subtree merge --from-path ../foo --to-path ../bar
+  $ sl subtree merge --from-path ../foo --to-path ../bar
   WARNING: You are attempting to merge protected data to an unprotected location:
    * from-path: foo (contains protected data)
    * to-path: bar
@@ -166,7 +167,7 @@ Test subtree merge protected path in a non-root directory
 
 Test subtree graft protected path
 
-  $ hg subtree graft --from-path foo --to-path bar -r bf60887fbaff
+  $ sl subtree graft --from-path foo --to-path bar -r bf60887fbaff
   WARNING: You are attempting to graft protected data to an unprotected location:
    * from-path: foo/protected/x (contains protected data)
    * to-path: bar
@@ -176,7 +177,7 @@ Test subtree graft protected path
 
 Test subtree graft protected path with absolute path
 
-  $ hg subtree graft --from-path $TESTTMP/client1/foo --to-path $TESTTMP/client1/bar -r bf60887fbaff
+  $ sl subtree graft --from-path $TESTTMP/client1/foo --to-path $TESTTMP/client1/bar -r bf60887fbaff
   WARNING: You are attempting to graft protected data to an unprotected location:
    * from-path: foo/protected/x (contains protected data)
    * to-path: bar
@@ -187,7 +188,7 @@ Test subtree graft protected path with absolute path
 Test subtree graft protected path in a non-root directory
 
   $ cd foo
-  $ hg subtree graft --from-path ../foo --to-path ../bar -r bf60887fbaff
+  $ sl subtree graft --from-path ../foo --to-path ../bar -r bf60887fbaff
   WARNING: You are attempting to graft protected data to an unprotected location:
    * from-path: foo/protected/x (contains protected data)
    * to-path: bar
@@ -197,23 +198,23 @@ Test subtree graft protected path in a non-root directory
   $ cd ..
 
 Test subtree copy with addtional filter (sparse profile) path
-  $ hg subtree copy --from-path foo --to-path baz --filter tent-filter-not-exist
+  $ sl subtree copy --from-path foo --to-path baz --filter tent-filter-not-exist
   abort: path 'tent-filter-not-exist' does not exist in commit 3dbe1a097d57
   [255]
-  $ hg subtree copy --from-path foo --to-path baz --filter tent-filter
+  $ sl subtree copy --from-path foo --to-path baz --filter tent-filter
   copying foo to baz
   $ ls baz
   y
 
 Test subtree copy with a non-exist tent-filter path (the commit does not have the tent-filter)
-  $ hg subtree copy --from-path foo --to-path baz2 --config pathacl.tent-filter-path=tent-filter-not-exist
+  $ sl subtree copy --from-path foo --to-path baz2 --config pathacl.tent-filter-path=tent-filter-not-exist
   copying foo to baz2
   $ ls baz2
   protected
   y
 
 Test subtree copy to the protected directory
-  $ hg subtree copy --from-path foo/protected/x --to-path foo/protected/x2
+  $ sl subtree copy --from-path foo/protected/x --to-path foo/protected/x2
   copying foo/protected/x to foo/protected/x2
   $ ls foo/protected
   x
@@ -222,18 +223,18 @@ Test subtree copy to the protected directory
 Setup client repo with enabling tent-filer profile
 
   $ cd
-  $ hg clone -q --eden test:server client2 --config clone.eden-sparse-filter=tent-filter
+  $ sl clone -q --eden test:server client2 --config clone.eden-sparse-filter=tent-filter
   $ cd client2
   $ ls foo
   y
 
 Test subtree copy filters out the protected paths
-  $ hg subtree copy --from-path foo --to-path baz -m "subtree copy foo to baz"
+  $ sl subtree copy --from-path foo --to-path baz -m "subtree copy foo to baz"
   copying foo to baz
 file x should be filtered out
   $ ls baz
   y
-  $ hg show
+  $ sl show
   commit:      4060440d87ac
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -257,7 +258,7 @@ file x should be filtered out
 
 Test subtree merge protected path with tent-filter enabled (should fail)
 
-  $ hg subtree merge --from-path foo --to-path bar
+  $ sl subtree merge --from-path foo --to-path bar
   abort: copying protected path to an unprotected path is not allowed
   (WARNING: You are attempting to merge protected data to an unprotected location:
    * from-path: foo (contains protected data)
@@ -266,7 +267,7 @@ Test subtree merge protected path with tent-filter enabled (should fail)
 
 Test subtree graft protected path with tent-filter enabled (should fail)
 
-  $ hg subtree graft --from-path foo --to-path bar -r bf60887fbaff
+  $ sl subtree graft --from-path foo --to-path bar -r bf60887fbaff
   abort: copying protected path to an unprotected path is not allowed
   (WARNING: You are attempting to graft protected data to an unprotected location:
    * from-path: foo/protected/x (contains protected data)
@@ -275,6 +276,6 @@ Test subtree graft protected path with tent-filter enabled (should fail)
 
 Test subtree graft commits that do not have protected data (should succeed)
 
-  $ hg subtree graft --from-path foo --to-path bar -r 3dbe1a097d57
+  $ sl subtree graft --from-path foo --to-path bar -r 3dbe1a097d57
   grafting 3dbe1a097d57 "update foo/y"
   merging bar/y and foo/y to bar/y

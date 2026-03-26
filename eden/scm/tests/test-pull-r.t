@@ -3,18 +3,19 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ configure dummyssh
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo foo > foo
-  $ hg ci -qAm 'add foo'
+  $ sl ci -qAm 'add foo'
   $ echo >> foo
-  $ hg ci -m 'change foo'
-  $ hg up -qC 'desc(add)'
+  $ sl ci -m 'change foo'
+  $ sl up -qC 'desc(add)'
   $ echo bar > bar
-  $ hg ci -qAm 'add bar'
+  $ sl ci -qAm 'add bar'
 
-  $ hg log
+  $ sl log
   commit:      effea6de0384
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -34,35 +35,35 @@
 
 don't show "(+1 heads)" message when pulling closed head
 
-  $ hg clone -q repo repo2
-  $ hg clone -q repo2 repo3
+  $ sl clone -q repo repo2
+  $ sl clone -q repo2 repo3
   $ cd repo2
-  $ hg up -q bbd179dfa0a71671c253b3ae0aa1513b60d199fa
+  $ sl up -q bbd179dfa0a71671c253b3ae0aa1513b60d199fa
   $ echo hello >> foo
-  $ hg ci -mx1
-  $ hg ci -mx2 --config ui.allowemptycommit=1
-  $ hg book master
+  $ sl ci -mx1
+  $ sl ci -mx2 --config ui.allowemptycommit=1
+  $ sl book master
   $ cd ../repo3
-  $ hg heads -q --closed
+  $ sl heads -q --closed
   effea6de0384
-  $ hg pull
+  $ sl pull
   pulling from $TESTTMP/repo2
   searching for changes
   adding changesets
   adding manifests
   adding file changes
-  $ hg heads -q --closed
+  $ sl heads -q --closed
   effea6de0384
   1a1aa123db21
 
   $ cd ..
 
-  $ hg init copy
+  $ sl init copy
   $ cd copy
 
 Pull a missing revision:
 
-  $ hg pull -qr missing ../repo
+  $ sl pull -qr missing ../repo
   abort: unknown revision 'missing'!
   [255]
 
@@ -70,20 +71,20 @@ Pull multiple revisions with update:
 
   $ cp -R . $TESTTMP/copy1
   $ cd $TESTTMP/copy1
-  $ hg pull -qu -r bbd179dfa0a7 -r ed1b79f46b9a ../repo
-  $ hg -q parents
+  $ sl pull -qu -r bbd179dfa0a7 -r ed1b79f46b9a ../repo
+  $ sl -q parents
   bbd179dfa0a7
 
   $ cd $TESTTMP/copy
-  $ hg pull -qr bbd179dfa0a7 ../repo
-  $ hg log
+  $ sl pull -qr bbd179dfa0a7 ../repo
+  $ sl log
   commit:      bbd179dfa0a7
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     add foo
   
-  $ hg pull -qr ed1b79f46b9a ../repo
-  $ hg log
+  $ sl pull -qr ed1b79f46b9a ../repo
+  $ sl log
   commit:      ed1b79f46b9a
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -97,4 +98,4 @@ Pull multiple revisions with update:
 
 This used to abort: received changelog group is empty:
 
-  $ hg pull -qr ed1b79f46b9a ../repo
+  $ sl pull -qr ed1b79f46b9a ../repo

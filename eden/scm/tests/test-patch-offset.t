@@ -2,6 +2,7 @@
 #debugruntest-incompatible
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat > writepatterns.py <<EOF
   > import sys
@@ -19,7 +20,7 @@
 
 prepare repo
 
-  $ hg init a
+  $ sl init a
   $ cd a
 
 These initial lines of Xs were not in the original file used to generate
@@ -28,15 +29,15 @@ within this file.  If the offset isn't tracked then the hunks can be
 applied to the wrong lines of this file.
 
   $ $PYTHON ../writepatterns.py a 34X 10A 1B 10A 1C 10A 1B 10A 1D 10A 1B 10A 1E 10A 1B 10A
-  $ hg commit -Am adda
+  $ sl commit -Am adda
   adding a
 
 This is a cleaner patch generated via diff
 In this case it reproduces the problem when
-the output of hg export does not
+the output of sl export does not
 import patch
 
-  $ hg import -v -m 'b' -d '2 0' - <<EOF
+  $ sl import -v -m 'b' -d '2 0' - <<EOF
   > --- a/a	2009-12-08 19:26:17.000000000 -0800
   > +++ b/a	2009-12-08 19:26:17.000000000 -0800
   > @@ -9,7 +9,7 @@

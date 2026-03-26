@@ -1,5 +1,6 @@
 #require no-windows no-eden
 
+  $ export HGIDENTITY=sl
   $ cat > make-request.py <<'EOF'
   > import sys, struct
   > cmd = "\0".join(sys.argv[1:]).encode()
@@ -24,18 +25,18 @@
   > EOF
 
 Works outside repo (and with Rust command):
-  $ python ~/make-request.py debug-args some-arg | hg serve --cmdserver pipe | python ~/read-response.py
+  $ python ~/make-request.py debug-args some-arg | sl serve --cmdserver pipe | python ~/read-response.py
   from o: ["some-arg"]
   from r: 0
 
 Works in repo:
   $ newclientrepo repo
   $ touch foo
-  $ python ~/make-request.py status | hg serve --cmdserver pipe | python ~/read-response.py
+  $ python ~/make-request.py status | sl serve --cmdserver pipe | python ~/read-response.py
   from o: ? foo
   from r: 0
 
 Test an error result just for fun:
-  $ python ~/make-request.py status --rev nope | hg serve --cmdserver pipe | python ~/read-response.py
+  $ python ~/make-request.py status --rev nope | sl serve --cmdserver pipe | python ~/read-response.py
   from e: abort: unknown revision 'nope'!
   from r: 255

@@ -10,6 +10,7 @@
 
 # Setup
 
+  $ export HGIDENTITY=sl
   $ setconfig experimental.run-python-hooks-via-pyhook=true
 
   $ cat > $TESTTMP/pretxnchangegroup.sh << 'EOF'
@@ -21,8 +22,8 @@
   > pretxnchangegroup = sh $TESTTMP/pretxnchangegroup.sh
   > EOF
 
-  $ hg init repo
-  $ hg clone -q repo child
+  $ sl init repo
+  $ sl clone -q repo child
   $ cd child
 
 # Test pushing vars to repo with pushvars.server explicitly disabled
@@ -31,8 +32,8 @@
   $ setconfig 'push.pushvars.server=False'
   $ cd ../child
   $ echo b > a
-  $ hg commit -Aqm a
-  $ hg push --pushvars 'DEBUG=1' --pushvars 'BYPASS_REVIEW=true' --config 'push.pushvars.server=False' --allow-anon
+  $ sl commit -Aqm a
+  $ sl push --pushvars 'DEBUG=1' --pushvars 'BYPASS_REVIEW=true' --config 'push.pushvars.server=False' --allow-anon
   pushing to $TESTTMP/repo
   searching for changes
   adding changesets
@@ -45,8 +46,8 @@
   $ setconfig 'push.pushvars.server=True'
   $ cd ../child
   $ echo b >> a
-  $ hg commit -Aqm a
-  $ hg push --pushvars 'DEBUG=1' --pushvars 'BYPASS_REVIEW=true' --allow-anon
+  $ sl commit -Aqm a
+  $ sl push --pushvars 'DEBUG=1' --pushvars 'BYPASS_REVIEW=true' --allow-anon
   pushing to $TESTTMP/repo
   searching for changes
   adding changesets
@@ -58,8 +59,8 @@
 # Test pushing var with empty right-hand side
 
   $ echo b >> a
-  $ hg commit -Aqm a
-  $ hg push --pushvars 'DEBUG=' --allow-anon
+  $ sl commit -Aqm a
+  $ sl push --pushvars 'DEBUG=' --allow-anon
   pushing to $TESTTMP/repo
   searching for changes
   adding changesets
@@ -70,8 +71,8 @@
 # Test pushing bad vars
 
   $ echo b >> a
-  $ hg commit -Aqm b
-  $ hg push --pushvars DEBUG --allow-anon
+  $ sl commit -Aqm b
+  $ sl push --pushvars DEBUG --allow-anon
   pushing to $TESTTMP/repo
   searching for changes
   abort: unable to parse variable 'DEBUG', should follow 'KEY=VALUE' or 'KEY=' format
@@ -88,13 +89,13 @@
   >             io.write(("Got pushvar: %s=%s\n" % (k, v)).encode())
   > EOF
 
-  $ cp "$HGRCPATH" "$TESTTMP/hgrc.bak"
+  $ cp "$HGRCPATH" "$TESTTMP/config.bak"
   $ cat >> $HGRCPATH << 'EOF'
   > [hooks]
   > pretxnchangegroup.pyhook = python:$TESTTMP/pyhook.py:hook
   > EOF
 
-  $ hg push --pushvars 'A=1' --pushvars 'B=2' --allow-anon
+  $ sl push --pushvars 'A=1' --pushvars 'B=2' --allow-anon
   pushing to $TESTTMP/repo
   searching for changes
   adding changesets
@@ -102,28 +103,28 @@
   adding file changes
   Got pushvar: USERVAR_A=1
   Got pushvar: USERVAR_B=2
-  $ cp "$TESTTMP/hgrc.bak" "$HGRCPATH"
+  $ cp "$TESTTMP/config.bak" "$HGRCPATH"
 
 # Test pushvars for enforcing push reasons
 
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [push]
   > requirereason=True
   > requirereasonmsg="Because I said so"
   > EOF
   $ echo c >> a
-  $ hg commit -Aqm c
-  $ hg push
+  $ sl commit -Aqm c
+  $ sl push
   pushing to $TESTTMP/repo
   abort: "Because I said so"
   (use `--pushvars PUSH_REASON='because ...'`)
   [255]
-  $ hg push --pushvars 'PUSH_REASON=I want to' --allow-anon
+  $ sl push --pushvars 'PUSH_REASON=I want to' --allow-anon
   pushing to $TESTTMP/repo
   searching for changes
   adding changesets
   adding manifests
   adding file changes
-  $ hg blackbox --pattern '{"legacy_log": {"service": "pushreason"}}'
+  $ sl blackbox --pattern '{"legacy_log": {"service": "pushreason"}}'
   * [legacy][pushreason] bypassing push block with reason: I want to (glob)
-  $ cp "$TESTTMP/hgrc.bak" "$HGRCPATH"
+  $ cp "$TESTTMP/config.bak" "$HGRCPATH"

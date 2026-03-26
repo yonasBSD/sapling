@@ -7,17 +7,18 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
   > fbcodereview=
   > EOF
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ echo 1 > 1
-  $ hg add 1
-  $ hg commit -m "$(printf 'title\n\nDifferential Revision: http.ololo.com/D1234')"
-  $ hg up -q 'desc(title)'
-  $ hg up D1234
+  $ sl add 1
+  $ sl commit -m "$(printf 'title\n\nDifferential Revision: http.ololo.com/D1234')"
+  $ sl up -q 'desc(title)'
+  $ sl up D1234
   phrevset.callsign is not set - doing a linear search
   This will be slow if the diff was not committed recently
   abort: phrevset.graphqlonly is set and Phabricator cannot resolve D1234
@@ -26,37 +27,37 @@
   $ drawdag << 'EOS'
   > A  > EOS
   $ setconfig phrevset.mock-D1234=$A phrevset.callsign=CALLSIGN
-  $ hg log -r D1234 -T '{desc}\n'
+  $ sl log -r D1234 -T '{desc}\n'
   A
 
 # Callsign is invalid
 
-  $ hg log -r D1234 --config phrevset.callsign=C -T '{desc}\n'
+  $ sl log -r D1234 --config phrevset.callsign=C -T '{desc}\n'
   abort: Diff callsign 'CALLSIGN' does not match repo callsigns '['C']'
   [255]
 
 # Now we have two callsigns, and one of them is correct. Make sure it works
 
-  $ hg log -r D1234 --config phrevset.callsign=C,CALLSIGN -T '{desc}\n'
+  $ sl log -r D1234 --config phrevset.callsign=C,CALLSIGN -T '{desc}\n'
   A
 
 # Callsign set by .arcconfig works when phrevset.callsign is absent
 
   $ echo '{"repository.callsign":"CALLSIGN"}' > .arcconfig
-  $ hg commit -m 'add arcconfig' -A .arcconfig
-  $ hg log -r D1234 --config phrevset.callsign= -T '{desc}\n'
+  $ sl commit -m 'add arcconfig' -A .arcconfig
+  $ sl log -r D1234 --config phrevset.callsign= -T '{desc}\n'
   A
 
 # Phabricator provides an unknown commit hash.
 
   $ setconfig phrevset.mock-D1234=6008bb23d775556ff6c3528541ca5a2177b4bb92
-  $ hg log -r D1234 -T '{desc}\n'
+  $ sl log -r D1234 -T '{desc}\n'
   abort: unknown revision 'D1234'!
   [255]
 
 # 'pull -r Dxxx' will be rewritten to 'pull -r HASH'
 
-  $ hg pull -r D1234 --config paths.default=test:fake_server
+  $ sl pull -r D1234 --config paths.default=test:fake_server
   pulling from test:fake_server
   rewriting pull rev 'D1234' into '6008bb23d775556ff6c3528541ca5a2177b4bb92'
   abort: unknown revision '6008bb23d775556ff6c3528541ca5a2177b4bb92'!

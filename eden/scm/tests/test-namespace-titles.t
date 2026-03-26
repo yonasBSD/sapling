@@ -1,6 +1,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig ui.allowemptycommit=1 \
   > remotenames.selectivepulldefault=main \
   > remotenames.hoist=remote \
@@ -9,19 +10,19 @@
 Prepare a repo
 
   $ newrepo
-  $ hg ci -m 'A: foo bar'
-  $ hg ci -m 'B: bar-baz'
-  $ hg go -q 'desc("A: foo")'
-  $ hg ci -m "$(printf 'C: multi line\nfoo bar baz 2nd line')"
-  $ hg ci -m 'D: not public'
-  $ hg ci -m 'E: not top() commit'
-  $ hg ci -m 'F: not bottom() commit'
-  $ hg ci -m 'G: stack() commit'
+  $ sl ci -m 'A: foo bar'
+  $ sl ci -m 'B: bar-baz'
+  $ sl go -q 'desc("A: foo")'
+  $ sl ci -m "$(printf 'C: multi line\nfoo bar baz 2nd line')"
+  $ sl ci -m 'D: not public'
+  $ sl ci -m 'E: not top() commit'
+  $ sl ci -m 'F: not bottom() commit'
+  $ sl ci -m 'G: stack() commit'
 
-  $ hg go -q 'desc("D: not public")'
+  $ sl go -q 'desc("D: not public")'
 
   $ function log() {
-  >   hg log -T '{desc|firstline}\n' -r "$@"
+  >   sl log -T '{desc|firstline}\n' -r "$@"
   > }
 
 Not by symbol
@@ -43,10 +44,10 @@ Select by word
   $ log "foo"
   A: foo bar
   hint[match-title]: commit matched by title from 'foo'
-   (if you want to disable title matching, run 'hg config --edit experimental.titles-namespace=false')
-  hint[hint-ack]: use 'hg hint --ack match-title' to silence these hints
+   (if you want to disable title matching, run 'sl config --edit experimental.titles-namespace=false')
+  hint[hint-ack]: use 'sl hint --ack match-title' to silence these hints
 
-  $ hg hint --ack match-title -q
+  $ sl hint --ack match-title -q
 
   $ log "baz"
   B: bar-baz
@@ -129,12 +130,12 @@ Works with "megarepo" extension
 
 Does not conflict with autopull
 
-  $ hg bookmark -r 'desc(D)' main
-  $ hg clone -q "$PWD" "$TESTTMP/client1"
+  $ sl bookmark -r 'desc(D)' main
+  $ sl clone -q "$PWD" "$TESTTMP/client1"
 
   $ cd "$TESTTMP/client1"
-  $ hg go -q remote/main
-  $ hg commit -m 'E: remote/foo'
+  $ sl go -q remote/main
+  $ sl commit -m 'E: remote/foo'
 
   $ log 'remote/foo'
   pulling 'foo' from '$TESTTMP/repo1' (no-windows !)

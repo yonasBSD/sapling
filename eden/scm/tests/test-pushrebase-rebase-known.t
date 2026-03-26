@@ -5,6 +5,7 @@
 
 Pushrebase still needs filepeer.
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ enable pushrebase
 
@@ -20,12 +21,12 @@ The client repo1 has commit C known to the server.
   >  \|
   >   A
   > EOS
-  $ hg push -r $B --to b1 --create -q
-  $ hg push -r $B --to b2 --create -q
-  $ hg push -r $C --to c1 --create -q
-  $ hg pull -B b1 -B b2 -B c1 -q
+  $ sl push -r $B --to b1 --create -q
+  $ sl push -r $B --to b2 --create -q
+  $ sl push -r $C --to c1 --create -q
+  $ sl pull -B b1 -B b2 -B c1 -q
 
-  $ hg log -Gr: -T '{desc} {remotenames} {phase}'
+  $ sl log -Gr: -T '{desc} {remotenames} {phase}'
   o  C remote/c1 public
   │
   │ o  B remote/b1 remote/b2 public
@@ -34,7 +35,7 @@ The client repo1 has commit C known to the server.
 
 Trying to push C (public) to b1 (B) is a no-op:
 
-  $ hg push -r $C --to b1
+  $ sl push -r $C --to b1
   pushing rev dc0947a82db8 to destination ssh://user@dummy/server bookmark b1
   searching for changes
   no changes found
@@ -44,16 +45,16 @@ The client repo2 has draft C known to the server.
 
   $ clone server repo2
   $ cd repo2
-  $ hg pull -q -B b2
+  $ sl pull -q -B b2
   $ drawdag << 'EOS'
   >  C
   >  |
   > desc(A)
   > EOS
-  $ hg go $C -q
+  $ sl go $C -q
 
-  $ hg pull -B b2 -q
-  $ hg log -Gr: -T '{desc} {remotenames} {phase}'
+  $ sl pull -B b2 -q
+  $ sl log -Gr: -T '{desc} {remotenames} {phase}'
   @  C  draft
   │
   │ o  B remote/b2 public
@@ -62,7 +63,7 @@ The client repo2 has draft C known to the server.
   
 Rebase C (draft) to b2 (B) when the server already knows C:
 
-  $ hg push -r $C --to b2
+  $ sl push -r $C --to b2
   pushing rev dc0947a82db8 to destination ssh://user@dummy/server bookmark b2
   searching for changes
   adding changesets
@@ -74,7 +75,7 @@ Rebase C (draft) to b2 (B) when the server already knows C:
   remote: 2 new changesets from the server will be downloaded
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg log -Gr ::b2 -T '{desc}\n'
+  $ sl log -Gr ::b2 -T '{desc}\n'
   @  C
   │
   o  B

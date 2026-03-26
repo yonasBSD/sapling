@@ -1,18 +1,19 @@
 #require fsmonitor no-eden
 
+  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ touch x
 
 Watchman clock is set after "status"
 
-  $ hg status
+  $ sl status
   ? x
-  $ hg debugshell -c 'ui.write("%s\n" % str(repo.dirstate.getclock()))'
+  $ sl debugshell -c 'ui.write("%s\n" % str(repo.dirstate.getclock()))'
   c:* (glob)
 
 Watchman clock is not reset after a "purge --all"
 
-  $ hg purge --all
-  $ hg debugshell -c 'ui.write("%s\n" % str(repo.dirstate.getclock()))'
+  $ sl purge --all
+  $ sl debugshell -c 'ui.write("%s\n" % str(repo.dirstate.getclock()))'
   c:* (glob)
-  $ hg status
+  $ sl status

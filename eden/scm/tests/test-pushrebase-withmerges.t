@@ -4,6 +4,7 @@ Dummy SSH issues on Windows
 #inprocess-hg-incompatible
 
 Eagerepo doesn't support pushrebase yet.
+  $ export HGIDENTITY=sl
   $ rm $TESTTMP/.eagerepo
 
 Setup
@@ -14,46 +15,46 @@ Setup
 
   $ commit() {
   >   echo $1 > $1
-  >   hg add $1
-  >   hg commit -m "$1"
+  >   sl add $1
+  >   sl commit -m "$1"
   > }
 
   $ log() {
-  >   hg log -G -T "{desc} [{phase}:{node|short}] {bookmarks}" "$@"
+  >   sl log -G -T "{desc} [{phase}:{node|short}] {bookmarks}" "$@"
   > }
 
 Set up server repository
 
   $ newserver server
   $ commit base
-  $ hg book @
+  $ sl book @
 
 Set up client repository
 
   $ cd ..
-  $ hg clone ssh://user@dummy/server client -q --config remotenames.selectivepulldefault=@
+  $ sl clone ssh://user@dummy/server client -q --config remotenames.selectivepulldefault=@
   $ cd client
 
 Build commit graph to push in
 
-  $ hg up null
+  $ sl up null
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ commit alpha
-  $ hg merge @
+  $ sl merge @
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg commit -m "merge alpha"
-  $ hg up null
+  $ sl commit -m "merge alpha"
+  $ sl up null
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ commit beta
-  $ hg merge @
+  $ sl merge @
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg commit -m "merge beta"
-  $ hg merge 0fcb170b6d8413eccdcba882f30260c80a99ad19
+  $ sl commit -m "merge beta"
+  $ sl merge 0fcb170b6d8413eccdcba882f30260c80a99ad19
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg commit -m "merge alpha and beta"
+  $ sl commit -m "merge alpha and beta"
   $ log
   @    merge alpha and beta [draft:b41b83f633d8]
   ├─╮
@@ -81,7 +82,7 @@ Add a commit in the server
 Push in from the client.
 
   $ cd ../client
-  $ hg push --to @
+  $ sl push --to @
   pushing rev b41b83f633d8 to destination ssh://user@dummy/server bookmark @
   searching for changes
   adding changesets

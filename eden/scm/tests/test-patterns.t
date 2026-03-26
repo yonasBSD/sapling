@@ -1,12 +1,13 @@
 #require no-windows no-eden
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Explore the semi-mysterious matchmod.match API
 
   $ newrepo
   $ mkdir 'a*1' 'a*2'
   $ touch 'a*1/a' 'a*2/b'
-  $ hg ci -m 1 -A 'a*1/a' 'a*2/b' -q 2>&1 | sort
+  $ sl ci -m 1 -A 'a*1/a' 'a*2/b' -q 2>&1 | sort
   warning: filename contains '*', which is reserved on Windows: 'a*1/a'
   warning: filename contains '*', which is reserved on Windows: 'a*2/b'
   warning: possible glob in non-glob pattern 'a*1/a', did you mean 'glob:a*1/a'?
@@ -14,59 +15,59 @@ Explore the semi-mysterious matchmod.match API
 
 "patterns="
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*"])))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*"])))))'
   []
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*1"])))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*1"])))))'
   []
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*/*"])))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*/*"])))))'
   ['a*1/a', 'a*2/b']
 
 "include="
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*"])))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*"])))))'
   ['a*1/a', 'a*2/b']
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*1"])))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*1"])))))'
   ['a*1/a']
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*/*"])))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*/*"])))))'
   ['a*1/a', 'a*2/b']
 
 "patterns=" with "default='path'"
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*"], default="path")))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*"], default="path")))))'
   []
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*1"], default="path")))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*1"], default="path")))))'
   ['a*1/a']
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*/*"], default="path")))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", patterns=["a*/*"], default="path")))))'
   []
 
 "include=" with "default='path'" (ex. "default=" has no effect on "include=")
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*"], default="path")))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*"], default="path")))))'
   ['a*1/a', 'a*2/b']
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*1"], default="path")))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*1"], default="path")))))'
   ['a*1/a']
 
-  $ hg dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*/*"], default="path")))))'
+  $ sl dbsh -c 'ui.write("%s\n" % str(list(repo["."].walk(s.match.match(repo.root, "", include=["a*/*"], default="path")))))'
   ['a*1/a', 'a*2/b']
 
 Give a hint if a pattern will traverse the entire repo.
-  $ hg files 'glob:**/*.cpp' --config hint.ack-match-full-traversal=false
-  hint[match-full-traversal]: the patterns "glob:**/*.cpp" may be slow since they traverse the entire repo (see "hg help patterns")
+  $ sl files 'glob:**/*.cpp' --config hint.ack-match-full-traversal=false
+  hint[match-full-traversal]: the patterns "glob:**/*.cpp" may be slow since they traverse the entire repo (see "sl help patterns")
   [1]
 
 No hint since the prefix avoids the full traversal.
-  $ hg files 'glob:foo/**/*.cpp' --config hint.ack-match-full-traversal=false
+  $ sl files 'glob:foo/**/*.cpp' --config hint.ack-match-full-traversal=false
   [1]
 
 No hint when run from a sub-directory since it won't traverse the entire repo.
   $ mkdir foo
   $ cd foo
-  $ hg files 'glob:**/*.cpp' --config hint.ack-match-full-traversal=false
+  $ sl files 'glob:**/*.cpp' --config hint.ack-match-full-traversal=false
   [1]

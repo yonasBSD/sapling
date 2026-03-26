@@ -1,9 +1,10 @@
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ configure mutation
 
   $ function log() {
-  >   hg log -G -r 'all()' -T '{node|short} {desc} {remotebookmarks} {bookmarks}'
+  >   sl log -G -r 'all()' -T '{node|short} {desc} {remotebookmarks} {bookmarks}'
   > }
 
 #testcases slapi 
@@ -20,28 +21,28 @@ Set up server repository
   $ rm $TESTTMP/.eagerepo
 #endif
   $ newserver server
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > [extensions]
   > pushrebase=
   > EOF
   $ echo foo > a
   $ echo foo > b
-  $ hg commit -Am 'initial'
+  $ sl commit -Am 'initial'
   adding a
   adding b
-  $ hg book master
+  $ sl book master
   $ cd ..
 
 Test fast forward push
 
   $ newclientrepo client server
-  $ hg up -q master
-  $ echo x >> a && hg commit -qm 'add a'
-  $ hg commit --amend -qm 'changed message'
-  $ hg log -r . -T '{node}\n'
+  $ sl up -q master
+  $ echo x >> a && sl commit -qm 'add a'
+  $ sl commit --amend -qm 'changed message'
+  $ sl log -r . -T '{node}\n'
   ea98a8f9539083f60b81315106c94227e8814d17
-  $ hg push --to master -q
-  $ hg show
+  $ sl push --to master -q
+  $ sl show
   commit:      ea98a8f95390
   bookmark:    remote/master
   hoistedname: master
@@ -71,19 +72,19 @@ the master bookmark should point to the latest commit
   o  2bb9d20e471c initial
 
 test pushrebase conflicts
-  $ hg go -q 2bb9d20e471c
-  $ echo y >> a && hg commit -qm "update a"
+  $ sl go -q 2bb9d20e471c
+  $ echo y >> a && sl commit -qm "update a"
 #if slapi
-  $ hg push --to master -q
+  $ sl push --to master -q
   abort: Server error: Conflicts while pushrebasing: [(RepoPathBuf("a"), RepoPathBuf("a"))]
   [255]
 #endif
 
 Test pushrebase a diff stack
   $ newclientrepo client3 server
-  $ hg go -q 2bb9d20e471c
-  $ echo 1 >> c && hg ci -qAm "add c"
-  $ echo 2 >> c && hg ci -qm "update c"
+  $ sl go -q 2bb9d20e471c
+  $ echo 1 >> c && sl ci -qAm "add c"
+  $ echo 2 >> c && sl ci -qm "update c"
   $ log
   @  adb87132efa9 update c
   │
@@ -92,7 +93,7 @@ Test pushrebase a diff stack
   │ o  ea98a8f95390 changed message remote/master
   ├─╯
   o  2bb9d20e471c initial
-  $ hg push --to master -q
+  $ sl push --to master -q
   $ log
   @  9237cb52bef6 update c remote/master
   │

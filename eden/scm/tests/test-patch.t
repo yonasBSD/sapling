@@ -3,6 +3,7 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
   $ cat > patchtool.py <<EOF
@@ -13,15 +14,15 @@
   >     print('--binary found !')
   > EOF
 
-  $ setconfig ui.patch="hg debugpython $TESTTMP/patchtool.py"
+  $ setconfig ui.patch="sl debugpython $TESTTMP/patchtool.py"
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo a > a
-  $ hg commit -Ama -d '1 0'
+  $ sl commit -Ama -d '1 0'
   adding a
   $ echo b >> a
-  $ hg commit -Amb -d '2 0'
+  $ sl commit -Amb -d '2 0'
   $ cd ..
 
 This test checks that:
@@ -32,17 +33,17 @@ This test checks that:
 
 check custom patch options are honored
 
-  $ hg --cwd a export -o ../a.diff tip
-  $ hg clone -u 0 a b
+  $ sl --cwd a export -o ../a.diff tip
+  $ sl clone -u 0 a b
   updating to 8580ff50825a50c8f716709acdf8de0deddcd6ab
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg --cwd b import -v ../a.diff
+  $ sl --cwd b import -v ../a.diff
   applying ../a.diff
   Using custom patch
   applied to working directory
 
-Issue2417: hg import with # comments in description
+Issue2417: sl import with # comments in description
 
 Prepare source repo and patch:
 
@@ -50,10 +51,10 @@ Prepare source repo and patch:
   > [ui]
   > %unset patch
   > EOF
-  $ hg init c
+  $ sl init c
   $ cd c
   $ printf "a\rc" > a
-  $ hg ci -A -m 0 a -d '0 0'
+  $ sl ci -A -m 0 a -d '0 0'
   $ printf "a\rb\rc" > a
   $ cat << eof > log
   > first line which can't start with '# '
@@ -62,20 +63,20 @@ Prepare source repo and patch:
   > # HG changeset patch
   > # User lines looks like this - but it _is_ just a comment
   > eof
-  $ hg ci -l log -d '0 0'
-  $ hg export -o p 'desc(first)'
+  $ sl ci -l log -d '0 0'
+  $ sl export -o p 'desc(first)'
   $ cd ..
 
 Clone and apply patch:
 
   $ setconfig remotefilelog.cachepath=$TESTTMP/cache
-  $ hg clone -u 0 c d --config ui.ignorerevnum=0
+  $ sl clone -u 0 c d --config ui.ignorerevnum=0
   updating to 7fadb901d4035fb3ae61dca0aededab9b996ad25
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd d
-  $ hg import ../c/p
+  $ sl import ../c/p
   applying ../c/p
-  $ hg log -v -r 'desc(first)'
+  $ sl log -v -r 'desc(first)'
   commit:      cd0bde79c428
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -92,13 +93,13 @@ Clone and apply patch:
 
 Test invalid patch
   $ cd d
-  $ hg export -r . -o patch.patch
-  $ hg up -q .^
-  $ hg debugpython <<EOF
+  $ sl export -r . -o patch.patch
+  $ sl up -q .^
+  $ sl debugpython <<EOF
   > s = b''.join(open('patch.patch', 'rb').readlines()[:-2])
   > open('patch.patch', 'wb').write(s)
   > EOF
-  $ hg import patch.patch
+  $ sl import patch.patch
   applying patch.patch
   abort: hunk processing error - hunk too short
   [255]
