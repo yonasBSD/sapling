@@ -1662,21 +1662,21 @@ mod test {
         let cd = (rp("C/D"), FileMetadata::regular(hgid(1)));
 
         // update file
-        assert_checkout(&[a.clone()], &[a_2.clone()])?;
+        assert_checkout(std::slice::from_ref(&a), std::slice::from_ref(&a_2))?;
         // mv file
-        assert_checkout(&[a.clone()], &[b.clone()])?;
+        assert_checkout(std::slice::from_ref(&a), std::slice::from_ref(&b))?;
         // add / rm file
-        assert_checkout_symmetrical(&[a.clone()], &[a.clone(), b.clone()])?;
+        assert_checkout_symmetrical(std::slice::from_ref(&a), &[a.clone(), b.clone()])?;
         // regular<->exec
-        assert_checkout_symmetrical(&[a.clone()], &[a_e.clone()])?;
+        assert_checkout_symmetrical(std::slice::from_ref(&a), std::slice::from_ref(&a_e))?;
         // regular<->symlink
-        assert_checkout_symmetrical(&[a.clone()], &[a_s.clone()])?;
+        assert_checkout_symmetrical(std::slice::from_ref(&a), std::slice::from_ref(&a_s))?;
         // dir <-> file with the same name
-        assert_checkout_symmetrical(&[ab.clone()], &[a.clone()])?;
+        assert_checkout_symmetrical(std::slice::from_ref(&ab), std::slice::from_ref(&a))?;
         // create / rm dir
-        assert_checkout_symmetrical(&[ab.clone()], &[b.clone()])?;
+        assert_checkout_symmetrical(std::slice::from_ref(&ab), std::slice::from_ref(&b))?;
         // mv file between dirs
-        assert_checkout(&[ab.clone()], &[cd.clone()])?;
+        assert_checkout(std::slice::from_ref(&ab), std::slice::from_ref(&cd))?;
 
         Ok(())
     }

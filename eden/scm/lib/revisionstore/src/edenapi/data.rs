@@ -161,7 +161,7 @@ impl RemoteDataStore for SaplingRemoteApiDataStore<Tree> {
 
 impl HgIdDataStore for SaplingRemoteApiDataStore<File> {
     fn get(&self, key: StoreKey) -> Result<StoreResult<Vec<u8>>> {
-        self.prefetch(&[key.clone()])?;
+        self.prefetch(std::slice::from_ref(&key))?;
         self.store.get(key)
     }
 
@@ -172,7 +172,7 @@ impl HgIdDataStore for SaplingRemoteApiDataStore<File> {
 
 impl HgIdDataStore for SaplingRemoteApiDataStore<Tree> {
     fn get(&self, key: StoreKey) -> Result<StoreResult<Vec<u8>>> {
-        self.prefetch(&[key.clone()])?;
+        self.prefetch(std::slice::from_ref(&key))?;
         self.store.get(key)
     }
 

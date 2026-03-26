@@ -1475,7 +1475,9 @@ where
 
             // Do a local "contains" check.
             if matches!(
-                &this.contains_vertex_name_locally(&[root.clone()]).await?[..],
+                &this
+                    .contains_vertex_name_locally(std::slice::from_ref(&root))
+                    .await?[..],
                 [true]
             ) {
                 tracing::debug!(target: "dag::definitelymissing", "root {:?} is already known", &root);
@@ -2245,7 +2247,9 @@ where
                 {
                     return name.not_found();
                 }
-                let ids = self.resolve_vertexes_remotely(&[name.clone()]).await?;
+                let ids = self
+                    .resolve_vertexes_remotely(std::slice::from_ref(&name))
+                    .await?;
                 if let Some(Some(id)) = ids.first() {
                     Ok(*id)
                 } else {
@@ -2289,7 +2293,10 @@ where
                     // master group.
                     return Ok(None);
                 }
-                match self.resolve_vertexes_remotely(&[name.clone()]).await {
+                match self
+                    .resolve_vertexes_remotely(std::slice::from_ref(name))
+                    .await
+                {
                     Ok(ids) => match ids.first() {
                         Some(Some(id)) => Ok(Some(*id)),
                         Some(None) | None => Ok(None),
@@ -2351,7 +2358,10 @@ where
                 {
                     return Ok(false);
                 }
-                match self.resolve_vertexes_remotely(&[name.clone()]).await {
+                match self
+                    .resolve_vertexes_remotely(std::slice::from_ref(name))
+                    .await
+                {
                     Ok(ids) => match ids.first() {
                         Some(Some(_)) => Ok(true),
                         Some(None) | None => Ok(false),

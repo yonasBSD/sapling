@@ -770,7 +770,7 @@ async fn check_local_cache(client: &TestDag, v: Vertex, id: Id) {
     assert!(matches!(
         &client
             .dag
-            .contains_vertex_name_locally(&[v.clone()])
+            .contains_vertex_name_locally(std::slice::from_ref(&v))
             .await
             .unwrap()[..],
         [true]
@@ -778,7 +778,7 @@ async fn check_local_cache(client: &TestDag, v: Vertex, id: Id) {
     assert!(client.output().is_empty());
 
     assert!(matches!(
-        &client.dag.vertex_id_batch(&[v.clone()]).await.unwrap()[..],
+        &client.dag.vertex_id_batch(std::slice::from_ref(&v)).await.unwrap()[..],
         [Ok(i)] if *i == id
     ));
     assert!(client.output().is_empty());
