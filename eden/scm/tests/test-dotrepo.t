@@ -59,12 +59,15 @@ Add "enable_sl" file which is used as a config flag for identity:
 
 (bad: sl doesn't recognize .repo identity)
   $ sl root
-  $TESTTMP/repodir
+  abort: repository requires unknown features: dotrepo
+  (consider upgrading Sapling)
+  [255]
 
 (bad: sl smartlog does not work in .repo)
 
   $ sl smartlog -T {desc}
-  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/repodir/.repo/sl, requirements=set())!
+  abort: repository requires unknown features: dotrepo
+  (consider upgrading Sapling)
   [255]
 
 (bad: sl status does not work in .repo)
@@ -74,5 +77,6 @@ $ sl status
 (bad: sl log does not work in .repo)
 
   $ sl log -r . -T '{desc}\n'
-  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/repodir/.repo/sl, requirements=set())!
+  abort: repository requires unknown features: dotrepo
+  (consider upgrading Sapling)
   [255]
