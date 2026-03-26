@@ -54,6 +54,7 @@ rust_unittest(
         "fbsource//third-party/rust:tokio",
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/fbinit:fbinit-tokio",
+        "//common/rust/shed/justknobs_stub:justknobs",
         "//common/rust/shed/quickcheck_arbitrary_derive:quickcheck_arbitrary_derive",
         "//common/rust/shed/sql:sql",
         "//eden/mononoke/common/mononoke_macros:mononoke_macros",
