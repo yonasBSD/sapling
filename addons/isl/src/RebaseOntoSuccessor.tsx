@@ -35,11 +35,7 @@ export const orphanedChildrenForCommit = atomFamilyWeak((hash: Hash) =>
       return null;
     }
 
-    // Don't show for landed commits — they use the Cleanup workflow instead.
     const successorType = commit.successorInfo.type;
-    if (successorType === 'land' || successorType === 'pushrebase') {
-      return null;
-    }
 
     // Follow the successor chain to find the latest non-obsolete successor.
     const successors = dag.followSuccessors(hash);
@@ -69,6 +65,7 @@ export const orphanedChildrenForCommit = atomFamilyWeak((hash: Hash) =>
     return {
       orphanedChildren: nonObsoleteChildren.toHashes().toArray(),
       successorHash,
+      isLanded: successorType === 'land' || successorType === 'pushrebase',
     };
   }),
 );
@@ -84,7 +81,7 @@ export const orphanedChildrenForStack = atomFamilyWeak((hash: Hash) =>
     const dag = get(dagWithPreviews);
     const stackHashes = dag.descendants(hash).toHashes().toArray();
 
-    const rebaseEntries: Array<{orphanedChild: Hash; successorHash: Hash}> = [];
+    const rebaseEntries: Array<{orphanedChild: Hash; successorHash: Hash; isLanded: boolean}> = [];
     const allOrphaned: Hash[] = [];
     const allSuccessors: Hash[] = [];
 
@@ -92,7 +89,11 @@ export const orphanedChildrenForStack = atomFamilyWeak((hash: Hash) =>
       const info = get(orphanedChildrenForCommit(h));
       if (info != null) {
         for (const child of info.orphanedChildren) {
-          rebaseEntries.push({orphanedChild: child, successorHash: info.successorHash});
+          rebaseEntries.push({
+            orphanedChild: child,
+            successorHash: info.successorHash,
+            isLanded: info.isLanded,
+          });
           allOrphaned.push(child);
         }
         if (!allSuccessors.includes(info.successorHash)) {
@@ -109,6 +110,7 @@ export const orphanedChildrenForStack = atomFamilyWeak((hash: Hash) =>
       rebaseEntries,
       allOrphaned,
       allSuccessors,
+      isLanded: rebaseEntries.every(e => e.isLanded),
     };
   }),
 );
@@ -126,7 +128,7 @@ export function RebaseOrphanedStackButton({hash}: {hash: Hash}) {
     return null;
   }
 
-  const {rebaseEntries, allOrphaned, allSuccessors} = info;
+  const {rebaseEntries, allOrphaned, allSuccessors, isLanded} = info;
 
   const handleClick = () => {
     tracker.track('ClickRebaseOntoSuccessor', {
@@ -134,6 +136,7 @@ export function RebaseOrphanedStackButton({hash}: {hash: Hash}) {
         sources: allOrphaned,
         dest: allSuccessors.join(','),
         numOrphans: allOrphaned.length,
+        isLanded,
       },
     });
     for (const {orphanedChild, successorHash} of rebaseEntries) {
@@ -146,11 +149,15 @@ export function RebaseOrphanedStackButton({hash}: {hash: Hash}) {
   return (
     <HighlightCommitsWhileHovering toHighlight={[...allOrphaned, ...allSuccessors]}>
       <Tooltip
-        title={t('Rebase orphaned commits onto the latest successors of their obsolete parents')}
+        title={
+          isLanded
+            ? t('Rebase orphaned commits onto the landed successors of their obsolete parents')
+            : t('Rebase orphaned commits onto the latest successors of their obsolete parents')
+        }
         placement="bottom">
         <Button icon onClick={handleClick} data-testid="rebase-onto-successor-button">
           <Icon icon="git-pull-request" slot="start" />
-          <T>Rebase orphaned commits</T>
+          <T>{isLanded ? 'Rebase onto landed' : 'Rebase orphaned commits'}</T>
         </Button>
       </Tooltip>
     </HighlightCommitsWhileHovering>
