@@ -7,6 +7,10 @@
 
 #pragma once
 
+#include <folly/coro/Collect.h>
+#include <folly/coro/Invoke.h>
+#include <folly/coro/Task.h>
+#include <folly/coro/safe/NowTask.h>
 #include <folly/futures/Future.h>
 
 #include "eden/common/utils/CaseSensitivity.h"
@@ -104,6 +108,12 @@ class GlobNodeImpl {
      * fails.  We never call this method because entryShouldLoadChildTree()
      * always returns false. */
     ImmediateFuture<TreeRootPtr> getOrLoadChildTree(
+        PathComponentPiece,
+        const ObjectFetchContextPtr&) {
+      throw std::runtime_error("impossible to get here");
+    }
+
+    folly::coro::now_task<TreeRootPtr> co_getOrLoadChildTree(
         PathComponentPiece,
         const ObjectFetchContextPtr&) {
       throw std::runtime_error("impossible to get here");
@@ -484,6 +494,168 @@ class GlobNodeImpl {
           }
           return folly::unit;
         });
+  }
+
+  /**
+   * Coroutine version of evaluateRecursiveComponentImpl.
+   *
+   * Replaces recursive .thenValue chains and collectAll with a coroutine
+   * loop using co_await and collectAllRange.
+   */
+  template <typename ROOT, typename ROOTPtr>
+  folly::coro::now_task<folly::Unit> co_evaluateRecursiveComponentImpl(
+      const ObjectStore* store,
+      const ObjectFetchContextPtr& context,
+      RelativePathPiece rootPath,
+      RelativePathPiece startOfRecursive,
+      ROOT&& root,
+      PrefetchList* fileBlobsToPrefetch,
+      ResultList* globResult,
+      const RootId& originRootId,
+      size_t currentDepth = 0) const {
+    TaskTraceBlock block{"GlobNodeImpl::co_evaluateRecursiveComponentImpl"};
+    std::vector<RelativePath> subDirNames;
+    std::vector<folly::coro::Task<void>> tasks;
+    std::vector<ObjectId> localFileBlobsToPrefetch;
+    std::vector<GlobResult> localGlobResults;
+    {
+      const auto& contents = root.lockContents();
+      for (auto& entry : root.iterate(contents)) {
+        auto candidateName = startOfRecursive + entry.first;
+
+        for (auto& node : recursiveChildren_) {
+          if (node->alwaysMatch_ ||
+              node->matcher_.match(candidateName.view())) {
+            if (globResult) {
+              if (prefetchOptimizations_) {
+                localGlobResults.emplace_back(
+                    rootPath + candidateName,
+                    entry.second.getDtype(),
+                    originRootId);
+              } else {
+                globResult->wlock()->emplace_back(
+                    rootPath + candidateName,
+                    entry.second.getDtype(),
+                    originRootId);
+              }
+            }
+            if (fileBlobsToPrefetch &&
+                root.entryShouldPrefetch(&entry.second)) {
+              if (prefetchOptimizations_) {
+                localFileBlobsToPrefetch.emplace_back(
+                    store->stripObjectId(entry.second.getObjectId()));
+              } else {
+                fileBlobsToPrefetch->wlock()->emplace_back(
+                    entry.second.getObjectId());
+              }
+            }
+            // No sense running multiple matches for this same file.
+            break;
+          }
+        }
+
+        // Remember to recurse through child dirs after we've released
+        // the lock on the contents.
+        if (root.entryIsTree(&entry.second)) {
+          if (root.entryShouldLoadChildTree(&entry.second)) {
+            subDirNames.emplace_back(std::move(candidateName));
+          } else {
+            bool shouldReschedule =
+                prefetchOptimizations_ && (currentDepth < recursiveAsyncDepth_);
+            tasks.emplace_back(
+                folly::coro::co_invoke(
+                    [store,
+                     objectId = entry.second.getObjectId(),
+                     context = context.copy(),
+                     candidateName = std::move(candidateName),
+                     rootPath = rootPath.copy(),
+                     this,
+                     fileBlobsToPrefetch,
+                     globResult,
+                     &originRootId,
+                     currentDepth,
+                     shouldReschedule]() mutable -> folly::coro::Task<void> {
+                      if (shouldReschedule) {
+                        co_await folly::coro::co_reschedule_on_current_executor;
+                      }
+                      auto tree = co_await store->co_getTree(objectId, context);
+                      co_await co_evaluateRecursiveComponentImpl<
+                          TreeRoot,
+                          TreeRootPtr>(
+                          store,
+                          context,
+                          rootPath,
+                          candidateName,
+                          TreeRoot(std::move(tree)),
+                          fileBlobsToPrefetch,
+                          globResult,
+                          originRootId,
+                          currentDepth + 1);
+                    }));
+          }
+        }
+      }
+    }
+
+    if (globResult && !localGlobResults.empty()) {
+      auto locked = globResult->wlock();
+      locked->insert(
+          locked->end(),
+          std::make_move_iterator(localGlobResults.begin()),
+          std::make_move_iterator(localGlobResults.end()));
+    }
+
+    if (fileBlobsToPrefetch && !localFileBlobsToPrefetch.empty()) {
+      auto locked = fileBlobsToPrefetch->wlock();
+      locked->insert(
+          locked->end(),
+          std::make_move_iterator(localFileBlobsToPrefetch.begin()),
+          std::make_move_iterator(localFileBlobsToPrefetch.end()));
+    }
+
+    // Recursively load child inodes and evaluate matches
+    for (auto& candidateName : subDirNames) {
+      tasks.emplace_back(
+          folly::coro::co_invoke(
+              [candidateName = std::move(candidateName),
+               rootPath = rootPath.copy(),
+               store,
+               context = context.copy(),
+               this,
+               fileBlobsToPrefetch,
+               globResult,
+               &originRootId,
+               currentDepth,
+               &root]() mutable -> folly::coro::Task<void> {
+                auto dir = co_await root.co_getOrLoadChildTree(
+                    candidateName.basename(), context);
+                co_await co_evaluateRecursiveComponentImpl<ROOT, ROOTPtr>(
+                    store,
+                    context,
+                    rootPath,
+                    candidateName,
+                    ROOT(std::move(dir)),
+                    fileBlobsToPrefetch,
+                    globResult,
+                    originRootId,
+                    currentDepth + 1);
+              }));
+    }
+
+    if (tasks.size() == 1) {
+      co_await std::move(tasks[0]);
+    } else if (!tasks.empty()) {
+      // Note: we use collectAllTryRange() rather than collectAllRange()
+      // here because collectAllRange() sends cooperative cancellation
+      // to sibling tasks on first failure, which could cause incomplete
+      // writes to globResult/fileBlobsToPrefetch. collectAllTryRange()
+      // lets all tasks run to completion before propagating errors.
+      auto tries = co_await folly::coro::collectAllTryRange(std::move(tasks));
+      for (auto& t : tries) {
+        t.throwUnlessValue();
+      }
+    }
+    co_return folly::unit;
   }
 
  private:

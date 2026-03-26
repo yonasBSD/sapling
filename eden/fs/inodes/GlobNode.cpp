@@ -72,6 +72,12 @@ struct TreeInodePtrRoot {
       const ObjectFetchContextPtr& context) {
     return root->getOrLoadChildTree(name, context);
   }
+
+  folly::coro::now_task<TreeInodePtr> co_getOrLoadChildTree(
+      PathComponentPiece name,
+      const ObjectFetchContextPtr& context) {
+    co_return co_await root->co_getOrLoadChildTree(name, context);
+  }
   /** Returns true if we should call getOrLoadChildTree() for the given
    * ENTRY.  We only do this if the child is already materialized */
   bool entryShouldLoadChildTree(const DirEntry* entry) {
