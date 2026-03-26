@@ -30,6 +30,7 @@ class ErrorArg {
   std::optional<int64_t> errorCode;
   std::optional<std::string> errorName;
   std::optional<std::string> exceptionType;
+  std::optional<std::string> stackTrace;
 };
 
 } // namespace facebook::eden
