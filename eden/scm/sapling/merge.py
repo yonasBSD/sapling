@@ -2577,7 +2577,7 @@ def _update(
                 _(
                     "(warning: large working directory being used without "
                     "fsmonitor enabled; enable fsmonitor to improve performance; "
-                    'see "hg help -e fsmonitor")\n'
+                    'see "@prog@ help -e fsmonitor")\n'
                 )
             )
 
