@@ -83,6 +83,10 @@ cpp_library(
         "GlobResult.h",
         "GlobTree.h",
     ],
+    deps = [
+        "//eden/fs/config:config",
+        "//folly/coro:invoke",
+    ],
     exported_deps = [
         ":matcher",
         "//eden/common/utils:case_sensitivity",
@@ -92,6 +96,7 @@ cpp_library(
         "//eden/fs/model:model",
         "//eden/fs/store:store",
         "//eden/fs/telemetry:task_trace",
+        "//folly/coro/safe:now_task",
         "//folly/futures:core",
     ],
 )
