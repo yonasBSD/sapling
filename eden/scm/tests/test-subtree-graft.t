@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ setconfig diff.git=true
   $ enable morestatus
   $ setconfig morestatus.show=true
@@ -6,28 +7,28 @@
 Test validation of --from-path and --to-path
   $ newclientrepo
   $ echo "A" | drawdag
-  $ hg subtree graft -r $A --from-path foo --to-path bar --from-path foo2
+  $ sl subtree graft -r $A --from-path foo --to-path bar --from-path foo2
   grafting 7b3f3d5e5faf "A"
   abort: must provide same number of --from-path ['foo', 'foo2'] and --to-path ['bar']
   [255]
-  $ hg subtree graft -r $A --from-path foo --to-path bar --to-path bar2
+  $ sl subtree graft -r $A --from-path foo --to-path bar --to-path bar2
   grafting 7b3f3d5e5faf "A"
   abort: must provide same number of --from-path ['foo'] and --to-path ['bar', 'bar2']
   [255]
-  $ hg subtree graft -r $A --from-path foo --from-path bar --to-path baz --to-path baz/qux
+  $ sl subtree graft -r $A --from-path foo --from-path bar --to-path baz --to-path baz/qux
   grafting 7b3f3d5e5faf "A"
   abort: overlapping --to-path entries
   [255]
-  $ hg subtree graft -r $A --from-path foo --from-path bar --to-path baz --to-path ""
+  $ sl subtree graft -r $A --from-path foo --from-path bar --to-path baz --to-path ""
   grafting 7b3f3d5e5faf "A"
   abort: overlapping --to-path entries
   [255]
-  $ hg subtree graft -r $A --from-path foo --from-path bar --to-path baz/a --to-path baz/b
+  $ sl subtree graft -r $A --from-path foo --from-path bar --to-path baz/a --to-path baz/b
   grafting 7b3f3d5e5faf "A"
   path 'foo' does not exist in commit 7b3f3d5e5faf
   path 'bar' does not exist in commit 7b3f3d5e5faf
   note: graft of 7b3f3d5e5faf created no changes to commit
-  $ hg subtree graft -r $A --from-path foo --from-path bar --to-path baz/a --to-path baz/a
+  $ sl subtree graft -r $A --from-path foo --from-path bar --to-path baz/a --to-path baz/a
   grafting 7b3f3d5e5faf "A"
   abort: overlapping --to-path entries
   [255]
@@ -40,9 +41,9 @@ Basic case merging a file change between directory branches "foo" and "bar".
   > |/   # C/foo/file = aa\nb\nc\n
   > A    # A/foo/file = a\nb\nc\n
   > EOS
-  $ hg go -q $B
-  $ hg subtree graft -qr $C --from-path foo --to-path bar
-  $ hg show
+  $ sl go -q $B
+  $ sl subtree graft -qr $C --from-path foo --to-path bar
+  $ sl show
   commit:      46fdedefab05
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -71,10 +72,10 @@ Graft a commit adding a new file:
   > |/   # B/bar/file = file\n (copied from foo/file)
   > A    # C/foo/new = new\n
   > EOS
-  $ hg go -q $B
-  $ hg st
-  $ hg subtree graft -qr $C --from-path foo --to-path bar
-  $ hg show
+  $ sl go -q $B
+  $ sl st
+  $ sl subtree graft -qr $C --from-path foo --to-path bar
+  $ sl show
   commit:      b8302edf7170
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -102,9 +103,9 @@ Graft a commit deleting a file:
   > A    # A/foo/file = file\n
   >      # A/bar/file = file\n
   > EOS
-  $ hg go -q $A
-  $ hg subtree graft -qr $B --from-path bar --to-path foo
-  $ hg show
+  $ sl go -q $A
+  $ sl subtree graft -qr $B --from-path bar --to-path foo
+  $ sl show
   commit:      3515137c44d8
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -133,9 +134,9 @@ Graft a file that was renamed in dest branch:
   > |/   # B/bar/file = a\nb\ncc\n (copied from foo/file)
   > A    # C/foo/file = aa\nb\nc\n
   > EOS
-  $ hg go -q $D
-  $ hg subtree graft -qr $C --from-path foo --to-path bar
-  $ hg show
+  $ sl go -q $D
+  $ sl subtree graft -qr $C --from-path foo --to-path bar
+  $ sl show
   commit:      2aa9f1f57629
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -164,9 +165,9 @@ Graft a commit renaming a file:
   > |/   # C/foo/rename = aa\nb\nc\n (renamed from foo/file)
   > A    # A/foo/file = a\nb\nc\n
   > EOS
-  $ hg go -q $B
-  $ hg subtree graft -qr $C --from-path foo --to-path bar
-  $ hg show
+  $ sl go -q $B
+  $ sl subtree graft -qr $C --from-path foo --to-path bar
+  $ sl show
   commit:      0b47c9e1117d
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -198,9 +199,9 @@ Graft a commit with rename in "remote" history:
   > |/   # C/foo/rename = a\nb\nc\n (renamed from foo/file)
   > A    # A/foo/file = a\nb\nc\n
   > EOS
-  $ hg go -q $B
-  $ hg subtree graft -qr $D --from-path foo --to-path bar
-  $ hg show
+  $ sl go -q $B
+  $ sl subtree graft -qr $D --from-path foo --to-path bar
+  $ sl show
   commit:      d1b5d43e386f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -231,9 +232,9 @@ Graft a commit with rename in "local" history:
   > |/   # C/foo/rename = a\nb\nc\n (renamed from foo/file)
   > A    # A/foo/file = a\nb\nc\n
   > EOS
-  $ hg go -q $D
-  $ hg subtree graft -qr $E --from-path bar --to-path foo
-  $ hg show
+  $ sl go -q $D
+  $ sl subtree graft -qr $E --from-path bar --to-path foo
+  $ sl show
   commit:      851154b50e17
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -266,9 +267,9 @@ Graft a commit with renames on both sides:
   > |/   # C/foo/rename = a\nb\nc\n (renamed from foo/file)
   > A    # A/foo/file = a\nb\nc\n
   > EOS
-  $ hg go -q $D
-  $ hg subtree graft -qr $F --from-path bar --to-path foo
-  $ hg show
+  $ sl go -q $D
+  $ sl subtree graft -qr $F --from-path bar --to-path foo
+  $ sl show
   commit:      fbf67aa170e0
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -299,9 +300,9 @@ Grafting individual files also works:
   > |/   # B/B = a\nb\nc\n (copied from A)
   > A    # A/A = a\nb\nc\n
   > EOS
-  $ hg go -q $D
-  $ hg subtree graft -qr $C --from-path B --to-path A
-  $ hg show
+  $ sl go -q $D
+  $ sl subtree graft -qr $C --from-path B --to-path A
+  $ sl show
   commit:      9f5242fa10f8
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -332,9 +333,9 @@ Can graft between completely unrelated directories:
   > 
   > C  # C/C = aa\nb\nc\n
   > EOS
-  $ hg go -q $C
-  $ hg subtree graft -qr $B --from-path A --to-path C
-  $ hg show
+  $ sl go -q $C
+  $ sl subtree graft -qr $B --from-path A --to-path C
+  $ sl show
   commit:      16df3ad98c14
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -367,9 +368,9 @@ Can do multiple mappings in a single graft:
   > |
   > A  # A/dir/file = A\n
   > EOS
-  $ hg go -q $C
-  $ hg subtree graft -qr $D --from-path dir --to-path dir2 --from-path dir --to-path dir3
-  $ hg show
+  $ sl go -q $C
+  $ sl subtree graft -qr $D --from-path dir --to-path dir2 --from-path dir --to-path dir3
+  $ sl show
   commit:      f5ae7c01cd83
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -413,9 +414,9 @@ Multiple mappings can all follow renames:
   > |
   > A  # A/dir/file = A\n
   > EOS
-  $ hg go -q $G
-  $ hg subtree graft -qr $G --from-path dir --to-path dir2 --from-path dir --to-path dir3
-  $ hg show
+  $ sl go -q $G
+  $ sl subtree graft -qr $G --from-path dir --to-path dir2 --from-path dir --to-path dir3
+  $ sl show
   commit:      accc78a2e737
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -457,9 +458,9 @@ Don't get confused by renames too far in the past on src side:
   > |
   > A  # A/dir/file = A\n
   > EOS
-  $ hg go -q $E
-  $ hg subtree graft -qr $F --from-path dir --to-path dir2
-  $ hg show
+  $ sl go -q $E
+  $ sl subtree graft -qr $F --from-path dir --to-path dir2
+  $ sl show
   commit:      72b278f748ef
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -492,14 +493,14 @@ Trace rename history before directory branch point:
   > |
   > A  # A/dir/file = A\n
   > EOS
-  $ hg go -q $E
+  $ sl go -q $E
 TODO: we should be able to follow copies here once we have splice metadata
-  $ hg subtree graft -qr $E --from-path dir4 --to-path dir3
+  $ sl subtree graft -qr $E --from-path dir4 --to-path dir3
   other [graft] changed dir3/rename4 which local [local] is missing
   hint: if this is due to a renamed file, you can manually input the renamed path
   use (c)hanged version, leave (d)eleted, or leave (u)nresolved, or input (r)enamed path? u
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
 
 
@@ -511,13 +512,13 @@ Merge conflict - both sides modified:
   > A    # A/foo/file = file\n
   >      # A/bar/file = file\n
   > EOS
-  $ hg go -q $B
-  $ hg subtree graft -qr $B --from-path foo --to-path bar
-  warning: 1 conflicts while merging bar/file! (edit, then use 'hg resolve --mark')
+  $ sl go -q $B
+  $ sl subtree graft -qr $B --from-path foo --to-path bar
+  warning: 1 conflicts while merging bar/file! (edit, then use 'sl resolve --mark')
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
-  $ hg st
+  $ sl st
   M bar/file
   ? bar/file.orig
   
@@ -526,9 +527,9 @@ Merge conflict - both sides modified:
   # 
   #     bar/file
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg graft --continue
-  # To abort:                   hg graft --abort
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl graft --continue
+  # To abort:                   sl graft --abort
   $ cat bar/file
   <<<<<<< local: dfb58fd2ac21 - test: B
   two
@@ -536,12 +537,12 @@ Merge conflict - both sides modified:
   one
   >>>>>>> graft: dfb58fd2ac21 - test: B
   $ echo "one\ntwo" > bar/file
-  $ hg resolve --mark bar/file
+  $ sl resolve --mark bar/file
   (no more unresolved files)
-  continue: hg graft --continue
-  $ hg subtree graft --continue
+  continue: sl graft --continue
+  $ sl subtree graft --continue
   grafting dfb58fd2ac21 "B"
-  $ hg show
+  $ sl show
   commit:      87bdf3309275
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -569,30 +570,30 @@ Merge conflict - delete/modified:
   > A    # A/foo/file = file\n
   >      # A/bar/file = file\n
   > EOS
-  $ hg go -q $B
-  $ hg subtree graft -qr $B --from-path foo --to-path bar
+  $ sl go -q $B
+  $ sl subtree graft -qr $B --from-path foo --to-path bar
   local [local] changed bar/file which other [graft] deleted (as foo/file)
   use (c)hanged version, (d)elete, or leave (u)nresolved? u
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
-  $ hg st
+  $ sl st
   
   # The repository is in an unfinished *graft* state.
   # Unresolved merge conflicts (1):
   # 
   #     bar/file
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg graft --continue
-  # To abort:                   hg graft --abort
-  $ hg rm bar/file
-  $ hg resolve --mark bar/file
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl graft --continue
+  # To abort:                   sl graft --abort
+  $ sl rm bar/file
+  $ sl resolve --mark bar/file
   (no more unresolved files)
-  continue: hg graft --continue
-  $ hg subtree graft --continue
+  continue: sl graft --continue
+  $ sl subtree graft --continue
   grafting a088319ec9f4 "B"
-  $ hg show
+  $ sl show
   commit:      1f2bba140221
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -619,9 +620,9 @@ Can opt out of "Grafted by" line in commit message:
   > |
   > A  # A/A = A\n
   > EOS
-  $ hg go -q $A
-  $ hg subtree graft -qr $B --from-path B --to-path A --no-log
-  $ hg show
+  $ sl go -q $A
+  $ sl subtree graft -qr $B --from-path B --to-path A --no-log
+  $ sl show
   commit:      8041fbbca30f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -645,7 +646,7 @@ Cross-directory graft add graft info as summary footer:
   > |
   > A  # A/A = A\n
   > EOS
-  $ hg metaedit -r $B -m "B\
+  $ sl metaedit -r $B -m "B\
   > \
   > Summary:\
   > \
@@ -654,9 +655,9 @@ Cross-directory graft add graft info as summary footer:
   > Test Plan:\
   > \
   > Bar"
-  $ hg go -q $A
-  $ hg subtree graft -qr 'desc("Summary")' --from-path B --to-path A --config extensions.fbcodereview=
-  $ hg show
+  $ sl go -q $A
+  $ sl subtree graft -qr 'desc("Summary")' --from-path B --to-path A --config extensions.fbcodereview=
+  $ sl show
   commit:      1c778f05fddf
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -687,7 +688,7 @@ Cross-directory graft removes phabricator tags (excerpt "Summary"):
   > |
   > A  # A/A = A\n
   > EOS
-  $ hg metaedit -r $B -m "B\
+  $ sl metaedit -r $B -m "B\
   > \
   > Summary:\
   > \
@@ -702,9 +703,9 @@ Cross-directory graft removes phabricator tags (excerpt "Summary"):
   > Tags: tag1, tag2\
   > \
   > Differential Revision: example.com/D123"
-  $ hg go -q $A
-  $ hg subtree graft -qr 'desc("Differential")' --from-path B --to-path A --config extensions.fbcodereview=
-  $ hg show
+  $ sl go -q $A
+  $ sl subtree graft -qr 'desc("Differential")' --from-path B --to-path A --config extensions.fbcodereview=
+  $ sl show
   commit:      534891799983
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -734,10 +735,10 @@ Graft supports non-root relative paths
   > |/   # C/my/foo/file = aa\nb\nc\n
   > A    # A/my/foo/file = a\nb\nc\n
   > EOS
-  $ hg go -q $B
+  $ sl go -q $B
   $ cd my
-  $ hg subtree graft -qr $C --from-path foo --to-path bar
-  $ hg show
+  $ sl subtree graft -qr $C --from-path foo --to-path bar
+  $ sl show
   commit:      aa03702134a2
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -761,21 +762,21 @@ Graft supports non-root relative paths
 Can use --message-field to update parts of commit message.
   $ newclientrepo
   $ touch foo
-  $ hg commit -Aqm "title
+  $ sl commit -Aqm "title
   > 
   > Summary:
   > summary
   > 
   > Test Plan:
   > test plan"
-  $ hg whereami
+  $ sl whereami
   2d2e42cdf85511ef5011a5cf09d60e5c319d9e9b
-  $ hg go -q null
-  $ hg subtree graft -r 2d2e42cdf --from-path foo --to-path bar --message-field="Summary=
+  $ sl go -q null
+  $ sl subtree graft -r 2d2e42cdf --from-path foo --to-path bar --message-field="Summary=
   > new summary
   > "
   grafting 2d2e42cdf855 "title"
-  $ hg show
+  $ sl show
   commit:      5d37bc3ef25f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -803,9 +804,9 @@ Graft a commit should not result into a merge state when complete successfully
   > |/   # C/foo/rename = aa\nb\nc\n (renamed from foo/file)
   > A    # A/foo/file = a\nb\nc\n
   > EOS
-  $ hg go -q $B
-  $ hg subtree graft -r $C --from-path non-exist --to-path non-exist
+  $ sl go -q $B
+  $ sl subtree graft -r $C --from-path non-exist --to-path non-exist
   grafting 53d1a0c140f9 "C"
   path 'non-exist' does not exist in commit 53d1a0c140f9
   note: graft of 53d1a0c140f9 created no changes to commit
-  $ hg st
+  $ sl st
