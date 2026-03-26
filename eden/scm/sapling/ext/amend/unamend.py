@@ -77,7 +77,7 @@ def unamend(ui, repo, **opts):
                 raise error.Abort(
                     _("commit was not amended"),
                     hint=_(
-                        """use "hg undo" to undo the last command, or "hg reset COMMIT" to reset to a previous commit, or see "hg journal" to view commit mutations"""
+                        """use "@prog@ undo" to undo the last command, or "@prog@ reset COMMIT" to reset to a previous commit, or see "@prog@ journal" to view commit mutations"""
                     ),
                 )
             else:

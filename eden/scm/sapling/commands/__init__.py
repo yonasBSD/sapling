@@ -2048,7 +2048,7 @@ def continuecmd(ui, repo):
     """resume operation after resolving conflicts"""
     for name, cmd in cmdutil.afterresolvedstates:
         if repo.localvfs.exists(name):
-            args = shlex.split(cmd)
+            args = shlex.split(_(cmd))
             if not ui.interactive():
                 args.append("--noninteractive")
             return bindings.commands.run(args)

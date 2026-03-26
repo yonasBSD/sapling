@@ -425,7 +425,7 @@ class rebaseruntime:
                 return 0
             else:
                 msg = _("cannot continue inconsistent rebase")
-                hint = _('use "hg rebase --abort" to clear broken state')
+                hint = _('use "@prog@ rebase --abort" to clear broken state')
                 raise error.Abort(msg, hint=hint)
         if isabort:
             return abort(
@@ -2488,7 +2488,7 @@ def summaryhook(ui, repo) -> None:
         state = rbsrt.state
     except error.RepoLookupError:
         # i18n: column positioning for "hg summary"
-        msg = _('rebase: (use "hg rebase --abort" to clear broken state)\n')
+        msg = _('rebase: (use "@prog@ rebase --abort" to clear broken state)\n')
         ui.write(msg)
         return
     numrebased = len([i for i in state.values() if i >= 0])
@@ -2504,4 +2504,4 @@ def summaryhook(ui, repo) -> None:
 
 def uisetup(ui) -> None:
     cmdutil.summaryhooks.add("rebase", summaryhook)
-    cmdutil.afterresolvedstates.append(("rebasestate", _("@prog@ rebase --continue")))
+    cmdutil.afterresolvedstates.append(("rebasestate", "@prog@ rebase --continue"))

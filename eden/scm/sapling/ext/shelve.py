@@ -1169,7 +1169,7 @@ def shelvecmd(ui, repo, *pats, **opts):
 
 def extsetup(ui) -> None:
     cmdutil.afterresolvedstates.append(
-        (shelvedstate._filename, _("@prog@ unshelve --continue"))
+        (shelvedstate._filename, "@prog@ unshelve --continue")
     )
 
 

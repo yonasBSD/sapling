@@ -1,3 +1,4 @@
+  $ export HGIDENTITY=sl
   $ enable amend rebase undo
 
   $ newclientrepo
@@ -6,15 +7,15 @@
   >  \ /
   >   A
   > EOS
-  $ hg go -q $C
+  $ sl go -q $C
   $ echo changed > C
-  $ hg amend -q
-  $ hg rebase -qr . -d $B
-  $ hg unamend
+  $ sl amend -q
+  $ sl rebase -qr . -d $B
+  $ sl unamend
   abort: commit was not amended
-  (use "hg undo" to undo the last command, or "hg reset COMMIT" to reset to a previous commit, or see "hg journal" to view commit mutations)
+  (use "sl undo" to undo the last command, or "sl reset COMMIT" to reset to a previous commit, or see "sl journal" to view commit mutations)
   [255]
-  $ hg undo -q
-  $ hg unamend
-  $ hg st
+  $ sl undo -q
+  $ sl unamend
+  $ sl st
   M C

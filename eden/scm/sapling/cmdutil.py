@@ -5396,8 +5396,8 @@ def checkunfinished(repo, op=None):
 
 
 afterresolvedstates = [
-    ("graftstate", _("@prog@ graft --continue")),
-    ("updatemergestate", _("@prog@ goto --continue")),
+    ("graftstate", "@prog@ graft --continue"),
+    ("updatemergestate", "@prog@ goto --continue"),
 ]
 
 
@@ -5414,7 +5414,7 @@ def howtocontinue(repo):
     contmsg = _("continue: %s")
     for f, msg in afterresolvedstates:
         if repo.localvfs.exists(f):
-            return contmsg % msg, True
+            return contmsg % _(msg), True
     if repo[None].dirty(missing=True, merge=False):
         return contmsg % _("@prog@ commit"), False
     return None, None

@@ -6,6 +6,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable morestatus
   $ setconfig morestatus.show=True ui.origbackuppath=.hg/origs
@@ -15,7 +16,7 @@ Python utility:
 
     @command
     def createstate(args):
-        """Create an interrupted state resolving 'hg update --merge' conflicts"""
+        """Create an interrupted state resolving 'sl update --merge' conflicts"""
         def createrepo():
             $ newrepo
             $ drawdag << 'EOS'
@@ -25,10 +26,10 @@ Python utility:
             > EOS
         if not args or args[0] == "update":
             createrepo()
-            $ hg up -C $C -q
+            $ sl up -C $C -q
             $ echo C > A
-            $ hg up --merge $B -q
-            warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
+            $ sl up --merge $B -q
+            warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
             [1]
         elif args[0] == "backout":
             createrepo()
@@ -37,9 +38,9 @@ Python utility:
             > |
             > desc(B)
             > EOS
-            $ hg up -C $D -q
-            $ hg backout $B -q
-            warning: 1 conflicts while merging A! (edit, then use 'hg resolve --mark')
+            $ sl up -C $D -q
+            $ sl backout $B -q
+            warning: 1 conflicts while merging A! (edit, then use 'sl resolve --mark')
             [1]
 
 
@@ -47,12 +48,12 @@ Python utility:
 
 # There is only one working parent (which is good):
 
-  $ hg parents -T "{desc}\n"
+  $ sl parents -T "{desc}\n"
   B
 
 # 'morestatus' message:
 
-  $ hg status
+  $ sl status
   M A
   
   # The repository is in an unfinished *update* state.
@@ -60,86 +61,86 @@ Python utility:
   # 
   #     A
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg goto --continue
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl goto --continue
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
 # Cannot --continue right now
 
-  $ hg goto --continue
+  $ sl goto --continue
   abort: outstanding merge conflicts
-  (use 'hg resolve --list' to list, 'hg resolve --mark FILE' to mark resolved)
+  (use 'sl resolve --list' to list, 'sl resolve --mark FILE' to mark resolved)
   [255]
 
 # 'morestatus' message after resolve
 # BAD: The unfinished merge state is confusing and there is no clear way to get out.
 
-  $ hg resolve -m A
+  $ sl resolve -m A
   (no more unresolved files)
-  continue: hg goto --continue
-  $ hg status
+  continue: sl goto --continue
+  $ sl status
   M A
   
   # The repository is in an unfinished *update* state.
   # No unresolved merge conflicts.
-  # To continue:                hg goto --continue
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To continue:                sl goto --continue
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
 # To get rid of the state
 
-  $ hg goto --continue
-  $ hg status
+  $ sl goto --continue
+  $ sl status
   M A
 
 # Test abort flow
 
   $ createstate
 
-  $ hg goto --clean . -q
-  $ hg status
+  $ sl goto --clean . -q
+  $ sl status
 
-# Test 'hg continue'
+# Test 'sl continue'
 
-  $ hg continue
+  $ sl continue
   abort: nothing to continue
   [255]
 
   $ createstate
 
-  $ hg continue
+  $ sl continue
   abort: outstanding merge conflicts
-  (use 'hg resolve --list' to list, 'hg resolve --mark FILE' to mark resolved)
+  (use 'sl resolve --list' to list, 'sl resolve --mark FILE' to mark resolved)
   [255]
 
-  $ hg resolve -m A
+  $ sl resolve -m A
   (no more unresolved files)
-  continue: hg goto --continue
+  continue: sl goto --continue
 
-  $ hg continue
+  $ sl continue
 
-# Test 'hg continue' in a context that does not implement --continue.
+# Test 'sl continue' in a context that does not implement --continue.
 # Choose 'backout' for this test. The 'backout' command does not have
 # --continue.
 
   $ createstate backout
 
-  $ hg continue
+  $ sl continue
   abort: outstanding merge conflicts
-  (use 'hg resolve --list' to list, 'hg resolve --mark FILE' to mark resolved)
+  (use 'sl resolve --list' to list, 'sl resolve --mark FILE' to mark resolved)
   [255]
-  $ hg resolve --all -t :local
+  $ sl resolve --all -t :local
   (no more unresolved files)
-  $ hg status
+  $ sl status
   R B
   
   # The repository is in an unfinished *merge* state.
   # No unresolved merge conflicts.
-  # To continue:                hg continue, then hg commit
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To continue:                sl continue, then sl commit
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
-# The state is confusing, but 'hg continue' can resolve it.
+# The state is confusing, but 'sl continue' can resolve it.
 
-  $ hg continue
+  $ sl continue
   (exiting merge state)
-  $ hg status
+  $ sl status
   R B
