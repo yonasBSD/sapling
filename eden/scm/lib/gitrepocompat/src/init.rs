@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::path::MAIN_SEPARATOR_STR as SEP;
 use std::path::Path;
 
 use anyhow::Result;
@@ -29,7 +30,14 @@ pub fn maybe_init_inside_dotrepo(root_path: &Path, ident: Identity) -> Result<()
     }
     if !store_dir.join("requires").exists() {
         fs::create_dir_all(&store_dir)?;
-        fs::write(store_dir.join("requires"), "dotrepo\n")?;
+        fs::write(
+            store_dir.join("requires"),
+            "narrowheads\nvisibleheads\ngit\ngit-store\ndotrepo\n",
+        )?;
+        fs::write(
+            store_dir.join("gitdir"),
+            format!("..{SEP}..{SEP}manifests{SEP}.git"),
+        )?;
     }
 
     Ok(())

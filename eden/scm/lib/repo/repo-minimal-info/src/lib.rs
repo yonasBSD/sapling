@@ -56,6 +56,10 @@ impl RepoMinimalInfo {
             let dot_dir = "sl";
             let dot_sl_path = dot_git_path.join(dot_dir);
             (Some(dot_git_path), dot_sl_path)
+        } else if ident.is_dot_repo() {
+            let dot_git_path = path.join(".repo/manifests/.git");
+            let dot_sl_path = path.join(ident.dot_dir());
+            (Some(dot_git_path), dot_sl_path)
         } else {
             (None, path.join(ident.dot_dir()))
         };

@@ -61,9 +61,9 @@ Sapling recognizes .repo identity
   $ sl root
   $TESTTMP/repodir
 
-(bad: sl smartlog does not work in .repo)
-
-  $ sl smartlog -T {desc}
+(bad: sl smartlog does not work correctly in .repo)
+  $ sl smartlog -T '{desc}'
+  o  add manifest
 
 (bad: sl status does not work in .repo)
 (not running to avoid noises)
