@@ -346,12 +346,16 @@ impl WorkingCopy {
                     )?)
                 }
             }
-            FileSystemType::DotGit => Box::new(DotGitFileSystem::new(
-                vfs.clone(),
-                dot_dir,
-                store.clone(),
-                &config,
-            )?),
+            FileSystemType::DotGit => {
+                let git_dir = vfs.root().join(".git");
+                Box::new(DotGitFileSystem::new(
+                    vfs.clone(),
+                    dot_dir,
+                    &git_dir,
+                    store.clone(),
+                    &config,
+                )?)
+            }
         })
     }
 

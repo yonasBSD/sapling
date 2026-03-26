@@ -47,10 +47,15 @@ impl DotGitFileSystem {
     pub fn new(
         vfs: VFS,
         dot_dir: &Path,
+        git_dir: &Path,
         store: Arc<dyn FileStore>,
         config: &dyn Config,
     ) -> Result<Self> {
-        let git = RepoGit::from_root_and_config(vfs.root().to_owned(), config);
+        let git = RepoGit::from_root_git_dir_and_config(
+            vfs.root().to_owned(),
+            git_dir.to_owned(),
+            config,
+        );
         let treestate = create_treestate(&git, dot_dir, vfs.case_sensitive())?;
         let treestate = Arc::new(Mutex::new(treestate));
         Ok(DotGitFileSystem {

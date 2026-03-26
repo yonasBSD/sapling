@@ -161,6 +161,15 @@ impl RepoGit {
     /// Construct from root (parent of ".git") and config.
     pub fn from_root_and_config(root: PathBuf, config: &dyn Config) -> Self {
         let git_dir = root.join(".git");
+        Self::from_root_git_dir_and_config(root, git_dir, config)
+    }
+
+    /// Construct from root, explicit git dir, and config.
+    pub fn from_root_git_dir_and_config(
+        root: PathBuf,
+        git_dir: PathBuf,
+        config: &dyn Config,
+    ) -> Self {
         Self {
             root,
             parent: BareGit::from_git_dir_and_config(git_dir, config),
