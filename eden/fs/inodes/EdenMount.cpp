@@ -1421,7 +1421,6 @@ folly::coro::now_task<InodePtr> EdenMount::co_getInodeSlow(
   co_return co_await inodeMap_->getRootInode()->co_getChildRecursive(
       path, context);
 }
-
 namespace {
 
 class VirtualInodeLookupProcessor {

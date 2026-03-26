@@ -4156,6 +4156,13 @@ EdenServiceHandler::semifuture_globFiles(std::unique_ptr<GlobParams> params) {
       globber.logString());
   auto& context = helper->getFetchContext();
   auto isBackground = *params->background();
+  // Multi-revision globs call getRootTree() to resolve each revision.
+  // co_getRootTree isn't available on BackingStore yet (added in D96537581),
+  // so restrict the coroutine path to working-copy globs for now.
+  auto useCoGlob = params->revisions().value().empty() &&
+      server_->getServerState()
+          ->getEdenConfig()
+          ->enableCoroutinesPhase2.getValue();
 
   ImmediateFuture<folly::Unit> backgroundFuture{std::in_place};
   if (isBackground ||
@@ -4468,10 +4475,34 @@ EdenServiceHandler::semifuture_globFiles(std::unique_ptr<GlobParams> params) {
                           serverState = server_->getServerState(),
                           globs = std::move(*params->globs()),
                           globber = std::move(globber),
+                          useCoGlob,
                           context = context.copy()](auto&&) mutable {
                 XLOG(DBG3, "No suffixes, or mixed suffixes and non-suffixes");
                 XLOG(DBG3, "Using local globFiles");
-                // TODO: Insert ODS log for globs here
+                if (useCoGlob) {
+                  return ImmediateFuture{
+                      // @lint-ignore CLANGTIDY
+                      // facebook-folly-coro-return-captures-local-var
+                      folly::coro::co_invoke(
+                          [](ThriftGlobImpl globber,
+                             std::shared_ptr<EdenMount> mount,
+                             std::shared_ptr<ServerState> ss,
+                             std::vector<std::string> g,
+                             ObjectFetchContextPtr ctx)
+                              -> folly::coro::Task<std::unique_ptr<Glob>> {
+                            co_return co_await globber.co_glob(
+                                std::move(mount),
+                                std::move(ss),
+                                std::move(g),
+                                ctx);
+                          },
+                          std::move(globber),
+                          mountHandle.getEdenMountPtr(),
+                          serverState,
+                          std::move(globs),
+                          context.copy())
+                          .semi()};
+                }
                 return globber.glob(
                     mountHandle.getEdenMountPtr(),
                     serverState,
@@ -4485,9 +4516,33 @@ EdenServiceHandler::semifuture_globFiles(std::unique_ptr<GlobParams> params) {
                               serverState = server_->getServerState(),
                               globs = std::move(*params->globs()),
                               globber = std::move(globber),
+                              useCoGlob,
                               context = context.copy()](auto&&) mutable {
                     XLOG(DBG3, "Using local globFiles");
-                    // TODO: Insert ODS log for globs here
+                    if (useCoGlob) {
+                      return ImmediateFuture{
+                          // @lint-ignore CLANGTIDY
+                          // facebook-folly-coro-return-captures-local-var
+                          folly::coro::co_invoke(
+                              [](ThriftGlobImpl globber,
+                                 std::shared_ptr<EdenMount> mount,
+                                 std::shared_ptr<ServerState> ss,
+                                 std::vector<std::string> g,
+                                 ObjectFetchContextPtr ctx)
+                                  -> folly::coro::Task<std::unique_ptr<Glob>> {
+                                co_return co_await globber.co_glob(
+                                    std::move(mount),
+                                    std::move(ss),
+                                    std::move(g),
+                                    ctx);
+                              },
+                              std::move(globber),
+                              mountHandle.getEdenMountPtr(),
+                              serverState,
+                              std::move(globs),
+                              context.copy())
+                              .semi()};
+                    }
                     return globber.glob(
                         mountHandle.getEdenMountPtr(),
                         serverState,
@@ -4712,13 +4767,11 @@ EdenServiceHandler::co_prefetchFilesV2Impl(
       context,
       server_->getServerState());
 
-  auto glob = co_await globber
-                  .glob(
-                      mountHandle.getEdenMountPtr(),
-                      server_->getServerState(),
-                      std::move(*params->globs()),
-                      helper->getPrefetchFetchContext().copy())
-                  .semi();
+  auto glob = co_await globber.co_glob(
+      mountHandle.getEdenMountPtr(),
+      server_->getServerState(),
+      std::move(*params->globs()),
+      helper->getPrefetchFetchContext().copy());
 
   auto result = std::make_unique<PrefetchResult>();
   if (returnPrefetchedFiles) {
