@@ -230,6 +230,107 @@ describe('Suggested Rebase button', () => {
     });
   });
 
+  it('includes current commit as a destination', () => {
+    act(() => {
+      simulateCommits({
+        value: [
+          COMMIT('main', 'main', '2', {phase: 'public', remoteBookmarks: ['remote/main']}),
+          COMMIT('x', 'Current Head', '2', {isDot: true}),
+          COMMIT('1', 'some public base', '0', {phase: 'public'}),
+          COMMIT('a', 'My Commit', '1'),
+          COMMIT('b', 'Another Commit', 'a'),
+        ],
+      });
+    });
+
+    const rebaseOntoButton = screen.getByText('Rebase onto…');
+    fireEvent.click(rebaseOntoButton);
+
+    expect(
+      within(screen.getByTestId('context-menu-container')).getByText(
+        /Current Commit: Current Head/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('clicking current commit destination runs rebase operation', () => {
+    act(() => {
+      simulateCommits({
+        value: [
+          COMMIT('main', 'main', '2', {phase: 'public', remoteBookmarks: ['remote/main']}),
+          COMMIT('x', 'Current Head', '2', {isDot: true}),
+          COMMIT('1', 'some public base', '0', {phase: 'public'}),
+          COMMIT('a', 'My Commit', '1'),
+          COMMIT('b', 'Another Commit', 'a'),
+        ],
+      });
+    });
+
+    const rebaseOntoButton = screen.getByText('Rebase onto…');
+    fireEvent.click(rebaseOntoButton);
+
+    const suggestion = within(screen.getByTestId('context-menu-container')).getByText(
+      /Current Commit: Current Head/,
+    );
+    fireEvent.click(suggestion);
+
+    expectMessageSentToServer({
+      type: 'runOperation',
+      operation: expect.objectContaining({
+        args: ['rebase', '-s', succeedableRevset('a'), '-d', succeedableRevset('x')],
+      }),
+    });
+  });
+
+  it('merges current commit label with existing destination when dot is on a bookmarked commit', () => {
+    act(() => {
+      simulateCommits({
+        value: [
+          COMMIT('main', 'main', '2', {
+            phase: 'public',
+            remoteBookmarks: ['remote/main'],
+            isDot: true,
+          }),
+          COMMIT('1', 'some public base', '0', {phase: 'public'}),
+          COMMIT('a', 'My Commit', '1'),
+          COMMIT('b', 'Another Commit', 'a'),
+        ],
+      });
+    });
+
+    const rebaseOntoButton = screen.getByText('Rebase onto…');
+    fireEvent.click(rebaseOntoButton);
+
+    expect(
+      within(screen.getByTestId('context-menu-container')).getByText(
+        /Current Commit: main,.*remote\/main/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('includes diff number in current commit label when available', () => {
+    act(() => {
+      simulateCommits({
+        value: [
+          COMMIT('main', 'main', '2', {phase: 'public', remoteBookmarks: ['remote/main']}),
+          COMMIT('x', 'Current Head', '2', {isDot: true, diffId: 'D12345'}),
+          COMMIT('1', 'some public base', '0', {phase: 'public'}),
+          COMMIT('a', 'My Commit', '1'),
+          COMMIT('b', 'Another Commit', 'a'),
+        ],
+      });
+    });
+
+    const rebaseOntoButton = screen.getByText('Rebase onto…');
+    fireEvent.click(rebaseOntoButton);
+
+    expect(
+      within(screen.getByTestId('context-menu-container')).getByText(
+        /Current Commit: Current Head \(D12345\)/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('deselected remote bookmarks in bookmark manager hides them as suggested rebases', () => {
     act(() => {
       writeAtom(bookmarksDataStorage, data => ({

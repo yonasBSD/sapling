@@ -379,24 +379,26 @@ export const Commit = memo(
           label: 'Rebase onto',
           type: 'submenu',
           children:
-            suggestedRebases?.map(([dest, name]) => ({
-              label: name,
-              onClick: async () => {
-                const operation = getSuggestedRebaseOperation(
-                  dest,
-                  latestSuccessorUnlessExplicitlyObsolete(commit),
-                );
+            suggestedRebases
+              ?.filter(([dest]) => !commit.isDot || !dest.isDot)
+              .map(([dest, name]) => ({
+                label: name,
+                onClick: async () => {
+                  const operation = getSuggestedRebaseOperation(
+                    dest,
+                    latestSuccessorUnlessExplicitlyObsolete(commit),
+                  );
 
-                const shouldProceed = await runWarningChecks([
-                  () => maybeWarnAboutRebaseOntoMaster(dest),
-                  () => maybeWarnAboutRebaseOffWarm(dest),
-                ]);
+                  const shouldProceed = await runWarningChecks([
+                    () => maybeWarnAboutRebaseOntoMaster(dest),
+                    () => maybeWarnAboutRebaseOffWarm(dest),
+                  ]);
 
-                if (shouldProceed) {
-                  runOperation(operation);
-                }
-              },
-            })) ?? [],
+                  if (shouldProceed) {
+                    runOperation(operation);
+                  }
+                },
+              })) ?? [],
         });
         if (isAmendToAllowedForCommit(commit)) {
           items.push({

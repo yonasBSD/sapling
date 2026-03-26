@@ -106,6 +106,27 @@ export const suggestedRebaseDestinations = atom(get => {
       destinations.push([publicBase, publicBaseLabel]);
     }
   }
+  const dotCommit = dag.resolve('.');
+  if (dotCommit) {
+    const dotLabel = (
+      <>
+        <T>Current Commit</T>
+        {': '}
+        {dotCommit.title}
+        {dotCommit.diffId != null && ` (${dotCommit.diffId})`}
+      </>
+    );
+    const existing = destinations.find(dest => dest[0].hash === dotCommit.hash);
+    if (existing != null) {
+      existing[1] = (
+        <>
+          {dotLabel}, {existing[1]}
+        </>
+      );
+    } else {
+      destinations.push([dotCommit, dotLabel]);
+    }
+  }
   destinations.sort((a, b) => b[0].date.valueOf() - a[0].date.valueOf());
 
   return destinations;
