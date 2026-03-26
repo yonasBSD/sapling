@@ -272,6 +272,12 @@ def sniff_dot_dir(repo_root: Path) -> str:
         if (repo_root / dot_dir).exists():
             return dot_dir
 
+    # SL_REPO_IDENTITY/HGREPO_IDENTITY specifically controls the repo format
+    # (dot dir flavor), so check it first.
+    repo_ident = os.environ.get("SL_REPO_IDENTITY") or os.environ.get("HGREPO_IDENTITY")
+    if repo_ident in {"hg", "sl"}:
+        return "." + repo_ident
+
     env_ident = os.environ.get("HGIDENTITY") or os.environ.get("SL_IDENTITY")
     if env_ident in {"hg", "sl"}:
         return "." + env_ident
