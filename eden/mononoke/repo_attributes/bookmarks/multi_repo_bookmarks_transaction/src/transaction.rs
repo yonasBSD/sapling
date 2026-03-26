@@ -545,7 +545,11 @@ mod tests {
     use dbbookmarks::SqlBookmarksBuilder;
     use dbbookmarks::store::SqlBookmarks;
     use fbinit::FacebookInit;
+    use futures::future::FutureExt;
     use futures::stream::TryStreamExt;
+    use justknobs::test_helpers::JustKnobsInMemory;
+    use justknobs::test_helpers::KnobVal;
+    use justknobs::test_helpers::with_just_knobs_async;
     use mononoke_macros::mononoke;
     use mononoke_types::RepositoryId;
     use mononoke_types_mocks::changesetid::ONES_CSID;
@@ -873,5 +877,163 @@ mod tests {
             Some(ONES_CSID)
         );
         Ok(())
+    }
+
+    fn per_bookmark_locking_knobs() -> JustKnobsInMemory {
+        JustKnobsInMemory::new(
+            [(
+                "scm/mononoke:per_bookmark_locking".to_string(),
+                KnobVal::Bool(true),
+            )]
+            .into_iter()
+            .collect(),
+        )
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_multi_repo_per_bookmark_locking(fb: FacebookInit) -> Result<()> {
+        with_just_knobs_async(
+            per_bookmark_locking_knobs(),
+            async move {
+                let f = TwoRepoFixture::new(fb)?;
+                let bookmark = BookmarkKey::new("master")?;
+
+                // Create bookmarks in both repos
+                f.set_bookmark(&f.bookmarks_1, &bookmark, ONES_CSID).await?;
+                f.set_bookmark(&f.bookmarks_2, &bookmark, ONES_CSID).await?;
+
+                // Multi-repo update via new path
+                let mut txn = f.multi_txn();
+                txn.update(
+                    f.repo_id_1,
+                    &bookmark,
+                    TWOS_CSID,
+                    ONES_CSID,
+                    BookmarkUpdateReason::TestMove,
+                )?;
+                txn.update(
+                    f.repo_id_2,
+                    &bookmark,
+                    THREES_CSID,
+                    ONES_CSID,
+                    BookmarkUpdateReason::TestMove,
+                )?;
+
+                let result = txn.commit().await?;
+                assert!(result.is_success());
+
+                assert_eq!(
+                    f.get_bookmark(&f.bookmarks_1, &bookmark).await?,
+                    Some(TWOS_CSID)
+                );
+                assert_eq!(
+                    f.get_bookmark(&f.bookmarks_2, &bookmark).await?,
+                    Some(THREES_CSID)
+                );
+
+                Ok(())
+            }
+            .boxed(),
+        )
+        .await
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_multi_repo_per_bookmark_locking_cas_rollback(fb: FacebookInit) -> Result<()> {
+        with_just_knobs_async(
+            per_bookmark_locking_knobs(),
+            async move {
+                let f = TwoRepoFixture::new(fb)?;
+                let bookmark = BookmarkKey::new("master")?;
+
+                f.set_bookmark(&f.bookmarks_1, &bookmark, ONES_CSID).await?;
+                f.set_bookmark(&f.bookmarks_2, &bookmark, ONES_CSID).await?;
+
+                // R1 correct, R2 wrong old value
+                let mut txn = f.multi_txn();
+                txn.update(
+                    f.repo_id_1,
+                    &bookmark,
+                    TWOS_CSID,
+                    ONES_CSID,
+                    BookmarkUpdateReason::TestMove,
+                )?;
+                txn.update(
+                    f.repo_id_2,
+                    &bookmark,
+                    TWOS_CSID,
+                    THREES_CSID,
+                    BookmarkUpdateReason::TestMove,
+                )?;
+
+                let result = txn.commit().await?;
+                assert!(!result.is_success());
+
+                // Both should be unchanged (atomicity preserved)
+                assert_eq!(
+                    f.get_bookmark(&f.bookmarks_1, &bookmark).await?,
+                    Some(ONES_CSID)
+                );
+                assert_eq!(
+                    f.get_bookmark(&f.bookmarks_2, &bookmark).await?,
+                    Some(ONES_CSID)
+                );
+
+                Ok(())
+            }
+            .boxed(),
+        )
+        .await
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_multi_repo_per_bookmark_locking_mixed_ops(fb: FacebookInit) -> Result<()> {
+        with_just_knobs_async(
+            per_bookmark_locking_knobs(),
+            async move {
+                let f = TwoRepoFixture::new(fb)?;
+                let master = BookmarkKey::new("master")?;
+                let release = BookmarkKey::new("release")?;
+                let feature = BookmarkKey::new("feature")?;
+
+                f.set_bookmark(&f.bookmarks_1, &master, ONES_CSID).await?;
+                f.set_bookmark(&f.bookmarks_2, &release, ONES_CSID).await?;
+
+                let mut txn = f.multi_txn();
+                txn.update(
+                    f.repo_id_1,
+                    &master,
+                    TWOS_CSID,
+                    ONES_CSID,
+                    BookmarkUpdateReason::TestMove,
+                )?;
+                txn.create(
+                    f.repo_id_2,
+                    &feature,
+                    THREES_CSID,
+                    BookmarkUpdateReason::TestMove,
+                )?;
+                txn.delete(
+                    f.repo_id_2,
+                    &release,
+                    ONES_CSID,
+                    BookmarkUpdateReason::TestMove,
+                )?;
+                assert!(txn.commit().await?.is_success());
+
+                assert_eq!(
+                    f.get_bookmark(&f.bookmarks_1, &master).await?,
+                    Some(TWOS_CSID)
+                );
+                assert_eq!(
+                    f.get_bookmark(&f.bookmarks_2, &feature).await?,
+                    Some(THREES_CSID)
+                );
+                assert_eq!(f.get_bookmark(&f.bookmarks_2, &release).await?, None);
+                Ok(())
+            }
+            .boxed(),
+        )
+        .await
     }
 }
