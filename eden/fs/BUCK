@@ -84,17 +84,13 @@ rpm.builder(
 
 nupkg.builder(
     name = "fb-eden-windows",
+    chocolatey_install_script = "facebook/packaging/chocolateyinstall.ps1",
+    chocolatey_uninstall_script = "facebook/packaging/chocolateyuninstall.ps1",
     compatible_with = [
         "ovr_config//os:windows",
     ],
     # @lint-ignore BUCKLINT target-level oncall is required here
     oncall = "scm_client_infra",
-    shims = [
-        {
-            nupkg.shim.source: "fbcode//eden/fs/cli_rs/edenfsctl:edenfsctl",
-            nupkg.shim.name: "eden",
-        },
-    ],
     summary = "Source control aware virtual filesystem",
     deps = EDENFS_WINDOWS_DEPS,
 )
@@ -102,17 +98,13 @@ nupkg.builder(
 # TODO: Remove this once we have conveyor+slowroll in place.
 nupkg.builder(
     name = "fb-eden-test-windows",
+    chocolatey_install_script = "facebook/packaging/chocolateyinstall.ps1",
+    chocolatey_uninstall_script = "facebook/packaging/chocolateyuninstall.ps1",
     compatible_with = [
         "ovr_config//os:windows",
     ],
     # @lint-ignore BUCKLINT target-level oncall is required here
     oncall = "scm_client_infra",
-    shims = [
-        {
-            nupkg.shim.source: "fbcode//eden/fs/cli_rs/edenfsctl:edenfsctl",
-            nupkg.shim.name: "eden",
-        },
-    ],
     summary = "Source control aware virtual filesystem",
     deps = EDENFS_WINDOWS_DEPS,
 )
