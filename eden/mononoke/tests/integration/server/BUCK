@@ -39,6 +39,7 @@ dott_test(
             "test-infinitepush-mutation.t",
             "test-pushrebase.t",
             "test-pushrebase-per-bookmark-locking.t",
+            "test-pushrebase-per-bookmark-locking-stack.t",
             "test-server-init.t",
             "test-server-lookup.t",
         ],
