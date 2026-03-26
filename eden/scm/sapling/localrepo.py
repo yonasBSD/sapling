@@ -45,6 +45,7 @@ from . import (
     extensions,
     filelog,
     git,
+    gitrepo,
     hook,
     identity,
     lock as lockmod,
@@ -1374,6 +1375,7 @@ class localrepository:
         if (
             not "treestate" in self.requirements
             and git.DOTGIT_REQUIREMENT not in self.requirements
+            and gitrepo.DOTREPO_REQUIREMENT not in self.requirements
         ):
             raise errormod.RequirementError(
                 f"legacy dirstate implementations are no longer supported (path={self.path}, requirements={self.requirements})"

@@ -57,18 +57,13 @@ Add "enable_sl" file which is used as a config flag for identity:
 
   $ touch .repo/enable_sl
 
-(bad: sl doesn't recognize .repo identity)
+Sapling recognizes .repo identity
   $ sl root
-  abort: repository requires unknown features: dotrepo
-  (consider upgrading Sapling)
-  [255]
+  $TESTTMP/repodir
 
 (bad: sl smartlog does not work in .repo)
 
   $ sl smartlog -T {desc}
-  abort: repository requires unknown features: dotrepo
-  (consider upgrading Sapling)
-  [255]
 
 (bad: sl status does not work in .repo)
 (not running to avoid noises)
@@ -77,6 +72,3 @@ $ sl status
 (bad: sl log does not work in .repo)
 
   $ sl log -r . -T '{desc}\n'
-  abort: repository requires unknown features: dotrepo
-  (consider upgrading Sapling)
-  [255]

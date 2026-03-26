@@ -28,6 +28,8 @@ pub static SUPPORTED_DEFAULT_REQUIREMENTS: phf::Set<&str> = phf_set! {
     "edensparse",
     // repo is also a .git/ repo
     "dotgit",
+    // repo is also a .repo/ repo
+    "dotrepo"
 };
 pub static SUPPORTED_STORE_REQUIREMENTS: phf::Set<&str> = phf_set! {
     "visibleheads",
@@ -62,6 +64,8 @@ pub static SUPPORTED_STORE_REQUIREMENTS: phf::Set<&str> = phf_set! {
     "eagercompat",
     // repo is also a .git/ repo
     "dotgit",
+    // repo is also a .repo/ repo
+    "dotrepo",
     // (test-only) object hashes can be invalid (should skip SHA1 hash verification)
     "invalid-hash",
 };
