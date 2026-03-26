@@ -752,15 +752,20 @@ pub fn sniff_roots(path: &Path) -> Result<Vec<(PathBuf, Identity)>> {
         if let Some((root, ident)) = sniff_root(&p)? {
             // Various repo identities usually indicate errors,
             // since in general we don't support nested repos.
-            if first_ident.is_none() {
-                first_ident = Some(ident);
-            } else if ident != first_ident.unwrap() {
-                return Err(anyhow::anyhow!(
-                    "Various repo identities ({} and {}) found, which indicates an error.\n\
-                    Sapling does not support nested repos of different kinds.",
-                    first_ident.unwrap().repo.sniff_dot_dir(),
-                    ident.repo.sniff_dot_dir()
-                ));
+            match first_ident {
+                None => {
+                    first_ident = Some(ident);
+                }
+                Some(first_ident) => {
+                    if ident != first_ident {
+                        return Err(anyhow::anyhow!(
+                            "Various repo identities ({} and {}) found, which indicates an error.\n\
+                            Sapling does not support nested repos of different kinds.",
+                            first_ident.repo.sniff_dot_dir(),
+                            ident.repo.sniff_dot_dir()
+                        ));
+                    }
+                }
             }
 
             roots.push((root.to_path_buf(), ident));
