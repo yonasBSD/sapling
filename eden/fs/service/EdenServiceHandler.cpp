@@ -4586,7 +4586,7 @@ folly::SemiFuture<folly::Unit> EdenServiceHandler::semifuture_prefetchFiles(
 }
 
 folly::SemiFuture<std::unique_ptr<PrefetchResult>>
-EdenServiceHandler::semifuture_prefetchFilesV2(
+EdenServiceHandler::semifuture_prefetchFilesV2Impl(
     std::unique_ptr<PrefetchParams> params) {
   TaskTraceBlock block{"EdenServiceHandler::prefetchFilesV2"};
   auto mountHandle = lookupMount(params->mountPoint());
@@ -4679,6 +4679,12 @@ EdenServiceHandler::semifuture_prefetchFilesV2(
   // not overload the executor.
   return serialDetachIfBackgrounded<PrefetchResult>(
       std::move(prefetchResult), server_, isBackground);
+}
+
+folly::SemiFuture<std::unique_ptr<PrefetchResult>>
+EdenServiceHandler::semifuture_prefetchFilesV2(
+    std::unique_ptr<PrefetchParams> params) {
+  return semifuture_prefetchFilesV2Impl(std::move(params));
 }
 
 folly::SemiFuture<struct folly::Unit> EdenServiceHandler::semifuture_chown(

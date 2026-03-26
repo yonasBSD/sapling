@@ -265,6 +265,9 @@ class EdenServiceHandler
   folly::SemiFuture<std::unique_ptr<PrefetchResult>> semifuture_prefetchFilesV2(
       std::unique_ptr<PrefetchParams> params) override;
 
+  folly::SemiFuture<std::unique_ptr<PrefetchResult>>
+  semifuture_prefetchFilesV2Impl(std::unique_ptr<PrefetchParams> params);
+
   folly::SemiFuture<std::unique_ptr<Glob>> semifuture_predictiveGlobFiles(
       std::unique_ptr<GlobParams> params) override;
 
