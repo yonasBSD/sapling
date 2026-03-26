@@ -53,11 +53,7 @@ pub fn maybe_init_inside_dotgit(root_path: &Path, ident: Identity) -> Result<()>
         fs::write(store_dir.join("gitdir"), format!("..{SEP}.."))?;
 
         // Write an empty eden dirstate so it can be loaded.
-        treestate::overlay_dirstate::write_overlay_dirstate(
-            &dot_dir.join("dirstate"),
-            std::iter::once(("p1".to_owned(), HgId::null_id().to_hex())).collect(),
-            Default::default(),
-        )?;
+        init_empty_dirstate(&dot_dir)?;
     }
 
     // Sync git config to "config-git-user", "config-git-repo".
@@ -104,6 +100,14 @@ pub fn maybe_init_inside_dotgit(root_path: &Path, ident: Identity) -> Result<()>
     }
 
     Ok(())
+}
+
+pub fn init_empty_dirstate(dot_dir: &Path) -> Result<()> {
+    treestate::overlay_dirstate::write_overlay_dirstate(
+        &dot_dir.join("dirstate"),
+        std::iter::once(("p1".to_owned(), HgId::null_id().to_hex())).collect(),
+        Default::default(),
+    )
 }
 
 fn git_repo_config_mtime(dot_git_path: &Path) -> FileTime {
