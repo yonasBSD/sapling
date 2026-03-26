@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable mergedriver
   $ setconfig commands.update.check=none devel.collapse-traceback=true
@@ -16,42 +17,42 @@ basic merge driver: just lists out files and contents, doesn't resolve any files
   >     pass
   > EOF
 
-  $ hg init repo1
+  $ sl init repo1
   $ cd repo1
   $ echo afoo > foo.txt
   $ echo abar > bar.txt
-  $ hg add foo.txt bar.txt
-  $ hg commit -ma
+  $ sl add foo.txt bar.txt
+  $ sl commit -ma
   $ echo bfoo >> foo.txt
   $ echo bbar >> bar.txt
-  $ hg commit -mb
-  $ hg up 'desc(a)'
+  $ sl commit -mb
+  $ sl up 'desc(a)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo cfoo >> foo.txt
   $ echo cbar >> bar.txt
-  $ hg commit -mc
+  $ sl commit -mc
   $ cat >> $HGRCPATH << EOF
   > [experimental]
   > mergedriver = python:$TESTTMP/mergedriver-list.py
   > EOF
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   U bar.txt
   U foo.txt
   merging bar.txt
-  warning: 1 conflicts while merging bar.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar.txt! (edit, then use 'sl resolve --mark')
   merging foo.txt
-  warning: 1 conflicts while merging foo.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging foo.txt! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg debugmergestate | grep 'merge driver:'
+  $ sl debugmergestate | grep 'merge driver:'
   merge driver: python:$TESTTMP/mergedriver-list.py (state "s")
-  $ hg resolve --list
+  $ sl resolve --list
   U bar.txt
   U foo.txt
-  $ hg resolve --all --tool internal:local
+  $ sl resolve --all --tool internal:local
   (no more unresolved files)
-  $ hg commit -m merge
+  $ sl commit -m merge
 
 merge driver that always takes other versions
 (rc = 0, unresolved = n, driver-resolved = n)
@@ -76,9 +77,9 @@ merge driver that always takes other versions
   > [experimental]
   > mergedriver = python:$TESTTMP/mergedriver-other.py
   > EOF
-  $ hg up --clean 'desc(c)'
+  $ sl up --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
   merge driver: python:$TESTTMP/mergedriver-other.py (state "s")
@@ -111,30 +112,30 @@ mark a file driver-resolved, and leave others unresolved
   >     util.copyfile(repo.wjoin('bar.txt'), repo.wjoin('foo.txt'))
   >     mergestate.mark('foo.txt', 'r')
   > EOF
-  $ hg up --clean 'desc(c)'
+  $ sl up --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat >> $HGRCPATH << EOF
   > [experimental]
   > mergedriver=python:$TESTTMP/mergedriver-auto1.py
   > EOF
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   * preprocess called
   merging bar.txt
-  warning: 1 conflicts while merging bar.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar.txt! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg summary
+  $ sl summary
   parent: ede3d67b8d0f 
    c
   parent: e0cfe070a2bb 
    b
   commit: 2 modified, 2 unknown, 1 unresolved (merge)
   phases: 4 draft
-  $ hg resolve --list
+  $ sl resolve --list
   U bar.txt
   D foo.txt
-  $ hg debugmergestate
+  $ sl debugmergestate
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
   merge driver: python:$TESTTMP/mergedriver-auto1.py (state "m")
@@ -151,12 +152,12 @@ mark a file driver-resolved, and leave others unresolved
     ancestor path: foo.txt (node ad59c7ac23656632da079904d4d40d0bab4aeb80)
     other path: foo.txt (node 0b0743b512ba9b7c5db411597cf374a73b9f00ac)
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
-  $ hg resolve bar.txt --tool internal:local
-  (no more unresolved files -- run "hg resolve --all" to conclude)
-  $ hg resolve --list
+  $ sl resolve bar.txt --tool internal:local
+  (no more unresolved files -- run "sl resolve --all" to conclude)
+  $ sl resolve --list
   R bar.txt
   D foo.txt
-  $ hg debugmergestate
+  $ sl debugmergestate
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
   merge driver: python:$TESTTMP/mergedriver-auto1.py (state "m")
@@ -174,48 +175,48 @@ mark a file driver-resolved, and leave others unresolved
     other path: foo.txt (node 0b0743b512ba9b7c5db411597cf374a73b9f00ac)
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
 
-  $ hg resolve --all
+  $ sl resolve --all
   * conclude called
   (no more unresolved files)
-  $ hg resolve --list
+  $ sl resolve --list
   R bar.txt
   R foo.txt
-  $ hg commit -m 'merged'
+  $ sl commit -m 'merged'
   $ cat foo.txt
   abar
   cbar
 
 mark a file driver-resolved, and leave others unresolved (but skip merge driver)
 (r = False, unresolved = y, driver-resolved = y)
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   * preprocess called
   merging bar.txt
-  warning: 1 conflicts while merging bar.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar.txt! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg resolve --list
+  $ sl resolve --list
   U bar.txt
   D foo.txt
-  $ hg debugmergestate | grep 'merge driver:'
+  $ sl debugmergestate | grep 'merge driver:'
   merge driver: python:$TESTTMP/mergedriver-auto1.py (state "m")
-  $ hg resolve --all --skip
+  $ sl resolve --all --skip
   warning: skipping merge driver (you MUST regenerate artifacts afterwards)
   merging bar.txt
-  warning: 1 conflicts while merging bar.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar.txt! (edit, then use 'sl resolve --mark')
   [1]
-  $ hg resolve --list
+  $ sl resolve --list
   U bar.txt
   U foo.txt
-  $ hg debugmergestate | grep 'merge driver:'
+  $ sl debugmergestate | grep 'merge driver:'
   [1]
-  $ hg resolve --mark --all
+  $ sl resolve --mark --all
   (no more unresolved files)
-  $ hg debugmergestate | grep 'merge driver:'
+  $ sl debugmergestate | grep 'merge driver:'
   merge driver: python:$TESTTMP/mergedriver-auto1.py (state "s")
-  $ hg commit -m 'merged'
+  $ sl commit -m 'merged'
 
 leave no files unresolved, but files driver-resolved
 (r = False, unresolved = n, driver-resolved = y)
@@ -237,9 +238,9 @@ implicitly makes them resolved
   > [experimental]
   > mergedriver = python:$TESTTMP/mergedriver-driveronly.py
   > EOF
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   * preprocess called
   * conclude called
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
@@ -260,9 +261,9 @@ implicitly makes them resolved
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg debugmergestate | grep 'merge driver:'
+  $ sl debugmergestate | grep 'merge driver:'
   merge driver: python:$TESTTMP/mergedriver-driveronly.py (state "s")
-  $ hg commit -m 'merged'
+  $ sl commit -m 'merged'
 
 indicate merge driver is necessary at commit
 (r = True, unresolved = n, driver-resolved = n)
@@ -287,16 +288,16 @@ indicate merge driver is necessary at commit
   > [experimental]
   > mergedriver = python:$TESTTMP/mergedriver-special.py
   > EOF
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 XXX shouldn't output a warning
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   * preprocess called
   warning: preprocess hook failed
   * conclude called
   0 files updated, 2 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg debugmergestate
+  $ sl debugmergestate
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
   merge driver: python:$TESTTMP/mergedriver-special.py (state "s")
@@ -313,7 +314,7 @@ XXX shouldn't output a warning
     ancestor path: foo.txt (node ad59c7ac23656632da079904d4d40d0bab4aeb80)
     other path: foo.txt (node 0b0743b512ba9b7c5db411597cf374a73b9f00ac)
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
-  $ hg commit -m 'merged'
+  $ sl commit -m 'merged'
 
 make sure this works sensibly when files are unresolved
 (r = True, unresolved = y, driver-resolved = n)
@@ -330,20 +331,20 @@ make sure this works sensibly when files are unresolved
   > [experimental]
   > mergedriver = python:$TESTTMP/mergedriver-exit.py
   > EOF
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 XXX shouldn't output a warning
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   * preprocess called
   warning: preprocess hook failed
   merging bar.txt
-  warning: 1 conflicts while merging bar.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar.txt! (edit, then use 'sl resolve --mark')
   merging foo.txt
-  warning: 1 conflicts while merging foo.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging foo.txt! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg debugmergestate
+  $ sl debugmergestate
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
   merge driver: python:$TESTTMP/mergedriver-exit.py (state "m")
@@ -360,20 +361,20 @@ XXX shouldn't output a warning
     ancestor path: foo.txt (node ad59c7ac23656632da079904d4d40d0bab4aeb80)
     other path: foo.txt (node 0b0743b512ba9b7c5db411597cf374a73b9f00ac)
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
-  $ hg commit -m 'merged'
+  $ sl commit -m 'merged'
   abort: unresolved merge state
-  (use 'hg resolve' to continue or
-       'hg goto --clean' to abort - WARNING: will destroy uncommitted changes)
+  (use 'sl resolve' to continue or
+       'sl goto --clean' to abort - WARNING: will destroy uncommitted changes)
   [255]
-  $ hg goto 'desc(c)'
+  $ sl goto 'desc(c)'
   abort: unresolved merge state
-  (use 'hg resolve' to continue or
-       'hg goto --clean' to abort - WARNING: will destroy uncommitted changes)
+  (use 'sl resolve' to continue or
+       'sl goto --clean' to abort - WARNING: will destroy uncommitted changes)
   [255]
 
 raise an error
 
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat > ../mergedriver-mark-and-raise.py << EOF
   > from sapling import error
@@ -392,18 +393,18 @@ raise an error
   > mergedriver = python:$TESTTMP/mergedriver-mark-and-raise.py
   > EOF
 
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   * preprocess called
   error: preprocess hook failed: foo
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.Abort: foo
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg debugmergestate
+  $ sl debugmergestate
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
   merge driver: python:$TESTTMP/mergedriver-mark-and-raise.py (state "u")
@@ -420,146 +421,146 @@ raise an error
     ancestor path: foo.txt (node ad59c7ac23656632da079904d4d40d0bab4aeb80)
     other path: foo.txt (node 0b0743b512ba9b7c5db411597cf374a73b9f00ac)
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
-  $ hg commit -m 'merged'
+  $ sl commit -m 'merged'
   abort: unresolved merge state
-  (use 'hg resolve' to continue or
-       'hg goto --clean' to abort - WARNING: will destroy uncommitted changes)
+  (use 'sl resolve' to continue or
+       'sl goto --clean' to abort - WARNING: will destroy uncommitted changes)
   [255]
-  $ hg resolve --list
+  $ sl resolve --list
   R bar.txt
   R foo.txt
 
 this shouldn't abort
-  $ hg resolve --unmark --all
+  $ sl resolve --unmark --all
   * preprocess called
   error: preprocess hook failed: foo
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.Abort: foo
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
-  $ hg resolve --list
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
+  $ sl resolve --list
   U bar.txt
   U foo.txt
 
-  $ hg resolve --mark --all --skip
+  $ sl resolve --mark --all --skip
   warning: skipping merge driver (you MUST regenerate artifacts afterwards)
   (no more unresolved files)
-  $ hg debugmergestate | grep 'merge driver:'
+  $ sl debugmergestate | grep 'merge driver:'
   [1]
 
 subsequent resolves shouldn't trigger the merge driver at all
-  $ hg resolve --unmark --all
-  $ hg resolve --mark --all
+  $ sl resolve --unmark --all
+  $ sl resolve --mark --all
   (no more unresolved files)
-  $ hg debugmergestate | grep 'merge driver:'
+  $ sl debugmergestate | grep 'merge driver:'
   merge driver: python:$TESTTMP/mergedriver-mark-and-raise.py (state "s")
 
 this should go through at this point
-  $ hg commit -m merged
+  $ sl commit -m merged
 
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg merge 'desc(b)'
+  $ sl merge 'desc(b)'
   * preprocess called
   error: preprocess hook failed: foo
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.Abort: foo
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
 XXX this is really confused
-  $ hg resolve --mark --all
+  $ sl resolve --mark --all
   * preprocess called
   error: preprocess hook failed: foo
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.Abort: foo
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   * conclude called
   error: conclude hook failed: bar
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.Abort: bar
   warning: merge driver failed to resolve files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   [1]
-  $ hg resolve --list
+  $ sl resolve --list
   R bar.txt
   R foo.txt
 
 this should abort
-  $ hg commit -m 'merged'
+  $ sl commit -m 'merged'
   abort: unresolved merge state
-  (use 'hg resolve' to continue or
-       'hg goto --clean' to abort - WARNING: will destroy uncommitted changes)
+  (use 'sl resolve' to continue or
+       'sl goto --clean' to abort - WARNING: will destroy uncommitted changes)
   [255]
 
 this should disable the merge driver
-  $ hg help resolve | grep -- 'skip'
+  $ sl help resolve | grep -- 'skip'
       --skip                skip merge driver
-  $ hg resolve --all --skip
+  $ sl resolve --all --skip
   warning: skipping merge driver (you MUST regenerate artifacts afterwards)
   (no more unresolved files)
 
 this should go through
-  $ hg commit -m merged
+  $ sl commit -m merged
 
 this shouldn't invoke the merge driver
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 nor should this no-op update
-  $ hg goto 'desc(c)'
+  $ sl goto 'desc(c)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 nor should this update with no working copy changes
-  $ hg goto 'desc(b)'
+  $ sl goto 'desc(b)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 test some other failure modes
 
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ hg merge 'desc(b)' --config experimental.mergedriver=fail
+  $ sl merge 'desc(b)' --config experimental.mergedriver=fail
   abort: merge driver must be a python hook
   [255]
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
 this should proceed as if there's no merge driver
-  $ hg merge 'desc(b)' --config experimental.mergedriver=python:fail
+  $ sl merge 'desc(b)' --config experimental.mergedriver=python:fail
   loading preprocess hook failed: [Errno 2] $ENOENT$: '$TESTTMP/repo1/fail'
   merging bar.txt
-  warning: 1 conflicts while merging bar.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar.txt! (edit, then use 'sl resolve --mark')
   merging foo.txt
-  warning: 1 conflicts while merging foo.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging foo.txt! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
-  $ hg debugmergestate | grep 'merge driver:'
+  $ sl debugmergestate | grep 'merge driver:'
   merge driver: python:fail (state "s")
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd ..
 ensure the right path to load the merge driver hook
-  $ hg -R repo1 merge 'desc(b)' --config experimental.mergedriver=python:fail
+  $ sl -R repo1 merge 'desc(b)' --config experimental.mergedriver=python:fail
   loading preprocess hook failed: [Errno 2] $ENOENT$: '$TESTTMP/repo1/fail'
   merging repo1/bar.txt
-  warning: 1 conflicts while merging repo1/bar.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging repo1/bar.txt! (edit, then use 'sl resolve --mark')
   merging repo1/foo.txt
-  warning: 1 conflicts while merging repo1/foo.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging repo1/foo.txt! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 2 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 verify behavior with different merge driver
-  $ hg -R repo1 debugmergestate
+  $ sl -R repo1 debugmergestate
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
   merge driver: python:fail (state "s")
@@ -576,9 +577,9 @@ verify behavior with different merge driver
     ancestor path: foo.txt (node ad59c7ac23656632da079904d4d40d0bab4aeb80)
     other path: foo.txt (node 0b0743b512ba9b7c5db411597cf374a73b9f00ac)
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
-  $ hg -R repo1 resolve --mark --all --config experimental.mergedriver=
+  $ sl -R repo1 resolve --mark --all --config experimental.mergedriver=
   (no more unresolved files)
-  $ hg -R repo1 debugmergestate
+  $ sl -R repo1 debugmergestate
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
   labels:
@@ -594,11 +595,11 @@ verify behavior with different merge driver
     ancestor path: foo.txt (node ad59c7ac23656632da079904d4d40d0bab4aeb80)
     other path: foo.txt (node 0b0743b512ba9b7c5db411597cf374a73b9f00ac)
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
-  $ hg -R repo1 commit -m merged
+  $ sl -R repo1 commit -m merged
 
 this should invoke the merge driver
   $ cd repo1
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat > ../mergedriver-raise.py << EOF
   > from sapling import error
@@ -614,18 +615,18 @@ this should invoke the merge driver
   > mergedriver = python:$TESTTMP/mergedriver-raise.py
   > EOF
   $ echo foowd >> foo.txt
-  $ hg goto ".^"
+  $ sl goto ".^"
   * preprocess called
   error: preprocess hook failed: foo
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.Abort: foo
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   1 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
-  $ hg debugmergestate
+  $ sl debugmergestate
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
   merge driver: python:$TESTTMP/mergedriver-raise.py (state "u")
@@ -637,24 +638,24 @@ this should invoke the merge driver
     ancestor path: foo.txt (node 802224e80e899817a159d494c123fb421ac3efee)
     other path: foo.txt (node ad59c7ac23656632da079904d4d40d0bab4aeb80)
     extras: ancestorlinknode=ede3d67b8d0fb0052854c85fb16823c825d21060
-  $ hg resolve --list
+  $ sl resolve --list
   U foo.txt
 XXX this is really confused
-  $ hg resolve --mark --all
+  $ sl resolve --mark --all
   * preprocess called
   error: preprocess hook failed: foo
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.Abort: foo
   warning: merge driver failed to preprocess files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   * conclude called
   error: conclude hook failed: bar
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.Abort: bar
   warning: merge driver failed to resolve files
-  (hg resolve --all to retry, or hg resolve --all --skip to skip merge driver)
+  (sl resolve --all to retry, or sl resolve --all --skip to skip merge driver)
   [1]
 
 test merge with automatic commit afterwards -- e.g. graft
@@ -663,11 +664,11 @@ test merge with automatic commit afterwards -- e.g. graft
   > [experimental]
   > mergedriver = python:$TESTTMP/mergedriver-other.py
   > EOF
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg debugmergestate
+  $ sl debugmergestate
   no merge state found
-  $ hg graft 'desc(b)'
+  $ sl graft 'desc(b)'
   grafting e0cfe070a2bb "b"
   local: ede3d67b8d0fb0052854c85fb16823c825d21060
   other: e0cfe070a2bbd0b727903026b7026cb0917e63b3
@@ -685,8 +686,8 @@ test merge with automatic commit afterwards -- e.g. graft
     ancestor path: foo.txt (node ad59c7ac23656632da079904d4d40d0bab4aeb80)
     other path: foo.txt (node 0b0743b512ba9b7c5db411597cf374a73b9f00ac)
     extras: ancestorlinknode=b9c4506f0639a99fcbfb8ce4764aa2aa4d2f6f92
-  $ hg export
-  # HG changeset patch
+  $ sl export
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -711,46 +712,46 @@ test merge with automatic commit afterwards -- e.g. graft
 
 graft with failing merge
 
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat >> $HGRCPATH << EOF
   > [experimental]
   > mergedriver = python:$TESTTMP/mergedriver-auto1.py
   > EOF
-  $ hg graft e0cfe070a2bbd0b727903026b7026cb0917e63b3
+  $ sl graft e0cfe070a2bbd0b727903026b7026cb0917e63b3
   grafting e0cfe070a2bb "b"
   * preprocess called
   merging bar.txt
-  warning: 1 conflicts while merging bar.txt! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging bar.txt! (edit, then use 'sl resolve --mark')
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
-  $ hg resolve --list
+  $ sl resolve --list
   U bar.txt
   D foo.txt
-  $ hg resolve --mark bar.txt
-  (no more unresolved files -- run "hg resolve --all" to conclude)
-  $ hg graft --continue
+  $ sl resolve --mark bar.txt
+  (no more unresolved files -- run "sl resolve --all" to conclude)
+  $ sl graft --continue
   grafting e0cfe070a2bb "b"
   abort: driver-resolved merge conflicts
-  (run "hg resolve --all" to resolve)
+  (run "sl resolve --all" to resolve)
   [255]
-  $ hg resolve --unmark bar.txt
-  $ hg resolve --list
+  $ sl resolve --unmark bar.txt
+  $ sl resolve --list
   U bar.txt
   D foo.txt
-  $ hg resolve foo.txt bar.txt --tool :other
+  $ sl resolve foo.txt bar.txt --tool :other
   * conclude called
   (no more unresolved files)
-  continue: hg graft --continue
-XXX hg resolve --unmark --all doesn't cause the merge driver to be rerun
-  $ hg resolve --mark --all
+  continue: sl graft --continue
+XXX sl resolve --unmark --all doesn't cause the merge driver to be rerun
+  $ sl resolve --mark --all
   (no more unresolved files)
-  continue: hg graft --continue
-  $ hg graft --continue
+  continue: sl graft --continue
+  $ sl graft --continue
   grafting e0cfe070a2bb "b"
-  $ hg export
-  # HG changeset patch
+  $ sl export
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -776,7 +777,7 @@ XXX hg resolve --unmark --all doesn't cause the merge driver to be rerun
 
 delete all the files
 
-  $ hg goto --clean 'desc(c)'
+  $ sl goto --clean 'desc(c)'
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat > ../mergedriver-delete.py << EOF
   > import os
@@ -796,50 +797,50 @@ delete all the files
   > [experimental]
   > mergedriver = python:$TESTTMP/mergedriver-delete.py
   > EOF
-  $ hg graft e0cfe070a2bbd0b727903026b7026cb0917e63b3
+  $ sl graft e0cfe070a2bbd0b727903026b7026cb0917e63b3
   grafting e0cfe070a2bb "b"
   * preprocess called
   * conclude called
-  $ hg status --change .
+  $ sl status --change .
   R bar.txt
   R foo.txt
   $ f foo.txt bar.txt
   bar.txt: file not found
   foo.txt: file not found
-  $ hg files
+  $ sl files
   [1]
 
 delete all the files, but with a non-interactive conflict resolution involved
-  $ hg revert --all
-  $ hg up -q .^
+  $ sl revert --all
+  $ sl up -q .^
   $ echo foo > other.txt
-  $ hg commit -Aqm 'intro other.txt'
+  $ sl commit -Aqm 'intro other.txt'
   $ echo bar > other.txt
   $ echo bar >> foo.txt
-  $ hg commit -Aqm 'modify other.txt'
-  $ hg up -q .^
+  $ sl commit -Aqm 'modify other.txt'
+  $ sl up -q .^
   $ echo gah > other.txt
   $ echo gah >> foo.txt
-  $ hg commit -Aqm 'different other.txt'
-  $ hg --config extensions.rebase= rebase -d 'desc("modify other.txt")'
+  $ sl commit -Aqm 'different other.txt'
+  $ sl --config extensions.rebase= rebase -d 'desc("modify other.txt")'
   rebasing f931f701d752 "different other.txt"
   * preprocess called
   merging other.txt
-  warning: 1 conflicts while merging other.txt! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  warning: 1 conflicts while merging other.txt! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
   $ echo gah > other.txt
-  $ hg resolve --mark other.txt
-  (no more unresolved files -- run "hg resolve --all" to conclude)
-  $ hg resolve --all
+  $ sl resolve --mark other.txt
+  (no more unresolved files -- run "sl resolve --all" to conclude)
+  $ sl resolve --all
   * conclude called
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg st
+  continue: sl rebase --continue
+  $ sl st
   M other.txt
   R foo.txt
   ? other.txt.orig
-  $ hg --config extensions.rebase= rebase --continue
+  $ sl --config extensions.rebase= rebase --continue
   rebasing f931f701d752 "different other.txt"
-  $ hg st
+  $ sl st
   ? other.txt.orig

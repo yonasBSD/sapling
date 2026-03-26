@@ -10,6 +10,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ enable amend
 
   $ newclientrepo a
@@ -17,40 +18,40 @@
   $ mkdir d1/d2
   $ echo line 1 > a
   $ echo line 1 > d1/d2/a
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding a
   adding d1/d2/a
-  $ hg book rev0
-  $ hg book -i
-  $ hg push -q -r . --to rev0 --create
+  $ sl book rev0
+  $ sl book -i
+  $ sl push -q -r . --to rev0 --create
 
   $ echo line 2 >> a
-  $ hg ci -u someone -d '1 0' '-msecond change'
-  $ hg book rev1
-  $ hg book -i
+  $ sl ci -u someone -d '1 0' '-msecond change'
+  $ sl book rev1
+  $ sl book -i
 
 # import with no args:
 
-  $ hg import
+  $ sl import
   abort: need at least one patch to import
   [255]
 
 # generate patches for the test
 
-  $ hg export tip > ../exported-tip.patch
-  $ hg diff '-r rev0:' > ../diffed-tip.patch
+  $ sl export tip > ../exported-tip.patch
+  $ sl diff '-r rev0:' > ../diffed-tip.patch
 
 # import exported patch
 # (this also tests that editor is not invoked, if the patch contains the
 # commit message and '--edit' is not specified)
 
   $ newclientrepo b a_server rev0
-  $ HGEDITOR=cat hg import ../exported-tip.patch
+  $ HGEDITOR=cat sl import ../exported-tip.patch
   applying ../exported-tip.patch
 
 # message and committer and date should be same
 
-  $ hg tip
+  $ sl tip
   commit:      * (glob)
   user:        someone
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -66,16 +67,16 @@
   > open('a', 'wb').write(b'line2\n')
   > EOF
   $ newclientrepo b0 a_server rev0
-  $ HGEDITOR=cat hg --config "ui.patch=hg debugpython -- ../dummypatch.py" import --edit ../exported-tip.patch
+  $ HGEDITOR=cat sl --config "ui.patch=sl debugpython -- ../dummypatch.py" import --edit ../exported-tip.patch
   applying ../exported-tip.patch
   second change
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: someone
-  HG: changed a
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: someone
+  SL: changed a
   $ cat a
   line2
 
@@ -88,15 +89,15 @@
   > env | grep HGEDITFORM
   > cat \$1
   > EOF
-  $ HGEDITOR=cat hg import ../diffed-tip.patch
+  $ HGEDITOR=cat sl import ../diffed-tip.patch
   applying ../diffed-tip.patch
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: changed a
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: changed a
   abort: empty commit message
   [255]
 
@@ -104,21 +105,21 @@
 # even if commit message is empty
 
   $ echo a >> a
-  $ hg commit -m ' '
-  $ hg tip -T '{node}\n'
+  $ sl commit -m ' '
+  $ sl tip -T '{node}\n'
   e7df5eeeca3300b311991dbe19748d533edb2e8a
-  $ hg export -o ../empty-log.diff .
-  $ hg goto -q -C '.^1'
-  $ hg hide -q -r tip
-  $ HGEDITOR=cat hg import --exact ../empty-log.diff
+  $ sl export -o ../empty-log.diff .
+  $ sl goto -q -C '.^1'
+  $ sl hide -q -r tip
+  $ HGEDITOR=cat sl import --exact ../empty-log.diff
   applying ../empty-log.diff
-  $ hg tip -T '{node}\n'
+  $ sl tip -T '{node}\n'
   e7df5eeeca3300b311991dbe19748d533edb2e8a
 
 # import of plain diff should be ok with message
 
   $ newclientrepo b2 a_server rev0
-  $ hg import -mpatch ../diffed-tip.patch
+  $ sl import -mpatch ../diffed-tip.patch
   applying ../diffed-tip.patch
 
 # import of plain diff with specific date and user
@@ -126,9 +127,9 @@
 # '--message'/'--logfile' is specified and '--edit' is not)
 
   $ newclientrepo b3 a_server rev0
-  $ hg import -mpatch -d '1 0' -u 'user@nowhere.net' ../diffed-tip.patch
+  $ sl import -mpatch -d '1 0' -u 'user@nowhere.net' ../diffed-tip.patch
   applying ../diffed-tip.patch
-  $ hg tip -pv
+  $ sl tip -pv
   commit:      * (glob)
   user:        user@nowhere.net
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -149,9 +150,9 @@
 # specified, regardless of '--edit')
 
   $ newclientrepo b4 a_server rev0
-  $ HGEDITOR=cat hg import --no-commit --edit ../diffed-tip.patch
+  $ HGEDITOR=cat sl import --no-commit --edit ../diffed-tip.patch
   applying ../diffed-tip.patch
-  $ hg diff --nodates
+  $ sl diff --nodates
   diff -r * a (glob)
   --- a/a
   +++ b/a
@@ -165,7 +166,7 @@
 
   $ sed 's/1,1/foo/' < ../diffed-tip.patch > ../broken.patch
 
-  $ hg import -mpatch ../broken.patch
+  $ sl import -mpatch ../broken.patch
   applying ../broken.patch
   abort: bad hunk #1
   [255]
@@ -177,34 +178,34 @@
   $ mkdir dir
   $ newclientrepo dir/b a_server rev0
   $ cd ..
-  $ hg -R b import ../exported-tip.patch
+  $ sl -R b import ../exported-tip.patch
   applying ../exported-tip.patch
   $ cd ..
 
 # import from stdin
 
   $ newclientrepo b6 a_server rev0
-  $ hg import - < ../exported-tip.patch
+  $ sl import - < ../exported-tip.patch
   applying patch from stdin
 
 # import two patches in one stream
 
   $ newclientrepo b7
   $ cd ..
-  $ hg --cwd a export 'rev0:tip' | hg --cwd b7 import -
+  $ sl --cwd a export 'rev0:tip' | sl --cwd b7 import -
   applying patch from stdin
-  $ hg --cwd a id
+  $ sl --cwd a id
   da4d12908167 rev1
-  $ hg --cwd b7 id
+  $ sl --cwd b7 id
   da4d12908167
 
 # override commit message
 
   $ newclientrepo b8 a_server rev0
   $ cd ..
-  $ hg --cwd b8 import -m override - < exported-tip.patch
+  $ sl --cwd b8 import -m override - < exported-tip.patch
   applying patch from stdin
-  $ hg --cwd b8 log -r tip -T '{desc}'
+  $ sl --cwd b8 log -r tip -T '{desc}'
   override (no-eol)
 
 Python utility:
@@ -228,23 +229,23 @@ Python utility:
 
   >>> mkmsg("diffed-tip.patch", "msg.patch")
 
-  $ hg --cwd b9 import ../msg.patch
+  $ sl --cwd b9 import ../msg.patch
   applying ../msg.patch
-  $ hg --cwd b9 log -r tip -T '{author}\n{desc}'
+  $ sl --cwd b9 log -r tip -T '{author}\n{desc}'
   email patcher
   email patch
   email commit message (no-eol)
 
-# hg export in email, should use patch header
+# sl export in email, should use patch header
 
   $ newclientrepo b10 a_server rev0
   $ cd ..
 
   >>> mkmsg("exported-tip.patch", "msg.patch")
 
-  $ cat msg.patch | hg --cwd b10 import -
+  $ cat msg.patch | sl --cwd b10 import -
   applying patch from stdin
-  $ hg --cwd b10 log -r tip -T '{desc}'
+  $ sl --cwd b10 log -r tip -T '{desc}'
   second change (no-eol)
 
 # subject: duplicate detection, removal of [PATCH]
@@ -268,9 +269,9 @@ Python utility:
 
   >>> mkmsg2("diffed-tip.patch", "msg.patch")
 
-  $ cat msg.patch | hg --cwd b11 import -
+  $ cat msg.patch | sl --cwd b11 import -
   applying patch from stdin
-  $ hg --cwd b11 tip --template '{desc}\n'
+  $ sl --cwd b11 tip --template '{desc}\n'
   email patch
   
   next line
@@ -281,15 +282,15 @@ Python utility:
 # patches: import patch1 patch2; rollback
 
   $ echo line 3 >> a/a
-  $ hg --cwd a ci '-mthird change'
-  $ hg --cwd a book rev2
-  $ hg --cwd a book -i
-  $ hg --cwd a export -o '../patch%n' rev1 rev2
+  $ sl --cwd a ci '-mthird change'
+  $ sl --cwd a book rev2
+  $ sl --cwd a book -i
+  $ sl --cwd a export -o '../patch%n' rev1 rev2
   $ newclientrepo b12 a_server rev0
   $ cd ..
-  $ hg --cwd b12 parents --template 'parent: {desc}\n'
+  $ sl --cwd b12 parents --template 'parent: {desc}\n'
   parent: a
-  $ hg --cwd b12 import -v ../patch1 ../patch2
+  $ sl --cwd b12 import -v ../patch1 ../patch2
   applying ../patch1
   patching file a
   committing files:
@@ -304,32 +305,32 @@ Python utility:
   committing manifest
   committing changelog
   created * (glob)
-  $ hg --cwd b12 hide -q tip
-  $ hg --cwd b12 parents --template 'parent: {desc}\n'
+  $ sl --cwd b12 hide -q tip
+  $ sl --cwd b12 parents --template 'parent: {desc}\n'
   parent: second change
 
 # importing a patch in a subdirectory failed at the commit stage
 
   $ echo line 2 >> a/d1/d2/a
-  $ hg --cwd a ci -u someoneelse -d '1 0' '-msubdir change'
+  $ sl --cwd a ci -u someoneelse -d '1 0' '-msubdir change'
 
-# hg import in a subdirectory
+# sl import in a subdirectory
 
   $ newclientrepo b13 a_server rev0
   $ cd ..
-  $ hg --cwd a export tip > tmp
+  $ sl --cwd a export tip > tmp
 
   $ sed 's#d1/d2##' < tmp > subdir-tip.patch
 
   $ cd b13/d1/d2
-  $ hg import ../../../subdir-tip.patch
+  $ sl import ../../../subdir-tip.patch
   applying ../../../subdir-tip.patch
   $ cd ../../..
 
 # message should be 'subdir change'
 # committer should be 'someoneelse'
 
-  $ hg --cwd b13 tip
+  $ sl --cwd b13 tip
   commit:      * (glob)
   user:        someoneelse
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -337,7 +338,7 @@ Python utility:
 
 # should be empty
 
-  $ hg --cwd b13 status
+  $ sl --cwd b13 status
 
 # Test fuzziness (ambiguous patch location, fuzz=2)
 
@@ -345,45 +346,45 @@ Python utility:
   $ echo line1 > a
   $ echo line0 >> a
   $ echo line3 >> a
-  $ hg ci -Am adda
+  $ sl ci -Am adda
   adding a
-  $ hg book -i rev0
+  $ sl book -i rev0
   $ echo line1 > a
   $ echo line2 >> a
   $ echo line0 >> a
   $ echo line3 >> a
-  $ hg ci -m change a
-  $ hg export tip > fuzzy-tip.patch
-  $ hg up -C rev0 --inactive
+  $ sl ci -m change a
+  $ sl export tip > fuzzy-tip.patch
+  $ sl up -C rev0 --inactive
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo line1 > a
   $ echo line0 >> a
   $ echo line1 >> a
   $ echo line0 >> a
-  $ hg ci -m brancha
-  $ hg import --config 'patch.fuzz=0' -v fuzzy-tip.patch
+  $ sl ci -m brancha
+  $ sl import --config 'patch.fuzz=0' -v fuzzy-tip.patch
   applying fuzzy-tip.patch
   patching file a
   Hunk #1 FAILED at 0
   1 out of 1 hunks FAILED -- saving rejects to file a.rej
   abort: patch failed to apply
   [255]
-  $ hg import --no-commit -v fuzzy-tip.patch
+  $ sl import --no-commit -v fuzzy-tip.patch
   applying fuzzy-tip.patch
   patching file a
   Hunk #1 succeeded at 2 with fuzz 1 (offset 0 lines).
   applied to working directory
-  $ hg revert -a
+  $ sl revert -a
   reverting a
 
-# import with --no-commit should have written .hg/last-message.txt
+# import with --no-commit should have written .sl/last-message.txt
 
-  $ cat .hg/last-message.txt
+  $ cat .sl/last-message.txt
   change (no-eol)
 
 # test fuzziness with eol=auto
 
-  $ hg --config 'patch.eol=auto' import --no-commit -v fuzzy-tip.patch
+  $ sl --config 'patch.eol=auto' import --no-commit -v fuzzy-tip.patch
   applying fuzzy-tip.patch
   patching file a
   Hunk #1 succeeded at 2 with fuzz 1 (offset 0 lines).
@@ -397,20 +398,20 @@ Python utility:
   $ touch b1
   $ touch c1
   $ echo d > d
-  $ hg ci -Am init
+  $ sl ci -Am init
   adding a
   adding b1
   adding c1
   adding d
-  $ hg book -i rev0
+  $ sl book -i rev0
   $ echo a > a
   $ echo b > b1
-  $ hg mv b1 b2
+  $ sl mv b1 b2
   $ echo c > c1
-  $ hg copy c1 c2
+  $ sl copy c1 c2
   $ rm d
   $ touch d
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/a b/a
   --- a/a
   +++ b/a
@@ -440,11 +441,11 @@ Python utility:
   +++ b/d
   @@ -1,1 +0,0 @@
   -d
-  $ hg ci -m empty
-  $ hg export --git tip > empty.diff
-  $ hg up -C rev0 --inactive
+  $ sl ci -m empty
+  $ sl export --git tip > empty.diff
+  $ sl up -C rev0 --inactive
   4 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  $ hg import empty.diff
+  $ sl import empty.diff
   applying empty.diff
   $ cd ..
 
@@ -456,46 +457,46 @@ Python utility:
   >>> with open("b", "wb") as f:
   ...     f.write(b"a\0b") and None
 
-  $ hg ci -Am addall
+  $ sl ci -Am addall
   adding a
   adding b
-  $ hg book -i rev0
-  $ hg rm a
-  $ hg rm b
-  $ hg st
+  $ sl book -i rev0
+  $ sl rm a
+  $ sl rm b
+  $ sl st
   R a
   R b
-  $ hg ci -m remove
-  $ hg export --git . > remove.diff
+  $ sl ci -m remove
+  $ sl export --git . > remove.diff
 
   $ grep git remove.diff
   diff --git a/a b/a
   diff --git a/b b/b
 
-  $ hg up -C rev0 --inactive
+  $ sl up -C rev0 --inactive
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg import remove.diff
+  $ sl import remove.diff
   applying remove.diff
-  $ hg manifest
+  $ sl manifest
   $ cd ..
 
 # Issue927: test update+rename with common name
 
   $ newclientrepo t
   $ touch a
-  $ hg ci -Am t
+  $ sl ci -Am t
   adding a
-  $ hg book -i rev0
+  $ sl book -i rev0
   $ echo a > a
 
 # Here, bfile.startswith(afile)
 
-  $ hg copy a a2
-  $ hg ci -m copya
-  $ hg export --git tip > copy.diff
-  $ hg up -C rev0 --inactive
+  $ sl copy a a2
+  $ sl ci -m copya
+  $ sl export --git tip > copy.diff
+  $ sl up -C rev0 --inactive
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg import copy.diff
+  $ sl import copy.diff
   applying copy.diff
 
 # a should contain an 'a'
@@ -513,12 +514,12 @@ Python utility:
 
   $ newclientrepo p0
   $ echo a > a
-  $ hg ci -Am t
+  $ sl ci -Am t
   adding a
-  $ hg import -p foo
+  $ sl import -p foo
   abort: invalid value 'foo' for option -p, expected int
   [255]
-  $ hg import -p0 - << 'EOS'
+  $ sl import -p0 - << 'EOS'
   > foobar
   > --- a	Sat Apr 12 22:43:58 2008 -0400
   > +++ a	Sat Apr 12 22:44:05 2008 -0400
@@ -527,7 +528,7 @@ Python utility:
   > +bb
   > EOS
   applying patch from stdin
-  $ hg status
+  $ sl status
   $ cat a
   bb
 
@@ -535,9 +536,9 @@ Python utility:
 
   $ mkdir -p dir/dir2
   $ echo b > dir/dir2/b
-  $ hg ci -Am b
+  $ sl ci -Am b
   adding dir/dir2/b
-  $ hg import -p2 --prefix dir - << 'EOS'
+  $ sl import -p2 --prefix dir - << 'EOS'
   > foobar
   > --- drop1/drop2/dir2/b
   > +++ drop1/drop2/dir2/b
@@ -546,7 +547,7 @@ Python utility:
   > +cc
   > EOS
   applying patch from stdin
-  $ hg status
+  $ sl status
   $ cat dir/dir2/b
   cc
   $ cd ..
@@ -556,7 +557,7 @@ Python utility:
   $ mkdir outside
   $ touch outside/foo
   $ newclientrepo inside
-  $ hg import - << 'EOS'
+  $ sl import - << 'EOS'
   > diff --git a/a b/b
   > rename from ../outside/foo
   > rename to bar
@@ -570,7 +571,7 @@ Python utility:
 
   $ newclientrepo sim
   $ echo 'this is a test' > a
-  $ hg ci -Ama
+  $ sl ci -Ama
   adding a
   $ cat > ../rename.diff << 'EOF'
   > diff --git a/foo/a b/foo/a
@@ -587,7 +588,7 @@ Python utility:
   > +this is a test
   > +foo
   > EOF
-  $ hg import --no-commit -v -s 1 ../rename.diff -p2
+  $ sl import --no-commit -v -s 1 ../rename.diff -p2
   applying ../rename.diff
   patching file a
   patching file b
@@ -595,23 +596,23 @@ Python utility:
   recording removal of a as rename to b (50% similar)
   applied to working directory
   $ echo 'mod b' > b
-  $ hg st -C
+  $ sl st -C
   A b
     a
   R a
-  $ hg revert -a
+  $ sl revert -a
   undeleting a
   forgetting b
   $ cat b
   mod b
   $ rm b
-  $ hg import --no-commit -v -s 100 ../rename.diff -p2
+  $ sl import --no-commit -v -s 100 ../rename.diff -p2
   applying ../rename.diff
   patching file a
   patching file b
   adding b
   applied to working directory
-  $ hg st -C
+  $ sl st -C
   A b
   R a
   $ cd ..
@@ -620,9 +621,9 @@ Python utility:
 
   $ newclientrepo addemptyend
   $ touch a
-  $ hg addremove
+  $ sl addremove
   adding a
-  $ hg ci -m commit
+  $ sl ci -m commit
   $ cat > a.patch << 'EOF'
   > add a, b
   > diff --git a/a b/a
@@ -633,23 +634,23 @@ Python utility:
   > diff --git a/b b/b
   > new file mode 100644
   > EOF
-  $ hg import --no-commit a.patch
+  $ sl import --no-commit a.patch
   applying a.patch
 
 # apply a good patch followed by an empty patch (mainly to ensure
 # that dirstate is *not* updated when import crashes)
 
-  $ hg goto -q -C .
+  $ sl goto -q -C .
   $ rm b
   $ touch empty.patch
-  $ hg import a.patch empty.patch
+  $ sl import a.patch empty.patch
   applying a.patch
   applying empty.patch
   abort: empty.patch: no diffs found
   [255]
-  $ hg tip --template '{desc|firstline}\n'
+  $ sl tip --template '{desc|firstline}\n'
   commit
-  $ hg -q status
+  $ sl -q status
   M a
   $ cd ..
 
@@ -673,13 +674,13 @@ Python utility:
   > +a
   > EOF
   $ newclientrepo oddcreate
-  $ hg import --no-commit ../create.patch
+  $ sl import --no-commit ../create.patch
   applying ../create.patch
   $ cat foo
   a
   $ rm foo
-  $ hg revert foo
-  $ hg import --no-commit ../create2.patch
+  $ sl revert foo
+  $ sl import --no-commit ../create2.patch
   applying ../create2.patch
   $ cat foo
   a
@@ -701,9 +702,9 @@ Python utility:
   > @@ -0,0 +1,1 @@
   > +a
   > EOF
-  $ hg import -d '0 0' a.patch
+  $ sl import -d '0 0' a.patch
   applying a.patch
-  $ hg parents -v
+  $ sl parents -v
   commit:      5a681217c0ad
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -730,8 +731,8 @@ Python utility:
   > +a
   > EOF
 
-  $ hg import -d '0 0' a.patch -q
-  $ hg parents -v
+  $ sl import -d '0 0' a.patch -q
+  $ sl parents -v
   commit:      f34d9187897d
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -744,7 +745,7 @@ Python utility:
   > From: User A <user@a>
   > Subject: [PATCH] from: tricky!
   > 
-  > # HG changeset patch
+  > # SL changeset patch
   > # User User B
   > # Date 1266264441 18000
   > # Branch stable
@@ -762,10 +763,10 @@ Python utility:
   > EOF
 
   $ newclientrepo trickyheaders
-  $ hg import -d '0 0' ../trickyheaders.patch
+  $ sl import -d '0 0' ../trickyheaders.patch
   applying ../trickyheaders.patch
-  $ hg export --git tip
-  # HG changeset patch
+  $ sl export --git tip
+  # SL changeset patch
   # User User B
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -783,15 +784,15 @@ Python utility:
   +foo
   $ cd ..
 
-# Issue2102: hg export and hg import speak different languages
+# Issue2102: sl export and sl import speak different languages
 
   $ newclientrepo issue2102
   $ mkdir -p src/cmd/gc
   $ touch src/cmd/gc/mksys.bash
-  $ hg ci -Am init
+  $ sl ci -Am init
   adding src/cmd/gc/mksys.bash
-  $ hg import - << 'EOS'
-  > # HG changeset patch
+  $ sl import - << 'EOS'
+  > # SL changeset patch
   > # User Rob Pike
   > # Date 1216685449 25200
   > # Node ID 03aa2b206f499ad6eb50e6e207b9e710d6409c98
@@ -824,7 +825,7 @@ Python utility:
   applying patch from stdin
 
 #if execbit
-  $ hg diff --git -c tip
+  $ sl diff --git -c tip
   diff --git a/lib/place-holder b/lib/place-holder
   new file mode 100644
   --- /dev/null
@@ -843,7 +844,7 @@ Python utility:
   old mode 100644
   new mode 100755
 #else
-  $ hg diff --git -c tip
+  $ sl diff --git -c tip
   diff --git a/lib/place-holder b/lib/place-holder
   new file mode 100644
   --- /dev/null
@@ -874,24 +875,24 @@ Python utility:
   $ echo a > a
   $ echo b > b
   $ echo c > c
-  $ hg ci -Am1
+  $ sl ci -Am1
   adding a
   adding b
   adding c
-  $ hg book -i rev0
+  $ sl book -i rev0
 
   $ echo 'key: value' >> a
   $ echo 'key: value' >> b
   $ echo foo >> c
-  $ hg ci -m2
-  $ hg book -i rev1
+  $ sl ci -m2
+  $ sl book -i rev1
 
-  $ hg up -C rev0 --inactive
+  $ sl up -C rev0 --inactive
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg diff --git -c 'desc(1)' > want
-  $ hg diff -c rev1 | hg import --no-commit -
+  $ sl diff --git -c 'desc(1)' > want
+  $ sl diff -c rev1 | sl import --no-commit -
   applying patch from stdin
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/a b/a
   --- a/a
   +++ b/a
@@ -920,11 +921,11 @@ Python utility:
   > c4
   > c5
   > EOF
-  $ hg commit -Am0
+  $ sl commit -Am0
   adding f
 
-  $ hg import --no-commit - << 'EOS'
-  > # HG changeset patch
+  $ sl import --no-commit - << 'EOS'
+  > # SL changeset patch
   > # User test
   > # Date 0 0
   > # Node ID f4974ab632f3dee767567b0576c0ec9a4508575c
@@ -955,13 +956,13 @@ Python utility:
   $ newclientrepo headerlikemsg
   $ touch empty
   $ echo nonempty >> nonempty
-  $ hg ci -qAl - << 'EOS'
+  $ sl ci -qAl - << 'EOS'
   > blah blah
   > diff blah
   > blah blah
   > EOS
-  $ hg book -i rev0
-  $ hg --config 'diff.git=1' log -pv
+  $ sl book -i rev0
+  $ sl --config 'diff.git=1' log -pv
   commit:      c6ef204ef767
   bookmark:    rev0
   user:        test
@@ -986,9 +987,9 @@ Python utility:
 
   $ newclientrepo plain
   $ cd ..
-  $ hg --cwd headerlikemsg export rev0 | hg -R plain import -
+  $ sl --cwd headerlikemsg export rev0 | sl -R plain import -
   applying patch from stdin
-  $ hg --config 'diff.git=1' -R plain log -pv
+  $ sl --config 'diff.git=1' -R plain log -pv
   commit:      60a2d231e71f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1010,9 +1011,9 @@ Python utility:
 
   $ newclientrepo git
   $ cd ..
-  $ hg --config 'diff.git=1' --cwd headerlikemsg export rev0 | hg -R git import -
+  $ sl --config 'diff.git=1' --cwd headerlikemsg export rev0 | sl -R git import -
   applying patch from stdin
-  $ hg --config 'diff.git=1' -R git log -pv
+  $ sl --config 'diff.git=1' -R git log -pv
   commit:      c6ef204ef767
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1037,10 +1038,10 @@ Python utility:
 
   $ newclientrepo startlinezero
   $ echo foo > foo
-  $ hg commit -Amfoo
+  $ sl commit -Amfoo
   adding foo
 
-  $ hg import --no-commit - << 'EOS'
+  $ sl import --no-commit - << 'EOS'
   > diff a/foo b/foo
   > --- a/foo
   > +++ b/foo
@@ -1101,9 +1102,9 @@ Python utility:
   > 3
   > 4
   > EOF
-  $ hg ci -Am adda a
+  $ sl ci -Am adda a
 
-  $ hg import -v --no-commit 01-no-context-beginning-of-file.diff
+  $ sl import -v --no-commit 01-no-context-beginning-of-file.diff
   applying 01-no-context-beginning-of-file.diff
   patching file a
   applied to working directory
@@ -1114,9 +1115,9 @@ Python utility:
   3
   4
 
-  $ hg revert -aqC a
+  $ sl revert -aqC a
 
-  $ hg import -v --no-commit 02-no-context-middle-of-file.diff
+  $ sl import -v --no-commit 02-no-context-middle-of-file.diff
   applying 02-no-context-middle-of-file.diff
   patching file a
   Hunk #1 succeeded at 2 (offset 1 lines).
@@ -1129,9 +1130,9 @@ Python utility:
   line
   4
 
-  $ hg revert -aqC a
+  $ sl revert -aqC a
 
-  $ hg import -v --no-commit 03-no-context-end-of-file.diff
+  $ sl import -v --no-commit 03-no-context-end-of-file.diff
   applying 03-no-context-end-of-file.diff
   patching file a
   Hunk #1 succeeded at 5 (offset -6 lines).
@@ -1143,9 +1144,9 @@ Python utility:
   4
   line
 
-  $ hg revert -aqC a
+  $ sl revert -aqC a
 
-  $ hg import -v --no-commit 04-middle-of-file-completely-fuzzed.diff
+  $ sl import -v --no-commit 04-middle-of-file-completely-fuzzed.diff
   applying 04-middle-of-file-completely-fuzzed.diff
   patching file a
   Hunk #1 succeeded at 2 (offset 1 lines).
@@ -1158,7 +1159,7 @@ Python utility:
   4
   line
 
-  $ hg revert -aqC a
+  $ sl revert -aqC a
 
   $ cd ..
 
@@ -1176,10 +1177,10 @@ Python utility:
   > six
   > seven
   > EOF
-  $ hg add a
+  $ sl add a
   $ echo b > b
-  $ hg add b
-  $ hg commit -m initial -u Babar
+  $ sl add b
+  $ sl commit -m initial -u Babar
   $ cat > a << 'EOF'
   > one
   > two
@@ -1189,7 +1190,7 @@ Python utility:
   > six
   > seven
   > EOF
-  $ hg commit -m three -u Celeste
+  $ sl commit -m three -u Celeste
   $ cat > a << 'EOF'
   > one
   > two
@@ -1199,7 +1200,7 @@ Python utility:
   > six
   > seven
   > EOF
-  $ hg commit -m four -u Rataxes
+  $ sl commit -m four -u Rataxes
   $ cat > a << 'EOF'
   > one
   > two
@@ -1210,13 +1211,13 @@ Python utility:
   > seven
   > EOF
   $ echo bb >> b
-  $ hg commit -m five -u Arthur
+  $ sl commit -m five -u Arthur
   $ echo Babar > jungle
-  $ hg add jungle
-  $ hg ci -m jungle -u Zephir
+  $ sl add jungle
+  $ sl ci -m jungle -u Zephir
   $ echo Celeste >> jungle
-  $ hg ci -m 'extended jungle' -u Cornelius
-  $ hg log -G --template '{desc|firstline} [{author}] {diffstat}\n'
+  $ sl ci -m 'extended jungle' -u Cornelius
+  $ sl log -G --template '{desc|firstline} [{author}] {diffstat}\n'
   @  extended jungle [Cornelius] 1: +1/-0
   │
   o  jungle [Zephir] 1: +1/-0
@@ -1231,25 +1232,25 @@ Python utility:
 
 # Adding those config options should not change the output of diffstat. Bugfix #4755.
 
-  $ hg log -r . --template '{diffstat}\n'
+  $ sl log -r . --template '{diffstat}\n'
   1: +1/-0
-  $ hg log -r . --template '{diffstat}\n' --config 'diff.git=1' --config 'diff.noprefix=1'
+  $ sl log -r . --template '{diffstat}\n' --config 'diff.git=1' --config 'diff.noprefix=1'
   1: +1/-0
 
 # Importing with some success and some errors:
 
-  $ hg goto --rev 'desc(initial)'
+  $ sl goto --rev 'desc(initial)'
   2 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg export --rev 'desc(five)' | hg import --partial -
+  $ sl export --rev 'desc(five)' | sl import --partial -
   applying patch from stdin
   patching file a
   Hunk #1 FAILED at 1
   1 out of 1 hunks FAILED -- saving rejects to file a.rej
   patch applied partially
-  (fix the .rej files and run `hg commit --amend`)
+  (fix the .rej files and run `sl commit --amend`)
   [1]
 
-  $ hg log -G --template '{desc|firstline} [{author}] {diffstat}\n'
+  $ sl log -G --template '{desc|firstline} [{author}] {diffstat}\n'
   @  five [Arthur] 1: +1/-0
   │
   │ o  extended jungle [Cornelius] 1: +1/-0
@@ -1263,8 +1264,8 @@ Python utility:
   │ o  three [Celeste] 1: +1/-1
   ├─╯
   o  initial [Babar] 2: +8/-0
-  $ hg export
-  # HG changeset patch
+  $ sl export
+  # SL changeset patch
   # User Arthur
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1278,7 +1279,7 @@ Python utility:
   @@ -1,1 +1,2 @@
    b
   +bb
-  $ hg status -c .
+  $ sl status -c .
   C a
   C b
   $ ls
@@ -1288,18 +1289,18 @@ Python utility:
 
 # Importing with zero success:
 
-  $ hg goto --rev 'desc(initial)'
+  $ sl goto --rev 'desc(initial)'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg export --rev 'desc(four)' | hg import --partial -
+  $ sl export --rev 'desc(four)' | sl import --partial -
   applying patch from stdin
   patching file a
   Hunk #1 FAILED at 0
   1 out of 1 hunks FAILED -- saving rejects to file a.rej
   patch applied partially
-  (fix the .rej files and run `hg commit --amend`)
+  (fix the .rej files and run `sl commit --amend`)
   [1]
 
-  $ hg log -G --template '{desc|firstline} [{author}] {diffstat}\n'
+  $ sl log -G --template '{desc|firstline} [{author}] {diffstat}\n'
   @  four [Rataxes] 0: +0/-0
   │
   │ o  five [Arthur] 1: +1/-0
@@ -1315,15 +1316,15 @@ Python utility:
   │ o  three [Celeste] 1: +1/-1
   ├─╯
   o  initial [Babar] 2: +8/-0
-  $ hg export
-  # HG changeset patch
+  $ sl export
+  # SL changeset patch
   # User Rataxes
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
   # Node ID cb9b1847a74d9ad52e93becaf14b98dbcc274e1e
   # Parent  8e4f0351909eae6b9cf68c2c076cb54c42b54b2e
   four
-  $ hg status -c .
+  $ sl status -c .
   C a
   C b
   $ ls
@@ -1333,18 +1334,18 @@ Python utility:
 
 # Importing with unknown file:
 
-  $ hg goto --rev 'desc(initial)'
+  $ sl goto --rev 'desc(initial)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg export --rev 'desc("extended jungle")' | hg import --partial -
+  $ sl export --rev 'desc("extended jungle")' | sl import --partial -
   applying patch from stdin
   unable to find 'jungle' for patching
   (use '--prefix' to apply patch relative to the current directory)
   1 out of 1 hunks FAILED -- saving rejects to file jungle.rej
   patch applied partially
-  (fix the .rej files and run `hg commit --amend`)
+  (fix the .rej files and run `sl commit --amend`)
   [1]
 
-  $ hg log -G --template '{desc|firstline} [{author}] {diffstat}\n'
+  $ sl log -G --template '{desc|firstline} [{author}] {diffstat}\n'
   @  extended jungle [Cornelius] 0: +0/-0
   │
   │ o  four [Rataxes] 0: +0/-0
@@ -1362,15 +1363,15 @@ Python utility:
   │ o  three [Celeste] 1: +1/-1
   ├─╯
   o  initial [Babar] 2: +8/-0
-  $ hg export
-  # HG changeset patch
+  $ sl export
+  # SL changeset patch
   # User Cornelius
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
   # Node ID 1fb1f86bef43c5a75918178f8d23c29fb0a7398d
   # Parent  8e4f0351909eae6b9cf68c2c076cb54c42b54b2e
   extended jungle
-  $ hg status -c .
+  $ sl status -c .
   C a
   C b
   $ ls
@@ -1381,19 +1382,19 @@ Python utility:
 
 # Importing multiple failing patches:
 
-  $ hg goto --rev 'desc(initial)'
+  $ sl goto --rev 'desc(initial)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo B > b
-  $ hg commit -m 'a new base'
-  $ hg export --rev 'desc("four") + desc("extended jungle")' | hg import --partial -
+  $ sl commit -m 'a new base'
+  $ sl export --rev 'desc("four") + desc("extended jungle")' | sl import --partial -
   applying patch from stdin
   patching file a
   Hunk #1 FAILED at 0
   1 out of 1 hunks FAILED -- saving rejects to file a.rej
   patch applied partially
-  (fix the .rej files and run `hg commit --amend`)
+  (fix the .rej files and run `sl commit --amend`)
   [1]
-  $ hg log -G --template '{desc|firstline} [{author}] {diffstat}\n'
+  $ sl log -G --template '{desc|firstline} [{author}] {diffstat}\n'
   @  four [Rataxes] 0: +0/-0
   │
   o  a new base [test] 1: +1/-1
@@ -1415,15 +1416,15 @@ Python utility:
   │ o  three [Celeste] 1: +1/-1
   ├─╯
   o  initial [Babar] 2: +8/-0
-  $ hg export
-  # HG changeset patch
+  $ sl export
+  # SL changeset patch
   # User Rataxes
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
   # Node ID a9d7b6d0ffbb4eb12b7d5939250fcd42e8930a1d
   # Parent  f59f8d2e95a8ca5b1b4ca64320140da85f3b44fd
   four
-  $ hg status -c .
+  $ sl status -c .
   C a
   C b
 
@@ -1451,10 +1452,10 @@ Python utility:
   > [extensions]
   > parseextra=$TESTTMP/parseextra.py
   > EOF
-  $ hg up -C tip
+  $ sl up -C tip
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat > $TESTTMP/foo.patch << 'EOF'
-  > # HG changeset patch
+  > # SL changeset patch
   > # User Rataxes
   > # Date 0 0
   > #      Thu Jan 01 00:00:00 1970 +0000
@@ -1469,10 +1470,10 @@ Python utility:
   >  seven
   > +heigt
   > EOF
-  $ hg import "$TESTTMP/foo.patch"
+  $ sl import "$TESTTMP/foo.patch"
   applying $TESTTMP/foo.patch
   imported-foo: bar
-  $ hg log --debug -r . -T '{extras}'
+  $ sl log --debug -r . -T '{extras}'
   branch=defaultfoo=bar (no-eol)
 
 # Warn the user that paths are relative to the root of
@@ -1480,11 +1481,11 @@ Python utility:
 
   $ mkdir filedir
   $ echo file1 >> filedir/file1
-  $ hg add filedir/file1
-  $ hg commit -m file1
+  $ sl add filedir/file1
+  $ sl commit -m file1
   $ cd filedir
-  $ hg import -p 2 - << 'EOS'
-  > # HG changeset patch
+  $ sl import -p 2 - << 'EOS'
+  > # SL changeset patch
   > # User test
   > # Date 0 0
   > file2
@@ -1507,15 +1508,15 @@ Python utility:
 
   $ cd ..
   $ newclientrepo repo
-  $ printf 'diff --git a/a b/b\nrename from a\nrename to b' | hg import -
+  $ printf 'diff --git a/a b/b\nrename from a\nrename to b' | sl import -
   applying patch from stdin
   abort: source file 'a' does not exist
   [255]
 
   $ printf "echo 🍺" > unicode.txt
 
-  $ hg commit -Aqm unicode
-  $ hg rm unicode.txt
-  $ hg commit -qm remove
-  $ hg export --rev 'desc(unicode)' | hg import -
+  $ sl commit -Aqm unicode
+  $ sl rm unicode.txt
+  $ sl commit -qm remove
+  $ sl export --rev 'desc(unicode)' | sl import -
   applying patch from stdin
