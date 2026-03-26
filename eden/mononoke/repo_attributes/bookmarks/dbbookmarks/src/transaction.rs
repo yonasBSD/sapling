@@ -324,6 +324,21 @@ impl SqlBookmarksTransactionPayload {
         )
     }
 
+    fn use_per_bookmark_locking_shadow_mode(&self) -> Result<bool> {
+        let switch = self.repo_id.id().to_string();
+        justknobs::eval(
+            "scm/mononoke:per_bookmark_locking_shadow",
+            None,
+            Some(&switch),
+        )
+        .with_context(|| {
+            format!(
+                "Failed to read per_bookmark_locking_shadow JustKnob for repo {}",
+                self.repo_id
+            )
+        })
+    }
+
     /// Acquire per-bookmark locks for all bookmarks being modified.
     /// Locks are acquired in sorted order to prevent deadlocks.
     async fn acquire_bookmark_locks(
@@ -720,6 +735,41 @@ impl SqlBookmarksTransactionPayload {
         let use_new_path = self
             .use_per_bookmark_locking()
             .map_err(BookmarkTransactionError::Other)?;
+        let shadow_mode = !use_new_path
+            && self
+                .use_per_bookmark_locking_shadow_mode()
+                .map_err(BookmarkTransactionError::Other)?;
+
+        if shadow_mode {
+            // Shadow mode: log what per-bookmark locking would do, without
+            // changing the transaction path. We can't run both paths in the
+            // same SQL transaction because the old path's SELECT MAX(id)
+            // would still take the gap lock.
+            let bookmark_names: Vec<String> = self
+                .force_sets
+                .iter()
+                .map(|(bk, _, _)| bk.name())
+                .chain(self.creates.iter().map(|(bk, _, _, _)| bk.name()))
+                .chain(
+                    self.creates_or_updates
+                        .iter()
+                        .map(|(bk, _, _, _)| bk.name()),
+                )
+                .chain(self.updates.iter().map(|(bk, _, _, _, _)| bk.name()))
+                .chain(self.force_deletes.iter().map(|(bk, _)| bk.name()))
+                .chain(self.deletes.iter().map(|(bk, _, _)| bk.name()))
+                .map(|n| n.to_string())
+                .collect();
+            ctx.scuba()
+                .clone()
+                .add(
+                    "per_bookmark_lock_bookmark_count",
+                    bookmark_names.len() as i64,
+                )
+                .add("per_bookmark_lock_repo_id", self.repo_id.id())
+                .add("per_bookmark_lock_bookmarks", bookmark_names)
+                .log_with_msg("per_bookmark_locking_shadow", None);
+        }
 
         let (mut txn, mut log) = if use_new_path {
             // New path: per-bookmark locks + auto-increment IDs
