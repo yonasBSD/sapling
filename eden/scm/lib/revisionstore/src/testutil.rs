@@ -145,7 +145,7 @@ impl RemoteDataStore for FakeRemoteDataStore {
 
 impl HgIdDataStore for FakeRemoteDataStore {
     fn get(&self, key: StoreKey) -> Result<StoreResult<Vec<u8>>> {
-        match self.prefetch(&[key.clone()]) {
+        match self.prefetch(std::slice::from_ref(&key)) {
             Err(_) => Ok(StoreResult::NotFound(key)),
             Ok(_) => self.store.get(key),
         }

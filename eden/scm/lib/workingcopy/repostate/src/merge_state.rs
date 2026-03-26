@@ -765,7 +765,7 @@ mod test {
         };
 
         ms.add_subtree_merge(from_commit, from_path.clone(), to_path.clone(), from_url);
-        assert_eq!(ms.subtree_merges(), &[subtree_merge.clone()]);
+        assert_eq!(ms.subtree_merges(), std::slice::from_ref(&subtree_merge));
 
         let mut data = Vec::new();
         ms.serialize(&mut data)?;
@@ -794,7 +794,7 @@ mod test {
         };
 
         ms.add_subtree_merge(from_commit, from_path.clone(), to_path.clone(), from_url);
-        assert_eq!(ms.subtree_merges(), &[subtree_merge.clone()]);
+        assert_eq!(ms.subtree_merges(), std::slice::from_ref(&subtree_merge));
 
         let mut data = Vec::new();
         ms.serialize(&mut data)?;

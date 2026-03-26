@@ -27,7 +27,7 @@ pub trait LocalStore: Send + Sync {
 
     /// Test whether this `Store` contains a specific key.
     fn contains(&self, key: &StoreKey) -> Result<bool> {
-        Ok(self.get_missing(&[key.clone()])?.is_empty())
+        Ok(self.get_missing(std::slice::from_ref(key))?.is_empty())
     }
 }
 
