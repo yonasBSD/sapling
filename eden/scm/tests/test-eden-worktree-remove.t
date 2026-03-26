@@ -23,11 +23,20 @@ test worktree remove - missing PATH argument
   abort: usage: sl worktree remove PATH
   [255]
 
-test worktree remove - cannot remove main
+test worktree remove - cannot remove main with linked worktrees
 
   $ sl worktree remove $TESTTMP/myrepo -y
-  abort: cannot remove '$TESTTMP/myrepo': your current working directory is inside it
+  abort: cannot remove a main worktree with linked worktrees
   [255]
+
+test worktree remove - subdirectory path gives clear error
+
+  $ mkdir -p $TESTTMP/myrepo/subdir
+  $ cd $TESTTMP/myrepo/subdir
+  $ sl worktree remove . -y
+  abort: $TESTTMP/myrepo/subdir is not the root of checkout $TESTTMP/myrepo, not removing
+  [255]
+  $ cd $TESTTMP/myrepo
 
 test worktree remove - basic remove
 
