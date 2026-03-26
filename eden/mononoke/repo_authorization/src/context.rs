@@ -201,6 +201,45 @@ impl AuthorizationContext {
         AuthorizationCheckOutcome::from_permitted(permitted)
     }
 
+    /// Check if user has read access to the repo metadata, also returning
+    /// the identity type string that granted access (if any).
+    pub async fn check_repo_metadata_read_with_result(
+        &self,
+        ctx: &CoreContext,
+        repo: &impl RepoPermissionCheckerRef,
+    ) -> (AuthorizationCheckOutcome, Option<String>) {
+        match self {
+            AuthorizationContext::FullAccess => (AuthorizationCheckOutcome::Permitted, None),
+            AuthorizationContext::Identity
+            | AuthorizationContext::ReadOnlyIdentity
+            | AuthorizationContext::DraftOnlyIdentity
+            | AuthorizationContext::Service(_) => {
+                // Check the caller's identity permits read access.  Acting as
+                // a service does not change read access, so we check the
+                // identity in this case also.
+                let result = repo
+                    .repo_permission_checker()
+                    .check_if_read_access_allowed_with_result(ctx.metadata().identities())
+                    .await;
+                if result.is_allowed() {
+                    return (
+                        AuthorizationCheckOutcome::Permitted,
+                        result.deciding_identity_type().map(str::to_owned),
+                    );
+                }
+                // Check if the caller can access via path ACLs.
+                if repo
+                    .repo_permission_checker()
+                    .check_if_any_region_read_access_allowed(ctx.metadata().identities())
+                    .await
+                {
+                    return (AuthorizationCheckOutcome::Permitted, None);
+                }
+                (AuthorizationCheckOutcome::Denied, None)
+            }
+        }
+    }
+
     /// Require that the user has read access to the repo metadata.
     pub async fn require_repo_metadata_read(
         &self,
@@ -210,6 +249,20 @@ impl AuthorizationContext {
         self.check_repo_metadata_read(ctx, repo)
             .await
             .permitted_or_else(|| self.permission_denied(ctx, repo, DeniedAction::RepoMetadataRead))
+    }
+
+    /// Require that the user has read access to the repo metadata,
+    /// also returning the identity type string that granted access (if any).
+    pub async fn require_repo_metadata_read_with_result(
+        &self,
+        ctx: &CoreContext,
+        repo: &(impl RepoPermissionCheckerRef + RepoIdentityRef),
+    ) -> Result<Option<String>, AuthorizationError> {
+        let (outcome, id_type) = self.check_repo_metadata_read_with_result(ctx, repo).await;
+        outcome.permitted_or_else(|| {
+            self.permission_denied(ctx, repo, DeniedAction::RepoMetadataRead)
+        })?;
+        Ok(id_type)
     }
 
     pub async fn check_path_read(
@@ -243,6 +296,54 @@ impl AuthorizationContext {
         Ok(AuthorizationCheckOutcome::from_permitted(permitted))
     }
 
+    /// Check if user has read access to the given path, also returning
+    /// the identity type string that granted access (if any).
+    pub async fn check_path_read_with_result(
+        &self,
+        ctx: &CoreContext,
+        repo: &(impl RepoPermissionCheckerRef + AclRegionsRef),
+        csid: ChangesetId,
+        path: &MPath,
+    ) -> Result<(AuthorizationCheckOutcome, Option<String>)> {
+        match self {
+            AuthorizationContext::FullAccess => Ok((AuthorizationCheckOutcome::Permitted, None)),
+            AuthorizationContext::Identity
+            | AuthorizationContext::ReadOnlyIdentity
+            | AuthorizationContext::DraftOnlyIdentity
+            | AuthorizationContext::Service(_) => {
+                // Check the caller's identity permits read access.  Acting as
+                // a service does not change read access, so we check the
+                // identity in this case also.
+                let result = repo
+                    .repo_permission_checker()
+                    .check_if_read_access_allowed_with_result(ctx.metadata().identities())
+                    .await;
+                if result.is_allowed() {
+                    return Ok((
+                        AuthorizationCheckOutcome::Permitted,
+                        result.deciding_identity_type().map(str::to_owned),
+                    ));
+                }
+                let rules = repo.acl_regions().associated_rules(ctx, csid, path).await?;
+                let acls = rules.hipster_acls();
+                let region_result = repo
+                    .repo_permission_checker()
+                    .check_if_region_read_access_allowed_with_result(
+                        &acls,
+                        ctx.metadata().identities(),
+                    )
+                    .await;
+                if region_result.is_allowed() {
+                    return Ok((
+                        AuthorizationCheckOutcome::Permitted,
+                        region_result.deciding_identity_type().map(str::to_owned),
+                    ));
+                }
+                Ok((AuthorizationCheckOutcome::Denied, None))
+            }
+        }
+    }
+
     pub async fn require_path_read(
         &self,
         ctx: &CoreContext,
@@ -255,6 +356,24 @@ impl AuthorizationContext {
             .permitted_or_else(|| {
                 self.permission_denied(ctx, repo, DeniedAction::PathRead(csid, path.clone()))
             })
+    }
+
+    /// Require that the user has read access to the given path,
+    /// also returning the identity type string that granted access (if any).
+    pub async fn require_path_read_with_result(
+        &self,
+        ctx: &CoreContext,
+        repo: &(impl RepoPermissionCheckerRef + AclRegionsRef + RepoIdentityRef),
+        csid: ChangesetId,
+        path: &MPath,
+    ) -> Result<Option<String>, AuthorizationError> {
+        let (outcome, id_type) = self
+            .check_path_read_with_result(ctx, repo, csid, path)
+            .await?;
+        outcome.permitted_or_else(|| {
+            self.permission_denied(ctx, repo, DeniedAction::PathRead(csid, path.clone()))
+        })?;
+        Ok(id_type)
     }
 
     /// Check whether the user has general draft access to the repo.

@@ -112,6 +112,25 @@ impl RepoPermissionChecker for TestPermissionChecker {
         false
     }
 
+    async fn check_if_read_access_allowed_with_result(
+        &self,
+        _identities: &MononokeIdentitySet,
+    ) -> permission_checker::PermissionCheckResult {
+        if self.read {
+            permission_checker::PermissionCheckResult::Allowed(None)
+        } else {
+            permission_checker::PermissionCheckResult::Denied
+        }
+    }
+
+    async fn check_if_region_read_access_allowed_with_result<'a>(
+        &'a self,
+        _acls: &'a [&'a str],
+        _identities: &'a MononokeIdentitySet,
+    ) -> permission_checker::PermissionCheckResult {
+        permission_checker::PermissionCheckResult::Denied
+    }
+
     async fn check_if_draft_access_allowed(&self, _identities: &MononokeIdentitySet) -> bool {
         self.draft
     }

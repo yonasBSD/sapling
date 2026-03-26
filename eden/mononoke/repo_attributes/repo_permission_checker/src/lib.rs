@@ -16,6 +16,7 @@ use permission_checker::AclProvider;
 use permission_checker::BoxPermissionChecker;
 use permission_checker::MononokeIdentity;
 use permission_checker::MononokeIdentitySet;
+use permission_checker::PermissionCheckResult;
 use permission_checker::PermissionCheckerBuilder;
 use tokio::join;
 use tracing::trace;
@@ -111,6 +112,21 @@ pub trait RepoPermissionChecker: Send + Sync + 'static {
     }
 
     async fn check_if_mirror_upload_allowed(&self, identities: &MononokeIdentitySet) -> bool;
+
+    /// Like check_if_read_access_allowed, but also returns the identity type
+    /// string that granted access (if any).
+    async fn check_if_read_access_allowed_with_result(
+        &self,
+        identities: &MononokeIdentitySet,
+    ) -> PermissionCheckResult;
+
+    /// Like check_if_region_read_access_allowed, but also returns the identity
+    /// type string that granted access (if any).
+    async fn check_if_region_read_access_allowed_with_result<'a>(
+        &'a self,
+        region_hipster_acls: &'a [&'a str],
+        identities: &'a MononokeIdentitySet,
+    ) -> PermissionCheckResult;
 }
 
 /// The type of the repo ACL based on type of the target repo
@@ -299,6 +315,31 @@ impl RepoPermissionChecker for ProdRepoPermissionChecker {
             .check_set(identities, &["mirror_upload"])
             .await
     }
+
+    async fn check_if_read_access_allowed_with_result(
+        &self,
+        identities: &MononokeIdentitySet,
+    ) -> PermissionCheckResult {
+        self.repo_permchecker
+            .check_set_with_result(identities, &["read"])
+            .await
+    }
+
+    async fn check_if_region_read_access_allowed_with_result<'a>(
+        &'a self,
+        region_hipster_acls: &'a [&'a str],
+        identities: &'a MononokeIdentitySet,
+    ) -> PermissionCheckResult {
+        for acl in region_hipster_acls {
+            if let Some(checker) = self.repo_region_permcheckers.get(*acl) {
+                let result = checker.check_set_with_result(identities, &["read"]).await;
+                if result.is_allowed() {
+                    return result;
+                }
+            }
+        }
+        PermissionCheckResult::Denied
+    }
 }
 
 pub struct AlwaysAllowRepoPermissionChecker {}
@@ -357,6 +398,21 @@ impl RepoPermissionChecker for AlwaysAllowRepoPermissionChecker {
     async fn check_if_mirror_upload_allowed(&self, _identities: &MononokeIdentitySet) -> bool {
         true
     }
+
+    async fn check_if_read_access_allowed_with_result(
+        &self,
+        _identities: &MononokeIdentitySet,
+    ) -> PermissionCheckResult {
+        PermissionCheckResult::Allowed(None)
+    }
+
+    async fn check_if_region_read_access_allowed_with_result<'a>(
+        &'a self,
+        _region_hipster_acls: &'a [&'a str],
+        _identities: &'a MononokeIdentitySet,
+    ) -> PermissionCheckResult {
+        PermissionCheckResult::Allowed(None)
+    }
 }
 
 pub struct NeverAllowRepoPermissionChecker {}
@@ -414,5 +470,20 @@ impl RepoPermissionChecker for NeverAllowRepoPermissionChecker {
 
     async fn check_if_mirror_upload_allowed(&self, _identities: &MononokeIdentitySet) -> bool {
         false
+    }
+
+    async fn check_if_read_access_allowed_with_result(
+        &self,
+        _identities: &MononokeIdentitySet,
+    ) -> PermissionCheckResult {
+        PermissionCheckResult::Denied
+    }
+
+    async fn check_if_region_read_access_allowed_with_result<'a>(
+        &'a self,
+        _region_hipster_acls: &'a [&'a str],
+        _identities: &'a MononokeIdentitySet,
+    ) -> PermissionCheckResult {
+        PermissionCheckResult::Denied
     }
 }

@@ -11,6 +11,7 @@ use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
@@ -355,6 +356,10 @@ pub struct RepoContext<R> {
     repo: Arc<R>,
     push_redirector: Option<Arc<PushRedirector<R>>>,
     repos: Arc<MononokeRepos<R>>,
+    /// Identity type that granted repo-level read access (from ACL check).
+    repo_acl_deciding_identity_type: Option<String>,
+    /// Identity types that granted path-level read access (from region ACL checks).
+    path_acl_deciding_identity_types: Arc<Mutex<Vec<String>>>,
 }
 
 impl<R: RepoIdentityRef> fmt::Debug for RepoContext<R> {
@@ -799,6 +804,27 @@ impl<R> RepoContext<R> {
             None => None,
         }
     }
+
+    /// The identity type that granted repo-level read access.
+    pub fn repo_acl_deciding_identity_type(&self) -> Option<&str> {
+        self.repo_acl_deciding_identity_type.as_deref()
+    }
+
+    /// The identity types that granted path-level read access.
+    pub fn path_acl_deciding_identity_types(&self) -> Vec<String> {
+        self.path_acl_deciding_identity_types
+            .lock()
+            .expect("lock poisoned")
+            .clone()
+    }
+
+    /// Record an identity type that granted path-level read access.
+    pub fn record_path_acl_deciding_identity_type(&self, id_type: String) {
+        self.path_acl_deciding_identity_types
+            .lock()
+            .expect("lock poisoned")
+            .push(id_type);
+    }
 }
 
 impl<R: RepoIdentityRef> RepoContext<R> {
@@ -1143,7 +1169,9 @@ impl<R: MononokeRepo> RepoContext<R> {
         });
 
         // Check the user is permitted to access this repo.
-        authz.require_repo_metadata_read(&ctx, &repo).await?;
+        let repo_acl_deciding_identity_type = authz
+            .require_repo_metadata_read_with_result(&ctx, &repo)
+            .await?;
 
         // Open the bubble if necessary.
         let repo = if let Some(bubble_id) = bubble_id {
@@ -1162,6 +1190,8 @@ impl<R: MononokeRepo> RepoContext<R> {
             repo,
             push_redirector,
             repos,
+            repo_acl_deciding_identity_type,
+            path_acl_deciding_identity_types: Arc::new(Mutex::new(Vec::new())),
         })
     }
 

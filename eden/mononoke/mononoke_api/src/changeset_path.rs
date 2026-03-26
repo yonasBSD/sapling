@@ -181,16 +181,21 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
         path: impl Into<MPath>,
     ) -> Result<Self, MononokeError> {
         let path = path.into();
-        changeset
+        let id_type = changeset
             .repo_ctx()
             .authorization_context()
-            .require_path_read(
+            .require_path_read_with_result(
                 changeset.ctx(),
                 changeset.repo_ctx().repo(),
                 changeset.id(),
                 &path,
             )
             .await?;
+        if let Some(id_type) = id_type {
+            changeset
+                .repo_ctx()
+                .record_path_acl_deciding_identity_type(id_type);
+        }
 
         restricted_paths::spawn_enforce_restricted_path_access(
             changeset.ctx(),
@@ -213,16 +218,21 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
         fsnode_entry: Entry<FsnodeId, FsnodeFile>,
     ) -> Result<Self, MononokeError> {
         let path = path.into();
-        changeset
+        let id_type = changeset
             .repo_ctx()
             .authorization_context()
-            .require_path_read(
+            .require_path_read_with_result(
                 changeset.ctx(),
                 changeset.repo_ctx().repo(),
                 changeset.id(),
                 &path,
             )
             .await?;
+        if let Some(id_type) = id_type {
+            changeset
+                .repo_ctx()
+                .record_path_acl_deciding_identity_type(id_type);
+        }
 
         restricted_paths::spawn_enforce_restricted_path_access(
             changeset.ctx(),
@@ -387,16 +397,21 @@ impl<R: MononokeRepo> ChangesetPathHistoryContext<R> {
         path: impl Into<MPath>,
     ) -> Result<Self, MononokeError> {
         let path = path.into();
-        changeset
+        let id_type = changeset
             .repo_ctx()
             .authorization_context()
-            .require_path_read(
+            .require_path_read_with_result(
                 changeset.ctx(),
                 changeset.repo_ctx().repo(),
                 changeset.id(),
                 &path,
             )
             .await?;
+        if let Some(id_type) = id_type {
+            changeset
+                .repo_ctx()
+                .record_path_acl_deciding_identity_type(id_type);
+        }
 
         restricted_paths::spawn_enforce_restricted_path_access(
             changeset.ctx(),
@@ -420,16 +435,21 @@ impl<R: MononokeRepo> ChangesetPathHistoryContext<R> {
         unode_entry: Entry<ManifestUnodeId, FileUnodeId>,
     ) -> Result<Self, MononokeError> {
         let path = path.into();
-        changeset
+        let id_type = changeset
             .repo_ctx()
             .authorization_context()
-            .require_path_read(
+            .require_path_read_with_result(
                 changeset.ctx(),
                 changeset.repo_ctx().repo(),
                 changeset.id(),
                 &path,
             )
             .await?;
+        if let Some(id_type) = id_type {
+            changeset
+                .repo_ctx()
+                .record_path_acl_deciding_identity_type(id_type);
+        }
 
         restricted_paths::spawn_enforce_restricted_path_access(
             changeset.ctx(),
@@ -452,16 +472,21 @@ impl<R: MononokeRepo> ChangesetPathHistoryContext<R> {
         path: MPath,
         deleted_manifest_id: Manifest::Id,
     ) -> Result<Self, MononokeError> {
-        changeset
+        let id_type = changeset
             .repo_ctx()
             .authorization_context()
-            .require_path_read(
+            .require_path_read_with_result(
                 changeset.ctx(),
                 changeset.repo_ctx().repo(),
                 changeset.id(),
                 &path,
             )
             .await?;
+        if let Some(id_type) = id_type {
+            changeset
+                .repo_ctx()
+                .record_path_acl_deciding_identity_type(id_type);
+        }
         let ctx = changeset.ctx().clone();
         let blobstore = changeset.repo_ctx().repo().repo_blobstore().clone();
 
@@ -850,16 +875,21 @@ impl<R: MononokeRepo> ChangesetPathContext<R> {
         path: impl Into<MPath>,
     ) -> Result<Self, MononokeError> {
         let path = path.into();
-        changeset
+        let id_type = changeset
             .repo_ctx()
             .authorization_context()
-            .require_path_read(
+            .require_path_read_with_result(
                 changeset.ctx(),
                 changeset.repo_ctx().repo(),
                 changeset.id(),
                 &path,
             )
             .await?;
+        if let Some(id_type) = id_type {
+            changeset
+                .repo_ctx()
+                .record_path_acl_deciding_identity_type(id_type);
+        }
 
         restricted_paths::spawn_enforce_restricted_path_access(
             changeset.ctx(),
@@ -882,16 +912,21 @@ impl<R: MononokeRepo> ChangesetPathContext<R> {
         entry: Entry<(), ()>,
     ) -> Result<Self, MononokeError> {
         let path = path.into();
-        changeset
+        let id_type = changeset
             .repo_ctx()
             .authorization_context()
-            .require_path_read(
+            .require_path_read_with_result(
                 changeset.ctx(),
                 changeset.repo_ctx().repo(),
                 changeset.id(),
                 &path,
             )
             .await?;
+        if let Some(id_type) = id_type {
+            changeset
+                .repo_ctx()
+                .record_path_acl_deciding_identity_type(id_type);
+        }
         Ok(Self {
             changeset,
             path,
@@ -988,16 +1023,21 @@ impl<R: MononokeRepo> ChangesetPathRestrictionContext<R> {
         changeset: ChangesetContext<R>,
         path: MPath,
     ) -> Result<Self, MononokeError> {
-        changeset
+        let id_type = changeset
             .repo_ctx()
             .authorization_context()
-            .require_path_read(
+            .require_path_read_with_result(
                 changeset.ctx(),
                 changeset.repo_ctx().repo(),
                 changeset.id(),
                 &path,
             )
             .await?;
+        if let Some(id_type) = id_type {
+            changeset
+                .repo_ctx()
+                .record_path_acl_deciding_identity_type(id_type);
+        }
 
         Ok(Self { changeset, path })
     }

@@ -10,6 +10,7 @@ mod error;
 #[cfg(test)]
 mod tests;
 
+pub use crate::context::AuthorizationCheckOutcome;
 pub use crate::context::AuthorizationContext;
 pub use crate::context::RepoWriteOperation;
 pub use crate::error::AuthorizationError;

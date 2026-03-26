@@ -18,6 +18,7 @@ mod provider;
 
 pub use checker::ArcPermissionChecker;
 pub use checker::BoxPermissionChecker;
+pub use checker::PermissionCheckResult;
 pub use checker::PermissionChecker;
 pub use checker::PermissionCheckerBuilder;
 pub use identity::MononokeIdentity;

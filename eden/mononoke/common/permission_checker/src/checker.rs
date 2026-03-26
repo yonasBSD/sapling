@@ -17,9 +17,43 @@ use crate::MononokeIdentitySet;
 pub type ArcPermissionChecker = Arc<dyn PermissionChecker + Send + Sync + RefUnwindSafe + 'static>;
 pub type BoxPermissionChecker = Box<dyn PermissionChecker + Send + Sync + RefUnwindSafe + 'static>;
 
+/// Result of a permission check that includes the deciding identity type.
+#[derive(Clone, Debug)]
+pub enum PermissionCheckResult {
+    Allowed(Option<String>),
+    Denied,
+}
+
+impl PermissionCheckResult {
+    pub fn is_allowed(&self) -> bool {
+        matches!(self, Self::Allowed(_))
+    }
+
+    pub fn deciding_identity_type(&self) -> Option<&str> {
+        match self {
+            Self::Allowed(id_type) => id_type.as_deref(),
+            Self::Denied => None,
+        }
+    }
+}
+
 #[async_trait]
 pub trait PermissionChecker {
     async fn check_set(&self, accessors: &MononokeIdentitySet, actions: &[&str]) -> bool;
+
+    /// Like check_set, but returns a PermissionCheckResult indicating whether
+    /// access was granted and which identity type decided it.
+    async fn check_set_with_result(
+        &self,
+        accessors: &MononokeIdentitySet,
+        actions: &[&str],
+    ) -> PermissionCheckResult {
+        if self.check_set(accessors, actions).await {
+            PermissionCheckResult::Allowed(None)
+        } else {
+            PermissionCheckResult::Denied
+        }
+    }
 }
 
 pub struct PermissionCheckerBuilder {
@@ -113,5 +147,26 @@ impl PermissionChecker for UnionPermissionChecker {
         }
 
         return false;
+    }
+
+    async fn check_set_with_result(
+        &self,
+        accessors: &MononokeIdentitySet,
+        actions: &[&str],
+    ) -> PermissionCheckResult {
+        // Check all checkers in parallel.
+        let mut checks: FuturesUnordered<_> = self
+            .checkers
+            .iter()
+            .map(|checker| async { checker.check_set_with_result(accessors, actions).await })
+            .collect();
+
+        while let Some(result) = checks.next().await {
+            if result.is_allowed() {
+                return result;
+            }
+        }
+
+        PermissionCheckResult::Denied
     }
 }
