@@ -93,12 +93,16 @@ inline std::unique_ptr<apache::thrift::Client<EdenService>>
 createEdenThriftClient(
     folly::EventBase* eventBase,
     const AbsolutePath& socketPath) {
-  auto socket = folly::AsyncSocket::newSocket(
-      eventBase, folly::SocketAddress::makeFromPath(socketPath.view()));
-  auto channel =
-      apache::thrift::HeaderClientChannel::newChannel(std::move(socket));
-  return std::make_unique<apache::thrift::Client<EdenService>>(
-      std::move(channel));
+  std::unique_ptr<apache::thrift::Client<EdenService>> client;
+  eventBase->runInEventBaseThreadAndWait([&] {
+    auto socket = folly::AsyncSocket::newSocket(
+        eventBase, folly::SocketAddress::makeFromPath(socketPath.view()));
+    auto channel =
+        apache::thrift::HeaderClientChannel::newChannel(std::move(socket));
+    client = std::make_unique<apache::thrift::Client<EdenService>>(
+        std::move(channel));
+  });
+  return client;
 }
 
 } // namespace facebook::eden::benchmarks
