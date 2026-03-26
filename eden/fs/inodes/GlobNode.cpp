@@ -7,9 +7,12 @@
 
 #include "eden/fs/inodes/GlobNode.h"
 #include <eden/fs/inodes/InodePtrFwd.h>
+#include <folly/coro/Invoke.h>
 #include <iomanip>
 #include <iostream>
+#include "eden/fs/config/EdenConfig.h"
 #include "eden/fs/inodes/TreeInode.h"
+#include "eden/fs/store/ObjectStore.h"
 #include "eden/fs/telemetry/TaskTrace.h"
 
 using folly::StringPiece;
@@ -106,6 +109,28 @@ ImmediateFuture<folly::Unit> GlobNode::evaluate(
              originRootId)
       // Make sure the store stays alive for the duration of globbing.
       .ensure([store] {});
+}
+
+folly::coro::now_task<folly::Unit> GlobNode::co_evaluate(
+    std::shared_ptr<ObjectStore> store,
+    const ObjectFetchContextPtr& context,
+    RelativePathPiece rootPath,
+    TreeInodePtr root,
+    PrefetchList* fileBlobsToPrefetch,
+    ResultList* globResult,
+    const RootId& originRootId) const {
+  co_await evaluateImpl<TreeInodePtrRoot, TreeInodePtr>(
+      store.get(),
+      context,
+      rootPath,
+      TreeInodePtrRoot(std::move(root)),
+      fileBlobsToPrefetch,
+      globResult,
+      originRootId)
+      // Make sure the store stays alive for the duration of globbing.
+      .ensure([store] {})
+      .semi();
+  co_return folly::unit;
 }
 
 } // namespace facebook::eden

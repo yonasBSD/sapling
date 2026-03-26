@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <folly/coro/safe/NowTask.h>
+
 #include "eden/fs/inodes/InodePtrFwd.h"
 #include "eden/fs/utils/GlobNodeImpl.h"
 #include "eden/fs/utils/GlobResult.h"
@@ -58,6 +60,15 @@ class GlobNode : public GlobNodeImpl {
    * be appended to it.
    */
   ImmediateFuture<folly::Unit> evaluate(
+      std::shared_ptr<ObjectStore> store,
+      const ObjectFetchContextPtr& context,
+      RelativePathPiece rootPath,
+      TreeInodePtr root,
+      PrefetchList* fileBlobsToPrefetch,
+      ResultList* globResult,
+      const RootId& originRootId) const;
+
+  folly::coro::now_task<folly::Unit> co_evaluate(
       std::shared_ptr<ObjectStore> store,
       const ObjectFetchContextPtr& context,
       RelativePathPiece rootPath,
