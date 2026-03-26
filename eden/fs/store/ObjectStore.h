@@ -190,6 +190,10 @@ class ObjectStore : public IObjectStore,
       const RootId& rootId,
       const ObjectFetchContextPtr& context) const override;
 
+  folly::coro::now_task<GetRootTreeResult> co_getRootTree(
+      const RootId& rootId,
+      const ObjectFetchContextPtr& context) const;
+
   /**
    * Get a TreeEntry by ID
    *
