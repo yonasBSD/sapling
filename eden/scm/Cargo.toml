@@ -120,6 +120,7 @@ members = [
   "lib/fsinfo",
   "lib/fsyncglob",
   "lib/gitcompat",
+  "lib/gitrepocompat",
   "lib/gitrepomanifest",
   "lib/gitstore",
   "lib/hg-http",
