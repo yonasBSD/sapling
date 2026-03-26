@@ -53,17 +53,18 @@ Add a top-level file:
 
   $ echo "top-level file" > BUILD
 
+Add "enable_sl" file which is used as a config flag for identity:
+
+  $ touch .repo/enable_sl
+
 (bad: sl doesn't recognize .repo identity)
   $ sl root
-  abort: '$TESTTMP/repodir' is not inside a repository, but this command requires a repository!
-  (use 'cd' to go to a directory inside a repository and try again)
-  [255]
+  $TESTTMP/repodir
 
 (bad: sl smartlog does not work in .repo)
 
   $ sl smartlog -T {desc}
-  abort: '$TESTTMP/repodir' is not inside a repository, but this command requires a repository!
-  (use 'cd' to go to a directory inside a repository and try again)
+  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/repodir/.repo/sl, requirements=set())!
   [255]
 
 (bad: sl status does not work in .repo)
@@ -73,6 +74,5 @@ $ sl status
 (bad: sl log does not work in .repo)
 
   $ sl log -r . -T '{desc}\n'
-  abort: '$TESTTMP/repodir' is not inside a repository, but this command requires a repository!
-  (use 'cd' to go to a directory inside a repository and try again)
+  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/repodir/.repo/sl, requirements=set())!
   [255]

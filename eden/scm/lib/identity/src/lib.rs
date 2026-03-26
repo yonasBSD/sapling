@@ -308,6 +308,10 @@ impl Identity {
     pub fn is_dot_git(&self) -> bool {
         self.dot_dir() == SL_GIT.repo.dot_dir
     }
+
+    pub fn is_dot_repo(&self) -> bool {
+        self.dot_dir() == SL_GITREPO.repo.dot_dir
+    }
 }
 
 fn default_resolve_dot_dir_func(root: &Path, dot_dir: &'static str) -> PathBuf {
@@ -447,6 +451,27 @@ const SL_GIT: Identity = Identity {
     ..SL
 };
 
+/// `.repo/` compatibility mode to support the
+/// [repo tool](https://gerrit.googlesource.com/git-repo).
+const SL_GITREPO: Identity = Identity {
+    repo: &RepoIdentity {
+        dot_dir: if cfg!(windows) {
+            ".repo\\sl"
+        } else {
+            ".repo/sl"
+        },
+        sniff_dot_dir: Some(".repo"),
+        // temporary workaround to control the rollout,
+        // as config is not available in the identity stage.
+        sniff_dot_dir_required_files: &["enable_sl"],
+        sniff_root_priority: 10,
+        sniff_initial_cli_names: Some("sl"),
+        resolve_dot_dir_func: default_resolve_dot_dir_func,
+        ..*SL.repo
+    },
+    ..SL
+};
+
 #[cfg(test)]
 const TEST: Identity = Identity {
     user: &UserIdentity {
@@ -500,7 +525,7 @@ pub mod idents {
     }
 }
 
-static EXTRA_SNIFF_IDENTS: &[Identity] = &[SL_GIT];
+static EXTRA_SNIFF_IDENTS: &[Identity] = &[SL_GIT, SL_GITREPO];
 
 static DEFAULT: Lazy<RwLock<Identity>> = Lazy::new(|| RwLock::new(compute_default()));
 
