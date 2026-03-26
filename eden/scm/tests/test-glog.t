@@ -78,16 +78,17 @@
 # |/
 # o  (0) root
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ commit() {
   >   rev=$1
   >   msg=$2
   >   shift 2
   >   if [ "$#" -gt 0 ]; then
-  >       hg debugsetparents "$@"
+  >       sl debugsetparents "$@"
   >   fi
   >   echo $rev > a
-  >   hg commit -Aqd "$rev 0" -m "($rev) $msg"
+  >   sl commit -Aqd "$rev 0" -m "($rev) $msg"
   > }
 
   $ cat > printrevset.py << 'EOF'
@@ -118,12 +119,12 @@
   $ echo '[extensions]' >> $HGRCPATH
   $ printf "%s\n" "printrevset=$TESTTMP/printrevset.py" >> $HGRCPATH
 
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 # Empty repo:
 
-  $ hg log -G
+  $ sl log -G
 
 # Building DAG:
 
@@ -163,7 +164,7 @@
   $ commit 33 head 18
   $ commit 34 head 32
 
-  $ hg log -G -q
+  $ sl log -G -q
   @  fea3ac5810e0
   │
   │ o  68608f5145f9
@@ -234,7 +235,7 @@
   ├───────╯
   o  e6eb3150255d
 
-  $ hg log -G
+  $ sl log -G
   @  commit:      fea3ac5810e0
   │  user:        test
   │  date:        Thu Jan 01 00:00:34 1970 +0000
@@ -412,7 +413,7 @@
 
 # File glog:
 
-  $ hg log -G a
+  $ sl log -G a
   @  commit:      fea3ac5810e0
   │  user:        test
   │  date:        Thu Jan 01 00:00:34 1970 +0000
@@ -590,7 +591,7 @@
 
 # File glog per revset:
 
-  $ hg log -G -r 'file("a")'
+  $ sl log -G -r 'file("a")'
   @  commit:      fea3ac5810e0
   │  user:        test
   │  date:        Thu Jan 01 00:00:34 1970 +0000
@@ -768,7 +769,7 @@
 
 # File glog per revset (only merges):
 
-  $ hg log -G -r 'file("a")' -m
+  $ sl log -G -r 'file("a")' -m
   o    commit:      d06dffa21a31
   ├─╮  user:        test
   │ ╷  date:        Thu Jan 01 00:00:32 1970 +0000
@@ -906,40 +907,40 @@
 
 # Empty revision range - display nothing:
 
-  $ hg log -G -r 1..0
+  $ sl log -G -r 1..0
 
   $ cd ..
 
 #if no-outer-repo
 # From outer space:
-  $ hg log -G -l1 repo
+  $ sl log -G -l1 repo
   @  changeset:   34:fea3ac5810e0
   ~  parent:      32:d06dffa21a31
      user:        test
      date:        Thu Jan 01 00:00:34 1970 +0000
      summary:     (34) head
-  $ hg log -G -l1 repo/a
+  $ sl log -G -l1 repo/a
   @  changeset:   34:fea3ac5810e0
   ~  parent:      32:d06dffa21a31
      user:        test
      date:        Thu Jan 01 00:00:34 1970 +0000
      summary:     (34) head
-  $ hg log -G -l1 repo/missing
+  $ sl log -G -l1 repo/missing
 #endif
 
 # File log with revs != cset revs:
 
-  $ hg init flog
+  $ sl init flog
   $ cd flog
   $ echo one > one
-  $ hg add one
-  $ hg commit -mone
+  $ sl add one
+  $ sl commit -mone
   $ echo two > two
-  $ hg add two
-  $ hg commit -mtwo
+  $ sl add two
+  $ sl commit -mtwo
   $ echo more > two
-  $ hg commit -mmore
-  $ hg log -G two
+  $ sl commit -mmore
+  $ sl log -G two
   @  commit:      12c28321755b
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -952,7 +953,7 @@
 
 # Issue1896: File log with explicit style
 
-  $ hg log -G '--style=default' one
+  $ sl log -G '--style=default' one
   o  commit:      3d578b4a1f53
      user:        test
      date:        Thu Jan 01 00:00:00 1970 +0000
@@ -960,7 +961,7 @@
 
 # Issue2395: glog --style header and footer
 
-  $ hg log -G '--style=xml' one
+  $ sl log -G '--style=xml' one
   <?xml version="1.0"?>
   <log>
   o  <logentry node="3d578b4a1f537d5fcf7301bfa9c0b97adfaa6fb1">
@@ -976,8 +977,8 @@
 
   $ cd repo
   $ touch b
-  $ hg ci -Aqm0
-  $ hg log -G -l2 a
+  $ sl ci -Aqm0
+  $ sl log -G -l2 a
   o  commit:      fea3ac5810e0
   │  user:        test
   ~  date:        Thu Jan 01 00:00:34 1970 +0000
@@ -990,7 +991,7 @@
 
 # File + limit + -ra:b, (b - a) < limit:
 
-  $ hg log -G -l3000 '-r32:tip' a
+  $ sl log -G -l3000 '-r32:tip' a
   o  commit:      fea3ac5810e0
   │  user:        test
   │  date:        Thu Jan 01 00:00:34 1970 +0000
@@ -1008,7 +1009,7 @@
 
 # Point out a common and an uncommon unshown parent
 
-  $ hg log -G -r 'rev(8) or rev(9)'
+  $ sl log -G -r 'rev(8) or rev(9)'
   o    commit:      7010c0af0a35
   ├─╮  user:        test
   │ │  date:        Thu Jan 01 00:00:09 1970 +0000
@@ -1021,7 +1022,7 @@
 
 # File + limit + -ra:b, b < tip:
 
-  $ hg log -G -l1 '-r32:34' a
+  $ sl log -G -l1 '-r32:34' a
   o  commit:      fea3ac5810e0
   │  user:        test
   ~  date:        Thu Jan 01 00:00:34 1970 +0000
@@ -1029,7 +1030,7 @@
 
 # file(File) + limit + -ra:b, b < tip:
 
-  $ hg log -G -l1 '-r32:34' -r 'file("a")'
+  $ sl log -G -l1 '-r32:34' -r 'file("a")'
   o  commit:      fea3ac5810e0
   │  user:        test
   ~  date:        Thu Jan 01 00:00:34 1970 +0000
@@ -1037,7 +1038,7 @@
 
 # limit(file(File) and a::b), b < tip:
 
-  $ hg log -G -r 'limit(file("a") and 32::34, 1)'
+  $ sl log -G -r 'limit(file("a") and 32::34, 1)'
   o    commit:      d06dffa21a31
   ├─╮  user:        test
   │ │  date:        Thu Jan 01 00:00:32 1970 +0000
@@ -1045,11 +1046,11 @@
 
 # File + limit + -ra:b, b < tip:
 
-  $ hg log -G -r 'limit(file("a") and 34::32, 1)'
+  $ sl log -G -r 'limit(file("a") and 34::32, 1)'
 
 # File + limit + -ra:b, b < tip, (b - a) < limit:
 
-  $ hg log -G -l10 '-r33:34' a
+  $ sl log -G -l10 '-r33:34' a
   o  commit:      fea3ac5810e0
   │  user:        test
   ~  date:        Thu Jan 01 00:00:34 1970 +0000
@@ -1063,7 +1064,7 @@
 # Do not crash or produce strange graphs if history is buggy
 
   $ commit 36 'buggy merge: identical parents' 35 35
-  $ hg log -G -l5
+  $ sl log -G -l5
   @  commit:      75678d8b2851
   │  user:        test
   │  date:        Thu Jan 01 00:00:36 1970 +0000
@@ -1092,10 +1093,10 @@
 # Test log -G options
 # glog always reorders nodes which explains the difference with log
 
-  $ hg log -G --print-revset -r 27 -r 25 -r 21 -r 34 -r 32 -r 31
+  $ sl log -G --print-revset -r 27 -r 25 -r 21 -r 34 -r 32 -r 31
   ['27', '25', '21', '34', '32', '31']
   []
-  $ hg log -G --print-revset -u test -u not-a-user
+  $ sl log -G --print-revset -u test -u not-a-user
   []
   (or
     (list
@@ -1105,7 +1106,7 @@
       (func
         (symbol 'user')
         (string 'not-a-user'))))
-  $ hg log -G --print-revset -k expand -k merge
+  $ sl log -G --print-revset -k expand -k merge
   []
   (or
     (list
@@ -1115,26 +1116,26 @@
       (func
         (symbol 'keyword')
         (string 'merge'))))
-  $ hg log -G --print-revset --only-merges
+  $ sl log -G --print-revset --only-merges
   []
   (func
     (symbol 'merge')
     None)
-  $ hg log -G --print-revset --no-merges
+  $ sl log -G --print-revset --no-merges
   []
   (not
     (func
       (symbol 'merge')
       None))
-  $ hg log -G --print-revset --date '2 0 to 4 0'
+  $ sl log -G --print-revset --date '2 0 to 4 0'
   []
   (func
     (symbol 'date')
     (string '2 0 to 4 0'))
-  $ hg log -G -d 'brace ) in a date'
-  hg: parse error: invalid date: 'brace ) in a date'
+  $ sl log -G -d 'brace ) in a date'
+  sl: parse error: invalid date: 'brace ) in a date'
   [255]
-  $ hg log -G --print-revset --prune 31 --prune 32
+  $ sl log -G --print-revset --prune 31 --prune 32
   []
   (and
     (group
@@ -1151,7 +1152,7 @@
 # Test implicit follow() optimization (D45936986):
 # The optimization should preserve the -r revset order and -l limit.
 
-  $ hg log -G --print-revset -r '::max(all())' a --config experimental.log-implicit-follow-threshold=1
+  $ sl log -G --print-revset -r '::max(all())' a --config experimental.log-implicit-follow-threshold=1
   ['::max(all())']
   (func
     (symbol 'follow')
@@ -1159,23 +1160,23 @@
       (string 'a')
       (string '75678d8b2851cc8f5e76f08b9049374044a677da')))
 
-  $ hg log -G --print-revset -r '::max(all())' a --config experimental.log-implicit-follow-threshold=1000
+  $ sl log -G --print-revset -r '::max(all())' a --config experimental.log-implicit-follow-threshold=1000
   ['::max(all())']
   (func
     (symbol 'filelog')
     (string 'a'))
 
-  $ hg log -r '::max(all())' a -T '{rev}\n' -l 2 --config experimental.log-implicit-follow-threshold=1
+  $ sl log -r '::max(all())' a -T '{rev}\n' -l 2 --config experimental.log-implicit-follow-threshold=1
   0
   1
-  $ hg log -r 'reverse(::max(all()))' a -T '{rev}\n' -l 2 --config experimental.log-implicit-follow-threshold=1
+  $ sl log -r 'reverse(::max(all()))' a -T '{rev}\n' -l 2 --config experimental.log-implicit-follow-threshold=1
   36
   34
 
-  $ hg log -r '::max(all())' a -T '{rev}\n' -l 2 --config experimental.log-implicit-follow-threshold=1000
+  $ sl log -r '::max(all())' a -T '{rev}\n' -l 2 --config experimental.log-implicit-follow-threshold=1000
   0
   1
-  $ hg log -r 'reverse(::max(all()))' a -T '{rev}\n' -l 2 --config experimental.log-implicit-follow-threshold=1000
+  $ sl log -r 'reverse(::max(all()))' a -T '{rev}\n' -l 2 --config experimental.log-implicit-follow-threshold=1000
   36
   34
 
@@ -1183,34 +1184,34 @@
 # have 2 filelog topological heads in a linear changeset graph.
 
   $ cd ..
-  $ hg init follow
+  $ sl init follow
   $ cd follow
-  $ hg log -G --print-revset --follow
+  $ sl log -G --print-revset --follow
   []
   []
-  $ hg log -G --print-revset -rnull
+  $ sl log -G --print-revset -rnull
   ['null']
   []
   $ echo a > a
   $ echo aa > aa
   $ echo f > f
-  $ hg ci -Am 'add a' a aa f
-  $ hg cp a b
-  $ hg cp f g
-  $ hg ci -m 'copy a b'
+  $ sl ci -Am 'add a' a aa f
+  $ sl cp a b
+  $ sl cp f g
+  $ sl ci -m 'copy a b'
   $ mkdir dir
-  $ hg mv b dir
+  $ sl mv b dir
   $ echo g >> g
   $ echo f >> f
-  $ hg ci -m 'mv b dir/b'
-  $ hg mv a b
-  $ hg cp -f f g
+  $ sl ci -m 'mv b dir/b'
+  $ sl mv a b
+  $ sl cp -f f g
   $ echo a > d
-  $ hg add d
-  $ hg ci -m 'mv a b; add d'
-  $ hg mv dir/b e
-  $ hg ci -m 'mv dir/b e'
-  $ hg log -G --template '({rev}) {desc|firstline}\n'
+  $ sl add d
+  $ sl ci -m 'mv a b; add d'
+  $ sl mv dir/b e
+  $ sl ci -m 'mv dir/b e'
+  $ sl log -G --template '({rev}) {desc|firstline}\n'
   @  (4) mv dir/b e
   │
   o  (3) mv a b; add d
@@ -1221,12 +1222,12 @@
   │
   o  (0) add a
 
-  $ hg log -G --print-revset a
+  $ sl log -G --print-revset a
   []
   (func
     (symbol 'filelog')
     (string 'a'))
-  $ hg log -G --print-revset a b
+  $ sl log -G --print-revset a b
   []
   (or
     (list
@@ -1239,7 +1240,7 @@
 
 # Test falling back to slow path for non-existing files
 
-  $ hg log -G --print-revset a c
+  $ sl log -G --print-revset a c
   []
   (func
     (symbol '_matchfiles')
@@ -1251,7 +1252,7 @@
 
 # Test multiple --include/--exclude/paths
 
-  $ hg log -G --print-revset --include a --include e --exclude b --exclude e a e
+  $ sl log -G --print-revset --include a --include e --exclude b --exclude e a e
   []
   (func
     (symbol '_matchfiles')
@@ -1266,7 +1267,7 @@
       (string 'x:e')))
 
 #if false
-  $ hg log -G --print-revset 'a*'
+  $ sl log -G --print-revset 'a*'
   []
   (group
     (group
@@ -1277,29 +1278,29 @@
 
 # Test --follow on a non-existent directory
 
-  $ hg log -G --print-revset -f dir
+  $ sl log -G --print-revset -f dir
   abort: cannot follow file not in parent revision: "dir"
   [255]
 
 # Test --follow on a directory
 
-  $ hg up -q '.^'
-  $ hg log -G --print-revset -f dir
+  $ sl up -q '.^'
+  $ sl log -G --print-revset -f dir
   []
   (func
     (symbol 'follow')
     (string 'dir'))
-  $ hg up -q tip
+  $ sl up -q tip
 
 # Test --follow on file not in parent revision
 
-  $ hg log -G --print-revset -f a
+  $ sl log -G --print-revset -f a
   abort: cannot follow file not in parent revision: "a"
   [255]
 
 # Test --follow and patterns
 
-  $ hg log -G --print-revset -f 'glob:*'
+  $ sl log -G --print-revset -f 'glob:*'
   []
   (and
     (func
@@ -1314,8 +1315,8 @@
 
 # Test --follow on a single rename
 
-  $ hg up -q 2
-  $ hg log -G --print-revset -f a
+  $ sl up -q 2
+  $ sl log -G --print-revset -f a
   []
   (func
     (symbol 'follow')
@@ -1323,8 +1324,8 @@
 
 # Test --follow and multiple renames
 
-  $ hg up -q tip
-  $ hg log -G --print-revset -f e
+  $ sl up -q tip
+  $ sl log -G --print-revset -f e
   []
   (func
     (symbol 'follow')
@@ -1332,14 +1333,14 @@
 
 # Test --follow and multiple filelog heads
 
-  $ hg up -q 2
-  $ hg log -G --print-revset -f g
+  $ sl up -q 2
+  $ sl log -G --print-revset -f g
   []
   (func
     (symbol 'follow')
     (string 'g'))
-  $ hg up -q tip
-  $ hg log -G --print-revset -f g
+  $ sl up -q tip
+  $ sl log -G --print-revset -f g
   []
   (func
     (symbol 'follow')
@@ -1347,7 +1348,7 @@
 
 # Test --follow and multiple files
 
-  $ hg log -G --print-revset -f g e
+  $ sl log -G --print-revset -f g e
   []
   (or
     (list
@@ -1360,22 +1361,22 @@
 
 # Test --follow null parent
 
-  $ hg up -q null
-  $ hg log -G --print-revset -f
+  $ sl up -q null
+  $ sl log -G --print-revset -f
   []
   []
 
 # Test --follow-first
 
-  $ hg up -q 3
+  $ sl up -q 3
   $ echo ee > e
-  $ hg ci -Am 'add another e' e
-  $ hg merge --tool 'internal:other' 4
+  $ sl ci -Am 'add another e' e
+  $ sl merge --tool 'internal:other' 4
   0 files updated, 1 files merged, 1 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ echo merge > e
-  $ hg ci -m 'merge 5 and 4'
-  $ hg log -G --print-revset --follow-first
+  $ sl ci -m 'merge 5 and 4'
+  $ sl log -G --print-revset --follow-first
   []
   (func
     (symbol '_firstancestors')
@@ -1385,12 +1386,12 @@
 
 # Cannot compare with log --follow-first FILE as it never worked
 
-  $ hg log -G --print-revset --follow-first e
+  $ sl log -G --print-revset --follow-first e
   []
   (func
     (symbol '_followfirst')
     (string 'e'))
-  $ hg log -G --follow-first e --template '{rev} {desc|firstline}\n'
+  $ sl log -G --follow-first e --template '{rev} {desc|firstline}\n'
   @    6 merge 5 and 4
   ├─╮
   │ │
@@ -1402,7 +1403,7 @@
 
 # Test --copies
 
-  $ hg log -G --copies --template '{rev} {desc|firstline}   copies: {file_copies_switch}\n'
+  $ sl log -G --copies --template '{rev} {desc|firstline}   copies: {file_copies_switch}\n'
   @    6 merge 5 and 4   copies:
   ├─╮
   │ o  5 add another e   copies:
@@ -1419,8 +1420,8 @@
 
 # Test "set:..." and parent revision
 
-  $ hg up -q 4
-  $ hg log -G --print-revset 'set:clean()'
+  $ sl up -q 4
+  $ sl log -G --print-revset 'set:clean()'
   []
   (func
     (symbol '_matchfiles')
@@ -1428,7 +1429,7 @@
       (string 'r:')
       (string 'd:relpath')
       (string 'p:set:clean()')))
-  $ hg log -G --print-revset --include 'set:clean()'
+  $ sl log -G --print-revset --include 'set:clean()'
   []
   (func
     (symbol '_matchfiles')
@@ -1436,16 +1437,16 @@
       (string 'r:')
       (string 'd:relpath')
       (string 'i:set:clean()')))
-  $ hg log -G --print-revset -r 'sort(file('\''set:copied()'\''), -rev)'
+  $ sl log -G --print-revset -r 'sort(file('\''set:copied()'\''), -rev)'
   ["sort(file('set:copied()'), -rev)"]
   []
 
 # Test --removed
 
-  $ hg log -G --print-revset --removed
+  $ sl log -G --print-revset --removed
   []
   []
-  $ hg log -G --print-revset --removed a
+  $ sl log -G --print-revset --removed a
   []
   (func
     (symbol '_matchfiles')
@@ -1453,7 +1454,7 @@
       (string 'r:')
       (string 'd:relpath')
       (string 'p:a')))
-  $ hg log -G --print-revset --removed --follow a
+  $ sl log -G --print-revset --removed --follow a
   []
   (and
     (func
@@ -1468,8 +1469,8 @@
 
 # Test --patch and --stat with --follow and --follow-first
 
-  $ hg up -q 3
-  $ hg log -G --git --patch b
+  $ sl up -q 3
+  $ sl log -G --git --patch b
   o  commit:      216d4c92cf98
   │  user:        test
   ~  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1479,7 +1480,7 @@
      copy from a
      copy to b
 
-  $ hg log -G --git --stat b
+  $ sl log -G --git --stat b
   o  commit:      216d4c92cf98
   │  user:        test
   ~  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1488,7 +1489,7 @@
       b |  0
       1 files changed, 0 insertions(+), 0 deletions(-)
 
-  $ hg log -G --git --patch --follow b
+  $ sl log -G --git --patch --follow b
   @  commit:      4e4494cd467d
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1510,7 +1511,7 @@
      @@ -0,0 +1,1 @@
      +a
 
-  $ hg log -G --git --stat --follow b
+  $ sl log -G --git --stat --follow b
   @  commit:      4e4494cd467d
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1527,8 +1528,8 @@
       a |  1 +
       1 files changed, 1 insertions(+), 0 deletions(-)
 
-  $ hg up -q 6
-  $ hg log -G --git --patch --follow-first e
+  $ sl up -q 6
+  $ sl log -G --git --patch --follow-first e
   @    commit:      36921220a3d9
   ├─╮  user:        test
   │ │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1556,19 +1557,19 @@
 # Test old-style --rev
 
   $ echo 'fc281d8ff18d999ad6497b3d27390bcd695dcc73 foo-bar' >> .hgtags
-  $ hg commit -Aqm 'Added tag foo-bar for changeset fc281d8ff18d'
-  $ hg book foo-bar-book
-  $ hg log -G --print-revset -r foo-bar-book
+  $ sl commit -Aqm 'Added tag foo-bar for changeset fc281d8ff18d'
+  $ sl book foo-bar-book
+  $ sl log -G --print-revset -r foo-bar-book
   ['foo-bar-book']
   []
 
 # Test --follow and forward --rev
 
-  $ hg up -q 6
+  $ sl up -q 6
   $ echo g > g
-  $ hg ci -Am 'add g' g
-  $ hg up -q 2
-  $ hg log -G --template '{rev} {desc|firstline}\n'
+  $ sl ci -Am 'add g' g
+  $ sl up -q 2
+  $ sl log -G --template '{rev} {desc|firstline}\n'
   o  8 add g
   │
   │ o  7 Added tag foo-bar for changeset fc281d8ff18d
@@ -1586,15 +1587,15 @@
   o  1 copy a b
   │
   o  0 add a
-  $ hg archive -r 7 archive
+  $ sl archive -r 7 archive
   $ rm -r archive
 
 # changessincelatesttag with no prior tag
 
-  $ hg archive -r 4 archive
+  $ sl archive -r 4 archive
 
-  $ hg export 'all()'
-  # HG changeset patch
+  $ sl export 'all()'
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1617,7 +1618,7 @@
   +++ b/f	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +f
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1635,7 +1636,7 @@
   +++ b/g	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +f
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1665,7 +1666,7 @@
   @@ -1,1 +1,2 @@
    f
   +g
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1695,7 +1696,7 @@
    f
   -g
   +f
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1713,7 +1714,7 @@
   +++ b/e	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +a
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1726,7 +1727,7 @@
   +++ b/e	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +ee
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1746,7 +1747,7 @@
   @@ -1,1 +1,1 @@
   -ee
   +merge
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1759,7 +1760,7 @@
   +++ b/.hgtags	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +fc281d8ff18d999ad6497b3d27390bcd695dcc73 foo-bar
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -1774,7 +1775,7 @@
   -f
   -f
   +g
-  $ hg log -G --print-revset --follow -r6 -r8 -r5 -r7 -r4
+  $ sl log -G --print-revset --follow -r6 -r8 -r5 -r7 -r4
   ['6', '8', '5', '7', '4']
   (func
     (symbol 'descendants')
@@ -1784,7 +1785,7 @@
 
 # Test --follow-first and forward --rev
 
-  $ hg log -G --print-revset --follow-first -r6 -r8 -r5 -r7 -r4
+  $ sl log -G --print-revset --follow-first -r6 -r8 -r5 -r7 -r4
   ['6', '8', '5', '7', '4']
   (func
     (symbol 'descendants')
@@ -1794,7 +1795,7 @@
 
 # Test --follow and backward --rev
 
-  $ hg log -G --print-revset --follow -r6 -r5 -r7 -r8 -r4
+  $ sl log -G --print-revset --follow -r6 -r5 -r7 -r8 -r4
   ['6', '5', '7', '8', '4']
   (func
     (symbol 'ancestors')
@@ -1804,7 +1805,7 @@
 
 # Test --follow-first and backward --rev
 
-  $ hg log -G --print-revset --follow-first -r6 -r5 -r7 -r8 -r4
+  $ sl log -G --print-revset --follow-first -r6 -r5 -r7 -r8 -r4
   ['6', '5', '7', '8', '4']
   (func
     (symbol '_firstancestors')
@@ -1814,9 +1815,9 @@
 
 # Test subdir
 
-  $ hg up -q 3
+  $ sl up -q 3
   $ cd dir
-  $ hg log -G --print-revset .
+  $ sl log -G --print-revset .
   []
   (func
     (symbol '_matchfiles')
@@ -1824,12 +1825,12 @@
       (string 'r:')
       (string 'd:relpath')
       (string 'p:.')))
-  $ hg log -G --print-revset ../b
+  $ sl log -G --print-revset ../b
   []
   (func
     (symbol 'filelog')
     (string '../b'))
-  $ hg log -G --print-revset -f ../b
+  $ sl log -G --print-revset -f ../b
   []
   (func
     (symbol 'follow')
@@ -1838,7 +1839,7 @@
 
 # A template without trailing newline should do something sane
 
-  $ hg log -G -r '::2' --template '{rev} {desc}'
+  $ sl log -G -r '::2' --template '{rev} {desc}'
   o  2 mv b dir/b
   │
   o  1 copy a b
@@ -1847,7 +1848,7 @@
 
 # Extra newlines must be preserved
 
-  $ hg log -G -r '::2' --template '\n{rev} {desc}\n\n'
+  $ sl log -G -r '::2' --template '\n{rev} {desc}\n\n'
   o
   │  2 mv b dir/b
   │
@@ -1859,7 +1860,7 @@
 
 # The almost-empty template should do something sane too ...
 
-  $ hg log -G -r '::2' --template '\n'
+  $ sl log -G -r '::2' --template '\n'
   o
   │
   o
@@ -1868,19 +1869,19 @@
 
 # issue3772
 
-  $ hg log -G -r ':null'
+  $ sl log -G -r ':null'
   o  commit:      f8035bb17114
      user:        test
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     add a
-  $ hg log -G -r 'null:null'
+  $ sl log -G -r 'null:null'
   o  commit:      000000000000
      user:
      date:        Thu Jan 01 00:00:00 1970 +0000
 
 # should not draw line down to null due to the magic of fullreposet
 
-  $ hg log -G -r 'all()' | tail -5
+  $ sl log -G -r 'all()' | tail -5
   o  commit:      f8035bb17114
      user:        test
      date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1888,10 +1889,10 @@
 
 # working-directory revision
 # XXX: Currently not working.
-# sh % "hg log -G -qr '. + wdir()'"
+# sh % "sl log -G -qr '. + wdir()'"
 # node template with changeset_printer:
 
-  $ hg log -Gqr '5:7' --config 'ui.graphnodetemplate="{rev}"'
+  $ sl log -Gqr '5:7' --config 'ui.graphnodetemplate="{rev}"'
   7  71adb5c4f02f
   │
   6    36921220a3d9
@@ -1905,7 +1906,7 @@
 
 # label() should just work in node template:
 
-  $ hg log -Gqr 7 --config 'extensions.color=' '--color=debug' --config 'ui.graphnodetemplate={label("branch.{branch}", rev)}'
+  $ sl log -Gqr 7 --config 'extensions.color=' '--color=debug' --config 'ui.graphnodetemplate={label("branch.{branch}", rev)}'
   [branch.default|7]  [log.node|71adb5c4f02f]
   │
   ~
@@ -1921,7 +1922,7 @@
   > graphstyle.grandparent = :
   > graphstyle.missing =
   > EOF
-  $ hg log -G -r 'file("a")' -m
+  $ sl log -G -r 'file("a")' -m
   @  commit:      75678d8b2851
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:36 1970 +0000
@@ -2064,7 +2065,7 @@
 
 # Setting HGPLAIN sets graphmod styling to ASCII:
 
-  $ HGPLAIN=1 hg log -G -r 'file("a")' -m
+  $ HGPLAIN=1 sl log -G -r 'file("a")' -m
   @  commit:      75678d8b2851
   .  user:        test
   .  date:        Thu Jan 01 00:00:36 1970 +0000
@@ -2207,7 +2208,7 @@
 
 # .. unless HGPLAINEXCEPT=graph is set:
 
-  $ HGPLAIN=1 HGPLAINEXCEPT=graph hg log -G -r 'file("a")' -m
+  $ HGPLAIN=1 HGPLAINEXCEPT=graph sl log -G -r 'file("a")' -m
   @  commit:      75678d8b2851
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:36 1970 +0000
@@ -2360,7 +2361,7 @@
   > graphstyle.grandparent = 3.
   > graphstyle.missing =
   > EOF
-  $ hg log -G -r '36:18 & file("a")' -m
+  $ sl log -G -r '36:18 & file("a")' -m
   @  commit:      75678d8b2851
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:36 1970 +0000
@@ -2439,7 +2440,7 @@
   > graphstyle.grandparent = -3.
   > graphstyle.missing =
   > EOF
-  $ hg log -G -r '36:18 & file("a")' -m
+  $ sl log -G -r '36:18 & file("a")' -m
   @  commit:      75678d8b2851
   ╷  user:        test
   ╷  date:        Thu Jan 01 00:00:36 1970 +0000
@@ -2521,7 +2522,7 @@
   > graphstyle.missing = '
   > graphshorten = true
   > EOF
-  $ hg log -G -r 'file("a")' -m -T '{rev} {desc}'
+  $ sl log -G -r 'file("a")' -m -T '{rev} {desc}'
   @  36 (36) buggy merge: identical parents
   o    32 (32) expand
   ├─╮
@@ -2624,24 +2625,24 @@
 
 # behavior with newlines
 
-  $ hg log -G -r '::2' -T '{rev} {desc}'
+  $ sl log -G -r '::2' -T '{rev} {desc}'
   o  2 (2) collapse
   o  1 (1) collapse
   o  0 (0) root
 
-  $ hg log -G -r '::2' -T '{rev} {desc}\n'
+  $ sl log -G -r '::2' -T '{rev} {desc}\n'
   o  2 (2) collapse
   o  1 (1) collapse
   o  0 (0) root
 
-  $ hg log -G -r '::2' -T '{rev} {desc}\n\n'
+  $ sl log -G -r '::2' -T '{rev} {desc}\n\n'
   o  2 (2) collapse
   │
   o  1 (1) collapse
   │
   o  0 (0) root
 
-  $ hg log -G -r '::2' -T '\n{rev} {desc}'
+  $ sl log -G -r '::2' -T '\n{rev} {desc}'
   o
   │  2 (2) collapse
   o
@@ -2649,7 +2650,7 @@
   o
      0 (0) root
 
-  $ hg log -G -r '::2' -T '{rev} {desc}\n\n\n'
+  $ sl log -G -r '::2' -T '{rev} {desc}\n\n\n'
   o  2 (2) collapse
   │
   │
@@ -2662,31 +2663,31 @@
 # When inserting extra line nodes to handle more than 2 parents, ensure that
 # the right node styles are used (issue5174):
 
-  $ hg init repo-issue5174
+  $ sl init repo-issue5174
   $ cd repo-issue5174
   $ echo a > f0
-  $ hg ci -Aqm 0
+  $ sl ci -Aqm 0
   $ echo a > f1
-  $ hg ci -Aqm 1
+  $ sl ci -Aqm 1
   $ echo a > f2
-  $ hg ci -Aqm 2
-  $ hg co '.^'
+  $ sl ci -Aqm 2
+  $ sl co '.^'
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo a > f3
-  $ hg ci -Aqm 3
-  $ hg co '.^^'
+  $ sl ci -Aqm 3
+  $ sl co '.^^'
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ echo a > f4
-  $ hg ci -Aqm 4
-  $ hg merge -r 2
+  $ sl ci -Aqm 4
+  $ sl merge -r 2
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg ci -qm 5
-  $ hg merge -r 3
+  $ sl ci -qm 5
+  $ sl merge -r 3
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg ci -qm 6
-  $ hg log -G -r '0 | 1 | 2 | 6'
+  $ sl ci -qm 6
+  $ sl log -G -r '0 | 1 | 2 | 6'
   @    commit:      851fe89689ad
   ├─╮  user:        test
   ╷ ╷  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -2711,30 +2712,30 @@
 
 # Multiple roots (issue5440):
 
-  $ hg init multiroots
+  $ sl init multiroots
   $ cd multiroots
-  $ cat > .hg/hgrc << 'EOF'
+  $ cat > .sl/config << 'EOF'
   > [ui]
   > logtemplate = '{rev} {desc}\n\n'
   > EOF
 
   $ touch foo
-  $ hg ci -Aqm foo
-  $ hg co -q null
+  $ sl ci -Aqm foo
+  $ sl co -q null
   $ touch bar
-  $ hg ci -Aqm bar
+  $ sl ci -Aqm bar
 
-  $ hg log -Gr 'null:'
+  $ sl log -Gr 'null:'
   @  1 bar
   
   o  0 foo
   
   o  -1
-  $ hg log -Gr null+0
+  $ sl log -Gr null+0
   o  0 foo
   
   o  -1
-  $ hg log -Gr null+1
+  $ sl log -Gr null+1
   @  1 bar
   
   o  -1

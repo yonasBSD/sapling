@@ -9,6 +9,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
   $ cat >> $HGRCPATH << 'EOF'
@@ -27,35 +28,35 @@
   $ echo a > a
   $ echo a > d
   $ echo a > e
-  $ hg ci -qAm0
+  $ sl ci -qAm0
   $ echo b > a
-  $ hg ci -m1 -u bar
-  $ hg mv a b
-  $ hg ci -m2
-  $ hg cp b c
-  $ hg ci -m3 -u baz
+  $ sl ci -m1 -u bar
+  $ sl mv a b
+  $ sl ci -m2
+  $ sl cp b c
+  $ sl ci -m3 -u baz
   $ echo b > d
   $ echo f > e
-  $ hg ci -m4
-  $ hg up -q 3
+  $ sl ci -m4
+  $ sl up -q 3
   $ echo b > e
-  $ hg ci -m5
+  $ sl ci -m5
 
 #  (Make sure mtime < fsnow to make the next merge commit stable)
 
   $ sleep 1
 
-  $ hg status
-  $ hg debugsetparents 4 5
-  $ hg ci -m6
+  $ sl status
+  $ sl debugsetparents 4 5
+  $ sl ci -m6
 
 #  (Force "refersh" treestate)
 
-  $ hg up -qC null
-  $ hg up -qC tip
-  $ hg debugmakepublic 3
+  $ sl up -qC null
+  $ sl up -qC tip
+  $ sl debugmakepublic 3
 
-  $ hg log -G --template '{author}@{rev}.{phase}: {desc}\n'
+  $ sl log -G --template '{author}@{rev}.{phase}: {desc}\n'
   @    test@6.draft: 6
   ├─╮
   │ o  test@5.draft: 5
@@ -72,42 +73,42 @@
 
 # Can't continue without starting:
 
-  $ hg rm -q e
-  $ hg graft --continue
+  $ sl rm -q e
+  $ sl graft --continue
   abort: no graft in progress
   [255]
-  $ hg graft --abort
+  $ sl graft --abort
   abort: no graft in progress
   [255]
-  $ hg revert -r . -q e
+  $ sl revert -r . -q e
 
 # Need to specify a rev:
 
-  $ hg graft
+  $ sl graft
   abort: no revisions specified
   [255]
 
 # Empty revision set was specified
 
-  $ hg graft -r '2::1'
+  $ sl graft -r '2::1'
   abort: empty revision set was specified
   [255]
 
 # Can't graft ancestor:
 
-  $ hg graft 1 2
+  $ sl graft 1 2
   skipping ancestor revision 5d205f8b35b6
   skipping ancestor revision 5c095ad7e90f
   [255]
 
 # Specify revisions with -r:
 
-  $ hg graft -r 1 -r 2
+  $ sl graft -r 1 -r 2
   skipping ancestor revision 5d205f8b35b6
   skipping ancestor revision 5c095ad7e90f
   [255]
 
-  $ hg graft -r 1 2
+  $ sl graft -r 1 2
   warning: inconsistent use of --rev might give unexpected revision ordering!
   skipping ancestor revision 5c095ad7e90f
   skipping ancestor revision 5d205f8b35b6
@@ -115,33 +116,33 @@
 
 # Can't graft with dirty wd:
 
-  $ hg up -q 0
+  $ sl up -q 0
   $ echo foo > a
-  $ hg graft 1
+  $ sl graft 1
   abort: uncommitted changes
   [255]
-  $ hg revert a
+  $ sl revert a
 
 # Graft a rename:
 # (this also tests that editor is invoked if '--edit' is specified)
 
-  $ hg status --rev '2^1' --rev 2
+  $ sl status --rev '2^1' --rev 2
   A b
   R a
-  $ HGEDITOR=cat hg graft 2 -u foo --edit
+  $ HGEDITOR=cat sl graft 2 -u foo --edit
   grafting 5c095ad7e90f "2"
   merging a and b to b
   2
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: foo
-  HG: added b
-  HG: removed a
-  $ hg export tip --git
-  # HG changeset patch
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: foo
+  SL: added b
+  SL: removed a
+  $ sl export tip --git
+  # SL changeset patch
   # User foo
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -155,7 +156,7 @@
 
 # Look for extra:source
 
-  $ hg log --debug -r tip
+  $ sl log --debug -r tip
   commit:      ef0ef43d49e79e81ddafdc7997401ba0041efc82
   phase:       draft
   manifest:    e59b6b228f9cbf9903d5e9abf996e083a1f533eb
@@ -171,14 +172,14 @@
 # Graft out of order, skipping a merge
 # (this also tests that editor is not invoked if '--edit' is not specified)
 
-  $ hg graft 1 5 4 3 'merge()' -n
+  $ sl graft 1 5 4 3 'merge()' -n
   skipping ungraftable merge revision 6
   grafting 5d205f8b35b6 "1"
   grafting 5345cd5c0f38 "5"
   grafting 9c233e8e184d "4"
   grafting 4c60f11aa304 "3"
 
-  $ HGEDITOR=cat hg graft 1 5 'merge()' --debug --config worker.backgroundclose=False
+  $ HGEDITOR=cat sl graft 1 5 'merge()' --debug --config worker.backgroundclose=False
   skipping ungraftable merge revision 6
   grafting 5d205f8b35b6 "1"
   resolving manifests
@@ -203,7 +204,7 @@
   reusing remotefilelog node bc7ebe2d260cff30d2a39a130d84add36216f791
   committing manifest
   committing changelog
-  $ HGEDITOR=cat hg graft 4 3 --log --debug
+  $ HGEDITOR=cat sl graft 4 3 --log --debug
   grafting 9c233e8e184d "4"
   resolving manifests
    branchmerge: True, force: True
@@ -214,14 +215,14 @@
   picked tool ':merge' for path=e binary=False symlink=False changedelete=False
   merging e
   my e@9436191a062e+ other e@9c233e8e184d ancestor e@4c60f11aa304
-  warning: 1 conflicts while merging e! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging e! (edit, then use 'sl resolve --mark')
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue --log')
+  (use 'sl resolve' and 'sl graft --continue --log')
   [255]
 
 # Summary should mention graft:
 
-  $ hg summary
+  $ sl summary
   parent: 9436191a062e 
    5
   commit: 2 modified, 2 unknown, 1 unresolved (graft in progress)
@@ -229,7 +230,7 @@
 
 # Using status to get more context
 
-  $ hg status
+  $ sl status
   M d
   M e
   ? a.orig
@@ -240,79 +241,79 @@
   # 
   #     e
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg graft --continue
-  # To abort:                   hg graft --abort
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl graft --continue
+  # To abort:                   sl graft --abort
 
 # Commit while interrupted should fail:
 
-  $ hg ci -m 'commit interrupted graft'
+  $ sl ci -m 'commit interrupted graft'
   abort: graft in progress
-  (use 'hg graft --continue' to continue or
-       'hg graft --abort' to abort)
+  (use 'sl graft --continue' to continue or
+       'sl graft --abort' to abort)
   [255]
 
 # Abort the graft and try committing:
 
-  $ hg graft --abort
+  $ sl graft --abort
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg status --verbose
+  $ sl status --verbose
   ? a.orig
   ? e.orig
   $ echo c >> e
-  $ hg ci -mtest
+  $ sl ci -mtest
 
-  $ hg debugstrip .
+  $ sl debugstrip .
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 # Graft again:
 
-  $ hg graft 4 3 'merge()'
+  $ sl graft 4 3 'merge()'
   skipping ungraftable merge revision 6
   grafting 9c233e8e184d "4"
   merging e
-  warning: 1 conflicts while merging e! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging e! (edit, then use 'sl resolve --mark')
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
 
 # Continue without resolve should fail:
 
-  $ hg continue
+  $ sl continue
   grafting 9c233e8e184d "4"
-  abort: unresolved merge conflicts (see 'hg help resolve')
+  abort: unresolved merge conflicts (see 'sl help resolve')
   [255]
 
 # Fix up:
 
   $ echo b > e
-  $ hg resolve -m e
+  $ sl resolve -m e
   (no more unresolved files)
-  continue: hg graft --continue
+  continue: sl graft --continue
 
 # Continue with a revision should fail:
 
-  $ hg graft -c 6
+  $ sl graft -c 6
   abort: can't specify --continue and revisions
   [255]
 
-  $ hg graft -c -r 6
+  $ sl graft -c -r 6
   abort: can't specify --continue and revisions
   [255]
 
-  $ hg graft --abort -r 6
+  $ sl graft --abort -r 6
   abort: can't specify --abort and revisions
   [255]
 
 # Continue for real, clobber usernames
 
-  $ hg graft -c -U
+  $ sl graft -c -U
   grafting 9c233e8e184d "4"
   grafting 4c60f11aa304 "3"
 
 # Compare with original:
 
-  $ hg diff -r 6
+  $ sl diff -r 6
   diff -r 7f1f8cbe8466 e
   --- a/e	Thu Jan 01 00:00:00 1970 +0000
   +++ b/e	Thu Jan 01 00:00:00 1970 +0000
@@ -324,7 +325,7 @@
 # Rust debugstrip and invalidatelinkrev repo requirement. We probalby
 # want to fix copy tracing or linkrev in other ways.
 
-  $ hg status --rev '0:.' -C
+  $ sl status --rev '0:.' -C
   M d
   M e
   A b
@@ -335,7 +336,7 @@
 
 # View graph:
 
-  $ hg log -G --template '{author}@{rev}.{phase}: {desc}\n'
+  $ sl log -G --template '{author}@{rev}.{phase}: {desc}\n'
   @  test@11.draft: 3
   │
   o  test@10.draft: 4
@@ -362,19 +363,19 @@
 
 # Graft again onto another branch should preserve the original source
 
-  $ hg up -q 0
+  $ sl up -q 0
   $ echo g > g
-  $ hg add g
-  $ hg ci -m 7
-  $ hg graft 7
+  $ sl add g
+  $ sl ci -m 7
+  $ sl graft 7
   grafting ef0ef43d49e7 "2"
 
-  $ hg log -r 7 --template '{rev}:{node}\n'
+  $ sl log -r 7 --template '{rev}:{node}\n'
   7:ef0ef43d49e79e81ddafdc7997401ba0041efc82
-  $ hg log -r 2 --template '{rev}:{node}\n'
+  $ sl log -r 2 --template '{rev}:{node}\n'
   2:5c095ad7e90f871700f02dd1fa5012cb4498a2d4
 
-  $ hg log --debug -r tip
+  $ sl log --debug -r tip
   commit:      7a4785234d87ec1aa420ed6b11afe40fa73e12a9
   phase:       draft
   manifest:    dc313617b8c32457c0d589e0dbbedfe71f3cd637
@@ -387,9 +388,9 @@
   extra:       source=5c095ad7e90f871700f02dd1fa5012cb4498a2d4
   description:
   2
-  $ hg up -q 6
+  $ sl up -q 6
 
-  $ hg diff -r 2 -r 13
+  $ sl diff -r 2 -r 13
   diff -r 5c095ad7e90f -r 7a4785234d87 b
   --- a/b	Thu Jan 01 00:00:00 1970 +0000
   +++ b/b	Thu Jan 01 00:00:00 1970 +0000
@@ -402,34 +403,34 @@
   @@ -0,0 +1,1 @@
   +g
 
-  $ hg diff -r 2 -r 13 -X .
+  $ sl diff -r 2 -r 13 -X .
 
 # Graft with --log
 
-  $ hg up -Cq 1
-  $ hg graft 3 --log -u foo
+  $ sl up -Cq 1
+  $ sl graft 3 --log -u foo
   grafting 4c60f11aa304 "3"
   warning: can't find ancestor for 'c' copied from 'b'!
-  $ hg log --template '{rev}:{node|short} {parents} {desc}\n' -r tip
+  $ sl log --template '{rev}:{node|short} {parents} {desc}\n' -r tip
   14:2618d22676d7 5d205f8b35b6  3
   
   (grafted from 4c60f11aa304a54ae1c199feb94e7fc771e51ed8)
 
 # Resolve conflicted graft
 
-  $ hg up -q 0
+  $ sl up -q 0
   $ echo b > a
-  $ hg ci -m 8
+  $ sl ci -m 8
   $ echo c > a
-  $ hg ci -m 9
-  $ hg graft 1 --tool 'internal:fail'
+  $ sl ci -m 9
+  $ sl graft 1 --tool 'internal:fail'
   grafting 5d205f8b35b6 "1"
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
-  $ hg resolve --all
+  $ sl resolve --all
   merging a
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   [1]
   $ cat a
   <<<<<<< local: aaa4406d4f0a - test: 9
@@ -438,13 +439,13 @@
   b
   >>>>>>> graft: 5d205f8b35b6 - bar: 1
   $ echo b > a
-  $ hg resolve -m a
+  $ sl resolve -m a
   (no more unresolved files)
-  continue: hg graft --continue
-  $ hg graft -c
+  continue: sl graft --continue
+  $ sl graft -c
   grafting 5d205f8b35b6 "1"
-  $ hg export tip --git
-  # HG changeset patch
+  $ sl export tip --git
+  # SL changeset patch
   # User bar
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -462,23 +463,23 @@
 # Resolve conflicted graft with rename
 
   $ echo c > a
-  $ hg ci -m 10
-  $ hg graft 2 --tool 'internal:fail'
+  $ sl ci -m 10
+  $ sl graft 2 --tool 'internal:fail'
   grafting 5c095ad7e90f "2"
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
 
 # XXX: This part is broken because copy-tracing is broken.
 
-  $ hg resolve --all
+  $ sl resolve --all
   merging a and b to b
   (no more unresolved files)
-  continue: hg graft --continue
-  $ hg graft -c
+  continue: sl graft --continue
+  $ sl graft -c
   grafting 5c095ad7e90f "2"
-  $ hg export tip --git
-  # HG changeset patch
+  $ sl export tip --git
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -498,16 +499,16 @@
   > |/|
   > A B
   > EOS
-  $ hg goto -q $C
-  $ hg graft $B
+  $ sl goto -q $C
+  $ sl graft $B
   grafting fc2b737bb2e5 "B"
-  $ hg rm A B C
-  $ hg commit -m remove-all
-  $ hg graft $A $D
+  $ sl rm A B C
+  $ sl commit -m remove-all
+  $ sl graft $A $D
   skipping ungraftable merge revision 3
   skipping ancestor revision 426bada5c675
   [255]
-  $ hg graft $B $A $D --force
+  $ sl graft $B $A $D --force
   skipping ungraftable merge revision 3
   grafting fc2b737bb2e5 "B"
   grafting 426bada5c675 "A"
@@ -515,15 +516,15 @@
 # graft --force after backout
 
   $ echo abc > A
-  $ hg ci -m to-backout
-  $ hg bookmark -i to-backout
-  $ hg backout to-backout
+  $ sl ci -m to-backout
+  $ sl bookmark -i to-backout
+  $ sl backout to-backout
   reverting A
   changeset 14707ec2ae63 backs out changeset b2fde3ce6adf
-  $ hg graft to-backout
+  $ sl graft to-backout
   skipping ancestor revision b2fde3ce6adf
   [255]
-  $ hg graft to-backout --force
+  $ sl graft to-backout --force
   grafting b2fde3ce6adf "to-backout" (to-backout)
   $ cat A
   abc
@@ -531,16 +532,16 @@
 # graft --continue after --force
 
   $ echo def > A
-  $ hg ci -m 31
-  $ hg graft to-backout --force --tool 'internal:fail'
+  $ sl ci -m 31
+  $ sl graft to-backout --force --tool 'internal:fail'
   grafting b2fde3ce6adf "to-backout" (to-backout)
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
   $ echo abc > A
-  $ hg resolve -qm A
-  continue: hg graft --continue
-  $ hg graft -c
+  $ sl resolve -qm A
+  continue: sl graft --continue
+  $ sl graft -c
   grafting b2fde3ce6adf "to-backout" (to-backout)
   $ cat A
   abc
@@ -551,8 +552,8 @@
   $ drawdag << 'EOS'
   > A  B  # B/A=A
   > EOS
-  $ hg up -qr $B
-  $ hg graft $A
+  $ sl up -qr $B
+  $ sl graft $A
   grafting 426bada5c675 "A"
   note: graft of 426bada5c675 created no changes to commit
 
@@ -560,17 +561,17 @@
 
   $ newrepo graftsibling
   $ touch a
-  $ hg commit -qAm a
+  $ sl commit -qAm a
   $ touch b
-  $ hg commit -qAm b
-  $ hg log -G -T '{rev}\n'
+  $ sl commit -qAm b
+  $ sl log -G -T '{rev}\n'
   @  1
   │
   o  0
-  $ hg up -q 0
-  $ hg graft -r 1
+  $ sl up -q 0
+  $ sl graft -r 1
   grafting 0e067c57feba "b"
-  $ hg log -G -T '{rev}\n'
+  $ sl log -G -T '{rev}\n'
   @  2
   │
   │ o  1
@@ -579,10 +580,10 @@
 
 # Graft to duplicate a commit twice
 
-  $ hg up -q 0
-  $ hg graft -r 2
+  $ sl up -q 0
+  $ sl graft -r 2
   grafting 044ec77f6389 "b"
-  $ hg log -G -T '{rev}\n'
+  $ sl log -G -T '{rev}\n'
   @  3
   │
   │ o  2
@@ -644,20 +645,20 @@
   $ echo c3a > f3a
   $ echo c4a > f4a
   $ echo c5a > f5a
-  $ hg ci -qAm A0
-  $ hg mv f1a f1b
-  $ hg mv f3a f3b
-  $ hg mv f5a f5b
-  $ hg ci -qAm B0
+  $ sl ci -qAm A0
+  $ sl mv f1a f1b
+  $ sl mv f3a f3b
+  $ sl mv f5a f5b
+  $ sl ci -qAm B0
   $ echo c1c > f1b
-  $ hg mv f2a f2c
-  $ hg mv f5b f5a
+  $ sl mv f2a f2c
+  $ sl mv f5b f5a
   $ echo c5c > f5a
-  $ hg ci -qAm C0
-  $ hg mv f3b f3d
+  $ sl ci -qAm C0
+  $ sl mv f3b f3d
   $ echo c4d > f4a
-  $ hg ci -qAm D0
-  $ hg log -G
+  $ sl ci -qAm D0
+  $ sl log -G
   @  commit:      b69f5839d2d9
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -681,38 +682,38 @@
 # Test the cases A.2 (f1x), A.3 (f2x) and a special case of A.6 (f5x) where the
 # two renames actually converge to the same name (thus no actual divergence).
 
-  $ hg up -q 'desc("A0")'
-  $ HGEDITOR='echo C1 >' hg graft -r 'desc("C0")' --edit
+  $ sl up -q 'desc("A0")'
+  $ HGEDITOR='echo C1 >' sl graft -r 'desc("C0")' --edit
   grafting f58c7e2b28fa "C0"
   merging f1a and f1b to f1a
   merging f5a
   warning: can't find ancestor for 'f5a' copied from 'f5b'!
-  $ hg status --change .
+  $ sl status --change .
   M f1a
   M f5a
   A f2c
   R f2a
-  $ hg cat f1a
+  $ sl cat f1a
   c1c
-  $ hg cat f1b
+  $ sl cat f1b
   [1]
 
 # Test the cases A.0 (f4x) and A.6 (f3x)
 
-  $ HGEDITOR='echo D1 >' hg graft -r 'desc("D0")' --edit
+  $ HGEDITOR='echo D1 >' sl graft -r 'desc("D0")' --edit
   grafting b69f5839d2d9 "D0"
   warning: can't find ancestor for 'f3d' copied from 'f3b'!
 
 # Set up the repository for some further tests
 
-  $ hg up -q 'min(desc(A0))'
-  $ hg mv f1a f1e
+  $ sl up -q 'min(desc(A0))'
+  $ sl mv f1a f1e
   $ echo c2e > f2a
-  $ hg mv f3a f3e
-  $ hg mv f4a f4e
-  $ hg mv f5a f5b
-  $ hg ci -qAm E0
-  $ hg log -G
+  $ sl mv f3a f3e
+  $ sl mv f4a f4e
+  $ sl mv f5a f5b
+  $ sl ci -qAm E0
+  $ sl log -G
   @  commit:      6bd1736cab86
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -751,21 +752,21 @@
 # Test the cases A.4 (f1x), the "ping-pong" special case of A.7 (f5x),
 # and A.3 with a local content change to be preserved (f2x).
 
-  $ HGEDITOR='echo C2 >' hg graft -r 'desc("C0")' --edit
+  $ HGEDITOR='echo C2 >' sl graft -r 'desc("C0")' --edit
   grafting f58c7e2b28fa "C0"
   merging f1e and f1b to f1e
   merging f2a and f2c to f2c
 
 # Test the cases A.1 (f4x) and A.7 (f3x).
 
-  $ HGEDITOR='echo D2 >' hg graft -r 'desc("D0")' --edit
+  $ HGEDITOR='echo D2 >' sl graft -r 'desc("D0")' --edit
   grafting b69f5839d2d9 "D0"
   merging f4e and f4a to f4e
   warning: can't find ancestor for 'f3d' copied from 'f3b'!
 
 # Check the results of the grafts tested
 
-  $ hg log -CGv --patch --git
+  $ sl log -CGv --patch --git
   @  commit:      93ee502e8b0a
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -991,20 +992,20 @@
      +++ b/f5a
      @@ -0,0 +1,1 @@
      +c5a
-  $ hg cat f2c
+  $ sl cat f2c
   c2e
 
 # Check superfluous filemerge of files renamed in the past but untouched by graft
 
   $ echo a > a
-  $ hg ci -qAma
-  $ hg mv a b
+  $ sl ci -qAma
+  $ sl mv a b
   $ echo b > b
-  $ hg ci -qAmb
+  $ sl ci -qAmb
   $ echo c > c
-  $ hg ci -qAmc
-  $ hg up -q '.~2'
-  $ hg graft tip '-qt:fail'
+  $ sl ci -qAmc
+  $ sl up -q '.~2'
+  $ sl graft tip '-qt:fail'
 
   $ cd ..
 
@@ -1014,29 +1015,29 @@
   $ newclientrepo dirmovenewfile
   $ mkdir a
   $ echo a > a/a
-  $ hg ci -qAma
+  $ sl ci -qAma
   $ echo x > a/x
-  $ hg ci -qAmx
-  $ hg up -q 0
-  $ hg mv -q a b
-  $ hg ci -qAmb
-  $ hg graft -q 1
-  $ hg up -q 1
+  $ sl ci -qAmx
+  $ sl up -q 0
+  $ sl mv -q a b
+  $ sl ci -qAmb
+  $ sl graft -q 1
+  $ sl up -q 1
   $ echo y > a/x
-  $ hg ci -qAmy
-  $ hg up -q 3
-  $ hg graft -q 4
-  $ hg status --change .
+  $ sl ci -qAmy
+  $ sl up -q 3
+  $ sl graft -q 4
+  $ sl status --change .
   M a/x
 
 # Prepare for test of skipped changesets and how merges can influence it:
 
-  $ hg merge -q -r 1 --tool ':local'
-  $ hg ci -m m
+  $ sl merge -q -r 1 --tool ':local'
+  $ sl ci -m m
   $ echo xx >> a/x
-  $ hg ci -m xx
+  $ sl ci -m xx
 
-  $ hg log -G -T '{rev} {desc|firstline}'
+  $ sl log -G -T '{rev} {desc|firstline}'
   @  7 xx
   │
   o    6 m
@@ -1055,15 +1056,15 @@
 
 # Grafting of plain changes correctly detects that 3 and 5 should be skipped:
 
-  $ hg up -qCr 4
-  $ hg graft --tool ':local' -r '2'
+  $ sl up -qCr 4
+  $ sl graft --tool ':local' -r '2'
   grafting 7ea085edaaef "b"
 
 # Extending the graft range to include a (skipped) merge of 3 will not prevent us from
 # also detecting that both 3 and 5 should be skipped:
 
-  $ hg up -qCr 4
-  $ hg graft --tool ':local' -r '2 + 6 + 7'
+  $ sl up -qCr 4
+  $ sl graft --tool ':local' -r '2 + 6 + 7'
   skipping ungraftable merge revision 6
   grafting 7ea085edaaef "b"
   grafting c9302879a6a3 "xx"
@@ -1074,23 +1075,23 @@
 Can use --message-field to update parts of commit message.
   $ newclientrepo
   $ touch foo
-  $ hg commit -Aqm "title
+  $ sl commit -Aqm "title
   > 
   > Summary:
   > summary
   > 
   > Test Plan:
   > test plan"
-  $ hg whereami
+  $ sl whereami
   2d2e42cdf85511ef5011a5cf09d60e5c319d9e9b
-  $ hg go -q null
+  $ sl go -q null
   $ touch bar
-  $ hg commit -Aqm bar
-  $ hg graft -r 2d2e42cdf --message-field="Summary=
+  $ sl commit -Aqm bar
+  $ sl graft -r 2d2e42cdf --message-field="Summary=
   > new summary
   > "
   grafting 2d2e42cdf855 "title"
-  $ hg show
+  $ sl show
   commit:      c05be0f0fd33
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1103,12 +1104,12 @@ Can use --message-field to update parts of commit message.
   
   Test Plan:
   test plan
-  $ hg go -q .^
-  $ hg graft -r 2d2e42cdf --log --message-field="Summary=
+  $ sl go -q .^
+  $ sl graft -r 2d2e42cdf --log --message-field="Summary=
   > new summary
   > "
   grafting 2d2e42cdf855 "title"
-  $ hg show
+  $ sl show
   commit:      46a7e5630e37
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1135,11 +1136,11 @@ Can use --message-field to update parts of commit message.
   > A   # A/foo/x = 1\n2\n3\n
   >     # drawdag.defaultfiles=false
   > EOS
-  $ hg go $A -q
-  $ hg graft -r $C -m "new C"
+  $ sl go $A -q
+  $ sl graft -r $C -m "new C"
   grafting 78072751cf70 "C"
   merging foo/x
-  $ hg show
+  $ sl show
   commit:      a466a52d5162
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -1157,12 +1158,12 @@ Can use --message-field to update parts of commit message.
   -3
   +3a
 
-  $ hg go $A -q
+  $ sl go $A -q
   $ echo "my commit message" > my_logfile.txt
-  $ hg graft -r $C -l my_logfile.txt
+  $ sl graft -r $C -l my_logfile.txt
   grafting 78072751cf70 "C"
   merging foo/x
-  $ hg show
+  $ sl show
   commit:      daf80b302751
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000

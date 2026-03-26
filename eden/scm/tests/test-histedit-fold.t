@@ -11,6 +11,7 @@ case.
 Initialization
 ---------------
 
+  $ export HGIDENTITY=sl
   $ setconfig experimental.run-python-hooks-via-pyhook=true
 
   $ eagerepo
@@ -31,13 +32,13 @@ Simple folding
   $ addwithdate ()
   > {
   >     echo $1 > $1
-  >     hg add $1
-  >     hg ci -m $1 -d "$2 0"
+  >     sl add $1
+  >     sl ci -m $1 -d "$2 0"
   > }
 
   $ initrepo ()
   > {
-  >     hg init r
+  >     sl init r
   >     cd r
   >     addwithdate a 1
   >     addwithdate b 2
@@ -50,7 +51,7 @@ Simple folding
   $ initrepo
 
 log before edit
-  $ hg logt --graph
+  $ sl logt --graph
   @  178e35e0ce73 f
   │
   o  1ddb6c90f2ee e
@@ -64,7 +65,7 @@ log before edit
   o  8580ff50825a a
   
 
-  $ hg histedit ff2c9fa2018b --commands - <<EOF | fixbundle
+  $ sl histedit ff2c9fa2018b --commands - <<EOF | fixbundle
   > pick 1ddb6c90f2ee e
   > pick 178e35e0ce73 f
   > fold ff2c9fa2018b c
@@ -72,7 +73,7 @@ log before edit
   > EOF
 
 log after edit
-  $ hg logt --graph
+  $ sl logt --graph
   @  54f64c576eaf d
   │
   o  7c6777b45203 f
@@ -85,7 +86,7 @@ log after edit
   
 
 post-fold manifest
-  $ hg manifest
+  $ sl manifest
   a
   b
   c
@@ -96,7 +97,7 @@ post-fold manifest
 
 check histedit_source, including that it uses the later date, from the first changeset
 
-  $ hg log --debug --rev 'max(desc(f))'
+  $ sl log --debug --rev 'max(desc(f))'
   commit:      7c6777b45203a557f268e11d9c25fa3038f1d4a9
   phase:       draft
   manifest:    81eede616954057198ead0b2c73b41d1f392829a
@@ -116,7 +117,7 @@ rollup will fold without preserving the folded commit's message or date
 
   $ OLDHGEDITOR=$HGEDITOR
   $ HGEDITOR=false
-  $ hg histedit 97d72e5f12c7 --commands - <<EOF | fixbundle
+  $ sl histedit 97d72e5f12c7 --commands - <<EOF | fixbundle
   > pick 97d72e5f12c7 b
   > roll dcc6f3975330 e
   > pick 7c6777b45203 f
@@ -126,7 +127,7 @@ rollup will fold without preserving the folded commit's message or date
   $ HGEDITOR=$OLDHGEDITOR
 
 log after edit
-  $ hg logt --graph
+  $ sl logt --graph
   @  d965c106234a d
   │
   o  8a359a5848bb f
@@ -138,7 +139,7 @@ log after edit
 
 description is taken from rollup target commit
 
-  $ hg log --debug --rev 'max(desc(b))'
+  $ sl log --debug --rev 'max(desc(b))'
   commit:      a2e8b40131dd3d8a86b4fb1d62a449187afc12c1
   phase:       draft
   manifest:    b5e112a3a8354e269b1524729f0918662d847c38
@@ -163,7 +164,7 @@ check saving last-message.txt
   >     if set(fields.files()) == {'c', 'd', 'f'}:
   >         return 1  # return non-zero to abort folding commit only
   > EOF
-  $ cat > .hg/hgrc <<EOF
+  $ cat > .sl/config <<EOF
   > [hooks]
   > pretxncommit.abortfolding = python:$TESTTMP/abortfolding.py:abortfolding
   > EOF
@@ -175,12 +176,12 @@ check saving last-message.txt
   > echo "check saving last-message.txt" >> \$1
   > EOF
 
-  $ rm -f .hg/last-message.txt
-  $ hg status --rev '8a359a5848bb^1::d965c106234a'
+  $ rm -f .sl/last-message.txt
+  $ sl status --rev '8a359a5848bb^1::d965c106234a'
   A c
   A d
   A f
-  $ HGEDITOR="sh $TESTTMP/editor.sh" hg histedit 8a359a5848bb --commands - <<EOF
+  $ HGEDITOR="sh $TESTTMP/editor.sh" sl histedit 8a359a5848bb --commands - <<EOF
   > pick 8a359a5848bb f
   > fold d965c106234a d
   > EOF
@@ -193,18 +194,18 @@ check saving last-message.txt
   
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added c
-  HG: added d
-  HG: added f
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added c
+  SL: added d
+  SL: added f
   ====
   abort: pretxncommit.abortfolding hook failed
   [255]
 
-  $ cat .hg/last-message.txt
+  $ cat .sl/last-message.txt
   f
   ***
   c
@@ -223,17 +224,17 @@ folding preserves initial author but uses later date
 
   $ initrepo
 
-  $ hg ci -d '7 0' --user "someone else" --amend --quiet
+  $ sl ci -d '7 0' --user "someone else" --amend --quiet
 
 tip before edit
-  $ hg log --rev .
+  $ sl log --rev .
   commit:      10c36dd37515
   user:        someone else
   date:        Thu Jan 01 00:00:07 1970 +0000
   summary:     f
   
 
-  $ hg --config progress.debug=1 --debug \
+  $ sl --config progress.debug=1 --debug \
   > histedit 1ddb6c90f2ee --commands - 2>&1 <<EOF | \
   > grep -E 'editing|unresolved'
   > pick 1ddb6c90f2ee e
@@ -244,7 +245,7 @@ tip before edit
   progress: editing (end)
 
 tip after edit, which should use the later date, from the second changeset
-  $ hg log --rev .
+  $ sl log --rev .
   commit:      e4f3ec5d0b40
   user:        test
   date:        Thu Jan 01 00:00:07 1970 +0000
@@ -261,17 +262,17 @@ folded content is dropped during a merge. The folded commit should properly disa
 
   $ mkdir fold-to-empty-test
   $ cd fold-to-empty-test
-  $ hg init
+  $ sl init
   $ printf "1\n2\n3\n" > file
-  $ hg add file
-  $ hg commit -m '1+2+3'
+  $ sl add file
+  $ sl commit -m '1+2+3'
   $ echo 4 >> file
-  $ hg commit -m '+4'
+  $ sl commit -m '+4'
   $ echo 5 >> file
-  $ hg commit -m '+5'
+  $ sl commit -m '+5'
   $ echo 6 >> file
-  $ hg commit -m '+6'
-  $ hg logt --graph
+  $ sl commit -m '+6'
+  $ sl logt --graph
   @  251d831eeec5 +6
   │
   o  888f9082bf99 +5
@@ -281,21 +282,21 @@ folded content is dropped during a merge. The folded commit should properly disa
   o  0189ba417d34 1+2+3
   
 
-  $ hg histedit 617f94f13c0faff2ff307641901637b91cbd7c7b --commands - << EOF
+  $ sl histedit 617f94f13c0faff2ff307641901637b91cbd7c7b --commands - << EOF
   > pick 617f94f13c0f 1 +4
   > drop 888f9082bf99 2 +5
   > fold 251d831eeec5 3 +6
   > EOF
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   merging file
-  warning: 1 conflicts while merging file! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file! (edit, then use 'sl resolve --mark')
   Fix up the change (fold 251d831eeec5)
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   [1]
 There were conflicts, we keep P1 content. This
 should effectively drop the changes from +6.
 
-  $ hg status
+  $ sl status
   M file
   ? file.orig
   
@@ -304,19 +305,19 @@ should effectively drop the changes from +6.
   # 
   #     file
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg histedit --continue
-  # To abort:                   hg histedit --abort
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl histedit --continue
+  # To abort:                   sl histedit --abort
 
-  $ hg resolve -l
+  $ sl resolve -l
   U file
-  $ hg revert -r 'p1()' file
-  $ hg resolve --mark file
+  $ sl revert -r 'p1()' file
+  $ sl resolve --mark file
   (no more unresolved files)
-  continue: hg histedit --continue
-  $ hg histedit --continue
+  continue: sl histedit --continue
+  $ sl histedit --continue
   251d831eeec5: empty changeset
-  $ hg logt --graph
+  $ sl logt --graph
   @  617f94f13c0f +4
   │
   o  0189ba417d34 1+2+3
@@ -333,18 +334,18 @@ Test corner case where folded revision is separated from its parent by a
 dropped revision.
 
 
-  $ hg init fold-with-dropped
+  $ sl init fold-with-dropped
   $ cd fold-with-dropped
   $ printf "1\n2\n3\n" > file
-  $ hg commit -Am '1+2+3'
+  $ sl commit -Am '1+2+3'
   adding file
   $ echo 4 >> file
-  $ hg commit -m '+4'
+  $ sl commit -m '+4'
   $ echo 5 >> file
-  $ hg commit -m '+5'
+  $ sl commit -m '+5'
   $ echo 6 >> file
-  $ hg commit -m '+6'
-  $ hg logt -G
+  $ sl commit -m '+6'
+  $ sl logt -G
   @  251d831eeec5 +6
   │
   o  888f9082bf99 +5
@@ -353,16 +354,16 @@ dropped revision.
   │
   o  0189ba417d34 1+2+3
   
-  $ hg histedit 617f94f13c0faff2ff307641901637b91cbd7c7b --commands -  << EOF
+  $ sl histedit 617f94f13c0faff2ff307641901637b91cbd7c7b --commands -  << EOF
   > pick 617f94f13c0f 1 +4
   > drop 888f9082bf99 2 +5
   > fold 251d831eeec5 3 +6
   > EOF
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   merging file
-  warning: 1 conflicts while merging file! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging file! (edit, then use 'sl resolve --mark')
   Fix up the change (fold 251d831eeec5)
-  (hg histedit --continue to resume)
+  (sl histedit --continue to resume)
   [1]
   $ cat > file << EOF
   > 1
@@ -371,12 +372,12 @@ dropped revision.
   > 4
   > 5
   > EOF
-  $ hg resolve --mark file
+  $ sl resolve --mark file
   (no more unresolved files)
-  continue: hg histedit --continue
-  $ hg commit -m '+5.2'
+  continue: sl histedit --continue
+  $ sl commit -m '+5.2'
   $ echo 6 >> file
-  $ HGEDITOR=cat hg histedit --continue
+  $ HGEDITOR=cat sl histedit --continue
   +4
   ***
   +5.2
@@ -385,18 +386,18 @@ dropped revision.
   
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: changed file
-  $ hg logt -G
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: changed file
+  $ sl logt -G
   @  10c647b2cdd5 +4
   │
   o  0189ba417d34 1+2+3
   
-  $ hg export tip
-  # HG changeset patch
+  $ sl export tip
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -424,27 +425,27 @@ dropped revision.
 Folding with initial rename (issue3729)
 ---------------------------------------
 
-  $ hg init fold-rename
+  $ sl init fold-rename
   $ cd fold-rename
   $ echo a > a.txt
-  $ hg add a.txt
-  $ hg commit -m a
-  $ hg rename a.txt b.txt
-  $ hg commit -m rename
+  $ sl add a.txt
+  $ sl commit -m a
+  $ sl rename a.txt b.txt
+  $ sl commit -m rename
   $ echo b >> b.txt
-  $ hg commit -m b
+  $ sl commit -m b
 
-  $ hg logt --follow b.txt
+  $ sl logt --follow b.txt
   e0371e0426bc b
   1c4f440a8085 rename
   6c795aa153cb a
 
-  $ hg histedit 1c4f440a8085 --commands - << EOF | fixbundle
+  $ sl histedit 1c4f440a8085 --commands - << EOF | fixbundle
   > pick 1c4f440a8085 rename
   > fold e0371e0426bc b
   > EOF
 
-  $ hg logt --follow b.txt
+  $ sl logt --follow b.txt
   cf858d235c76 rename
   6c795aa153cb a
 
@@ -456,19 +457,19 @@ Folding with swapping
 This is an excuse to test hook with histedit temporary commit (issue4422)
 
 
-  $ hg init issue4422
+  $ sl init issue4422
   $ cd issue4422
   $ echo a > a.txt
-  $ hg add a.txt
-  $ hg commit -m a
+  $ sl add a.txt
+  $ sl commit -m a
   $ echo b > b.txt
-  $ hg add b.txt
-  $ hg commit -m b
+  $ sl add b.txt
+  $ sl commit -m b
   $ echo c > c.txt
-  $ hg add c.txt
-  $ hg commit -m c
+  $ sl add c.txt
+  $ sl commit -m c
 
-  $ hg logt
+  $ sl logt
   a1a953ffb4b0 c
   199b6bb90248 b
   6c795aa153cb a
@@ -480,7 +481,7 @@ into the hook command.
 #else
   $ NODE="\$HG_NODE"
 #endif
-  $ hg histedit 6c795aa153cb --config hooks.commit="echo commit $NODE" --commands - << EOF | fixbundle
+  $ sl histedit 6c795aa153cb --config hooks.commit="echo commit $NODE" --commands - << EOF | fixbundle
   > pick 199b6bb90248 b
   > fold a1a953ffb4b0 c
   > pick 6c795aa153cb a
@@ -488,25 +489,25 @@ into the hook command.
   commit 16b87e97178dde2af2f3c6f6ddda882292f21d13
   commit 9599899f62c05f4377548c32bf1c9f1a39634b0c
 
-  $ hg logt
+  $ sl logt
   9599899f62c0 a
   79b99e9c8e49 b
 
   $ echo "foo" > amended.txt
-  $ hg add amended.txt
-  $ hg ci -q --amend -I amended.txt
+  $ sl add amended.txt
+  $ sl ci -q --amend -I amended.txt
 
 Test that folding multiple changes in a row doesn't show multiple
 editors.
 
   $ echo foo >> foo
-  $ hg add foo
-  $ hg ci -m foo1
+  $ sl add foo
+  $ sl ci -m foo1
   $ echo foo >> foo
-  $ hg ci -m foo2
+  $ sl ci -m foo2
   $ echo foo >> foo
-  $ hg ci -m foo3
-  $ hg logt
+  $ sl ci -m foo3
+  $ sl logt
   21679ff7675c foo3
   b7389cc4d66e foo2
   0e01aeef5fa8 foo1
@@ -518,13 +519,13 @@ editors.
   > echo END >> "$TESTTMP/editorlog.txt"
   > echo merged foos > \$1
   > EOF
-  $ HGEDITOR="sh \"$TESTTMP/editor.sh\"" hg histedit 'max(desc(a))' --commands - <<EOF | fixbundle
+  $ HGEDITOR="sh \"$TESTTMP/editor.sh\"" sl histedit 'max(desc(a))' --commands - <<EOF | fixbundle
   > pick 578c7455730c 1 a
   > pick 0e01aeef5fa8 2 foo1
   > fold b7389cc4d66e 3 foo2
   > fold 21679ff7675c 4 foo3
   > EOF
-  $ hg logt
+  $ sl logt
   e8bedbda72c1 merged foos
   578c7455730c a
   79b99e9c8e49 b
@@ -539,27 +540,27 @@ Editor should have run only once
   
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: added foo
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: added foo
   END
 
   $ cd ..
 
 Test rolling into a commit with multiple children (issue5498)
 
-  $ hg init roll
+  $ sl init roll
   $ cd roll
   $ echo a > a
-  $ hg commit -qAm aa
+  $ sl commit -qAm aa
   $ echo b > b
-  $ hg commit -qAm bb
-  $ hg up -q ".^"
+  $ sl commit -qAm bb
+  $ sl up -q ".^"
   $ echo c > c
-  $ hg commit -qAm cc
-  $ hg log -G -T '{node|short} {desc}'
+  $ sl commit -qAm cc
+  $ sl log -G -T '{node|short} {desc}'
   @  5db65b93a12b cc
   │
   │ o  301d76bdc3ae bb
@@ -567,12 +568,12 @@ Test rolling into a commit with multiple children (issue5498)
   o  8f0162e483d0 aa
   
 
-  $ hg histedit . --commands - << EOF
+  $ sl histedit . --commands - << EOF
   > r 5db65b93a12b
   > EOF
-  hg: parse error: first changeset cannot use verb "roll"
+  sl: parse error: first changeset cannot use verb "roll"
   [255]
-  $ hg log -G -T '{node|short} {desc}'
+  $ sl log -G -T '{node|short} {desc}'
   @  5db65b93a12b cc
   │
   │ o  301d76bdc3ae bb
@@ -584,29 +585,29 @@ Test rolling into a commit with multiple children (issue5498)
 
 Fold/roll shouldn't trigger a merge:
 
-  $ hg init rollmerge
+  $ sl init rollmerge
   $ cd rollmerge
   $ echo a > a
-  $ hg commit -qAm a
+  $ sl commit -qAm a
   $ echo b > a
-  $ hg commit -qAm b
-  $ hg log -G -T '{node|short} {desc}'
+  $ sl commit -qAm b
+  $ sl log -G -T '{node|short} {desc}'
   @  1e6c11564562 b
   │
   o  cb9a9f314b8b a
   
 Set a bogus mergedriver as a tripwire to make sure we don't invoke merge driver.
-  $ hg histedit --config extensions.mergedriver= --config experimental.mergedriver=dontrunthis --commands - << EOF
+  $ sl histedit --config extensions.mergedriver= --config experimental.mergedriver=dontrunthis --commands - << EOF
   > p cb9a9f314b8b
   > r 1e6c11564562
   > EOF
-  $ hg log -G -T '{node|short} {desc}'
+  $ sl log -G -T '{node|short} {desc}'
   @  9e233947f73d a
   
 
   $ cd
 
-  $ hg init folddelete
+  $ sl init folddelete
   $ cd folddelete
   $ drawdag <<EOS
   > D  # D/file2 = foo\n
@@ -623,12 +624,12 @@ Set a bogus mergedriver as a tripwire to make sure we don't invoke merge driver.
   >    # drawdag.defaultfiles=false
   > EOS
   $ sl go -q $D
-  $ hg histedit $B --commands - <<EOF
+  $ sl histedit $B --commands - <<EOF
   > pick $B
   > fold $C
   > pick $D
   > EOF
-  $ hg log -G -p --config diff.git=1
+  $ sl log -G -p --config diff.git=1
   @  commit:      048204e0ad0b
   │  user:        test
   │  date:        Thu Jan 01 00:00:00 1970 +0000
@@ -671,7 +672,7 @@ Set a bogus mergedriver as a tripwire to make sure we don't invoke merge driver.
      @@ -0,0 +1,1 @@
      +foo
   
-  $ hg st
+  $ sl st
   $ ls
   create
   file2

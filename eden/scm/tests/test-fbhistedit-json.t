@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 Tests JSON Input support for histedit
 
@@ -12,12 +13,12 @@ Tests JSON Input support for histedit
 
   $ initrepo ()
   > {
-  >     hg init r
+  >     sl init r
   >     cd r
   >     for x in a b c ; do
   >         echo $x > $x
-  >         hg add $x
-  >         hg ci -m $x
+  >         sl add $x
+  >         sl ci -m $x
   >     done
   > }
 
@@ -25,7 +26,7 @@ Tests JSON Input support for histedit
 
 log before edit
 
-  $ hg log --graph -T "{node|short} {desc}"
+  $ sl log --graph -T "{node|short} {desc}"
   @  177f92b77385 c
   │
   o  d2ae7f538514 b
@@ -45,9 +46,9 @@ passing a json with invalid format
   > }
   > EOF
 
-  $ hg histedit --commands input
+  $ sl histedit --commands input
   invalid JSON format, falling back to normal parsing
-  hg: parse error: malformed line "{"
+  sl: parse error: malformed line "{"
   [255]
 
   $ cat >> input2 <<EOF
@@ -60,9 +61,9 @@ passing a json with invalid format
   > }
   > EOF
 
-  $ hg histedit --commands input2
+  $ sl histedit --commands input2
   invalid JSON format, falling back to normal parsing
-  hg: parse error: malformed line "{"
+  sl: parse error: malformed line "{"
   [255]
 
   $ cat >> input3 <<EOF
@@ -75,9 +76,9 @@ passing a json with invalid format
   > }
   > EOF
 
-  $ hg histedit --commands input3
+  $ sl histedit --commands input3
   invalid JSON format, falling back to normal parsing
-  hg: parse error: malformed line "{"
+  sl: parse error: malformed line "{"
   [255]
 
 passing a json with invalid action
@@ -92,8 +93,8 @@ passing a json with invalid action
   > }
   > EOF
 
-  $ hg histedit --commands foo
-  hg: parse error: unknown action "foo"
+  $ sl histedit --commands foo
+  sl: parse error: unknown action "foo"
   [255]
 
 passing a json with invalid node
@@ -107,8 +108,8 @@ passing a json with invalid node
   > }
   > EOF
 
-  $ hg histedit --commands bar
-  hg: parse error: unknown changeset 123456abcdef listed
+  $ sl histedit --commands bar
+  sl: parse error: unknown changeset 123456abcdef listed
   [255]
 
 running histedit with a valid json file
@@ -117,18 +118,18 @@ running histedit with a valid json file
   > {
   >    "histedit": [
   >                 {"action": "pick", "node": "cb9a9f314b8b"},
-  >                 {"action": "exec", "command": "hg exp"},
+  >                 {"action": "exec", "command": "sl exp"},
   >                 {"action": "pick", "node": "177f92b77385"},
-  >                 {"action": "exec", "command": "hg exp"},
+  >                 {"action": "exec", "command": "sl exp"},
   >                 {"action": "pick", "node": "d2ae7f538514"},
-  >                 {"action": "exec", "command": "hg exp"}
+  >                 {"action": "exec", "command": "sl exp"}
   >                ]
   > }
   > EOF
 
-  $ hg histedit --commands a.json
+  $ sl histedit --commands a.json
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -142,7 +143,7 @@ running histedit with a valid json file
   @@ -0,0 +1,1 @@
   +a
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -156,7 +157,7 @@ running histedit with a valid json file
   @@ -0,0 +1,1 @@
   +c
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -172,7 +173,7 @@ running histedit with a valid json file
 
 log after histedit
 
-  $ hg log --graph -T "{node|short} {desc}"
+  $ sl log --graph -T "{node|short} {desc}"
   @  503d1c1b4668 b
   │
   o  b346ab9a313d c
@@ -191,9 +192,9 @@ testing with abbreviated/small verbs
   > }
   > EOF
 
-  $ hg histedit --commands small
+  $ sl histedit --commands small
 
-  $ hg log --graph -T "{node} {desc}"
+  $ sl log --graph -T "{node} {desc}"
   @  573a8c672aaf44d2cf3f9467e5463f51f7414084 c
   │
   o  85032a8e4f13e773c4075d7c006e0f1bc1c63967 b
@@ -212,9 +213,9 @@ more testing with full hashes
   > }
   > EOF
 
-  $ hg histedit --commands b.json
+  $ sl histedit --commands b.json
 
-  $ hg log --graph -T "{node|short} {desc}"
+  $ sl log --graph -T "{node|short} {desc}"
   @  04e1eac0d294 b
   │
   o  cb9a9f314b8b a
