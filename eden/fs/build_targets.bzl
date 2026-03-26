@@ -16,6 +16,7 @@ EDENFS_TARGETS = {
     "//eden/fs/cli/trace:trace_stream": "/usr/local/libexec/eden/eden_trace_stream",
     "//eden/fs/cli:edenfsctl": "/usr/local/bin/edenfsctl.real",
     "//eden/fs/cli_rs/edenfsctl:edenfsctl": "/usr/local/bin/edenfsctl",
+    "//eden/fs/config/facebook/config_manager_rs:edenfs_config_manager_rust": "/usr/local/libexec/eden/edenfs_config_manager_rust",
     "//eden/fs/config/facebook:edenfs_config_manager": "/usr/local/libexec/eden/edenfs_config_manager",
     "//eden/fs/facebook:eden-fb303-collector": "/usr/local/libexec/eden/eden-fb303-collector",
     "//eden/fs/facebook:edenfs_restarter": "/usr/local/libexec/eden/edenfs_restarter",
@@ -46,6 +47,19 @@ CONFIG_D_TARGETS = {
     "facebook/packaging/config.d/00-defaults.toml": "/etc/eden/config.d/00-defaults.toml",
     "facebook/packaging/config.d/doctor.toml": "/etc/eden/config.d/doctor.toml",
 }
+
+EDENFS_WINDOWS_DEPS = [
+    "fbcode//eden/fs/cli:edenfsctl",
+    "fbcode//eden/fs/cli/trace:trace_stream",
+    "fbcode//eden/fs/cli_rs/edenfsctl:edenfsctl",
+    "fbcode//eden/fs/config/facebook:edenfs_config_manager",
+    "fbcode//eden/fs/config/facebook/config_manager_rs:edenfs_config_manager_rust",
+    "fbcode//eden/fs/facebook:eden-fb303-collector",
+    "fbcode//eden/fs/service:edenfs",
+    "fbcode//eden/fs/service:edenfs[pdb]",
+    # TODO: Figure out symbol package "//arvr/tools/translator:symbol_ents"
+    # TODO: Set up install script to copy files to the appropriate locations
+]
 
 FBPKG_STATIC_ADD_PREFIX = "fs/"
 FBPKG_STRIP_PREFIX = "/usr/local/"
