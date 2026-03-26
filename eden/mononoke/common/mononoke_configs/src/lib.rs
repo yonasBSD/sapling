@@ -52,6 +52,7 @@ type Swappable<T> = Arc<ArcSwap<T>>;
 define_stats! {
     prefix = "mononoke.config_refresh";
     refresh_failure_count: timeseries(Average, Sum, Count),
+    refresh_success_count: timeseries(Average, Sum, Count),
     liveness_count: timeseries(Average, Sum, Count),
 }
 
@@ -386,6 +387,7 @@ async fn watch_and_update(
                             STATS::refresh_failure_count.add_value(1);
                         } else {
                             info!("Successfully applied config update");
+                            STATS::refresh_success_count.add_value(1);
                             // Emit 0 to keep the time series alive for OneDetection alerting.
                             STATS::refresh_failure_count.add_value(0);
                         }
