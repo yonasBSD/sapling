@@ -15,4 +15,5 @@ name = "gitrepocompat"
 [dependencies]
 anyhow = "1.0.102"
 fs-err = { version = "3.3.0", features = ["tokio"] }
+sapling-gitcompat = { version = "0.1.0", path = "../gitcompat" }
 sapling-identity = { version = "0.1.0", path = "../identity" }

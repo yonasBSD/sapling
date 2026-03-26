@@ -63,17 +63,15 @@ Sapling recognizes .repo identity
 
 (bad: sl smartlog does not work correctly in .repo)
   $ sl smartlog -T '{desc}'
-  warning: failed to inspect working copy parent
-  abort: failed to open file `$TESTTMP/repodir/.repo/sl/dirstate`: $ENOENT$
-  [255]
+  @  add manifest
 
 (bad: sl status does not work in .repo)
 (not running to avoid noises)
 $ sl status
 
-(bad: sl log does not work in .repo)
-
-  $ sl log -r . -T '{desc}\n'
-  warning: failed to inspect working copy parent
-  abort: failed to open file `$TESTTMP/repodir/.repo/sl/dirstate`: $ENOENT$
-  [255]
+(bad: sl log does not work correctly in .repo. Projects should show up.)
+  $ sl log -r . -T "desc:\n  {desc}\nfiles:\n{files % '  {file}\n'}"
+  desc:
+    add manifest
+  files:
+    static/static.xml

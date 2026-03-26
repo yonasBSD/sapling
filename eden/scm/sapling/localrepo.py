@@ -1369,6 +1369,7 @@ class localrepository:
         if (
             edenfs.requirement in self.requirements
             or git.DOTGIT_REQUIREMENT in self.requirements
+            or gitrepo.DOTREPO_REQUIREMENT in self.requirements
         ):
             return self._eden_dirstate
 
@@ -2221,6 +2222,7 @@ class localrepository:
         if (
             edenfs.requirement in self.requirements
             or git.DOTGIT_REQUIREMENT in self.requirements
+            or gitrepo.DOTREPO_REQUIREMENT in self.requirements
         ):
             self.dirstate.invalidate()
             return

@@ -20,6 +20,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:fs-err",
+        "//eden/scm/lib/gitcompat:gitcompat",
         "//eden/scm/lib/identity:identity",
     ],
 )

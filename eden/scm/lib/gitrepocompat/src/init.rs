@@ -10,6 +10,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use fs_err as fs;
+use gitcompat::init::init_empty_dirstate;
 use identity::Identity;
 
 /// Initialize and update Sapling's dotdir inside `.repo/`.
@@ -38,6 +39,8 @@ pub fn maybe_init_inside_dotrepo(root_path: &Path, ident: Identity) -> Result<()
             store_dir.join("gitdir"),
             format!("..{SEP}..{SEP}manifests{SEP}.git"),
         )?;
+        // Write an empty eden dirstate so it can be loaded.
+        init_empty_dirstate(&dot_dir)?;
     }
 
     Ok(())
