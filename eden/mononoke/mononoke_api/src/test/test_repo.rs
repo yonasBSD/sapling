@@ -20,6 +20,7 @@ use cross_repo_sync::CommitSyncRepos;
 use cross_repo_sync::SubmoduleDeps;
 use cross_repo_sync::test_utils::init_small_large_repo;
 use cross_repo_sync::update_mapping_with_version;
+use either::Either;
 use fbinit::FacebookInit;
 use fixtures::BranchUneven;
 use fixtures::Linear;
@@ -32,6 +33,7 @@ use metaconfig_types::CommitSyncDirection;
 use metaconfig_types::DefaultSmallToLargeCommitSyncPathAction;
 use mononoke_macros::mononoke;
 use mononoke_types::NonRootMPath;
+use mononoke_types::fsnode::FsnodeEntry;
 use mononoke_types::hash::Blake3;
 use mononoke_types::hash::GitSha1;
 use mononoke_types::hash::RichGitSha1;
@@ -58,8 +60,6 @@ use crate::HgChangesetId;
 use crate::HgChangesetIdPrefix;
 use crate::Mononoke;
 use crate::Repo;
-use crate::TreeEntry;
-use crate::TreeId;
 use crate::XRepoLookupSyncBehaviour;
 use crate::repo::XRepoLookupExactBehaviour;
 
@@ -312,6 +312,7 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
             let tree = path.tree().await?.unwrap();
             tree.list()
                 .await?
+                .into_iter()
                 .map(|(name, _entry)| name)
                 .collect::<Vec<_>>()
         },
@@ -328,6 +329,7 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
             let tree = path.tree().await?.unwrap();
             tree.list()
                 .await?
+                .into_iter()
                 .map(|(name, _entry)| name)
                 .collect::<Vec<_>>()
         },
@@ -345,6 +347,7 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
             {
                 tree.list()
                     .await?
+                    .into_iter()
                     .map(|(name, _entry)| name)
                     .collect::<Vec<_>>()
             },
@@ -357,11 +360,12 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
         match tree
             .list()
             .await?
+            .into_iter()
             .collect::<HashMap<_, _>>()
             .get("subsubdir2")
             .expect("entry should exist for subsubdir2")
         {
-            TreeEntry::Directory(dir) => dir.id().clone(),
+            Either::Right(FsnodeEntry::Directory(dir)) => dir.id().clone().into(),
             entry => panic!("subsubdir2 entry should be a directory, not {:?}", entry),
         }
     };
@@ -371,8 +375,9 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
             let tree = path.tree().await?.unwrap();
             tree.list()
                 .await?
+                .into_iter()
                 .map(|(name, entry)| match entry {
-                    TreeEntry::File(file) => {
+                    Either::Right(FsnodeEntry::File(file)) => {
                         Some((name, file.size(), file.content_sha1().to_string()))
                     }
                     _ => None,
@@ -391,6 +396,7 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
             let tree = repo.tree(subsubdir2_id).await?.expect("tree exists");
             tree.list()
                 .await?
+                .into_iter()
                 .map(|(name, _entry)| name)
                 .collect::<Vec<_>>()
         },
@@ -398,9 +404,13 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
     );
     // Get tree by non-existent id returns None.
     assert!(
-        repo.tree(TreeId::from_bytes([1; 32]).unwrap())
-            .await?
-            .is_none()
+        repo.tree(
+            mononoke_types::FsnodeId::from_bytes([1; 32])
+                .unwrap()
+                .into()
+        )
+        .await?
+        .is_none()
     );
     // Get tree by non-existent path returns None.
     {

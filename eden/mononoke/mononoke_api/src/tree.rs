@@ -11,14 +11,16 @@ use anyhow::Error;
 use blobstore::Loadable;
 use blobstore::LoadableError;
 use cloned::cloned;
+use either::Either;
+use futures::TryStreamExt;
 use futures_lazy_shared::LazyShared;
-// Trees are identified by their FsnodeId.
-pub use mononoke_types::FsnodeId as TreeId;
+use mononoke_types::content_manifest::ContentManifest;
+use mononoke_types::content_manifest::ContentManifestEntry;
+use mononoke_types::content_manifest::ContentManifestRollupData;
+use mononoke_types::content_manifest::compat;
 use mononoke_types::fsnode::Fsnode;
-// An entry within a tree list (either a file or subdirectory).
-pub use mononoke_types::fsnode::FsnodeEntry as TreeEntry;
-// Summary information about the files in a tree.
-pub use mononoke_types::fsnode::FsnodeSummary as TreeSummary;
+use mononoke_types::fsnode::FsnodeEntry;
+use mononoke_types::fsnode::FsnodeSummary;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_identity::RepoIdentityRef;
 use repo_permission_checker::RepoPermissionCheckerRef;
@@ -29,11 +31,15 @@ use restricted_paths::RestrictedPathsArc;
 use crate::errors::MononokeError;
 use crate::repo::RepoContext;
 
+/// Summary information about the files in a tree.
+/// Either a ContentManifestRollupData or an FsnodeSummary.
+pub type TreeSummary = Either<ContentManifestRollupData, FsnodeSummary>;
+
 #[derive(Clone)]
 pub struct TreeContext<R> {
     repo_ctx: RepoContext<R>,
-    id: TreeId,
-    fsnode: LazyShared<Result<Fsnode, MononokeError>>,
+    id: compat::ContentManifestId,
+    manifest: LazyShared<Result<Either<ContentManifest, Fsnode>, MononokeError>>,
 }
 
 impl<R: RepoIdentityRef> fmt::Debug for TreeContext<R> {
@@ -54,11 +60,11 @@ impl<R> TreeContext<R> {
     ///
     /// To construct a `TreeContext` for a tree that might not exist, use
     /// `new_check_exists`.
-    pub(crate) fn new_authorized(repo_ctx: RepoContext<R>, id: TreeId) -> Self {
+    pub(crate) fn new_authorized(repo_ctx: RepoContext<R>, id: compat::ContentManifestId) -> Self {
         Self {
             repo_ctx,
             id,
-            fsnode: LazyShared::new_empty(),
+            manifest: LazyShared::new_empty(),
         }
     }
 
@@ -67,7 +73,7 @@ impl<R> TreeContext<R> {
         &self.repo_ctx
     }
 
-    pub fn id(&self) -> &TreeId {
+    pub fn id(&self) -> &compat::ContentManifestId {
         &self.id
     }
 }
@@ -87,7 +93,7 @@ impl<
     /// `None` if the tree doesn't exist.
     pub(crate) async fn new_check_exists(
         repo_ctx: RepoContext<R>,
-        id: TreeId,
+        id: compat::ContentManifestId,
     ) -> Result<Option<Self>, MononokeError> {
         // Access to an arbitrary tree requires full access to the repo,
         // as we do not know which path it corresponds to.
@@ -96,28 +102,36 @@ impl<
             .require_full_repo_read(repo_ctx.ctx(), repo_ctx.repo())
             .await?;
 
-        // Try to load the fsnode immediately to see if it exists. Unlike
-        // `new`, if the fsnode is missing, we simply return `Ok(None)`.
+        // Try to load the manifest immediately to see if it exists. Unlike
+        // `new_authorized`, if the manifest is missing, we simply return `Ok(None)`.
         match id
             .load(repo_ctx.ctx(), repo_ctx.repo().repo_blobstore())
             .await
         {
-            Ok(fsnode) => {
-                // Log restricted path access if enabled
-                let manifest_id = ManifestId::from(&id.blake2().into_inner());
+            Ok(manifest) => {
+                // Log restricted path access if enabled.
+                let blake2 = match &id {
+                    Either::Left(cm_id) => cm_id.blake2().into_inner(),
+                    Either::Right(fsnode_id) => fsnode_id.blake2().into_inner(),
+                };
+                let manifest_id = ManifestId::from(&blake2);
+                let manifest_type = match &id {
+                    Either::Left(_) => ManifestType::ContentManifest,
+                    Either::Right(_) => ManifestType::Fsnode,
+                };
                 restricted_paths::spawn_enforce_restricted_manifest_access(
                     repo_ctx.ctx(),
                     repo_ctx.repo().restricted_paths_arc().clone(),
                     manifest_id,
-                    ManifestType::Fsnode,
-                    "fsnodes_new_check_exists",
+                    manifest_type,
+                    "manifest_new_check_exists",
                 )
                 .await?;
 
                 Ok(Some(Self {
                     repo_ctx,
                     id,
-                    fsnode: LazyShared::new_ready(Ok(fsnode)),
+                    manifest: LazyShared::new_ready(Ok(manifest)),
                 }))
             }
             Err(LoadableError::Missing(_)) => Ok(None),
@@ -127,8 +141,8 @@ impl<
 }
 
 impl<R: RepoBlobstoreRef + Clone + Send + Sync + 'static> TreeContext<R> {
-    async fn fsnode(&self) -> Result<Fsnode, MononokeError> {
-        self.fsnode
+    async fn manifest(&self) -> Result<Either<ContentManifest, Fsnode>, MononokeError> {
+        self.manifest
             .get_or_init(|| {
                 cloned!(self.repo_ctx, self.id);
                 async move {
@@ -142,18 +156,42 @@ impl<R: RepoBlobstoreRef + Clone + Send + Sync + 'static> TreeContext<R> {
     }
 
     pub async fn summary(&self) -> Result<TreeSummary, MononokeError> {
-        let summary = self.fsnode().await?.summary().clone();
-        Ok(summary)
+        let manifest = self.manifest().await?;
+        match manifest {
+            Either::Left(cm) => Ok(Either::Left(cm.subentries.rollup_data())),
+            Either::Right(fsnode) => Ok(Either::Right(fsnode.summary().clone())),
+        }
     }
 
     pub async fn list(
         &self,
-    ) -> Result<impl Iterator<Item = (String, TreeEntry)> + use<R>, MononokeError> {
-        let fsnode = self.fsnode().await?;
-        let entries = fsnode
-            .into_subentries()
-            .into_iter()
-            .map(|(elem, entry)| (String::from_utf8_lossy(elem.as_ref()).to_string(), entry));
-        Ok(entries)
+    ) -> Result<Vec<(String, Either<ContentManifestEntry, FsnodeEntry>)>, MononokeError> {
+        let manifest = self.manifest().await?;
+        match manifest {
+            Either::Left(cm) => {
+                let blobstore = self.repo_ctx.repo().repo_blobstore();
+                let ctx = self.repo_ctx.ctx();
+                cm.into_subentries(ctx, blobstore)
+                    .map_ok(|(elem, entry)| {
+                        (
+                            String::from_utf8_lossy(elem.as_ref()).to_string(),
+                            Either::Left(entry),
+                        )
+                    })
+                    .try_collect()
+                    .await
+                    .map_err(MononokeError::from)
+            }
+            Either::Right(fsnode) => Ok(fsnode
+                .into_subentries()
+                .into_iter()
+                .map(|(elem, entry)| {
+                    (
+                        String::from_utf8_lossy(elem.as_ref()).to_string(),
+                        Either::Right(entry),
+                    )
+                })
+                .collect()),
+        }
     }
 }

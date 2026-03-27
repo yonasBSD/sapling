@@ -576,7 +576,7 @@ impl RestrictedPathsTestData {
                 .map_err(MononokeError::from)
                 .and_then(async |(_path, fsnode_id)| {
                     // Access Fsnode by loading it from blobstore
-                    match repo_ctx.tree(fsnode_id).await {
+                    match repo_ctx.tree(fsnode_id.into()).await {
                         Ok(_) => Ok(None),
                         Err(e @ MononokeError::AuthorizationError(_)) => {
                             Ok(Some((AccessMethod::Fsnode, e)))
@@ -713,7 +713,13 @@ impl RestrictedPathsTestData {
 
         #[cfg(fbcode_build)]
         if let Some(expected_scuba_logs) = &self.expected_scuba_logs {
-            assert_eq!(*expected_scuba_logs, scuba_logs);
+            // Sort both sides by debug representation since async logging
+            // can produce entries in non-deterministic order.
+            let mut expected_sorted = expected_scuba_logs.clone();
+            let mut actual_sorted = scuba_logs.clone();
+            expected_sorted.sort_by(|a, b| format!("{:?}", a).cmp(&format!("{:?}", b)));
+            actual_sorted.sort_by(|a, b| format!("{:?}", a).cmp(&format!("{:?}", b)));
+            assert_eq!(expected_sorted, actual_sorted);
         }
         #[cfg(not(fbcode_build))]
         let _ = (scuba_logs, &self.expected_scuba_logs);

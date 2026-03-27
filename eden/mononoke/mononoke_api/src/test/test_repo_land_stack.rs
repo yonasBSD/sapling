@@ -141,6 +141,7 @@ async fn land_stack(fb: FacebookInit) -> Result<()> {
         .expect("root must be a tree")
         .list()
         .await?
+        .into_iter()
         .map(|(name, _entry)| name)
         .collect();
     let expected_files: HashSet<_> = hashset! {"A", "B", "C", "D", "E", "F", "G"}

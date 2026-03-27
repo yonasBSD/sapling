@@ -39,17 +39,17 @@ impl SourceControlServiceImpl {
             0..=source_control::TREE_LIST_MAX_LIMIT,
         )?;
         if let Some(tree) = tree {
-            let summary = tree.summary().await?;
-            let entries = tree
-                .list()
-                .await?
+            let all_entries = tree.list().await?;
+            let count = all_entries.len() as i64;
+            let entries = all_entries
+                .into_iter()
                 .skip(offset)
                 .take(limit)
                 .map(IntoResponse::into_response)
                 .collect();
             let response = thrift::TreeListResponse {
                 entries,
-                count: (summary.child_files_count + summary.child_dirs_count) as i64,
+                count,
                 ..Default::default()
             };
             Ok(response)

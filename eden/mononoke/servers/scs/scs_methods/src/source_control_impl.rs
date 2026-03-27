@@ -69,9 +69,9 @@ use mononoke_api::Repo;
 use mononoke_api::RepoContext;
 use mononoke_api::SessionContainer;
 use mononoke_api::TreeContext;
-use mononoke_api::TreeId;
 use mononoke_app::MononokeApp;
 use mononoke_configs::MononokeConfigs;
+use mononoke_types::content_manifest::compat;
 use mononoke_types::hash::Sha1;
 use mononoke_types::hash::Sha256;
 use permission_checker::AclProvider;
@@ -655,7 +655,7 @@ impl SourceControlServiceImpl {
             }
             thrift::TreeSpecifier::by_id(tree_id) => {
                 let repo = self.repo(ctx, &tree_id.repo).await?;
-                let tree_id = TreeId::from_request(&tree_id.id)?;
+                let tree_id = compat::ContentManifestId::from_request(tree_id)?;
                 let tree = repo
                     .tree(tree_id)
                     .await?

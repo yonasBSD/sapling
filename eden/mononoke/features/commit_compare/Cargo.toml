@@ -10,6 +10,7 @@ license = "GPLv2+"
 [dependencies]
 anyhow = "1.0.102"
 context = { version = "0.1.0", path = "../../servers/slapi/slapi_server/context" }
+either = "1.5"
 futures = { version = "0.3.31", features = ["async-await", "compat"] }
 futures-util = { version = "0.3.30", features = ["compat"] }
 itertools = "0.14.0"

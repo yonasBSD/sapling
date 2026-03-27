@@ -119,6 +119,7 @@ use mononoke_types::ContentId;
 use mononoke_types::RepositoryId;
 use mononoke_types::Svnrev;
 use mononoke_types::Timestamp;
+use mononoke_types::content_manifest::compat;
 use mononoke_types::hash::Blake3;
 use mononoke_types::hash::GitSha1;
 use mononoke_types::hash::Sha1;
@@ -176,7 +177,6 @@ use crate::specifiers::ChangesetSpecifier;
 use crate::specifiers::ChangesetSpecifierPrefixResolution;
 use crate::specifiers::HgChangesetId;
 use crate::tree::TreeContext;
-use crate::tree::TreeId;
 use crate::xrepo::CandidateSelectionHintArgs;
 
 pub mod commit_cloud;
@@ -1569,7 +1569,10 @@ impl<
 > RepoContext<R>
 {
     /// Get a Tree by id.  Returns `None` if the tree doesn't exist.
-    pub async fn tree(&self, tree_id: TreeId) -> Result<Option<TreeContext<R>>, MononokeError> {
+    pub async fn tree(
+        &self,
+        tree_id: compat::ContentManifestId,
+    ) -> Result<Option<TreeContext<R>>, MononokeError> {
         TreeContext::new_check_exists(self.clone(), tree_id).await
     }
 }

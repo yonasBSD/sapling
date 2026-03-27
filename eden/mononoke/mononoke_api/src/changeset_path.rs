@@ -307,7 +307,7 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
         let tree = match self.fsnode_id().await? {
             Some(Entry::Tree(fsnode_id)) => Some(TreeContext::new_authorized(
                 self.repo_ctx().clone(),
-                fsnode_id,
+                fsnode_id.into(),
             )),
             _ => None,
         };
@@ -359,7 +359,7 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
         let entry = match self.fsnode_id().await? {
             Some(Entry::Tree(fsnode_id)) => PathEntry::Tree(TreeContext::new_authorized(
                 self.repo_ctx().clone(),
-                fsnode_id,
+                fsnode_id.into(),
             )),
             Some(Entry::Leaf(file)) => PathEntry::File(
                 FileContext::new_authorized(

@@ -37,11 +37,11 @@ use mononoke_api::FileId;
 use mononoke_api::FileType;
 use mononoke_api::HgChangesetId;
 use mononoke_api::HgChangesetIdPrefix;
-use mononoke_api::TreeId;
 use mononoke_api::specifiers::GitSha1;
 use mononoke_api::specifiers::GitSha1Prefix;
 use mononoke_api::specifiers::Globalrev;
 use mononoke_api::specifiers::Svnrev;
+use mononoke_types::content_manifest::compat;
 use mononoke_types::hash::Sha1;
 use mononoke_types::hash::Sha256;
 use mononoke_types::path::MPath;
@@ -286,11 +286,45 @@ macro_rules! impl_from_request_binary_id(
     }
 );
 
-impl_from_request_binary_id!(TreeId, "tree id");
 impl_from_request_binary_id!(FileId, "file id");
 impl_from_request_binary_id!(Sha1, "sha-1");
 impl_from_request_binary_id!(Sha256, "sha-256");
 impl_from_request_binary_id!(GitSha1, "git-sha-1");
+
+// compat::ContentManifestId is Either<ContentManifestId, FsnodeId>.
+// Use the id_type field from TreeIdSpecifier to determine the correct variant.
+// When id_type is absent (old clients), default to FsnodeId.
+impl FromRequest<thrift::TreeIdSpecifier> for compat::ContentManifestId {
+    fn from_request(tree_id: &thrift::TreeIdSpecifier) -> Result<Self, thrift::RequestError> {
+        let id = &tree_id.id;
+        match tree_id.id_type {
+            Some(thrift::TreeIdType::CONTENT_MANIFEST) => {
+                mononoke_types::ContentManifestId::from_bytes(id)
+                    .map(compat::ContentManifestId::from)
+                    .map_err(|e| {
+                        scs_errors::invalid_request(format!(
+                            "invalid content manifest tree id ({}): {}",
+                            hex_string(id),
+                            e,
+                        ))
+                    })
+            }
+            Some(thrift::TreeIdType::FSNODE) | None => mononoke_types::FsnodeId::from_bytes(id)
+                .map(compat::ContentManifestId::from)
+                .map_err(|e| {
+                    scs_errors::invalid_request(format!(
+                        "invalid tree id ({}): {}",
+                        hex_string(id),
+                        e,
+                    ))
+                }),
+            Some(val) => Err(scs_errors::invalid_request(format!(
+                "unsupported tree id type ({})",
+                val.0,
+            ))),
+        }
+    }
+}
 
 impl FromRequest<thrift::RepoCreateCommitParamsFileType> for FileType {
     fn from_request(

@@ -75,15 +75,7 @@ impl SourceControlServiceImpl {
             },
             PathEntry::Tree(tree) => {
                 let summary = tree.summary().await?;
-                let tree_info = thrift::TreeInfo {
-                    id: tree.id().as_ref().to_vec(),
-                    child_files_count: summary.child_files_count as i64,
-                    child_files_total_size: summary.child_files_total_size as i64,
-                    child_dirs_count: summary.child_dirs_count as i64,
-                    descendant_files_count: summary.descendant_files_count as i64,
-                    descendant_files_total_size: summary.descendant_files_total_size as i64,
-                    ..Default::default()
-                };
+                let tree_info = (tree.id().clone(), summary).into_response();
                 thrift::CommitPathInfoResponse {
                     exists: true,
                     r#type: Some(thrift::EntryType::TREE),
@@ -141,7 +133,7 @@ impl SourceControlServiceImpl {
                             exists: true,
                             r#type: Some(thrift::EntryType::TREE),
                             info: Some(thrift::EntryInfo::tree(
-                                (*tree.id(), summary).into_response(),
+                                (tree.id().clone(), summary).into_response(),
                             )),
                             ..Default::default()
                         };
