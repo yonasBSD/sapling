@@ -326,6 +326,43 @@ fn touches_directories(changeset: &BonsaiChangeset, directories: &[String]) -> b
     })
 }
 
+/// Config-stable inspection result for a single changeset.
+/// Safe to cache because it depends only on hook config, not on the caller.
+#[derive(Clone, Debug)]
+pub struct EligibleChangesetInfo {
+    pub parsed_username: Option<String>,
+}
+
+/// Inspect a changeset for config-stable eligibility.
+/// Returns `Some(info)` if the changeset is eligible and touches the
+/// configured directories, `None` otherwise.
+fn inspect_changeset_eligibility(
+    changeset: &BonsaiChangeset,
+    eligibility_checks: &[EligibilityCheck],
+    directories: &[String],
+) -> Option<EligibleChangesetInfo> {
+    if !is_eligible_for_rate_limit(eligibility_checks, changeset) {
+        return None;
+    }
+    if !touches_directories(changeset, directories) {
+        return None;
+    }
+    let parsed_username = parse_author_username(changeset.author()).map(|u| u.to_owned());
+    Some(EligibleChangesetInfo { parsed_username })
+}
+
+/// Check whether an eligible changeset matches the caller-specific user filter.
+fn matches_user_filter(info: &EligibleChangesetInfo, user_filter: Option<&str>) -> bool {
+    match user_filter {
+        None => true,
+        Some(username) => info
+            .parsed_username
+            .as_deref()
+            .map(|u| u == username)
+            .unwrap_or(false),
+    }
+}
+
 fn build_ancestor_predicate(
     checks: &[EligibilityCheck],
     directories: &[String],
@@ -336,21 +373,11 @@ fn build_ancestor_predicate(
     let user_filter = user_filter.map(|u| u.to_owned());
 
     Arc::new(move |changeset: &BonsaiChangeset| {
-        if !is_eligible_for_rate_limit(&checks, changeset) {
-            return false;
-        }
-        if !touches_directories(changeset, &directories) {
-            return false;
-        }
-        if let Some(ref username) = user_filter {
-            let author_match = parse_author_username(changeset.author())
-                .map(|author_username| author_username == username.as_str())
-                .unwrap_or(false);
-            if !author_match {
-                return false;
-            }
-        }
-        true
+        let info = match inspect_changeset_eligibility(changeset, &checks, &directories) {
+            Some(info) => info,
+            None => return false,
+        };
+        matches_user_filter(&info, user_filter.as_deref())
     })
 }
 

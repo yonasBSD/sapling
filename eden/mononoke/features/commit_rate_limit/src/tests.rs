@@ -404,6 +404,83 @@ fn test_build_ancestor_predicate_user_filter_no_match() {
 }
 
 // =========================================================================
+// Unit tests: Config-stable inspection and user filter
+// =========================================================================
+
+#[mononoke::test]
+fn test_inspect_eligible_changeset() {
+    let cs = make_changeset(
+        vec![("auto_approved", b"1")],
+        vec!["users/alice/foo.txt"],
+        "msg",
+    );
+    let checks = vec![EligibilityCheck::HgExtra {
+        key: "auto_approved".to_string(),
+    }];
+    let dirs = vec!["users/".to_string()];
+    let info = inspect_changeset_eligibility(&cs, &checks, &dirs);
+    assert!(info.is_some());
+    assert_eq!(
+        info.as_ref().and_then(|i| i.parsed_username.as_deref()),
+        Some("testuser")
+    );
+}
+
+#[mononoke::test]
+fn test_inspect_ineligible_changeset() {
+    let cs = make_changeset(vec![], vec!["users/alice/foo.txt"], "msg");
+    let checks = vec![EligibilityCheck::HgExtra {
+        key: "auto_approved".to_string(),
+    }];
+    let dirs = vec!["users/".to_string()];
+    let info = inspect_changeset_eligibility(&cs, &checks, &dirs);
+    assert!(info.is_none());
+}
+
+#[mononoke::test]
+fn test_inspect_wrong_directory() {
+    let cs = make_changeset(vec![("auto_approved", b"1")], vec!["other.txt"], "msg");
+    let checks = vec![EligibilityCheck::HgExtra {
+        key: "auto_approved".to_string(),
+    }];
+    let dirs = vec!["users/".to_string()];
+    let info = inspect_changeset_eligibility(&cs, &checks, &dirs);
+    assert!(info.is_none());
+}
+
+#[mononoke::test]
+fn test_matches_user_filter_no_filter() {
+    let info = EligibleChangesetInfo {
+        parsed_username: Some("alice".to_string()),
+    };
+    assert!(matches_user_filter(&info, None));
+}
+
+#[mononoke::test]
+fn test_matches_user_filter_match() {
+    let info = EligibleChangesetInfo {
+        parsed_username: Some("alice".to_string()),
+    };
+    assert!(matches_user_filter(&info, Some("alice")));
+}
+
+#[mononoke::test]
+fn test_matches_user_filter_no_match() {
+    let info = EligibleChangesetInfo {
+        parsed_username: Some("alice".to_string()),
+    };
+    assert!(!matches_user_filter(&info, Some("bob")));
+}
+
+#[mononoke::test]
+fn test_matches_user_filter_no_username() {
+    let info = EligibleChangesetInfo {
+        parsed_username: None,
+    };
+    assert!(!matches_user_filter(&info, Some("alice")));
+}
+
+// =========================================================================
 // Integration tests
 //
 // These exercise the complete check_commit_rate_limit() path with real
