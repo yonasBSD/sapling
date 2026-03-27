@@ -131,6 +131,10 @@ let hg_ids: HashMap<_, _> = entries
 
 The same pattern applies to `BonsaiGitMapping::get(ctx, BonsaisOrGitShas::Bonsai(ids))`, `BonsaiGlobalrevMapping::get(ctx, BonsaisOrGlobalrevs::Bonsai(ids))`, and `BonsaiSvnrevMapping::get(ctx, BonsaisOrSvnrevs::Bonsai(ids))` -- all accept multiple IDs. Avoid calling the single-ID convenience methods (`get_hg_from_bonsai`, `get_git_sha1_from_bonsai`, `get_bonsai_from_globalrev`, etc.) in a loop.
 
+## Output Format
+
+If multiple files contain the same sequential-fetch pattern, report it as a single finding listing all affected files rather than repeating the same comment per file. For example: "Sequential `.load()` in a loop found in `foo.rs:42`, `bar.rs:87`, `baz.rs:15` -- use `buffer_unordered` instead."
+
 ## Recommendation
 
 For raw blobstore operations (`Blobstore::get`, `Blobstore::put`, `Loadable::load`, `Storable::store`), there are no bulk/batch methods on these traits -- the only way to batch is `stream::iter(...).map(...).buffer_unordered(N)`. Choose N based on downstream capacity: 64-100 for blobstore operations, 10-50 for SQL-backed stores.
