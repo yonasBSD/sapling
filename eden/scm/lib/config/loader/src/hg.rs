@@ -720,6 +720,18 @@ impl ConfigSetExtInternal for ConfigSet {
 
 #[cfg(feature = "fb")]
 fn get_config_dir(info: Option<&RepoMinimalInfo>) -> Result<PathBuf, Error> {
+    // Explicit override takes priority over repo-level config dir.
+    // This allows dev builds (via bsl) to isolate their cached dynamic
+    // config from the system sl.
+    if let Ok(dir) = std::env::var("HG_CONFIG_CACHE_DIR") {
+        let dir = PathBuf::from(dir);
+        if let Err(err) = std::fs::create_dir_all(&dir) {
+            tracing::warn!("HG_CONFIG_CACHE_DIR {:?} not usable: {:#}", dir, err);
+        } else {
+            return Ok(dir);
+        }
+    }
+
     Ok(match info {
         Some(info) => info.shared_dot_hg_path.clone(),
         None => {
@@ -727,7 +739,6 @@ fn get_config_dir(info: Option<&RepoMinimalInfo>) -> Result<PathBuf, Error> {
                 std::env::var("TESTTMP")
                     .ok()
                     .map(|d| PathBuf::from(d).join(".cache")),
-                std::env::var("HG_CONFIG_CACHE_DIR").ok().map(PathBuf::from),
                 dirs::cache_dir(),
                 Some(std::env::temp_dir()),
             ];
