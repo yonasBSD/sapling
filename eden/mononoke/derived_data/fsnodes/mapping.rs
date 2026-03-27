@@ -222,7 +222,7 @@ pub async fn get_fsnode_subtree_changes(
                         let stage_outputs = RootFsnodeId::fetch_stage_outputs(
                             &ctx,
                             derivation_ctx,
-                            &terminal_stage_id,
+                            terminal_stage_id,
                             vec![from_cs_id],
                         )
                         .await?;
