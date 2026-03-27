@@ -99,7 +99,6 @@ rust_library(
         "DEFAULT": [],
         "ovr_config//os:linux": [
             "//devinfra/lib/rust/platform_cats_reader:platform_cats_reader",
-            "//infrasec/authorization/if:if-aclchecker-rust-srclients",
         ],
     }),
 )
