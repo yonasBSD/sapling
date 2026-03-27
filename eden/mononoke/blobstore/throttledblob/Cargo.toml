@@ -12,6 +12,6 @@ anyhow = "1.0.102"
 async-trait = "0.1.86"
 blobstore = { version = "0.1.0", path = ".." }
 context = { version = "0.1.0", path = "../../servers/slapi/slapi_server/context" }
-governor = "0.6.3"
+governor = "0.7.0"
 mononoke_types = { version = "0.1.0", path = "../../mononoke_types" }
 nonzero_ext = "0.2"
