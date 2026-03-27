@@ -388,8 +388,6 @@ async fn watch_and_update(
                         } else {
                             info!("Successfully applied config update");
                             STATS::refresh_success_count.add_value(1);
-                            // Emit 0 to keep the time series alive for OneDetection alerting.
-                            STATS::refresh_failure_count.add_value(0);
                         }
                     }
                     Err(e) => {
