@@ -225,6 +225,7 @@ impl<'a> CatsSection<'a> {
             vec![
                 platform_cats_reader::CAT_KEY_VERIFY_INTEGRITY.to_string(),
                 platform_cats_reader::CAT_KEY_INTERNGRAPH.to_string(),
+                platform_cats_reader::CAT_KEY_SCM_SERVICE_IDENTITY.to_string(),
             ]
         };
         self.config
