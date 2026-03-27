@@ -29,6 +29,7 @@ rust_library(
         "//eden/mononoke/cmdlib/sharding_ext:sharding_ext",
         "//eden/mononoke/common/mononoke_macros:mononoke_macros",
         "//eden/mononoke/derived_data:fsnodes",
+        "//eden/mononoke/derived_data/content_manifest_derivation:content_manifest_derivation",
         "//eden/mononoke/metaconfig:metaconfig_types",
         "//eden/mononoke/mononoke_types:mononoke_types",
         "//eden/mononoke/repo_attributes/bookmarks:bookmarks",

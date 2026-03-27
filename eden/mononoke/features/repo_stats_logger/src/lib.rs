@@ -14,6 +14,7 @@ use anyhow::Result;
 use blobstore::Loadable;
 use bookmarks::ArcBookmarks;
 use bookmarks::BookmarkKey;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
 use fbinit::FacebookInit;
@@ -187,6 +188,7 @@ async fn get_repo_objects_count(
             if let Some(cs_id) = maybe_bookmark {
                 let count = get_descendant_count(
                     ctx,
+                    repo_name,
                     repo_blobstore.clone(),
                     repo_derived_data.clone(),
                     cs_id,
@@ -204,19 +206,41 @@ async fn get_repo_objects_count(
 
 async fn get_descendant_count(
     ctx: &CoreContext,
+    repo_name: &str,
     repo_blobstore: ArcRepoBlobstore,
     repo_derived_data: ArcRepoDerivedData,
     cs_id: ChangesetId,
 ) -> Result<i64, Error> {
-    let root_fsnode_id = repo_derived_data
-        .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
-        .await?;
-    let count = root_fsnode_id
-        .fsnode_id()
-        .load(ctx, &repo_blobstore)
-        .await?
-        .summary()
-        .descendant_files_count;
+    let use_content_manifests = justknobs::eval(
+        "scm/mononoke:derived_data_use_content_manifests",
+        None,
+        Some(repo_name),
+    )?;
+
+    let count = if use_content_manifests {
+        let root_content_manifest_id = repo_derived_data
+            .derive::<RootContentManifestId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?;
+        let content_manifest = root_content_manifest_id
+            .into_content_manifest_id()
+            .load(ctx, &repo_blobstore)
+            .await?;
+        content_manifest
+            .subentries
+            .rollup_data()
+            .descendant_counts
+            .files_count
+    } else {
+        let root_fsnode_id = repo_derived_data
+            .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?;
+        root_fsnode_id
+            .fsnode_id()
+            .load(ctx, &repo_blobstore)
+            .await?
+            .summary()
+            .descendant_files_count
+    };
     Ok(i64::try_from(count).expect("file count overflows i64"))
 }
 
