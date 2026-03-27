@@ -21,6 +21,7 @@ use std::str;
 
 use anyhow::Result;
 use configmodel::Config;
+use configmodel::ConfigExt;
 use configmodel::Text;
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -191,7 +192,7 @@ impl<'a> CatsSection<'a> {
                 #[cfg(all(fbcode_build, target_os = "linux"))]
                 if cats_group.name == "preminted" {
                     tracing::debug!("config group 'preminted'; using preminted CATs library");
-                    return Self::try_preminted_cats();
+                    return self.try_preminted_cats();
                 }
 
                 if let Some(path) = cats_group.path {
@@ -215,18 +216,28 @@ impl<'a> CatsSection<'a> {
         }
 
         // Config-based CATs not available; try pre-minted as fallback.
-        Self::try_preminted_cats()
+        self.try_preminted_cats()
     }
 
     #[cfg(all(fbcode_build, target_os = "linux"))]
-    fn try_preminted_cats() -> Result<Option<String>> {
-        let wanted_keys: &[&str] = &[
-            platform_cats_lib::CAT_KEY_VERIFY_INTEGRITY,
-            platform_cats_lib::CAT_KEY_INTERNGRAPH,
-        ];
+    fn preminted_wanted_keys(&self) -> Vec<String> {
+        let default = || {
+            vec![
+                platform_cats_reader::CAT_KEY_VERIFY_INTEGRITY.to_string(),
+                platform_cats_reader::CAT_KEY_INTERNGRAPH.to_string(),
+            ]
+        };
+        self.config
+            .get_or("cats", "preminted-wanted-keys", default)
+            .unwrap_or_else(|_| default())
+    }
+
+    #[cfg(all(fbcode_build, target_os = "linux"))]
+    fn try_preminted_cats(&self) -> Result<Option<String>> {
+        let wanted_keys = self.preminted_wanted_keys();
 
         // Check if any pre-minted CATs exist on this machine.
-        let all_cats = platform_cats_lib::read_all_preminted_cats();
+        let all_cats = platform_cats_reader::read_all_preminted_cats();
         if all_cats.is_empty() {
             return Ok(None);
         }
@@ -234,28 +245,32 @@ impl<'a> CatsSection<'a> {
         // Pre-minted CATs exist — check if our required keys are present.
         let missing: Vec<&str> = wanted_keys
             .iter()
-            .filter(|k| !all_cats.contains_key(**k))
-            .copied()
+            .filter(|k| !all_cats.contains_key(k.as_str()))
+            .map(|k| k.as_str())
             .collect();
 
         if !missing.is_empty() {
             tracing::debug!(
                 ?missing,
-                "pre-minted CATs available; some requested keys absent (X.509 will be used for those)"
+                "pre-minted CATs missing required keys; not using pre-minted CATs"
             );
+            return Ok(None);
         }
 
-        match platform_cats_lib::read_merged_preminted_cats_for(wanted_keys) {
+        // Read the already-merged "crypto_auth_tokens" key directly,
+        // avoiding the heavyweight cryptocat dependency that
+        // read_merged_preminted_cats_for() would pull in.
+        match all_cats.get(platform_cats_reader::CAT_KEY_MERGED) {
             Some(cats) => {
                 tracing::debug!("using pre-minted CATs for authentication");
-                Ok(Some(cats))
+                Ok(Some(cats.clone()))
             }
             None => Ok(None),
         }
     }
 
     #[cfg(not(all(fbcode_build, target_os = "linux")))]
-    fn try_preminted_cats() -> Result<Option<String>> {
+    fn try_preminted_cats(&self) -> Result<Option<String>> {
         Ok(None)
     }
 }
