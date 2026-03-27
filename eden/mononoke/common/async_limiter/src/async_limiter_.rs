@@ -13,6 +13,7 @@ use futures::future::Future;
 use futures::stream::StreamExt;
 use governor::RateLimiter;
 use governor::clock::ReasonablyRealtime;
+use governor::middleware::NoOpMiddleware;
 use governor::state::direct::DirectStateStore;
 use governor::state::direct::NotKeyed;
 use governor::state::direct::StreamRateLimitExt;
@@ -30,7 +31,7 @@ pub struct AsyncLimiter {
 impl AsyncLimiter {
     // NOTE: This function is async because it requires a Tokio runtme to spawn things. The best
     // way to require a Tokio runtime to be present is to just make the function async.
-    pub async fn new<S, C>(limiter: RateLimiter<NotKeyed, S, C>) -> Self
+    pub async fn new<S, C>(limiter: RateLimiter<NotKeyed, S, C, NoOpMiddleware<C::Instant>>) -> Self
     where
         S: DirectStateStore + Send + Sync + 'static,
         C: ReasonablyRealtime + Send + Sync + 'static,
