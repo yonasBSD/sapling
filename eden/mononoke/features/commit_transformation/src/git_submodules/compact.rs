@@ -16,6 +16,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use bytes::Bytes;
 use cloned::cloned;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
 use filestore::StoreRequest;
@@ -32,9 +33,9 @@ use mononoke_types::ChangesetId;
 use mononoke_types::ContentId;
 use mononoke_types::FileChange;
 use mononoke_types::FileType;
-use mononoke_types::FsnodeId;
 use mononoke_types::GitLfs;
 use mononoke_types::NonRootMPath;
+use mononoke_types::content_manifest::compat;
 use movers::Mover;
 use reporting::log_debug;
 use reporting::log_error;
@@ -352,14 +353,31 @@ async fn compact_submodule_expansion_deletion<'a, R: Repo>(
         _ => bail!("Can't compact expansion in bonsai with multiple parents"),
     };
 
-    let parent_fsnode_id: FsnodeId = large_repo
-        .repo_derived_data()
-        .derive::<RootFsnodeId>(ctx, parent_cs_id, DerivationPriority::LOW)
-        .await
-        .context("Failed to derive parent root fsnode id")?
-        .into_fsnode_id();
+    let use_content_manifests = justknobs::eval(
+        "scm/mononoke:derived_data_use_content_manifests",
+        None,
+        Some(large_repo.repo_identity().name()),
+    )?;
 
-    let expansion_files_stream = parent_fsnode_id.list_leaf_entries_under(
+    let parent_root: compat::ContentManifestId = if use_content_manifests {
+        large_repo
+            .repo_derived_data()
+            .derive::<RootContentManifestId>(ctx, parent_cs_id, DerivationPriority::LOW)
+            .await
+            .context("Failed to derive parent root content manifest id")?
+            .into_content_manifest_id()
+            .into()
+    } else {
+        large_repo
+            .repo_derived_data()
+            .derive::<RootFsnodeId>(ctx, parent_cs_id, DerivationPriority::LOW)
+            .await
+            .context("Failed to derive parent root fsnode id")?
+            .into_fsnode_id()
+            .into()
+    };
+
+    let expansion_files_stream = parent_root.list_leaf_entries_under(
         ctx.clone(),
         large_repo.repo_blobstore_arc(),
         [large_repo_sm_path.clone()],
