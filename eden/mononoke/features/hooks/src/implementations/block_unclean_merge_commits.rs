@@ -14,6 +14,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use bookmarks::BookmarkKey;
 use commit_graph::CommitGraphArc;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
 use fsnodes::RootFsnodeId;
@@ -26,6 +27,7 @@ use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
 use mononoke_types::FileChange;
 use mononoke_types::NonRootMPath;
+use mononoke_types::content_manifest::compat;
 use regex::Regex;
 use repo_blobstore::RepoBlobstoreArc;
 use repo_derived_data::RepoDerivedDataRef;
@@ -92,15 +94,32 @@ impl ChangesetHook for BlockUncleanMergeCommitsHook {
                 .to_string()
         };
 
-        let parent_root_fsnodes: HashMap<ChangesetId, RootFsnodeId> =
+        let use_content_manifests = justknobs::eval(
+            "scm/mononoke:derived_data_use_content_manifests",
+            None,
+            Some(hook_repo.repo_identity.name()),
+        )?;
+        let parent_root_manifests: HashMap<ChangesetId, compat::ContentManifestId> =
             stream::iter(changeset.parents().map(|p| {
                 Ok(async move {
-                    let root_fsnode_id = hook_repo
-                        .repo_derived_data()
-                        .derive::<RootFsnodeId>(ctx, p, DerivationPriority::LOW)
-                        .await
-                        .with_context(|| "Can't lookup RootFsnodeId for ChangesetId")?;
-                    Ok::<_, anyhow::Error>((p, root_fsnode_id))
+                    let root: compat::ContentManifestId = if use_content_manifests {
+                        hook_repo
+                            .repo_derived_data()
+                            .derive::<RootContentManifestId>(ctx, p, DerivationPriority::LOW)
+                            .await
+                            .with_context(|| "Can't lookup RootContentManifestId for ChangesetId")?
+                            .into_content_manifest_id()
+                            .into()
+                    } else {
+                        hook_repo
+                            .repo_derived_data()
+                            .derive::<RootFsnodeId>(ctx, p, DerivationPriority::LOW)
+                            .await
+                            .with_context(|| "Can't lookup RootFsnodeId for ChangesetId")?
+                            .into_fsnode_id()
+                            .into()
+                    };
+                    Ok::<_, anyhow::Error>((p, root))
                 })
             }))
             .try_buffered(5)
@@ -114,7 +133,8 @@ impl ChangesetHook for BlockUncleanMergeCommitsHook {
                 file_change,
                 changeset,
                 hook_repo,
-                &parent_root_fsnodes,
+                &parent_root_manifests,
+                use_content_manifests,
             )
             .await?
             {
@@ -135,7 +155,8 @@ async fn is_file_change_clean(
     file_change: &FileChange,
     changeset: &BonsaiChangeset,
     hook_repo: &HookRepo,
-    parent_root_fsnodes: &HashMap<ChangesetId, RootFsnodeId>,
+    parent_root_manifests: &HashMap<ChangesetId, compat::ContentManifestId>,
+    use_content_manifests: bool,
 ) -> Result<bool> {
     match file_change {
         FileChange::Change(_) | FileChange::UntrackedChange(_) => {
@@ -145,13 +166,20 @@ async fn is_file_change_clean(
                 file_change,
                 changeset,
                 hook_repo,
-                parent_root_fsnodes,
+                parent_root_manifests,
             )
             .await
         }
         FileChange::Deletion | FileChange::UntrackedDeletion => {
-            is_file_change_deletion_clean(ctx, path, changeset, hook_repo, parent_root_fsnodes)
-                .await
+            is_file_change_deletion_clean(
+                ctx,
+                path,
+                changeset,
+                hook_repo,
+                parent_root_manifests,
+                use_content_manifests,
+            )
+            .await
         }
     }
 }
@@ -162,14 +190,14 @@ async fn is_file_change_change_clean(
     file_change: &FileChange,
     changeset: &BonsaiChangeset,
     hook_repo: &HookRepo,
-    parent_root_fsnodes: &HashMap<ChangesetId, RootFsnodeId>,
+    parent_root_manifests: &HashMap<ChangesetId, compat::ContentManifestId>,
 ) -> Result<bool> {
     let mut parents_with_different_content = 0;
     for parent in changeset.parents() {
-        let parent_root_fsnode_id = parent_root_fsnodes
+        let parent_root_manifest = parent_root_manifests
             .get(&parent)
-            .ok_or_else(|| anyhow!("Can't find previously stored RootFsnodeId"))?;
-        if !change_the_same_in_parent(ctx, path, file_change, parent_root_fsnode_id, hook_repo)
+            .ok_or_else(|| anyhow!("Can't find previously stored root manifest"))?;
+        if !change_the_same_in_parent(ctx, path, file_change, parent_root_manifest, hook_repo)
             .await?
         {
             parents_with_different_content += 1;
@@ -189,7 +217,8 @@ async fn is_file_change_deletion_clean(
     path: &NonRootMPath,
     changeset: &BonsaiChangeset,
     hook_repo: &HookRepo,
-    parent_root_fsnodes: &HashMap<ChangesetId, RootFsnodeId>,
+    parent_root_manifests: &HashMap<ChangesetId, compat::ContentManifestId>,
+    use_content_manifests: bool,
 ) -> Result<bool> {
     // Here, git straight up refuses to merge many branches if there are conflicts.
     if changeset.parents().count() > 2 {
@@ -201,10 +230,9 @@ async fn is_file_change_deletion_clean(
         .collect_tuple()
         .ok_or_else(|| anyhow!("More than 2 expected parents"))?;
 
-    let parent1_entry = parent_root_fsnodes
+    let parent1_entry = parent_root_manifests
         .get(&parent1)
-        .ok_or_else(|| anyhow!("Can't find previously stored RootFsnodeId"))?
-        .fsnode_id()
+        .ok_or_else(|| anyhow!("Can't find previously stored root manifest"))?
         .find_entry(
             ctx.clone(),
             hook_repo.repo_blobstore_arc(),
@@ -212,10 +240,9 @@ async fn is_file_change_deletion_clean(
         )
         .await?;
 
-    let parent2_entry = parent_root_fsnodes
+    let parent2_entry = parent_root_manifests
         .get(&parent2)
-        .ok_or_else(|| anyhow!("Can't find previously stored RootFsnodeId"))?
-        .fsnode_id()
+        .ok_or_else(|| anyhow!("Can't find previously stored root manifest"))?
         .find_entry(
             ctx.clone(),
             hook_repo.repo_blobstore_arc(),
@@ -223,7 +250,7 @@ async fn is_file_change_deletion_clean(
         )
         .await?;
 
-    match (parent1_entry, parent2_entry) {
+    match (parent1_entry.clone(), parent2_entry.clone()) {
         (Some(p1_e), Some(p2_e)) => Ok(p1_e == p2_e),
         (None, None) => Ok(true),
         _ => {
@@ -238,14 +265,25 @@ async fn is_file_change_deletion_clean(
                 return Ok(false);
             };
 
-            let lca_root_fsnode_id = hook_repo
-                .repo_derived_data()
-                .derive::<RootFsnodeId>(ctx, first_lcs_cs_id, DerivationPriority::LOW)
-                .await
-                .with_context(|| "Can't lookup RootFsnodeId for ChangesetId")?;
+            let lca_root_manifest: compat::ContentManifestId = if use_content_manifests {
+                hook_repo
+                    .repo_derived_data()
+                    .derive::<RootContentManifestId>(ctx, first_lcs_cs_id, DerivationPriority::LOW)
+                    .await
+                    .with_context(|| "Can't lookup RootContentManifestId for ChangesetId")?
+                    .into_content_manifest_id()
+                    .into()
+            } else {
+                hook_repo
+                    .repo_derived_data()
+                    .derive::<RootFsnodeId>(ctx, first_lcs_cs_id, DerivationPriority::LOW)
+                    .await
+                    .with_context(|| "Can't lookup RootFsnodeId for ChangesetId")?
+                    .into_fsnode_id()
+                    .into()
+            };
 
-            let lca_entry = lca_root_fsnode_id
-                .fsnode_id()
+            let lca_entry = lca_root_manifest
                 .find_entry(
                     ctx.clone(),
                     hook_repo.repo_blobstore_arc(),
@@ -270,11 +308,10 @@ async fn change_the_same_in_parent(
     ctx: &CoreContext,
     child_path: &NonRootMPath,
     child_file_change: &FileChange,
-    parent_root_fsnode_id: &RootFsnodeId,
+    parent_root_manifest: &compat::ContentManifestId,
     hook_repo: &HookRepo,
 ) -> Result<bool> {
-    let parent_entry = if let Some(entry) = parent_root_fsnode_id
-        .fsnode_id()
+    let parent_entry = if let Some(entry) = parent_root_manifest
         .find_entry(
             ctx.clone(),
             hook_repo.repo_blobstore_arc(),
@@ -287,14 +324,15 @@ async fn change_the_same_in_parent(
         return Ok(false);
     };
 
-    let parent_fsnode_file = if let Some(parent_fsnode_file) = parent_entry.into_leaf() {
-        parent_fsnode_file
-    } else {
-        // In the child this was a file.
-        return Ok(false);
-    };
+    let parent_manifest_file: compat::ContentManifestFile =
+        if let Some(leaf) = parent_entry.into_leaf() {
+            leaf.into()
+        } else {
+            // In the child this was a file.
+            return Ok(false);
+        };
 
-    if child_file_change.content_id() != Some(*parent_fsnode_file.content_id()) {
+    if child_file_change.content_id() != Some(parent_manifest_file.content_id()) {
         return Ok(false);
     }
 
