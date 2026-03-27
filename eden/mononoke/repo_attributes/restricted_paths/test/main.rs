@@ -59,6 +59,9 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
     let expected_fsnode_id =
         ManifestId::from("e11f63c6ae1c9d8c6e8460805c4f549b9c324c9f17abe12398338a2be32a7977");
 
+    let expected_content_manifest_id =
+        ManifestId::from("66c07dabee352f365803d4d316efeeebcefd7211b23ad181b48873d211b34aa7");
+
     RestrictedPathsTestDataBuilder::new()
         .with_restricted_paths(restricted_paths)
         .with_file_path_changes(vec![("user_project/foo/bar/a", None)])
@@ -81,6 +84,11 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id.clone(),
+                RepoPath::dir("user_project/foo")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id.clone(),
                 RepoPath::dir("user_project/foo")?,
             )?,
         ])
@@ -127,6 +135,15 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_manifest_id(expected_fsnode_id.clone())
                 .with_manifest_type(ManifestType::Fsnode)
+                .with_has_authorization(true)
+                .with_acls(vec![project_acl.clone()])
+                .build()?,
+            // ContentManifest access log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
+                .with_manifest_id(expected_content_manifest_id.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
                 .with_has_authorization(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
@@ -184,6 +201,9 @@ async fn test_single_dir_single_restricted_change(fb: FacebookInit) -> Result<()
     let expected_fsnode_id =
         ManifestId::from("537548f0637858f6ebbba3e7f6c4d0c4e1ee7f88ca50fe3acff964115de0a0a3");
 
+    let expected_content_manifest_id =
+        ManifestId::from("bda5ed04786f271c27db3a4b186cbbea577748385be0965fbfb4f62428f4d9ef");
+
     RestrictedPathsTestDataBuilder::new()
         .with_restricted_paths(restricted_paths)
         .with_file_path_changes(vec![("restricted/dir/a", None)])
@@ -206,6 +226,11 @@ async fn test_single_dir_single_restricted_change(fb: FacebookInit) -> Result<()
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id.clone(),
+                RepoPath::dir("restricted/dir")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id.clone(),
                 RepoPath::dir("restricted/dir")?,
             )?,
         ])
@@ -242,6 +267,15 @@ async fn test_single_dir_single_restricted_change(fb: FacebookInit) -> Result<()
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
                 .with_manifest_id(expected_fsnode_id.clone())
                 .with_manifest_type(ManifestType::Fsnode)
+                .with_has_authorization(false)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
+            // ContentManifest access log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
+                .with_manifest_id(expected_content_manifest_id.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
                 .with_has_authorization(false)
                 .with_acls(vec![restricted_acl.clone()])
                 .build()?,
@@ -306,6 +340,9 @@ async fn test_single_dir_many_restricted_changes(fb: FacebookInit) -> Result<()>
     let expected_fsnode_id =
         ManifestId::from("34cc689ef0f1eeb886531a16d5953939e19d46fe6b16f7d7056d4c02a1c572ae");
 
+    let expected_content_manifest_id =
+        ManifestId::from("e0106ce2fca374459206acb5acda0857f719893825293db2a9148ad4cf5cb72c");
+
     // Base sample with fields common to ALL expected samples
     let base_sample = ScubaAccessLogSampleBuilder::new()
         .with_repo_id(RepositoryId::new(0))
@@ -334,6 +371,11 @@ async fn test_single_dir_many_restricted_changes(fb: FacebookInit) -> Result<()>
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id.clone(),
+                RepoPath::dir("restricted/dir")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id.clone(),
                 RepoPath::dir("restricted/dir")?,
             )?,
         ])
@@ -371,6 +413,15 @@ async fn test_single_dir_many_restricted_changes(fb: FacebookInit) -> Result<()>
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
                 .with_manifest_id(expected_fsnode_id.clone())
                 .with_manifest_type(ManifestType::Fsnode)
+                .with_has_authorization(false)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
+            // ContentManifest access log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
+                .with_manifest_id(expected_content_manifest_id.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
                 .with_has_authorization(false)
                 .with_acls(vec![restricted_acl.clone()])
                 .build()?,
@@ -436,6 +487,9 @@ async fn test_single_dir_restricted_and_unrestricted(fb: FacebookInit) -> Result
     let expected_fsnode_id =
         ManifestId::from("537548f0637858f6ebbba3e7f6c4d0c4e1ee7f88ca50fe3acff964115de0a0a3");
 
+    let expected_content_manifest_id =
+        ManifestId::from("bda5ed04786f271c27db3a4b186cbbea577748385be0965fbfb4f62428f4d9ef");
+
     RestrictedPathsTestDataBuilder::new()
         .with_restricted_paths(restricted_paths)
         .with_file_path_changes(vec![
@@ -456,6 +510,11 @@ async fn test_single_dir_restricted_and_unrestricted(fb: FacebookInit) -> Result
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id.clone(),
+                RepoPath::dir("restricted/dir")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id.clone(),
                 RepoPath::dir("restricted/dir")?,
             )?,
         ])
@@ -492,6 +551,15 @@ async fn test_single_dir_restricted_and_unrestricted(fb: FacebookInit) -> Result
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
                 .with_manifest_id(expected_fsnode_id.clone())
                 .with_manifest_type(ManifestType::Fsnode)
+                .with_has_authorization(false)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
+            // ContentManifest access log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
+                .with_manifest_id(expected_content_manifest_id.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
                 .with_has_authorization(false)
                 .with_acls(vec![restricted_acl.clone()])
                 .build()?,
@@ -538,6 +606,11 @@ async fn test_multiple_restricted_dirs(fb: FacebookInit) -> Result<()> {
     let expected_fsnode_id_two =
         ManifestId::from("e4351278ef7c2029a40ca6cbd6132e675d3e5199cfd0b16a7eba80d648221054");
 
+    let expected_content_manifest_id_one =
+        ManifestId::from("84466aff2d94b4c92480971d51d1a97b3b36ad865dc632f7ba60b1e58c95e387");
+    let expected_content_manifest_id_two =
+        ManifestId::from("7d103afd4f50aaece17f75890384b6282ebbd89e36045e87803a3d53fad695d3");
+
     // Base sample with fields common to ALL expected samples
     let base_sample = ScubaAccessLogSampleBuilder::new()
         .with_repo_id(RepositoryId::new(0))
@@ -581,6 +654,16 @@ async fn test_multiple_restricted_dirs(fb: FacebookInit) -> Result<()> {
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id_two.clone(),
+                RepoPath::dir("restricted/two")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id_one.clone(),
+                RepoPath::dir("restricted/one")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id_two.clone(),
                 RepoPath::dir("restricted/two")?,
             )?,
         ])
@@ -655,6 +738,24 @@ async fn test_multiple_restricted_dirs(fb: FacebookInit) -> Result<()> {
                 .with_has_authorization(false)
                 .with_acls(vec![restricted_acl.clone()])
                 .build()?,
+            // restricted/two access - ContentManifest log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/two"])?)
+                .with_manifest_id(expected_content_manifest_id_two.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                .with_has_authorization(false)
+                .with_acls(vec![another_acl.clone()])
+                .build()?,
+            // restricted/one access - ContentManifest log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/one"])?)
+                .with_manifest_id(expected_content_manifest_id_one.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                .with_has_authorization(false)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
             // restricted/two access - path log
             base_sample
                 .clone()
@@ -719,6 +820,11 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
     let expected_fsnode_id_restricted =
         ManifestId::from("5acb66d820607d6caa806153c7471b3499ca21d8c5eeff5078fa8f0403fe4f13");
 
+    let expected_content_manifest_id_restricted =
+        ManifestId::from("84466aff2d94b4c92480971d51d1a97b3b36ad865dc632f7ba60b1e58c95e387");
+    let expected_content_manifest_id_user =
+        ManifestId::from("dbe4e656fa033d31e28cb7fab69b4fa170c9c9f3befd1b4e70455776882b7ac0");
+
     // Base sample with fields common to ALL expected samples
     let base_sample = ScubaAccessLogSampleBuilder::new()
         .with_repo_id(RepositoryId::new(0))
@@ -765,6 +871,16 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id_user.clone(),
+                RepoPath::dir("user_project/foo")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id_restricted.clone(),
+                RepoPath::dir("restricted/one")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id_user.clone(),
                 RepoPath::dir("user_project/foo")?,
             )?,
         ])
@@ -843,6 +959,25 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_has_authorization(false)
                 .with_acls(vec![restricted_acl.clone()])
                 .build()?,
+            // user_project/foo access - ContentManifest log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
+                .with_manifest_id(expected_content_manifest_id_user.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                // User had access to this restricted path
+                .with_has_authorization(true)
+                .with_acls(vec![myusername_project_acl.clone()])
+                .build()?,
+            // restricted/one access - ContentManifest log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/one"])?)
+                .with_manifest_id(expected_content_manifest_id_restricted.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                .with_has_authorization(false)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
             // user_project/foo access - path log
             base_sample
                 .clone()
@@ -908,6 +1043,11 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
     let expected_fsnode_id_subdir =
         ManifestId::from("a9d72b0ed490fe8da33d1ec0e7b6890a6447cc6ba220532927bb866eb9c36768");
 
+    let expected_content_manifest_id_root =
+        ManifestId::from("66bf1bce44484592f920bbfa1a291e8005ef144d37c51fe96b1f89a198f84efe");
+    let expected_content_manifest_id_subdir =
+        ManifestId::from("9aae9c96214887d2bdda61eff6dffd7b0e384358214bebb15f344a7161b0b67c");
+
     // Base sample with fields common to ALL expected samples
     let base_sample = ScubaAccessLogSampleBuilder::new()
         .with_repo_id(RepositoryId::new(0))
@@ -957,6 +1097,16 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id_subdir.clone(),
+                RepoPath::dir("project/restricted")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id_root.clone(),
+                RepoPath::dir("project")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id_subdir.clone(),
                 RepoPath::dir("project/restricted")?,
             )?,
         ])
@@ -1041,6 +1191,26 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_has_authorization(false)
                 .with_acls(vec![more_restricted_acl.clone()])
                 .build()?,
+            // project access - ContentManifest log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["project"])?)
+                .with_manifest_id(expected_content_manifest_id_root.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                // User has access to the broader project ACL
+                .with_has_authorization(true)
+                .with_acls(vec![project_acl.clone()])
+                .build()?,
+            // project/restricted access - ContentManifest log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["project/restricted"])?)
+                .with_manifest_id(expected_content_manifest_id_subdir.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                // User has access to the broader project ACL
+                .with_has_authorization(false)
+                .with_acls(vec![more_restricted_acl.clone()])
+                .build()?,
             // project/restricted access - path log (includes both ACLs)
             base_sample
                 .clone()
@@ -1090,6 +1260,9 @@ async fn test_same_manifest_id_restricted_and_unrestricted_paths(fb: FacebookIni
     let expected_fsnode_id =
         ManifestId::from("c259976b56b9826eea5ca4c3a68d4e43a2f1745884918a96ac0dabb635f73598");
 
+    let expected_content_manifest_id =
+        ManifestId::from("fd13dd20da344bfe69ee7a4e6c9388617448432741106ec992f38d249a75e018");
+
     // Base sample with fields common to ALL expected samples
     let base_sample = ScubaAccessLogSampleBuilder::new()
         .with_repo_id(RepositoryId::new(0))
@@ -1121,6 +1294,11 @@ async fn test_same_manifest_id_restricted_and_unrestricted_paths(fb: FacebookIni
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id.clone(),
+                RepoPath::dir("restricted")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id.clone(),
                 RepoPath::dir("restricted")?,
             )?,
         ])
@@ -1195,6 +1373,22 @@ async fn test_same_manifest_id_restricted_and_unrestricted_paths(fb: FacebookIni
             base_sample
                 .clone()
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted"])?)
+                .with_manifest_id(expected_content_manifest_id.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                .with_has_authorization(false)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted"])?)
+                .with_manifest_id(expected_content_manifest_id.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                .with_has_authorization(false)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted"])?)
                 .with_full_path(NonRootMPath::new("restricted/foo/bar")?)
                 .with_has_authorization(false)
                 .with_acls(vec![restricted_acl.clone()])
@@ -1226,6 +1420,9 @@ async fn test_tooling_allowlist_acl_user_in_acl(fb: FacebookInit) -> Result<()> 
     let expected_manifest_id = ManifestId::from("0e3837eaab4fb0454c78f290aeb747a201ccd05b");
     let expected_fsnode_id =
         ManifestId::from("537548f0637858f6ebbba3e7f6c4d0c4e1ee7f88ca50fe3acff964115de0a0a3");
+
+    let expected_content_manifest_id =
+        ManifestId::from("bda5ed04786f271c27db3a4b186cbbea577748385be0965fbfb4f62428f4d9ef");
 
     // Base sample with fields common to ALL expected samples
     let base_sample = ScubaAccessLogSampleBuilder::new()
@@ -1259,6 +1456,11 @@ async fn test_tooling_allowlist_acl_user_in_acl(fb: FacebookInit) -> Result<()> 
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id.clone(),
+                RepoPath::dir("restricted/dir")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id.clone(),
                 RepoPath::dir("restricted/dir")?,
             )?,
         ])
@@ -1304,6 +1506,16 @@ async fn test_tooling_allowlist_acl_user_in_acl(fb: FacebookInit) -> Result<()> 
                 .with_is_allowlisted_tooling(true)
                 .with_acls(vec![restricted_acl.clone()])
                 .build()?,
+            // ContentManifest access log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
+                .with_manifest_id(expected_content_manifest_id.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
+                .with_has_authorization(true)
+                .with_is_allowlisted_tooling(true)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
             // Path fsnode access log
             base_sample
                 .clone()
@@ -1342,6 +1554,9 @@ async fn test_tooling_allowlist_acl_user_not_in_acl(fb: FacebookInit) -> Result<
     let expected_fsnode_id =
         ManifestId::from("537548f0637858f6ebbba3e7f6c4d0c4e1ee7f88ca50fe3acff964115de0a0a3");
 
+    let expected_content_manifest_id =
+        ManifestId::from("bda5ed04786f271c27db3a4b186cbbea577748385be0965fbfb4f62428f4d9ef");
+
     // Base sample with fields common to ALL expected samples
     let base_sample = ScubaAccessLogSampleBuilder::new()
         .with_repo_id(RepositoryId::new(0))
@@ -1378,6 +1593,11 @@ async fn test_tooling_allowlist_acl_user_not_in_acl(fb: FacebookInit) -> Result<
             RestrictedPathManifestIdEntry::new(
                 ManifestType::Fsnode,
                 expected_fsnode_id.clone(),
+                RepoPath::dir("restricted/dir")?,
+            )?,
+            RestrictedPathManifestIdEntry::new(
+                ManifestType::ContentManifest,
+                expected_content_manifest_id.clone(),
                 RepoPath::dir("restricted/dir")?,
             )?,
         ])
@@ -1419,6 +1639,16 @@ async fn test_tooling_allowlist_acl_user_not_in_acl(fb: FacebookInit) -> Result<
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
                 .with_manifest_id(expected_fsnode_id.clone())
                 .with_manifest_type(ManifestType::Fsnode)
+                .with_has_authorization(false)
+                .with_is_allowlisted_tooling(false)
+                .with_acls(vec![restricted_acl.clone()])
+                .build()?,
+            // ContentManifest access log
+            base_sample
+                .clone()
+                .with_restricted_paths(cast_to_non_root_mpaths(vec!["restricted/dir"])?)
+                .with_manifest_id(expected_content_manifest_id.clone())
+                .with_manifest_type(ManifestType::ContentManifest)
                 .with_has_authorization(false)
                 .with_is_allowlisted_tooling(false)
                 .with_acls(vec![restricted_acl.clone()])

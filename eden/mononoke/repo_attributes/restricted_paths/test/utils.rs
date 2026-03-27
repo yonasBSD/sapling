@@ -17,6 +17,7 @@ use blobstore::Loadable;
 use clientinfo::ClientEntryPoint;
 use clientinfo::ClientInfo;
 use clientinfo::ClientRequestInfo;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use context::SessionContainer;
 use derivation_queue_thrift::DerivationPriority;
@@ -497,6 +498,12 @@ impl RestrictedPathsTestData {
             .derive::<RootFsnodeId>(&self.ctx, bcs_id, DerivationPriority::LOW)
             .await?;
 
+        // Derive ContentManifest
+        let root_content_manifest_id = scenario_repo
+            .repo_derived_data()
+            .derive::<RootContentManifestId>(&self.ctx, bcs_id, DerivationPriority::LOW)
+            .await?;
+
         // Sleep to ensure that the restricted paths cache was updated
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
@@ -511,6 +518,7 @@ impl RestrictedPathsTestData {
             Fsnode,
             PathsWithContent,
             PathsWithHistory,
+            ContentManifest,
         }
 
         // Run all the access operations that will trigger enforcement checks.
@@ -569,9 +577,9 @@ impl RestrictedPathsTestData {
         }
 
         // Access all fsnode tree entries
-        let fsnode_id = root_fsnode_id.into_fsnode_id();
         let fsnode_results: Vec<Result<Option<(AccessMethod, MononokeError)>, MononokeError>> =
-            fsnode_id
+            root_fsnode_id
+                .into_fsnode_id()
                 .list_tree_entries(self.ctx.clone(), blobstore.clone())
                 .map_err(MononokeError::from)
                 .and_then(async |(_path, fsnode_id)| {
@@ -588,6 +596,33 @@ impl RestrictedPathsTestData {
                 .await;
 
         for result in fsnode_results {
+            match result {
+                Ok(Some(err)) => auth_errors.push(err),
+                Ok(None) => {}
+                Err(e) => return Err(e.into()),
+            }
+        }
+
+        // Access all content manifest tree entries
+        let content_manifest_results: Vec<
+            Result<Option<(AccessMethod, MononokeError)>, MononokeError>,
+        > = root_content_manifest_id
+            .into_content_manifest_id()
+            .list_tree_entries(self.ctx.clone(), blobstore.clone())
+            .map_err(MononokeError::from)
+            .and_then(async |(_path, content_manifest_id)| {
+                match repo_ctx.tree(content_manifest_id.into()).await {
+                    Ok(_) => Ok(None),
+                    Err(e @ MononokeError::AuthorizationError(_)) => {
+                        Ok(Some((AccessMethod::ContentManifest, e)))
+                    }
+                    Err(e) => Err(e),
+                }
+            })
+            .collect()
+            .await;
+
+        for result in content_manifest_results {
             match result {
                 Ok(Some(err)) => auth_errors.push(err),
                 Ok(None) => {}
@@ -662,7 +697,7 @@ impl RestrictedPathsTestData {
             }
 
             for op in AccessMethod::iter() {
-                // Ensure that all access methods returned AuthoriationErrors
+                // Ensure that all access methods returned AuthorizationErrors
                 let auth_errors = grouped.remove(&op).unwrap_or_default();
 
                 assert!(
