@@ -16,7 +16,7 @@ doc = false
 async_limiter = { version = "0.1.0", path = "../../../../common/async_limiter" }
 chrono = { version = "0.4.44", features = ["clock", "serde", "std"], default-features = false }
 fbinit = { version = "0.2.0", git = "https://github.com/facebookexperimental/rust-shed.git", branch = "main" }
-governor = "0.5.1"
+governor = "0.6.3"
 metadata = { version = "0.1.0", path = "../../../../common/metadata" }
 mononoke_macros = { version = "0.1.0", path = "../../../../common/mononoke_macros" }
 permission_checker = { version = "0.1.0", path = "../../../../common/permission_checker" }
