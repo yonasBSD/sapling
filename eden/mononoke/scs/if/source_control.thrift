@@ -130,6 +130,15 @@ struct CommitPathSpecifier {
   2: Path path;
 }
 
+/// The type of manifest backing a tree ID.
+enum TreeIdType {
+  /// An FsnodeId (legacy default).
+  FSNODE = 0,
+
+  /// A ContentManifestId.
+  CONTENT_MANIFEST = 1,
+}
+
 /// Specifies a tree by its ID.
 struct TreeIdSpecifier {
   /// The repository that contains the tree.
@@ -137,6 +146,10 @@ struct TreeIdSpecifier {
 
   /// The ID of the tree, obtained from a previous call to the service.
   2: binary id;
+
+  /// The type of the tree ID. If absent, defaults to FSNODE for backward
+  /// compatibility with existing clients.
+  3: optional TreeIdType id_type;
 }
 
 @hack.MigrationBlockingLegacyJSONSerialization
@@ -359,6 +372,10 @@ struct TreeInfo {
   /// The total size of all files in the directory (including files in
   /// subdirectories).
   8: i64 descendant_files_total_size;
+
+  /// The type of the tree ID. Clients should pass this back when looking
+  /// up a tree by ID so the server can decode it correctly.
+  9: optional TreeIdType id_type;
 }
 
 @hack.MigrationBlockingLegacyJSONSerialization
