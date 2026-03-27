@@ -96,6 +96,9 @@ hg
 hg3
 sl
 
+# bsl state
+.sl-buck-build/
+
 # make-local Windows artifacts
 hgrc.d
 make.bat
