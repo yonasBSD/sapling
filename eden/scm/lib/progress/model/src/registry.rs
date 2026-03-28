@@ -34,6 +34,7 @@ pub struct Registry {
     render_cond: Arc<(Mutex<bool>, Condvar)>,
     inner: Arc<RwLock<Inner>>,
     disabled: Arc<AtomicBool>,
+    on_first_registration: Arc<Mutex<Option<Box<dyn FnOnce() + Send>>>>,
 }
 
 macro_rules! impl_model {
@@ -59,6 +60,8 @@ macro_rules! impl_model {
                         tracing::debug!("registering {} {}", stringify!($type), model.topic());
                         let mut inner = self.inner.write();
                         inner.$field.push(model.clone());
+                        drop(inner);
+                        self.fire_on_first_registration();
                     }
 
                     /// List models registered.
@@ -162,6 +165,20 @@ impl Registry {
         }
         // Wait for next step() call.
         var.wait(&mut ready);
+    }
+
+    /// Set a callback that fires once when the first model (progress bar,
+    /// time series, etc.) is registered. Used to lazily spawn the progress
+    /// rendering thread.
+    pub fn on_first_registration(&self, callback: Box<dyn FnOnce() + Send>) {
+        *self.on_first_registration.lock() = Some(callback);
+    }
+
+    fn fire_on_first_registration(&self) {
+        let cb = self.on_first_registration.lock().take();
+        if let Some(cb) = cb {
+            cb();
+        }
     }
 
     pub fn disable(&self, disable: bool) {
@@ -283,5 +300,33 @@ mod tests {
 
         // And the thread locals are cleaned up as well.
         assert_eq!(reg.inner.write().active_progress_bar.iter_mut().count(), 0);
+    }
+
+    #[test]
+    fn test_on_first_registration() {
+        use std::sync::atomic::AtomicU32;
+
+        let registry = Registry::default();
+        let count = Arc::new(AtomicU32::new(0));
+
+        let count2 = count.clone();
+        registry.on_first_registration(Box::new(move || {
+            count2.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        // Callback fires on first registration.
+        let bar1 = ProgressBar::new("a".to_string(), 10, "files");
+        registry.register_progress_bar(&bar1);
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+
+        // Does not fire again on subsequent registrations.
+        let bar2 = ProgressBar::new("b".to_string(), 20, "bytes");
+        registry.register_progress_bar(&bar2);
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+
+        // Also does not fire for other model types.
+        let series = IoTimeSeries::new("Net", "requests");
+        registry.register_io_time_series(&series);
+        assert_eq!(count.load(Ordering::Relaxed), 1);
     }
 }
