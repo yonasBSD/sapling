@@ -34,6 +34,7 @@ from sapling import (
     error,
     extensions,
     hintutil,
+    identity,
     progress,
     redact,
     registrar,
@@ -369,6 +370,8 @@ def _makerage(ui, repo, **opts) -> str:
             output += f"[{status}]\n"
         return output
 
+    prog = identity.default().cliname()
+
     basic = [
         ("date", lambda: time.ctime()),
         ("unixname", lambda: encoding.environ.get("LOGNAME")),
@@ -379,7 +382,7 @@ def _makerage(ui, repo, **opts) -> str:
         ("fstype", lambda: util.getfstype(repo.root)),
         ("active bookmark", lambda: bookmarks._readactive(repo, repo._bookmarks)),
         (
-            "hg version",
+            f"{prog} version",
             lambda: bindings.version.VERSION,
         ),
     ]
@@ -403,47 +406,47 @@ def _makerage(ui, repo, **opts) -> str:
             ),
         ),
         # smartlog as the user sees it
-        ("hg sl", lambda: hgcmd("smartlog", template="{sl_debug}")),
+        (f"{prog} sl", lambda: hgcmd("smartlog", template="{sl_debug}")),
         (
-            "hg debugmetalog -t 'since 2d ago'",
+            f"{prog} debugmetalog -t 'since 2d ago'",
             lambda: hgcmd("debugmetalog", time_range=["since 2d ago"]),
         ),
         (
-            'first 20 lines of "hg status"',
+            f'first 20 lines of "{prog} status"',
             lambda: "\n".join(
                 shcmd(f"{ui.identity.cliname()} status").splitlines()[:20]
             ),
         ),
         (
-            "hg debugmutation -r 'draft() & date(-4)' -t 'since 4d ago'",
+            f"{prog} debugmutation -r 'draft() & date(-4)' -t 'since 4d ago'",
             lambda: hgcmd(
                 "debugmutation", rev=["draft() & date(-4)"], time_range=["since 4d ago"]
             ),
         ),
         (
-            "hg bookmark --list-subscriptions",
+            f"{prog} bookmark --list-subscriptions",
             lambda: hgcmd("bookmark", list_subscriptions=True),
         ),
         ("sigtrace", lambda: readsigtraces(repo)),
         (
-            "hg blackbox",
+            f"{prog} blackbox",
             lambda: "\n".join(
                 hgcmd("blackbox", pattern=BLACKBOX_PATTERN).splitlines()[-500:]
             ),
         ),
-        ("hg cloud status", lambda: hgcmd("cloud status")),
-        ("hg debugprocesstree", lambda: hgcmd("debugprocesstree")),
-        ("hg debugrunlog", lambda: hgcmd("debugrunlog")),
-        ("hg config (local)", lambda: "\n".join(localconfig(ui))),
+        (f"{prog} cloud status", lambda: hgcmd("cloud status")),
+        (f"{prog} debugprocesstree", lambda: hgcmd("debugprocesstree")),
+        (f"{prog} debugrunlog", lambda: hgcmd("debugrunlog")),
+        (f"{prog} config (local)", lambda: "\n".join(localconfig(ui))),
         *(
-            [("hg sparse", lambda: hgcmd("sparse"))]
+            [(f"{prog} sparse", lambda: hgcmd("sparse"))]
             if extensions.isenabled(ui, "sparse")
             else []
         ),
-        ("hg debugchangelog", lambda: hgcmd("debugchangelog")),
-        ("hg debugexpandpaths", lambda: hgcmd("debugexpandpaths")),
-        ("hg debuginstall", lambda: hgcmd("debuginstall")),
-        ("hg debugdetectissues", lambda: hgcmd("debugdetectissues")),
+        (f"{prog} debugchangelog", lambda: hgcmd("debugchangelog")),
+        (f"{prog} debugexpandpaths", lambda: hgcmd("debugexpandpaths")),
+        (f"{prog} debuginstall", lambda: hgcmd("debuginstall")),
+        (f"{prog} debugdetectissues", lambda: hgcmd("debugdetectissues")),
         ("usechg", usechginfo),
         (
             "uptime",
@@ -466,8 +469,8 @@ def _makerage(ui, repo, **opts) -> str:
                 check=False,
             ),
         ),
-        ("hg debugnetwork", lambda: hgcmd("debugnetwork")),
-        ("hg debugnetworkdoctor", lambda: hgcmd("debugnetworkdoctor")),
+        (f"{prog} debugnetwork", lambda: hgcmd("debugnetwork")),
+        (f"{prog} debugnetworkdoctor", lambda: hgcmd("debugnetworkdoctor")),
         (
             "backedupheads: it is a local cache of what has been backed up",
             lambda: readbackedupheads(repo),
@@ -480,7 +483,7 @@ def _makerage(ui, repo, **opts) -> str:
         ("scm daemon logs", lambda: scmdaemonlog(ui, repo)),
         ("debugstatus", lambda: hgcmd("debugstatus")),
         ("debugtree", lambda: hgcmd("debugtree")),
-        ("hg config (all)", lambda: "\n".join(allconfig(ui))),
+        (f"{prog} config (all)", lambda: "\n".join(allconfig(ui))),
         ("eden rage", _edenfs_rage, extralongtimeout),
         (
             "environment variables",
@@ -577,7 +580,7 @@ def _makerage(ui, repo, **opts) -> str:
     allfinish = time.time()
     profile.append((allfinish - allstart, "total time", None))
 
-    msg.append("hg rage profile:\n")
+    msg.append(f"{identity.default().cliname()} rage profile:\n")
     width = max([len(name) for _t, name, _l in profile])
     for timetaken, name, lines in reversed(sorted(profile)):
         m = "  %-*s  %8.2f s" % (width + 1, name + ":", timetaken)

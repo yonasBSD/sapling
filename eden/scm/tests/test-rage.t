@@ -13,12 +13,12 @@
   $ echo "rpmbin = /""bin/rpm" >> .sl/config
 #endif
   $ sl rage --preview > out.txt
-  $ cat out.txt | grep -o '^hg blackbox'
-  hg blackbox
-  $ cat out.txt | grep -o '^hg cloud status'
-  hg cloud status
-  $ cat out.txt | grep -o '^hg sparse:'
-  hg sparse:
+  $ cat out.txt | grep -o '^sl blackbox'
+  sl blackbox
+  $ cat out.txt | grep -o '^sl cloud status'
+  sl cloud status
+  $ cat out.txt | grep -o '^sl sparse:'
+  sl sparse:
   $ rm out.txt
 
 Test with shared repo
