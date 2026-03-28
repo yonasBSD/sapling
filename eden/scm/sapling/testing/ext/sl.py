@@ -49,7 +49,7 @@ def testsetup(t: TestTmp):
 
     hgrc = _get_hgrc(testdir, use_watchman, str(t.path), modernconfigs)
 
-    hgrcpath = t.path / "hgrc"
+    hgrcpath = t.path / "config"
     hgrcpath.write_bytes(hgrc.encode())
 
     if os.path.exists(featurespy):

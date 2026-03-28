@@ -23,7 +23,7 @@ Test locating user config
   User config path: $TESTTMP/.config/sapling/sapling.conf (linux !)
   User config path: $TESTTMP/Library/Preferences/sapling/sapling.conf (osx !)
   Repo config path: $TESTTMP/repo/.sl/config
-  System config path: $TESTTMP/hgrc
+  System config path: $TESTTMP/config
   $ sl configfile --user
   $TESTTMP/.config/sapling/sapling.conf (linux !)
   $TESTTMP/Library/Preferences/sapling/sapling.conf (osx !)
@@ -33,11 +33,11 @@ Test locating other configs
   $ sl configfile --local
   $TESTTMP/repo/.sl/config
   $ sl configfile --system
-  $TESTTMP/hgrc
+  $TESTTMP/config
 
 Test outside a repo
   $ cd
   $ sl configfile
   User config path: $TESTTMP/.config/sapling/sapling.conf (linux !)
   User config path: $TESTTMP/Library/Preferences/sapling/sapling.conf (osx !)
-  System config path: $TESTTMP/hgrc
+  System config path: $TESTTMP/config

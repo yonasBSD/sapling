@@ -42,39 +42,39 @@ Test config:
   testsection.subsection1=foo
   testsection.subsection2=bar
   $ sl config testsection --debug
-  *hgrc:*: testsection.subsection1=foo (glob)
-  *hgrc:*: testsection.subsection2=bar (glob)
+  *config:*: testsection.subsection1=foo (glob)
+  *config:*: testsection.subsection2=bar (glob)
   $ sl config testsection -Tdebug
   config = [
-      {'source': '*hgrc:*', 'name': 'testsection.subsection1', 'value': 'foo'}, (glob)
-      {'source': '*hgrc:*', 'name': 'testsection.subsection2', 'value': 'bar'}, (glob)
+      {'source': '*config:*', 'name': 'testsection.subsection1', 'value': 'foo'}, (glob)
+      {'source': '*config:*', 'name': 'testsection.subsection2', 'value': 'bar'}, (glob)
   ]
   $ sl config testsection -Tjson
   [
   {
     "name": "testsection.subsection1",
-    "source": "*hgrc:*", (glob)
+    "source": "*config:*", (glob)
     "value": "foo"
   },
   {
     "name": "testsection.subsection2",
-    "source": "*hgrc:*", (glob)
+    "source": "*config:*", (glob)
     "value": "bar"
   }
   ]
   $ sl config testsection.subsection1
   foo
   $ sl config testsection.subsection1 --debug
-  *hgrc:* foo (glob)
+  *config:* foo (glob)
   $ sl config testsection.subsection1 -Tdebug
   config = [
-      {'source': '*hgrc:*', 'value': 'foo', 'name': 'testsection.subsection1'}, (glob)
+      {'source': '*config:*', 'value': 'foo', 'name': 'testsection.subsection1'}, (glob)
   ]
   $ sl config testsection.subsection1 -Tjson
   [
   {
     "name": "testsection.subsection1",
-    "source": "*hgrc:*", (glob)
+    "source": "*config:*", (glob)
     "value": "foo"
   }
   ]

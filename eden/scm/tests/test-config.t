@@ -390,7 +390,7 @@ config editing without an editor
 
 system config (make sure it tries the right file)
   $ HGEDITOR=false sl config --system
-  opening $TESTTMP/hgrc for editing...
+  opening $TESTTMP/config for editing...
   abort: edit failed: false exited with status 1
   [255]
 
