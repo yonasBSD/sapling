@@ -62,6 +62,15 @@ struct UnmountOptions {
   bool expire = false;
 };
 
+struct SanityCheckResult {
+  // Stale bind mounts (redirections) under the checkout
+  uint32_t staleRedirectionMountsFound = 0;
+  uint32_t staleRedirectionMountsSucceeded = 0;
+  uint32_t staleRedirectionMountsFailed = 0;
+  // Whether a stale EdenFS checkout mount itself was found and unmounted
+  bool staleCheckoutMountUnmounted = false;
+};
+
 struct StopFileAccessMonitorResponse {
   std::string tmpOutputPath;
   std::string specifiedOutputPath;

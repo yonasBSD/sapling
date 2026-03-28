@@ -151,21 +151,26 @@ void sanityCheckFs(const std::string& mountPoint) {
 }
 } // namespace
 
-void PrivHelperServer::cleanupStaleBindMounts(const std::string& checkoutPath) {
+SanityCheckResult PrivHelperServer::cleanupStaleBindMounts(
+    const std::string& checkoutPath) {
+  SanityCheckResult result{};
 #ifdef __linux__
-  auto result = getMountsUnderPath(checkoutPath);
-  if (result.hasError()) {
+  auto mountsResult = getMountsUnderPath(checkoutPath);
+  if (mountsResult.hasError()) {
     XLOGF(
         WARN,
         "Failed to enumerate mounts under {}: {}; skipping redirection cleanup",
         checkoutPath,
-        folly::errnoStr(result.error()));
-    return;
+        folly::errnoStr(mountsResult.error()));
+    return result;
   }
-  auto& staleMounts = result.value();
+  auto& staleMounts = mountsResult.value();
   if (staleMounts.empty()) {
-    return;
+    return result;
   }
+
+  result.staleRedirectionMountsFound =
+      static_cast<uint32_t>(staleMounts.size());
 
   // Sort mount points in reverse order to handle nested mounts
   std::sort(
@@ -187,6 +192,7 @@ void PrivHelperServer::cleanupStaleBindMounts(const std::string& checkoutPath) {
           INFO,
           "Successfully unmounted stale redirection mount: {}",
           mount.mountPoint);
+      ++result.staleRedirectionMountsSucceeded;
     } else {
       auto err = errno;
       XLOGF(
@@ -194,12 +200,14 @@ void PrivHelperServer::cleanupStaleBindMounts(const std::string& checkoutPath) {
           "Failed to unmount stale redirection mount {}: {}",
           mount.mountPoint,
           folly::errnoStr(err));
+      ++result.staleRedirectionMountsFailed;
     }
   }
 #else
   // Redirection mount cleanup is only needed on Linux
   (void)checkoutPath;
 #endif
+  return result;
 }
 
 void PrivHelperServer::unmountStaleMount(const std::string& mountPoint) {
@@ -212,10 +220,11 @@ void PrivHelperServer::unmountStaleMount(const std::string& mountPoint) {
   XLOGF(INFO, "Successfully unmounted stale mount {}", mountPoint);
 }
 
-void PrivHelperServer::detectAndUnmountStaleMount(
+bool PrivHelperServer::detectAndUnmountStaleMount(
     const std::string& mountPoint,
     bool isNFS,
     bool isHardMount) {
+  bool didUnmount = false;
   struct stat st;
   // Stat the mount point to determine its status. If the errno matches certain
   // values, then the mount is likely hanging. We'll try to unmount it before
@@ -243,6 +252,7 @@ void PrivHelperServer::detectAndUnmountStaleMount(
           mountPoint,
           folly::errnoStr(err));
       unmountStaleMount(mountPoint);
+      didUnmount = true;
       is_hanging = true;
     } else {
       throwf<std::domain_error>(
@@ -275,6 +285,7 @@ void PrivHelperServer::detectAndUnmountStaleMount(
             mountPoint,
             folly::errnoStr(err));
         unmountStaleMount(mountPoint);
+        didUnmount = true;
       }
     }
     XLOGF(DBG4, "Mount {} is not stale.", mountPoint);
@@ -293,28 +304,31 @@ void PrivHelperServer::detectAndUnmountStaleMount(
           mountPoint,
           folly::errnoStr(err));
       unmountStaleMount(mountPoint);
+      didUnmount = true;
     } else {
       throwf<std::domain_error>(
           "statfs failed for: {}: {}", mountPoint, folly::errnoStr(err));
     }
   }
 #endif
+  return didUnmount;
 }
 
-void PrivHelperServer::sanityCheckMountPoint(
+SanityCheckResult PrivHelperServer::sanityCheckMountPoint(
     const std::string& mountPoint,
     bool isNFS,
     bool isHardMount) {
   XLOGF(INFO, "Sanity checking mount {}", mountPoint);
   if (getuid() == 0) {
     XLOG(INFO, "Skipping sanity check for root user.");
-    return;
+    return SanityCheckResult{};
   }
 
   // Clean up any stale bind mounts under this checkout before proceeding
-  cleanupStaleBindMounts(mountPoint);
+  auto result = cleanupStaleBindMounts(mountPoint);
 
-  detectAndUnmountStaleMount(mountPoint, isNFS, isHardMount);
+  result.staleCheckoutMountUnmounted =
+      detectAndUnmountStaleMount(mountPoint, isNFS, isHardMount);
 
   if (access(mountPoint.c_str(), W_OK) < 0) {
     auto err = errno;
@@ -356,6 +370,7 @@ void PrivHelperServer::sanityCheckMountPoint(
   }
 
   sanityCheckFs(mountPoint);
+  return result;
 }
 } // namespace facebook::eden
 

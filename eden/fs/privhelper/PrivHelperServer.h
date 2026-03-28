@@ -128,11 +128,12 @@ class PrivHelperServer : private UnixSocket::ReceiveCallback {
 
   // Clean up stale redirection mounts under a checkout path that were left
   // behind when EdenFS crashed without properly unmounting.
-  void cleanupStaleBindMounts(const std::string& checkoutPath);
+  SanityCheckResult cleanupStaleBindMounts(const std::string& checkoutPath);
 
   // Uses stat to determine if there's a stale mount point at the given path. If
-  // there is, force unmounts it.
-  void detectAndUnmountStaleMount(
+  // there is, force unmounts it. Returns true if a stale mount was found and
+  // unmounted.
+  bool detectAndUnmountStaleMount(
       const std::string& mountPoint,
       bool isNFS,
       bool isHardMount);
@@ -144,7 +145,7 @@ class PrivHelperServer : private UnixSocket::ReceiveCallback {
    * leading to the mount point. A std::domain_error exception will be raised
    * if the user doesn't have access to the mount point.
    */
-  void sanityCheckMountPoint(
+  SanityCheckResult sanityCheckMountPoint(
       const std::string& mountPoint,
       bool isNFS = false,
       bool isHardMount = false);
