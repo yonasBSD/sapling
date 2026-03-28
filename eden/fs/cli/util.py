@@ -478,7 +478,6 @@ class HgRepo(Repo):
     def __repr__(self) -> str:
         return f"HgRepo(source={self.source!r}, working_dir={self.working_dir!r})"
 
-    # pyre-fixme[2]: Parameter must be annotated.
     def _run_hg(
         self,
         args: List[str],
@@ -759,7 +758,6 @@ def split_inodes_by_operation_type(
 
 
 def fdatasync(fd: int) -> None:
-    # pyre-fixme [16]: Undefined attribute
     getattr(os, "fdatasync", os.fsync)(fd)
 
 

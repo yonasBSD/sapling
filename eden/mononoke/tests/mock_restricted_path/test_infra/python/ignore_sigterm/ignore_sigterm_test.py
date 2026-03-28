@@ -17,8 +17,6 @@ class IgnoreSigtermTest(unittest.TestCase):
 
     def test_does_not_ignore_sigterm(self) -> None:
         if os.environ.get("TPX_PLAYGROUND_SLEEP") is not None:
-            # pyre-fixme[6]: For 1st argument expected `Union[SupportsTrunc, str,
-            #  SupportsIndex, SupportsInt, Buffer]` but got `Optional[str]`.
             time.sleep(int(os.environ.get("TPX_PLAYGROUND_SLEEP")))
 
     def test_ignores_sigterm(self) -> None:
@@ -30,8 +28,6 @@ class IgnoreSigtermTest(unittest.TestCase):
 
         original_handler = signal.signal(signal.SIGTERM, ignore)
         if os.environ.get("TPX_PLAYGROUND_SLEEP") is not None:
-            # pyre-fixme[6]: For 1st argument expected `Union[SupportsTrunc, str,
-            #  SupportsIndex, SupportsInt, Buffer]` but got `Optional[str]`.
             time.sleep(int(os.environ.get("TPX_PLAYGROUND_SLEEP")))
 
         # Restore the signal handler to play nice

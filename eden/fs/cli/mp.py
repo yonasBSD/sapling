@@ -138,6 +138,4 @@ def get_context() -> multiprocessing.context.DefaultContext:
         The default multiprocessing context for the current platform.
     """
     _prevent_main_reimport()
-    # pyre-ignore[7]: multiprocessing.get_context() is typed as BaseContext
-    # but actually returns DefaultContext at runtime.
     return multiprocessing.get_context()

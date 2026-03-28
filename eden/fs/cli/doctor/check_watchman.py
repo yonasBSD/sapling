@@ -26,8 +26,6 @@ from eden.fs.cli.doctor.problem import (
 log: logging.Logger = logging.getLogger("eden.fs.cli.doctor.checks.watchman")
 
 
-# pyre-fixme[4]: Attribute annotation cannot be `Any`.
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 WatchmanCheckInfo = collections.namedtuple("WatchmanCheckInfo", ["watchman_roots"])
 
 
@@ -43,7 +41,6 @@ def check_active_mount(
 
 
 class IncorrectWatchmanWatch(FixableProblem):
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def __init__(self, path: str, watcher: Any) -> None:
         self._path = path
         self._watcher = watcher
@@ -117,7 +114,6 @@ def _check_json_output(args: List[str], timeout: float = 30) -> Dict[str, Any]:
     """
     try:
         output = subprocess.check_output(args, timeout=timeout)
-        # pyre-fixme[33]: Given annotation cannot contain `Any`.
         return typing.cast(Dict[str, Any], json.loads(output))
     except FileNotFoundError as e:
         # Same as below, but we don't need to emit a warning if they don't have

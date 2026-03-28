@@ -820,10 +820,6 @@ def rename(src, dst):
 
 import functools
 
-# pyre-fixme[9]: _unified_diff has type `(a: Sequence[str], b: Sequence[str],
-#  fromfile: str = ..., tofile: str = ..., fromfiledate: str = ..., tofiledate: str
-#  = ..., n: int = ..., lineterm: str = ...) -> Iterator[str]`; used as
-#  `partial[Iterator[bytes]]`.
 _unified_diff = functools.partial(difflib.diff_bytes, difflib.unified_diff)
 
 
@@ -1817,7 +1813,6 @@ class PythonTest(Test):
         return result[0], self._processoutput(result[1])
 
 
-# pyre-fixme[9]: bchr has type `(int) -> str`; used as `(x: Any) -> bytes`.
 bchr = lambda x: bytes([x])
 
 
@@ -1829,8 +1824,6 @@ class TTest(Test):
 
     ESCAPESUB = re.compile(rb"[\x00-\x08\x0b-\x1f\\\x7f-\xff]").sub
     ESCAPEMAP = dict((bchr(i), rb"\x%02x" % i) for i in range(256))
-    # pyre-fixme[6]: For 1st argument expected `SupportsKeysAndGetItem[str, bytes]`
-    #  but got `Dict[bytes, bytes]`.
     ESCAPEMAP.update({b"\\": b"\\\\", b"\r": rb"\r"})
 
     def __init__(self, path, *args, **kwds):
