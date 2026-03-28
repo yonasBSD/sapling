@@ -255,7 +255,7 @@ fn dispatch_command(
 
     setup_http(dispatcher.global_opts());
 
-    let _ = spawn_progress_thread(
+    let _ = setup_progress_thread(
         dispatcher.config(),
         dispatcher.global_opts(),
         io,
@@ -526,7 +526,7 @@ fn setup_tracing(global_opts: &Option<HgGlobalOpts>, io: &IO) -> Result<Arc<Mute
     Ok(data)
 }
 
-fn spawn_progress_thread(
+fn setup_progress_thread(
     config: &dyn Config,
     global_opts: &HgGlobalOpts,
     io: &IO,
@@ -580,59 +580,62 @@ fn spawn_progress_thread(
         ..Default::default()
     };
 
-    let registry = Registry::main();
-
     hg_http::enable_progress_reporting();
 
-    // Not fatal if we cannot spawn the progress rendering thread.
-    let thread_name = "rust-progress".to_string();
-    let _ = thread::Builder::new().name(thread_name).spawn(move || {
-        let mut last_changes = Vec::new();
-        let mut last_runlog_time: Option<Instant> = None;
+    // Defer spawning the progress thread until a model is registered.
+    Registry::main().on_first_registration(Box::new(move || {
+        // Not fatal if we cannot spawn the progress rendering thread.
+        let _ = thread::Builder::new()
+            .name("rust-progress".to_string())
+            .spawn(move || {
+                let registry = Registry::main();
+                let mut last_changes = Vec::new();
+                let mut last_runlog_time: Option<Instant> = None;
 
-        while Weak::upgrade(&in_scope).is_some() {
-            let now = Instant::now();
+                while Weak::upgrade(&in_scope).is_some() {
+                    let now = Instant::now();
 
-            if lockstep {
-                registry.wait();
-            }
-
-            registry.remove_orphan_progress_bar();
-
-            if !disable_rendering {
-                let (term_width, term_height) = progress.term_size();
-                config.term_width = term_width;
-                config.term_height = term_height;
-
-                let changes = (render_function)(registry, &config);
-                if changes != last_changes {
-                    // This might block (so we use a thread, not an async task)
-                    let _ = progress.set(&changes);
-                    last_changes = changes;
-                }
-            }
-
-            if let Some(run_logger) = &run_logger {
-                if last_runlog_time.is_none_or(|i| now - i >= runlog_interval) {
-                    let progress = registry
-                        .list_progress_bar()
-                        .into_iter()
-                        .map(runlog::Progress::new)
-                        .collect();
-
-                    if let Err(err) = run_logger.update_progress(progress) {
-                        tracing::warn!(target: "runlog", ?err, "error updating runlog progress");
+                    if lockstep {
+                        registry.wait();
                     }
 
-                    last_runlog_time = Some(now);
-                }
-            }
+                    registry.remove_orphan_progress_bar();
 
-            if !lockstep {
-                thread::sleep(interval);
-            }
-        }
-    });
+                    if !disable_rendering {
+                        let (term_width, term_height) = progress.term_size();
+                        config.term_width = term_width;
+                        config.term_height = term_height;
+
+                        let changes = (render_function)(registry, &config);
+                        if changes != last_changes {
+                            // This might block (so we use a thread, not an async task)
+                            let _ = progress.set(&changes);
+                            last_changes = changes;
+                        }
+                    }
+
+                    if let Some(run_logger) = &run_logger {
+                        if last_runlog_time.is_none_or(|i| now - i >= runlog_interval) {
+                            let progress = registry
+                                .list_progress_bar()
+                                .into_iter()
+                                .map(runlog::Progress::new)
+                                .collect();
+
+                            if let Err(err) = run_logger.update_progress(progress) {
+                                tracing::warn!(target: "runlog", ?err, "error updating runlog progress");
+                            }
+
+                            last_runlog_time = Some(now);
+                        }
+                    }
+
+                    if !lockstep {
+                        thread::sleep(interval);
+                    }
+                }
+            });
+    }));
 
     Ok(())
 }
