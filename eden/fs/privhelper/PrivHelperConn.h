@@ -239,6 +239,12 @@ class PrivHelperConn {
       std::string& mountPath,
       uint32_t& readAheadKb);
 
+  static void serializeSanityCheckResult(
+      folly::io::Appender& appender,
+      const SanityCheckResult& result);
+
+  static SanityCheckResult parseSanityCheckResult(folly::io::Cursor& cursor);
+
   /**
    * Parse a response that is expected to be empty.
    *

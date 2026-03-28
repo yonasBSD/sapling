@@ -784,6 +784,28 @@ void PrivHelperConn::parseSetFuseReadAheadRequest(
   checkAtEnd(cursor, "set fuse read-ahead request");
 }
 
+void PrivHelperConn::serializeSanityCheckResult(
+    Appender& appender,
+    const SanityCheckResult& result) {
+  appender.write<uint32_t>(result.staleRedirectionMountsFound);
+  appender.write<uint32_t>(result.staleRedirectionMountsSucceeded);
+  appender.write<uint32_t>(result.staleRedirectionMountsFailed);
+  appender.write<uint8_t>(result.staleCheckoutMountUnmounted ? 1 : 0);
+}
+
+SanityCheckResult PrivHelperConn::parseSanityCheckResult(Cursor& cursor) {
+  SanityCheckResult result{};
+  if (cursor.isAtEnd()) {
+    // Old server that doesn't send cleanup data
+    return result;
+  }
+  result.staleRedirectionMountsFound = cursor.read<uint32_t>();
+  result.staleRedirectionMountsSucceeded = cursor.read<uint32_t>();
+  result.staleRedirectionMountsFailed = cursor.read<uint32_t>();
+  result.staleCheckoutMountUnmounted = cursor.read<uint8_t>() != 0;
+  return result;
+}
+
 void PrivHelperConn::serializeErrorResponse(
     Appender& appender,
     const std::exception& ex) {

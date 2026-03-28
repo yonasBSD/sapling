@@ -1029,10 +1029,14 @@ UnixSocket::Message PrivHelperServer::processTakeoverStartupMsg(
       mountPath,
       bindMounts.size());
 
-  sanityCheckMountPoint(mountPath);
+  auto sanityResult = sanityCheckMountPoint(mountPath);
 
   mountPoints_.insert(mountPath);
-  return makeResponse();
+  auto response = makeResponse();
+  response.data.unshare();
+  folly::io::Appender appender(&response.data, 0);
+  PrivHelperConn::serializeSanityCheckResult(appender, sanityResult);
+  return response;
 }
 
 UnixSocket::Message PrivHelperServer::processMountMsg(Cursor& cursor) {
@@ -1042,12 +1046,16 @@ UnixSocket::Message PrivHelperServer::processMountMsg(Cursor& cursor) {
   PrivHelperConn::parseMountRequest(cursor, mountPath, readOnly, vfsType);
   XLOGF(DBG3, "mount \"{}\"", mountPath);
 
-  sanityCheckMountPoint(mountPath);
+  auto sanityResult = sanityCheckMountPoint(mountPath);
 
   auto fuseDev = fuseMount(mountPath.c_str(), readOnly, vfsType.c_str());
   mountPoints_.insert(mountPath);
 
-  return makeResponse(std::move(fuseDev));
+  auto response = makeResponse(std::move(fuseDev));
+  response.data.unshare();
+  folly::io::Appender appender(&response.data, 0);
+  PrivHelperConn::serializeSanityCheckResult(appender, sanityResult);
+  return response;
 }
 
 UnixSocket::Message PrivHelperServer::processMountNfsMsg(Cursor& cursor) {
@@ -1056,12 +1064,17 @@ UnixSocket::Message PrivHelperServer::processMountNfsMsg(Cursor& cursor) {
   PrivHelperConn::parseMountNfsRequest(cursor, mountPath, options);
   XLOGF(DBG3, "mount.nfs \"{}\"", mountPath);
 
-  sanityCheckMountPoint(mountPath, /*isNFS=*/true, !options.useSoftMount);
+  auto sanityResult =
+      sanityCheckMountPoint(mountPath, /*isNFS=*/true, !options.useSoftMount);
 
   nfsMount(mountPath, std::move(options));
   mountPoints_.insert(mountPath);
 
-  return makeResponse();
+  auto response = makeResponse();
+  response.data.unshare();
+  folly::io::Appender appender(&response.data, 0);
+  PrivHelperConn::serializeSanityCheckResult(appender, sanityResult);
+  return response;
 }
 
 UnixSocket::Message PrivHelperServer::processUnmountMsg(Cursor& cursor) {
