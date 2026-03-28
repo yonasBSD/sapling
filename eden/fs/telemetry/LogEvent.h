@@ -1039,4 +1039,42 @@ struct ChangesSince : public EdenFSEvent {
   }
 };
 
+struct StaleRedirectionCleanup : public EdenFSEvent {
+  std::string checkout_path;
+  int64_t stale_redirections_found;
+  int64_t stale_redirections_succeeded;
+  int64_t stale_redirections_failed;
+  bool stale_checkout_mount_unmounted;
+  // Derived: true when stale_redirections_failed == 0. Does not account for
+  // stale_checkout_mount_unmounted, which tracks a separate cleanup step.
+  bool success;
+
+  StaleRedirectionCleanup(
+      std::string checkout_path,
+      int64_t found,
+      int64_t succeeded,
+      int64_t failed,
+      bool checkoutUnmounted)
+      : checkout_path(std::move(checkout_path)),
+        stale_redirections_found(found),
+        stale_redirections_succeeded(succeeded),
+        stale_redirections_failed(failed),
+        stale_checkout_mount_unmounted(checkoutUnmounted),
+        success(failed == 0) {}
+
+  void populate(DynamicEvent& event) const override {
+    event.addString("checkout_path", checkout_path);
+    event.addInt("stale_redirections_found", stale_redirections_found);
+    event.addInt("stale_redirections_succeeded", stale_redirections_succeeded);
+    event.addInt("stale_redirections_failed", stale_redirections_failed);
+    event.addBool(
+        "stale_checkout_mount_unmounted", stale_checkout_mount_unmounted);
+    event.addBool("success", success);
+  }
+
+  const char* getType() const override {
+    return "stale_redirection_cleanup";
+  }
+};
+
 } // namespace facebook::eden

@@ -24,6 +24,8 @@ struct Unit;
 
 namespace facebook::eden {
 
+class StructuredLogger;
+
 /*
  * NFS-specific options for PrivHelper NFS mount requests.
  */
@@ -259,6 +261,14 @@ class PrivHelper {
   void setDaemonTimeoutBlocking(std::chrono::nanoseconds duration);
   void setMemoryPriorityForProcessBlocking(pid_t pid, int targetPriority);
   NamespaceInfo getNamespaceInfoBlocking(pid_t daemonPid);
+
+  /**
+   * Set the structured logger for logging telemetry events from privhelper
+   * responses (e.g., stale mount cleanup results). Default no-op so that
+   * FakePrivHelper and StubPrivHelper need no changes.
+   */
+  virtual void setStructuredLogger(
+      std::shared_ptr<StructuredLogger> /* logger */) {}
 
   /*
    * Explicitly stop the privhelper process.

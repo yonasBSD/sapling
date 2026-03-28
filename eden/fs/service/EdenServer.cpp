@@ -1325,6 +1325,7 @@ Future<Unit> EdenServer::prepareImpl(std::shared_ptr<StartupLogger> logger) {
   }
   auto thriftRunningFuture = createThriftServer();
   // Start the PrivHelper client, using our main event base to drive its I/O
+  serverState_->getPrivHelper()->setStructuredLogger(structuredLogger_);
   serverState_->getPrivHelper()->attachEventBase(mainEventBase_);
 
   startPeriodicTasks();

@@ -7,6 +7,9 @@
 
 #include "eden/fs/privhelper/PrivHelperImpl.h"
 
+#include "eden/common/telemetry/StructuredLogger.h"
+#include "eden/fs/telemetry/LogEvent.h"
+
 #include <folly/Exception.h>
 #include <folly/Expected.h>
 #include <folly/File.h>
@@ -135,6 +138,9 @@ class PrivHelperClientImpl : public PrivHelper,
   Future<folly::Unit> setFuseReadAhead(
       StringPiece mountPath,
       uint32_t readAheadKb) override;
+  void setStructuredLogger(std::shared_ptr<StructuredLogger> logger) override {
+    structuredLogger_ = std::move(logger);
+  }
   int stop() override;
   int getRawClientFd() const override {
     auto state = state_.rlock();
@@ -380,6 +386,9 @@ class PrivHelperClientImpl : public PrivHelper,
   std::atomic<uint32_t> nextXid_{1};
   folly::Synchronized<ThreadSafeData> state_;
   pid_t pid_;
+  // Must be set (via setStructuredLogger) before attachEventBase() is called.
+  // Read from EventBase thread thereafter; do not modify after attach.
+  std::shared_ptr<StructuredLogger> structuredLogger_;
 
   // sendPending_, and pendingRequests_ are only accessed from the
   // EventBase thread.
@@ -387,19 +396,62 @@ class PrivHelperClientImpl : public PrivHelper,
   PendingRequestMap pendingRequests_;
 };
 
+/**
+ * Parse sanity-check results from a privhelper response and log a
+ * StaleRedirectionCleanup event when stale mounts were found.
+ *
+ * Best-effort: parsing or logging failures are caught so that telemetry
+ * never breaks mount/takeover operations.
+ *
+ * TODO: The response packet header is parsed twice (once by
+ * parseEmptyResponse and once here). Consider refactoring
+ * parseEmptyResponse to return a Cursor positioned after the header.
+ */
+void logSanityCheckResult(
+    const std::shared_ptr<StructuredLogger>& logger,
+    const UnixSocket::Message& response,
+    const std::string& mountPath) {
+  try {
+    Cursor cursor(&response.data);
+    PrivHelperConn::parsePacket(cursor);
+    auto sanityResult = PrivHelperConn::parseSanityCheckResult(cursor);
+
+    if (logger &&
+        (sanityResult.staleRedirectionMountsFound > 0 ||
+         sanityResult.staleCheckoutMountUnmounted)) {
+      logger->logEvent(
+          StaleRedirectionCleanup{
+              mountPath,
+              sanityResult.staleRedirectionMountsFound,
+              sanityResult.staleRedirectionMountsSucceeded,
+              sanityResult.staleRedirectionMountsFailed,
+              sanityResult.staleCheckoutMountUnmounted});
+    }
+  } catch (const std::exception& ex) {
+    XLOGF(
+        WARN,
+        "Failed to parse sanity check result for {}: {}",
+        mountPath,
+        ex.what());
+  }
+}
+
 Future<File> PrivHelperClientImpl::fuseMount(
     StringPiece mountPath,
     bool readOnly,
     StringPiece vfsType) {
   auto xid = getNextXid();
+  auto mountPathStr = mountPath.str();
   auto request =
       PrivHelperConn::serializeMountRequest(xid, mountPath, readOnly, vfsType);
   return sendAndRecv(xid, std::move(request))
       .thenValue(
-          [](UnixSocket::Message&& response)
+          [mountPathStr = std::move(mountPathStr),
+           logger = structuredLogger_](UnixSocket::Message&& response)
               -> folly::Future<UnixSocket::Message> {
             PrivHelperConn::parseEmptyResponse(
                 PrivHelperConn::REQ_MOUNT_FUSE, response);
+            logSanityCheckResult(logger, response, mountPathStr);
             return std::move(response);
           })
       .thenValue([](UnixSocket::Message&& response) {
@@ -417,15 +469,19 @@ Future<Unit> PrivHelperClientImpl::nfsMount(
     folly::StringPiece mountPath,
     const NFSMountOptions& options) {
   auto xid = getNextXid();
+  auto mountPathStr = mountPath.str();
   auto request =
       PrivHelperConn::serializeMountNfsRequest(xid, mountPath, options);
 
   return sendAndRecv(xid, std::move(request))
-      .thenValue([](UnixSocket::Message&& response) mutable -> Future<Unit> {
-        PrivHelperConn::parseEmptyResponse(
-            PrivHelperConn::REQ_MOUNT_NFS, response);
-        return folly::unit;
-      });
+      .thenValue(
+          [mountPathStr = std::move(mountPathStr), logger = structuredLogger_](
+              UnixSocket::Message&& response) mutable -> Future<Unit> {
+            PrivHelperConn::parseEmptyResponse(
+                PrivHelperConn::REQ_MOUNT_NFS, response);
+            logSanityCheckResult(logger, response, mountPathStr);
+            return folly::unit;
+          });
 }
 
 Future<Unit> PrivHelperClientImpl::fuseUnmount(
@@ -495,13 +551,16 @@ Future<Unit> PrivHelperClientImpl::takeoverStartup(
     StringPiece mountPath,
     const vector<string>& bindMounts) {
   auto xid = getNextXid();
+  auto mountPathStr = mountPath.str();
   auto request = PrivHelperConn::serializeTakeoverStartupRequest(
       xid, mountPath, bindMounts);
 
   return sendAndRecv(xid, std::move(request))
-      .thenValue([](UnixSocket::Message&& response) {
+      .thenValue([mountPathStr = std::move(mountPathStr),
+                  logger = structuredLogger_](UnixSocket::Message&& response) {
         PrivHelperConn::parseEmptyResponse(
             PrivHelperConn::REQ_TAKEOVER_STARTUP, response);
+        logSanityCheckResult(logger, response, mountPathStr);
       });
 }
 
