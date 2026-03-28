@@ -86,6 +86,7 @@ rust_library(
         "//common/rust/shed/hostcaps:hostcaps",
         "//configerator/structs/infrasec/if:acl-rust",
         "//eden/scm/lib/async-runtime:async-runtime",
+        "//eden/scm/lib/metrics:metrics",
         "//eden/scm/lib/config/remote-loader:remote-loader",
         "//eden/scm/lib/hgtime:hgtime",
         "//eden/scm/lib/http-client:http-client",
