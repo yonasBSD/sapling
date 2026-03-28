@@ -19,4 +19,4 @@ fs-err = { version = "3.3.0", features = ["tokio"] }
 sapling-nodeipc = { version = "0.1.0", path = "../nodeipc" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-uds_windows = "1.0.1"
+uds_windows = "1.2.1"
