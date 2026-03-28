@@ -3,9 +3,9 @@
 
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable absorb
-  $ export HGIDENTITY=sl
 
   $ sl init repo1
   $ cd repo1

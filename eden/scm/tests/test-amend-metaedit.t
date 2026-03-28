@@ -2,11 +2,11 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ configure mutation-norecord
   $ enable amend rebase
-  $ export HGIDENTITY=sl
   $ readconfig <<EOF
   > [defaults]
   > fold=--date "0 0"

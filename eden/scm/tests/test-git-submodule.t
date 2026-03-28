@@ -5,10 +5,10 @@ Make sure things still work for submodules not properly namespaced (fixed in D63
 #testcases normal submodule-namespace-bug
 
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
   $ setconfig diff.git=true ui.allowemptycommit=true
   $ enable rebase
-  $ export HGIDENTITY=sl
 
 Prepare smaller submodules
 
