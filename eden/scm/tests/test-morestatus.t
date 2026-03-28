@@ -3,6 +3,7 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ configure mutation-norecord
@@ -25,62 +26,62 @@
 
 Test An empty repo should return no extra output
   $ newclientrepo
-  $ hg status
+  $ sl status
 
 Test status on histedit stop
   $ echo 'a' > a
-  $ hg commit -Am 'a' -q
-  $ hg histedit -q --commands - . 2> /dev/null << EOF
+  $ sl commit -Am 'a' -q
+  $ sl histedit -q --commands - . 2> /dev/null << EOF
   > stop cb9a9f314b8b a
   > EOF
   [1]
-  $ hg status
+  $ sl status
   
   # The repository is in an unfinished *histedit* state.
-  # To continue:                hg histedit --continue
-  # To abort:                   hg histedit --abort
+  # To continue:                sl histedit --continue
+  # To abort:                   sl histedit --abort
 
 
 Test disabling output. Nothing should be shown
-  $ hg status --config morestatus.show=False
-  $ HGPLAIN=1 hg status
-  $ hg histedit -q --continue
+  $ sl status --config morestatus.show=False
+  $ HGPLAIN=1 sl status
+  $ sl histedit -q --continue
 
 Test no output on normal state
-  $ hg status
+  $ sl status
 
 Test bisect state
-  $ hg bisect --good
-  $ hg status
+  $ sl bisect --good
+  $ sl status
   
   # The repository is in an unfinished *bisect* state.
   # Current bisect state: 1 good commit(s), 0 bad commit(s), 0 skip commit(s)
-  # To mark the commit good:     hg bisect --good
-  # To mark the commit bad:      hg bisect --bad
-  # To abort:                    hg bisect --reset
+  # To mark the commit good:     sl bisect --good
+  # To mark the commit bad:      sl bisect --bad
+  # To abort:                    sl bisect --reset
 
 
 Verify that suppressing a morestatus state warning works with the config knob:
-  $ hg status --config morestatus.skipstates=bisect
+  $ sl status --config morestatus.skipstates=bisect
 
-Test hg status is normal after bisect reset
-  $ hg bisect --reset
-  $ hg status
+Test sl status is normal after bisect reset
+  $ sl bisect --reset
+  $ sl status
 
 Test graft state
-  $ hg up -q -r 'max(desc(a))'
+  $ sl up -q -r 'max(desc(a))'
   $ echo '' > a
-  $ hg commit -q -m 'remove content'
+  $ sl commit -q -m 'remove content'
 
-  $ hg up -q -r 'max(desc(a))'
+  $ sl up -q -r 'max(desc(a))'
   $ echo 'ab' > a
-  $ hg commit -q -m 'add content'
-  $ hg graft -q 2977a57
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  $ sl commit -q -m 'add content'
+  $ sl graft -q 2977a57
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   abort: unresolved conflicts, can't continue
-  (use 'hg resolve' and 'hg graft --continue')
+  (use 'sl resolve' and 'sl graft --continue')
   [255]
-  $ hg status
+  $ sl status
   M a
   ? a.orig
   
@@ -89,29 +90,29 @@ Test graft state
   # 
   #     a
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg graft --continue
-  # To abort:                   hg graft --abort
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl graft --continue
+  # To abort:                   sl graft --abort
 
 
-Test hg status is normal after graft abort
-  $ hg graft --abort -q
-  $ hg up --clean -q .
-  $ hg status
+Test sl status is normal after graft abort
+  $ sl graft --abort -q
+  $ sl up --clean -q .
+  $ sl status
   ? a.orig
   $ rm a.orig
 
 Test unshelve state
   $ enable shelve
-  $ hg reset ".^" -q
-  $ hg shelve -q
-  $ hg up -r 2977a57 -q
-  $ hg unshelve -q
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see 'hg resolve', then 'hg unshelve --continue')
+  $ sl reset ".^" -q
+  $ sl shelve -q
+  $ sl up -r 2977a57 -q
+  $ sl unshelve -q
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see 'sl resolve', then 'sl unshelve --continue')
   [1]
 
-  $ hg status
+  $ sl status
   M a
   ? a.orig
   
@@ -120,29 +121,29 @@ Test unshelve state
   # 
   #     a
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg unshelve --continue
-  # To abort:                   hg unshelve --abort
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl unshelve --continue
+  # To abort:                   sl unshelve --abort
 
 
-Test hg status is normal after unshelve abort
-  $ hg unshelve --abort
+Test sl status is normal after unshelve abort
+  $ sl unshelve --abort
   rebase aborted
   unshelve of 'default' aborted
-  $ hg status
+  $ sl status
   ? a.orig
   $ rm a.orig
 
 Test rebase state
   $ echo "rebase=" >> $HGRCPATH
-  $ hg up -r 0efcea34f18aa8f87dc63b4c37b7c494bc778b03 -q
+  $ sl up -r 0efcea34f18aa8f87dc63b4c37b7c494bc778b03 -q
   $ echo 'ab' > a
-  $ hg commit -q -m 'add content'
-  $ hg rebase -s 2977a57 -d . -q
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
-  unresolved conflicts (see hg resolve, then hg rebase --continue)
+  $ sl commit -q -m 'add content'
+  $ sl rebase -s 2977a57 -d . -q
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
+  unresolved conflicts (see sl resolve, then sl rebase --continue)
   [1]
-  $ hg status
+  $ sl status
   M a
   ? a.orig
   
@@ -151,59 +152,59 @@ Test rebase state
   # 
   #     a
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg rebase --continue
-  # To abort:                   hg rebase --abort
-  # To quit:                    hg rebase --quit
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl rebase --continue
+  # To abort:                   sl rebase --abort
+  # To quit:                    sl rebase --quit
   # 
   # Rebasing 2977a57ce863 (remove content)
   #       to 79361b8cdbb5 (add content)
 
 
 Test status in rebase state with resolved files
-  $ hg resolve --mark a
+  $ sl resolve --mark a
   (no more unresolved files)
-  continue: hg rebase --continue
-  $ hg status
+  continue: sl rebase --continue
+  $ sl status
   M a
   ? a.orig
   
   # The repository is in an unfinished *rebase* state.
   # No unresolved merge conflicts.
-  # To continue:                hg rebase --continue
-  # To abort:                   hg rebase --abort
-  # To quit:                    hg rebase --quit
+  # To continue:                sl rebase --continue
+  # To abort:                   sl rebase --abort
+  # To quit:                    sl rebase --quit
   # 
   # Rebasing 2977a57ce863 (remove content)
   #       to 79361b8cdbb5 (add content)
 
 
-Test hg status is normal after rebase abort
-  $ hg rebase --abort -q
+Test sl status is normal after rebase abort
+  $ sl rebase --abort -q
   rebase aborted
-  $ hg status
+  $ sl status
   ? a.orig
   $ rm a.orig
 
 Test rebase with an interrupted update:
   $ breakupdate
-  $ hg rebase -s 2977a57ce863 -d 79361b8cdbb5 -q
+  $ sl rebase -s 2977a57ce863 -d 79361b8cdbb5 -q
   $ unbreakupdate
-  $ hg status
+  $ sl status
   
   # The repository is in an unfinished *rebase* state.
-  # To continue:                hg rebase --continue
-  # To abort:                   hg rebase --abort
-  # To quit:                    hg rebase --quit
+  # To continue:                sl rebase --continue
+  # To abort:                   sl rebase --abort
+  # To quit:                    sl rebase --quit
 
-  $ hg rebase --abort -q
+  $ sl rebase --abort -q
   rebase aborted
 
 Test conflicted merge state
-  $ hg merge -q
-  warning: 1 conflicts while merging a! (edit, then use 'hg resolve --mark')
+  $ sl merge -q
+  warning: 1 conflicts while merging a! (edit, then use 'sl resolve --mark')
   [1]
-  $ hg status
+  $ sl status
   M a
   ? a.orig
   
@@ -212,15 +213,15 @@ Test conflicted merge state
   # 
   #     a
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg commit
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl commit
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
 
 Test if listed files have a relative path to current location
   $ mkdir -p b/c
   $ cd b/c
-  $ hg status
+  $ sl status
   M ../../a
   ? ../../a.orig
   
@@ -229,103 +230,103 @@ Test if listed files have a relative path to current location
   # 
   #     ../../a
   # 
-  # To mark files as resolved:  hg resolve --mark FILE
-  # To continue:                hg commit
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To mark files as resolved:  sl resolve --mark FILE
+  # To continue:                sl commit
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
   $ cd ../..
 
-Test hg status is normal after merge abort
-  $ hg goto --clean -q .
-  $ hg status
+Test sl status is normal after merge abort
+  $ sl goto --clean -q .
+  $ sl status
   ? a.orig
   $ rm a.orig
 
 Test non-conflicted merge state
-  $ hg up -r 0efcea34f18aa8f87dc63b4c37b7c494bc778b03 -q
+  $ sl up -r 0efcea34f18aa8f87dc63b4c37b7c494bc778b03 -q
   $ touch z
-  $ hg add z
-  $ hg commit -m 'a commit that will merge without conflicts' -q
-  $ hg merge -r 79361b8cdbb -q
-  $ hg status
+  $ sl add z
+  $ sl commit -m 'a commit that will merge without conflicts' -q
+  $ sl merge -r 79361b8cdbb -q
+  $ sl status
   M a
   
   # The repository is in an unfinished *merge* state.
-  # To continue:                hg commit
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To continue:                sl commit
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
 
-Test hg status is normal after merge commit (no output)
-  $ hg commit -m 'merge commit' -q
-  $ hg status
+Test sl status is normal after merge commit (no output)
+  $ sl commit -m 'merge commit' -q
+  $ sl status
 
 Test interrupted update state, without active bookmark and REV is a hash
   $ breakupdate
-  $ hg goto -C 2977a57ce863
-  $ hg status
+  $ sl goto -C 2977a57ce863
+  $ sl status
   
   # The repository is in an unfinished *update* state.
-  # To continue:                hg goto -C 2977a57ce863
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To continue:                sl goto -C 2977a57ce863
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
 
 Test interrupted update state, with active bookmark and REV is a bookmark
-  $ hg bookmark b1
-  $ hg bookmark -r 79361b8cdbb5 b2
-  $ hg goto b2
-  $ hg status
+  $ sl bookmark b1
+  $ sl bookmark -r 79361b8cdbb5 b2
+  $ sl goto b2
+  $ sl status
   
   # The repository is in an unfinished *update* state.
-  # To continue:                hg goto b2
-  # To abort:                   hg goto b1 --clean    (warning: this will discard uncommitted changes)
+  # To continue:                sl goto b2
+  # To abort:                   sl goto b1 --clean    (warning: this will discard uncommitted changes)
 
 
 Test update state can be reset using bookmark
-  $ hg goto b1 -q
-  $ hg bookmark -d b1 -q
-  $ hg status
+  $ sl goto b1 -q
+  $ sl bookmark -d b1 -q
+  $ sl status
 
 Test interrupted update state, without active bookmark and REV is specified using date
   $ echo a >> a
-  $ hg commit --date "1234567890 0" -m m -q
-  $ hg goto --date 1970-1-1 -q
-  $ hg status
+  $ sl commit --date "1234567890 0" -m m -q
+  $ sl goto --date 1970-1-1 -q
+  $ sl status
   
   # The repository is in an unfinished *update* state.
-  # To continue:                hg goto --date 1970-1-1 -q
-  # To abort:                   hg goto . --clean    (warning: this will discard uncommitted changes)
+  # To continue:                sl goto --date 1970-1-1 -q
+  # To abort:                   sl goto . --clean    (warning: this will discard uncommitted changes)
 
 
   $ unbreakupdate
 
 Test update state can be reset using .
-  $ hg goto . -q
-  $ hg status
+  $ sl goto . -q
+  $ sl status
 
 Test args escaping in continue command
   $ breakupdate
-  $ hg bookmark b1
-  $ hg --config extensions.fsmonitor=! --config ui.ssh="ssh -oControlMaster=no" update -C 2977a57ce863
-  $ hg status
+  $ sl bookmark b1
+  $ sl --config extensions.fsmonitor=! --config ui.ssh="ssh -oControlMaster=no" update -C 2977a57ce863
+  $ sl status
   
   # The repository is in an unfinished *update* state.
-  # To continue:                hg --config 'extensions.fsmonitor=!' --config 'ui.ssh=ssh -oControlMaster=no' update -C 2977a57ce863
-  # To abort:                   hg goto b1 --clean    (warning: this will discard uncommitted changes)
+  # To continue:                sl --config 'extensions.fsmonitor=!' --config 'ui.ssh=ssh -oControlMaster=no' update -C 2977a57ce863
+  # To abort:                   sl goto b1 --clean    (warning: this will discard uncommitted changes)
 
 
   $ unbreakupdate
-  $ hg goto --clean b1
+  $ sl goto --clean b1
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg status
+  $ sl status
 
 Test bisect search status (after cleaning up previous setup)
   $ echo 'z' > z
-  $ hg commit -Am 'z' -q
-  $ hg bisect --bad
-  $ hg bisect --good 0efcea34f18a
+  $ sl commit -Am 'z' -q
+  $ sl bisect --bad
+  $ sl bisect --good 0efcea34f18a
   Testing changeset 69a19f24e505 (5 changesets remaining, ~2 tests)
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg status
+  $ sl status
   
   # The repository is in an unfinished *bisect* state.
   # Current bisect state: 1 good commit(s), 1 bad commit(s), 0 skip commit(s)
@@ -334,11 +335,11 @@ Test bisect search status (after cleaning up previous setup)
   #                  0efcea34f18a...69a19f24e505...547e426ae373
   # Commits remaining:           5
   # Estimated bisects remaining: 3
-  # To mark the commit good:     hg bisect --good
-  # To mark the commit bad:      hg bisect --bad
-  # To abort:                    hg bisect --reset
+  # To mark the commit good:     sl bisect --good
+  # To mark the commit bad:      sl bisect --bad
+  # To abort:                    sl bisect --reset
 
 
-Test hg status is normal after bisect reset
-  $ hg bisect --reset
-  $ hg status
+Test sl status is normal after bisect reset
+  $ sl bisect --reset
+  $ sl status

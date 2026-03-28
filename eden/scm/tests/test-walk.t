@@ -1,4 +1,5 @@
 
+  $ export HGIDENTITY=sl
   $ newclientrepo t
   $ mkdir -p beans
   $ for b in kidney navy turtle borlotti black pinto; do
@@ -12,7 +13,7 @@
   $ echo fennel > fennel
   $ echo fenugreek > fenugreek
   $ echo fiddlehead > fiddlehead
-  $ hg addremove
+  $ sl addremove
   adding beans/black
   adding beans/borlotti
   adding beans/kidney
@@ -26,9 +27,9 @@
   adding mammals/Procyonidae/coatimundi
   adding mammals/Procyonidae/raccoon
   adding mammals/skunk
-  $ hg commit -m "commit #0"
+  $ sl commit -m "commit #0"
 
-  $ hg debugwalk
+  $ sl debugwalk
   f  beans/black                     beans/black
   f  beans/borlotti                  beans/borlotti
   f  beans/kidney                    beans/kidney
@@ -42,7 +43,7 @@
   f  mammals/Procyonidae/coatimundi  mammals/Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     mammals/Procyonidae/raccoon
   f  mammals/skunk                   mammals/skunk
-  $ hg debugwalk -I.
+  $ sl debugwalk -I.
   f  beans/black                     beans/black
   f  beans/borlotti                  beans/borlotti
   f  beans/kidney                    beans/kidney
@@ -58,7 +59,7 @@
   f  mammals/skunk                   mammals/skunk
 
   $ cd mammals
-  $ hg debugwalk
+  $ sl debugwalk
   f  beans/black                     ../beans/black
   f  beans/borlotti                  ../beans/borlotti
   f  beans/kidney                    ../beans/kidney
@@ -72,7 +73,7 @@
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon
   f  mammals/skunk                   skunk
-  $ hg debugwalk -X ../beans
+  $ sl debugwalk -X ../beans
   f  fennel                          ../fennel
   f  fenugreek                       ../fenugreek
   f  fiddlehead                      ../fiddlehead
@@ -80,32 +81,32 @@
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon
   f  mammals/skunk                   skunk
-  $ hg debugwalk -I '*k'
+  $ sl debugwalk -I '*k'
   f  mammals/skunk  skunk
-  $ hg debugwalk -I 'glob:*k'
+  $ sl debugwalk -I 'glob:*k'
   f  mammals/skunk  skunk
-  $ hg debugwalk -I 'relglob:*k'
+  $ sl debugwalk -I 'relglob:*k'
   f  beans/black    ../beans/black
   f  fenugreek      ../fenugreek
   f  mammals/skunk  skunk
-  $ hg debugwalk -I 'relglob:*k' .
+  $ sl debugwalk -I 'relglob:*k' .
   f  mammals/skunk  skunk
-  $ hg debugwalk -I 're:.*k$'
+  $ sl debugwalk -I 're:.*k$'
   f  beans/black    ../beans/black
   f  fenugreek      ../fenugreek
   f  mammals/skunk  skunk
-  $ hg debugwalk -I 'relre:.*k$'
+  $ sl debugwalk -I 'relre:.*k$'
   f  beans/black    ../beans/black
   f  fenugreek      ../fenugreek
   f  mammals/skunk  skunk
-  $ hg debugwalk -I 'path:beans'
+  $ sl debugwalk -I 'path:beans'
   f  beans/black     ../beans/black
   f  beans/borlotti  ../beans/borlotti
   f  beans/kidney    ../beans/kidney
   f  beans/navy      ../beans/navy
   f  beans/pinto     ../beans/pinto
   f  beans/turtle    ../beans/turtle
-  $ hg debugwalk -I 'relpath:detour/../../beans'
+  $ sl debugwalk -I 'relpath:detour/../../beans'
   f  beans/black     ../beans/black
   f  beans/borlotti  ../beans/borlotti
   f  beans/kidney    ../beans/kidney
@@ -113,23 +114,23 @@
   f  beans/pinto     ../beans/pinto
   f  beans/turtle    ../beans/turtle
 
-  $ hg debugwalk 'rootfilesin:'
+  $ sl debugwalk 'rootfilesin:'
   f  fennel      ../fennel
   f  fenugreek   ../fenugreek
   f  fiddlehead  ../fiddlehead
-  $ hg debugwalk -I 'rootfilesin:'
+  $ sl debugwalk -I 'rootfilesin:'
   f  fennel      ../fennel
   f  fenugreek   ../fenugreek
   f  fiddlehead  ../fiddlehead
-  $ hg debugwalk 'rootfilesin:.'
+  $ sl debugwalk 'rootfilesin:.'
   f  fennel      ../fennel
   f  fenugreek   ../fenugreek
   f  fiddlehead  ../fiddlehead
-  $ hg debugwalk -I 'rootfilesin:.'
+  $ sl debugwalk -I 'rootfilesin:.'
   f  fennel      ../fennel
   f  fenugreek   ../fenugreek
   f  fiddlehead  ../fiddlehead
-  $ hg debugwalk -X 'rootfilesin:'
+  $ sl debugwalk -X 'rootfilesin:'
   f  beans/black                     ../beans/black
   f  beans/borlotti                  ../beans/borlotti
   f  beans/kidney                    ../beans/kidney
@@ -140,33 +141,33 @@
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon
   f  mammals/skunk                   skunk
-  $ hg debugwalk 'rootfilesin:fennel'
-  $ hg debugwalk -I 'rootfilesin:fennel'
-  $ hg debugwalk 'rootfilesin:skunk'
-  $ hg debugwalk -I 'rootfilesin:skunk'
-  $ hg debugwalk 'rootfilesin:beans'
+  $ sl debugwalk 'rootfilesin:fennel'
+  $ sl debugwalk -I 'rootfilesin:fennel'
+  $ sl debugwalk 'rootfilesin:skunk'
+  $ sl debugwalk -I 'rootfilesin:skunk'
+  $ sl debugwalk 'rootfilesin:beans'
   f  beans/black     ../beans/black
   f  beans/borlotti  ../beans/borlotti
   f  beans/kidney    ../beans/kidney
   f  beans/navy      ../beans/navy
   f  beans/pinto     ../beans/pinto
   f  beans/turtle    ../beans/turtle
-  $ hg debugwalk -I 'rootfilesin:beans'
+  $ sl debugwalk -I 'rootfilesin:beans'
   f  beans/black     ../beans/black
   f  beans/borlotti  ../beans/borlotti
   f  beans/kidney    ../beans/kidney
   f  beans/navy      ../beans/navy
   f  beans/pinto     ../beans/pinto
   f  beans/turtle    ../beans/turtle
-  $ hg debugwalk 'rootfilesin:mammals'
+  $ sl debugwalk 'rootfilesin:mammals'
   f  mammals/skunk  skunk
-  $ hg debugwalk -I 'rootfilesin:mammals'
+  $ sl debugwalk -I 'rootfilesin:mammals'
   f  mammals/skunk  skunk
-  $ hg debugwalk 'rootfilesin:mammals/'
+  $ sl debugwalk 'rootfilesin:mammals/'
   f  mammals/skunk  skunk
-  $ hg debugwalk -I 'rootfilesin:mammals/'
+  $ sl debugwalk -I 'rootfilesin:mammals/'
   f  mammals/skunk  skunk
-  $ hg debugwalk -X 'rootfilesin:mammals'
+  $ sl debugwalk -X 'rootfilesin:mammals'
   f  beans/black                     ../beans/black
   f  beans/borlotti                  ../beans/borlotti
   f  beans/kidney                    ../beans/kidney
@@ -180,262 +181,262 @@
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon
 
-  $ hg debugwalk .
+  $ sl debugwalk .
   f  mammals/Procyonidae/cacomistle  Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon
   f  mammals/skunk                   skunk
-  $ hg debugwalk -I.
+  $ sl debugwalk -I.
   f  mammals/Procyonidae/cacomistle  Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon
   f  mammals/skunk                   skunk
-  $ hg debugwalk Procyonidae
+  $ sl debugwalk Procyonidae
   f  mammals/Procyonidae/cacomistle  Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon
 
   $ cd Procyonidae
-  $ hg debugwalk .
+  $ sl debugwalk .
   f  mammals/Procyonidae/cacomistle  cacomistle
   f  mammals/Procyonidae/coatimundi  coatimundi
   f  mammals/Procyonidae/raccoon     raccoon
-  $ hg debugwalk ..
+  $ sl debugwalk ..
   f  mammals/Procyonidae/cacomistle  cacomistle
   f  mammals/Procyonidae/coatimundi  coatimundi
   f  mammals/Procyonidae/raccoon     raccoon
   f  mammals/skunk                   ../skunk
   $ cd ..
 
-  $ hg debugwalk ../beans
+  $ sl debugwalk ../beans
   f  beans/black     ../beans/black
   f  beans/borlotti  ../beans/borlotti
   f  beans/kidney    ../beans/kidney
   f  beans/navy      ../beans/navy
   f  beans/pinto     ../beans/pinto
   f  beans/turtle    ../beans/turtle
-  $ hg debugwalk .
+  $ sl debugwalk .
   f  mammals/Procyonidae/cacomistle  Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon
   f  mammals/skunk                   skunk
-  $ hg debugwalk .hg
+  $ sl debugwalk .hg
   abort: path contains illegal component '.hg': mammals/.hg
   [255]
-  $ hg debugwalk ../.hg
+  $ sl debugwalk ../.hg
   abort: path contains illegal component '.hg': .hg
   [255]
   $ cd ..
 
-  $ hg debugwalk -Ibeans
+  $ sl debugwalk -Ibeans
   f  beans/black     beans/black
   f  beans/borlotti  beans/borlotti
   f  beans/kidney    beans/kidney
   f  beans/navy      beans/navy
   f  beans/pinto     beans/pinto
   f  beans/turtle    beans/turtle
-  $ hg debugwalk -I '{*,{b,m}*/*}k'
+  $ sl debugwalk -I '{*,{b,m}*/*}k'
   f  beans/black    beans/black
   f  fenugreek      fenugreek
   f  mammals/skunk  mammals/skunk
-  $ hg debugwalk -Ibeans mammals
-  $ hg debugwalk -Inon-existent
-  $ hg debugwalk -Inon-existent -Ibeans/black
+  $ sl debugwalk -Ibeans mammals
+  $ sl debugwalk -Inon-existent
+  $ sl debugwalk -Inon-existent -Ibeans/black
   f  beans/black  beans/black
-  $ hg debugwalk -Ibeans beans/black
+  $ sl debugwalk -Ibeans beans/black
   f  beans/black  beans/black  exact
-  $ hg debugwalk -Ibeans/black beans
+  $ sl debugwalk -Ibeans/black beans
   f  beans/black  beans/black
-  $ hg debugwalk -Xbeans/black beans
+  $ sl debugwalk -Xbeans/black beans
   f  beans/borlotti  beans/borlotti
   f  beans/kidney    beans/kidney
   f  beans/navy      beans/navy
   f  beans/pinto     beans/pinto
   f  beans/turtle    beans/turtle
-  $ hg debugwalk -Xbeans/black -Ibeans
+  $ sl debugwalk -Xbeans/black -Ibeans
   f  beans/borlotti  beans/borlotti
   f  beans/kidney    beans/kidney
   f  beans/navy      beans/navy
   f  beans/pinto     beans/pinto
   f  beans/turtle    beans/turtle
-  $ hg debugwalk -Xbeans/black beans/black
+  $ sl debugwalk -Xbeans/black beans/black
   f  beans/black  beans/black  exact
-  $ hg debugwalk -Xbeans/black -Ibeans/black
-  $ hg debugwalk -Xbeans beans/black
+  $ sl debugwalk -Xbeans/black -Ibeans/black
+  $ sl debugwalk -Xbeans beans/black
   f  beans/black  beans/black  exact
-  $ hg debugwalk -Xbeans -Ibeans/black
-  $ hg debugwalk 'glob:mammals/../beans/b*'
+  $ sl debugwalk -Xbeans -Ibeans/black
+  $ sl debugwalk 'glob:mammals/../beans/b*'
   f  beans/black     beans/black
   f  beans/borlotti  beans/borlotti
-  $ hg debugwalk '-X*/Procyonidae' mammals
+  $ sl debugwalk '-X*/Procyonidae' mammals
   f  mammals/skunk  mammals/skunk
-  $ hg debugwalk path:mammals
+  $ sl debugwalk path:mammals
   f  mammals/Procyonidae/cacomistle  mammals/Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  mammals/Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     mammals/Procyonidae/raccoon
   f  mammals/skunk                   mammals/skunk
-  $ hg debugwalk ..
+  $ sl debugwalk ..
   abort: cwd relative path '..' is not under root '$TESTTMP/t'
   (hint: consider using --cwd to change working directory)
   [255]
-  $ hg debugwalk beans/../..
+  $ sl debugwalk beans/../..
   abort: cwd relative path 'beans/../..' is not under root '$TESTTMP/t'
   (hint: consider using --cwd to change working directory)
   [255]
-  $ hg debugwalk .hg
+  $ sl debugwalk .hg
   abort: path contains illegal component '.hg': .hg
   [255]
-  $ hg debugwalk path:.hg
+  $ sl debugwalk path:.hg
   abort: path contains illegal component '.hg': .hg
   [255]
-  $ hg debugwalk beans/../.hg
+  $ sl debugwalk beans/../.hg
   abort: path contains illegal component '.hg': .hg
   [255]
-  $ hg debugwalk beans/../.hg/data
+  $ sl debugwalk beans/../.hg/data
   abort: path contains illegal component '.hg': .hg/data
   [255]
-  $ hg debugwalk beans/.hg
+  $ sl debugwalk beans/.hg
   abort: path contains illegal component '.hg': beans/.hg
   [255]
 
 Test absolute paths:
 
-  $ hg debugwalk `pwd`/beans
+  $ sl debugwalk `pwd`/beans
   f  beans/black     beans/black
   f  beans/borlotti  beans/borlotti
   f  beans/kidney    beans/kidney
   f  beans/navy      beans/navy
   f  beans/pinto     beans/pinto
   f  beans/turtle    beans/turtle
-  $ hg debugwalk `pwd`/..
+  $ sl debugwalk `pwd`/..
   abort: cwd relative path '$TESTTMP/t/..' is not under root '$TESTTMP/t'
   (hint: consider using --cwd to change working directory)
   [255]
 
 Test patterns:
 
-  $ hg debugwalk 'glob:*'
+  $ sl debugwalk 'glob:*'
   f  fennel      fennel
   f  fenugreek   fenugreek
   f  fiddlehead  fiddlehead
 #if eol-in-paths
   $ echo glob:glob > glob:glob
-  $ hg addremove
+  $ sl addremove
   adding glob:glob
   warning: filename contains ':', which is reserved on Windows: 'glob:glob' (no-eden !)
-  $ hg debugwalk 'glob:*'
+  $ sl debugwalk 'glob:*'
   f  fennel      fennel
   f  fenugreek   fenugreek
   f  fiddlehead  fiddlehead
   f  glob:glob   glob:glob
-  $ hg debugwalk glob:glob
+  $ sl debugwalk glob:glob
   glob: $ENOENT$
-  $ hg debugwalk glob:glob:glob
+  $ sl debugwalk glob:glob:glob
   f  glob:glob  glob:glob  exact
-  $ hg debugwalk path:glob:glob
+  $ sl debugwalk path:glob:glob
   f  glob:glob  glob:glob  exact
   $ rm glob:glob
-  $ hg addremove
+  $ sl addremove
   removing glob:glob
 #endif
 
-  $ hg debugwalk 'glob:**e'
+  $ sl debugwalk 'glob:**e'
   f  beans/turtle                    beans/turtle
   f  mammals/Procyonidae/cacomistle  mammals/Procyonidae/cacomistle
 
-  $ hg debugwalk 're:.*[kb]$'
+  $ sl debugwalk 're:.*[kb]$'
   f  beans/black    beans/black
   f  fenugreek      fenugreek
   f  mammals/skunk  mammals/skunk
 
 Fancy regexes are deprecated but technically supported.
 It is okay to delete this test if you are dropping support.
-  $ hg debugwalk 're:(?<!fruit)(b)eans/\1lack(?=pinto|$)'
+  $ sl debugwalk 're:(?<!fruit)(b)eans/\1lack(?=pinto|$)'
   warning: fancy regexes are deprecated and may stop working (?)
   f  beans/black  beans/black
 
-  $ hg debugwalk path:beans/black
+  $ sl debugwalk path:beans/black
   f  beans/black  beans/black  exact
-  $ hg debugwalk path:beans//black
+  $ sl debugwalk path:beans//black
   f  beans/black  beans/black  exact
 
-  $ hg debugwalk relglob:Procyonidae
-  $ hg debugwalk 'relglob:Procyonidae/**'
+  $ sl debugwalk relglob:Procyonidae
+  $ sl debugwalk 'relglob:Procyonidae/**'
   f  mammals/Procyonidae/cacomistle  mammals/Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  mammals/Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     mammals/Procyonidae/raccoon
-  $ hg debugwalk 'relglob:Procyonidae/**' fennel
+  $ sl debugwalk 'relglob:Procyonidae/**' fennel
   f  fennel                          fennel                          exact
   f  mammals/Procyonidae/cacomistle  mammals/Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  mammals/Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     mammals/Procyonidae/raccoon
-  $ hg debugwalk beans 'glob:beans/*'
+  $ sl debugwalk beans 'glob:beans/*'
   f  beans/black     beans/black
   f  beans/borlotti  beans/borlotti
   f  beans/kidney    beans/kidney
   f  beans/navy      beans/navy
   f  beans/pinto     beans/pinto
   f  beans/turtle    beans/turtle
-  $ hg debugwalk 'glob:mamm**'
+  $ sl debugwalk 'glob:mamm**'
   f  mammals/Procyonidae/cacomistle  mammals/Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  mammals/Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     mammals/Procyonidae/raccoon
   f  mammals/skunk                   mammals/skunk
-  $ hg debugwalk 'glob:mamm**' fennel
+  $ sl debugwalk 'glob:mamm**' fennel
   f  fennel                          fennel                          exact
   f  mammals/Procyonidae/cacomistle  mammals/Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  mammals/Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     mammals/Procyonidae/raccoon
   f  mammals/skunk                   mammals/skunk
-  $ hg debugwalk 'glob:j*'
-  $ hg debugwalk NOEXIST
+  $ sl debugwalk 'glob:j*'
+  $ sl debugwalk NOEXIST
   NOEXIST: * (glob)
 
 #if mkfifo no-eden
   $ mkfifo fifo
-  $ hg debugwalk fifo
+  $ sl debugwalk fifo
   fifo: unsupported file type (type is fifo)
 #endif
 
   $ rm fenugreek
-  $ hg debugwalk fenugreek
+  $ sl debugwalk fenugreek
   f  fenugreek  fenugreek  exact
-  $ hg rm fenugreek
-  $ hg debugwalk fenugreek
+  $ sl rm fenugreek
+  $ sl debugwalk fenugreek
   f  fenugreek  fenugreek  exact
   $ touch new
-  $ hg debugwalk new
+  $ sl debugwalk new
   f  new  new  exact
 
   $ mkdir ignored
   $ touch ignored/file
   $ echo 'ignored' > .gitignore
-  $ hg debugwalk ignored
-  $ hg debugwalk ignored/file
+  $ sl debugwalk ignored
+  $ sl debugwalk ignored/file
   f  ignored/file  ignored/file  exact
   $ echo 'ignored/' > .gitignore
-  $ hg debugwalk ignored
+  $ sl debugwalk ignored
 
 Test listfile and listfile0
 
   $ printf 'fenugreek\0new\0' > listfile0
-  $ hg debugwalk -I 'listfile0:listfile0'
+  $ sl debugwalk -I 'listfile0:listfile0'
   f  fenugreek  fenugreek
   f  new        new
   $ printf 'fenugreek\nnew\r\nmammals/skunk\n' > listfile
-  $ hg debugwalk -I 'listfile:listfile'
+  $ sl debugwalk -I 'listfile:listfile'
   f  fenugreek      fenugreek
   f  mammals/skunk  mammals/skunk
   f  new            new
 
   $ cd ..
-  $ hg debugwalk -R t t/mammals/skunk
+  $ sl debugwalk -R t t/mammals/skunk
   f  mammals/skunk  t/mammals/skunk  exact
   $ mkdir t2
   $ cd t2
-  $ hg debugwalk -R ../t ../t/mammals/skunk
+  $ sl debugwalk -R ../t ../t/mammals/skunk
   f  mammals/skunk  ../t/mammals/skunk  exact
-  $ hg debugwalk --cwd ../t mammals/skunk
+  $ sl debugwalk --cwd ../t mammals/skunk
   f  mammals/skunk  mammals/skunk  exact
 
   $ cd ..
@@ -444,10 +445,10 @@ Test split patterns on overflow
 
   $ cd t
   $ echo fennel > overflow.list
-  $ hg debugsh -c "for i in range(100): ui.write('x' * 100 + '\n')" >> overflow.list
-  $ hg debugsh -c "for i in range(100): ui.write('x' * 100 + '\n')" >> overflow.list
+  $ sl debugsh -c "for i in range(100): ui.write('x' * 100 + '\n')" >> overflow.list
+  $ sl debugsh -c "for i in range(100): ui.write('x' * 100 + '\n')" >> overflow.list
   $ echo fenugreek >> overflow.list
-  $ hg debugwalk 'listfile:overflow.list' 2>&1 | egrep -v '^xxx'
+  $ sl debugwalk 'listfile:overflow.list' 2>&1 | egrep -v '^xxx'
   f  fennel     fennel     exact
   f  fenugreek  fenugreek  exact
   $ cd ..
@@ -455,13 +456,13 @@ Test split patterns on overflow
 Test empty glob behavior:
 
   $ cd t
-  $ hg debugwalk 'glob:'
-  $ hg debugwalk 'relglob:'
+  $ sl debugwalk 'glob:'
+  $ sl debugwalk 'relglob:'
   $ cd mammals
-  $ hg debugwalk 'glob:'
-  $ hg debugwalk 'relglob:'
+  $ sl debugwalk 'glob:'
+  $ sl debugwalk 'relglob:'
 -I makes glob recursive by default:
-  $ hg debugwalk -I 'glob:'
+  $ sl debugwalk -I 'glob:'
   f  mammals/Procyonidae/cacomistle  Procyonidae/cacomistle
   f  mammals/Procyonidae/coatimundi  Procyonidae/coatimundi
   f  mammals/Procyonidae/raccoon     Procyonidae/raccoon

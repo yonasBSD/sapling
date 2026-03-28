@@ -2,6 +2,7 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ setconfig clone.use-rust=1
 
@@ -17,75 +18,75 @@
 
 Prepare repo a:
 
-  $ hg init a
+  $ sl init a
   $ cd a
   $ echo a > a
-  $ hg add a
-  $ hg commit -m test
+  $ sl add a
+  $ sl commit -m test
   $ echo first line > b
-  $ hg add b
+  $ sl add b
 
 Create a non-inlined filelog:
 
-  $ hg debugsh -c 'open("data1", "wb").write("".join("%s\n" % x for x in range(10000)).encode("utf-8"))'
+  $ sl debugsh -c 'open("data1", "wb").write("".join("%s\n" % x for x in range(10000)).encode("utf-8"))'
   $ for j in 0 1 2 3 4 5 6 7 8 9; do
   >   cat data1 >> b
-  >   hg commit -m test
+  >   sl commit -m test
   > done
 
 Default operation:
 
-  $ hg clone . ../b
+  $ sl clone . ../b
   updating to tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd ../b
 
   $ cat a
   a
-  $ hg verify
+  $ sl verify
   warning: verify does not actually check anything in this repo
 
 Invalid dest '' must abort:
 
-  $ hg clone . ''
+  $ sl clone . ''
   abort: empty destination path is not valid
   [255]
 
 No update, with debug option:
 
-  $ hg clone -U . ../c
+  $ sl clone -U . ../c
   $ cd ../c
 
   $ cat a 2>/dev/null || echo "a not present"
   a not present
-  $ hg verify
+  $ sl verify
   warning: verify does not actually check anything in this repo
 
 Default destination:
 
   $ mkdir ../d
   $ cd ../d
-  $ hg clone ../a
+  $ sl clone ../a
   destination directory: a
   updating to tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd a
-  $ hg cat a
+  $ sl cat a
   a
   $ cd ../..
 
 Check that we drop the 'file:' from the path before writing the .hgrc:
 
-  $ hg clone file:a e
+  $ sl clone file:a e
   updating to tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ grep 'file:' e/.hg/hgrc
+  $ grep 'file:' e/.sl/config
   [1]
 
 Check that path aliases are expanded:
 
-  $ hg clone -q -U --config 'paths.foobar=a#0' foobar f
-  $ hg -R f showconfig paths.default
+  $ sl clone -q -U --config 'paths.foobar=a#0' foobar f
+  $ sl -R f config paths.default
   $TESTTMP/a#0
 
 
@@ -93,7 +94,7 @@ Clone to '.':
 
   $ mkdir h
   $ cd h
-  $ hg clone ../a .
+  $ sl clone ../a .
   updating to tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd ..
@@ -105,18 +106,18 @@ Adding some more history to repo a:
 
   $ cd a
   $ echo the quick brown fox >a
-  $ hg ci -m "hacked default"
-  $ hg up '.^'
+  $ sl ci -m "hacked default"
+  $ sl up '.^'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg bookmark stable
+  $ sl bookmark stable
   $ echo some text >a
-  $ hg ci -m "starting branch stable"
+  $ sl ci -m "starting branch stable"
   $ echo some more text >a
-  $ hg ci -m "another change for branch stable"
-  $ hg up '.^'
+  $ sl ci -m "another change for branch stable"
+  $ sl up '.^'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark stable)
-  $ hg parents
+  $ sl parents
   commit:      7bc8ee83a26f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -125,7 +126,7 @@ Adding some more history to repo a:
 
 Repo a has two heads:
 
-  $ hg heads
+  $ sl heads
   commit:      4f44d5743f52
   bookmark:    stable
   user:        test
@@ -143,20 +144,20 @@ Repo a has two heads:
 
 Testing --noupdate with --updaterev (must abort):
 
-  $ hg clone --noupdate --updaterev 1 a ua
+  $ sl clone --noupdate --updaterev 1 a ua
   abort: cannot specify both --noupdate and --updaterev
   [255]
 
 
 Testing clone -u:
 
-  $ hg clone -u . a ua
+  $ sl clone -u . a ua
   updating to 7bc8ee83a26fd5fa6374a25e8f8248ea074e16a3
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Repo ua has both heads:
 
-  $ hg -R ua heads
+  $ sl -R ua heads
   commit:      7bc8ee83a26f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -164,9 +165,9 @@ Repo ua has both heads:
 
 Same revision checked out in repo a and ua:
 
-  $ hg -R a parents --template "{node|short}\n"
+  $ sl -R a parents --template "{node|short}\n"
   7bc8ee83a26f
-  $ hg -R ua parents --template "{node|short}\n"
+  $ sl -R ua parents --template "{node|short}\n"
   7bc8ee83a26f
 
   $ rm -r ua
@@ -174,13 +175,13 @@ Same revision checked out in repo a and ua:
 
 Testing clone -u <branch>:
 
-  $ hg clone -u stable a ua
+  $ sl clone -u stable a ua
   updating to 4f44d5743f52b70e278b04871eab353996595b1d
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Repo ua has both heads:
 
-  $ hg -R ua heads
+  $ sl -R ua heads
   commit:      4f44d5743f52
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -188,7 +189,7 @@ Repo ua has both heads:
 
 Branch 'stable' is checked out:
 
-  $ hg -R ua parents
+  $ sl -R ua parents
   commit:      4f44d5743f52
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -199,13 +200,13 @@ Branch 'stable' is checked out:
 
 Testing default checkout:
 
-  $ hg clone a ua
+  $ sl clone a ua
   updating to tip
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Repo ua has both heads:
 
-  $ hg -R ua heads
+  $ sl -R ua heads
   commit:      4f44d5743f52
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -216,13 +217,13 @@ Repo ua has both heads:
 
 Testing #<bookmark> (no longer works):
 
-  $ hg clone -u . a#stable ua
+  $ sl clone -u . a#stable ua
   updating to 7bc8ee83a26fd5fa6374a25e8f8248ea074e16a3
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Repo ua has branch 'stable' and 'default' (was changed in fd511e9eeea6):
 
-  $ hg -R ua heads
+  $ sl -R ua heads
   commit:      7bc8ee83a26f
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -230,9 +231,9 @@ Repo ua has branch 'stable' and 'default' (was changed in fd511e9eeea6):
 
 Same revision checked out in repo a and ua:
 
-  $ hg -R a parents --template "{node|short}\n"
+  $ sl -R a parents --template "{node|short}\n"
   7bc8ee83a26f
-  $ hg -R ua parents --template "{node|short}\n"
+  $ sl -R ua parents --template "{node|short}\n"
   7bc8ee83a26f
 
   $ rm -r ua
@@ -240,22 +241,22 @@ Same revision checked out in repo a and ua:
 
 Test clone with special '@' bookmark:
   $ cd a
-  $ hg bookmark -r a7949464abda @  # branch point of stable from default
-  $ hg clone . ../i
+  $ sl bookmark -r a7949464abda @  # branch point of stable from default
+  $ sl clone . ../i
   updating to bookmark @
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg id -i ../i
+  $ sl id -i ../i
   a7949464abda
   $ rm -r ../i
 
-  $ hg bookmark -f -r stable @
-  $ hg bookmarks
+  $ sl bookmark -f -r stable @
+  $ sl bookmarks
      @                         4f44d5743f52
      stable                    4f44d5743f52
-  $ hg clone . ../i
+  $ sl clone . ../i
   updating to bookmark @
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg id -i ../i
+  $ sl id -i ../i
   4f44d5743f52
   $ cd "$TESTTMP"
 
@@ -267,7 +268,7 @@ Testing failures:
 
 No local source
 
-  $ hg clone a b
+  $ sl clone a b
   abort: repository a not found!
   [255]
 
@@ -280,15 +281,15 @@ Inaccessible source
 
   $ mkdir a
   $ chmod 000 a
-  $ hg clone a b
+  $ sl clone a b
   abort: Permission denied (os error 13)
   [255]
 
 Inaccessible destination
 
-  $ hg init b
+  $ sl init b
   $ cd b
-  $ hg clone . ../a
+  $ sl clone . ../a
   abort: Permission denied: ../a
   ...
   $ cd ..
@@ -303,7 +304,7 @@ Inaccessible destination
 Source of wrong type
 
   $ mkfifo a
-  $ hg clone a b
+  $ sl clone a b
   abort: repository a not found!
   [255]
   $ rm a
@@ -312,8 +313,8 @@ Source of wrong type
 
 Default destination, same directory
 
-  $ hg init q
-  $ hg clone q
+  $ sl init q
+  $ sl clone q
   destination directory: q
   abort: destination 'q' is not empty
   [255]
@@ -322,7 +323,7 @@ destination directory not empty
 
   $ mkdir a
   $ echo stuff > a/a
-  $ hg clone q a
+  $ sl clone q a
   abort: destination 'a' is not empty
   [255]
 
@@ -332,22 +333,22 @@ destination directory not empty
 Test clone from the repository in (emulated) revlog format 0 (issue4203):
 
   $ mkdir issue4203
-  $ mkdir -p src/.hg
-  $ touch src/.hg/requires
+  $ mkdir -p src/.sl
+  $ touch src/.sl/requires
   $ echo foo > src/foo
-  $ hg -R src add src/foo
-  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/src/.hg, requirements=set())!
+  $ sl -R src add src/foo
+  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/src/.sl, requirements=set())!
   [255]
-  $ hg -R src commit -m '#0'
-  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/src/.hg, requirements=set())!
+  $ sl -R src commit -m '#0'
+  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/src/.sl, requirements=set())!
   [255]
-  $ hg -R src log -q
-  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/src/.hg, requirements=set())!
+  $ sl -R src log -q
+  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/src/.sl, requirements=set())!
   [255]
-  $ hg clone -U -q src dst
-  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/src/.hg, requirements=set())!
+  $ sl clone -U -q src dst
+  abort: legacy dirstate implementations are no longer supported (path=$TESTTMP/src/.sl, requirements=set())!
   [255]
-  $ hg -R dst log -q
+  $ sl -R dst log -q
   abort: repository dst not found!
   [255]
 
@@ -358,63 +359,63 @@ Create repositories to test auto sharing functionality
   > share=
   > EOF
 
-  $ hg init empty
-  $ hg init source1a
+  $ sl init empty
+  $ sl init source1a
   $ cd source1a
   $ echo initial1 > foo
-  $ hg -q commit -A -m initial
+  $ sl -q commit -A -m initial
   $ echo second > foo
-  $ hg commit -m second
+  $ sl commit -m second
   $ cd ..
 
-  $ hg init filteredrev0
+  $ sl init filteredrev0
   $ cd filteredrev0
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > [experimental]
   > evolution.createmarkers=True
   > EOF
   $ echo initial1 > foo
-  $ hg -q commit -A -m initial0
-  $ hg -q up -r null
+  $ sl -q commit -A -m initial0
+  $ sl -q up -r null
   $ echo initial2 > foo
-  $ hg -q commit -A -m initial1
-  $ hg debugobsolete c05d5c47a5cf81401869999f3d05f7d699d2b29a e082c1832e09a7d1e78b7fd49a592d372de854c8
+  $ sl -q commit -A -m initial1
+  $ sl debugobsolete c05d5c47a5cf81401869999f3d05f7d699d2b29a e082c1832e09a7d1e78b7fd49a592d372de854c8
   $ cd ..
 
-  $ hg -q clone source1a source1b
+  $ sl -q clone source1a source1b
   $ cd source1a
-  $ hg bookmark bookA
+  $ sl bookmark bookA
   $ echo 1a > foo
-  $ hg commit -m 1a
+  $ sl commit -m 1a
   $ cd ../source1b
-  $ hg -q up -r 'desc(initial)'
+  $ sl -q up -r 'desc(initial)'
   $ echo head1 > foo
-  $ hg commit -m head1
-  $ hg bookmark head1
-  $ hg -q up -r 'desc(initial)'
+  $ sl commit -m head1
+  $ sl bookmark head1
+  $ sl -q up -r 'desc(initial)'
   $ echo head2 > foo
-  $ hg commit -m head2
-  $ hg bookmark head2
-  $ hg -q up -r 'desc(initial)'
-  $ hg bookmark branch1
+  $ sl commit -m head2
+  $ sl bookmark head2
+  $ sl -q up -r 'desc(initial)'
+  $ sl bookmark branch1
   $ echo branch1 > foo
-  $ hg commit -m branch1
-  $ hg -q up -r 'desc(initial)'
-  $ hg bookmark branch2
+  $ sl commit -m branch1
+  $ sl -q up -r 'desc(initial)'
+  $ sl bookmark branch2
   $ echo branch2 > foo
-  $ hg commit -m branch2
+  $ sl commit -m branch2
   $ cd ..
-  $ hg init source2
+  $ sl init source2
   $ cd source2
   $ echo initial2 > foo
-  $ hg -q commit -A -m initial2
+  $ sl -q commit -A -m initial2
   $ echo second > foo
-  $ hg commit -m second
+  $ sl commit -m second
   $ cd ..
 
 Cloning without fsmonitor enabled does not print a warning for small repos
 
-  $ hg clone a fsmonitor-default
+  $ sl clone a fsmonitor-default
   updating to bookmark @
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
@@ -429,12 +430,12 @@ We should see a warning about no fsmonitor on supported platforms
   $ setconfig checkout.use-rust=false
 
 #if linuxormacos no-fsmonitor
-  $ hg clone a nofsmonitor
+  $ sl clone a nofsmonitor
   updating to bookmark @
-  (warning: large working directory being used without fsmonitor enabled; enable fsmonitor to improve performance; see "hg help -e fsmonitor")
+  (warning: large working directory being used without fsmonitor enabled; enable fsmonitor to improve performance; see "sl help -e fsmonitor")
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 #else
-  $ hg clone a nofsmonitor
+  $ sl clone a nofsmonitor
   updating to bookmark @
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 #endif
@@ -442,47 +443,47 @@ We should see a warning about no fsmonitor on supported platforms
 We should not see warning about fsmonitor when it is enabled
 
 #if fsmonitor
-  $ hg clone a fsmonitor-enabled
+  $ sl clone a fsmonitor-enabled
   updating to bookmark @
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 #endif
 
 We can disable the fsmonitor warning
 
-  $ hg --config fsmonitor.warn_when_unused=false clone a fsmonitor-disable-warning
+  $ sl --config fsmonitor.warn_when_unused=false clone a fsmonitor-disable-warning
   updating to bookmark @
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Loaded fsmonitor but disabled in config should still print warning
 
 #if linuxormacos fsmonitor
-  $ hg --config fsmonitor.mode=off clone a fsmonitor-mode-off
+  $ sl --config fsmonitor.mode=off clone a fsmonitor-mode-off
   updating to bookmark @
-  (warning: large working directory being used without fsmonitor enabled; enable fsmonitor to improve performance; see "hg help -e fsmonitor") (fsmonitor !)
+  (warning: large working directory being used without fsmonitor enabled; enable fsmonitor to improve performance; see "sl help -e fsmonitor") (fsmonitor !)
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 #endif
 
 Warning not printed if working directory isn't empty
 
-  $ hg -q clone a fsmonitor-update
-  (warning: large working directory being used without fsmonitor enabled; enable fsmonitor to improve performance; see "hg help -e fsmonitor") (?)
+  $ sl -q clone a fsmonitor-update
+  (warning: large working directory being used without fsmonitor enabled; enable fsmonitor to improve performance; see "sl help -e fsmonitor") (?)
   $ cd fsmonitor-update
-  $ hg up acb14030fe0a
+  $ sl up acb14030fe0a
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg up cf0fe1914066
+  $ sl up cf0fe1914066
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-`hg update` from null revision also prints
+`sl update` from null revision also prints
 
-  $ hg up null
+  $ sl up null
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
 
 #if linuxormacos no-fsmonitor
-  $ hg up cf0fe1914066
-  (warning: large working directory being used without fsmonitor enabled; enable fsmonitor to improve performance; see "hg help -e fsmonitor") (?)
+  $ sl up cf0fe1914066
+  (warning: large working directory being used without fsmonitor enabled; enable fsmonitor to improve performance; see "sl help -e fsmonitor") (?)
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 #else
-  $ hg up cf0fe1914066
+  $ sl up cf0fe1914066
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
 #endif
 

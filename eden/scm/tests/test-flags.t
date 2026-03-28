@@ -3,37 +3,38 @@
 
 #require execbit
 
+  $ export HGIDENTITY=sl
   $ configure modernclient
 
   $ umask 027
 
   $ newclientrepo test1
   $ touch a b
-  $ hg add a b
-  $ hg ci -m "added a b"
-  $ hg push -r . -q --to book --create
+  $ sl add a b
+  $ sl ci -m "added a b"
+  $ sl push -r . -q --to book --create
 
   $ newclientrepo test3 test1_server book
 
   $ newclientrepo test2 test1_server book
   $ chmod +x a
-  $ hg ci -m "chmod +x a"
-  $ hg push -q -r . --to book2 --create
+  $ sl ci -m "chmod +x a"
+  $ sl push -q -r . --to book2 --create
 
 the changelog should mention file a:
 
-  $ hg tip --template '{files}\n'
+  $ sl tip --template '{files}\n'
   a
 
   $ cd ../test1
   $ echo 123 >>a
-  $ hg ci -m "a updated"
-  $ hg push -q -r . --to book1 --create
+  $ sl ci -m "a updated"
+  $ sl push -q -r . --to book1 --create
 
-  $ hg pull -B book2
+  $ sl pull -B book2
   pulling from test:test1_server
   searching for changes
-  $ hg heads
+  $ sl heads
   commit:      7f4313b42a34
   bookmark:    remote/book2
   hoistedname: book2
@@ -46,7 +47,7 @@ the changelog should mention file a:
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     a updated
   
-  $ hg history
+  $ sl log
   commit:      7f4313b42a34
   bookmark:    remote/book2
   hoistedname: book2
@@ -65,7 +66,7 @@ the changelog should mention file a:
   summary:     added a b
   
 
-  $ hg -v merge
+  $ sl -v merge
   resolving manifests
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -75,12 +76,12 @@ the changelog should mention file a:
 
   $ cd ../test3
   $ echo 123 >>b
-  $ hg ci -m "b updated"
+  $ sl ci -m "b updated"
 
-  $ hg pull test:test1_server -B book1 -B book2
+  $ sl pull test:test1_server -B book1 -B book2
   pulling from test:test1_server
   searching for changes
-  $ hg heads
+  $ sl heads
   commit:      c6ecefc45368
   bookmark:    remote/book1
   hoistedname: book1
@@ -100,7 +101,7 @@ the changelog should mention file a:
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     b updated
   
-  $ hg history
+  $ sl log
   commit:      c6ecefc45368
   bookmark:    remote/book1
   hoistedname: book1
@@ -128,7 +129,7 @@ the changelog should mention file a:
   summary:     added a b
   
 
-  $ hg -v merge -r book2
+  $ sl -v merge -r book2
   resolving manifests
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)

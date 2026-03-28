@@ -17,9 +17,10 @@
   ...     # returns dictionary from descrition to commit node and manifest node
   ...     # { commit_name: (commit_hash, manifest_hash)}
   ...     template = "{desc} {node|short} {manifest}\n"
-  ...     cmd = f"hg log -T '{template}' -r {rev}"
+  ...     cmd = f"sl log -T '{template}' -r {rev}"
   ...     return list(tuple(line.split()) for line in sheval(cmd).splitlines())
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ . "$TESTDIR/library.sh"
 
@@ -71,11 +72,11 @@
    ('E', '02d26f311e24', 'c618b8195031a0c6874a557ee7445f6567af4dd7'),
    ('F', 'c431bfe62c4c', 'c8a3f0d6d065d07e6ee7cee3edf15712a7d15d46')]
 
-  $ hg files -r $F
+  $ sl files -r $F
   x/a
   x/b
   y/c
-  $ hg cat -r $F x/a x/b y/c
+  $ sl cat -r $F x/a x/b y/c
   dbf (no-eol)
 
 # Check that the same graph will be constructed from by pushing commits
@@ -83,24 +84,24 @@
 
   $ hginit $TESTTMP/serverpushrebasemerge
   $ cd $TESTTMP/serverpushrebasemerge
-  $ cat >> .hg/hgrc << 'EOF'
+  $ cat >> .sl/config << 'EOF'
   > [extensions]
   > pushrebase=
   > [remotefilelog]
   > server=True
   > EOF
-  $ hg clone 'ssh://user@dummy/serverpushrebasemerge' $TESTTMP/tempclient -q
+  $ sl clone 'ssh://user@dummy/serverpushrebasemerge' $TESTTMP/tempclient -q
   $ cd $TESTTMP/tempclient
   $ drawdag << 'EOS'
   >  # drawdag.defaultfiles=false
   > A  # A/x/a=a
   > EOS
-  $ hg bookmark master -r $A
+  $ sl bookmark master -r $A
 
   >>> listcommitandmanifesthashes("$A::")
   [('A', '8080f180998f', '47968cf0bfa76dd552b0c468487e0b2e58dd067a')]
 
-  $ hg push -r $A --to master --create
+  $ sl push -r $A --to master --create
   pushing rev * to destination ssh://user@dummy/serverpushrebasemerge bookmark master (glob)
   searching for changes
   exporting bookmark master
@@ -108,7 +109,7 @@
   remote:     *  A (glob)
 
 
-  $ hg clone 'ssh://user@dummy/serverpushrebasemerge' $TESTTMP/clientpushrebasemerge -q
+  $ sl clone 'ssh://user@dummy/serverpushrebasemerge' $TESTTMP/clientpushrebasemerge -q
   $ cd $TESTTMP/clientpushrebasemerge
   $ drawdag << 'EOS'
   >  # drawdag.defaultfiles=false
@@ -133,7 +134,7 @@
    ('E', '02d26f311e24', 'c618b8195031a0c6874a557ee7445f6567af4dd7'),
    ('F', 'c431bfe62c4c', 'c8a3f0d6d065d07e6ee7cee3edf15712a7d15d46')]
 
-  $ hg push --to=master -r $F
+  $ sl push --to=master -r $F
   pushing rev c431bfe62c4c to destination ssh://user@dummy/serverpushrebasemerge bookmark master
   searching for changes
   adding changesets
@@ -148,14 +149,14 @@
   remote:     *  F (glob)
   remote: 5 new changesets from the server will be downloaded
 
-  $ hg files -r master
+  $ sl files -r master
   x/a
   x/b
   y/c
 
 # Check that a secondary client will pull a consistent view of the repository
 
-  $ hg clone 'ssh://user@dummy/serverpushrebasemerge' $TESTTMP/pullingclient -q
+  $ sl clone 'ssh://user@dummy/serverpushrebasemerge' $TESTTMP/pullingclient -q
   $ cd $TESTTMP/pullingclient
 
   >>> pprint.pprint(listcommitandmanifesthashes("$A::"))
@@ -187,7 +188,7 @@
   > EOS
 
 
-  $ hg push --to=master -r $J
+  $ sl push --to=master -r $J
   pushing rev * to destination ssh://user@dummy/serverpushrebasemerge bookmark master (glob)
   searching for changes
   adding changesets
@@ -204,7 +205,7 @@
 # Check server after pushrebasing the branch whose parent is E
 
   $ cd $TESTTMP/serverpushrebasemerge
-  $ hg log -G -T '{desc} {bookmarks}'
+  $ sl log -G -T '{desc} {bookmarks}'
   o    J master
   ├─╮
   │ o  I

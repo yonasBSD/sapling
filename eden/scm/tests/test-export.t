@@ -7,19 +7,20 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
-  $ hg init repo
+  $ sl init repo
   $ cd repo
   $ touch foo
-  $ hg add foo
+  $ sl add foo
 
   $ for i in `seq 0 11`; do
   >   echo foo-$i >> foo
-  >   hg ci -m foo-$i
+  >   sl ci -m foo-$i
   > done
 
-  $ hg export -v -o 'foo-%nof%N.patch' 2:tip
+  $ sl export -v -o 'foo-%nof%N.patch' 2:tip
   exporting patches:
   foo-01of10.patch
   foo-02of10.patch
@@ -31,7 +32,7 @@
   foo-08of10.patch
   foo-09of10.patch
   foo-10of10.patch
-  $ hg export -v -o 'foo-%%%H.patch' 2:tip
+  $ sl export -v -o 'foo-%%%H.patch' 2:tip
   exporting patches:
   foo-%617188a1c80f869a7b66c85134da88a6fb145f67.patch
   foo-%dd41a5ff707a5225204105611ba49cc5c229d55f.patch
@@ -43,7 +44,7 @@
   foo-%747d3c68f8ec44bb35816bfcd59aeb50b9654c2f.patch
   foo-%5f17a83f5fbd9414006a5e563eab4c8a00729efd.patch
   foo-%f3acbafac161ec68f1598af38f794f28847ca5d3.patch
-  $ hg export -v -o 'foo-%b-%R.patch' 2:tip
+  $ sl export -v -o 'foo-%b-%R.patch' 2:tip
   exporting patches:
   foo-repo-2.patch
   foo-repo-3.patch
@@ -55,7 +56,7 @@
   foo-repo-9.patch
   foo-repo-10.patch
   foo-repo-11.patch
-  $ hg export -v -o 'foo-%h.patch' 2:tip
+  $ sl export -v -o 'foo-%h.patch' 2:tip
   exporting patches:
   foo-617188a1c80f.patch
   foo-dd41a5ff707a.patch
@@ -67,7 +68,7 @@
   foo-747d3c68f8ec.patch
   foo-5f17a83f5fbd.patch
   foo-f3acbafac161.patch
-  $ hg export -v -o 'foo-%r.patch' 2:tip
+  $ sl export -v -o 'foo-%r.patch' 2:tip
   exporting patches:
   foo-02.patch
   foo-03.patch
@@ -79,7 +80,7 @@
   foo-09.patch
   foo-10.patch
   foo-11.patch
-  $ hg export -v -o 'foo-%m.patch' 2:tip
+  $ sl export -v -o 'foo-%m.patch' 2:tip
   exporting patches:
   foo-foo_2.patch
   foo-foo_3.patch
@@ -94,34 +95,34 @@
 
 # Doing it again clobbers the files rather than appending:
 
-  $ hg export -v -o foo-%m.patch 2:3
+  $ sl export -v -o foo-%m.patch 2:3
   exporting patches:
   foo-foo_2.patch
   foo-foo_3.patch
-  $ grep HG foo-foo_2.patch | wc -l
+  $ grep SL foo-foo_2.patch | wc -l
   1
-  $ grep HG foo-foo_3.patch | wc -l
+  $ grep SL foo-foo_3.patch | wc -l
   1
 
 # Exporting 4 changesets to a file:
 
-  $ hg export -o export_internal 1 2 3 4
-  $ grep HG export_internal | wc -l
+  $ sl export -o export_internal 1 2 3 4
+  $ grep SL export_internal | wc -l
   4
 
 # Doing it again clobbers the file rather than appending:
 
-  $ hg export -o export_internal 1 2 3 4
-  $ grep HG export_internal | wc -l
+  $ sl export -o export_internal 1 2 3 4
+  $ grep SL export_internal | wc -l
   4
 
-  $ hg export 1 2 3 4 | grep HG | wc -l
+  $ sl export 1 2 3 4 | grep SL | wc -l
   4
 
 # Exporting revision -2 to a file:
 
-  $ hg export -- -2
-  # HG changeset patch
+  $ sl export -- -2
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -141,8 +142,8 @@
 # Exporting wdir revision:
 
   $ echo foo-wdir >> foo
-  $ hg export "wdir()"
-  # HG changeset patch
+  $ sl export "wdir()"
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -158,13 +159,13 @@
    foo-10
    foo-11
   +foo-wdir
-  $ hg revert -q foo
+  $ sl revert -q foo
 
 # No filename should be printed if stdout is specified explicitly:
 
-  $ hg export -v 1 -o -
+  $ sl export -v 1 -o -
   exporting patch:
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -182,15 +183,15 @@
 # Checking if only alphanumeric characters are used in the file name (%m option):
 
   $ echo line >> foo
-  $ hg commit -m " !\"#$%&(,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]"'^'"_\`abcdefghijklmnopqrstuvwxyz{|}~"
-  $ hg export -v -o %m.patch tip
+  $ sl commit -m " !\"#$%&(,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]"'^'"_\`abcdefghijklmnopqrstuvwxyz{|}~"
+  $ sl export -v -o %m.patch tip
   exporting patch:
   ____________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz____.patch
 
 # Catch exporting unknown revisions (especially empty revsets, see issue3353)
 
-  $ hg export
-  # HG changeset patch
+  $ sl export
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -207,13 +208,13 @@
    foo-11
   +line
 
-  $ hg export ''
-  hg: parse error: empty query
+  $ sl export ''
+  sl: parse error: empty query
   [255]
-  $ hg export 999
+  $ sl export 999
   abort: unknown revision '999'!
   [255]
-  $ hg export "not all()"
+  $ sl export "not all()"
   abort: export requires at least one changeset
   [255]
 
@@ -226,8 +227,8 @@
   > color =
   > EOF
 
-  $ hg export --color always --nodates tip
-  # HG changeset patch
+  $ sl export --color always --nodates tip
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -257,8 +258,8 @@
   >     A  # A/foo/1=0\n
   > EOS
 
-  $ hg export -r 'all()' --pattern 'path:foo'
-  # HG changeset patch
+  $ sl export -r 'all()' --pattern 'path:foo'
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -272,7 +273,7 @@
   +++ b/foo/1
   @@ -0,0 +1,1 @@
   +0
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -305,8 +306,8 @@
 
 # Export with diff.filtercopysource=1 - note bar/1 -> foo/3 copy is ignored
 
-  $ hg export -r 'all()' --pattern 'path:foo/3' --config diff.filtercopysource=0
-  # HG changeset patch
+  $ sl export -r 'all()' --pattern 'path:foo/3' --config diff.filtercopysource=0
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -314,7 +315,7 @@
   # Parent  0000000000000000000000000000000000000000
   A
   
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -331,8 +332,8 @@
   -0
   +3
 
-  $ hg export -r 'all()' --pattern 'path:foo/3' --config diff.filtercopysource=1
-  # HG changeset patch
+  $ sl export -r 'all()' --pattern 'path:foo/3' --config diff.filtercopysource=1
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000
@@ -340,7 +341,7 @@
   # Parent  0000000000000000000000000000000000000000
   A
   
-  # HG changeset patch
+  # SL changeset patch
   # User test
   # Date 0 0
   #      Thu Jan 01 00:00:00 1970 +0000

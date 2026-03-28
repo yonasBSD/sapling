@@ -1,6 +1,7 @@
 #inprocess-hg-incompatible
 #require symlink no-eden
 
+  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig format.use-symlink-atomic-write=1
 
@@ -32,7 +33,7 @@ When everything looks okay:
 These "repaired" messages are due to the "latest" indexedlog file showing up for the LFS
 store. It would be nice if the "repaired" message was emitted by explicitly propagating
 the repairs instead of trying to infer by looking for fs changes.
-  $ hg doctor
+  $ sl doctor
   checking internal storage
   revisionstore: repaired
   revisionstore: repaired
@@ -51,23 +52,23 @@ Break the repo in various ways:
 #endif
   $ echo y > $TESTTMP/hgcache/master/indexedlogdatastore/0/index2-node
   $ echo y > $TESTTMP/hgcache/master/manifests/indexedlogdatastore/0/index2-node
-  $ mkdir -p .hg/store/mutation/
-  $ echo v > .hg/store/mutation/log
+  $ mkdir -p .sl/store/mutation/
+  $ echo v > .sl/store/mutation/log
 #if no-windows
-  $ echo xx > .hg/store/metalog/blobs/index2-id
-  $ rm .hg/store/metalog/roots/meta
-  $ ln -s foo .hg/store/metalog/roots/meta
+  $ echo xx > .sl/store/metalog/blobs/index2-id
+  $ rm .sl/store/metalog/roots/meta
+  $ ln -s foo .sl/store/metalog/roots/meta
 #else
-  $ echo xx > .hg/store/metalog/blobs/index2-id
-  $ rm .hg/store/metalog/roots/meta
-  $ echo foo > .hg/store/metalog/roots/meta
+  $ echo xx > .sl/store/metalog/blobs/index2-id
+  $ rm .sl/store/metalog/roots/meta
+  $ echo foo > .sl/store/metalog/roots/meta
 #endif
-  $ rm .hg/store/allheads/meta
+  $ rm .sl/store/allheads/meta
 
 The repo is auto-fixed for common indexedlog open issues:
 (note: this does not conver all corruption issues)
 
-  $ hg log -GpT '{desc}\n'
+  $ sl log -GpT '{desc}\n'
   o  C
   │  diff --git a/C b/C
   │  new file mode 100644
@@ -89,7 +90,7 @@ The repo is auto-fixed for common indexedlog open issues:
 
 Repairs log to "repair.log":
 
-  $ cat .hg/store/mutation/repair.log
+  $ cat .sl/store/mutation/repair.log
   date -d * (glob)
   Processing IndexedLog: * (glob)
   Verified 1 entries, 82 bytes in log
@@ -117,9 +118,9 @@ Repairs log to "repair.log":
   Rebuilt index "split"
   
 
-Test that 'hg doctor' can fix them:
+Test that 'sl doctor' can fix them:
 
-  $ hg doctor -v
+  $ sl doctor -v
   checking internal storage
   metalog:
     Checking blobs at "*": (glob)
@@ -231,12 +232,12 @@ Test that 'hg doctor' can fix them:
 Check unknown visibleheads format:
 
   $ newrepo
-  $ hg dbsh << 'EOS'
+  $ sl dbsh << 'EOS'
   > ml = repo.svfs.metalog
   > ml.set("visibleheads", b"v-1")
   > ml.commit("break visibleheads")
   > EOS
-  $ hg doctor
+  $ sl doctor
   checking internal storage
   segments/v1: repaired (?)
   visibleheads: removed 0 heads, added tip
@@ -247,48 +248,48 @@ Check dirstate pointing to a stripped commit:
   $ newrepo abc
   $ echo 'A-B-C' | drawdag
 
-  $ hg up -q 'desc(B)'
-  $ hg up -q 'desc(C)'
+  $ sl up -q 'desc(B)'
+  $ sl up -q 'desc(C)'
 
   $ newrepo ab
   $ echo 'A-B' | drawdag 
 
  (replace dirstate with A-B-C repo pointing to C to break it)
-  $ cp "$TESTTMP/abc/.hg/dirstate" .hg/dirstate
-  $ rm -rf .hg/treestate
-  $ cp -R "$TESTTMP/abc/.hg/treestate" .hg/treestate
+  $ cp "$TESTTMP/abc/.sl/dirstate" .sl/dirstate
+  $ rm -rf .sl/treestate
+  $ cp -R "$TESTTMP/abc/.sl/treestate" .sl/treestate
 
  (cannot resolve . since C does not exist)
-  $ hg log -r . -T '{desc}\n'
+  $ sl log -r . -T '{desc}\n'
   warning: failed to inspect working copy parent
   abort: 00changelog.i@26805aba1e60: no node!
   [255]
 
- (hg doctor can fix dirstate/treestate)
-  $ hg doctor
+ (sl doctor can fix dirstate/treestate)
+  $ sl doctor
   checking internal storage
   treestate: repaired
   checking commit references
 
  (repaired to the previous checkout "B")
-  $ hg log -r . -T '{desc}\n'
+  $ sl log -r . -T '{desc}\n'
   B
 
 Try other kinds of dirstate corruptions:
 
-  >>> with open(".hg/dirstate", "rb+") as f:
+  >>> with open(".sl/dirstate", "rb+") as f:
   ...     x = f.seek(0)
   ...     x = f.write(b"x" * 1024)
-  $ hg log -r . -T '{desc}\n'
+  $ sl log -r . -T '{desc}\n'
   warning: failed to inspect working copy parent
   abort: cannot initialize working copy: missing treestate fields on dirstate
   [255]
 
-  $ hg doctor
+  $ sl doctor
   checking internal storage
   treestate: repaired
   checking commit references
-  $ hg log -r . -T '{desc}\n'
+  $ sl log -r . -T '{desc}\n'
   B
 
 Prepare new server repos
@@ -302,7 +303,7 @@ Prepare new server repos
   > |
   > A
   > EOS
-  $ hg push -r $A --to master --create -q
+  $ sl push -r $A --to master --create -q
 
 Test fixing master bookmark. Need the metalog (contains remotenames) to point
 to commits unknown to the changelog. To do it, we "fork" the repo, and "pull"
@@ -312,17 +313,17 @@ in the new repo, while keeping changelog unchanged.
   $ cd $TESTTMP
   $ clone server client2
 
-  $ hg push --cwd client1 -r $B --to master -q
+  $ sl push --cwd client1 -r $B --to master -q
 
   $ cp -R client2 client3
-  $ hg pull --cwd client3 -q
+  $ sl pull --cwd client3 -q
 
 # Wipe it first, due to OSX disliking copying over symlinks
-  $ rm -rf client2/.hg/store/metalog
-  $ cp -R client3/.hg/store/metalog client2/.hg/store/metalog
+  $ rm -rf client2/.sl/store/metalog
+  $ cp -R client3/.sl/store/metalog client2/.sl/store/metalog
 
   $ cd client2
-  $ hg doctor
+  $ sl doctor
   checking internal storage
   revisionstore: repaired
   revisionstore: repaired
@@ -331,39 +332,39 @@ in the new repo, while keeping changelog unchanged.
   setting remote/master to 426bada5c67598ca65036d57d9e4b64b0c1ce7a0
   checking irrelevant draft branches for the workspace 'user/test/default'
 
-  $ hg log -GT '{desc}\n'
+  $ sl log -GT '{desc}\n'
   @  A
   
 Test fixing broken segmented changelog (broken mutimeta)
 
   $ newrepo
-  $ hg debugchangelog --migrate fullsegments
+  $ sl debugchangelog --migrate fullsegments
   $ drawdag << 'EOS'
   > B
   > |
   > A
   > EOS
 
-  $ rm .hg/store/segments/v1/multimeta .hg/store/segments/v1/multimetalog/meta
-  $ touch .hg/store/segments/v1/multimeta .hg/store/segments/v1/multimetalog/meta
-  $ hg log -r tip 2>/dev/null 1>/dev/null
+  $ rm .sl/store/segments/v1/multimeta .sl/store/segments/v1/multimetalog/meta
+  $ touch .sl/store/segments/v1/multimeta .sl/store/segments/v1/multimetalog/meta
+  $ sl log -r tip 2>/dev/null 1>/dev/null
 
-  $ hg doctor
+  $ sl doctor
   checking internal storage
   checking commit references
 
-  $ hg log -r tip -T '{desc}\n'
+  $ sl log -r tip -T '{desc}\n'
   B
 
 doctor should not remove draft for a segmented changelog repo
 
   $ newrepo
-  $ hg debugchangelog --migrate fullsegments
+  $ sl debugchangelog --migrate fullsegments
   $ drawdag << 'EOS'
   > A B
   > EOS
-  $ hg doctor
+  $ sl doctor
   checking internal storage
   checking commit references
-  $ hg log -r 'all()' -T '{desc}'
+  $ sl log -r 'all()' -T '{desc}'
   AB (no-eol)

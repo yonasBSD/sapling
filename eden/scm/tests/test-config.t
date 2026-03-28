@@ -2,65 +2,66 @@
 #require no-eden
 
 hide outer repo
-  $ hg init
+  $ export HGIDENTITY=sl
+  $ sl init
 
 Invalid syntax: no value
 
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > novaluekey
   > EOF
-  $ hg showconfig
-  hg: parse errors: "*hgrc": (glob)
+  $ sl config
+  sl: parse errors: "*config": (glob)
   line 1: expect '[section]' or 'name = value'
   
   [255]
 
 Invalid syntax: no key
 
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > =nokeyvalue
   > EOF
-  $ hg showconfig
-  hg: parse errors: "*hgrc": (glob)
+  $ sl config
+  sl: parse errors: "*config": (glob)
   line 1: empty config name
   
   [255]
 
 Invalid syntax: content after section
 
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > [section]#
   > EOF
-  $ hg showconfig
-  hg: parse errors: "*hgrc": (glob)
+  $ sl config
+  sl: parse errors: "*config": (glob)
   line 1: extra content after section header
   
   [255]
 
 Test hint about invalid syntax from leading white space
 
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   >  key=value
   > EOF
-  $ hg showconfig
-  hg: parse errors: "*hgrc": (glob)
+  $ sl config
+  sl: parse errors: "*config": (glob)
   line 1: indented line is not part of a multi-line config
   
   [255]
 
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   >  [section]
   > key=value
   > EOF
-  $ hg showconfig
-  hg: parse errors: "*hgrc": (glob)
+  $ sl config
+  sl: parse errors: "*config": (glob)
   line 1: indented line is not part of a multi-line config
   
   [255]
 
 Reset hgrc
 
-  $ echo > .hg/hgrc
+  $ echo > .sl/config
 
 Test case sensitive configuration
 
@@ -70,11 +71,11 @@ Test case sensitive configuration
   > key = lower case
   > EOF
 
-  $ hg showconfig Section
+  $ sl config Section
   Section.KeY=Case Sensitive
   Section.key=lower case
 
-  $ hg showconfig Section -Tjson
+  $ sl config Section -Tjson
   [
   {
     "name": "Section.KeY",
@@ -87,7 +88,7 @@ Test case sensitive configuration
     "value": "lower case"
   }
   ]
-  $ hg showconfig Section.KeY -Tjson
+  $ sl config Section.KeY -Tjson
   [
   {
     "name": "Section.KeY",
@@ -95,7 +96,7 @@ Test case sensitive configuration
     "value": "Case Sensitive"
   }
   ]
-  $ hg showconfig -Tjson | tail -7
+  $ sl config -Tjson | tail -7
   },
   {
     "name": "*", (glob)
@@ -118,33 +119,33 @@ Test "%unset"
   > set-after-unset = should be unset (HGRCPATH)
   > EOF
 
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [unsettest]
-  > local-hgrc = should be unset (.hg/hgrc)
+  > local-hgrc = should be unset (.sl/config)
   > %unset local-hgrc
   > 
   > %unset global
   > 
-  > both = should be unset (.hg/hgrc)
+  > both = should be unset (.sl/config)
   > %unset both
   > 
-  > set-after-unset = should be unset (.hg/hgrc)
+  > set-after-unset = should be unset (.sl/config)
   > %unset set-after-unset
-  > set-after-unset = should be set (.hg/hgrc)
+  > set-after-unset = should be set (.sl/config)
   > EOF
 
-  $ hg showconfig unsettest
-  unsettest.set-after-unset=should be set (.hg/hgrc)
+  $ sl config unsettest
+  unsettest.set-after-unset=should be set (.sl/config)
 
-  $ hg showconfig unsettest.both
+  $ sl config unsettest.both
   [1]
-  $ hg showconfig unsettest.both --debug
+  $ sl config unsettest.both --debug
   *: <%unset> (glob)
 
-  $ hg showconfig unsettest.both -Tjson
+  $ sl config unsettest.both -Tjson
   [
   ]
-  $ hg showconfig unsettest.both -Tjson --debug
+  $ sl config unsettest.both -Tjson --debug
   [
   {
     "name": "unsettest.both",
@@ -155,7 +156,7 @@ Test "%unset"
 
 Read multiple values with -Tjson
 
-  $ hg config --config=a.1=1 --config=a.2=2 --config=a.3=3 a.1 a.3 -Tjson
+  $ sl config --config=a.1=1 --config=a.2=2 --config=a.3=3 a.1 a.3 -Tjson
   [
   {
     "name": "a.1",
@@ -169,7 +170,7 @@ Read multiple values with -Tjson
   }
   ]
 
-  $ hg config --config=a.1=1 --config=a.2=2 --config=a.3=3 --config=b.1=4 --config=b.2=5 a.3 b a.1 -Tjson
+  $ sl config --config=a.1=1 --config=a.2=2 --config=a.3=3 --config=b.1=4 --config=b.2=5 a.3 b a.1 -Tjson
   [
   {
     "name": "a.3",
@@ -202,81 +203,81 @@ Config order is preserved:
   > b = 2
   > EOF
 
-  $ hg config ordertest
+  $ sl config ordertest
   ordertest.a=1
   ordertest.c=3
   ordertest.b=2
 
 Test exit code when no config matches
 
-  $ hg config Section.idontexist
+  $ sl config Section.idontexist
   [1]
 
 sub-options in [paths] aren't expanded
 
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > [paths]
   > foo = ~/foo
   > foo:suboption = ~/foo
   > EOF
 
-  $ hg showconfig paths
+  $ sl config paths
   paths.foo=~/foo
   paths.foo:suboption=~/foo
 
 edit failure
 
-  $ HGEDITOR=false hg config --edit --quiet
+  $ HGEDITOR=false sl config --edit --quiet
   abort: edit failed: false exited with status 1
   [255]
 
-  $ HGEDITOR=false hg config --user
-  opening $TESTTMP/.hgrc for editing...
+  $ HGEDITOR=false sl config --user
+  opening */sapling/sapling.conf for editing... (glob)
   abort: edit failed: false exited with status 1
   [255]
 
-  $ hg config --user --local
+  $ sl config --user --local
   abort: please specify exactly one config location
   [255]
 
 config affected by environment variables
 
-  $ EDITOR=e1 hg config --debug | grep 'ui\.editor'
+  $ EDITOR=e1 sl config --debug | grep 'ui\.editor'
   $EDITOR: ui.editor=e1
 
-  $ EDITOR=e2 hg config --debug --config ui.editor=e3 | grep 'ui\.editor'
+  $ EDITOR=e2 sl config --debug --config ui.editor=e3 | grep 'ui\.editor'
   --config: ui.editor=e3
 
 verify that aliases are evaluated as well
 
-  $ hg init aliastest
+  $ sl init aliastest
   $ cd aliastest
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > [ui]
   > user = repo user
   > EOF
   $ touch index
   $ unset HGUSER
-  $ hg ci -Am test
+  $ sl ci -Am test
   adding index
-  $ hg log --template '{author}\n'
+  $ sl log --template '{author}\n'
   repo user
   $ cd ..
 
 alias has lower priority
 
-  $ hg init aliaspriority
+  $ sl init aliaspriority
   $ cd aliaspriority
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > [ui]
   > user = alias user
   > username = repo user
   > EOF
   $ touch index
   $ unset HGUSER
-  $ hg ci -Am test
+  $ sl ci -Am test
   adding index
-  $ hg log --template '{author}\n'
+  $ sl log --template '{author}\n'
   repo user
   $ cd ..
 
@@ -287,10 +288,10 @@ reponame is set from paths.default
   > %unset reponame
   > EOF
   $ newrepo reponame-path-default-test
-  $ hg paths --add default test:repo-myrepo1
-  $ hg config remotefilelog.reponame
+  $ sl paths --add default test:repo-myrepo1
+  $ sl config remotefilelog.reponame
   repo-myrepo1
-  $ cat .hg/reponame
+  $ cat .sl/reponame
   repo-myrepo1 (no-eol)
 
 config editing without an editor
@@ -298,21 +299,21 @@ config editing without an editor
   $ newrepo
 
  invalid pattern
-  $ hg config --edit missing.value
+  $ sl config --edit missing.value
   abort: invalid config edit: 'missing.value'
   (try section.name=value)
   [255]
 
-  $ hg config --edit missing=name
+  $ sl config --edit missing=name
   abort: invalid config edit: 'missing'
   (try section.name=value)
   [255]
 
  append configs
-  $ hg config --local aa.bb.cc.字 "配
+  $ sl config --local aa.bb.cc.字 "配
   > 置" ee.fff=gggg
-  updated config in $TESTTMP/*/.hg/hgrc (glob)
-  $ tail -6 .hg/hgrc | dos2unix
+  updated config in $TESTTMP/*/.sl/config (glob)
+  $ tail -6 .sl/config | dos2unix
   [aa]
   bb.cc.字 = 配
     置
@@ -321,12 +322,12 @@ config editing without an editor
   fff = gggg
 
  update config in-place without appending
-  $ hg config --local aa.bb.cc.字 new_值 "aa.bb.cc.字=新值
+  $ sl config --local aa.bb.cc.字 new_值 "aa.bb.cc.字=新值
   > 测
   > 试
   > "
-  updated config in $TESTTMP/*/.hg/hgrc (glob)
-  $ tail -7 .hg/hgrc | dos2unix
+  updated config in $TESTTMP/*/.sl/config (glob)
+  $ tail -7 .sl/config | dos2unix
   [aa]
   bb.cc.字 = 新值
     测
@@ -335,12 +336,12 @@ config editing without an editor
   [ee]
   fff = gggg
 
-  $ hg config aa.bb.cc.字
+  $ sl config aa.bb.cc.字
   新值\n测\n试
 
  with comments
   $ newrepo
-  $ cat > .hg/hgrc << 'EOF'
+  $ cat > .sl/config << 'EOF'
   > [a]
   > # b = 1
   > b = 2
@@ -348,9 +349,9 @@ config editing without an editor
   > # b = 3
   > EOF
 
-  $ hg config --local a.b 4
-  updated config in $TESTTMP/*/.hg/hgrc (glob)
-  $ cat .hg/hgrc
+  $ sl config --local a.b 4
+  updated config in $TESTTMP/*/.sl/config (glob)
+  $ cat .sl/config
   [a]
   # b = 1
   b = 4
@@ -378,41 +379,39 @@ config editing without an editor
 
 
  user config
-  $ hg config --edit a.b=1 --quiet
-  $ tail -2 ~/.hgrc | dos2unix
-  [a]
-  b = 1
+  $ sl config --edit a.b=1 --quiet
+  $ sl config a.b
+  1
 
-  $ hg config --user a.b 2
-  updated config in $TESTTMP/.hgrc
-  $ tail -2 ~/.hgrc | dos2unix
-  [a]
-  b = 2
+  $ sl config --user a.b 2
+  updated config in $TESTTMP/*sapling* (glob)
+  $ sl config a.b
+  2
 
 system config (make sure it tries the right file)
-  $ HGEDITOR=false hg config --system
+  $ HGEDITOR=false sl config --system
   opening $TESTTMP/hgrc for editing...
   abort: edit failed: false exited with status 1
   [255]
 
 Show builtin configs with --verbose (filtersuspectsymlink is merely a sample item from builtin:core):
-  $ hg config | grep filtersuspectsymlink || true
-  $ hg config --verbose | grep filtersuspectsymlink
+  $ sl config | grep filtersuspectsymlink || true
+  $ sl config --verbose | grep filtersuspectsymlink
   unsafe.filtersuspectsymlink=true
 
 Warn about duplicate entries:
   $ newrepo
-  $ cat > .hg/hgrc << 'EOF'
+  $ cat > .sl/config << 'EOF'
   > [a]
   > b = 1
   > [a]
   > b = 2
   > EOF
 
-  $ hg config --local a.b=3
-  warning: duplicate config entries for a.b in $TESTTMP/*/.hg/hgrc (glob)
-  updated config in $TESTTMP/*/.hg/hgrc (glob)
-  $ cat .hg/hgrc
+  $ sl config --local a.b=3
+  warning: duplicate config entries for a.b in $TESTTMP/*/.sl/config (glob)
+  updated config in $TESTTMP/*/.sl/config (glob)
+  $ cat .sl/config
   [a]
   b = 1
   [a]
@@ -420,7 +419,7 @@ Warn about duplicate entries:
 
 Can see all sources w/ --debug and --verbose:
   $ newrepo sources
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > %include $TESTTMP/sources.rc
   > [foo]
   > bar = 1
@@ -433,37 +432,37 @@ Can see all sources w/ --debug and --verbose:
   > bar = 3
   > EOF
 
-  $ hg config foo.bar --debug --verbose
-  $TESTTMP/sources/.hg/hgrc:*: 2 (glob)
-    $TESTTMP/sources/.hg/hgrc:*: 1 (glob)
+  $ sl config foo.bar --debug --verbose
+  $TESTTMP/sources/.sl/config:*: 2 (glob)
+    $TESTTMP/sources/.sl/config:*: 1 (glob)
     $TESTTMP/sources.rc:*: 3 (glob)
 
-  $ hg config foo --debug --verbose
-  $TESTTMP/sources/.hg/hgrc:*: foo.bar=2 (glob)
-    $TESTTMP/sources/.hg/hgrc:*: foo.bar=1 (glob)
+  $ sl config foo --debug --verbose
+  $TESTTMP/sources/.sl/config:*: foo.bar=2 (glob)
+    $TESTTMP/sources/.sl/config:*: foo.bar=1 (glob)
     $TESTTMP/sources.rc:*: foo.bar=3 (glob)
 
 Can delete in place:
   $ newrepo delete
-  $ cat > .hg/hgrc << EOF
+  $ cat > .sl/config << EOF
   > [foo]
   > bar = 1
   > baz = 2
   > EOF
 
-  $ hg config --delete foo.bar
+  $ sl config --delete foo.bar
   abort: --delete requires one of --user, --local or --system
   [255]
 
-  $ hg config --delete --local foo.bar=123
+  $ sl config --delete --local foo.bar=123
   abort: invalid config deletion: 'foo.bar=123'
   (try section.name)
   [255]
 
-  $ hg config --delete --local foo.bar -v
-  deleting foo.bar from $TESTTMP/delete/.hg/hgrc
-  updated config in $TESTTMP/delete/.hg/hgrc
+  $ sl config --delete --local foo.bar -v
+  deleting foo.bar from $TESTTMP/delete/.sl/config
+  updated config in $TESTTMP/delete/.sl/config
 
-  $ cat .hg/hgrc
+  $ cat .sl/config
   [foo]
   baz = 2

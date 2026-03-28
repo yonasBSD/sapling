@@ -3,6 +3,7 @@
 
 #require killdaemons
 
+  $ export HGIDENTITY=sl
   $ enable share
 
   $ configure modernclient
@@ -11,45 +12,45 @@ prepare repo1
 
   $ newclientrepo
   $ echo a > a
-  $ hg commit -A -m'init'
+  $ sl commit -A -m'init'
   adding a
 
 share it
 
   $ cd ..
-  $ hg share repo1 repo2
+  $ sl share repo1 repo2
   updating working directory
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 share shouldn't have a store dir
 
   $ cd repo2
-  $ test -d .hg/store
+  $ test -d .sl/store
   [1]
 
 Some sed versions appends newline, some don't, and some just fails
 
-  $ cat .hg/sharedpath; echo
-  $TESTTMP/repo1/.hg
+  $ cat .sl/sharedpath; echo
+  $TESTTMP/repo1/.sl
 
-trailing newline on .hg/sharedpath is ok
-  $ hg tip -q
+trailing newline on .sl/sharedpath is ok
+  $ sl tip -q
   d3873e73d99e
-  $ echo '' >> .hg/sharedpath
-  $ cat .hg/sharedpath
-  $TESTTMP/repo1/.hg
-  $ hg tip -q
+  $ echo '' >> .sl/sharedpath
+  $ cat .sl/sharedpath
+  $TESTTMP/repo1/.sl
+  $ sl tip -q
   d3873e73d99e
 
 commit in shared clone
 
   $ echo a >> a
-  $ hg commit -m'change in shared clone'
+  $ sl commit -m'change in shared clone'
 
 check original
 
   $ cd ../repo1
-  $ hg log
+  $ sl log
   commit:      8af4dc49db9e
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -60,7 +61,7 @@ check original
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     init
   
-  $ hg goto tip
+  $ sl goto tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat a             # should be two lines of "a"
   a
@@ -69,13 +70,13 @@ check original
 commit in original
 
   $ echo b > b
-  $ hg commit -A -m'another file'
+  $ sl commit -A -m'another file'
   adding b
 
 check in shared clone
 
   $ cd ../repo2
-  $ hg log
+  $ sl log
   commit:      c2e0ac586386
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -91,29 +92,29 @@ check in shared clone
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     init
   
-  $ hg goto tip
+  $ sl goto tip
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cat b             # should exist with one "b"
   b
 
 test unshare command
 
-  $ hg unshare
-  $ test -d .hg/store
-  $ test -f .hg/sharedpath
+  $ sl unshare
+  $ test -d .sl/store
+  $ test -f .sl/sharedpath
   [1]
-  $ grep shared .hg/requires
+  $ grep shared .sl/requires
   [1]
-  $ hg unshare
+  $ sl unshare
   abort: this is not a shared repo
   [255]
 
 check that a change does not propagate
 
   $ echo b >> b
-  $ hg commit -m'change in unshared'
+  $ sl commit -m'change in unshared'
   $ cd ../repo1
-  $ hg id -r tip
+  $ sl id -r tip
   c2e0ac586386
 
   $ cd ..
@@ -121,38 +122,38 @@ check that a change does not propagate
 
 test sharing bookmarks
 
-  $ hg share -B repo1 repo3
+  $ sl share -B repo1 repo3
   updating working directory
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd repo1
-  $ hg bookmark bm1
-  $ hg bookmarks
+  $ sl bookmark bm1
+  $ sl bookmarks
    * bm1                       c2e0ac586386
   $ cd ../repo2
-  $ hg book bm2
-  $ hg bookmarks
+  $ sl book bm2
+  $ sl bookmarks
    * bm2                       0e6e70d1d5f1
   $ cd ../repo3
-  $ hg bookmarks
+  $ sl bookmarks
      bm1                       c2e0ac586386
-  $ hg book bm3
-  $ hg bookmarks
+  $ sl book bm3
+  $ sl bookmarks
      bm1                       c2e0ac586386
    * bm3                       c2e0ac586386
   $ cd ../repo1
-  $ hg bookmarks
+  $ sl bookmarks
    * bm1                       c2e0ac586386
      bm3                       c2e0ac586386
 
 check whether HG_PENDING makes pending changes only in related
 repositories visible to an external hook.
 
-In "hg share" case, another transaction can't run in other
+In "sl share" case, another transaction can't run in other
 repositories sharing same source repository, because starting
 transaction requires locking store of source repository.
 
 Therefore, this test scenario ignores checking visibility of
-.hg/bookmarks.pending in repo2, which shares repo1 without bookmarks.
+.sl/bookmarks.pending in repo2, which shares repo1 without bookmarks.
 
   $ cat > $TESTTMP/checkbookmarks.sh <<EOF
   > echo "@repo1"
@@ -165,7 +166,7 @@ Therefore, this test scenario ignores checking visibility of
   > EOF
 
   $ cd ../repo1
-  $ hg --config hooks.pretxnclose="sh $TESTTMP/checkbookmarks.sh" -q book bmX
+  $ sl --config hooks.pretxnclose="sh $TESTTMP/checkbookmarks.sh" -q book bmX
   @repo1
      bm1                       c2e0ac586386
      bm3                       c2e0ac586386
@@ -180,12 +181,12 @@ Therefore, this test scenario ignores checking visibility of
   abort: pretxnclose hook exited with status 1
   [255]
 XXX: bmX should show up for repo3.
-  $ hg book bm1
+  $ sl book bm1
 
 In the unshared case, a bookmark being added in repo2 is not visible in repo1.
 
   $ cd ../repo2
-  $ hg --config hooks.pretxnclose="sh $TESTTMP/checkbookmarks.sh" -q book bmX
+  $ sl --config hooks.pretxnclose="sh $TESTTMP/checkbookmarks.sh" -q book bmX
   @repo1
    * bm1                       c2e0ac586386
      bm3                       c2e0ac586386
@@ -199,13 +200,13 @@ In the unshared case, a bookmark being added in repo2 is not visible in repo1.
   rollback completed
   abort: pretxnclose hook exited with status 1
   [255]
-  $ hg book bm2
+  $ sl book bm2
 
 In symmetry with the first case, bmX is visible in repo1 (= shared rc)
 because HG_SHAREDPENDING refers to repo1.
 
   $ cd ../repo3
-  $ hg --config hooks.pretxnclose="sh $TESTTMP/checkbookmarks.sh" -q book bmX
+  $ sl --config hooks.pretxnclose="sh $TESTTMP/checkbookmarks.sh" -q book bmX
   @repo1
    * bm1                       c2e0ac586386
      bm3                       c2e0ac586386
@@ -220,39 +221,39 @@ because HG_SHAREDPENDING refers to repo1.
   rollback completed
   abort: pretxnclose hook exited with status 1
   [255]
-  $ hg book bm3
+  $ sl book bm3
 
   $ cd ../repo1
 
 test that commits work
 
   $ echo 'shared bookmarks' > a
-  $ hg commit -m 'testing shared bookmarks'
-  $ hg bookmarks
+  $ sl commit -m 'testing shared bookmarks'
+  $ sl bookmarks
    * bm1                       b87954705719
      bm3                       c2e0ac586386
   $ cd ../repo3
-  $ hg bookmarks
+  $ sl bookmarks
      bm1                       b87954705719
    * bm3                       c2e0ac586386
   $ echo 'more shared bookmarks' > a
-  $ hg commit -m 'testing shared bookmarks'
-  $ hg bookmarks
+  $ sl commit -m 'testing shared bookmarks'
+  $ sl bookmarks
      bm1                       b87954705719
    * bm3                       62f4ded848e4
   $ cd ../repo1
-  $ hg bookmarks
+  $ sl bookmarks
    * bm1                       b87954705719
      bm3                       62f4ded848e4
   $ cd ..
 
 test behavior when sharing a shared repo
 
-  $ hg share -B repo3 repo5
+  $ sl share -B repo3 repo5
   updating working directory
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd repo5
-  $ hg book
+  $ sl book
      bm1                       b87954705719
      bm3                       62f4ded848e4
   $ cd ..
@@ -260,26 +261,26 @@ test behavior when sharing a shared repo
 test what happens when an active bookmark is deleted
 
   $ cd repo1
-  $ hg boo -d bm3
-  $ hg boo
+  $ sl bookmarks -d bm3
+  $ sl bookmarks
    * bm1                       b87954705719
   $ cd ../repo3
-  $ hg boo
+  $ sl bookmarks
      bm1                       b87954705719
   $ cd ..
 
 verify bookmark behavior after unshare
 
   $ cd repo3
-  $ hg unshare
-  $ hg boo
+  $ sl unshare
+  $ sl bookmarks
      bm1                       b87954705719
-  $ hg boo bm5
-  $ hg boo
+  $ sl bookmarks bm5
+  $ sl bookmarks
      bm1                       b87954705719
    * bm5                       62f4ded848e4
   $ cd ../repo1
-  $ hg boo
+  $ sl bookmarks
    * bm1                       b87954705719
   $ cd ..
 
@@ -288,46 +289,46 @@ test shared clones using relative paths work
   $ mkdir thisdir
   $ newclientrepo thisdir/orig
   $ cd
-  $ hg share -U thisdir/orig thisdir/abs
-  $ hg share -U --relative thisdir/abs thisdir/rel
-  $ cat thisdir/rel/.hg/sharedpath
-  ../../orig/.hg (no-eol)
-  $ grep shared thisdir/*/.hg/requires
-  thisdir/abs/.hg/requires:shared
-  thisdir/rel/.hg/requires:relshared
-  thisdir/rel/.hg/requires:shared
+  $ sl share -U thisdir/orig thisdir/abs
+  $ sl share -U --relative thisdir/abs thisdir/rel
+  $ cat thisdir/rel/.sl/sharedpath
+  ../../orig/.sl (no-eol)
+  $ grep shared thisdir/*/.sl/requires
+  thisdir/abs/.sl/requires:shared
+  thisdir/rel/.sl/requires:relshared
+  thisdir/rel/.sl/requires:shared
 
 test that relative shared paths aren't relative to $PWD
 
   $ cd thisdir
-  $ hg -R rel root
+  $ sl -R rel root
   $TESTTMP/thisdir/rel
   $ cd ..
 
 now test that relative paths really are relative, survive across
 renames and changes of PWD
 
-  $ hg -R thisdir/abs root
+  $ sl -R thisdir/abs root
   $TESTTMP/thisdir/abs
-  $ hg -R thisdir/rel root
+  $ sl -R thisdir/rel root
   $TESTTMP/thisdir/rel
   $ mv thisdir thatdir
-  $ hg -R thatdir/abs root
+  $ sl -R thatdir/abs root
   abort: sharedpath points to nonexistent directory $TESTTMP/thisdir/orig!
   [255]
-  $ hg -R thatdir/rel root
+  $ sl -R thatdir/rel root
   $TESTTMP/thatdir/rel
 
 test unshare relshared repo
 
   $ cd thatdir/rel
-  $ hg unshare
-  $ test -d .hg/store
-  $ test -f .hg/sharedpath
+  $ sl unshare
+  $ test -d .sl/store
+  $ test -f .sl/sharedpath
   [1]
-  $ grep shared .hg/requires
+  $ grep shared .sl/requires
   [1]
-  $ hg unshare
+  $ sl unshare
   abort: this is not a shared repo
   [255]
   $ cd ../..

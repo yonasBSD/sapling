@@ -1,31 +1,32 @@
 
 #require no-eden
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.collapse-traceback=true
 
   $ newclientrepo server
   $ newclientrepo a server_server
   $ echo a > a
-  $ hg ci -A -d'1 0' -m a
+  $ sl ci -A -d'1 0' -m a
   adding a
-  $ hg push -q -r . --to master_a --create
+  $ sl push -q -r . --to master_a --create
 
   $ newclientrepo b server_server
   $ echo b > b
-  $ hg ci -A -d'1 0' -m b
+  $ sl ci -A -d'1 0' -m b
   adding b
-  $ hg push -q -r . --to master_b --create --force
+  $ sl push -q -r . --to master_b --create --force
   warning: repository is unrelated
 
   $ newclientrepo c server_server master_a
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [paths]
   > relative = ../a
   > EOF
-  $ hg pull -f test:server_server -B master_b
+  $ sl pull -f test:server_server -B master_b
   pulling from test:server_server
   searching for changes
-  $ hg merge
+  $ sl merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
@@ -33,13 +34,13 @@
 
 Testing -R/--repository:
 
-  $ hg -R a tip
+  $ sl -R a tip
   commit:      8580ff50825a
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
   summary:     a
   
-  $ hg --repository b tip
+  $ sl --repository b tip
   commit:      b6c483daf290
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -49,19 +50,19 @@ Testing -R/--repository:
 
 Implicit -R:
 
-  $ hg ann a/a
+  $ sl ann a/a
   0: a
-  $ hg ann a/a a/a
+  $ sl ann a/a a/a
   0: a
-  $ hg ann a/a b/b
+  $ sl ann a/a b/b
   abort: '$TESTTMP' is not inside a repository, but this command requires a repository!
   (use 'cd' to go to a directory inside a repository and try again)
   [255]
-  $ hg -R b ann a/a
+  $ sl -R b ann a/a
   abort: a/a not under root '$TESTTMP/b'
   (consider using '--cwd b')
   [255]
-  $ hg log
+  $ sl log
   abort: '$TESTTMP' is not inside a repository, but this command requires a repository!
   (use 'cd' to go to a directory inside a repository and try again)
   [255]
@@ -70,7 +71,7 @@ Implicit -R:
 
 Abbreviation of long option:
 
-  $ hg --repo c tip
+  $ sl --repo c tip
   commit:      b6c483daf290
   bookmark:    remote/master_b
   hoistedname: master_b
@@ -81,7 +82,7 @@ Abbreviation of long option:
 
 earlygetopt with duplicate options (36d23de02da1):
 
-  $ hg --cwd a --cwd b --cwd c tip
+  $ sl --cwd a --cwd b --cwd c tip
   commit:      b6c483daf290
   bookmark:    remote/master_b
   hoistedname: master_b
@@ -89,7 +90,7 @@ earlygetopt with duplicate options (36d23de02da1):
   date:        Thu Jan 01 00:00:01 1970 +0000
   summary:     b
   
-  $ hg --repo c --repository b -R a tip
+  $ sl --repo c --repository b -R a tip
   commit:      8580ff50825a
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -98,33 +99,33 @@ earlygetopt with duplicate options (36d23de02da1):
 
 earlygetopt short option without following space:
 
-  $ hg -q -Rb tip
+  $ sl -q -Rb tip
   b6c483daf290
 
 earlygetopt with illegal abbreviations:
 
-  $ hg --configfi "foo.bar=baz"
+  $ sl --configfi "foo.bar=baz"
   abort: option --configfile may not be abbreviated or used in aliases
   [255]
-  $ hg --cw a tip
+  $ sl --cw a tip
   abort: option --cwd may not be abbreviated or used in aliases
   [255]
-  $ hg --rep a tip
+  $ sl --rep a tip
   abort: option -R must appear alone, and --repository may not be abbreviated or used in aliases
   [255]
-  $ hg --repositor a tip
+  $ sl --repositor a tip
   abort: option -R must appear alone, and --repository may not be abbreviated or used in aliases
   [255]
-  $ hg -qR a tip
+  $ sl -qR a tip
   abort: option -R must appear alone, and --repository may not be abbreviated or used in aliases
   [255]
-  $ hg -qRa tip
+  $ sl -qRa tip
   abort: option -R must appear alone, and --repository may not be abbreviated or used in aliases
   [255]
 
 Testing --cwd:
 
-  $ hg --cwd a parents
+  $ sl --cwd a parents
   commit:      8580ff50825a
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -133,37 +134,37 @@ Testing --cwd:
 
 Testing -y/--noninteractive - just be sure it is parsed:
 
-  $ hg --cwd a tip -q --noninteractive
+  $ sl --cwd a tip -q --noninteractive
   8580ff50825a
-  $ hg --cwd a tip -q -y
+  $ sl --cwd a tip -q -y
   8580ff50825a
 
 Testing -q/--quiet:
 
-  $ hg -R a -q tip
+  $ sl -R a -q tip
   8580ff50825a
-  $ hg -R b -q tip
+  $ sl -R b -q tip
   b6c483daf290
-  $ hg -R c --quiet parents
+  $ sl -R c --quiet parents
   8580ff50825a
   b6c483daf290
 
-  $ hg config ui.quiet -q --config config.use-rust=true
+  $ sl config ui.quiet -q --config config.use-rust=true
   true
-  $ hg config ui.quiet --quiet --config config.use-rust=true
+  $ sl config ui.quiet --quiet --config config.use-rust=true
   true
-  $ hg config ui.quiet --quie --config config.use-rust=true
+  $ sl config ui.quiet --quie --config config.use-rust=true
   true
-  $ hg config ui.quiet -q --config config.use-rust=false
+  $ sl config ui.quiet -q --config config.use-rust=false
   True
-  $ hg config ui.quiet --quiet --config config.use-rust=false
+  $ sl config ui.quiet --quiet --config config.use-rust=false
   True
-  $ hg config ui.quiet --quie --config config.use-rust=false
+  $ sl config ui.quiet --quie --config config.use-rust=false
   True
 
 Testing -v/--verbose:
 
-  $ hg --cwd c head -v
+  $ sl --cwd c head -v
   commit:      b6c483daf290
   bookmark:    remote/master_b
   hoistedname: master_b
@@ -184,7 +185,7 @@ Testing -v/--verbose:
   a
   
   
-  $ hg --cwd b tip --verbose
+  $ sl --cwd b tip --verbose
   commit:      b6c483daf290
   user:        test
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -196,30 +197,30 @@ Testing -v/--verbose:
 
 Testing --config:
 
-  $ hg --cwd c --config paths.quuxfoo=bar paths | grep quuxfoo > /dev/null && echo quuxfoo
+  $ sl --cwd c --config paths.quuxfoo=bar paths | grep quuxfoo > /dev/null && echo quuxfoo
   quuxfoo
-  $ hg --cwd c --config '' tip -q
-  hg: parse errors: malformed --config option: '' (use --config section.name=value)
+  $ sl --cwd c --config '' tip -q
+  sl: parse errors: malformed --config option: '' (use --config section.name=value)
   
   [255]
-  $ hg --cwd c --config a.b tip -q
-  hg: parse errors: malformed --config option: 'a.b' (use --config section.name=value)
+  $ sl --cwd c --config a.b tip -q
+  sl: parse errors: malformed --config option: 'a.b' (use --config section.name=value)
   
   [255]
-  $ hg --cwd c --config a tip -q
-  hg: parse errors: malformed --config option: 'a' (use --config section.name=value)
+  $ sl --cwd c --config a tip -q
+  sl: parse errors: malformed --config option: 'a' (use --config section.name=value)
   
   [255]
-  $ hg --cwd c --config a.= tip -q
+  $ sl --cwd c --config a.= tip -q
   abort: malformed --config option: 'a.=' (use --config section.name=value)
   [255]
-  $ hg --cwd c --config .b= tip -q
+  $ sl --cwd c --config .b= tip -q
   abort: malformed --config option: '.b=' (use --config section.name=value)
   [255]
 
 Testing --debug:
 
-  $ hg --cwd c log --debug
+  $ sl --cwd c log --debug
   commit:      b6c483daf2907ce5825c0bb50f5716226281cc1a
   bookmark:    remote/master_b
   hoistedname: master_b
@@ -249,7 +250,7 @@ Testing --debug:
 
 Testing --traceback (this does not work with the Rust code path):
 
-  $ hg --traceback log -r foo
+  $ sl --traceback log -r foo
   Traceback (most recent call last):
     # collapsed by devel.collapse-traceback
   sapling.error.RepoError: '$TESTTMP' is not inside a repository, but this command requires a repository
@@ -259,27 +260,27 @@ Testing --traceback (this does not work with the Rust code path):
 
 Testing --time:
 
-  $ hg --cwd a --time id
+  $ sl --cwd a --time id
   8580ff50825a
   time: real * (glob)
 
 Testing --version:
 
-  $ hg --version -q
+  $ sl --version -q
   Sapling * (glob)
 
 hide outer repo
-  $ hg init
+  $ sl init
 
 Testing -h/--help:
 
-  $ hg -h
+  $ sl -h
   Sapling SCM
   
-  hg COMMAND [OPTIONS]
+  sl COMMAND [OPTIONS]
   
-  These are some common Sapling commands.  Use 'hg help commands' to list all
-  commands, and 'hg help COMMAND' to get help on a specific command.
+  These are some common Sapling commands.  Use 'sl help commands' to list all
+  commands, and 'sl help COMMAND' to get help on a specific command.
   
   Get the latest commits from the server:
   
@@ -344,13 +345,13 @@ Testing -h/--help:
 
 
 
-  $ hg --help
+  $ sl --help
   Sapling SCM
   
-  hg COMMAND [OPTIONS]
+  sl COMMAND [OPTIONS]
   
-  These are some common Sapling commands.  Use 'hg help commands' to list all
-  commands, and 'hg help COMMAND' to get help on a specific command.
+  These are some common Sapling commands.  Use 'sl help commands' to list all
+  commands, and 'sl help COMMAND' to get help on a specific command.
   
   Get the latest commits from the server:
   

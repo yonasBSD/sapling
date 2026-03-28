@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
 Do some initial setup
@@ -15,14 +16,14 @@ Do some initial setup
 Setup a server repo
   $ hginit server
   $ cd server
-  $ cat >> .hg/hgrc <<CONFIG
+  $ cat >> .sl/config <<CONFIG
   > [treemanifest]
   > server = True
   > [remotefilelog]
   > server = True
   > shallowtrees = True
   > CONFIG
-  $ hg debugdrawdag <<EOF
+  $ sl debugdrawdag <<EOF
   > C
   > |
   > B
@@ -30,17 +31,17 @@ Setup a server repo
   > A
   > EOF
 
-  $ hg bookmark master_bookmark -r tip
-  $ hg log -r tip -q
+  $ sl bookmark master_bookmark -r tip
+  $ sl log -r tip -q
   26805aba1e60
 
 Send unbundle
-  $ cat $TESTDIR/bundles/sendunbundle.test.hg | hg debugsendunbundle ssh://user@dummy/server
+  $ cat $TESTDIR/bundles/sendunbundle.test.hg | sl debugsendunbundle ssh://user@dummy/server
   remote: pushing 1 changeset:
   remote:     a0c9c5791058  1
   remote: 1 new changeset from the server will be downloaded
 
 Server tip is now different
   $ cd "$TESTTMP/server"
-  $ hg log -r tip -q
+  $ sl log -r tip -q
   c2e526aacb51

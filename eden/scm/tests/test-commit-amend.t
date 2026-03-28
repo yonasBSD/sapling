@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ disable amend
   $ configure mutation-norecord
   $ setconfig commands.update.check=none
@@ -26,24 +27,24 @@ Repo:
 
 Cannot amend null:
 
-  $ hg ci --amend -m x
+  $ sl ci --amend -m x
   abort: cannot amend null changeset
   (no changeset checked out)
   [255]
 
 Refuse to amend public csets:
 
-  $ hg up -Cq $B
+  $ sl up -Cq $B
   $ cp -R . ../repo-public
-  $ hg -R ../repo-public debugmakepublic .
-  $ hg -R ../repo-public ci --amend
+  $ sl -R ../repo-public debugmakepublic .
+  $ sl -R ../repo-public ci --amend
   abort: cannot amend public changesets
-  (see 'hg help phases' for details)
+  (see 'sl help phases' for details)
   [255]
 
 Nothing to amend:
 
-  $ hg ci --amend -m 'B'
+  $ sl ci --amend -m 'B'
   nothing changed
   [1]
 
@@ -52,17 +53,17 @@ Amending changeset with changes in working dir:
 
   $ cat >> $HGRCPATH <<EOF
   > [hooks]
-  > pretxncommit.foo = sh -c "echo \\"pretxncommit \$HG_NODE\\"; hg id -r \$HG_NODE"
+  > pretxncommit.foo = sh -c "echo \\"pretxncommit \$HG_NODE\\"; sl id -r \$HG_NODE"
   > EOF
 
   $ echo a >> A
-  $ HGEDITOR='sh "`pwd`/editor.sh"' hg commit --amend -m 'amend base1'
+  $ HGEDITOR='sh "`pwd`/editor.sh"' sl commit --amend -m 'amend base1'
   pretxncommit 217e580a9218a74044be7970e41021181317b52b
   217e580a9218
 
   $ echo '%unset pretxncommit.foo' >> $HGRCPATH
 
-  $ hg diff -c .
+  $ sl diff -c .
   diff -r 4a2df7238c3b -r 217e580a9218 A
   --- a/A	Thu Jan 01 00:00:00 1970 +0000
   +++ b/A	Thu Jan 01 00:00:00 1970 +0000
@@ -74,7 +75,7 @@ Amending changeset with changes in working dir:
   +++ b/B	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +B
-  $ hg log -Gr 'all()' -T '{desc}'
+  $ sl log -Gr 'all()' -T '{desc}'
   @  amend base1
   │
   o  A
@@ -88,7 +89,7 @@ Check proper abort for empty message
   > __EOF__
 
   $ echo a >> A
-  $ HGEDITOR='sh "`pwd`/editor.sh"' hg commit --amend
+  $ HGEDITOR='sh "`pwd`/editor.sh"' sl commit --amend
   transaction abort! (?)
   rollback completed (?)
   abort: empty commit message
@@ -97,25 +98,25 @@ Check proper abort for empty message
 Add new file along with modified existing file:
 
   $ echo C >> C
-  $ hg add -q C
-  $ hg ci --amend -m 'amend base1 new file'
+  $ sl add -q C
+  $ sl ci --amend -m 'amend base1 new file'
 
 Remove file that was added in amended commit:
 (and test logfile option)
 (and test that logfile option do not trigger an editor)
 
-  $ hg rm C
+  $ sl rm C
   $ echo 'amend base1 remove new file' > ../logfile
-  $ HGEDITOR='sh "`pwd`/editor.sh"' hg ci --amend --logfile ../logfile
+  $ HGEDITOR='sh "`pwd`/editor.sh"' sl ci --amend --logfile ../logfile
 
-  $ hg cat C
+  $ sl cat C
   [1]
 
 No changes, just a different message:
 
-  $ hg ci --amend -m 'no changes, new message'
+  $ sl ci --amend -m 'no changes, new message'
 
-  $ hg diff -c .
+  $ sl diff -c .
   diff -r 4a2df7238c3b -r 80f3c49eb411 A
   --- a/A	Thu Jan 01 00:00:00 1970 +0000
   +++ b/A	Thu Jan 01 00:00:00 1970 +0000
@@ -136,18 +137,18 @@ Disable default date on commit so when -d isn't given, the old date is preserved
 
 Test -u/-d:
 
-  $ cat > .hg/checkeditform.sh <<EOF
+  $ cat > .sl/checkeditform.sh <<EOF
   > env | grep HGEDITFORM
   > true
   > EOF
 
-  $ HGEDITOR="sh .hg/checkeditform.sh" hg ci --amend -u foo -d '1 0'
+  $ HGEDITOR="sh .sl/checkeditform.sh" sl ci --amend -u foo -d '1 0'
   HGEDITFORM=commit.amend.normal
 
   $ echo a >> A
-  $ hg ci --amend -u foo -d '1 0'
+  $ sl ci --amend -u foo -d '1 0'
 
-  $ hg log -r .
+  $ sl log -r .
   commit:      815553afc946
   user:        foo
   date:        Thu Jan 01 00:00:01 1970 +0000
@@ -164,75 +165,75 @@ Open editor with old commit message if a message isn't given otherwise:
 
 at first, test saving last-message.txt
 
-  $ cat > .hg/hgrc << '__EOF__'
+  $ cat > .sl/config << '__EOF__'
   > [hooks]
   > pretxncommit.test-saving-last-message = false
   > __EOF__
 
-  $ rm -f .hg/last-message.txt
-  $ hg commit --amend -m "message given from command line"
+  $ rm -f .sl/last-message.txt
+  $ sl commit --amend -m "message given from command line"
   transaction abort! (?)
   rollback completed (?)
   abort: pretxncommit.test-saving-last-message hook exited with status 1
   [255]
 
-  $ cat .hg/last-message.txt
+  $ cat .sl/last-message.txt
   message given from command line (no-eol)
 
-  $ rm -f .hg/last-message.txt
+  $ rm -f .sl/last-message.txt
 
-  $ HGEDITOR='sh "`pwd`/editor.sh"' hg commit --amend
+  $ HGEDITOR='sh "`pwd`/editor.sh"' sl commit --amend
   no changes, new message
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: foo
-  HG: added B
-  HG: changed A
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: foo
+  SL: added B
+  SL: changed A
   transaction abort! (?)
   rollback completed (?)
   abort: pretxncommit.test-saving-last-message hook exited with status 1
   [255]
 
-  $ cat .hg/last-message.txt
+  $ cat .sl/last-message.txt
   another precious commit message
 
-  $ cat > .hg/hgrc << '__EOF__'
+  $ cat > .sl/config << '__EOF__'
   > [hooks]
   > pretxncommit.test-saving-last-message =
   > __EOF__
 
 then, test editing custom commit message
 
-  $ HGEDITOR='sh "`pwd`/editor.sh"' hg commit --amend
+  $ HGEDITOR='sh "`pwd`/editor.sh"' sl commit --amend
   no changes, new message
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: foo
-  HG: added B
-  HG: changed A
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: foo
+  SL: added B
+  SL: changed A
 
 Same, but with changes in working dir (different code path):
 
   $ echo a >> A
-  $ HGEDITOR='sh "`pwd`/editor.sh"' hg commit --amend
+  $ HGEDITOR='sh "`pwd`/editor.sh"' sl commit --amend
   another precious commit message
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: foo
-  HG: added B
-  HG: changed A
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: foo
+  SL: added B
+  SL: changed A
 
   $ rm editor.sh
-  $ hg log -r . 
+  $ sl log -r . 
   commit:      642ea5add1ce
   user:        foo
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -244,11 +245,11 @@ Moving bookmarks, preserve active bookmark:
   $ drawdag << 'EOS'
   > a
   > EOS
-  $ hg book -r $a book1
-  $ hg book -r $a book2
-  $ hg up -q book1
-  $ hg ci --amend -m 'move bookmarks'
-  $ hg book
+  $ sl book -r $a book1
+  $ sl book -r $a book2
+  $ sl up -q book1
+  $ sl ci --amend -m 'move bookmarks'
+  $ sl book
    transaction abort! (?)
    rollback completed (?)
    * book1                     919d9f835a8e
@@ -273,9 +274,9 @@ Refuse to amend during a merge:
   > |/
   > X
   > EOS
-  $ hg up -q $Y
-  $ hg merge -q $Z
-  $ hg ci --amend
+  $ sl up -q $Y
+  $ sl merge -q $Z
+  $ sl ci --amend
   abort: cannot amend while merging
   [255]
 
@@ -287,17 +288,17 @@ Refuse to amend if there is a merge conflict (issue5805):
   > |
   > X
   > EOS
-  $ hg up -q $X
+  $ sl up -q $X
   $ echo c >> X
-  $ hg up $Y -t :fail -q
+  $ sl up $Y -t :fail -q
   [1]
-  $ hg resolve -l
+  $ sl resolve -l
   U X
 
-  $ hg ci --amend
+  $ sl ci --amend
   abort: unresolved merge state
-  (use 'hg resolve' to continue or
-       'hg goto --clean' to abort - WARNING: will destroy uncommitted changes)
+  (use 'sl resolve' to continue or
+       'sl goto --clean' to abort - WARNING: will destroy uncommitted changes)
   [255]
 
 Follow copies/renames (including issue4405):
@@ -309,15 +310,15 @@ Follow copies/renames (including issue4405):
   > A
   > EOS
 
-  $ hg up -q $B
+  $ sl up -q $B
   $ echo 1 >> B
-  $ hg ci --amend -m 'B-amended'
-  $ hg log -r . -T '{file_copies}\n'
+  $ sl ci --amend -m 'B-amended'
+  $ sl log -r . -T '{file_copies}\n'
   B (A)
 
-  $ hg mv B C
-  $ hg ci --amend -m 'C'
-  $ hg log -r . -T '{file_copies}\n'
+  $ sl mv B C
+  $ sl ci --amend -m 'C'
+  $ sl log -r . -T '{file_copies}\n'
   C (A)
 
 Move added file (issue3410):
@@ -327,15 +328,15 @@ Move added file (issue3410):
   > A
   > EOS
 
-  $ hg up -q $A
-  $ hg mv A B
-  $ hg ci --amend -m 'B'
-  $ hg log -r . --template "{file_copies}\n"
+  $ sl up -q $A
+  $ sl mv A B
+  $ sl ci --amend -m 'B'
+  $ sl log -r . --template "{file_copies}\n"
   
 
 Obsolete information
 
-  $ hg log -r 'predecessors(.)' --hidden -T '{desc}\n'
+  $ sl log -r 'predecessors(.)' --hidden -T '{desc}\n'
   A
   B
 
@@ -351,39 +352,39 @@ Amend a merge. Make it trickier by including renames.
   > X Y
   > EOS
 
-  $ hg up -q $D
-  $ hg debugrename B
+  $ sl up -q $D
+  $ sl debugrename B
   B renamed from X:44f0fe2c7b2f8e25d302364ca8d50f37f9bfb143
-  $ hg debugrename C
+  $ sl debugrename C
   C renamed from Y:949988db577d2987b8dc29aeb0467aad77fd2005
 
   $ echo 4 >> D
-  $ hg mv B B2
-  $ hg mv C C2
-  $ hg commit --amend -m D2
-  $ hg log -r. -T '{desc}\n'
+  $ sl mv B B2
+  $ sl mv C C2
+  $ sl commit --amend -m D2
+  $ sl log -r. -T '{desc}\n'
   D2
-  $ hg cat -r. D
+  $ sl cat -r. D
   34
 
-  $ hg debugrename B2
+  $ sl debugrename B2
   B2 renamed from B:668baf98ee11de8040fa6e9d9b477cb85157750a
-  $ hg debugrename C2
+  $ sl debugrename C2
   C2 renamed from C:9eeb74a40ee18c256903a5b1d572e0debc1f4cb8
 
 Undo renames
 
-  $ hg mv B2 B
-  $ hg mv C2 C
-  $ hg commit --amend -m D3
-  $ hg debugrename B
+  $ sl mv B2 B
+  $ sl mv C2 C
+  $ sl commit --amend -m D3
+  $ sl debugrename B
   B renamed from X:44f0fe2c7b2f8e25d302364ca8d50f37f9bfb143
-  $ hg debugrename C
+  $ sl debugrename C
   C renamed from Y:949988db577d2987b8dc29aeb0467aad77fd2005
 
 Undo merge conflict resolution
 
-  $ hg log -GT '{desc}\n' -f D
+  $ sl log -GT '{desc}\n' -f D
   @    D3
   ├─╮
   │ o  C
@@ -396,8 +397,8 @@ Undo merge conflict resolution
 
  (This is suboptimal. It should only show B without D4)
   $ printf 1 > D
-  $ hg commit --amend -m D4
-  $ hg log -GT '{desc}\n' -f D
+  $ sl commit --amend -m D4
+  $ sl log -GT '{desc}\n' -f D
   @    D4
   ├─╮
   │ o  C
@@ -409,8 +410,8 @@ Undo merge conflict resolution
   ~
 
   $ printf 2 > D
-  $ hg commit --amend -m D4
-  $ hg log -GT '{desc}\n' -f D
+  $ sl commit --amend -m D4
+  $ sl log -GT '{desc}\n' -f D
   o  C
   │
   ~
@@ -430,13 +431,13 @@ Sadly, this test shows internals are inconsistent.
   > A B
   > EOS
 
-  $ hg files -r $E
+  $ sl files -r $E
   A
   B
 
-  $ hg up -q $E
+  $ sl up -q $E
 
-  $ hg log -f -T '{desc}' -G A
+  $ sl log -f -T '{desc}' -G A
   o    D
   ├─╮
   │ │
@@ -444,7 +445,7 @@ Sadly, this test shows internals are inconsistent.
   │
   o  A
   
-  $ hg log -f -T '{desc}' -G B
+  $ sl log -f -T '{desc}' -G B
   o    C
   ├─╮
   │ │
@@ -452,11 +453,11 @@ Sadly, this test shows internals are inconsistent.
   │
   o  B
   
-  $ hg log -r. -T '{files}'
+  $ sl log -r. -T '{files}'
 
-  $ hg rm A B
-  $ hg ci --amend -m E2
-  $ hg log --removed -f -T '{desc}' -G A
+  $ sl rm A B
+  $ sl ci --amend -m E2
+  $ sl log --removed -f -T '{desc}' -G A
   o    D
   ├─╮
   │ │
@@ -469,7 +470,7 @@ Sadly, this test shows internals are inconsistent.
   │
   o  A
   
-  $ hg log --removed -f -T '{desc}' -G B
+  $ sl log --removed -f -T '{desc}' -G B
   @    E2
   ├─╮
   │ o    D
@@ -489,8 +490,8 @@ Sadly, this test shows internals are inconsistent.
 
   $ printf C > B
   $ printf D > A
-  $ hg ci --amend -m E3
-  $ hg log -fr tip -T '{desc}' -G A
+  $ sl ci --amend -m E3
+  $ sl log -fr tip -T '{desc}' -G A
   o    D
   ├─╮
   │ │
@@ -498,7 +499,7 @@ Sadly, this test shows internals are inconsistent.
   │
   o  A
   
-  $ hg log -fr tip -T '{desc}' -G B
+  $ sl log -fr tip -T '{desc}' -G B
   o    C
   ├─╮
   │ │
@@ -507,60 +508,60 @@ Sadly, this test shows internals are inconsistent.
   o  B
   
 
-  $ hg log -r. -T '{files}'
+  $ sl log -r. -T '{files}'
   B (no-eol)
 
 Test that amend with --edit invokes editor forcibly
 
   $ newrepo
-  $ echo A | hg debugdrawdag
-  $ hg up -q A
+  $ echo A | sl debugdrawdag
+  $ sl up -q A
 
-  $ HGEDITOR=cat hg commit --amend -m "editor should be suppressed"
-  $ hg log -r. -T '{desc}\n'
+  $ HGEDITOR=cat sl commit --amend -m "editor should be suppressed"
+  $ sl log -r. -T '{desc}\n'
   editor should be suppressed
 
-  $ HGEDITOR=cat hg commit --amend -m "editor should be invoked" --edit
+  $ HGEDITOR=cat sl commit --amend -m "editor should be invoked" --edit
   editor should be invoked
   
   
-  HG: Enter commit message.  Lines beginning with 'HG:' are removed.
-  HG: Leave message empty to abort commit.
-  HG: --
-  HG: user: test
-  HG: bookmark 'A'
-  HG: added A
+  SL: Enter commit message.  Lines beginning with 'SL:' are removed.
+  SL: Leave message empty to abort commit.
+  SL: --
+  SL: user: test
+  SL: bookmark 'A'
+  SL: added A
 
-  $ hg log -r. -T '{desc}\n'
+  $ sl log -r. -T '{desc}\n'
   editor should be invoked
 
 Test that "diff()" in committemplate works correctly for amending
 
   $ newrepo
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [committemplate]
   > changeset.commit.amend = {desc}\n
-  >     HG: M: {file_mods}
-  >     HG: A: {file_adds}
-  >     HG: R: {file_dels}
-  >     {splitlines(diff()) % 'HG: {line}\n'}
+  >     SL: M: {file_mods}
+  >     SL: A: {file_adds}
+  >     SL: R: {file_dels}
+  >     {splitlines(diff()) % '{slprefix}: {line}\n'}
   > EOF
 
-  $ echo A | hg debugdrawdag
-  $ hg up -q A
+  $ echo A | sl debugdrawdag
+  $ sl up -q A
 
-  $ HGEDITOR=cat hg commit --amend -e -m "expecting diff of A"
+  $ HGEDITOR=cat sl commit --amend -e -m "expecting diff of A"
   expecting diff of A
   
-  HG: M: 
-  HG: A: A
-  HG: R: 
-  HG: diff -r 000000000000 A
-  HG: --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-  HG: +++ b/A	Thu Jan 01 00:00:00 1970 +0000
-  HG: @@ -0,0 +1,1 @@
-  HG: +A
-  HG: \ No newline at end of file
+  SL: M: 
+  SL: A: A
+  SL: R: 
+  SL: diff -r 000000000000 A
+  SL: --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
+  SL: +++ b/A	Thu Jan 01 00:00:00 1970 +0000
+  SL: @@ -0,0 +1,1 @@
+  SL: +A
+  SL: \ No newline at end of file
 
 #if execbit
 
@@ -572,12 +573,12 @@ Test if amend preserves executable bit changes
   > |
   > A
   > EOS
-  $ hg up -q $B
+  $ sl up -q $B
   $ chmod +x A
-  $ hg ci -m chmod
-  $ hg ci --amend -m "chmod amended"
-  $ hg ci --amend -m "chmod amended second time"
-  $ hg log -p --git -r .
+  $ sl ci -m chmod
+  $ sl ci --amend -m "chmod amended"
+  $ sl ci --amend -m "chmod amended second time"
+  $ sl log -p --git -r .
   commit:      b4aab18bba3e
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -600,13 +601,13 @@ the amended commit against its parent commit.
   $ newrepo testfileinclusions
   $ echo a > a
   $ echo b > b
-  $ hg commit -Aqm "Adding a and b"
+  $ sl commit -Aqm "Adding a and b"
 
 Only add changes to a particular file
   $ echo a >> a
   $ echo b >> b
-  $ hg commit --amend -I a
-  $ hg diff --git -r null -r .
+  $ sl commit --amend -I a
+  $ sl diff --git -r null -r .
   diff --git a/a b/a
   new file mode 100644
   --- /dev/null
@@ -622,8 +623,8 @@ Only add changes to a particular file
   +b
 
   $ echo a >> a
-  $ hg commit --amend b
-  $ hg diff --git -r null -r .
+  $ sl commit --amend b
+  $ sl diff --git -r null -r .
   diff --git a/a b/a
   new file mode 100644
   --- /dev/null
@@ -641,8 +642,8 @@ Only add changes to a particular file
 
 Exclude changes to a particular file
   $ echo b >> b
-  $ hg commit --amend -X a
-  $ hg diff --git -r null -r .
+  $ sl commit --amend -X a
+  $ sl diff --git -r null -r .
   diff --git a/a b/a
   new file mode 100644
   --- /dev/null
@@ -662,10 +663,10 @@ Exclude changes to a particular file
 Check the addremove flag
   $ echo c > c
   $ rm a
-  $ hg commit --amend -A
+  $ sl commit --amend -A
   removing a
   adding c
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/b b/b
   new file mode 100644
   --- /dev/null

@@ -3,37 +3,39 @@
 
 Use hgrc within $TESTTMP
 
+  $ export HGIDENTITY=sl
   $ cp $HGRCPATH orig.hgrc
-  $ HGRCPATH=`pwd`/hgrc
-  $ export HGRCPATH
-  $ cp orig.hgrc hgrc
+  $ HGRCPATH=`pwd`/config
+  $ SL_CONFIG_PATH=`pwd`/config
+  $ export HGRCPATH SL_CONFIG_PATH
+  $ cp orig.hgrc config
 
 Use an alternate var for scribbling on hgrc to keep check-code from
 complaining about the important settings we may be overwriting:
 
-  $ HGRC=`pwd`/hgrc
+  $ HGRC=`pwd`/config
   $ export HGRC
 
 Basic syntax error
 
   $ echo "invalid" > $HGRC
-  $ hg version
-  hg: parse errors: "$TESTTMP*hgrc": (glob)
+  $ sl version
+  sl: parse errors: "$TESTTMP*config": (glob)
   line 1: expect '[section]' or 'name = value'
   
   [255]
-  $ cp orig.hgrc hgrc
+  $ cp orig.hgrc config
 
 Issue1199: Can't use '%' in hgrc (eg url encoded username)
 
   $ newclientrepo "foo%bar"
   $ newclientrepo foobar foo%bar_server
-  $ cat .hg/hgrc
+  $ cat .sl/config
   [paths]
   default = test:foo%bar_server
-  $ hg paths
+  $ sl paths
   default = test:foo%EF%BF%BDr_server
-  $ hg showconfig paths
+  $ sl config paths
   paths.default=test:foo%bar_server
   $ cd ..
 
@@ -41,14 +43,14 @@ issue1829: wrong indentation
 
   $ echo '[foo]' > $HGRC
   $ echo '  x = y' >> $HGRC
-  $ hg version
-  hg: parse errors: "$TESTTMP*hgrc": (glob)
+  $ sl version
+  sl: parse errors: "$TESTTMP*config": (glob)
   line 2: indented line is not part of a multi-line config
   
   [255]
 
   $ printf '[foo]\nbar = a\n b\n c \n  de\n fg \nbaz = bif cb \n' > $HGRC
-  $ hg showconfig foo
+  $ sl config foo
   foo.bar=a\nb\nc\nde\nfg
   foo.baz=bif cb
 
@@ -56,30 +58,30 @@ issue1829: wrong indentation
   $ FAKEPATH=/path/to/nowhere
   $ export FAKEPATH
   $ echo '%include $FAKEPATH/no-such-file' >> $HGRC
-  $ hg version -q
+  $ sl version -q
   * (glob)
   $ unset FAKEPATH
 
 make sure global options given on the cmdline take precedence
 
-  $ hg showconfig --config ui.verbose=True ui.verbose
+  $ sl config --config ui.verbose=True ui.verbose
   True
 (fixme: 'ui.verbose' config is not effective with --quiet)
-  $ hg showconfig --config ui.verbose=True --quiet ui.verbose
+  $ sl config --config ui.verbose=True --quiet ui.verbose
   false
-  $ hg showconfig --verbose ui.verbose
+  $ sl config --verbose ui.verbose
   true
-  $ hg showconfig --quiet ui.quiet
+  $ sl config --quiet ui.quiet
   true
-  $ hg showconfig ui.quiet
+  $ sl config ui.quiet
   [1]
 
   $ touch foobar/untracked
-  $ cat >> foobar/.hg/hgrc <<EOF
+  $ cat >> foobar/.sl/config <<EOF
   > [ui]
   > verbose=True
   > EOF
-  $ hg -R foobar st -q
+  $ sl -R foobar st -q
 
 username expansion
 
@@ -93,12 +95,12 @@ username expansion
 
   $ newclientrepo usertest
   $ touch bar
-  $ hg commit --addremove --quiet -m "added bar"
-  $ hg log --template "{author}\n"
+  $ sl commit --addremove --quiet -m "added bar"
+  $ sl log --template "{author}\n"
   John Doe
   $ cd ..
 
-  $ hg showconfig | grep ui.username
+  $ sl config | grep ui.username
   ui.username=$FAKEUSER
 
   $ unset FAKEUSER
@@ -111,14 +113,14 @@ showconfig with multiple arguments
   $ echo "log = log -g" >> $HGRC
   $ echo "[defaults]" >> $HGRC
   $ echo "identify = -n" >> $HGRC
-  $ hg showconfig alias defaults
+  $ sl config alias defaults
   alias.some-command=some-command --some-flag
   alias.log=log -g
   defaults.identify=-n
-  $ hg showconfig alias defaults.identify
+  $ sl config alias defaults.identify
   abort: only one config item permitted
   [255]
-  $ hg showconfig alias.log defaults.identify
+  $ sl config alias.log defaults.identify
   abort: only one config item permitted
   [255]
 
@@ -140,22 +142,22 @@ HGPLAIN
 
 customized hgrc
 
-  $ hg showconfig
-  $TESTTMP/hgrc:13: alias.log=log -g
-  $TESTTMP/hgrc:11: defaults.identify=-n
-  $TESTTMP/hgrc:8: ui.style=~/.hgstyle
-  $TESTTMP/hgrc:2: ui.debug=true
-  $TESTTMP/hgrc:3: ui.fallbackencoding=ASCII
-  $TESTTMP/hgrc:4: ui.quiet=true
-  $TESTTMP/hgrc:5: ui.slash=true
-  $TESTTMP/hgrc:6: ui.traceback=true
-  $TESTTMP/hgrc:7: ui.verbose=true
-  $TESTTMP/hgrc:9: ui.logtemplate={node}
+  $ sl config
+  $TESTTMP/config:13: alias.log=log -g
+  $TESTTMP/config:11: defaults.identify=-n
+  $TESTTMP/config:8: ui.style=~/.hgstyle
+  $TESTTMP/config:2: ui.debug=true
+  $TESTTMP/config:3: ui.fallbackencoding=ASCII
+  $TESTTMP/config:4: ui.quiet=true
+  $TESTTMP/config:5: ui.slash=true
+  $TESTTMP/config:6: ui.traceback=true
+  $TESTTMP/config:7: ui.verbose=true
+  $TESTTMP/config:9: ui.logtemplate={node}
 
 plain hgrc
 
   $ HGPLAIN=; export HGPLAIN
-  $ hg showconfig --config ui.traceback=True --debug
+  $ sl config --config ui.traceback=True --debug
   --config: ui.traceback=True
   --verbose: ui.verbose=False
   --debug: ui.debug=True
@@ -163,7 +165,7 @@ plain hgrc
 
 with environment variables
 
-  $ PAGER=p1 EDITOR=e1 VISUAL=e2 hg showconfig --debug
+  $ PAGER=p1 EDITOR=e1 VISUAL=e2 sl config --debug
   $VISUAL: ui.editor=e2
   --verbose: ui.verbose=False
   --debug: ui.debug=True
@@ -171,7 +173,7 @@ with environment variables
 
 don't set editor to empty string
 
-  $ VISUAL= hg showconfig --debug
+  $ VISUAL= sl config --debug
   --verbose: ui.verbose=False
   --debug: ui.debug=True
   --quiet: ui.quiet=False
@@ -189,25 +191,25 @@ plain mode with exceptions
   $ echo "[extensions]" >> $HGRC
   $ echo "plain=./plain.py" >> $HGRC
   $ HGPLAINEXCEPT=; export HGPLAINEXCEPT
-  $ hg showconfig --config ui.traceback=True --debug
+  $ sl config --config ui.traceback=True --debug
   plain: True
-  $TESTTMP/hgrc:15: extensions.plain=./plain.py
+  $TESTTMP/config:15: extensions.plain=./plain.py
   --config: ui.traceback=True
   --verbose: ui.verbose=False
   --debug: ui.debug=True
   --quiet: ui.quiet=False
   $ unset HGPLAIN
-  $ hg showconfig --config ui.traceback=True --debug
+  $ sl config --config ui.traceback=True --debug
   plain: True
-  $TESTTMP/hgrc:15: extensions.plain=./plain.py
+  $TESTTMP/config:15: extensions.plain=./plain.py
   --config: ui.traceback=True
   --verbose: ui.verbose=False
   --debug: ui.debug=True
   --quiet: ui.quiet=False
   $ HGPLAINEXCEPT=i18n; export HGPLAINEXCEPT
-  $ hg showconfig --config ui.traceback=True --debug
+  $ sl config --config ui.traceback=True --debug
   plain: True
-  $TESTTMP/hgrc:15: extensions.plain=./plain.py
+  $TESTTMP/config:15: extensions.plain=./plain.py
   --config: ui.traceback=True
   --verbose: ui.verbose=False
   --debug: ui.debug=True
@@ -219,6 +221,6 @@ source of paths is not mangled
   > [paths]
   > foo = $TESTTMP/bar
   > EOF
-  $ hg showconfig --debug paths
+  $ sl config --debug paths
   plain: True
-  $TESTTMP/hgrc:17: paths.foo=$TESTTMP/bar
+  $TESTTMP/config:17: paths.foo=$TESTTMP/bar

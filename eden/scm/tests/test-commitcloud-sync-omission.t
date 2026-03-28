@@ -1,5 +1,6 @@
 #modern-config-incompatible
 #inprocess-hg-incompatible
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
 #require jq no-eden
@@ -11,9 +12,9 @@
 
   $ setconfig remotefilelog.reponame=server
 
-  $ hg init server
+  $ sl init server
   $ cd server
-  $ cat >> .hg/hgrc << EOF
+  $ cat >> .sl/config << EOF
   > [infinitepush]
   > server = yes
   > indextype = disk
@@ -21,9 +22,9 @@
   > reponame = testrepo
   > EOF
   $ touch base
-  $ hg commit -Aqm base
-  $ hg debugmakepublic .
-  $ hg bookmark master
+  $ sl commit -Aqm base
+  $ sl debugmakepublic .
+  $ sl bookmark master
   $ cd ..
 
 Make shared part of config
@@ -55,12 +56,12 @@ Utility function to run HG with a fake date
   > }
 
 Make a clone of the server
-  $ hg clone ssh://user@dummy/server client1 -q
+  $ sl clone ssh://user@dummy/server client1 -q
   $ cd client1
-  $ cat ../shared.rc >> .hg/hgrc
+  $ cat ../shared.rc >> .sl/config
 
 Connect the first client
-  $ hg cloud join
+  $ sl cloud join
   commitcloud: this repository is now connected to the 'user/test/default' workspace for the 'server' repo
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
@@ -70,36 +71,36 @@ Connect the first client
 Make some stacks with various dates.  We will use Feb 1990 for these tests.
 
 - Bookmark for public commit
-  $ hg up -q 'desc(base)'
-  $ hg bookmark 'mytag'
+  $ sl up -q 'desc(base)'
+  $ sl bookmark 'mytag'
 
 - Old stack
-  $ hg up -q 'desc(base)'
+  $ sl up -q 'desc(base)'
   $ touch oldstack-feb1
-  $ hg commit -Aqm oldstack-feb1 --config devel.default-date="1990-02-01T00:00Z"
-  $ hg book -i oldbook
+  $ sl commit -Aqm oldstack-feb1 --config devel.default-date="1990-02-01T00:00Z"
+  $ sl book -i oldbook
   $ touch oldstack-feb4
-  $ hg commit -Aqm oldstack-feb4 --config devel.default-date="1990-02-04T12:00Z"
+  $ sl commit -Aqm oldstack-feb4 --config devel.default-date="1990-02-04T12:00Z"
 
 - Middle stack
-  $ hg up -q 'desc(base)'
+  $ sl up -q 'desc(base)'
   $ touch midstack-feb7
-  $ hg commit -Aqm midstack-feb7 --config devel.default-date="1990-02-07T00:00Z"
-  $ hg book -i midbook
+  $ sl commit -Aqm midstack-feb7 --config devel.default-date="1990-02-07T00:00Z"
+  $ sl book -i midbook
   $ touch midstack-feb9
-  $ hg commit -Aqm midstack-feb9 --config devel.default-date="1990-02-09T12:00Z"
+  $ sl commit -Aqm midstack-feb9 --config devel.default-date="1990-02-09T12:00Z"
 
 - New stack
-  $ hg up -q 'desc(base)'
+  $ sl up -q 'desc(base)'
   $ touch newstack-feb13
-  $ hg commit -Aqm newstack-feb13 --config devel.default-date="1990-02-13T00:00Z"
-  $ hg book -i newbook
+  $ sl commit -Aqm newstack-feb13 --config devel.default-date="1990-02-13T00:00Z"
+  $ sl book -i newbook
   $ touch newstack-feb15
-  $ hg commit -Aqm newstack-feb15 --config devel.default-date="1990-02-15T12:00Z"
+  $ sl commit -Aqm newstack-feb15 --config devel.default-date="1990-02-15T12:00Z"
 
 Write node metadata out to disk (this is loaded by the commit cloud local service
 implementation)
-  $ hg log -r "all()" -Tjson >> $TESTTMP/nodedata
+  $ sl log -r "all()" -Tjson >> $TESTTMP/nodedata
 
 Sync these to commit cloud - they all get pushed even though they are old
   $ hgfakedate 1990-02-28T00:00Z cloud sync
@@ -144,8 +145,8 @@ Sync these to commit cloud - they all get pushed even though they are old
 
 Create a new client that isn't connected yet
   $ cd ..
-  $ hg clone ssh://user@dummy/server client2 -q
-  $ cat shared.rc >> client2/.hg/hgrc
+  $ sl clone ssh://user@dummy/server client2 -q
+  $ cat shared.rc >> client2/.sl/config
 
 Connect to commit cloud
   $ cd client2
@@ -176,11 +177,11 @@ Connect to commit cloud
   @  df4f53cec30a public 'base'
 
 Create a new commit
-  $ hg up 'desc(base)'
+  $ sl up 'desc(base)'
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ touch client2-file1
-  $ hg commit -Aqm client2-feb28 --config devel.default-date="1990-02-28T01:00Z"
-  $ (cat $TESTTMP/nodedata ; hg log -r . -Tjson) | jq -s add > $TESTTMP/nodedata.new
+  $ sl commit -Aqm client2-feb28 --config devel.default-date="1990-02-28T01:00Z"
+  $ (cat $TESTTMP/nodedata ; sl log -r . -Tjson) | jq -s add > $TESTTMP/nodedata.new
   $ mv $TESTTMP/nodedata.new $TESTTMP/nodedata
   $ hgfakedate 1990-02-28T01:01Z cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -255,8 +256,8 @@ Second client can still sync
 Add a new commit to a stack on the first client
   $ cd ../client1
   $ touch newstack-feb28
-  $ hg commit -Aqm newstack-feb28 --config devel.default-date="1990-02-28T02:00Z"
-  $ (cat $TESTTMP/nodedata ; hg log -r . -Tjson) | jq -s add > $TESTTMP/nodedata.new
+  $ sl commit -Aqm newstack-feb28 --config devel.default-date="1990-02-28T02:00Z"
+  $ (cat $TESTTMP/nodedata ; sl log -r . -Tjson) | jq -s add > $TESTTMP/nodedata.new
   $ mv $TESTTMP/nodedata.new $TESTTMP/nodedata
 
   $ hgfakedate 1990-02-28T02:01Z cloud sync
@@ -324,12 +325,12 @@ Second client syncs that in, but still leaves the old commits missing
 
 First client add a new commit to the old stack
   $ cd ../client1
-  $ hg up d16408588b2d047410f99c45e425bf97923e28f2
+  $ sl up d16408588b2d047410f99c45e425bf97923e28f2
   2 files updated, 0 files merged, 3 files removed, 0 files unresolved
 
   $ touch oldstack-mar4
-  $ hg commit -Aqm oldstack-mar4 --config devel.default-date="1990-03-04T03:00Z"
-  $ (cat $TESTTMP/nodedata ; hg log -r . -Tjson) | jq -s add > $TESTTMP/nodedata.new
+  $ sl commit -Aqm oldstack-mar4 --config devel.default-date="1990-03-04T03:00Z"
+  $ (cat $TESTTMP/nodedata ; sl log -r . -Tjson) | jq -s add > $TESTTMP/nodedata.new
   $ mv $TESTTMP/nodedata.new $TESTTMP/nodedata
   $ hgfakedate 1990-03-04T03:02Z cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
@@ -399,8 +400,8 @@ Second client syncs the old stack in, and now has the bookmark
 
 Create a new client that isn't connected yet
   $ cd ..
-  $ hg clone ssh://user@dummy/server client3 -q
-  $ cat shared.rc >> client3/.hg/hgrc
+  $ sl clone ssh://user@dummy/server client3 -q
+  $ cat shared.rc >> client3/.sl/config
 
 Connect to commit cloud
   $ cd client3
@@ -439,15 +440,15 @@ Connect to commit cloud
   @  df4f53cec30a base
   
   hint[commitcloud-old-commits]: some older commits or bookmarks have not been synced to this repo
-  (run 'hg cloud sl' to see all of the commits in your workspace)
-  (run 'hg pull -r HASH' to fetch commits by hash)
-  (run 'hg cloud sync --full' to fetch everything - this may be slow)
-  hint[hint-ack]: use 'hg hint --ack commitcloud-old-commits' to silence these hints
+  (run 'sl cloud sl' to see all of the commits in your workspace)
+  (run 'sl pull -r HASH' to fetch commits by hash)
+  (run 'sl cloud sync --full' to fetch everything - this may be slow)
+  hint[hint-ack]: use 'sl hint --ack commitcloud-old-commits' to silence these hints
 
 Move one of these bookmarks in the first client.
 
   $ cd ../client1
-  $ hg book -f -r d133b886da6874fe25998d26ae1b2b8528b07c59 oldbook
+  $ sl book -f -r d133b886da6874fe25998d26ae1b2b8528b07c59 oldbook
   $ hgfakedate 1990-03-05T12:01Z cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
@@ -482,7 +483,7 @@ Do a sync in the new client - the bookmark is left where it was
   @  df4f53cec30a public 'base'
 Move the bookmark locally - this still gets synced ok.
 
-  $ hg book -f -r 46f8775ee5d479eed945b5186929bd046f116176 oldbook
+  $ sl book -f -r 46f8775ee5d479eed945b5186929bd046f116176 oldbook
   $ tglogp
   o  2b8dce7bd745 draft 'oldstack-mar4'
   │
@@ -564,8 +565,8 @@ A full sync pulls the old commits in
   @  df4f53cec30a public 'base' mytag
 Create a new client that isn't connected yet
   $ cd ..
-  $ hg clone ssh://user@dummy/server client4 -q
-  $ cat shared.rc >> client4/.hg/hgrc
+  $ sl clone ssh://user@dummy/server client4 -q
+  $ cat shared.rc >> client4/.sl/config
 
 A part sync omitting everything
   $ cd ./client4
@@ -587,9 +588,9 @@ A part sync omitting everything
   @  df4f53cec30a public 'base'
 Remove some of the bookmarks
   $ cd ../client1
-  $ hg book --delete newbook
-  $ hg book --delete oldbook
-  $ hg cloud sync
+  $ sl book --delete newbook
+  $ sl book --delete oldbook
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   commitcloud: commits synchronized
@@ -630,7 +631,7 @@ Pull in some of the commits by setting max age manually
   @  df4f53cec30a public 'base'
 
 Create a bookmark with the same name as an omitted bookmark
-  $ hg book -r tip midbook
+  $ sl book -r tip midbook
   $ hgfakedate 1990-04-01T12:01Z cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
@@ -672,11 +673,11 @@ other bookmark is treated like a move.
 
 In client1 (which hasn't synced yet), make the midbook commit obsolete.
   $ cd ../client1
-  $ hg up -q 2b8dce7bd745
-  $ hg amend -m "oldstack-mar4 amended"
+  $ sl up -q 2b8dce7bd745
+  $ sl amend -m "oldstack-mar4 amended"
 
 Attempt to sync.  The midbook bookmark should make it visible again.
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ tglog
   @  0fe175b134e8 'oldstack-mar4 amended'
   │
@@ -701,7 +702,7 @@ Attempt to sync.  The midbook bookmark should make it visible again.
   o  df4f53cec30a 'base' mytag
 Sync in client2.  It should match.
   $ cd ../client2
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ tglog
   o  0fe175b134e8 'oldstack-mar4 amended'
   │
@@ -725,7 +726,7 @@ Sync in client2.  It should match.
   ├─╯
   o  df4f53cec30a 'base'
 Hide some uninteresting commits and sync everywhere
-  $ hg hide -r 1c1b7955142cd8a3beec705c9cca9d775ecb0fa8:: -r 56a352317b67ae3d5abd5f6c71ec0df3aa98fe97:: -r ff52de2f760c67fa6f89273ca7f770396a3c81c4::
+  $ sl hide -r 1c1b7955142cd8a3beec705c9cca9d775ecb0fa8:: -r 56a352317b67ae3d5abd5f6c71ec0df3aa98fe97:: -r ff52de2f760c67fa6f89273ca7f770396a3c81c4::
   hiding commit 1c1b7955142c "midstack-feb7"
   hiding commit d133b886da68 "midstack-feb9"
   hiding commit 56a352317b67 "newstack-feb13"
@@ -735,28 +736,28 @@ Hide some uninteresting commits and sync everywhere
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   working directory now at df4f53cec30a
   6 changesets hidden
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ cd ../client1
-  $ hg cloud sync -q
+  $ sl cloud sync -q
 
 Make a new public commit
   $ cd ../server
   $ echo public1 > public1
-  $ hg commit -Aqm public1
-  $ hg debugmakepublic .
+  $ sl commit -Aqm public1
+  $ sl debugmakepublic .
 
 Pull this into client1
   $ cd ../client1
-  $ hg pull -q
+  $ sl pull -q
 
 Move midbook to the public commit.
-  $ hg book -fr 'desc(public1)' midbook
-  $ hg cloud sync -q
+  $ sl book -fr 'desc(public1)' midbook
+  $ sl cloud sync -q
 
 Sync in client 2.  It doesn't have the new destination of midbook, so should omit it.
 
   $ cd ../client2
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   f770b7f72fa5 not found, omitting midbook bookmark
   $ tglogp
   o  0fe175b134e8 draft 'oldstack-mar4 amended'
@@ -767,7 +768,7 @@ Sync in client 2.  It doesn't have the new destination of midbook, so should omi
   │
   @  df4f53cec30a public 'base'
   $ cd ../client1
-  $ hg cloud sync -q
+  $ sl cloud sync -q
   $ tglogp
   @  0fe175b134e8 draft 'oldstack-mar4 amended'
   │
@@ -782,7 +783,7 @@ Sync in client 4.  Some of the omitted heads in this client have been removed
 from the cloud workspace, but the sync should still work.
 
   $ cd ../client4
-  $ hg cloud sync
+  $ sl cloud sync
   commitcloud: synchronizing 'server' with 'user/test/default'
   commitcloud: nothing to upload
   pulling 0fe175b134e8 from ssh://user@dummy/server

@@ -34,7 +34,7 @@ templatekeyword = registrar.templatekeyword()
 
 @templatekeyword("gitnode")
 def showgitnode(repo, ctx, templ, **args):
-    """Return the git revision corresponding to a given hg rev"""
+    """Return the git revision corresponding to a given @prog@ rev"""
     # Try reading from commit extra first.
     extra = ctx.extra()
     if "hg-git-rename-source" in extra:

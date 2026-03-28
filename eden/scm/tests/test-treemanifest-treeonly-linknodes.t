@@ -3,13 +3,14 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
 Set up the server
 
   $ hginit master
   $ cd master
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > pushrebase=
   > [remotefilelog]
@@ -18,15 +19,15 @@ Set up the server
   > EOF
 
   $ echo 1 > x
-  $ hg commit -Aqm x1
-  $ hg book master
+  $ sl commit -Aqm x1
+  $ sl book master
 
 Create client
   $ cd ..
   $ hgcloneshallow ssh://user@dummy/master client -q
   1 files fetched over 1 fetches - (1 misses, 0.00% hit ratio) over * (glob) (?)
   $ cd client
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > amend=
   > pushrebase=
@@ -34,10 +35,10 @@ Create client
 
 Create a commit, and then amend the message twice.  All three should share a manifest.
   $ echo 2 > x
-  $ hg commit -Aqm x2
-  $ hg amend -m x2a
-  $ hg amend -m x2b
-  $ hg log -G -r 'all()' --hidden -T '{node} {manifest} {desc}'
+  $ sl commit -Aqm x2
+  $ sl amend -m x2a
+  $ sl amend -m x2b
+  $ sl log -G -r 'all()' --hidden -T '{node} {manifest} {desc}'
   @  426667c0eafcfb0836d7a5a55f66b2b8f20c9842 4921ba8b088dda769331d6cf5c70f349b7c5c6c8 x2b
   │
   │ x  e0ce6fd597a73d4b7d1fda2cbe6337636f94d3dd 4921ba8b088dda769331d6cf5c70f349b7c5c6c8 x2a
@@ -48,15 +49,15 @@ Create a commit, and then amend the message twice.  All three should share a man
   
 
 Push commit 1 to the server
-  $ hg push -r 5ee5c65bfee26d54c1fb59cf411fd5a81a328b83 --allow-anon
+  $ sl push -r 5ee5c65bfee26d54c1fb59cf411fd5a81a328b83 --allow-anon
   pushing to ssh://user@dummy/master
   searching for changes
   abort: push includes obsolete changeset: 5ee5c65bfee2!
   [255]
 
 Works ok with pushrebase.
-  $ hg unhide 'desc(x2a)'
-  $ hg push -r 'desc(x2a)' --to test --create
+  $ sl unhide 'desc(x2a)'
+  $ sl push -r 'desc(x2a)' --to test --create
   pushing rev e0ce6fd597a7 to destination ssh://user@dummy/master bookmark test
   searching for changes
   exporting bookmark test

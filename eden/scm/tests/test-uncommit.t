@@ -4,6 +4,7 @@
 
 Test uncommit - set up the config
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ enable amend
@@ -11,25 +12,25 @@ Test uncommit - set up the config
 Build up a repo
 
   $ newrepo
-  $ hg bookmark foo
+  $ sl bookmark foo
 
 Help for uncommit
 
-  $ hg help uncommit
-  hg uncommit [OPTION]... [FILE]...
+  $ sl help uncommit
+  sl uncommit [OPTION]... [FILE]...
   
   aliases: unc
   
   uncommit part or all of the current commit
   
-      Reverse the effects of an 'hg commit' operation. When run with no
+      Reverse the effects of an 'sl commit' operation. When run with no
       arguments, hides the current commit and checks out the parent commit, but
       does not revert the state of the working copy. Changes that were contained
       in the uncommitted commit become pending changes in the working copy.
   
-      'hg uncommit' cannot be run on commits that have children. In other words,
+      'sl uncommit' cannot be run on commits that have children. In other words,
       you cannot uncommit a commit in the middle of a stack. Similarly, by
-      default, you cannot run 'hg uncommit' if there are pending changes in the
+      default, you cannot run 'sl uncommit' if there are pending changes in the
       working copy.
   
       You can selectively uncommit files from the current commit by optionally
@@ -38,9 +39,9 @@ Help for uncommit
       disk, so they appear as pending changes in the working copy.
   
       Note:
-         Running 'hg uncommit' is similar to running 'hg undo --keep'
-         immediately after 'hg commit'. However, unlike 'hg undo', which can
-         only undo a commit if it was the last operation you performed, 'hg
+         Running 'sl uncommit' is similar to running 'sl undo --keep'
+         immediately after 'sl commit'. However, unlike 'sl undo', which can
+         only undo a commit if it was the last operation you performed, 'sl
          uncommit' can uncommit any draft commit in the graph that does not have
          children.
   
@@ -54,7 +55,7 @@ Help for uncommit
 
 Uncommit with no commits should fail
 
-  $ hg uncommit
+  $ sl uncommit
   abort: cannot uncommit null changeset
   (no changeset checked out)
   [255]
@@ -62,8 +63,8 @@ Uncommit with no commits should fail
 Create some commits
 
   $ touch files
-  $ hg add files
-  $ for i in a ab abc abcd abcde; do echo $i > files; echo $i > file-$i; hg add file-$i; hg commit -m "added file-$i"; done
+  $ sl add files
+  $ for i in a ab abc abcd abcde; do echo $i > files; echo $i > file-$i; sl add file-$i; sl commit -m "added file-$i"; done
   $ ls
   file-a
   file-ab
@@ -72,7 +73,7 @@ Create some commits
   file-abcde
   files
 
-  $ hg log -G -T '{node} {desc}' --hidden
+  $ sl log -G -T '{node} {desc}' --hidden
   @  6c4fd43ed714e7fcd8adbaa7b16c953c2e985b60 added file-abcde
   │
   o  6db330d65db434145c0b59d291853e9a84719b24 added file-abcd
@@ -85,16 +86,16 @@ Create some commits
   
 Simple uncommit off the top, also moves bookmark
 
-  $ hg bookmark
+  $ sl bookmark
    * foo                       6c4fd43ed714
-  $ hg uncommit
-  $ hg status
+  $ sl uncommit
+  $ sl status
   M files
   A file-abcde
-  $ hg bookmark
+  $ sl bookmark
    * foo                       6db330d65db4
 
-  $ hg log -G -T '{node} {desc}' --hidden
+  $ sl log -G -T '{node} {desc}' --hidden
   o  6c4fd43ed714e7fcd8adbaa7b16c953c2e985b60 added file-abcde
   │
   @  6db330d65db434145c0b59d291853e9a84719b24 added file-abcd
@@ -108,46 +109,46 @@ Simple uncommit off the top, also moves bookmark
 
 Recommit
 
-  $ hg commit -m 'new change abcde'
-  $ hg status
-  $ hg heads -T '{node} {desc}'
+  $ sl commit -m 'new change abcde'
+  $ sl status
+  $ sl heads -T '{node} {desc}'
   0c07a3ccda771b25f1cb1edbd02e683723344ef1 new change abcde (no-eol)
 
 Uncommit of non-existent and unchanged files has no effect
-  $ hg uncommit nothinghere
+  $ sl uncommit nothinghere
   nothing to uncommit
   [1]
-  $ hg status
-  $ hg uncommit file-abc
+  $ sl status
+  $ sl uncommit file-abc
   nothing to uncommit
   [1]
-  $ hg status
+  $ sl status
 
 Uncommit empty commit
-  $ echo temp > temp && hg add temp && hg commit -m empty
-  $ hg rm temp && hg amend
-  $ hg diff -r .^
-  $ hg uncommit
+  $ echo temp > temp && sl add temp && sl commit -m empty
+  $ sl rm temp && sl amend
+  $ sl diff -r .^
+  $ sl uncommit
 
 Try partial uncommit, also moves bookmark
 
-  $ hg bookmark
+  $ sl bookmark
    * foo                       0c07a3ccda77
-  $ hg uncommit files
-  $ hg status
+  $ sl uncommit files
+  $ sl status
   M files
-  $ hg bookmark
+  $ sl bookmark
    * foo                       3727deee06f7
-  $ hg heads -T '{node} {desc}'
+  $ sl heads -T '{node} {desc}'
   3727deee06f72f5ffa8db792ee299cf39e3e190b new change abcde (no-eol)
-  $ hg log -r . -p -T '{node} {desc}'
+  $ sl log -r . -p -T '{node} {desc}'
   3727deee06f72f5ffa8db792ee299cf39e3e190b new change abcdediff -r 6db330d65db4 -r 3727deee06f7 file-abcde
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/file-abcde	Thu Jan 01 00:00:00 1970 +0000
   @@ -0,0 +1,1 @@
   +abcde
   
-  $ hg log -G -T '{node} {desc}' --hidden
+  $ sl log -G -T '{node} {desc}' --hidden
   @  3727deee06f72f5ffa8db792ee299cf39e3e190b new change abcde
   │
   │ o  5d2fdaa86d070e06669eb141937268780b14861d empty
@@ -166,7 +167,7 @@ Try partial uncommit, also moves bookmark
   │
   o  3004d2d9b50883c1538fc754a3aeb55f1b4084f6 added file-a
   
-  $ hg commit -m 'update files for abcde'
+  $ sl commit -m 'update files for abcde'
 
 Uncommit with dirty state
 
@@ -174,32 +175,32 @@ Uncommit with dirty state
   $ cat files
   abcde
   foo
-  $ hg status
+  $ sl status
   M files
-  $ hg uncommit --config experimental.uncommitondirtywdir=False
+  $ sl uncommit --config experimental.uncommitondirtywdir=False
   abort: uncommitted changes
   [255]
-  $ hg uncommit files
+  $ sl uncommit files
   $ cat files
   abcde
   foo
-  $ hg commit -m "files abcde + foo"
+  $ sl commit -m "files abcde + foo"
 
 Testing with 'experimental.uncommitondirtywdir' on and off
 
   $ echo "bar" >> files
-  $ hg uncommit  --config experimental.uncommitondirtywdir=False
+  $ sl uncommit  --config experimental.uncommitondirtywdir=False
   abort: uncommitted changes
   [255]
-  $ hg uncommit
-  $ hg commit -m "files abcde + foo"
+  $ sl uncommit
+  $ sl commit -m "files abcde + foo"
 
 Uncommit in the middle of a stack, does not move bookmark
 
-  $ hg checkout '.^^^'
+  $ sl checkout '.^^^'
   1 files updated, 0 files merged, 2 files removed, 0 files unresolved
   (leaving bookmark foo)
-  $ hg log -r . -p -T '{node} {desc}'
+  $ sl log -r . -p -T '{node} {desc}'
   abf2df566fc193b3ac34d946e63c1583e4d4732b added file-abcdiff -r 69a232e754b0 -r abf2df566fc1 file-abc
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/file-abc	Thu Jan 01 00:00:00 1970 +0000
@@ -212,23 +213,23 @@ Uncommit in the middle of a stack, does not move bookmark
   -ab
   +abc
   
-  $ hg bookmark
+  $ sl bookmark
      foo                       48e5bd7cd583
-  $ hg uncommit
-  $ hg status
+  $ sl uncommit
+  $ sl status
   M files
   A file-abc
-  $ hg heads -T '{node} {desc}'
+  $ sl heads -T '{node} {desc}'
   48e5bd7cd583eb24164ef8b89185819c84c96ed7 files abcde + foo (no-eol)
-  $ hg bookmark
+  $ sl bookmark
      foo                       48e5bd7cd583
-  $ hg commit -m 'new abc'
+  $ sl commit -m 'new abc'
 
 Partial uncommit in the middle, does not move bookmark
 
-  $ hg checkout '.^'
+  $ sl checkout '.^'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  $ hg log -r . -p -T '{node} {desc}'
+  $ sl log -r . -p -T '{node} {desc}'
   69a232e754b08d568c4899475faf2eb44b857802 added file-abdiff -r 3004d2d9b508 -r 69a232e754b0 file-ab
   --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
   +++ b/file-ab	Thu Jan 01 00:00:00 1970 +0000
@@ -241,27 +242,27 @@ Partial uncommit in the middle, does not move bookmark
   -a
   +ab
   
-  $ hg bookmark
+  $ sl bookmark
      foo                       48e5bd7cd583
-  $ hg uncommit file-ab
-  $ hg status
+  $ sl uncommit file-ab
+  $ sl status
   A file-ab
 
-  $ hg heads -T '{node} {desc}\n'
+  $ sl heads -T '{node} {desc}\n'
   8eb87968f2edb7f27f27fe676316e179de65fff6 added file-ab
   5dc89ca4486f8a88716c5797fa9f498d13d7c2e1 new abc
   48e5bd7cd583eb24164ef8b89185819c84c96ed7 files abcde + foo
 
-  $ hg bookmark
+  $ sl bookmark
      foo                       48e5bd7cd583
-  $ hg commit -m 'update ab'
-  $ hg status
-  $ hg heads -T '{node} {desc}\n'
+  $ sl commit -m 'update ab'
+  $ sl status
+  $ sl heads -T '{node} {desc}\n'
   f21039c59242b085491bb58f591afc4ed1c04c09 update ab
   5dc89ca4486f8a88716c5797fa9f498d13d7c2e1 new abc
   48e5bd7cd583eb24164ef8b89185819c84c96ed7 files abcde + foo
 
-  $ hg log -G -T '{node} {desc}' --hidden
+  $ sl log -G -T '{node} {desc}' --hidden
   @  f21039c59242b085491bb58f591afc4ed1c04c09 update ab
   │
   o  8eb87968f2edb7f27f27fe676316e179de65fff6 added file-ab
@@ -294,47 +295,47 @@ Partial uncommit in the middle, does not move bookmark
   
 Uncommit with draft parent
 
-  $ hg uncommit
-  $ hg phase -r .
+  $ sl uncommit
+  $ sl phase -r .
   8eb87968f2edb7f27f27fe676316e179de65fff6: draft
-  $ hg commit -m 'update ab again'
+  $ sl commit -m 'update ab again'
 
 Uncommit with public parent
 
-  $ hg debugmakepublic "::.^"
-  $ hg uncommit
-  $ hg phase -r .
+  $ sl debugmakepublic "::.^"
+  $ sl uncommit
+  $ sl phase -r .
   8eb87968f2edb7f27f27fe676316e179de65fff6: public
 
 Partial uncommit with public parent
 
   $ echo xyz > xyz
-  $ hg add xyz
-  $ hg commit -m "update ab and add xyz"
-  $ hg uncommit xyz
-  $ hg status
+  $ sl add xyz
+  $ sl commit -m "update ab and add xyz"
+  $ sl uncommit xyz
+  $ sl status
   A xyz
-  $ hg phase -r .
+  $ sl phase -r .
   eba3a9aaec002872b3f74ec1f71cbecc0ad86ac8: draft
-  $ hg phase -r ".^"
+  $ sl phase -r ".^"
   8eb87968f2edb7f27f27fe676316e179de65fff6: public
 
 Uncommit leaving an empty changeset
 
   $ newrepo
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > Q
   > |
   > P
   > EOS
-  $ hg up Q -q
-  $ hg uncommit --keep
-  $ hg log -G -T '{desc} FILES: {files}'
+  $ sl up Q -q
+  $ sl uncommit --keep
+  $ sl log -G -T '{desc} FILES: {files}'
   @  Q FILES:
   │
   o  P FILES: P
   
-  $ hg status
+  $ sl status
   A Q
 
 Testing uncommit while merge
@@ -344,14 +345,14 @@ Testing uncommit while merge
 Create some history
 
   $ touch a
-  $ hg add a
-  $ for i in 1 2 3; do echo $i > a; hg commit -m "a $i"; done
-  $ hg checkout ea4e33293d4d274a2ba73150733c2612231f398c
+  $ sl add a
+  $ for i in 1 2 3; do echo $i > a; sl commit -m "a $i"; done
+  $ sl checkout ea4e33293d4d274a2ba73150733c2612231f398c
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ touch b
-  $ hg add b
-  $ for i in 1 2 3; do echo $i > b; hg commit -m "b $i"; done
-  $ hg log -G -T '{node} {desc}' --hidden
+  $ sl add b
+  $ for i in 1 2 3; do echo $i > b; sl commit -m "b $i"; done
+  $ sl log -G -T '{node} {desc}' --hidden
   @  2cd56cdde163ded2fbb16ba2f918c96046ab0bf2 b 3
   │
   o  c3a0d5bb3b15834ffd2ef9ef603e93ec65cf2037 b 2
@@ -367,28 +368,28 @@ Create some history
 
 Add and expect uncommit to fail on both merge working dir and merge changeset
 
-  $ hg merge 'max(desc(a))'
+  $ sl merge 'max(desc(a))'
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
 
-  $ hg uncommit --config experimental.uncommitondirtywdir=False
+  $ sl uncommit --config experimental.uncommitondirtywdir=False
   abort: outstanding uncommitted merge
   [255]
 
-  $ hg uncommit
+  $ sl uncommit
   abort: cannot uncommit while merging
   [255]
 
-  $ hg status
+  $ sl status
   M a
-  $ hg commit -m 'merge a and b'
+  $ sl commit -m 'merge a and b'
 
-  $ hg uncommit
+  $ sl uncommit
   abort: cannot uncommit merge changeset
   [255]
 
-  $ hg status
-  $ hg log -G -T '{node} {desc}' --hidden
+  $ sl status
+  $ sl log -G -T '{node} {desc}' --hidden
   @    c03b9c37bc67bf504d4912061cfb527b47a63c6e merge a and b
   ├─╮
   │ o  2cd56cdde163ded2fbb16ba2f918c96046ab0bf2 b 3
@@ -410,13 +411,13 @@ Recover added / deleted files
   > |
   > A
   > EOS
-  $ hg up -q $B
-  $ hg rm B
+  $ sl up -q $B
+  $ sl rm B
   $ touch C
-  $ hg add C
-  $ hg commit -m C -q
-  $ hg uncommit
-  $ hg status
+  $ sl add C
+  $ sl commit -m C -q
+  $ sl uncommit
+  $ sl status
   A C
   R B
   $ ls * | sort
@@ -427,11 +428,11 @@ Don't mess up with copies when "dest" of copy was added in the commit we are und
 and we have a pending removal of the copied file.
   $ newrepo
   $ touch foo
-  $ hg commit -Aqm foo
-  $ hg cp foo bar
-  $ hg commit -Aqm bar
-  $ hg rm bar
-  $ hg uncommit
-  $ hg st
+  $ sl commit -Aqm foo
+  $ sl cp foo bar
+  $ sl commit -Aqm bar
+  $ sl rm bar
+  $ sl uncommit
+  $ sl st
   $ find .
   foo

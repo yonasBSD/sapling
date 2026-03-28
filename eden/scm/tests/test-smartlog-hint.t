@@ -2,6 +2,7 @@
 Not using debugruntest to be sure we are testing "real" argv handling.
 #chg-compatible
 
+  $ export HGIDENTITY=sl
   $ enable smartlog
 
   $ configure modern
@@ -13,16 +14,16 @@ Not using debugruntest to be sure we are testing "real" argv handling.
   > %unset ack
   > EOF
 
-  $ hg sl
-  hint[smartlog-default-command]: you can run smartlog with simply `hg`
-  hint[hint-ack]: use 'hg hint --ack smartlog-default-command' to silence these hints
+  $ sl sl
+  hint[smartlog-default-command]: you can run smartlog with simply `sl`
+  hint[hint-ack]: use 'sl hint --ack smartlog-default-command' to silence these hints
 
-  $ hg smartlog
-  hint[smartlog-default-command]: you can run smartlog with simply `hg`
-  hint[hint-ack]: use 'hg hint --ack smartlog-default-command' to silence these hints
+  $ sl smartlog
+  hint[smartlog-default-command]: you can run smartlog with simply `sl`
+  hint[hint-ack]: use 'sl hint --ack smartlog-default-command' to silence these hints
 
-  $ hg
-  $ hg sl -T '{ssl}'
+  $ sl
+  $ sl sl -T '{ssl}'
 
   $ setconfig commands.naked-default.in-repo=version
-  $ hg sl
+  $ sl sl

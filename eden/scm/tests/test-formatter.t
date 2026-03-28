@@ -2,16 +2,17 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig config.use-rust=True
 We need to set edenapi.url for now since working copy at the moment requires this to be set
 
 Test config:
   $ setconfig testsection.subsection1=foo
   $ setconfig testsection.subsection2=bar
-  $ hg --config foo.bar=baz config testsection
+  $ sl --config foo.bar=baz config testsection
   testsection.subsection1=foo
   testsection.subsection2=bar
-  $ hg --config foo.bar=baz config foo -Tjson
+  $ sl --config foo.bar=baz config foo -Tjson
   [
   {
     "name": "foo.bar",
@@ -19,13 +20,13 @@ Test config:
     "value": "baz"
   }
   ]
-  $ hg --config foo.bar=baz config foo -Tdebug
+  $ sl --config foo.bar=baz config foo -Tdebug
   config = [
       {'source': '--config', 'name': 'foo.bar', 'value': 'baz'},
   ]
-  $ hg --config foo.bar=baz config foo.bar
+  $ sl --config foo.bar=baz config foo.bar
   baz
-  $ hg --config foo.bar=baz config foo.bar -Tjson
+  $ sl --config foo.bar=baz config foo.bar -Tjson
   [
   {
     "name": "foo.bar",
@@ -33,22 +34,22 @@ Test config:
     "value": "baz"
   }
   ]
-  $ hg --config foo.bar=baz config foo.bar -Tdebug
+  $ sl --config foo.bar=baz config foo.bar -Tdebug
   config = [
       {'source': '--config', 'value': 'baz', 'name': 'foo.bar'},
   ]
-  $ hg config testsection
+  $ sl config testsection
   testsection.subsection1=foo
   testsection.subsection2=bar
-  $ hg config testsection --debug
+  $ sl config testsection --debug
   *hgrc:*: testsection.subsection1=foo (glob)
   *hgrc:*: testsection.subsection2=bar (glob)
-  $ hg config testsection -Tdebug
+  $ sl config testsection -Tdebug
   config = [
       {'source': '*hgrc:*', 'name': 'testsection.subsection1', 'value': 'foo'}, (glob)
       {'source': '*hgrc:*', 'name': 'testsection.subsection2', 'value': 'bar'}, (glob)
   ]
-  $ hg config testsection -Tjson
+  $ sl config testsection -Tjson
   [
   {
     "name": "testsection.subsection1",
@@ -61,15 +62,15 @@ Test config:
     "value": "bar"
   }
   ]
-  $ hg config testsection.subsection1
+  $ sl config testsection.subsection1
   foo
-  $ hg config testsection.subsection1 --debug
+  $ sl config testsection.subsection1 --debug
   *hgrc:* foo (glob)
-  $ hg config testsection.subsection1 -Tdebug
+  $ sl config testsection.subsection1 -Tdebug
   config = [
       {'source': '*hgrc:*', 'value': 'foo', 'name': 'testsection.subsection1'}, (glob)
   ]
-  $ hg config testsection.subsection1 -Tjson
+  $ sl config testsection.subsection1 -Tjson
   [
   {
     "name": "testsection.subsection1",
@@ -81,21 +82,21 @@ Test config:
 Test status:
   $ newclientrepo testrepo
   $ touch file0
-  $ hg add
+  $ sl add
   adding file0
 At the moment the working copy, which the status command uses, requires having at least one commit on the repo
-  $ hg commit -m "A commit should make things better"
+  $ sl commit -m "A commit should make things better"
   $ touch file1
   $ touch file2
-  $ hg status
+  $ sl status
   ? file1
   ? file2
-  $ hg status -Tdebug
+  $ sl status -Tdebug
   status = [
       {'status': '?', 'path': 'file1'},
       {'status': '?', 'path': 'file2'},
   ]
-  $ hg status -Tjson
+  $ sl status -Tjson
   [
   {
     "path": "file1",

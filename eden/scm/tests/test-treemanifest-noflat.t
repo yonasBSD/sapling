@@ -2,6 +2,7 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
   $ configure mutation-norecord
@@ -26,13 +27,13 @@ This file tests that normal mercurial operations never read the flat manifests
 
   $ hginit master
   $ cd master
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [remotefilelog]
   > server=True
   > shallowtrees=True
   > EOF
   $ cd ..
-  $ hg clone -q ssh://user@dummy/master client
+  $ sl clone -q ssh://user@dummy/master client
 
 - Add a bunch of files so the manifest is large enough to use deltas
   $ cd master
@@ -44,12 +45,12 @@ This file tests that normal mercurial operations never read the flat manifests
   $ echo a >> f
   $ echo a >> g
   $ echo a >> h
-  $ hg commit -Aqm 'add a-f'
+  $ sl commit -Aqm 'add a-f'
   $ echo a >> a
-  $ hg commit -Aqm 'modify a'
+  $ sl commit -Aqm 'modify a'
 
   $ cd ../client
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [extensions]
   > flatcheck=$TESTTMP/flatcheck.py
   > 
@@ -60,11 +61,11 @@ This file tests that normal mercurial operations never read the flat manifests
   > autocreatetrees=True
   > EOF
 
-  $ hg pull -q -r 0
-  $ hg pull -q -r 1
-  $ hg up 'desc(add)'
+  $ sl pull -q -r 0
+  $ sl pull -q -r 1
+  $ sl up 'desc(add)'
   8 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
-  $ echo a >> b && hg commit -Aqm 'modify b'
-  $ hg rebase -d 77dc854aeab9a59885f87fa57bfeddbb73b23443 -r 'max(desc(modify))'
+  $ echo a >> b && sl commit -Aqm 'modify b'
+  $ sl rebase -d 77dc854aeab9a59885f87fa57bfeddbb73b23443 -r 'max(desc(modify))'
   rebasing 667a26a14261 "modify b"

@@ -1,22 +1,23 @@
 #require no-windows no-eden
+  $ export HGIDENTITY=sl
   $ enable smartlog
   $ disable commitcloud
   $ newclientrepo
-  $ hg debugdrawdag <<'EOS'
+  $ sl debugdrawdag <<'EOS'
   > c d
   > |/
   > b
   > |
   > a
   > EOS
-  $ export HGRCPATH="$HGRCPATH;fb=static"
+  $ export SL_CONFIG_PATH="$SL_CONFIG_PATH;fb=static"
   $ cat > transcript <<EOF
   > j
   > j
   > q
   > EOF
 
-  $ hg sl -i < transcript
+  $ sl sl -i < transcript
   ===== Screen Refresh =====
   o  f4016ed9f  Today at 00:00  test  d
   │  d

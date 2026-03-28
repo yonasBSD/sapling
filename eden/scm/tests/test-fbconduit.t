@@ -4,7 +4,8 @@
 
 Start up translation service.
  
-  $ hg debugpython -- "$TESTDIR/conduithttp.py" --port-file conduit.port --pid conduit.pid
+  $ export HGIDENTITY=sl
+  $ sl debugpython -- "$TESTDIR/conduithttp.py" --port-file conduit.port --pid conduit.pid
   $ cat conduit.pid >> $DAEMON_PIDS
   $ CONDUIT_PORT=`cat conduit.port`
   $ cat > ~/.arcrc <<EOF
@@ -20,11 +21,11 @@ Start up translation service.
 
 Basic functionality.
 
-  $ hg init basic
+  $ sl init basic
   $ cd basic
   $ echo {} > .arcconfig
   $ enable fbcodereview
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [fbscmquery]
   > reponame = basic
   > host = localhost:$CONDUIT_PORT
@@ -38,171 +39,171 @@ Basic functionality.
   > graphql_app_token = TOKEN123
   > EOF
   $ touch file
-  $ hg add file
-  $ hg ci -m "initial commit"
-  $ commitid=`hg log -T "{label('custom.fullrev',node)}"`
-  $ hg debugmakepublic $commitid
+  $ sl add file
+  $ sl ci -m "initial commit"
+  $ commitid=`sl log -T "{label('custom.fullrev',node)}"`
+  $ sl debugmakepublic $commitid
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/basic/hg/basic/git/$commitid/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-  $ hg log -T '{gitnode}\n'
+  $ sl log -T '{gitnode}\n'
   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-  $ hg log -T '{mirrornode("git")}\n'
+  $ sl log -T '{mirrornode("git")}\n'
   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-  $ hg log -T '{mirrornode("basic", "git")}\n'
+  $ sl log -T '{mirrornode("basic", "git")}\n'
   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-  $ hg log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")'
+  $ sl log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")'
   Could not translate revision aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/basic/git/basic/hg/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/$commitid
-  $ hg log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' -T '{desc}\n'
+  $ sl log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' -T '{desc}\n'
   initial commit
 
 Make sure that we fail gracefully if the translation server returns an
 HTTP error code.
 
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/fail_next/whoops
-  $ hg log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' -T '{desc}\n'
+  $ sl log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' -T '{desc}\n'
   Could not translate revision aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: whoops
   $ cd ..
 
 Test with one backing repos specified.
 
-  $ hg init single_backingrepo
+  $ sl init single_backingrepo
   $ echo {} > .arcconfig
   $ cd single_backingrepo
-  $ echo "[extensions]" >> .hg/hgrc
-  $ echo "fbcodereview=" >> .hg/hgrc
-  $ echo "[fbscmquery]" >> .hg/hgrc
-  $ echo "reponame = single" >> .hg/hgrc
-  $ echo "backingrepos = single_src" >> .hg/hgrc
-  $ echo "host = localhost:$CONDUIT_PORT" >> .hg/hgrc
-  $ echo "path = /intern/conduit/" >> .hg/hgrc
-  $ echo "protocol = http" >> .hg/hgrc
-  $ echo "[phabricator]" >> .hg/hgrc
-  $ echo "arcrc_host = https://phabricator.intern.facebook.com/api/" >> .hg/hgrc
-  $ echo "graphql_host = http://localhost:$CONDUIT_PORT" >> .hg/hgrc
-  > echo "default_timeout = 60" >> .hg/hgrc
-  > echo "graphql_app_id = 1234" >> .hg/hgrc
-  > echo "graphql_app_token = TOKEN123" >> .hg/hgrc
+  $ echo "[extensions]" >> .sl/config
+  $ echo "fbcodereview=" >> .sl/config
+  $ echo "[fbscmquery]" >> .sl/config
+  $ echo "reponame = single" >> .sl/config
+  $ echo "backingrepos = single_src" >> .sl/config
+  $ echo "host = localhost:$CONDUIT_PORT" >> .sl/config
+  $ echo "path = /intern/conduit/" >> .sl/config
+  $ echo "protocol = http" >> .sl/config
+  $ echo "[phabricator]" >> .sl/config
+  $ echo "arcrc_host = https://phabricator.intern.facebook.com/api/" >> .sl/config
+  $ echo "graphql_host = http://localhost:$CONDUIT_PORT" >> .sl/config
+  > echo "default_timeout = 60" >> .sl/config
+  > echo "graphql_app_id = 1234" >> .sl/config
+  > echo "graphql_app_token = TOKEN123" >> .sl/config
   $ touch file
-  $ hg add file
-  $ hg ci -m "initial commit"
-  $ commitid=`hg log -T "{label('custom.fullrev',node)}"`
-  $ hg debugmakepublic $commitid
+  $ sl add file
+  $ sl ci -m "initial commit"
+  $ commitid=`sl log -T "{label('custom.fullrev',node)}"`
+  $ sl debugmakepublic $commitid
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/single/hg/single_src/git/$commitid/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-  $ hg log -T '{gitnode}\n'
+  $ sl log -T '{gitnode}\n'
   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-  $ hg log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")'
+  $ sl log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")'
   Could not translate revision aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/single_src/git/single/hg/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/$commitid
-  $ hg log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' -T '{desc}\n'
+  $ sl log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' -T '{desc}\n'
   initial commit
   $ cd ..
 
 Test with multiple backing repos specified.
 
-  $ hg init backingrepos
+  $ sl init backingrepos
   $ echo {} > .arcconfig
   $ cd backingrepos
-  $ echo "[extensions]" >> .hg/hgrc
-  $ echo "fbcodereview=" >> .hg/hgrc
-  $ echo "[fbscmquery]" >> .hg/hgrc
-  $ echo "reponame = multiple" >> .hg/hgrc
-  $ echo "backingrepos = src_a src_b src_c" >> .hg/hgrc
-  $ echo "host = localhost:$CONDUIT_PORT" >> .hg/hgrc
-  $ echo "path = /intern/conduit/" >> .hg/hgrc
-  $ echo "protocol = http" >> .hg/hgrc
-  $ echo "[phabricator]" >> .hg/hgrc
-  $ echo "arcrc_host = https://phabricator.intern.facebook.com/api/" >> .hg/hgrc
-  $ echo "graphql_host = http://localhost:$CONDUIT_PORT" >> .hg/hgrc
-  > echo "default_timeout = 60" >> .hg/hgrc
-  > echo "graphql_app_id = 1234" >> .hg/hgrc
-  > echo "graphql_app_token = TOKEN123" >> .hg/hgrc
+  $ echo "[extensions]" >> .sl/config
+  $ echo "fbcodereview=" >> .sl/config
+  $ echo "[fbscmquery]" >> .sl/config
+  $ echo "reponame = multiple" >> .sl/config
+  $ echo "backingrepos = src_a src_b src_c" >> .sl/config
+  $ echo "host = localhost:$CONDUIT_PORT" >> .sl/config
+  $ echo "path = /intern/conduit/" >> .sl/config
+  $ echo "protocol = http" >> .sl/config
+  $ echo "[phabricator]" >> .sl/config
+  $ echo "arcrc_host = https://phabricator.intern.facebook.com/api/" >> .sl/config
+  $ echo "graphql_host = http://localhost:$CONDUIT_PORT" >> .sl/config
+  > echo "default_timeout = 60" >> .sl/config
+  > echo "graphql_app_id = 1234" >> .sl/config
+  > echo "graphql_app_token = TOKEN123" >> .sl/config
   $ touch file_a
-  $ hg add file_a
-  $ hg ci -m "commit 1"
+  $ sl add file_a
+  $ sl ci -m "commit 1"
   $ touch file_b
-  $ hg add file_b
-  $ hg ci -m "commit 2"
+  $ sl add file_b
+  $ sl ci -m "commit 2"
   $ touch file_c
-  $ hg add file_c
-  $ hg ci -m "commit 3"
-  $ commit_a_id=`hg log -T "{label('custom.fullrev',node)}" -r ".^^"`
-  $ commit_b_id=`hg log -T "{label('custom.fullrev',node)}" -r ".^"`
-  $ commit_c_id=`hg log -T "{label('custom.fullrev',node)}" -r .`
-  $ hg debugmakepublic $commit_a_id
-  $ hg debugmakepublic $commit_b_id
-  $ hg debugmakepublic $commit_c_id
+  $ sl add file_c
+  $ sl ci -m "commit 3"
+  $ commit_a_id=`sl log -T "{label('custom.fullrev',node)}" -r ".^^"`
+  $ commit_b_id=`sl log -T "{label('custom.fullrev',node)}" -r ".^"`
+  $ commit_c_id=`sl log -T "{label('custom.fullrev',node)}" -r .`
+  $ sl debugmakepublic $commit_a_id
+  $ sl debugmakepublic $commit_b_id
+  $ sl debugmakepublic $commit_c_id
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/multiple/hg/src_a/git/$commit_a_id/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/multiple/hg/src_b/git/$commit_b_id/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/multiple/hg/src_c/git/$commit_c_id/cccccccccccccccccccccccccccccccccccccccc
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/multiple/hg/src_b/git/$commit_c_id/dddddddddddddddddddddddddddddddddddddddd
-  $ hg log -T '{gitnode}\n' -r ".^^"
+  $ sl log -T '{gitnode}\n' -r ".^^"
   src_a: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-  $ hg log -T '{gitnode}\n' -r ".^"
+  $ sl log -T '{gitnode}\n' -r ".^"
   src_b: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-  $ hg log -T '{gitnode}\n' -r .
+  $ sl log -T '{gitnode}\n' -r .
   src_b: dddddddddddddddddddddddddddddddddddddddd; src_c: cccccccccccccccccccccccccccccccccccccccc
-  $ hg log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")'
+  $ sl log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")'
   Could not translate revision aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/src_a/git/multiple/hg/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/$commit_a_id
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/src_b/git/multiple/hg/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/$commit_b_id
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/src_c/git/multiple/hg/cccccccccccccccccccccccccccccccccccccccc/$commit_c_id
   $ curl -s -X PUT http://localhost:$CONDUIT_PORT/src_b/git/multiple/hg/dddddddddddddddddddddddddddddddddddddddd/$commit_c_id
-  $ hg log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' -T '{desc}\n'
+  $ sl log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' -T '{desc}\n'
   commit 1
-  $ hg log -r 'gitnode("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")' -T '{desc}\n'
+  $ sl log -r 'gitnode("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")' -T '{desc}\n'
   commit 2
-  $ hg log -r 'gitnode("cccccccccccccccccccccccccccccccccccccccc")' -T '{desc}\n'
+  $ sl log -r 'gitnode("cccccccccccccccccccccccccccccccccccccccc")' -T '{desc}\n'
   commit 3
-  $ hg log -r 'gitnode("dddddddddddddddddddddddddddddddddddddddd")' -T '{desc}\n'
+  $ sl log -r 'gitnode("dddddddddddddddddddddddddddddddddddddddd")' -T '{desc}\n'
   commit 3
-  $ hg log -r gaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -T '{desc}\n'
+  $ sl log -r gaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -T '{desc}\n'
   commit 1
-  $ hg log -r gbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -T '{desc}\n'
+  $ sl log -r gbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -T '{desc}\n'
   commit 2
-  $ hg log -r gcccccccccccccccccccccccccccccccccccccccc -T '{desc}\n'
+  $ sl log -r gcccccccccccccccccccccccccccccccccccccccc -T '{desc}\n'
   commit 3
-  $ hg log -r gdddddddddddddddddddddddddddddddddddddddd -T '{desc}\n'
+  $ sl log -r gdddddddddddddddddddddddddddddddddddddddd -T '{desc}\n'
   commit 3
   $ cd ..
 
 Test with a bad server port, where we get connection refused errors.
 
-  $ hg init errortest
+  $ sl init errortest
   $ echo {} > .arcconfig
   $ cd errortest
-  $ echo "[extensions]" >> .hg/hgrc
-  $ echo "fbcodereview=" >> .hg/hgrc
-  $ echo "[fbscmquery]" >> .hg/hgrc
-  $ echo "reponame = errortest" >> .hg/hgrc
-  $ echo "host = localhost:9" >> .hg/hgrc
-  $ echo "path = /intern/conduit/" >> .hg/hgrc
-  $ echo "protocol = http" >> .hg/hgrc
+  $ echo "[extensions]" >> .sl/config
+  $ echo "fbcodereview=" >> .sl/config
+  $ echo "[fbscmquery]" >> .sl/config
+  $ echo "reponame = errortest" >> .sl/config
+  $ echo "host = localhost:9" >> .sl/config
+  $ echo "path = /intern/conduit/" >> .sl/config
+  $ echo "protocol = http" >> .sl/config
   $ touch file
-  $ hg add file
-  $ hg ci -m "initial commit"
-  $ commitid=`hg log -T "{label('custom.fullrev',node)}"`
-  $ hg debugmakepublic $commitid
-  $ hg log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")'
+  $ sl add file
+  $ sl ci -m "initial commit"
+  $ commitid=`sl log -T "{label('custom.fullrev',node)}"`
+  $ sl debugmakepublic $commitid
+  $ sl log -r 'gitnode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")'
   Could not translate revision aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: * (glob)
   $ cd ..
 
 Make sure the template keywords are documented correctly
 
   $ cd basic
-  $ hg help templates | grep gitnode
-      gitnode       Return the git revision corresponding to a given hg rev
+  $ sl help templates | grep gitnode
+      gitnode       Return the git revision corresponding to a given sl rev
   $ cd ..
 
 Make sure that locally found commits actually work
   $ cd basic
-  $ hg up rFBS4772e01e369e598da6a916e3f4fc83dd8944bf23
+  $ sl up rFBS4772e01e369e598da6a916e3f4fc83dd8944bf23
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd ..
 
 Make sure that globalrevs work
 
   $ cd
-  $ hg init mockwwwrepo
+  $ sl init mockwwwrepo
   $ cd mockwwwrepo
   $ enable fbcodereview globalrevs pushrebase
   $ setconfig \
@@ -221,22 +222,22 @@ Make sure that globalrevs work
   > phabricator.graphql_app_token=TOKEN123
   > echo {} > .arcconfig
 
-  $ hg debuginitglobalrev 5000
+  $ sl debuginitglobalrev 5000
 
   $ touch x
-  $ hg commit -Aqm "added a file"
-  $ hg debugmakepublic -r .
+  $ sl commit -Aqm "added a file"
+  $ sl debugmakepublic -r .
 
-  $ hg up rWWW4999
+  $ sl up rWWW4999
   abort: unknown revision 'rWWW4999'!
   [255]
 
-  $ hg up rWWWHGaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  $ sl up rWWWHGaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   abort: unknown revision 'rWWWHGaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'!
   [255]
 
-  $ hg up -q rWWW5000
-  $ hg up -q rWWWHGb5dd6b876215cbea8d0cd6c093bf6c0326bb40ab
+  $ sl up -q rWWW5000
+  $ sl up -q rWWWHGb5dd6b876215cbea8d0cd6c093bf6c0326bb40ab
 
 
 Make sure that the `globalrevs.scmquerylookup` configuration works as expected.
@@ -249,7 +250,7 @@ globalrevs.
 - Test that if the ScmQuery lookup throws an exception, we are still able to
 fallback to the slow lookup path.
 
-  $ hg up -q m5000
+  $ sl up -q m5000
   *DeprecationWarning: ssl.PROTOCOL_TLS is deprecated (glob) (?)
   *ssl_context = ssl.SSLContext(ssl_options.pop("ssl_version", ssl.PROTOCOL_TLS)) (glob) (?)
   failed to lookup globalrev 5000 from scmquery: * (glob)
@@ -263,7 +264,7 @@ fallback to the slow lookup path.
 - Test that the lookup fails because ScmQuery returns no hash corresponding to
 the globalrev 5000.
 
-  $ hg up -q m5000
+  $ sl up -q m5000
   abort: unknown revision 'm5000'!
   [255]
 
@@ -273,4 +274,4 @@ the globalrev 5000.
 
 - Test that the lookup succeeds now.
 
-  $ hg up -q m5000
+  $ sl up -q m5000

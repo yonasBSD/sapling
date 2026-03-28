@@ -3,61 +3,62 @@
 
 #inprocess-hg-incompatible
 
+  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ setconfig commands.update.check=none
 
 test merge-tools configuration - mostly exercising filemerge.py
 
   $ unset HGMERGE # make sure HGMERGE doesn't interfere with the test
-  $ hg init repo
+  $ sl init repo
   $ cd repo
 
 revision 0
 
   $ echo "revision 0" > f
   $ echo "space" >> f
-  $ hg commit -Am "revision 0"
+  $ sl commit -Am "revision 0"
   adding f
 
 revision 1
 
   $ echo "revision 1" > f
   $ echo "space" >> f
-  $ hg commit -Am "revision 1"
-  $ hg goto ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821 > /dev/null
+  $ sl commit -Am "revision 1"
+  $ sl goto ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821 > /dev/null
 
 revision 2
 
   $ echo "revision 2" > f
   $ echo "space" >> f
-  $ hg commit -Am "revision 2"
-  $ hg goto ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821 > /dev/null
+  $ sl commit -Am "revision 2"
+  $ sl goto ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821 > /dev/null
 
 revision 3 - simple to merge
 
   $ echo "revision 3" >> f
-  $ hg commit -Am "revision 3"
+  $ sl commit -Am "revision 3"
 
 revision 4 - hard to merge
 
-  $ hg goto ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821 > /dev/null
+  $ sl goto ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821 > /dev/null
   $ echo "revision 4" > f
-  $ hg commit -Am "revision 4"
+  $ sl commit -Am "revision 4"
 
-  $ echo "[merge-tools]" > .hg/hgrc
+  $ echo "[merge-tools]" > .sl/config
 
   $ beforemerge() {
-  >   cat .hg/hgrc
-  >   echo "# hg goto -C 1"
-  >   hg goto -C 1 > /dev/null
+  >   cat .sl/config
+  >   echo "# sl goto -C 1"
+  >   sl goto -C 1 > /dev/null
   > }
   $ aftermerge() {
   >   echo "# cat f"
   >   cat f
-  >   echo "# hg stat"
-  >   hg stat
-  >   echo "# hg resolve --list"
-  >   hg resolve --list
+  >   echo "# sl status"
+  >   sl status
+  >   echo "# sl resolve --list"
+  >   sl resolve --list
   >   rm -f f.orig
   > }
 
@@ -67,16 +68,16 @@ default is internal merge:
 
   $ beforemerge
   [merge-tools]
-  # hg goto -C 1
+  # sl goto -C 1
 
-hg merge -r 2
+sl merge -r 2
 override $PATH to ensure hgmerge not visible
 
-  $ PATH="$TMPBINDIR:$BINDIR:/usr/sbin:/usr/bin" hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
+  $ PATH="$TMPBINDIR:$BINDIR:/usr/sbin:/usr/bin" sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
   merging f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
@@ -86,50 +87,50 @@ override $PATH to ensure hgmerge not visible
   revision 2
   >>>>>>> merge rev:    0185f4e0cf02 - test: revision 2
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 simplest hgrc using false for merge:
 
-  $ echo "false.whatever=" >> .hg/hgrc
+  $ echo "false.whatever=" >> .sl/config
   $ beforemerge
   [merge-tools]
   false.whatever=
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 #if unix-permissions
 
 unexecutable file in $PATH shouldn't be found:
 - Replace false with false2 so we dont fight with the system false
-  $ cat > .hg/hgrc <<EOF
+  $ cat > .sl/config <<EOF
   > [merge-tools]
   > false2.whatever=
   > EOF
   $ echo "echo fail" > false2
-  $ hg up -qC ef83787e2614c6fef8e58c9739cd5b46240ad4f0
-  $ PATH="`pwd`:$TMPBINDIR:$BINDIR:/usr/sbin:/usr/bin" hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
+  $ sl up -qC ef83787e2614c6fef8e58c9739cd5b46240ad4f0
+  $ PATH="`pwd`:$TMPBINDIR:$BINDIR:/usr/sbin:/usr/bin" sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
   merging f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ rm false2
 
@@ -138,29 +139,29 @@ unexecutable file in $PATH shouldn't be found:
 executable directory in $PATH shouldn't be found:
 
   $ mkdir false2
-  $ hg up -qC ef83787e2614c6fef8e58c9739cd5b46240ad4f0
-  $ PATH="`pwd`:$TMPBINDIR:$BINDIR:/usr/sbin:/usr/bin" hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
+  $ sl up -qC ef83787e2614c6fef8e58c9739cd5b46240ad4f0
+  $ PATH="`pwd`:$TMPBINDIR:$BINDIR:/usr/sbin:/usr/bin" sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
   merging f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ rmdir false2
 
-  $ cat > .hg/hgrc <<EOF
+  $ cat > .sl/config <<EOF
   > [merge-tools]
   > false.whatever=
   > EOF
 
 true with higher .priority gets precedence:
 
-  $ echo "true.priority=1" >> .hg/hgrc
+  $ echo "true.priority=1" >> .sl/config
   $ beforemerge
   [merge-tools]
   false.whatever=
   true.priority=1
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
   merging f
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -168,9 +169,9 @@ true with higher .priority gets precedence:
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 unless lowered on command line:
@@ -179,21 +180,21 @@ unless lowered on command line:
   [merge-tools]
   false.whatever=
   true.priority=1
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.priority=-7
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.priority=-7
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 or false set higher on command line:
@@ -202,21 +203,21 @@ or false set higher on command line:
   [merge-tools]
   false.whatever=
   true.priority=1
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.false.priority=117
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.false.priority=117
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 or true set to disabled:
@@ -224,21 +225,21 @@ or true set to disabled:
   [merge-tools]
   false.whatever=
   true.priority=1
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.disabled=yes
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.disabled=yes
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 or true.executable not found in PATH:
@@ -247,21 +248,21 @@ or true.executable not found in PATH:
   [merge-tools]
   false.whatever=
   true.priority=1
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=nonexistentmergetool
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=nonexistentmergetool
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 or true.executable with bogus path:
@@ -270,33 +271,33 @@ or true.executable with bogus path:
   [merge-tools]
   false.whatever=
   true.priority=1
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=/nonexistent/mergetool
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=/nonexistent/mergetool
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 but true.executable set to cat found in PATH works:
 
-  $ echo "true.executable=cat" >> .hg/hgrc
+  $ echo "true.executable=cat" >> .sl/config
   $ beforemerge
   [merge-tools]
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
   merging f
   revision 1
   space
@@ -310,9 +311,9 @@ but true.executable set to cat found in PATH works:
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 and true.executable set to cat with path works:
@@ -322,8 +323,8 @@ and true.executable set to cat with path works:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=cat
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=cat
   merging f
   revision 1
   space
@@ -337,24 +338,24 @@ and true.executable set to cat with path works:
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 #if unix-permissions
 
 environment variables in true.executable are handled:
 
-  $ echo 'echo "custom merge tool"' > .hg/merge.sh
+  $ echo 'echo "custom merge tool"' > .sl/merge.sh
   $ beforemerge
   [merge-tools]
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg --config merge-tools.true.executable='sh' \
-  >    --config merge-tools.true.args=.hg/merge.sh \
+  # sl goto -C 1
+  $ sl --config merge-tools.true.executable='sh' \
+  >    --config merge-tools.true.args=.sl/merge.sh \
   >    merge -r 2
   merging f
   custom merge tool
@@ -364,9 +365,9 @@ environment variables in true.executable are handled:
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 #endif
@@ -380,21 +381,21 @@ merge-patterns specifies new tool false:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-patterns.f=false
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-patterns.f=false
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 merge-patterns specifies executable not found in PATH and gets warning:
@@ -404,23 +405,23 @@ merge-patterns specifies executable not found in PATH and gets warning:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-patterns.f=true --config merge-tools.true.executable=nonexistentmergetool
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-patterns.f=true --config merge-tools.true.executable=nonexistentmergetool
   couldn't find merge tool true (for pattern f)
   merging f
   couldn't find merge tool true (for pattern f)
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 merge-patterns specifies executable with bogus path and gets warning:
@@ -430,23 +431,23 @@ merge-patterns specifies executable with bogus path and gets warning:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-patterns.f=true --config merge-tools.true.executable=/nonexistent/mergetool
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-patterns.f=true --config merge-tools.true.executable=/nonexistent/mergetool
   couldn't find merge tool true (for pattern f)
   merging f
   couldn't find merge tool true (for pattern f)
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 ui.merge overrules priority
@@ -458,21 +459,21 @@ ui.merge specifies false:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=false
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=false
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 ui.merge specifies internal:fail:
@@ -482,18 +483,18 @@ ui.merge specifies internal:fail:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:fail
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:fail
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 ui.merge specifies :local (without internal prefix):
@@ -503,17 +504,17 @@ ui.merge specifies :local (without internal prefix):
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=:local
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=:local
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 ui.merge specifies internal:other:
@@ -523,17 +524,17 @@ ui.merge specifies internal:other:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:other
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:other
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ aftermerge
   # cat f
   revision 2
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 ui.merge specifies internal:prompt:
@@ -543,19 +544,19 @@ ui.merge specifies internal:prompt:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:prompt
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:prompt
   keep (l)ocal [working copy], take (o)ther [merge rev], or leave (u)nresolved for f? u
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 ui.merge specifies :prompt, with 'leave unresolved' chosen
@@ -565,21 +566,21 @@ ui.merge specifies :prompt, with 'leave unresolved' chosen
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=:prompt --config ui.interactive=True << EOF
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=:prompt --config ui.interactive=True << EOF
   > u
   > EOF
   keep (l)ocal [working copy], take (o)ther [merge rev], or leave (u)nresolved for f? u
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 prompt with EOF
@@ -589,55 +590,55 @@ prompt with EOF
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:prompt --config ui.interactive=true
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:prompt --config ui.interactive=true
   keep (l)ocal [working copy], take (o)ther [merge rev], or leave (u)nresolved for f? 
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   U f
-  $ hg resolve --all --config ui.merge=internal:prompt --config ui.interactive=true
+  $ sl resolve --all --config ui.merge=internal:prompt --config ui.interactive=true
   keep (l)ocal [working copy], take (o)ther [merge rev], or leave (u)nresolved for f? 
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
   $ rm f
-  $ hg resolve --all --config ui.merge=internal:prompt --config ui.interactive=true
+  $ sl resolve --all --config ui.merge=internal:prompt --config ui.interactive=true
   keep (l)ocal [working copy], take (o)ther [merge rev], or leave (u)nresolved for f? 
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   U f
-  $ hg resolve --all --config ui.merge=internal:prompt
+  $ sl resolve --all --config ui.merge=internal:prompt
   keep (l)ocal [working copy], take (o)ther [merge rev], or leave (u)nresolved for f? u
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 ui.merge specifies internal:dump:
@@ -647,23 +648,23 @@ ui.merge specifies internal:dump:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:dump
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:dump
   merging f
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.base
   ? f.local
   ? f.orig
   ? f.other
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 f.base:
@@ -693,8 +694,8 @@ successfully
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r edce46a272756e7e892533c95e8e6fe3f064939a --config ui.merge=internal:dump
+  # sl goto -C 1
+  $ sl merge -r edce46a272756e7e892533c95e8e6fe3f064939a --config ui.merge=internal:dump
   merging f
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -704,9 +705,9 @@ successfully
   revision 1
   space
   revision 3
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 check that internal:forcedump dumps files, even if local and other can
@@ -717,23 +718,23 @@ be merged easily
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r edce46a272756e7e892533c95e8e6fe3f064939a --config ui.merge=internal:forcedump
+  # sl goto -C 1
+  $ sl merge -r edce46a272756e7e892533c95e8e6fe3f064939a --config ui.merge=internal:forcedump
   merging f
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.base
   ? f.local
   ? f.orig
   ? f.other
-  # hg resolve --list
+  # sl resolve --list
   U f
 
   $ cat f.base
@@ -758,21 +759,21 @@ ui.merge specifies internal:other but is overruled by pattern for false:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:other --config merge-patterns.f=false
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:other --config merge-patterns.f=false
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 Premerge
@@ -784,21 +785,21 @@ ui.merge specifies internal:other but is overruled by --tool=false
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:other --tool=false
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config ui.merge=internal:other --tool=false
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 HGMERGE specifies internal:other but is overruled by --tool=false
@@ -809,21 +810,21 @@ HGMERGE specifies internal:other but is overruled by --tool=false
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --tool=false
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --tool=false
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
   $ unset HGMERGE # make sure HGMERGE doesn't interfere with remaining tests
@@ -846,17 +847,17 @@ changed on the filesystem (see also issue4583))
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg goto -q ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821
+  # sl goto -C 1
+  $ sl goto -q ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821
   $ f -s f
   f: size=17
   $ touch -t 200001010000 f
-  $ hg debugrebuildstate
+  $ sl debugrebuildstate
   $ cat >> $HGRCPATH <<EOF
   > [extensions]
   > fakedirstatewritetime = $TESTDIR/fakedirstatewritetime.py
   > EOF
-  $ hg revert -q -r ef83787e2614c6fef8e58c9739cd5b46240ad4f0 .
+  $ sl revert -q -r ef83787e2614c6fef8e58c9739cd5b46240ad4f0 .
   $ cat >> $HGRCPATH <<EOF
   > [extensions]
   > fakedirstatewritetime = !
@@ -864,9 +865,9 @@ changed on the filesystem (see also issue4583))
   $ f -s f
   f: size=17
   $ touch -t 200001010000 f
-  $ hg status f
+  $ sl status f
   M f
-  $ hg goto -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
+  $ sl goto -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
   merging f
   revision 1
   space
@@ -879,9 +880,9 @@ changed on the filesystem (see also issue4583))
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 update should also have --tool
@@ -891,17 +892,17 @@ update should also have --tool
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg goto -q ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821
+  # sl goto -C 1
+  $ sl goto -q ffd2bda21d6ef8cb02e27e3d7f96f8ac8d196821
   $ f -s f
   f: size=17
   $ touch -t 200001010000 f
-  $ hg debugrebuildstate
+  $ sl debugrebuildstate
   $ cat >> $HGRCPATH <<EOF
   > [extensions]
   > fakedirstatewritetime = $TESTDIR/fakedirstatewritetime.py
   > EOF
-  $ hg revert -q -r ef83787e2614c6fef8e58c9739cd5b46240ad4f0 .
+  $ sl revert -q -r ef83787e2614c6fef8e58c9739cd5b46240ad4f0 .
   $ cat >> $HGRCPATH <<EOF
   > [extensions]
   > fakedirstatewritetime = !
@@ -909,22 +910,22 @@ update should also have --tool
   $ f -s f
   f: size=17
   $ touch -t 200001010000 f
-  $ hg status f
+  $ sl status f
   M f
-  $ hg goto -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --tool false
+  $ sl goto -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --tool false
   merging f
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges
+  use 'sl resolve' to retry unresolved file merges
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 Default is silent simplemerge:
@@ -934,8 +935,8 @@ Default is silent simplemerge:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r edce46a272756e7e892533c95e8e6fe3f064939a
+  # sl goto -C 1
+  $ sl merge -r edce46a272756e7e892533c95e8e6fe3f064939a
   merging f
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -944,9 +945,9 @@ Default is silent simplemerge:
   revision 1
   space
   revision 3
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 .premerge=True is same:
@@ -956,8 +957,8 @@ Default is silent simplemerge:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r edce46a272756e7e892533c95e8e6fe3f064939a --config merge-tools.true.premerge=True
+  # sl goto -C 1
+  $ sl merge -r edce46a272756e7e892533c95e8e6fe3f064939a --config merge-tools.true.premerge=True
   merging f
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -966,9 +967,9 @@ Default is silent simplemerge:
   revision 1
   space
   revision 3
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 .premerge=False executes merge-tool:
@@ -978,8 +979,8 @@ Default is silent simplemerge:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r edce46a272756e7e892533c95e8e6fe3f064939a --config merge-tools.true.premerge=False
+  # sl goto -C 1
+  $ sl merge -r edce46a272756e7e892533c95e8e6fe3f064939a --config merge-tools.true.premerge=False
   merging f
   revision 1
   space
@@ -994,9 +995,9 @@ Default is silent simplemerge:
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 premerge=keep keeps conflict markers in:
@@ -1006,8 +1007,8 @@ premerge=keep keeps conflict markers in:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 'max(desc(revision))' --config merge-tools.true.premerge=keep
+  # sl goto -C 1
+  $ sl merge -r 'max(desc(revision))' --config merge-tools.true.premerge=keep
   merging f
   <<<<<<< working copy: ef83787e2614 - test: revision 1
   revision 1
@@ -1028,9 +1029,9 @@ premerge=keep keeps conflict markers in:
   =======
   revision 4
   >>>>>>> merge rev:    81448d39c9a0 - test: revision 4
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 premerge=keep-merge3 keeps conflict markers with base content:
@@ -1040,8 +1041,8 @@ premerge=keep-merge3 keeps conflict markers with base content:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 'max(desc(revision))' --config merge-tools.true.premerge=keep-merge3
+  # sl goto -C 1
+  $ sl merge -r 'max(desc(revision))' --config merge-tools.true.premerge=keep-merge3
   merging f
   <<<<<<< working copy: ef83787e2614 - test: revision 1
   revision 1
@@ -1068,9 +1069,9 @@ premerge=keep-merge3 keeps conflict markers with base content:
   =======
   revision 4
   >>>>>>> merge rev:    81448d39c9a0 - test: revision 4
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 premerge=keep-mergediff keeps conflict markers with base content:
@@ -1080,8 +1081,8 @@ premerge=keep-mergediff keeps conflict markers with base content:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 4 --config merge-tools.true.premerge=keep-mergediff
+  # sl goto -C 1
+  $ sl merge -r 4 --config merge-tools.true.premerge=keep-mergediff
   merging f
   <<<<<<<
   ------- base
@@ -1108,9 +1109,9 @@ premerge=keep-mergediff keeps conflict markers with base content:
   ======= merge rev:    81448d39c9a0 - test: revision 4
   revision 4
   >>>>>>>
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 Tool execution
@@ -1122,8 +1123,8 @@ set tools.args explicit to include $base $local $other $output:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=head --config merge-tools.true.args='$base $local $other $output' \
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=head --config merge-tools.true.args='$base $local $other $output' \
   >   | sed 's,==> .* <==,==> ... <==,g'
   merging f
   ==> ... <==
@@ -1150,9 +1151,9 @@ set tools.args explicit to include $base $local $other $output:
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 Merge with "echo mergeresult > $local":
@@ -1162,17 +1163,17 @@ Merge with "echo mergeresult > $local":
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=echo --config merge-tools.true.args='mergeresult > $local'
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=echo --config merge-tools.true.args='mergeresult > $local'
   merging f
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ aftermerge
   # cat f
   mergeresult
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 - and $local is the file f:
@@ -1182,17 +1183,17 @@ Merge with "echo mergeresult > $local":
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=echo --config merge-tools.true.args='mergeresult > f'
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=echo --config merge-tools.true.args='mergeresult > f'
   merging f
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ aftermerge
   # cat f
   mergeresult
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 Relative path in merge tool executable searches for tool inside repo before looking outside
@@ -1202,12 +1203,12 @@ Relative path in merge tool executable searches for tool inside repo before look
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
+  # sl goto -C 1
   $ echo "echo hello, world!" > hello_world.sh
   $ chmod +x hello_world.sh
-  $ hg stat
+  $ sl status
   ? hello_world.sh
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable='hello_world.sh' --config merge-tools.true.args='> f'
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable='hello_world.sh' --config merge-tools.true.args='> f'
   merging f
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
@@ -1215,9 +1216,9 @@ Relative path in merge tool executable searches for tool inside repo before look
   $ aftermerge
   # cat f
   hello, world!
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 Merge with "echo mergeresult > $output" - the variable is a bit magic:
@@ -1227,17 +1228,17 @@ Merge with "echo mergeresult > $output" - the variable is a bit magic:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=echo --config merge-tools.true.args='mergeresult > $output'
+  # sl goto -C 1
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.executable=echo --config merge-tools.true.args='mergeresult > $output'
   merging f
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
   $ aftermerge
   # cat f
   mergeresult
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 Merge using tool with a path that must be quoted:
@@ -1247,11 +1248,11 @@ Merge using tool with a path that must be quoted:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
+  # sl goto -C 1
   $ cat <<EOF > 'my merge tool'
   > cat "\$1" "\$2" "\$3" > "\$4"
   > EOF
-  $ hg --config merge-tools.true.executable='sh' \
+  $ sl --config merge-tools.true.executable='sh' \
   >    --config merge-tools.true.args='"./my merge tool" $base $local $other $output' \
   >    merge -r 2
   merging f
@@ -1266,9 +1267,9 @@ Merge using tool with a path that must be quoted:
   space
   revision 2
   space
-  # hg stat
+  # sl status
   M f
-  # hg resolve --list
+  # sl resolve --list
   R f
 
 Issue3581: Merging a filename that needs to be quoted
@@ -1281,21 +1282,21 @@ for Unix-like permission)
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
+  # sl goto -C 1
   $ echo "revision 5" > '"; exit 1; echo "'
-  $ hg commit -Am "revision 5"
+  $ sl commit -Am "revision 5"
   adding "; exit 1; echo "
   warning: filename contains '"', which is reserved on Windows: '"; exit 1; echo "'
-  $ hg goto -C ef83787e2614c6fef8e58c9739cd5b46240ad4f0 > /dev/null
+  $ sl goto -C ef83787e2614c6fef8e58c9739cd5b46240ad4f0 > /dev/null
   $ echo "revision 6" > '"; exit 1; echo "'
-  $ hg commit -Am "revision 6"
+  $ sl commit -Am "revision 6"
   adding "; exit 1; echo "
   warning: filename contains '"', which is reserved on Windows: '"; exit 1; echo "'
-  $ hg merge --config merge-tools.true.executable="true" -r 10f0eb7f76ea9770c110b7161c9ac2b0cc7f7846
+  $ sl merge --config merge-tools.true.executable="true" -r 10f0eb7f76ea9770c110b7161c9ac2b0cc7f7846
   merging "; exit 1; echo "
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
-  $ hg goto -C ef83787e2614c6fef8e58c9739cd5b46240ad4f0 > /dev/null
+  $ sl goto -C ef83787e2614c6fef8e58c9739cd5b46240ad4f0 > /dev/null
 #endif
 
 Merge post-processing
@@ -1307,8 +1308,8 @@ cat is a bad merge-tool and doesn't change:
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
-  $ hg merge -y -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.checkchanged=1
+  # sl goto -C 1
+  $ sl merge -y -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --config merge-tools.true.checkchanged=1
   merging f
   revision 1
   space
@@ -1320,43 +1321,43 @@ cat is a bad merge-tool and doesn't change:
   was merge successful (yn)? n
   merging f failed!
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
   $ aftermerge
   # cat f
   revision 1
   space
-  # hg stat
+  # sl status
   M f
   ? f.orig
-  # hg resolve --list
+  # sl resolve --list
   U f
 
 #if symlink
 
 internal merge cannot handle symlinks and shouldn't try:
 
-  $ hg goto -q -C ef83787e2614c6fef8e58c9739cd5b46240ad4f0
+  $ sl goto -q -C ef83787e2614c6fef8e58c9739cd5b46240ad4f0
   $ rm f
   $ ln -s symlink f
-  $ hg commit -qm 'f is symlink'
-  $ hg merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --tool internal:merge
+  $ sl commit -qm 'f is symlink'
+  $ sl merge -r 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9 --tool internal:merge
   merging f
   warning: internal :merge cannot merge symlinks for f
-  warning: 1 conflicts while merging f! (edit, then use 'hg resolve --mark')
+  warning: 1 conflicts while merging f! (edit, then use 'sl resolve --mark')
   0 files updated, 0 files merged, 0 files removed, 1 files unresolved
-  use 'hg resolve' to retry unresolved file merges or 'hg goto -C .' to abandon
+  use 'sl resolve' to retry unresolved file merges or 'sl goto -C .' to abandon
   [1]
 
 #endif
 
 Verify naming of temporary files and that extension is preserved:
 
-  $ hg goto -q -C ef83787e2614c6fef8e58c9739cd5b46240ad4f0
-  $ hg mv f f.txt
-  $ hg ci -qm "f.txt"
-  $ hg goto -q -C 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
-  $ hg merge -y -r tip --tool echo --config merge-tools.echo.args='$base $local $other $output'
+  $ sl goto -q -C ef83787e2614c6fef8e58c9739cd5b46240ad4f0
+  $ sl mv f f.txt
+  $ sl ci -qm "f.txt"
+  $ sl goto -q -C 0185f4e0cf024bb0ed9694d1cbdea347ecce96d9
+  $ sl merge -y -r tip --tool echo --config merge-tools.echo.args='$base $local $other $output'
   merging f and f.txt to f.txt
   */f~base* $TESTTMP/repo/f.txt.orig */f~other.*txt $TESTTMP/repo/f.txt (glob)
   0 files updated, 1 files merged, 0 files removed, 0 files unresolved
@@ -1370,58 +1371,58 @@ specified file as expected
   false.whatever=
   true.priority=1
   true.executable=cat
-  # hg goto -C 1
+  # sl goto -C 1
 
 (default behavior: checking files in the working parent context)
 
-  $ hg manifest
+  $ sl manifest
   f
-  $ hg debugpickmergetool
+  $ sl debugpickmergetool
   f = true
 
 (-X/-I and file patterns limmit examination targets)
 
-  $ hg debugpickmergetool -X f
-  $ hg debugpickmergetool unknown
+  $ sl debugpickmergetool -X f
+  $ sl debugpickmergetool unknown
 
 (--absent emulates merging change and delete)
 
-  $ hg debugpickmergetool --absent=local
+  $ sl debugpickmergetool --absent=local
   f = :prompt
 
 (-r REV causes checking files in specified revision)
 
-  $ hg manifest -r tip
+  $ sl manifest -r tip
   f.txt
-  $ hg debugpickmergetool -r tip
+  $ sl debugpickmergetool -r tip
   f.txt = true
 
 #if symlink
 
 (symlink causes chosing :prompt)
 
-  $ hg debugpickmergetool -r 6d00b3726f6e
+  $ sl debugpickmergetool -r 6d00b3726f6e
   f = :prompt
 
 #endif
 
 (--verbose shows some configurations)
 
-  $ hg debugpickmergetool --tool foobar -v
+  $ sl debugpickmergetool --tool foobar -v
   with --tool 'foobar'
   f = foobar
 
-  $ HGMERGE=false hg debugpickmergetool -v
+  $ HGMERGE=false sl debugpickmergetool -v
   with HGMERGE='false'
   f = false
 
-  $ hg debugpickmergetool --config ui.merge=false -v
+  $ sl debugpickmergetool --config ui.merge=false -v
   with ui.merge='false'
   f = false
 
 (--debug shows errors detected intermediately)
 
-  $ hg debugpickmergetool --config merge-patterns.f=true --config merge-tools.true.executable=nonexistentmergetool --debug f
+  $ sl debugpickmergetool --config merge-patterns.f=true --config merge-tools.true.executable=nonexistentmergetool --debug f
   couldn't find merge tool true (for pattern f)
   picktool() interactive=False plain=False
   couldn't find merge tool true
@@ -1430,13 +1431,13 @@ specified file as expected
 
 test ui.merge:interactive
 
-  $ hg debugpickmergetool --config ui.formatted=false --config ui.interactive=false --config ui.merge=nonint --config ui.merge:interactive=int f
+  $ sl debugpickmergetool --config ui.formatted=false --config ui.interactive=false --config ui.merge=nonint --config ui.merge:interactive=int f
   f = nonint
-  $ HGPLAIN=1 hg debugpickmergetool --config ui.interactive=true  --config ui.merge=nonint --config ui.merge:interactive=int f
+  $ HGPLAIN=1 sl debugpickmergetool --config ui.interactive=true  --config ui.merge=nonint --config ui.merge:interactive=int f
   f = nonint
-  $ HGPLAIN=1 HGPLAINEXCEPT=mergetool hg debugpickmergetool --config ui.interactive=true  --config ui.merge=nonint --config ui.merge:interactive=int f
+  $ HGPLAIN=1 HGPLAINEXCEPT=mergetool sl debugpickmergetool --config ui.interactive=true  --config ui.merge=nonint --config ui.merge:interactive=int f
   f = int
-  $ hg debugpickmergetool --config ui.formatted=true  --config ui.interactive=false --config ui.merge=nonint --config ui.merge:interactive=int f
+  $ sl debugpickmergetool --config ui.formatted=true  --config ui.interactive=false --config ui.merge=nonint --config ui.merge:interactive=int f
   f = nonint
-  $ hg debugpickmergetool --config ui.formatted=true  --config ui.interactive=true  --config ui.merge=nonint --config ui.merge:interactive=int f
+  $ sl debugpickmergetool --config ui.formatted=true  --config ui.interactive=true  --config ui.merge=nonint --config ui.merge:interactive=int f
   f = int

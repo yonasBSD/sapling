@@ -5,6 +5,7 @@
 #chg-compatible
 
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
 Set up an extension to make sure remotefilelog clientsetup() runs
@@ -24,26 +25,26 @@ Set up the master repository to pull from.
 
   $ hginit master
   $ cd master
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [remotefilelog]
   > server=True
   > EOF
   $ echo x > x
-  $ hg commit -qAm x
-  $ hg book master
+  $ sl commit -qAm x
+  $ sl book master
 
   $ cd ..
 
-  $ hg clone ssh://user@dummy/master child -q
+  $ sl clone ssh://user@dummy/master child -q
 
 We should see the remotefilelog capability here, which advertises that
 the server supports our custom getfiles method.
 
   $ cd master
-  $ echo 'hello' | hg -R . serve --stdio
+  $ echo 'hello' | sl -R . serve --stdio
   * (glob)
   capabilities: *getfile* (glob)
-  $ echo 'capabilities' | hg -R . serve --stdio ; echo
+  $ echo 'capabilities' | sl -R . serve --stdio ; echo
   * (glob)
   *getfile* (glob)
 
@@ -53,13 +54,13 @@ using chg it normally would not be run in this case since the local repository
 is not shallow.)
 
   $ echo y > y
-  $ hg commit -qAm y
-  $ hg book -r . master
+  $ sl commit -qAm y
+  $ sl book -r . master
 
   $ cd ../child
-  $ hg pull -q --config extensions.setuprfl=$TESTTMP/setupremotefilelog.py
+  $ sl pull -q --config extensions.setuprfl=$TESTTMP/setupremotefilelog.py
 
-  $ hg up master
+  $ sl up master
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ cat y
@@ -68,8 +69,8 @@ is not shallow.)
 Test that bundle works in a non-remotefilelog repo w/ remotefilelog loaded
 
   $ echo y >> y
-  $ hg commit -qAm "modify y"
-  $ hg bundle --base ".^" --rev . mybundle.hg --config extensions.setuprfl=$TESTTMP/setupremotefilelog.py
+  $ sl commit -qAm "modify y"
+  $ sl bundle --base ".^" --rev . mybundle.hg --config extensions.setuprfl=$TESTTMP/setupremotefilelog.py
   1 changesets found
 
   $ cd ..

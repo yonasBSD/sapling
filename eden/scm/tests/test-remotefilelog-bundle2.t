@@ -1,14 +1,15 @@
 #chg-compatible
 #debugruntest-incompatible
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ hginit master
-  $ grep generaldelta master/.hg/requires
+  $ grep generaldelta master/.sl/requires
   generaldelta
   $ cd master
 preferuncompressed = False so that we can make both generaldelta and non-generaldelta clones
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [remotefilelog]
   > server=True
   > [experimental]
@@ -17,30 +18,30 @@ preferuncompressed = False so that we can make both generaldelta and non-general
   > preferuncompressed = False
   > EOF
   $ echo x > x
-  $ hg commit -qAm x
-  $ hg book master
+  $ sl commit -qAm x
+  $ sl book master
 
   $ cd ..
 
   $ hgcloneshallow ssh://user@dummy/master shallow-generaldelta -q --config experimental.bundle2-exp=True
   1 files fetched over 1 fetches - (1 misses, 0.00% hit ratio) over *s (glob) (?)
-  $ grep generaldelta shallow-generaldelta/.hg/requires
+  $ grep generaldelta shallow-generaldelta/.sl/requires
   generaldelta
   $ hgcloneshallow ssh://user@dummy/master shallow-plain -q --config format.usegeneraldelta=False --config format.generaldelta=False --config experimental.bundle2-exp=True
-  $ grep generaldelta shallow-plain/.hg/requires
+  $ grep generaldelta shallow-plain/.sl/requires
   [1]
 
   $ cd master
   $ echo a > a
-  $ hg commit -qAm a
+  $ sl commit -qAm a
 
 pull from generaldelta to generaldelta
   $ cd ../shallow-generaldelta
-  $ hg pull -q -u -d master
+  $ sl pull -q -u -d master
 push from generaldelta to generaldelta
   $ echo b > b
-  $ hg commit -qAm b
-  $ hg push --allow-anon
+  $ sl commit -qAm b
+  $ sl push --allow-anon
   pushing to ssh://user@dummy/master
   searching for changes
   remote: adding changesets
@@ -48,11 +49,11 @@ push from generaldelta to generaldelta
   remote: adding file changes
 pull from generaldelta to non-generaldelta
   $ cd ../shallow-plain
-  $ hg pull -q -u -d master
+  $ sl pull -q -u -d master
 push from non-generaldelta to generaldelta
   $ echo c > c
-  $ hg commit -qAm c
-  $ hg push --allow-anon
+  $ sl commit -qAm c
+  $ sl push --allow-anon
   pushing to ssh://user@dummy/master
   searching for changes
   remote: adding changesets

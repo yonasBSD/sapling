@@ -1,5 +1,6 @@
 #require git no-eden no-windows
 
+  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Prepare a git repo:
@@ -19,10 +20,10 @@ Prepare a git repo:
   $ git commit -q -mbeta
 
 Test git clone sets publicheads
-  $ hg clone --git "$TESTTMP/gitrepo" cloned
+  $ sl clone --git "$TESTTMP/gitrepo" cloned
   From $TESTTMP/gitrepo
    * [new ref]         3f5848713286c67b8a71a450e98c7fa66787bde2 -> remote/foo
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd cloned
-  $ hg config remotenames.publicheads
-  m/*,remote/foo,remote/main,remote/master
+  $ sl config remotenames.publicheads
+  origin/master,origin/main,m/*

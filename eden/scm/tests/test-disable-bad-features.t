@@ -6,39 +6,44 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
-# Test various flags to turn off bad hg features.
+# Test various flags to turn off bad sl features.
 
+  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ drawdag << 'EOS'
   > A
   > EOS
-  $ hg up -Cq $A
+  $ sl up -Cq $A
 
-# Test disabling the `hg merge` command:
+# Test disabling the `sl merge` command:
 
-  $ hg merge
+  $ sl merge
   abort: nothing to merge
   [255]
   $ setconfig 'ui.allowmerge=False'
-  $ hg merge
+  $ sl merge
   abort: merging is not supported for this repository
   (use rebase instead)
   [255]
 
-# Test disabling the `hg branch` commands:
+# Test disabling the `sl branch` commands:
+# Under SL identity, the `branch` command is not available at all.
 
-  $ hg branch
-  default
-  hint[branch-command-deprecate]: 'hg branch' command does not do what you want, and is being removed. It always prints 'default' for now. Check fburl.com/why-no-named-branches for details.
-  hint[hint-ack]: use 'hg hint --ack branch-command-deprecate' to silence these hints
+  $ sl branch
+  unknown command 'branch'
+  hint: perhaps you'd like to use "sl bookmark".
+  More info: https://sapling-scm.com/docs/overview/bookmarks
+  [255]
   $ setconfig 'ui.allowbranches=False'
-  $ hg branch foo
-  abort: named branches are disabled in this repository
-  (use bookmarks instead)
+  $ sl branch foo
+  unknown command 'branch'
+  hint: perhaps you'd like to use "sl bookmark".
+  More info: https://sapling-scm.com/docs/overview/bookmarks
   [255]
   $ setconfig 'ui.disallowedbrancheshint=use bookmarks instead! see docs'
-  $ hg branch -C
-  abort: named branches are disabled in this repository
-  (use bookmarks instead! see docs)
+  $ sl branch -C
+  unknown command 'branch'
+  hint: perhaps you'd like to use "sl bookmark".
+  More info: https://sapling-scm.com/docs/overview/bookmarks
   [255]

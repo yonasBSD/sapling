@@ -3,23 +3,24 @@
 #require no-eden
 
 
+  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ hginit master
   $ cd master
-  $ cat >> .hg/hgrc <<EOF
+  $ cat >> .sl/config <<EOF
   > [remotefilelog]
   > server=True
   > EOF
   $ echo x > x
-  $ hg commit -qAm x
+  $ sl commit -qAm x
   $ echo y >> x
-  $ hg commit -qAm y
+  $ sl commit -qAm y
   $ echo z >> x
-  $ hg commit -qAm z
+  $ sl commit -qAm z
   $ echo a > a
-  $ hg commit -qAm a
-  $ hg book master
+  $ sl commit -qAm a
+  $ sl book master
 
   $ cd ..
 
@@ -29,7 +30,7 @@
 
 Test blame
 
-  $ hg blame -c x
+  $ sl blame -c x
   b292c1e3311f: x
   66ee28d0328c: y
   16db62c5946f: z
