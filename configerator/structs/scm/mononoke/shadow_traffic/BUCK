@@ -1,0 +1,16 @@
+load("@fbcode_macros//build_defs:thrift_library.bzl", "thrift_library")
+
+oncall("scm_server_infra")
+
+thrift_library(
+    name = "shadow_traffic",
+    languages = [
+        "python",
+        "rust",
+    ],
+    py3_namespace = "scm.mononoke.shadow_traffic",
+    rust_allow_oss_build = False,
+    rust_autocargo = {"ignore_rule": True},
+    thrift_rust_options = "serde",
+    thrift_srcs = {"shadow_traffic.thrift": None},
+)
