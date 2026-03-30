@@ -716,7 +716,7 @@ async fn check_pushrebase_conflicts(
                     Some(reponame),
                 )?;
                 Some(
-                    attempt_merge_resolution(
+                    collect_merge_file_info(
                         ctx,
                         repo,
                         &conflicts,
@@ -759,7 +759,7 @@ async fn check_pushrebase_conflicts(
                             None,
                             Some(reponame),
                         )?;
-                        dry_run_merge_resolution(
+                        dry_run_merge_check(
                             ctx,
                             repo,
                             &conflicts,
@@ -1372,13 +1372,14 @@ async fn merge_file_by_content_ids(
     }
 }
 
-/// Attempt a dry-run 3-way merge on conflicting files, logging outcomes
+/// Dry-run check for merge-resolvable conflicts, logging outcomes
 /// to Scuba without changing pushrebase behavior.
 ///
 /// This fetches file content for each conflicting path from the common
 /// ancestor, pushed changeset, and bookmark head, then runs merge_text
-/// to determine if the conflict would be resolvable.
-async fn dry_run_merge_resolution(
+/// to determine if the conflict would be resolvable. No actual merge
+/// result is used — this is purely for observability.
+async fn dry_run_merge_check(
     ctx: &CoreContext,
     repo: &impl Repo,
     conflicts: &[PushrebaseConflict],
@@ -1598,20 +1599,22 @@ enum MergeResolutionError {
     InternalError(Error),
 }
 
-/// Attempt content-level merge resolution for conflicting files.
+/// Collect file metadata needed for cascading merge resolution.
 ///
-/// For each conflicting path, fetches file content from the common ancestor
-/// (root), the pushed changeset, and the bookmark head (from server bonsai
-/// changesets), then runs a 3-way merge. Returns a map of merged file changes
-/// to apply to the rebased changeset.
+/// For each conflicting path, validates that the conflict is an exact path
+/// match (not a prefix conflict), checks file types, sizes, and copy info,
+/// then fetches the base content ID from fsnodes. Returns a list of
+/// `MergedFileInfo` structs containing the path, base content ID, server
+/// content ID, and file type. The actual 3-way merge is deferred to the
+/// per-commit rebase loop in `create_rebased_changesets`.
 ///
 /// The server-side content is obtained directly from the bonsai changesets
 /// rather than deriving fsnodes, to avoid expensive derivation in the
 /// critical section of pushrebase.
 ///
-/// Fails if any file has a true content-level conflict, or if any file
-/// cannot be merged (missing, binary, type change, copy info, too large).
-async fn attempt_merge_resolution(
+/// Fails if any file cannot be merged (missing, type mismatch, copy info,
+/// too large, or prefix conflict).
+async fn collect_merge_file_info(
     ctx: &CoreContext,
     repo: &impl Repo,
     conflicts: &[PushrebaseConflict],
@@ -1841,7 +1844,7 @@ async fn create_rebased_changesets(
     // then update both maps for the next commit in the stack.
 
     // Initialize cascading merge state from MergedFileInfo. The base and
-    // server content IDs were already captured by attempt_merge_resolution,
+    // server content IDs were already captured by collect_merge_file_info,
     // so no additional fsnode fetches are needed here.
     let mut merge_paths: HashSet<NonRootMPath> = HashSet::new();
     let mut old_parent_content: HashMap<NonRootMPath, ContentId> = HashMap::new();
