@@ -518,6 +518,7 @@ impl ShardedProcessHandler {
                                 "Failure in setting up shard/repo so skipping it. Error: {:?}",
                                 e
                             );
+                            STATS::shard_setup_failures.add_value(1);
                             continue;
                         }
                         err => err?,
