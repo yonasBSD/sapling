@@ -71,6 +71,11 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
 
     let action = if ctx.opts.keep { "unlinked" } else { "removed" };
     logger.info(format!("{} {}", action, target.display()));
+
+    // NOTE: Add post-worktree-remove hook if the need arises. Note that the
+    // hook's cwd (repo.path()) may not exist if the user removed the worktree
+    // they were standing in (see D98226466).
+
     Ok(0)
 }
 
@@ -118,6 +123,10 @@ fn run_remove_all(
     for path in &removed_paths {
         logger.info(format!("{} {}", action, path.display()));
     }
+
+    // NOTE: Add post-worktree-remove hook if the need arises. See single-remove
+    // path above for cwd caveat.
+
     Ok(0)
 }
 

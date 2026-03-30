@@ -154,3 +154,35 @@ clean up redirections
 
   $ eden redirect del build_output
   $ eden redirect del --mount $TESTTMP/redirect_linked build_output
+
+test worktree add - post-worktree-add hook fires with correct env vars
+
+  $ cd $TESTTMP
+  $ newclientrepo hook_repo
+  $ touch file.txt
+  $ sl add file.txt
+  $ sl commit -m "init"
+#if windows
+  $ setconfig hooks.post-worktree-add="echo PATH:%HG_PATH% SOURCE:%HG_SOURCE%"
+  $ sl worktree add $TESTTMP/hook_linked
+  created linked worktree at $TESTTMP/hook_linked
+  PATH:$TESTTMP?hook_linked SOURCE:$TESTTMP?hook_repo\r (esc) (glob)
+#else
+  $ setconfig hooks.post-worktree-add="echo PATH:\$HG_PATH SOURCE:\$HG_SOURCE"
+  $ sl worktree add $TESTTMP/hook_linked
+  created linked worktree at $TESTTMP/hook_linked
+  PATH:$TESTTMP/hook_linked SOURCE:$TESTTMP/hook_repo
+#endif
+
+test worktree add - post-worktree-add hook failure does not abort command
+
+#if windows
+  $ setconfig "hooks.post-worktree-add=cmd /c exit 1"
+  $ sl worktree add $TESTTMP/hook_linked_fail
+  created linked worktree at $TESTTMP/hook_linked_fail
+#else
+  $ setconfig hooks.post-worktree-add=false
+  $ sl worktree add $TESTTMP/hook_linked_fail
+  created linked worktree at $TESTTMP/hook_linked_fail
+#endif
+  $ test -d $TESTTMP/hook_linked_fail

@@ -28,6 +28,7 @@ rust_library(
         "//eden/scm/lib/edenfs-client:edenfs-client",
         "//eden/scm/lib/filters:filters",
         "//eden/scm/lib/formatter:formatter",
+        "//eden/scm/lib/hook:hook",
         "//eden/scm/lib/repo:repo",
         "//eden/scm/lib/util:util",
         "//eden/scm/lib/workingcopy:workingcopy",

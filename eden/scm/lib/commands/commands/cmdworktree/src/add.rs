@@ -5,6 +5,8 @@
  * GNU General Public License version 2.
  */
 
+use std::collections::HashMap;
+
 use clidispatch::ReqCtx;
 use clidispatch::abort;
 use cmdutil::Result;
@@ -111,5 +113,19 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     })?;
 
     logger.info(format!("created linked worktree at {}", dest.display()));
+
+    let post_hooks = hook::Hooks::from_config(repo.config(), ctx.io(), "post-worktree-add");
+    post_hooks.run_hooks(
+        Some(repo),
+        false,
+        Some(&HashMap::from([
+            ("path".to_string(), dest.display().to_string()),
+            (
+                "source".to_string(),
+                canonical_repo_path.display().to_string(),
+            ),
+        ])),
+    )?;
+
     Ok(0)
 }
