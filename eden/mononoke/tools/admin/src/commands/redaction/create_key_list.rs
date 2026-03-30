@@ -169,7 +169,7 @@ async fn content_keys_for_paths(
     let use_content_manifests = justknobs::eval(
         "scm/mononoke:derived_data_use_content_manifests",
         None,
-        None,
+        Some(repo.repo_identity.name()),
     )?;
 
     let root_manifest_id: compat::ContentManifestId = if use_content_manifests {

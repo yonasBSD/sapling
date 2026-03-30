@@ -24,6 +24,7 @@ use metaconfig_types::RepoConfig;
 use mononoke_app::MononokeApp;
 use repo_blobstore::RepoBlobstore;
 use repo_derived_data::RepoDerivedData;
+use repo_identity::RepoIdentity;
 
 /// Manage redaction of repository contents
 #[derive(Parser)]
@@ -57,6 +58,9 @@ pub struct Repo {
 
     #[facet]
     repo_derived_data: RepoDerivedData,
+
+    #[facet]
+    repo_identity: RepoIdentity,
 }
 
 #[derive(Subcommand)]

@@ -88,7 +88,7 @@ impl ValidSubmoduleExpansionBonsai {
         let use_content_manifests = justknobs::eval(
             "scm/mononoke:derived_data_use_content_manifests",
             None,
-            None,
+            Some(sm_exp_data.large_repo.repo_identity().name()),
         )?;
 
         let bonsai_res: Result<BonsaiChangeset> =

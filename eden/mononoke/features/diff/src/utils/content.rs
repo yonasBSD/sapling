@@ -131,7 +131,7 @@ pub async fn get_file_info_from_changeset_path(
     let use_content_manifests = justknobs::eval(
         "scm/mononoke:derived_data_use_content_manifests",
         None,
-        None,
+        Some(repo.repo_identity().name()),
     )
     .map_err(DiffError::internal)?;
 

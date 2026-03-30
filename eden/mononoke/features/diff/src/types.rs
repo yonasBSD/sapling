@@ -12,8 +12,10 @@ use mononoke_types::ContentId;
 use mononoke_types::NonRootMPath;
 use repo_blobstore::RepoBlobstoreArc;
 use repo_derived_data::RepoDerivedDataRef;
+use repo_identity::RepoIdentityRef;
 
-pub trait Repo = RepoBlobstoreArc + RepoConfigRef + RepoDerivedDataRef + Send + Sync;
+pub trait Repo =
+    RepoBlobstoreArc + RepoConfigRef + RepoDerivedDataRef + RepoIdentityRef + Send + Sync;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffFileType {

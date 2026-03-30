@@ -24,6 +24,7 @@ use mononoke_types::BonsaiChangesetMut;
 use mononoke_types::DateTime;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedDataRef;
+use repo_identity::RepoIdentityRef;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::test::git_submodules::git_submodules_test_utils::*;
@@ -47,7 +48,7 @@ async fn test_original_blobstore_and_changesets_are_the_same_after_validation(
     let use_content_manifests = justknobs::eval(
         "scm/mononoke:derived_data_use_content_manifests",
         None,
-        None,
+        Some(orig_repo.repo_identity().name()),
     )?;
 
     if use_content_manifests {

@@ -213,6 +213,7 @@ pub async fn headerless_unified_diff<
         + RepoBlobstoreRef
         + RepoConfigRef
         + RepoDerivedDataRef
+        + RepoIdentityRef
         + Clone
         + Send
         + Sync

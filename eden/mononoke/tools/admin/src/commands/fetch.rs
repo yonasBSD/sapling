@@ -45,6 +45,8 @@ use repo_blobstore::RepoBlobstore;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedData;
 use repo_derived_data::RepoDerivedDataRef;
+use repo_identity::RepoIdentity;
+use repo_identity::RepoIdentityRef;
 
 /// Fetch commit, tree or file data.
 #[derive(Parser)]
@@ -97,6 +99,9 @@ pub struct Repo {
 
     #[facet]
     repo_derived_data: RepoDerivedData,
+
+    #[facet]
+    repo_identity: RepoIdentity,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
@@ -201,7 +206,7 @@ async fn display_fsnode(
     let use_content_manifests = justknobs::eval(
         "scm/mononoke:derived_data_use_content_manifests",
         None,
-        None,
+        Some(repo.repo_identity().name()),
     )?;
 
     let root_manifest_id: compat::ContentManifestId = if use_content_manifests {

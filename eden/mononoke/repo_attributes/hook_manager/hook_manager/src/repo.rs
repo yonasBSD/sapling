@@ -166,7 +166,13 @@ impl HookRepo {
         changeset_id: ChangesetId,
         paths: Vec<NonRootMPath>,
     ) -> Result<HashMap<NonRootMPath, PathContent>> {
-        let manifest_id = derive_manifest(ctx, &self.repo_derived_data, changeset_id).await?;
+        let manifest_id = derive_manifest(
+            ctx,
+            self.repo_identity.name(),
+            &self.repo_derived_data,
+            changeset_id,
+        )
+        .await?;
 
         manifest_id
             .find_entries(ctx.clone(), self.repo_blobstore.clone(), paths)
@@ -196,8 +202,18 @@ impl HookRepo {
         new_cs_id: ChangesetId,
         old_cs_id: ChangesetId,
     ) -> Result<Vec<(NonRootMPath, FileChangeType)>> {
-        let new_mf_fut = derive_manifest(ctx, &self.repo_derived_data, new_cs_id);
-        let old_mf_fut = derive_manifest(ctx, &self.repo_derived_data, old_cs_id);
+        let new_mf_fut = derive_manifest(
+            ctx,
+            self.repo_identity.name(),
+            &self.repo_derived_data,
+            new_cs_id,
+        );
+        let old_mf_fut = derive_manifest(
+            ctx,
+            self.repo_identity.name(),
+            &self.repo_derived_data,
+            old_cs_id,
+        );
 
         let (new_mf, old_mf) = future::try_join(new_mf_fut, old_mf_fut).await?;
 
@@ -407,13 +423,14 @@ impl HookRepo {
 
 async fn derive_manifest(
     ctx: &CoreContext,
+    repo_name: &str,
     repo_derived_data: &RepoDerivedData,
     changeset_id: ChangesetId,
 ) -> Result<compat::ContentManifestId> {
     let use_content_manifests = justknobs::eval(
         "scm/mononoke:derived_data_use_content_manifests",
         None,
-        None,
+        Some(repo_name),
     )?;
 
     if use_content_manifests {
