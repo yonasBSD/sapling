@@ -122,6 +122,7 @@ def subcmd(
 
     def wrapper(cls: Type[Subcmd]) -> Type[Subcmd]:
         # https://github.com/python/mypy/issues/2477
+        # pyre-fixme[33]: Given annotation cannot be `Any`.
         cls_mypy: Any = cls
 
         class SubclassedCmd(cls_mypy):
@@ -180,6 +181,7 @@ def _get_subparsers(
     parser: argparse.ArgumentParser,
     # pyre-fixme[24]: Generic type `argparse._SubParsersAction` expects 1 type parameter.
 ) -> Optional[argparse._SubParsersAction]:
+    # pyre-fixme[33]: Given annotation cannot be `Any`.
     subparsers = cast(Any, parser)
     if subparsers is None:
         return None
@@ -198,6 +200,7 @@ def _get_subparsers(
 def do_help(parser: argparse.ArgumentParser, help_args: List[str]) -> int:
     # Figure out what subcommand we have been asked to show the help for.
     for idx, arg in enumerate(help_args):
+        # pyre-fixme[33]: Given annotation cannot be `Any`.
         subcmds: Any = _get_subparsers(parser)
         if subcmds is None:
             cmd_so_far = " ".join(help_args[:idx])

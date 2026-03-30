@@ -44,7 +44,7 @@ def cleanup_tmp_dir(tmp_dir: Path) -> None:
     # directory writable and then retry the removal.
     def _remove_readonly(
         # pyre-fixme[24]: Generic type `os.PathLike` expects 1 type parameter.
-        func: Callable[[Union[os.PathLike, str]], Any],
+        func: Callable[[Union[os.PathLike, str]], Any],  # pyre-fixme[2]
         # pyre-fixme[24]: Generic type `os.PathLike` expects 1 type parameter.
         path: Union[os.PathLike, str],
         exc_info: Tuple[Type[BaseException], BaseException, types.TracebackType],
@@ -187,7 +187,7 @@ class TemporaryFileBase(Generic[IOType]):
         self.path = path
         self.name = str(path)
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> Any:  # pyre-fixme[3]
         if name in ("name", "path"):
             return self.__dict__[name]
         else:

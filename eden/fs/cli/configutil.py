@@ -45,6 +45,7 @@ else:
 ConfigValue = Union[bool, str, Strs]
 ConfigSectionName = str
 ConfigOptionName = str
+# pyre-fixme[33]: Aliased annotation cannot be `Any`.
 _UnsupportedValue = Any
 
 _TConfigValue = TypeVar("_TConfigValue", bound=ConfigValue)
@@ -231,6 +232,7 @@ class EdenConfigParser:
         self,
         section: ConfigSectionName,
         option: ConfigOptionName,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         value: Any,
     ) -> Union[ConfigValue, _UnsupportedValue]:
         if isinstance(value, (bool, str)):
@@ -245,6 +247,7 @@ class EdenConfigParser:
 class UnexpectedType(Exception):
     section: ConfigSectionName
     option: ConfigOptionName
+    # pyre-fixme[4]: Attribute annotation cannot be `Any`.
     value: Any
     expected_type: Optional[Type[ConfigValue]]
 
@@ -252,6 +255,7 @@ class UnexpectedType(Exception):
         self,
         section: ConfigSectionName,
         option: ConfigOptionName,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         value: Any,
         expected_type: Optional[Type[ConfigValue]],
     ) -> None:

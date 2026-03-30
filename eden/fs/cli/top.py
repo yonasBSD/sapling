@@ -36,6 +36,8 @@ HELP_SECTION_WHY = "why "
 HELP_SECTION_CONCERN = "concern? "
 
 
+# pyre-fixme[4]: Attribute annotation cannot be `Any`.
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 Row = collections.namedtuple(
     "Row",
     "top_pid mount fuse_reads fuse_writes fuse_total fuse_fetch fuse_memory_cache_imports fuse_disk_cache_imports fuse_backing_store_imports fuse_duration fuse_last_access command",

@@ -76,8 +76,11 @@ class EdenClient(EdenService.Client):
 
     def __exit__(
         self,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         exc_type: "Any",
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         exc_value: "Any",
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         exc_traceback: "Any",
     ) -> "Optional[bool]":
         self.close()

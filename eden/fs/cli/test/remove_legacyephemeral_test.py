@@ -239,7 +239,7 @@ class RemoveLegacyEphemeralCheckoutsTest(unittest.TestCase):
         def failing_get_checkouts() -> List[EdenCheckout]:
             raise Exception("Cannot read checkouts")
 
-        # pyre-ignore[8]
+        # pyre-ignore[8,16]
         instance.get_checkouts = failing_get_checkouts
 
         result = main_mod.remove_legacyephemeral_checkouts(
@@ -305,7 +305,7 @@ class RemoveLegacyEphemeralCheckoutsTest(unittest.TestCase):
             raise main_mod.EdenNotRunningError("Daemon not running")
             yield  # Never reached, but needed for generator syntax
 
-        # pyre-ignore[8]
+        # pyre-ignore[8, 16]
         instance.get_thrift_client = raise_not_running
 
         result = main_mod.remove_legacyephemeral_checkouts(
