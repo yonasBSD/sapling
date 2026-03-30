@@ -137,8 +137,11 @@ impl RestrictedPaths {
     }
 
     /// Returns whether any restricted paths are configured for this repository.
+    /// When `use_acl_manifest` is true, restrictions are discovered dynamically
+    /// from `.slacl` files in the repo, so we cannot short-circuit based on
+    /// the config-based `path_acls` alone.
     pub fn has_restricted_paths(&self) -> bool {
-        self.config_based.has_restricted_paths()
+        self.use_acl_manifest || self.config_based.has_restricted_paths()
     }
 
     /// Returns the soft path ACLs configuration.
