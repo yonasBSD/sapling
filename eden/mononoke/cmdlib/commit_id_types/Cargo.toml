@@ -12,5 +12,5 @@ path = "src/commit_id_types.rs"
 
 [dependencies]
 anyhow = "1.0.102"
-clap = { version = "4.5.42", features = ["derive", "env", "string", "unicode", "wrap_help"] }
+clap = { version = "4.6.0", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 faster-hex = "0.6.1"
