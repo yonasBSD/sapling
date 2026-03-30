@@ -43,8 +43,10 @@ use infrasec_authorization_service::CommitChangeSpecificationRequest;
 use infrasec_authorization_service_srclients::make_AuthorizationService_srclient;
 use infrasec_authorization_service_srclients::thrift::ChangeSpecification;
 use infrasec_authorization_service_srclients::thrift::errors::AsNoConfigExistsException;
+use metaconfig_parser::configerator_repo_config_handle;
 use mononoke_api::MononokeError;
 use mononoke_api::RepositoryId;
+use mononoke_configs::MononokeConfigs;
 use mononoke_macros::mononoke;
 use oncall::OncallClient;
 use permission_checker::AclProvider;
@@ -53,6 +55,7 @@ use repos::QuickRepoDefinition;
 use repos::QuickRepoDefinitionShardingConfig;
 use repos::QuickRepoDefinitionTShirtSize;
 use repos::RawCommitIdentityScheme;
+use repos::RawRepoConfig;
 use repos::RepoSpec;
 use repos::ShardingRegions;
 use repos::TShirtSize;
@@ -627,32 +630,24 @@ fn to_repo_spec_tshirt_size(
 }
 
 /// Generates the file path for a RepoSpec file.
-/// Path format: source/scm/mononoke/repos/git/{hash_dir}/{hash_prefix}_{repo_name_escaped}.cconf
-/// where hash_dir is the first 2 hex chars and hash_prefix is the first 8 hex
-/// chars of SHA-256(repo_name).
-/// The hash_dir distributes files across 256 subdirectories to avoid
-/// configerator directory size limits. The hash_prefix in the filename
-/// prevents collisions between repos that differ only in '/' vs '_'
-/// (e.g., "org/repo" vs "org_repo" both escape to "org_repo" but have
-/// different hashes).
+/// Path format: source/scm/mononoke/repos/git/{hash_dir}/{repo_name_escaped}.cconf
+/// where hash_dir is the first 2 hex chars of SHA-256(repo_name).
+/// Must match repo_spec_config_path() in generate_repo_index.py and
+/// repo_spec_relative_path() in migrate_qrd_to_repo_spec.py.
 fn make_repo_spec_file_path(repo_name: &str) -> String {
     let hash = Sha256::digest(repo_name.as_bytes());
     let hash_dir = format!("{:02x}", hash[0]);
-    let hash_prefix = format!(
-        "{:02x}{:02x}{:02x}{:02x}",
-        hash[0], hash[1], hash[2], hash[3]
-    );
     format!(
-        "{}/{}/{}_{}.cconf",
+        "{}/{}/{}.cconf",
         REPO_SPEC_BASE_PATH,
         hash_dir,
-        hash_prefix,
         repo_name.replace('/', "_")
     )
 }
 
 fn make_repo_spec(
     (repo_id, request): &(RepositoryId, thrift::RepoCreationRequest),
+    default_repo_config: Option<RawRepoConfig>,
 ) -> Result<RepoSpec, scs_errors::ServiceError> {
     Ok(RepoSpec {
         repo_id: repo_id.id(),
@@ -669,7 +664,7 @@ fn make_repo_spec(
         ],
         t_shirt_size: to_repo_spec_tshirt_size(request.size_bucket)?,
         sharding_regions: ShardingRegions::BGM_ONLY_REGIONS,
-        repo_config: None,
+        repo_config: default_repo_config,
         tier_overrides: None,
         ..Default::default()
     })
@@ -678,6 +673,7 @@ fn make_repo_spec(
 async fn prepare_repo_configs_mutation_nowait(
     ctx: CoreContext,
     repos_ids_and_requests: Vec<(RepositoryId, thrift::RepoCreationRequest)>,
+    configs: &MononokeConfigs,
 ) -> Result<i64, scs_errors::ServiceError> {
     let configo_client = ConfigoClient::with_client(
         ctx.fb,
@@ -689,10 +685,30 @@ async fn prepare_repo_configs_mutation_nowait(
     let use_repo_spec = justknobs::eval("scm/mononoke:create_repos_use_repo_spec", None, None)
         .map_err(scs_errors::internal_error)?;
 
+    // Load default repo config template once before the loop
+    let default_repo_config = if use_repo_spec {
+        let config_store = configs.config_store().ok_or_else(|| {
+            scs_errors::internal_error("No config store available for loading default repo config")
+        })?;
+        let handle = configerator_repo_config_handle(
+            "scm/mononoke/repos/common/default_git_repo_config",
+            config_store,
+        )
+        .map_err(|e| {
+            scs_errors::internal_error(format!("Failed to load default git repo config: {e:#}"))
+        })?;
+        Some(handle.get())
+    } else {
+        None
+    };
+
     // Create individual repo config files
     for (repo_id, request) in &repos_ids_and_requests {
         if use_repo_spec {
-            let repo_spec = make_repo_spec(&(*repo_id, request.clone()))?;
+            let repo_spec = make_repo_spec(
+                &(*repo_id, request.clone()),
+                default_repo_config.as_deref().cloned(),
+            )?;
             let file_path = make_repo_spec_file_path(&request.repo_name);
             txn.set_thrift_object(
                 repo_spec,
@@ -804,6 +820,7 @@ async fn create_repos_in_mononoke(
     ctx: CoreContext,
     git_source_of_truth_config: Arc<dyn GitSourceOfTruthConfig>,
     params: &thrift::CreateReposParams,
+    configs: &MononokeConfigs,
 ) -> Result<Option<i64>, scs_errors::ServiceError> {
     // ## What:
     // Create these repositories in Mononoke.
@@ -838,7 +855,7 @@ async fn create_repos_in_mononoke(
 
     // We have reserved the repo ids. Now it's time to actually create the repos, safe in the
     // knowledge that no-one will compete with us
-    match prepare_repo_configs_mutation_nowait(ctx.clone(), repo_ids_and_requests).await {
+    match prepare_repo_configs_mutation_nowait(ctx.clone(), repo_ids_and_requests, configs).await {
         Ok(mutation_id) => {
             retry(
                 |_| {
@@ -931,9 +948,10 @@ async fn create_repos_in_mononoke(
     _ctx: CoreContext,
     _git_source_of_truth_config: Arc<dyn GitSourceOfTruthConfig>,
     _params: &thrift::CreateReposParams,
-) -> Result<(), scs_errors::ServiceError> {
+    _configs: &MononokeConfigs,
+) -> Result<Option<i64>, scs_errors::ServiceError> {
     println!("No access to configo in oss build");
-    Ok(())
+    Ok(None)
 }
 
 impl SourceControlServiceImpl {
@@ -945,8 +963,13 @@ impl SourceControlServiceImpl {
         ensure_acls_allow_repo_creation(ctx.clone(), &params.repos, self.acl_provider.as_ref())
             .await?;
         update_repos_acls(ctx.clone(), &params).await?;
-        let mutation_id =
-            create_repos_in_mononoke(ctx, self.git_source_of_truth_config.clone(), &params).await?;
+        let mutation_id = create_repos_in_mononoke(
+            ctx,
+            self.git_source_of_truth_config.clone(),
+            &params,
+            &self.configs,
+        )
+        .await?;
 
         Ok(thrift::CreateReposToken {
             mutation_id,
@@ -1242,10 +1265,9 @@ mod tests {
             path.starts_with("source/scm/mononoke/repos/git/"),
             "Path should start with RepoSpec base path: {path}"
         );
-        // Filename should include hash prefix and repo name
         assert!(
-            path.contains("_my-repo.cconf"),
-            "Path should end with hash_repo-name.cconf: {path}"
+            path.ends_with("/my-repo.cconf"),
+            "Path should end with /repo-name.cconf: {path}"
         );
     }
 
@@ -1253,7 +1275,7 @@ mod tests {
     fn test_make_repo_spec_file_path_slash_in_name() {
         let path = make_repo_spec_file_path("org/project/repo");
         assert!(
-            path.contains("_org_project_repo.cconf"),
+            path.ends_with("/org_project_repo.cconf"),
             "Slashes should be replaced with underscores: {path}"
         );
     }
@@ -1318,7 +1340,8 @@ mod tests {
             ..Default::default()
         };
 
-        let spec = make_repo_spec(&(repo_id, request)).expect("make_repo_spec should succeed");
+        let spec =
+            make_repo_spec(&(repo_id, request), None).expect("make_repo_spec should succeed");
 
         assert_eq!(spec.repo_id, 12345);
         assert_eq!(spec.repo_name, "org/my-repo");

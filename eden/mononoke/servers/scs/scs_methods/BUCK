@@ -83,6 +83,7 @@ rust_library(
         "//eden/mononoke/megarepo_api:megarepo_api",
         "//eden/mononoke/megarepo_api:megarepo_config",
         "//eden/mononoke/mercurial:mercurial_mutation",
+        "//eden/mononoke/metaconfig:metaconfig_parser",
         "//eden/mononoke/metaconfig:metaconfig_types",
         "//eden/mononoke/mononoke_api:mononoke_api",
         "//eden/mononoke/mononoke_api_hg:mononoke_api_hg",

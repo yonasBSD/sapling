@@ -252,6 +252,11 @@ impl MononokeConfigs {
         self.config_info.load_full()
     }
 
+    /// Returns the ConfigStore, if available (configerator-backed configs only).
+    pub fn config_store(&self) -> Option<&ConfigStore> {
+        self.config_store.as_ref()
+    }
+
     /// Is automatic update of the underlying configuration enabled?
     pub fn auto_update_enabled(&self) -> bool {
         // If the config updater handle is none, configs won't be updated.
