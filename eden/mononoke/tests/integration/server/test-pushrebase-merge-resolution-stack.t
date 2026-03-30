@@ -112,11 +112,10 @@ Verify other.txt was also updated correctly
   $ cat other.txt
   modified other content
 
-BUG: The first rebased commit is missing the server edit (SERVER_EDIT_LINE1)
-because the merge override was applied to HEAD instead of to this commit.
+Verify the FIRST rebased commit also has the merged content (not stale)
   $ hg up -q .^
   $ cat shared.txt
-  line1
+  SERVER_EDIT_LINE1
   line2
   line3
   line4

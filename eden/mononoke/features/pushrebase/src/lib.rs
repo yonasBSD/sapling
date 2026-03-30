@@ -119,6 +119,7 @@ use three_way_merge::MergeResult;
 use three_way_merge::merge_text;
 use tokio::sync::oneshot;
 use tracing::info;
+use tracing::warn;
 
 define_stats! {
     prefix = "mononoke.pushrebase";
@@ -217,13 +218,6 @@ pub struct PushrebaseRetryNum(pub usize);
 
 #[derive(Debug, Clone, Copy)]
 pub struct PushrebaseDistance(pub usize);
-
-impl PushrebaseDistance {
-    fn add(&self, value: usize) -> Self {
-        let PushrebaseDistance(prev) = self;
-        PushrebaseDistance(prev + value)
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct PushrebaseOutcome {
@@ -408,13 +402,12 @@ pub async fn do_batched_pushrebase(
 
     let mut requests_iter = requests.into_iter();
     while let Some(request) = requests_iter.next() {
-        let bookmark_val = old_bookmark_value.unwrap_or(request.conflict_check_base);
+        let bookmark_val = old_bookmark_value.unwrap_or(request.root);
         let merged_file_overrides = match check_pushrebase_conflicts(
             ctx,
             repo,
             config,
             request.root,
-            request.conflict_check_base,
             bookmark_val,
             &request.changesets,
             &request.changed_files,
@@ -642,12 +635,23 @@ async fn check_filenodes_backfilled(
 }
 
 /// Result of conflict checking in pushrebase.
+/// Info about a single file that was successfully merged during conflict
+/// resolution. Carries the base/server content IDs so the cascading merge
+/// in `create_rebased_changesets` can reuse them without re-fetching fsnodes.
+#[derive(Clone)]
+struct MergedFileInfo {
+    path: NonRootMPath,
+    base_content_id: ContentId,
+    server_content_id: ContentId,
+    file_type: FileType,
+}
+
 struct ConflictCheckResult {
     /// Number of server-side changesets (used for pushrebase_distance tracking).
     server_changeset_count: usize,
-    /// If merge resolution succeeded, the merged file changes to apply.
+    /// If merge resolution succeeded, info about each merged file.
     /// `None` means no conflicts or merge resolution was not attempted.
-    merged_file_overrides: Option<Vec<(NonRootMPath, FileChange)>>,
+    merged_file_overrides: Option<Vec<MergedFileInfo>>,
 }
 
 /// Checks for server-side conflicts against the client's pushed stack.
@@ -658,13 +662,11 @@ async fn check_pushrebase_conflicts(
     repo: &impl Repo,
     config: &PushrebaseFlags,
     root: ChangesetId,
-    ancestor: ChangesetId,
     descendant: ChangesetId,
     client_bcs: &[BonsaiChangeset],
     client_cf: &[MPath],
 ) -> Result<ConflictCheckResult, PushrebaseError> {
-    let server_bcs =
-        fetch_bonsai_range_ancestor_not_included(ctx, repo, ancestor, descendant).await?;
+    let server_bcs = fetch_bonsai_range_ancestor_not_included(ctx, repo, root, descendant).await?;
     let server_bcs_len = server_bcs.len();
 
     if let Some(bcs) = server_bcs.iter().find(|bcs| should_fail_pushrebase(bcs)) {
@@ -681,7 +683,7 @@ async fn check_pushrebase_conflicts(
         }
     }
 
-    let mut server_cf = find_changed_files(ctx, repo, ancestor, descendant).await?;
+    let mut server_cf = find_changed_files(ctx, repo, root, descendant).await?;
     server_cf.extend(find_subtree_changes(&server_bcs)?);
 
     match intersect_changed_files(server_cf, client_cf.to_vec()) {
@@ -790,17 +792,6 @@ async fn rebase_in_loop(
     prepushrebase_hooks: &[Box<dyn PushrebaseHook>],
 ) -> Result<PushrebaseOutcome, PushrebaseError> {
     let should_log = config.monitoring_bookmark.as_deref() == Some(onto_bookmark.as_str());
-    let mut latest_rebase_attempt = root;
-    let mut pushrebase_distance = PushrebaseDistance(0);
-
-    // Carry forward merge overrides across CAS retries. When a conflict is
-    // detected and merge resolution succeeds, but the CAS fails (bookmark
-    // moved), the retry's conflict check range shifts to (old_bookmark →
-    // new_bookmark). The original conflict may no longer be in this range.
-    // Without carrying forward, the retry would proceed without merge
-    // resolution, silently overwriting server changes.
-    let mut carried_merge_overrides: Option<Vec<(NonRootMPath, FileChange)>> = None;
-
     let repo_args = (repo.repo_identity().name().to_string(),);
     for retry_num in 0..MAX_REBASE_ATTEMPTS {
         let retry_num = PushrebaseRetryNum(retry_num);
@@ -814,53 +805,25 @@ async fn rebase_in_loop(
         }))
         .await?;
 
+        // Always check the full range root → current_master so that
+        // merge resolution info is never lost across CAS retries.
         let conflict_result = check_pushrebase_conflicts(
             ctx,
             repo,
             config,
             root,
-            latest_rebase_attempt,
             old_bookmark_value.unwrap_or(root),
             client_bcs,
             &client_cf,
         )
         .await?;
-        pushrebase_distance = pushrebase_distance.add(conflict_result.server_changeset_count);
-
-        // Combine merge overrides: merge new overrides with carried-over
-        // ones. New overrides for the same path take precedence (re-merged
-        // against latest server state), but carried-over overrides for
-        // paths NOT in the new set are preserved. This handles the case
-        // where retry N resolves files A,B and retry N+1 resolves C,D:
-        // the effective set is A,B,C,D.
-        let effective_overrides = match (
-            conflict_result.merged_file_overrides,
-            &carried_merge_overrides,
-        ) {
-            (Some(new_overrides), Some(prev_overrides)) => {
-                // Merge: start with previous overrides, then apply new
-                // ones (which take precedence for overlapping paths).
-                let mut merged: HashMap<NonRootMPath, FileChange> =
-                    prev_overrides.iter().cloned().collect();
-                for (path, fc) in new_overrides {
-                    merged.insert(path, fc);
-                }
-                Some(merged.into_iter().collect())
-            }
-            (Some(new_overrides), None) => Some(new_overrides),
-            (None, Some(prev_overrides)) => {
-                // No new conflicts in this attempt's range, but a previous
-                // attempt resolved conflicts that are still valid. Carry
-                // forward.
-                Some(prev_overrides.clone())
-            }
-            (None, None) => None,
-        };
+        let pushrebase_distance = PushrebaseDistance(conflict_result.server_changeset_count);
 
         // Extract merged paths for observability before overrides are consumed
-        let merge_resolved_paths = effective_overrides
+        let merge_resolved_paths = conflict_result
+            .merged_file_overrides
             .as_ref()
-            .map(|overrides| overrides.iter().map(|(path, _)| path.clone()).collect());
+            .map(|overrides| overrides.iter().map(|info| info.path.clone()).collect());
 
         let rebase_outcome = do_rebase(
             ctx,
@@ -871,7 +834,7 @@ async fn rebase_in_loop(
             old_bookmark_value,
             onto_bookmark,
             hooks,
-            effective_overrides.clone(),
+            conflict_result.merged_file_overrides,
         )
         .await?;
         // CRITICAL SECTION END: Right after writing new value of bookmark
@@ -904,10 +867,6 @@ async fn rebase_in_loop(
             STATS::critical_section_failure_duration_us
                 .add_value(critical_section_duration_us, repo_args.clone());
         }
-
-        // CAS failed — carry forward overrides for the next attempt
-        carried_merge_overrides = effective_overrides;
-        latest_rebase_attempt = old_bookmark_value.unwrap_or(root);
     }
     if should_log {
         STATS::critical_section_retries_failed.add_value(MAX_REBASE_ATTEMPTS as i64, repo_args);
@@ -929,7 +888,7 @@ async fn do_rebase(
     old_bookmark_value: Option<ChangesetId>,
     onto_bookmark: &BookmarkKey,
     mut hooks: Vec<Box<dyn PushrebaseCommitHook>>,
-    merged_file_overrides: Option<Vec<(NonRootMPath, FileChange)>>,
+    merged_file_overrides: Option<Vec<MergedFileInfo>>,
 ) -> Result<
     Option<(
         ChangesetId,
@@ -1384,6 +1343,35 @@ async fn try_merge_file(
     }
 }
 
+/// 3-way merge using three ContentIds directly (no fsnode lookup).
+///
+/// Used by the cascading merge in the rebase loop, where the base content
+/// comes from a tracked map rather than a fsnode manifest.
+async fn merge_file_by_content_ids(
+    ctx: &CoreContext,
+    repo: &impl Repo,
+    path: &NonRootMPath,
+    base_content_id: ContentId,
+    local_content_id: ContentId,
+    other_content_id: ContentId,
+) -> FileMergeOutcome {
+    let (base_bytes, local_bytes, other_bytes) = futures::join!(
+        filestore::fetch_concat(repo.repo_blobstore(), ctx, base_content_id),
+        filestore::fetch_concat(repo.repo_blobstore(), ctx, local_content_id),
+        filestore::fetch_concat(repo.repo_blobstore(), ctx, other_content_id),
+    );
+
+    match (base_bytes, local_bytes, other_bytes) {
+        (Ok(base), Ok(local), Ok(other)) => match merge_text(&base, &local, &other) {
+            MergeResult::Clean(merged) => FileMergeOutcome::Clean(Bytes::from(merged)),
+            MergeResult::Conflict(desc) => {
+                FileMergeOutcome::Conflict(format!("file {}: {}", path, desc))
+            }
+        },
+        (Err(e), _, _) | (_, Err(e), _) | (_, _, Err(e)) => FileMergeOutcome::Error(e),
+    }
+}
+
 /// Attempt a dry-run 3-way merge on conflicting files, logging outcomes
 /// to Scuba without changing pushrebase behavior.
 ///
@@ -1549,9 +1537,10 @@ async fn dry_run_merge_resolution(
         .await
         {
             FileMergeOutcome::Clean(_) => resolved_count += 1,
-            FileMergeOutcome::Conflict(_) => {
+            FileMergeOutcome::Conflict(description) => {
                 all_clean = false;
                 conflict_count += 1;
+                skip_reasons.push(description);
             }
             FileMergeOutcome::Skipped(reason) => {
                 all_clean = false;
@@ -1598,9 +1587,6 @@ async fn dry_run_merge_resolution(
 /// Error type for merge resolution failures.
 #[derive(Debug, Error)]
 enum MergeResolutionError {
-    /// At least one file has a true content-level conflict.
-    #[error("unresolvable conflict: {0}")]
-    UnresolvableConflict(String),
     /// A file is missing in one or more versions, or has copy info, or type mismatch.
     #[error("skipped: {0}")]
     Skipped(String),
@@ -1635,7 +1621,7 @@ async fn attempt_merge_resolution(
     max_conflicts: usize,
     max_file_size: u64,
     derive_fsnodes: bool,
-) -> Result<Vec<(NonRootMPath, FileChange)>, MergeResolutionError> {
+) -> Result<Vec<MergedFileInfo>, MergeResolutionError> {
     // Only handle exact path matches (not prefix conflicts like dir vs dir/file)
     let exact_conflicts: Vec<_> = conflicts.iter().filter(|c| c.left == c.right).collect();
 
@@ -1752,50 +1738,41 @@ async fn attempt_merge_resolution(
             )));
         }
 
-        match try_merge_file(
-            ctx,
-            repo,
-            root,
-            &non_root_path,
-            client_fc.content_id(),
-            server_fc.content_id(),
-            Some(local_file_type),
-        )
-        .await
-        {
-            FileMergeOutcome::Clean(merged_bytes) => {
-                // Store the merged content
-                let size = merged_bytes.len() as u64;
-                let meta = filestore::store(
-                    repo.repo_blobstore(),
-                    *repo.filestore_config(),
-                    ctx,
-                    &filestore::StoreRequest::new(size),
-                    stream::once(future::ok(merged_bytes)),
-                )
-                .await
-                .map_err(MergeResolutionError::InternalError)?;
+        // Fetch base content from root fsnode — capture the content ID
+        // so the cascading merge in create_rebased_changesets can reuse it.
+        let base_fsnode = match fetch_fsnode_file(ctx, repo, root, &non_root_path).await {
+            Ok(Some(f)) => f,
+            Ok(None) => {
+                return Err(MergeResolutionError::Skipped(format!(
+                    "file {} not found in base",
+                    non_root_path,
+                )));
+            }
+            Err(e) => return Err(MergeResolutionError::InternalError(e)),
+        };
 
-                let file_change = FileChange::tracked(
-                    meta.content_id,
-                    local_file_type,
-                    meta.total_size,
-                    None, // no copy info for merged files
-                    GitLfs::FullContent,
-                );
-
-                merged_file_changes.push((non_root_path, file_change));
-            }
-            FileMergeOutcome::Conflict(description) => {
-                return Err(MergeResolutionError::UnresolvableConflict(description));
-            }
-            FileMergeOutcome::Skipped(reason) => {
-                return Err(MergeResolutionError::Skipped(reason));
-            }
-            FileMergeOutcome::Error(err) => {
-                return Err(MergeResolutionError::InternalError(err));
-            }
+        if *base_fsnode.file_type() != local_file_type {
+            return Err(MergeResolutionError::Skipped(format!(
+                "file {} has type mismatch: base={:?}, local={:?}",
+                non_root_path,
+                base_fsnode.file_type(),
+                local_file_type,
+            )));
         }
+
+        let base_content_id = *base_fsnode.content_id();
+        let server_content_id = server_fc.content_id().clone();
+
+        // Record metadata for the cascading merge in
+        // create_rebased_changesets. The actual 3-way merge is deferred
+        // to the rebase loop where it runs per-commit with the correct
+        // base/local/other for each commit in the stack.
+        merged_file_changes.push(MergedFileInfo {
+            path: non_root_path,
+            base_content_id,
+            server_content_id,
+            file_type: local_file_type,
+        });
     }
 
     // Log success
@@ -1836,7 +1813,7 @@ async fn create_rebased_changesets(
     head: ChangesetId,
     onto: ChangesetId,
     hooks: &mut [Box<dyn PushrebaseCommitHook>],
-    merged_file_overrides: Option<Vec<(NonRootMPath, FileChange)>>,
+    merged_file_overrides: Option<Vec<MergedFileInfo>>,
 ) -> Result<(ChangesetId, RebasedChangesets, Vec<BonsaiChangeset>), PushrebaseError> {
     let rebased_set = find_rebased_set(ctx, repo, root, head).await?;
 
@@ -1848,8 +1825,37 @@ async fn create_rebased_changesets(
         None
     };
 
-    // rebased_set already sorted in reverse topological order, which guarantees
-    // that all required nodes will be updated by the time they are needed
+    // rebased_set already sorted in topological order (oldest first), which
+    // guarantees that all required nodes will be updated by the time they
+    // are needed.
+    //
+    // Cascading merge: when merge resolution is active, we perform a
+    // per-commit 3-way merge instead of applying overrides only to HEAD.
+    // This ensures every intermediate commit has correct content.
+    //
+    // We track two maps for merge paths:
+    //   old_parent_content: content in the ORIGINAL parent chain (pre-rebase)
+    //   new_parent_content: content in the REBASED parent chain (post-rebase)
+    // For each commit that touches a merge path, we merge:
+    //   merge(old_parent_content, commit_content, new_parent_content)
+    // then update both maps for the next commit in the stack.
+
+    // Initialize cascading merge state from MergedFileInfo. The base and
+    // server content IDs were already captured by attempt_merge_resolution,
+    // so no additional fsnode fetches are needed here.
+    let mut merge_paths: HashSet<NonRootMPath> = HashSet::new();
+    let mut old_parent_content: HashMap<NonRootMPath, ContentId> = HashMap::new();
+    let mut new_parent_content: HashMap<NonRootMPath, ContentId> = HashMap::new();
+    let mut merge_file_types: HashMap<NonRootMPath, FileType> = HashMap::new();
+
+    if let Some(ref overrides) = merged_file_overrides {
+        for info in overrides {
+            merge_paths.insert(info.path.clone());
+            old_parent_content.insert(info.path.clone(), info.base_content_id);
+            new_parent_content.insert(info.path.clone(), info.server_content_id);
+            merge_file_types.insert(info.path.clone(), info.file_type);
+        }
+    }
 
     // Create a fake timestamp, it doesn't matter what timestamp root has
 
@@ -1857,12 +1863,95 @@ async fn create_rebased_changesets(
     let mut rebased = Vec::new();
     for bcs_old in rebased_set {
         let id_old = bcs_old.get_changeset_id();
-        // Only apply merged file overrides to the head changeset
-        let overrides_for_this = if id_old == head {
-            merged_file_overrides.as_ref()
-        } else {
+
+        // Compute per-commit merge overrides via cascading merge.
+        let mut overrides_for_this: Vec<(NonRootMPath, FileChange)> = Vec::new();
+        for (path, fc) in bcs_old.file_changes_map() {
+            if !merge_paths.contains(path) {
+                continue;
+            }
+
+            let local_content_id = match fc {
+                FileChange::Change(tc) => tc.content_id().clone(),
+                _ => continue,
+            };
+
+            let base_id = match old_parent_content.get(path) {
+                Some(id) => *id,
+                None => continue,
+            };
+            let other_id = match new_parent_content.get(path) {
+                Some(id) => *id,
+                None => continue,
+            };
+
+            // If the new parent has the same content as the old parent,
+            // there's nothing to merge — just update tracking.
+            if base_id == other_id {
+                old_parent_content.insert(path.clone(), local_content_id);
+                new_parent_content.insert(path.clone(), local_content_id);
+                continue;
+            }
+
+            let file_type = merge_file_types
+                .get(path)
+                .copied()
+                .unwrap_or(FileType::Regular);
+
+            match merge_file_by_content_ids(ctx, repo, path, base_id, local_content_id, other_id)
+                .await
+            {
+                FileMergeOutcome::Clean(merged_bytes) => {
+                    let size = merged_bytes.len() as u64;
+                    let meta = filestore::store(
+                        repo.repo_blobstore(),
+                        *repo.filestore_config(),
+                        ctx,
+                        &filestore::StoreRequest::new(size),
+                        stream::once(future::ok(merged_bytes)),
+                    )
+                    .await?;
+
+                    overrides_for_this.push((
+                        path.clone(),
+                        FileChange::tracked(
+                            meta.content_id,
+                            file_type,
+                            meta.total_size,
+                            None,
+                            GitLfs::FullContent,
+                        ),
+                    ));
+
+                    // Update tracking for downstream commits.
+                    old_parent_content.insert(path.clone(), local_content_id);
+                    new_parent_content.insert(path.clone(), meta.content_id);
+                }
+                FileMergeOutcome::Conflict(description) => {
+                    // Cascading merge failed — fall back to the standard
+                    // conflict rejection. This surfaces as a normal
+                    // pushrebase conflict error to the client.
+                    warn!("Cascading merge conflict on {}: {}", path, description,);
+                    return Err(PushrebaseError::Conflicts(vec![PushrebaseConflict {
+                        left: MPath::from(path.clone()),
+                        right: MPath::from(path.clone()),
+                    }]));
+                }
+                FileMergeOutcome::Skipped(_) | FileMergeOutcome::Error(_) => {
+                    return Err(PushrebaseError::Conflicts(vec![PushrebaseConflict {
+                        left: MPath::from(path.clone()),
+                        right: MPath::from(path.clone()),
+                    }]));
+                }
+            }
+        }
+
+        let overrides_ref = if overrides_for_this.is_empty() {
             None
+        } else {
+            Some(&overrides_for_this)
         };
+
         let bcs_new = rebase_changeset(
             ctx,
             bcs_old,
@@ -1873,7 +1962,7 @@ async fn create_rebased_changesets(
             repo,
             &rebased_set_ids,
             hooks,
-            overrides_for_this,
+            overrides_ref,
         )
         .await?;
         let timestamp = Timestamp::from(*bcs_new.author_date());
@@ -4777,15 +4866,13 @@ mod tests {
     }
 
     #[mononoke::fbinit_test]
-    async fn pushrebase_merge_resolution_lost_on_cas_retry(fb: FacebookInit) -> Result<(), Error> {
-        // Regression test: When merge resolution succeeds on the first
-        // pushrebase attempt but the CAS fails, the retry's conflict check
-        // range shifts to (old_bookmark → new_bookmark). The original
-        // conflict is no longer in this range, so the retry proceeds
-        // without merge resolution, silently overwriting server changes.
-        //
-        // This test demonstrates the bug by simulating the two conflict
-        // check ranges and showing that the server's change is lost.
+    async fn pushrebase_merge_resolution_full_range_on_retry(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // Test: check_pushrebase_conflicts always uses root as ancestor,
+        // so on CAS retry the full range root → new_master is checked.
+        // This ensures merge resolution info is never lost when the
+        // bookmark moves forward between attempts.
         let ctx = CoreContext::test_mock(fb);
         let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
 
@@ -4855,17 +4942,15 @@ line 8
 
         init_just_knobs_for_merge_test();
 
-        // --- Simulate attempt 1: conflict check range = base → S2 ---
-        // This range includes S1's change to file.txt, so a conflict is
-        // detected and merge resolution succeeds.
         let client_cf = find_changed_files(&ctx, &repo, base, client).await?;
+
+        // --- Simulate attempt 1: full range base → S2 ---
         let result1 = check_pushrebase_conflicts(
             &ctx,
             &repo,
             &Default::default(),
             base,
-            base, // ancestor = root (first attempt)
-            s2,   // descendant = current bookmark
+            s2,
             std::slice::from_ref(&client_bcs),
             &client_cf,
         )
@@ -4875,52 +4960,24 @@ line 8
             "Attempt 1 should detect the conflict and produce merge overrides"
         );
 
-        // --- Simulate attempt 2: CAS failed, retry with shifted range ---
-        // Now the conflict check range shifts to S1 → S2 (only the new
-        // server changes since the last attempt). S1's file.txt change is
-        // no longer in this range.
+        // --- Simulate attempt 2: CAS failed, but we still check full
+        // range base → S2 (not S1 → S2). The conflict is re-detected.
         let result2 = check_pushrebase_conflicts(
             &ctx,
             &repo,
             &Default::default(),
             base,
-            s1, // ancestor = old_bookmark_value from attempt 1
-            s2, // descendant = new bookmark
+            s2,
             std::slice::from_ref(&client_bcs),
             &client_cf,
         )
         .await?;
-
-        // The retry finds no NEW conflict in its range (S1→S2).
         assert!(
-            result2.merged_file_overrides.is_none(),
-            "Retry's shifted range should not detect a new conflict"
+            result2.merged_file_overrides.is_some(),
+            "Retry with full range should still detect the conflict"
         );
 
-        // FIX: Merge overrides from attempt 1 with any from attempt 2.
-        // New overrides take precedence for overlapping paths, but
-        // carried-over overrides for non-overlapping paths are preserved.
-        let effective_overrides = match (
-            result2.merged_file_overrides,
-            &result1.merged_file_overrides,
-        ) {
-            (Some(new), Some(prev)) => {
-                let mut merged: HashMap<NonRootMPath, FileChange> = prev.iter().cloned().collect();
-                for (path, fc) in new {
-                    merged.insert(path, fc);
-                }
-                Some(merged.into_iter().collect())
-            }
-            (Some(new), None) => Some(new),
-            (None, Some(prev)) => Some(prev.clone()),
-            (None, None) => None,
-        };
-        assert!(
-            effective_overrides.is_some(),
-            "Carried-over overrides from attempt 1 should be used"
-        );
-
-        // Rebase with the carried-over overrides
+        // Rebase with the retry's overrides — no carry-forward needed
         let (new_head, _, rebased_bonsais) = create_rebased_changesets(
             &ctx,
             &repo,
@@ -4929,7 +4986,7 @@ line 8
             client,
             s2,
             &mut [],
-            effective_overrides,
+            result2.merged_file_overrides,
         )
         .await?;
         changesets_creation::save_changesets(&ctx, &repo, rebased_bonsais).await?;
@@ -4964,8 +5021,7 @@ line 8
         );
         assert!(
             file_content.contains("line 2.1"),
-            "rebased commit should have server's line 2.1 \
-             (carried-over merge override). Actual:\n{}",
+            "rebased commit should have server's line 2.1. Actual:\n{}",
             file_content,
         );
 
@@ -4973,12 +5029,12 @@ line 8
     }
 
     #[mononoke::fbinit_test]
-    async fn pushrebase_merge_resolution_cas_retry_merges_overrides(
+    async fn pushrebase_merge_resolution_full_range_with_new_server_changes(
         fb: FacebookInit,
     ) -> Result<(), Error> {
-        // Test: When retry N resolves files A,B and retry N+1 resolves
-        // files C,D, the effective override set should be A,B,C,D.
-        // New overrides for the same path take precedence over old ones.
+        // Test: When the same file is changed in both root→M1 and M1→M1',
+        // the full-range re-check produces fresh MergedFileInfo with the
+        // correct server_content_id from M1' (not stale M1 value).
         let ctx = CoreContext::test_mock(fb);
         let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
 
@@ -5017,57 +5073,29 @@ line 8
 
         let client_cf = find_changed_files(&ctx, &repo, base, client).await?;
 
-        // Attempt 1: range = base → S1. Only a.txt conflict is in range.
-        let result1 = check_pushrebase_conflicts(
+        // Full range base → S2: both a.txt and b.txt conflicts detected.
+        let result = check_pushrebase_conflicts(
             &ctx,
             &repo,
             &Default::default(),
             base,
-            base,
-            s1,
-            std::slice::from_ref(&client_bcs),
-            &client_cf,
-        )
-        .await?;
-        assert!(
-            result1.merged_file_overrides.is_some(),
-            "Attempt 1 should resolve a.txt conflict"
-        );
-        let overrides1 = result1.merged_file_overrides.unwrap();
-        assert_eq!(overrides1.len(), 1, "Should have 1 override (a.txt)");
-
-        // Attempt 2: range = S1 → S2. Only b.txt conflict is in range.
-        let result2 = check_pushrebase_conflicts(
-            &ctx,
-            &repo,
-            &Default::default(),
-            base,
-            s1,
             s2,
             std::slice::from_ref(&client_bcs),
             &client_cf,
         )
         .await?;
         assert!(
-            result2.merged_file_overrides.is_some(),
-            "Attempt 2 should resolve b.txt conflict"
+            result.merged_file_overrides.is_some(),
+            "Should resolve both conflicts"
         );
-        let overrides2 = result2.merged_file_overrides.unwrap();
-        assert_eq!(overrides2.len(), 1, "Should have 1 override (b.txt)");
-
-        // Merge overrides: both a.txt and b.txt should be in the result
-        let mut merged: HashMap<NonRootMPath, FileChange> = overrides1.into_iter().collect();
-        for (path, fc) in overrides2 {
-            merged.insert(path, fc);
-        }
-        let effective_overrides: Vec<_> = merged.into_iter().collect();
+        let overrides = result.merged_file_overrides.unwrap();
         assert_eq!(
-            effective_overrides.len(),
+            overrides.len(),
             2,
-            "Merged overrides should have 2 entries (a.txt + b.txt)"
+            "Should have 2 overrides (a.txt + b.txt)"
         );
 
-        // Rebase with merged overrides
+        // Rebase with overrides
         let (new_head, _, rebased_bonsais) = create_rebased_changesets(
             &ctx,
             &repo,
@@ -5076,7 +5104,7 @@ line 8
             client,
             s2,
             &mut [],
-            Some(effective_overrides),
+            Some(overrides),
         )
         .await?;
         changesets_creation::save_changesets(&ctx, &repo, rebased_bonsais).await?;
@@ -5244,15 +5272,13 @@ line 8
             "first rebased commit should have line 6.1 (client's change)"
         );
 
-        // BUG: The first rebased commit is missing "line 2.1" (server's
-        // addition) because the merge override was applied to HEAD instead
-        // of to this commit which actually touches file.txt.
+        // FIX: With cascading merge, the first rebased commit now has the
+        // server's "line 2.1" because the merge is applied per-commit
+        // during the rebase, not just to HEAD.
         assert!(
-            !file_content.contains("line 2.1"),
-            "BUG DEMONSTRATED: first rebased commit is missing server's \
-             'line 2.1' because the merge override was applied to HEAD \
-             instead of to the commit that touches the file.\n\
-             Actual file.txt in first rebased commit:\n{}",
+            file_content.contains("line 2.1"),
+            "first rebased commit should have server's 'line 2.1' \
+             (cascading merge applied per-commit). Actual:\n{}",
             file_content,
         );
 
