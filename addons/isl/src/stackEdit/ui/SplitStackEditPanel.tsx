@@ -20,6 +20,7 @@ import {Subtle} from 'isl-components/Subtle';
 import {TextField} from 'isl-components/TextField';
 import {Tooltip} from 'isl-components/Tooltip';
 import {useAtom, useAtomValue} from 'jotai';
+import type {JSX} from 'react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useContextMenu} from 'shared/ContextMenu';
 import {readableDiffBlocks as diffBlocks, type LineIdx, splitLines} from 'shared/diff';

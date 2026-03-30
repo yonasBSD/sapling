@@ -7,6 +7,7 @@
 
 import {ErrorBoundary} from 'isl-components/ErrorNotice';
 import {Icon} from 'isl-components/Icon';
+import type {JSX} from 'react';
 import {Suspense} from 'react';
 
 /**

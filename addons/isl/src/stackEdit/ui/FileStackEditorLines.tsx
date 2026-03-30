@@ -11,6 +11,7 @@ import type {FileRev, FileStackState} from '../fileStackState';
 import type {RangeInfo} from './TextEditable';
 
 import {Set as ImSet, Range} from 'immutable';
+import type {JSX} from 'react';
 import {applyTokenizationToLine} from 'shared/createTokenizedIntralineDiff';
 import {type Block, collapseContextBlocks, type LineIdx} from 'shared/diff';
 import {t} from '../../i18n';

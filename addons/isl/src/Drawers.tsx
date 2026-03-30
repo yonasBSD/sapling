@@ -15,7 +15,7 @@ import {islDrawerState} from './drawerState';
 
 import './Drawers.css';
 
-type NonNullReactElement = React.ReactElement | React.ReactFragment;
+type NonNullReactElement = React.ReactElement | Iterable<React.ReactNode>;
 
 enum Side {
   left = 'left',

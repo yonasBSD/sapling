@@ -5,11 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {ForwardedRef} from 'react';
 import type {ReactProps} from './utils';
 
 import * as stylex from '@stylexjs/stylex';
-import {forwardRef} from 'react';
 import {textFieldStyles} from './TextField';
 
 const styles = stylex.create({
@@ -39,33 +37,31 @@ const styles = stylex.create({
 /**
  * Like a normal text field / {@link TextField}, but grows horizontally to fit the text.
  */
-export const HorizontallyGrowingTextField = forwardRef(
-  (
-    props: ReactProps<HTMLInputElement> & {
-      value?: string;
-      placeholder?: string;
-    },
-    ref: ForwardedRef<HTMLInputElement>,
-  ) => {
-    const {onInput, ...otherProps} = props;
-
-    return (
-      <div {...stylex.props(styles.horizontalGrowContainer)} data-value={otherProps.value}>
-        <input
-          {...stylex.props(textFieldStyles.input, styles.horizontalGrow)}
-          type="text"
-          ref={ref}
-          onInput={e => {
-            if ((e.currentTarget.parentNode as HTMLDivElement)?.dataset) {
-              // Use `dataset` + `content: attr(data-value)` to size an ::after element,
-              // which auto-expands the containing div to fit the text.
-              (e.currentTarget.parentNode as HTMLDivElement).dataset.value = e.currentTarget.value;
-            }
-            onInput?.(e);
-          }}
-          {...otherProps}
-        />
-      </div>
-    );
+export function HorizontallyGrowingTextField(
+  props: ReactProps<HTMLInputElement> & {
+    value?: string;
+    placeholder?: string;
+    ref?: React.Ref<HTMLInputElement>;
   },
-);
+) {
+  const {onInput, ref, ...otherProps} = props;
+
+  return (
+    <div {...stylex.props(styles.horizontalGrowContainer)} data-value={otherProps.value}>
+      <input
+        {...stylex.props(textFieldStyles.input, styles.horizontalGrow)}
+        type="text"
+        ref={ref}
+        onInput={e => {
+          if ((e.currentTarget.parentNode as HTMLDivElement)?.dataset) {
+            // Use `dataset` + `content: attr(data-value)` to size an ::after element,
+            // which auto-expands the containing div to fit the text.
+            (e.currentTarget.parentNode as HTMLDivElement).dataset.value = e.currentTarget.value;
+          }
+          onInput?.(e);
+        }}
+        {...otherProps}
+      />
+    </div>
+  );
+}

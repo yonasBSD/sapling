@@ -5,14 +5,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import type {JSX} from 'react';
+
 import type {ExclusiveOr} from 'shared/typeUtils';
 import type {OneIndexedLineNumber} from './types';
 
 type Props = {
   beforeLineNumber: number | null;
-  before: React.ReactFragment | null;
+  before: React.ReactNode;
   afterLineNumber: number | null;
-  after: React.ReactFragment | null;
+  after: React.ReactNode;
   rowType: SplitDiffRowType;
   path: string;
   unified: boolean;

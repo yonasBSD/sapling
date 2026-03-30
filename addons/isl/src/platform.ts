@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {LazyExoticComponent} from 'react';
+import type {JSX, LazyExoticComponent} from 'react';
 import type {Comparison} from 'shared/Comparison';
 import type {Json} from 'shared/typeUtils';
 import type {MessageBus} from './MessageBus';

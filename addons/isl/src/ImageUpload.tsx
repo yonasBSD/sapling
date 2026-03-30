@@ -123,7 +123,7 @@ export function PendingImageUploads({
   textAreaRef,
 }: {
   fieldName: string;
-  textAreaRef: RefObject<HTMLTextAreaElement>;
+  textAreaRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const numPending = useAtomValue(numPendingImageUploads(fieldName));
   const unresolvedErrors = useAtomValue(unresolvedErroredImagedUploads(fieldName));
@@ -274,7 +274,7 @@ export function FilePicker({uploadFiles}: {uploadFiles: (files: Array<File>) => 
 
 export function useUploadFilesCallback(
   fieldName: string,
-  ref: RefObject<HTMLTextAreaElement>,
+  ref: RefObject<HTMLTextAreaElement | null>,
   onInput: (e: {currentTarget: HTMLTextAreaElement}) => unknown,
 ) {
   return async (files: Array<File>) => {

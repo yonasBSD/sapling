@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {ReactNode} from 'react';
+import type {JSX, ReactNode} from 'react';
 import type {Dag, DagCommitInfo} from './dag/dag';
 import type {ExtendedGraphRow} from './dag/render';
 import type {HashSet} from './dag/set';

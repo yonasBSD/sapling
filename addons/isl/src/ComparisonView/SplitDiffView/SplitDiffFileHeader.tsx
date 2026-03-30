@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import type {JSX} from 'react';
+
 import type {EnsureAssignedTogether} from 'shared/EnsureAssignedTogether';
 import type {DiffType} from 'shared/patch/types';
 import type {RepoPath} from 'shared/types/common';

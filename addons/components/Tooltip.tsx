@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {MouseEvent, ReactNode} from 'react';
+import type {JSX, MouseEvent, ReactNode} from 'react';
 import type {ExclusiveOr} from './Types';
 
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';

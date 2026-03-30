@@ -88,7 +88,7 @@ function scanElements(containerRef: React.RefObject<HTMLDivElement | null>): HTM
 }
 
 function updatePreviousState(
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
   previousStateRef: React.MutableRefObject<Readonly<PreviousState>>,
   animate = false,
   animationDuration = 200,

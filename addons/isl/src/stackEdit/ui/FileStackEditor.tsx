@@ -13,6 +13,7 @@ import type {RangeInfo} from './TextEditable';
 import deepEqual from 'fast-deep-equal';
 import {Set as ImSet, List, Range} from 'immutable';
 import {Checkbox} from 'isl-components/Checkbox';
+import type {JSX} from 'react';
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {
   collapseContextBlocks,

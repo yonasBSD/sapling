@@ -5,10 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {ForwardedRef, ReactNode} from 'react';
+import type {ReactNode} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
-import {forwardRef, useId} from 'react';
+import {useId} from 'react';
 import {Column} from './Flex';
 
 const styles = stylex.create({
@@ -43,29 +43,32 @@ export type TextAreaProps = {
   xstyle?: stylex.StyleXStyles;
   containerXstyle?: stylex.StyleXStyles;
   resize?: 'none' | 'vertical' | 'horizontal' | 'both';
+  ref?: React.Ref<HTMLTextAreaElement>;
 } & React.DetailedHTMLProps<React.TextareaHTMLAttributes<HTMLTextAreaElement>, HTMLTextAreaElement>;
 
-export const TextArea = forwardRef(
-  (
-    {children, xstyle, containerXstyle, resize = 'none', ...rest}: TextAreaProps,
-    ref: ForwardedRef<HTMLTextAreaElement>,
-  ) => {
-    const id = useId();
-    return (
-      <Column xstyle={[styles.root, containerXstyle ?? null]} alignStart>
-        {children && (
-          <label htmlFor={id} {...stylex.props(styles.label)}>
-            {children}
-          </label>
-        )}
-        <textarea
-          ref={ref}
-          style={{resize}}
-          {...stylex.props(styles.textarea, xstyle)}
-          id={id}
-          {...rest}
-        />
-      </Column>
-    );
-  },
-);
+export function TextArea({
+  children,
+  xstyle,
+  containerXstyle,
+  resize = 'none',
+  ref,
+  ...rest
+}: TextAreaProps) {
+  const id = useId();
+  return (
+    <Column xstyle={[styles.root, containerXstyle ?? null]} alignStart>
+      {children && (
+        <label htmlFor={id} {...stylex.props(styles.label)}>
+          {children}
+        </label>
+      )}
+      <textarea
+        ref={ref}
+        style={{resize}}
+        {...stylex.props(styles.textarea, xstyle)}
+        id={id}
+        {...rest}
+      />
+    </Column>
+  );
+}

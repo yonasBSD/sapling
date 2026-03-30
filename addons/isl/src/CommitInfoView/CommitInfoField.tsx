@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {ReactNode} from 'react';
+import type {JSX, ReactNode} from 'react';
 import type {FieldConfig} from './types';
 
 import {Icon} from 'isl-components/Icon';

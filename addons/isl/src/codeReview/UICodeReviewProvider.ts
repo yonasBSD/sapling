@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {ReactNode} from 'react';
+import type {JSX, ReactNode} from 'react';
 import type {FieldConfig} from '../CommitInfoView/types';
 import type {Operation} from '../operations/Operation';
 import type {Dag} from '../previews';

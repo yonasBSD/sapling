@@ -5,11 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {ForwardedRef, ReactNode} from 'react';
+import type {ReactNode} from 'react';
 import type {ReactProps} from './utils';
 
 import * as stylex from '@stylexjs/stylex';
-import {forwardRef, useId} from 'react';
+import {useId} from 'react';
 import {Column} from './Flex';
 
 export const datetimePickerStyles = stylex.create({
@@ -39,49 +39,46 @@ export const datetimePickerStyles = stylex.create({
   },
 });
 
-export const DatetimePicker = forwardRef(
-  (
-    {
-      children,
-      xstyle,
-      containerXstyle,
-      value,
-      max,
-      width,
-      ...rest
-    }: {
-      children?: ReactNode;
-      xstyle?: stylex.StyleXStyles;
-      containerXstyle?: stylex.StyleXStyles;
-      value?: string;
-      max?: string;
-      width?: string;
-      placeholder?: string;
-      readOnly?: boolean;
-    } & ReactProps<HTMLInputElement>,
-    ref: ForwardedRef<HTMLInputElement>,
-  ) => {
-    const id = useId();
-    return (
-      <Column
-        xstyle={[datetimePickerStyles.root, containerXstyle ?? null]}
-        style={{width}}
-        alignStart>
-        {children && (
-          <label htmlFor={id} {...stylex.props(datetimePickerStyles.label)}>
-            {children}
-          </label>
-        )}
-        <input
-          {...stylex.props(datetimePickerStyles.input, xstyle)}
-          type="datetime-local"
-          id={id}
-          value={value}
-          max={max}
-          {...rest}
-          ref={ref}
-        />
-      </Column>
-    );
-  },
-);
+export function DatetimePicker({
+  children,
+  xstyle,
+  containerXstyle,
+  value,
+  max,
+  width,
+  ref,
+  ...rest
+}: {
+  children?: ReactNode;
+  xstyle?: stylex.StyleXStyles;
+  containerXstyle?: stylex.StyleXStyles;
+  value?: string;
+  max?: string;
+  width?: string;
+  placeholder?: string;
+  readOnly?: boolean;
+  ref?: React.Ref<HTMLInputElement>;
+} & ReactProps<HTMLInputElement>) {
+  const id = useId();
+  return (
+    <Column
+      xstyle={[datetimePickerStyles.root, containerXstyle ?? null]}
+      style={{width}}
+      alignStart>
+      {children && (
+        <label htmlFor={id} {...stylex.props(datetimePickerStyles.label)}>
+          {children}
+        </label>
+      )}
+      <input
+        {...stylex.props(datetimePickerStyles.input, xstyle)}
+        type="datetime-local"
+        id={id}
+        value={value}
+        max={max}
+        {...rest}
+        ref={ref}
+      />
+    </Column>
+  );
+}

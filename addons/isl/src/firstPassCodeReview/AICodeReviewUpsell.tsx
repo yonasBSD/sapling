@@ -16,6 +16,7 @@ import {latestHeadCommit} from '../serverAPIState';
 import type {CodeReviewScope} from '../types';
 import {codeReviewStatusAtom, lastSelectedReviewOptionIdAtom} from './firstPassCodeReviewAtoms';
 
+import type {JSX} from 'react';
 import {useCallback, useEffect, useState} from 'react';
 import {tracker} from '../analytics';
 import {useFeatureFlagSync} from '../featureFlags';

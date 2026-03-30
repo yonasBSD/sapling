@@ -7,7 +7,7 @@
 
 // @lint-ignore-every SPELL
 
-import type {ReactNode} from 'react';
+import type {JSX, ReactNode} from 'react';
 
 import React, {createContext, useContext, useEffect, useState} from 'react';
 import {TypedEventEmitter} from 'shared/TypedEventEmitter';

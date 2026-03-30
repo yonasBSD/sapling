@@ -119,7 +119,7 @@ export function EditorToolbar({
 }: {
   fieldName: string;
   uploadFiles?: (files: Array<File>) => unknown;
-  textAreaRef: RefObject<HTMLTextAreaElement>;
+  textAreaRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const parts: Array<ReactNode> = [];
   if (uploadFiles != null) {

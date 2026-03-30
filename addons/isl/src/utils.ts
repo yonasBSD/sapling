@@ -30,7 +30,7 @@ export function arraysEqual<T>(a: Array<T>, b: Array<T>): boolean {
   return a.every((val, i) => b[i] === val);
 }
 
-export type NonNullReactElement = React.ReactElement | React.ReactFragment;
+export type NonNullReactElement = React.ReactElement | Iterable<React.ReactNode>;
 
 export function getWindowWidthInPixels(): number {
   if (isTest) {

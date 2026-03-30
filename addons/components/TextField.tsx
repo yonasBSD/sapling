@@ -5,11 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {ForwardedRef, ReactNode} from 'react';
+import type {ReactNode} from 'react';
 import type {ReactProps} from './utils';
 
 import * as stylex from '@stylexjs/stylex';
-import {forwardRef, useId} from 'react';
+import {useId} from 'react';
 import {Column} from './Flex';
 
 export const textFieldStyles = stylex.create({
@@ -39,43 +39,40 @@ export const textFieldStyles = stylex.create({
   },
 });
 
-export const TextField = forwardRef(
-  (
-    {
-      children,
-      xstyle,
-      containerXstyle,
-      value,
-      width,
-      ...rest
-    }: {
-      children?: ReactNode;
-      xstyle?: stylex.StyleXStyles;
-      containerXstyle?: stylex.StyleXStyles;
-      value?: string;
-      width?: string;
-      placeholder?: string;
-      readOnly?: boolean;
-    } & ReactProps<HTMLInputElement>,
-    ref: ForwardedRef<HTMLInputElement>,
-  ) => {
-    const id = useId();
-    return (
-      <Column xstyle={[textFieldStyles.root, containerXstyle ?? null]} style={{width}} alignStart>
-        {children && (
-          <label htmlFor={id} {...stylex.props(textFieldStyles.label)}>
-            {children}
-          </label>
-        )}
-        <input
-          {...stylex.props(textFieldStyles.input, xstyle)}
-          type="text"
-          id={id}
-          value={value}
-          {...rest}
-          ref={ref}
-        />
-      </Column>
-    );
-  },
-);
+export function TextField({
+  children,
+  xstyle,
+  containerXstyle,
+  value,
+  width,
+  ref,
+  ...rest
+}: {
+  children?: ReactNode;
+  xstyle?: stylex.StyleXStyles;
+  containerXstyle?: stylex.StyleXStyles;
+  value?: string;
+  width?: string;
+  placeholder?: string;
+  readOnly?: boolean;
+  ref?: React.Ref<HTMLInputElement>;
+} & ReactProps<HTMLInputElement>) {
+  const id = useId();
+  return (
+    <Column xstyle={[textFieldStyles.root, containerXstyle ?? null]} style={{width}} alignStart>
+      {children && (
+        <label htmlFor={id} {...stylex.props(textFieldStyles.label)}>
+          {children}
+        </label>
+      )}
+      <input
+        {...stylex.props(textFieldStyles.input, xstyle)}
+        type="text"
+        id={id}
+        value={value}
+        {...rest}
+        ref={ref}
+      />
+    </Column>
+  );
+}

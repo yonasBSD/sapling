@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {type ForwardedRef, forwardRef, type ReactNode} from 'react';
+import {type ReactNode} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
 import {Button} from './Button';
@@ -53,56 +53,53 @@ const styles = stylex.create({
   },
 });
 
-export const ButtonWithDropdownTooltip = forwardRef(
-  (
-    {
-      label,
-      kind,
-      onClick,
-      disabled,
-      icon,
-      tooltip,
-      ...rest
-    }: {
-      label: ReactNode;
-      kind?: 'primary' | 'icon' | undefined;
-      onClick: () => unknown;
-      disabled?: boolean;
-      icon?: React.ReactNode;
-      tooltip: React.ReactNode;
-      'data-testId'?: string;
-    },
-    ref: ForwardedRef<HTMLButtonElement>,
-  ) => {
-    return (
-      <div {...stylex.props(styles.container)}>
+export function ButtonWithDropdownTooltip({
+  label,
+  kind,
+  onClick,
+  disabled,
+  icon,
+  tooltip,
+  ref,
+  ...rest
+}: {
+  label: ReactNode;
+  kind?: 'primary' | 'icon' | undefined;
+  onClick: () => unknown;
+  disabled?: boolean;
+  icon?: React.ReactNode;
+  tooltip: React.ReactNode;
+  'data-testId'?: string;
+  ref?: React.Ref<HTMLButtonElement>;
+}) {
+  return (
+    <div {...stylex.props(styles.container)}>
+      <Button
+        kind={kind}
+        onClick={disabled ? undefined : () => onClick()}
+        disabled={disabled}
+        xstyle={[styles.button, kind === 'icon' && styles.iconButton]}
+        ref={ref}
+        {...rest}>
+        {icon ?? null} {label}
+      </Button>
+      <Tooltip
+        trigger="click"
+        component={_dismiss => <div>{tooltip}</div>}
+        group="topbar"
+        placement="bottom">
         <Button
           kind={kind}
-          onClick={disabled ? undefined : () => onClick()}
+          onClick={undefined}
           disabled={disabled}
-          xstyle={[styles.button, kind === 'icon' && styles.iconButton]}
-          ref={ref}
+          xstyle={[styles.chevron]}
           {...rest}>
-          {icon ?? null} {label}
+          <Icon
+            icon="chevron-down"
+            {...stylex.props(styles.chevron, disabled && styles.chevronDisabled)}
+          />
         </Button>
-        <Tooltip
-          trigger="click"
-          component={_dismiss => <div>{tooltip}</div>}
-          group="topbar"
-          placement="bottom">
-          <Button
-            kind={kind}
-            onClick={undefined}
-            disabled={disabled}
-            xstyle={[styles.chevron]}
-            {...rest}>
-            <Icon
-              icon="chevron-down"
-              {...stylex.props(styles.chevron, disabled && styles.chevronDisabled)}
-            />
-          </Button>
-        </Tooltip>
-      </div>
-    );
-  },
-);
+      </Tooltip>
+    </div>
+  );
+}

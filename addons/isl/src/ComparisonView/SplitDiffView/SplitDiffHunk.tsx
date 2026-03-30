@@ -433,10 +433,7 @@ function addUnmodifiedRows(
   });
 }
 
-function createIntralineDiff(
-  before: string,
-  after: string,
-): [React.ReactFragment, React.ReactFragment] {
+function createIntralineDiff(before: string, after: string): [React.ReactNode, React.ReactNode] {
   // For lines longer than this, diffChars() can get very expensive to compute
   // and is likely of little value to the user.
   if (before.length + after.length > MAX_INPUT_LENGTH_FOR_INTRALINE_DIFF) {

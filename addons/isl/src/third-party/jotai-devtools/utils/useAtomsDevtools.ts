@@ -44,7 +44,7 @@ export function useAtomsDevtools(
 
   const isTimeTraveling = useRef(false);
   const isRecording = useRef(true);
-  const devtools = useRef<Connection>();
+  const devtools = useRef<Connection | undefined>(undefined);
 
   const snapshots = useRef<AtomsSnapshot[]>([]);
 

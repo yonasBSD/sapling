@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import type {JSX} from 'react';
+
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {isMac} from 'isl-components/OperatingSystem';

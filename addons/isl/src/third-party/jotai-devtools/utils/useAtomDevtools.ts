@@ -24,7 +24,7 @@ export function useAtomDevtools<Value, Result>(
 
   const lastValue = useRef(value);
   const isTimeTraveling = useRef(false);
-  const devtools = useRef<Connection>();
+  const devtools = useRef<Connection | undefined>(undefined);
 
   const atomName = name || anAtom.debugLabel || anAtom.toString();
 

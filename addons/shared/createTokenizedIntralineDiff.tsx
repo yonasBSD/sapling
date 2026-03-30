@@ -58,7 +58,7 @@ export function createTokenizedIntralineDiff(
   beforeTokens: HighlightedToken[],
   afterLine: string,
   afterTokens: HighlightedToken[],
-): [React.ReactFragment | null, React.ReactFragment | null] {
+): [React.ReactNode, React.ReactNode] {
   if (beforeLine.length + afterLine.length > MAX_INPUT_LENGTH_FOR_INTRALINE_DIFF) {
     return [
       applyTokenizationToLine(beforeLine, beforeTokens),
@@ -151,7 +151,7 @@ function mergeChunksAndTokens(
   line: string,
   chunks: Chunk[],
   tokens: HighlightedToken[],
-): React.ReactFragment | null {
+): React.ReactNode {
   if (tokens.length == 0) {
     return null;
   }
@@ -249,7 +249,7 @@ function createSpan(
 export function applyTokenizationToLine(
   line: string,
   tokenization: readonly HighlightedToken[],
-): React.ReactFragment {
+): React.ReactNode {
   return tokenization.map(({start, end, color}) => {
     return (
       <span key={start} className={`${CSS_CLASS_PREFIX}${color}`}>

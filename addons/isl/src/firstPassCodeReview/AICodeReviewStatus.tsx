@@ -6,6 +6,7 @@
  */
 
 import {useAtomValue} from 'jotai';
+import type {JSX} from 'react';
 import clientToServerAPI from '../ClientToServerAPI';
 import {T} from '../i18n';
 import {writeAtom} from '../jotaiUtils';

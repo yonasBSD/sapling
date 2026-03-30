@@ -5,12 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {ForwardedRef} from 'react';
 import type {ExclusiveOr} from './Types';
 import type {ReactProps} from './utils';
 
 import * as stylex from '@stylexjs/stylex';
-import {forwardRef, type ReactNode} from 'react';
+import {type ReactNode} from 'react';
 import {layout} from './theme/layout';
 import {colors} from './theme/tokens.stylex';
 
@@ -88,72 +87,69 @@ export const buttonStyles = stylex.create({
   },
 });
 
-export const Button = forwardRef(
-  (
-    {
-      icon: iconProp,
-      primary: primaryProp,
-      disabled,
-      onClick,
-      children,
-      xstyle,
-      kind,
-      className,
-      ...rest
-    }: {
-      className?: string;
-      children?: ReactNode;
-      disabled?: boolean;
-      xstyle?: stylex.StyleXStyles;
-      primary?: boolean;
-      icon?: boolean;
-    } & Omit<ReactProps<HTMLButtonElement>, 'className'> &
-      ExclusiveOr<
-        ExclusiveOr<
-          {
-            /**
-             * Render as a bright button, encouraged the primary confirmation action.
-             * Equivalent to kind='primary'.
-             */
-            primary?: boolean;
-          },
-          {
-            /**
-             * Render as a smaller, more subtle button. Useful in toolbars or when using an icon instead of a label.
-             * Equivalent to kind='icon'.
-             */
-            icon?: boolean;
-          }
-        >,
-        /** How to display the button. Can also provide `primary` or `icon` shorthand bool props instead. */
-        {kind?: 'primary' | 'icon' | undefined}
-      >,
-    ref: ForwardedRef<HTMLButtonElement>,
-  ) => {
-    const primary = kind === 'primary' || primaryProp === true;
-    const icon = kind === 'icon' || iconProp === true;
-    const {className: stylexClassName, ...otherStylex} = stylex.props(
-      layout.flexRow,
-      buttonStyles.button,
-      primary && buttonStyles.primary,
-      icon && buttonStyles.icon,
-      disabled && buttonStyles.disabled,
-      xstyle,
-    );
-    return (
-      <button
-        tabIndex={disabled ? -1 : 0}
-        onClick={e => {
-          // don't allow clicking a disabled button
-          disabled !== true && onClick?.(e);
-        }}
-        ref={ref}
-        className={stylexClassName + (className ? ' ' + className : '')}
-        {...otherStylex}
-        disabled={disabled}
-        {...rest}>
-        {children}
-      </button>
-    );
-  },
-);
+export function Button({
+  icon: iconProp,
+  primary: primaryProp,
+  disabled,
+  onClick,
+  children,
+  xstyle,
+  kind,
+  className,
+  ref,
+  ...rest
+}: {
+  className?: string;
+  children?: ReactNode;
+  disabled?: boolean;
+  xstyle?: stylex.StyleXStyles;
+  primary?: boolean;
+  icon?: boolean;
+  ref?: React.Ref<HTMLButtonElement>;
+} & Omit<ReactProps<HTMLButtonElement>, 'className'> &
+  ExclusiveOr<
+    ExclusiveOr<
+      {
+        /**
+         * Render as a bright button, encouraged the primary confirmation action.
+         * Equivalent to kind='primary'.
+         */
+        primary?: boolean;
+      },
+      {
+        /**
+         * Render as a smaller, more subtle button. Useful in toolbars or when using an icon instead of a label.
+         * Equivalent to kind='icon'.
+         */
+        icon?: boolean;
+      }
+    >,
+    /** How to display the button. Can also provide `primary` or `icon` shorthand bool props instead. */
+    {kind?: 'primary' | 'icon' | undefined}
+  >) {
+  const primary = kind === 'primary' || primaryProp === true;
+  const icon = kind === 'icon' || iconProp === true;
+  const {className: stylexClassName, ...otherStylex} = stylex.props(
+    layout.flexRow,
+    buttonStyles.button,
+    primary && buttonStyles.primary,
+    icon && buttonStyles.icon,
+    disabled && buttonStyles.disabled,
+    xstyle,
+  );
+  return (
+    <button
+      tabIndex={disabled ? -1 : 0}
+      onClick={e => {
+        // don't allow clicking a disabled button
+        disabled !== true && onClick?.(e);
+      }}
+      ref={ref}
+      className={stylexClassName + (className ? ' ' + className : '')}
+      {...otherStylex}
+      disabled={disabled}
+      {...rest}>
+      {children}
+    </button>
+  );
+}
