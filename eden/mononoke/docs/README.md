@@ -114,6 +114,9 @@ Graph traversal and validation tool. Covers scrubbing (validation and repair), c
 **[6.3 - Monitoring and Observability](6.3-monitoring-and-observability.md)**
 Metrics (ODS/stats), logging (Scuba), tracing, dashboards, health checks, and performance indicators.
 
+**[6.4 - SCS Reduced Availability Workarounds](6.4-scs-reduced-availability.md)**
+How to work around SCS reduced availability when downstream consequences would be SEV1 or above. Covers immediate mitigation actions, alternative access paths, and guidance for downstream service owners.
+
 ### Appendix A. Future Improvements
 
 **[A.1 - Better Engineering](A.1-better-engineering.md)**
