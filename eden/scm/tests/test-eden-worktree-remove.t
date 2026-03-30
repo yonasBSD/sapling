@@ -77,3 +77,67 @@ test worktree remove - group dissolved after all linked removed
 
   $ sl worktree list
   this worktree is not part of a group
+
+test worktree remove - pre-worktree-remove hook fires with correct env vars
+
+  $ cd $TESTTMP
+  $ newclientrepo pre_hook_remove_repo
+  $ touch file.txt
+  $ sl add file.txt
+  $ sl commit -m "init"
+  $ sl worktree add $TESTTMP/pre_hook_rm1
+  created linked worktree at $TESTTMP/pre_hook_rm1
+#if windows
+  $ setconfig hooks.pre-worktree-remove="echo PATH:%HG_PATH% KEEP:%HG_KEEP%"
+  $ sl worktree remove $TESTTMP/pre_hook_rm1 -y
+  PATH:$TESTTMP?pre_hook_rm1 KEEP:\r (esc) (glob)
+  removed $TESTTMP/pre_hook_rm1
+#else
+  $ setconfig hooks.pre-worktree-remove="echo PATH:\$HG_PATH KEEP:\$HG_KEEP"
+  $ sl worktree remove $TESTTMP/pre_hook_rm1 -y
+  PATH:$TESTTMP/pre_hook_rm1 KEEP:
+  removed $TESTTMP/pre_hook_rm1
+#endif
+
+test worktree remove - pre-worktree-remove hook failure aborts single remove
+
+  $ sl worktree add $TESTTMP/pre_hook_blocked
+  created linked worktree at $TESTTMP/pre_hook_blocked
+#if windows
+  $ setconfig "hooks.pre-worktree-remove=cmd /c exit 1"
+  $ sl worktree remove $TESTTMP/pre_hook_blocked -y
+  abort: pre-worktree-remove hook exited with status 1
+  [255]
+#else
+  $ setconfig hooks.pre-worktree-remove=false
+  $ sl worktree remove $TESTTMP/pre_hook_blocked -y
+  abort: pre-worktree-remove hook exited with status 1
+  [255]
+#endif
+  $ test -d $TESTTMP/pre_hook_blocked
+
+test worktree remove - pre-worktree-remove hook failure in --all mode aborts before any removal
+
+  $ sl worktree add $TESTTMP/pre_hook_all1
+  created linked worktree at $TESTTMP/pre_hook_all1
+#if windows
+  $ setconfig "hooks.pre-worktree-remove=cmd /c exit 1"
+  $ sl worktree remove --all -y
+  abort: pre-worktree-remove hook exited with status 1
+  [255]
+#else
+  $ setconfig hooks.pre-worktree-remove=false
+  $ sl worktree remove --all -y
+  abort: pre-worktree-remove hook exited with status 1
+  [255]
+#endif
+  $ test -d $TESTTMP/pre_hook_blocked
+  $ test -d $TESTTMP/pre_hook_all1
+
+test worktree remove - pre-worktree-remove hook does not fire when user declines confirmation
+
+  $ setconfig hooks.pre-worktree-remove="echo HOOK_FIRED"
+  $ echo n | sl worktree remove $TESTTMP/pre_hook_all1
+  abort: running non-interactively, use -y instead
+  [255]
+  $ test -d $TESTTMP/pre_hook_all1

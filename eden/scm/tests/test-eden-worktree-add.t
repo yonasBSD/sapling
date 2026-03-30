@@ -186,3 +186,33 @@ test worktree add - post-worktree-add hook failure does not abort command
   created linked worktree at $TESTTMP/hook_linked_fail
 #endif
   $ test -d $TESTTMP/hook_linked_fail
+
+test worktree add - pre-worktree-add hook fires with correct env vars
+
+#if windows
+  $ setconfig hooks.pre-worktree-add="echo PATH:%HG_PATH% SOURCE:%HG_SOURCE%"
+  $ sl worktree add $TESTTMP/pre_hook_linked
+  PATH:$TESTTMP?pre_hook_linked SOURCE:$TESTTMP?hook_repo\r (esc) (glob)
+  created linked worktree at $TESTTMP/pre_hook_linked
+#else
+  $ setconfig hooks.pre-worktree-add="echo PATH:\$HG_PATH SOURCE:\$HG_SOURCE"
+  $ sl worktree add $TESTTMP/pre_hook_linked
+  PATH:$TESTTMP/pre_hook_linked SOURCE:$TESTTMP/hook_repo
+  created linked worktree at $TESTTMP/pre_hook_linked
+#endif
+
+test worktree add - pre-worktree-add hook failure aborts command
+
+#if windows
+  $ setconfig "hooks.pre-worktree-add=cmd /c exit 1"
+  $ sl worktree add $TESTTMP/pre_hook_blocked
+  abort: pre-worktree-add hook exited with status 1
+  [255]
+#else
+  $ setconfig hooks.pre-worktree-add=false
+  $ sl worktree add $TESTTMP/pre_hook_blocked
+  abort: pre-worktree-add hook exited with status 1
+  [255]
+#endif
+  $ test -d $TESTTMP/pre_hook_blocked
+  [1]

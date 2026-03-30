@@ -54,6 +54,19 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         .map(util::path::strip_unc_prefix)
         .unwrap_or_else(|_| repo.path().to_path_buf());
 
+    let pre_hooks = hook::Hooks::from_config(repo.config(), ctx.io(), "pre-worktree-add");
+    pre_hooks.run_hooks(
+        Some(repo),
+        true,
+        Some(&HashMap::from([
+            ("path".to_string(), dest.display().to_string()),
+            (
+                "source".to_string(),
+                canonical_repo_path.display().to_string(),
+            ),
+        ])),
+    )?;
+
     // Hold the registry lock across the clone and registry update so that
     // concurrent `worktree add` calls are serialized. The dest.exists()
     // check is repeated here while holding the lock to guard against races

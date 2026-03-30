@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+use std::collections::HashMap;
 use std::io::BufRead;
 use std::path::Path;
 use std::path::PathBuf;
@@ -58,6 +59,23 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
 
         confirm_remove(ctx, &[&target])?;
 
+        let pre_hooks = hook::Hooks::from_config(repo.config(), ctx.io(), "pre-worktree-remove");
+        pre_hooks.run_hooks(
+            Some(repo),
+            true,
+            Some(&HashMap::from([
+                ("path".to_string(), target.display().to_string()),
+                (
+                    "keep".to_string(),
+                    if ctx.opts.keep {
+                        "true".to_string()
+                    } else {
+                        String::new()
+                    },
+                ),
+            ])),
+        )?;
+
         if !ctx.opts.keep {
             edenfs_client::run_eden_remove(repo.config().as_ref(), &target)?;
         }
@@ -104,6 +122,25 @@ fn run_remove_all(
 
         let path_refs: Vec<&Path> = linked_paths.iter().map(|p| p.as_path()).collect();
         confirm_remove(ctx, &path_refs)?;
+
+        let pre_hooks = hook::Hooks::from_config(repo.config(), ctx.io(), "pre-worktree-remove");
+        for path in &linked_paths {
+            pre_hooks.run_hooks(
+                Some(repo),
+                true,
+                Some(&HashMap::from([
+                    ("path".to_string(), path.display().to_string()),
+                    (
+                        "keep".to_string(),
+                        if ctx.opts.keep {
+                            "true".to_string()
+                        } else {
+                            String::new()
+                        },
+                    ),
+                ])),
+            )?;
+        }
 
         for path in &linked_paths {
             if !ctx.opts.keep {
