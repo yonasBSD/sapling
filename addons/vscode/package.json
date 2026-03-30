@@ -313,9 +313,6 @@
     "build-webview": "vite build",
     "vscode:prepublish": "node ./buildForPublish.js"
   },
-  "optionalDependencies": {
-    "vsce": "^2.15.0"
-  },
   "devDependencies": {
     "@stylexjs/stylex": "^0.18.1",
     "@stylexjs/unplugin": "^0.18.1",
