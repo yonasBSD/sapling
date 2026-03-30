@@ -783,7 +783,7 @@ impl SqlBookmarksTransactionPayload {
                 .map_err(BookmarkTransactionError::RetryableError)?;
             (txn, TransactionLogUpdates::pre_allocated(ids))
         } else {
-            // Old path: repo-level SELECT MAX(id) (implicit gap lock)
+            // Old path: optimistic locking via repo-level SELECT MAX(id)
             let (txn, next_id) = Self::find_next_update_log_id(ctx, txn, self.repo_id).await?;
             (txn, TransactionLogUpdates::sequential(next_id))
         };
