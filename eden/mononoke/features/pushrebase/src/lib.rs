@@ -5096,4 +5096,241 @@ line 8
 
         Ok(())
     }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_merge_resolution_stack_non_head_conflict(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // Regression test: 2-commit stack where the FIRST commit (not HEAD)
+        // touches a conflicting file. The merge override must be applied to
+        // that first commit, not HEAD; otherwise the first commit keeps stale
+        // content that reverts the server's changes.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base_content = "\
+line 1
+line 2
+line 3
+line 4
+line 5
+line 6
+line 7
+line 8
+";
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", base_content)
+            .add_file("other.txt", "other\n")
+            .commit()
+            .await?;
+
+        // Server adds "line 2.1" between line 2 and line 3 (top region)
+        let server_content = "\
+line 1
+line 2
+line 2.1
+line 3
+line 4
+line 5
+line 6
+line 7
+line 8
+";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", server_content)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server)).await?;
+
+        // Client commit 1: adds "line 6.1" between line 6 and line 7 (bottom region)
+        let client_content_1 = "\
+line 1
+line 2
+line 3
+line 4
+line 5
+line 6
+line 6.1
+line 7
+line 8
+";
+        let client_1 = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", client_content_1)
+            .commit()
+            .await?;
+
+        // Client commit 2 (HEAD): only touches other.txt, NOT file.txt
+        let client_2 = CreateCommitContext::new(&ctx, &repo, vec![client_1])
+            .add_file("other.txt", "modified other\n")
+            .commit()
+            .await?;
+
+        let client_bcs_1 = client_1.load(&ctx, repo.repo_blobstore()).await?;
+        let client_bcs_2 = client_2.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_merge_test();
+
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![client_bcs_1.clone(), client_bcs_2.clone()],
+            &[],
+        )
+        .await?;
+
+        let expected_merged = "\
+line 1
+line 2
+line 2.1
+line 3
+line 4
+line 5
+line 6
+line 6.1
+line 7
+line 8
+";
+
+        // HEAD has the correct merged content
+        let result_hg = repo.derive_hg_changeset(&ctx, result.head).await?;
+        ensure_content(
+            &ctx,
+            result_hg,
+            &repo,
+            btreemap! {
+                "file.txt".to_string() => expected_merged.to_string(),
+                "other.txt".to_string() => "modified other\n".to_string(),
+            },
+        )
+        .await?;
+
+        // Read file.txt from the FIRST rebased commit
+        let rebased_1 = result
+            .rebased_changesets
+            .iter()
+            .find(|pair| pair.id_old == client_1)
+            .map(|pair| pair.id_new)
+            .expect("first commit should be in rebased set");
+
+        let rebased_1_hg = repo.derive_hg_changeset(&ctx, rebased_1).await?;
+        let rebased_1_cs = rebased_1_hg.load(&ctx, repo.repo_blobstore()).await?;
+        let rebased_1_manifest = rebased_1_cs.manifestid();
+        let file_path = NonRootMPath::new("file.txt")?;
+        let file_entry = rebased_1_manifest
+            .find_entry(ctx.clone(), repo.repo_blobstore().clone(), file_path.into())
+            .await?
+            .expect("file.txt should exist in first rebased commit");
+
+        let file_content = match file_entry {
+            Entry::Leaf((_, filenode_id)) => {
+                let content_id = filenode_id
+                    .load(&ctx, repo.repo_blobstore())
+                    .await?
+                    .content_id();
+                let bytes =
+                    filestore::fetch_concat(repo.repo_blobstore(), &ctx, content_id).await?;
+                String::from_utf8(bytes.to_vec())?
+            }
+            _ => panic!("file.txt should be a file"),
+        };
+
+        assert!(
+            file_content.contains("line 6.1"),
+            "first rebased commit should have line 6.1 (client's change)"
+        );
+
+        // BUG: The first rebased commit is missing "line 2.1" (server's
+        // addition) because the merge override was applied to HEAD instead
+        // of to this commit which actually touches file.txt.
+        assert!(
+            !file_content.contains("line 2.1"),
+            "BUG DEMONSTRATED: first rebased commit is missing server's \
+             'line 2.1' because the merge override was applied to HEAD \
+             instead of to the commit that touches the file.\n\
+             Actual file.txt in first rebased commit:\n{}",
+            file_content,
+        );
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_stack_non_head_conflict_without_merge_resolution(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // Same scenario but merge resolution DISABLED: pushrebase should fail.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base_content = "\
+line 1
+line 2
+line 3
+line 4
+line 5
+";
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", base_content)
+            .add_file("other.txt", "other\n")
+            .commit()
+            .await?;
+
+        let server_content = "\
+line 1
+line 2
+line 2.1
+line 3
+line 4
+line 5
+";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", server_content)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server)).await?;
+
+        let client_content = "\
+line 1
+line 2
+line 3
+line 4
+line 5
+line 5.1
+";
+        let client_1 = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", client_content)
+            .commit()
+            .await?;
+        let client_2 = CreateCommitContext::new(&ctx, &repo, vec![client_1])
+            .add_file("other.txt", "modified\n")
+            .commit()
+            .await?;
+
+        let client_bcs_1 = client_1.load(&ctx, repo.repo_blobstore()).await?;
+        let client_bcs_2 = client_2.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_test();
+
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![client_bcs_1, client_bcs_2],
+            &[],
+        )
+        .await;
+
+        should_have_conflicts(result);
+
+        Ok(())
+    }
 }
