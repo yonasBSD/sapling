@@ -130,6 +130,7 @@ define_stats! {
     commits_rebased: dynamic_timeseries("{}.commits_rebased", (reponame: String); Average, Sum, Count),
     conflict_rejections: dynamic_timeseries("{}.conflict_rejections", (reponame: String); Count),
     conflict_files_count: dynamic_timeseries("{}.conflict_files_count", (reponame: String); Average, Sum, Count),
+    merge_resolution_lost_on_retry: dynamic_timeseries("{}.merge_resolution_lost_on_retry", (reponame: String); Count),
 }
 
 const MAX_REBASE_ATTEMPTS: usize = 100;
@@ -158,6 +159,8 @@ pub enum PushrebaseInternalError {
     P2RootRebaseForbidden(HgChangesetId, BookmarkKey),
     #[error("Unexpected file conflicts when adding new file changes to {0}")]
     NewFileChangesConflict(ChangesetId),
+    #[error("Merge resolution was performed in a previous attempt but lost on retry")]
+    MergeResolutionLostOnRetry,
 }
 
 #[derive(Debug, Error)]
@@ -792,6 +795,7 @@ async fn rebase_in_loop(
     prepushrebase_hooks: &[Box<dyn PushrebaseHook>],
 ) -> Result<PushrebaseOutcome, PushrebaseError> {
     let should_log = config.monitoring_bookmark.as_deref() == Some(onto_bookmark.as_str());
+    let mut any_attempt_resolved_conflicts = false;
     let repo_args = (repo.repo_identity().name().to_string(),);
     for retry_num in 0..MAX_REBASE_ATTEMPTS {
         let retry_num = PushrebaseRetryNum(retry_num);
@@ -819,6 +823,10 @@ async fn rebase_in_loop(
         .await?;
         let pushrebase_distance = PushrebaseDistance(conflict_result.server_changeset_count);
 
+        if conflict_result.merged_file_overrides.is_some() {
+            any_attempt_resolved_conflicts = true;
+        }
+
         // Extract merged paths for observability before overrides are consumed
         let merge_resolved_paths = conflict_result
             .merged_file_overrides
@@ -845,6 +853,15 @@ async fn rebase_in_loop(
             .try_into()
             .unwrap_or(i64::MAX);
         if let Some((head, log_id, rebased_changesets)) = rebase_outcome {
+            // INVARIANT: if any previous attempt resolved conflicts, the
+            // successful attempt must also have resolved them. If not,
+            // merge resolution was lost during retry — fail rather than
+            // silently landing content that overwrites server changes.
+            if any_attempt_resolved_conflicts && merge_resolved_paths.is_none() {
+                STATS::merge_resolution_lost_on_retry.add_value(1, repo_args);
+                return Err(PushrebaseInternalError::MergeResolutionLostOnRetry.into());
+            }
+
             if should_log {
                 STATS::critical_section_success_duration_us
                     .add_value(critical_section_duration_us, repo_args.clone());
