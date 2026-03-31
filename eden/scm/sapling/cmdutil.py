@@ -3456,7 +3456,16 @@ def displaygraph(
         else:
             ui.write(nextrow)
         if on_output is not None:
-            on_output(ctx, nextrow)
+            on_output(
+                ctx,
+                nextrow,
+                {
+                    "width": width,
+                    "revcache": revcache,
+                    "matchfn": revmatchfn,
+                    "message": msg,
+                },
+            )
         displayer.flush(ctx)
 
     displayer.close()
