@@ -8,6 +8,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:http",
+        "fbsource//third-party/rust:tracing",
         "//common/rust/shed/fbinit:fbinit",
         "//crypto/cat/rust:cryptocat",
         "//eden/mononoke/common/permission_checker:permission_checker",

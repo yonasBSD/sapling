@@ -11,6 +11,7 @@ use fbinit::FacebookInit;
 use http::HeaderMap;
 use metaconfig_types::Identity;
 use permission_checker::MononokeIdentitySet;
+use tracing::warn;
 
 #[cfg(not(fbcode_build))]
 pub fn try_get_cats_idents(
@@ -47,6 +48,18 @@ pub fn try_get_cats_idents(
             let tdata = cryptocat::deserialize_crypto_auth_token_data(
                 &token.serializedCryptoAuthTokenData[..],
             )?;
+            if tdata.verifierIdentity.id_type != verifier_identity.id_type
+                || tdata.verifierIdentity.id_data != verifier_identity.id_data
+            {
+                warn!(
+                    "CAT token skipped: verifier identity mismatch (token has {}:{}, expected {}:{})",
+                    tdata.verifierIdentity.id_type,
+                    tdata.verifierIdentity.id_data,
+                    verifier_identity.id_type,
+                    verifier_identity.id_data,
+                );
+                return Ok(idents_acc);
+            }
             let m_ident = permission_checker::MononokeIdentity::new(
                 tdata.signerIdentity.id_type,
                 tdata.signerIdentity.id_data,

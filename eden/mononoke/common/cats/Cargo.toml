@@ -14,3 +14,4 @@ http = "1.4.0"
 metaconfig_types = { version = "0.1.0", path = "../../metaconfig/types" }
 permission_checker = { version = "0.1.0", path = "../permission_checker" }
 sapling-cats-constants = { version = "0.1.0", path = "../../../scm/lib/cats/constants" }
+tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
