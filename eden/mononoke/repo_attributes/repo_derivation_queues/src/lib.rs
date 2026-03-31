@@ -53,6 +53,18 @@ pub struct DequeuedItem {
     pub priority: DerivationPriority,
 }
 
+/// Plan produced by `prepare_ack` that classifies reverse dependencies
+/// into fast-path (single-dep, can start immediately) vs normal-path
+/// (multi-dep, need standard evict processing).
+pub struct AckPlan {
+    /// Single-dep rdeps where the acked item is the only blocker.
+    /// These can start deriving immediately without going through
+    /// the dequeue path.
+    pub fast_path_items: Vec<DerivationDagItem>,
+    /// Multi-dep rdep suffixes that need normal evict processing.
+    pub normal_path_rdeps: Vec<String>,
+}
+
 #[facet::facet]
 pub struct RepoDerivationQueues {
     configs_to_queues: HashMap<String, Arc<dyn DerivationQueue + Send + Sync>>,
@@ -97,6 +109,24 @@ pub trait DerivationQueue {
     ) -> Result<Option<DerivationDagItem>, InternalError>;
 
     async fn ack(&self, ctx: &CoreContext, item: &DerivationDagItem) -> Result<(), InternalError>;
+
+    /// Scan the item's rdeps and classify into fast-path vs normal-path.
+    /// Pure read — no Zelos mutations.
+    async fn prepare_ack(
+        &self,
+        ctx: &CoreContext,
+        item: &DerivationDagItem,
+    ) -> Result<AckPlan, InternalError>;
+
+    /// Execute the ack plan: process normal-path rdeps, then fire the combined
+    /// atomic multi-op that cleans up the acked item and transitions fast-path
+    /// items to ready+deriving.
+    async fn execute_ack(
+        &self,
+        ctx: &CoreContext,
+        item: &DerivationDagItem,
+        plan: AckPlan,
+    ) -> Result<(), InternalError>;
 
     async fn nack(&self, ctx: &CoreContext, item: DerivationDagItem) -> Result<(), InternalError>;
 
