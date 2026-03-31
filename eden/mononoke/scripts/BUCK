@@ -1,0 +1,26 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("//fbpkg:fbpkg.bzl", "fbpkg")
+
+oncall("scm_server_infra")
+
+python_binary(
+    name = "merge_resolution_blame_checker",
+    srcs = ["merge_resolution_blame_checker.py"],
+    main_function = "eden.mononoke.scripts.merge_resolution_blame_checker.main",
+    deps = [
+        "//libfb/py:employee",
+        "//libfb/py/thrift_clients:oncall_thrift_client",
+        "//rfe/py/lib:sql",
+        "//rfe/scubadata:scubadata_py3",
+    ],
+)
+
+fbpkg.builder(
+    name = "mononoke.merge_resolution_blame_checker",
+    buck_opts = fbpkg.buck_opts(
+        mode = "opt",
+    ),
+    path_actions = {
+        "merge_resolution_blame_checker": ":merge_resolution_blame_checker",
+    },
+)
