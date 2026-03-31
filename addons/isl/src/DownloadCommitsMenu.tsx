@@ -11,6 +11,7 @@ import {Divider} from 'isl-components/Divider';
 import {Icon} from 'isl-components/Icon';
 import {Kbd} from 'isl-components/Kbd';
 import {KeyCode, Modifier} from 'isl-components/KeyboardShortcuts';
+import {RadioGroup} from 'isl-components/Radio';
 import {TextField} from 'isl-components/TextField';
 import {Tooltip} from 'isl-components/Tooltip';
 import {useAtom} from 'jotai';
@@ -218,30 +219,30 @@ function DownloadCommitsTooltip({dismiss}: {dismiss: () => unknown}) {
               <T>Go to</T>
             </Checkbox>
           </Tooltip>
-          <Tooltip
-            title={t(
-              'After downloading this commit, rebase it onto the public base of the current stack. Public commits will be copied instead of moved.',
-            )}>
-            <Checkbox
-              checked={rebaseType === 'rebase_base'}
-              onChange={checked => {
-                setRebaseType(checked ? 'rebase_base' : null);
-              }}>
-              <T>Rebase to Stack Base</T>
-            </Checkbox>
-          </Tooltip>
-          <Tooltip
-            title={t(
-              'After downloading this commit, rebase it on top of the current commit. Public commits will be copied instead of moved.',
-            )}>
-            <Checkbox
-              checked={rebaseType === 'rebase_ontop'}
-              onChange={checked => {
-                setRebaseType(checked ? 'rebase_ontop' : null);
-              }}>
-              <T>Rebase onto Stack</T>
-            </Checkbox>
-          </Tooltip>
+          <RadioGroup
+            choices={
+              [
+                {value: 'none', title: <T>No rebase</T>},
+                {
+                  value: 'rebase_base',
+                  title: <T>Rebase to Stack Base</T>,
+                  tooltip: t(
+                    'After downloading this commit, rebase it onto the public base of the current stack. Public commits will be copied instead of moved.',
+                  ),
+                },
+                {
+                  value: 'rebase_ontop',
+                  title: <T>Rebase onto Stack</T>,
+                  tooltip: t(
+                    'After downloading this commit, rebase it on top of the current commit. Public commits will be copied instead of moved.',
+                  ),
+                },
+              ] as const
+            }
+            current={rebaseType ?? 'none'}
+            onChange={value => setRebaseType(value === 'none' ? null : value)}
+            horizontal
+          />
         </div>
       </div>
 
