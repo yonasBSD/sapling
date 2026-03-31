@@ -348,6 +348,8 @@ pub enum ShardedService {
     BookmarkService,
     /// GitBundleGenerator
     GitBundleGenerator,
+    /// Derivation Pipeline Tailer
+    DerivationPipelineTailer,
 }
 
 /// Indicates types of commit hashes used in a repo context.

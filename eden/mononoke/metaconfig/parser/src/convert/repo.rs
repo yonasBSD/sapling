@@ -1068,6 +1068,9 @@ impl Convert for RawShardedService {
             RawShardedService::REPO_METADATA_LOGGER => ShardedService::RepoMetadataLogger,
             RawShardedService::BOOKMARK_SERVICE => ShardedService::BookmarkService,
             RawShardedService::DIFF_SERVICE => ShardedService::DiffService,
+            RawShardedService::DERIVATION_PIPELINE_TAILER => {
+                ShardedService::DerivationPipelineTailer
+            }
             v => return Err(anyhow!("Invalid value {} for enum ShardedService", v)),
         };
         Ok(service)
