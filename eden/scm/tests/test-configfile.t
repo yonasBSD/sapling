@@ -22,6 +22,7 @@ Test locating user config
   $ sl configfile
   User config path: $TESTTMP/.config/sapling/sapling.conf (linux !)
   User config path: $TESTTMP/Library/Preferences/sapling/sapling.conf (osx !)
+  User config path: $TESTTMP\AppData\Roaming\sapling\sapling.conf (windows !)
   Repo config path: $TESTTMP/repo/.sl/config
   System config path: $TESTTMP/config
   $ sl configfile --user
@@ -40,4 +41,5 @@ Test outside a repo
   $ sl configfile
   User config path: $TESTTMP/.config/sapling/sapling.conf (linux !)
   User config path: $TESTTMP/Library/Preferences/sapling/sapling.conf (osx !)
+  User config path: $TESTTMP\AppData\Roaming\sapling\sapling.conf (windows !)
   System config path: $TESTTMP/config
