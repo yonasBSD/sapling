@@ -98,6 +98,35 @@ def getchar() -> Union[None, bytes, str]:
 # End of code from link
 
 
+def _splitkeypresses(output):
+    if output is None:
+        return []
+    if isinstance(output, str):
+        output = output.encode()
+
+    keys = []
+    index = 0
+    escape_keys = {
+        viewframe.KEY_UP,
+        viewframe.KEY_DOWN,
+        viewframe.KEY_RIGHT,
+        viewframe.KEY_LEFT,
+    }
+    while index < len(output):
+        matched = False
+        for key in escape_keys:
+            if output.startswith(key, index):
+                keys.append(key)
+                index += len(key)
+                matched = True
+                break
+        if matched:
+            continue
+        keys.append(output[index : index + 1])
+        index += 1
+    return keys
+
+
 class Alignment(Enum):
     top = 1
     bottom = 2
@@ -134,6 +163,15 @@ class viewframe:
     def handlekeypress(self, key):
         # handle user keypress
         pass
+
+    def handlekeypresses(self, keys):
+        redraw = False
+        for key in keys:
+            self.handlekeypress(key)
+            if not self._active:
+                return False
+            redraw = True
+        return redraw
 
     def finish(self):
         # End interactive session
@@ -179,12 +217,15 @@ def view(viewobj, readinput=getchar) -> None:
         viewobj.ui.write(_x("\x1b[?7l"))
         viewobj.ui.write(_x("\033[?25l"))  # hide cursor
     try:
+        redraw = True
         while viewobj._active:
-            _write_output(viewobj)
+            if redraw:
+                _write_output(viewobj)
+                redraw = False
             output = readinput()
             if output is None:
                 break
-            viewobj.handlekeypress(output)
+            redraw = viewobj.handlekeypresses(_splitkeypresses(output))
     finally:
         if not util.istest():
             viewobj.ui.write(_x("\033[?25h"))  # show cursor

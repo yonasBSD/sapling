@@ -578,15 +578,17 @@ if interactiveui is not None:
                 return output, None
             return output, (selected_rows[1], interactiveui.Alignment.bottom)
 
-        def handlekeypress(self, key):
+        def _flushmovement(self, delta):
+            if delta == 0:
+                return False
+            old_index = self.dag_index
+            self.dag_index = min(max(self.dag_index + delta, 0), len(self.revdag) - 1)
+            return self.dag_index != old_index
+
+        def _handlenonmovementkeypress(self, key):
             if key == self.KEY_Q:
                 self.finish()
-            if key == self.KEY_J or key == self.KEY_DOWN:
-                if self.dag_index < len(self.revdag) - 1:
-                    self.dag_index += 1
-            if key == self.KEY_K or key == self.KEY_UP:
-                if self.dag_index > 0:
-                    self.dag_index -= 1
+                return False
             if key == self.KEY_RETURN:
                 self.ui.pushbuffer(error=True)
                 selected_ctx = self.revdag[self.dag_index][2]
@@ -608,9 +610,11 @@ if interactiveui is not None:
                 except Exception as ex:
                     self.ui.write_err("operation failed: %s\n" % ex)
                 self.status = self.ui.popbuffer()
+                return self._active
             if key == self.KEY_R:
                 self.rebase_source = self.revdag[self.dag_index]
                 self.status = _("rebasing from %s") % (self.rebase_source[2])
+                return True
             if key == self.KEY_S:
                 bindings.commands.run(
                     util.hgcmd()
@@ -621,6 +625,7 @@ if interactiveui is not None:
                         "pager.interface=fullscreen",
                     ]
                 )
+                return True
             if key == self.KEY_SHIFT_H:
                 bindings.commands.run(
                     util.hgcmd()
@@ -631,6 +636,35 @@ if interactiveui is not None:
                 )
                 # I couldn't figure out how to make the graph refresh so will just end
                 self.finish()
+                return False
+            return False
+
+        def handlekeypress(self, key):
+            if key == self.KEY_J or key == self.KEY_DOWN:
+                self._flushmovement(1)
+                return
+            if key == self.KEY_K or key == self.KEY_UP:
+                self._flushmovement(-1)
+                return
+            self._handlenonmovementkeypress(key)
+
+        def handlekeypresses(self, keys):
+            redraw = False
+            movement = 0
+            for key in keys:
+                if key == self.KEY_J or key == self.KEY_DOWN:
+                    movement += 1
+                    continue
+                if key == self.KEY_K or key == self.KEY_UP:
+                    movement -= 1
+                    continue
+                redraw = self._flushmovement(movement) or redraw
+                movement = 0
+                redraw = self._handlenonmovementkeypress(key) or redraw
+                if not self._active:
+                    return False
+            redraw = self._flushmovement(movement) or redraw
+            return redraw
 
 
 def _smartlog(ui, repo, *pats, **opts):
@@ -649,16 +683,28 @@ def _smartlog(ui, repo, *pats, **opts):
 
         viewobj = interactivesmartlog(ui, repo, masterstring, headrevs, template, opts)
         if util.istest():
-            input_str = ui.fin.readline()
+            input_str = ui.fin.read()
+            if isinstance(input_str, str):
+                input_str = input_str.encode()
+            input_str = input_str.replace(b"\n", b"")
             index = 0
+            special_keys = (
+                interactiveui.viewframe.KEY_UP,
+                interactiveui.viewframe.KEY_DOWN,
+                interactiveui.viewframe.KEY_RIGHT,
+                interactiveui.viewframe.KEY_LEFT,
+            )
 
             def getchar():
                 nonlocal input_str
                 nonlocal index
-                # Automatically quit at end of input
                 if index >= len(input_str):
-                    return b"q"
-                ch = input_str[index]
+                    return None
+                for key in special_keys:
+                    if input_str.startswith(key, index):
+                        index += len(key)
+                        return key
+                ch = input_str[index : index + 1]
                 index += 1
                 return ch
 
