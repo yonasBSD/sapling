@@ -111,6 +111,7 @@
   packet:        fetch> unborn
   packet:        fetch> ref-prefix refs/heads/
   packet:        fetch> ref-prefix refs/tags/
+  packet:        fetch> ref-prefix HEAD
   packet:        fetch> 0000
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 HEAD symref-target:refs/heads/master_bookmark
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/heads/master_bookmark
@@ -122,7 +123,12 @@
 
 # Show refs
   $ git show-ref
-  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/bundles/master_bookmark
+  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/bundles/heads/master_bookmark
+  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/bundles/remotes/origin/HEAD
+  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/bundles/remotes/origin/master_bookmark
+  fb02ed046a1e75fe2abb8763f7c715496ae36353 refs/bundles/tags/empty_tag
+  8963e1f55d1346a07c3aec8c8fc72bf87d0452b1 refs/bundles/tags/first_tag
+  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/remotes/mononoke/HEAD
   e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/remotes/mononoke/master_bookmark
   fb02ed046a1e75fe2abb8763f7c715496ae36353 refs/tags/empty_tag
   8963e1f55d1346a07c3aec8c8fc72bf87d0452b1 refs/tags/first_tag
@@ -159,6 +165,7 @@
   packet:        fetch> unborn
   packet:        fetch> ref-prefix refs/heads/
   packet:        fetch> ref-prefix refs/tags/
+  packet:        fetch> ref-prefix HEAD
   packet:        fetch> 0000
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 HEAD symref-target:refs/heads/master_bookmark
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/heads/master_bookmark
@@ -202,6 +209,7 @@
   packet:        fetch> unborn
   packet:        fetch> ref-prefix refs/heads/
   packet:        fetch> ref-prefix refs/tags/
+  packet:        fetch> ref-prefix HEAD
   packet:        fetch> 0000
   packet:        fetch< 7c91d03d49849309acaf941ece272619e246b922 HEAD symref-target:refs/heads/master_bookmark
   packet:        fetch< 7c91d03d49849309acaf941ece272619e246b922 refs/heads/master_bookmark

@@ -74,9 +74,9 @@
   packet:        clone> peel
   packet:        clone> symrefs
   packet:        clone> unborn
-  packet:        clone> ref-prefix HEAD
   packet:        clone> ref-prefix refs/heads/
   packet:        clone> ref-prefix refs/tags/
+  packet:        clone> ref-prefix HEAD
   packet:        clone> 0000
   packet:        clone< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 HEAD symref-target:refs/heads/master_bookmark
   packet:        clone< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/heads/master_bookmark
@@ -96,33 +96,6 @@
   packet:        clone< bundle.bundle_bundle_fingerprint.creationtoken=1
   packet:        clone< 0000
   packet:        clone< 0002
-  packet:        clone> command=fetch
-  packet:        clone> object-format=sha1
-  packet:        clone> 0001
-  packet:        clone> thin-pack
-  packet:        clone> no-progress
-  packet:        clone> ofs-delta
-  packet:        clone> want fb02ed046a1e75fe2abb8763f7c715496ae36353
-  packet:        clone> want 8963e1f55d1346a07c3aec8c8fc72bf87d0452b1
-  packet:        clone> have e8615d6f149b876be0a2f30a1c5bf0c42bf8e136
-  packet:        clone> 0000
-  packet:        clone< acknowledgments
-  packet:        clone< ACK e8615d6f149b876be0a2f30a1c5bf0c42bf8e136
-  packet:        clone< 0000
-  packet:        clone< 0002
-  packet:        clone> command=fetch
-  packet:        clone> object-format=sha1
-  packet:        clone> 0001
-  packet:        clone> thin-pack
-  packet:        clone> no-progress
-  packet:        clone> ofs-delta
-  packet:        clone> want fb02ed046a1e75fe2abb8763f7c715496ae36353
-  packet:        clone> want 8963e1f55d1346a07c3aec8c8fc72bf87d0452b1
-  packet:        clone> have e8615d6f149b876be0a2f30a1c5bf0c42bf8e136
-  packet:        clone> done
-  packet:        clone> 0000
-  packet:        clone< packfile
-  packet:        clone< 0002
 
 # Verify that we get the same Git repo back that we started with
   $ cd $REPONAME  
@@ -135,7 +108,11 @@
 
 # Show refs
   $ git show-ref
-  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/bundles/master_bookmark
+  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/bundles/heads/master_bookmark
+  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/bundles/remotes/origin/HEAD
+  e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/bundles/remotes/origin/master_bookmark
+  fb02ed046a1e75fe2abb8763f7c715496ae36353 refs/bundles/tags/empty_tag
+  8963e1f55d1346a07c3aec8c8fc72bf87d0452b1 refs/bundles/tags/first_tag
   e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/heads/master_bookmark
   e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/remotes/origin/HEAD
   e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/remotes/origin/master_bookmark
@@ -165,6 +142,7 @@
   packet:        fetch> ref-prefix refs/heads/
   packet:        fetch> ref-prefix refs/heads/master_bookmark
   packet:        fetch> ref-prefix refs/tags/
+  packet:        fetch> ref-prefix HEAD
   packet:        fetch> 0000
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 HEAD symref-target:refs/heads/master_bookmark
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/heads/master_bookmark
@@ -214,6 +192,7 @@
   packet:        fetch> ref-prefix refs/heads/
   packet:        fetch> ref-prefix refs/heads/master_bookmark
   packet:        fetch> ref-prefix refs/tags/
+  packet:        fetch> ref-prefix HEAD
   packet:        fetch> 0000
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 HEAD symref-target:refs/heads/master_bookmark
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/heads/master_bookmark
@@ -262,6 +241,7 @@
   packet:        fetch> ref-prefix refs/heads/
   packet:        fetch> ref-prefix refs/heads/master_bookmark
   packet:        fetch> ref-prefix refs/tags/
+  packet:        fetch> ref-prefix HEAD
   packet:        fetch> 0000
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 HEAD symref-target:refs/heads/master_bookmark
   packet:        fetch< e8615d6f149b876be0a2f30a1c5bf0c42bf8e136 refs/heads/master_bookmark
@@ -315,6 +295,7 @@
   packet:        fetch> ref-prefix refs/heads/
   packet:        fetch> ref-prefix refs/heads/master_bookmark
   packet:        fetch> ref-prefix refs/tags/
+  packet:        fetch> ref-prefix HEAD
   packet:        fetch> 0000
   packet:        fetch< 7c91d03d49849309acaf941ece272619e246b922 HEAD symref-target:refs/heads/master_bookmark
   packet:        fetch< 7c91d03d49849309acaf941ece272619e246b922 refs/heads/master_bookmark
@@ -411,6 +392,7 @@
   packet:        fetch> ref-prefix refs/heads/
   packet:        fetch> ref-prefix refs/heads/master_bookmark
   packet:        fetch> ref-prefix refs/tags/
+  packet:        fetch> ref-prefix HEAD
   packet:        fetch> 0000
   packet:        fetch< 4f541acd9f7598f86f96b444b9040a83cdda6456 HEAD symref-target:refs/heads/master_bookmark
   packet:        fetch< 4f541acd9f7598f86f96b444b9040a83cdda6456 refs/heads/master_bookmark
