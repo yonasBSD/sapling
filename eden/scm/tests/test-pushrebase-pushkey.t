@@ -61,9 +61,16 @@ Set up the client to commit on the server-side when a push happens. This simulat
   >     "EOS",
   >     sl + " bookmark -fr tip master",
   >     "echo committed",
-  >     sl + " log -Gr 'all()' -T '{desc} {bookmark}'",
+  >     sl + " --config experimental.graph.renderer=ascii log -Gr 'all()' -T '{desc} {bookmark}'",
   >   ])
-  >   pushop.repo.ui.system(script)
+  >   pushop.repo.ui.pushbuffer(error=True, subproc=True)
+  >   try:
+  >     pushop.repo.ui.system(script)
+  >     output = pushop.repo.ui.popbuffer()
+  >   except Exception:
+  >     pushop.repo.ui.popbuffer()
+  >     raise
+  >   pushop.repo.ui.write(output)
   >   return r
   > def extsetup(ui):
   >   extensions.wrapfunction(exchange, '_pushdiscovery', wrapper)
@@ -88,7 +95,7 @@ Push without pushrebase, and check that the hook sees the commit that was actual
   searching for changes
   committed
   o  commitX
-  │
+  |
   @  commitA
   
   remote: adding changesets
@@ -116,7 +123,7 @@ Then, pushrebase. This time, we expect the pushkey to be updated
   searching for changes
   committed
   o  commitX
-  │
+  |
   @  commitA
   
   remote: pushing 1 changeset:
