@@ -33,8 +33,6 @@ SYMLINKS = {
 STATIC_TARGETS = {
     "facebook/packaging/NOT_MOUNTED_README.txt": "/etc/eden/NOT_MOUNTED_README.txt",
     "facebook/packaging/ignore": "/etc/eden/ignore",
-    "facebook/packaging/systemd/edenfs.slice": "/usr/lib/systemd/user/edenfs.slice",
-    "facebook/packaging/systemd/edenfs@.service": "/usr/lib/systemd/user/edenfs@.service",
 }
 
 SCRIPTS_TARGETS = {
@@ -75,6 +73,11 @@ DIRS = [
     "/etc/eden/config.d",
 ]
 
+SYSTEMD_STATIC_TARGETS = {
+    "facebook/packaging/systemd/edenfs.slice": "/usr/lib/systemd/user/edenfs.slice",
+    "facebook/packaging/systemd/edenfs@.service": "/usr/lib/systemd/user/edenfs@.service",
+}
+
 MAC_TARGETS = {
     "//eden/scm/exec/eden_apfs_mount_helper:eden_apfs_mount_helper": "/usr/local/libexec/eden/eden_apfs_mount_helper",
 }
@@ -95,6 +98,14 @@ def make_rpm_features():
             features.append(rpm.install(src = target, dst = install_path, mode = TARGET_MODES.get(target)))
         else:
             features.append(rpm.install(src = target, dst = install_path))
+    for target, install_path in SYSTEMD_STATIC_TARGETS.items():
+        features.append(
+            select({
+                "DEFAULT": rpm.install(src = target, dst = install_path),
+                # No Systemd on mac
+                "ovr_config//os:macos": None,
+            }),
+        )
     for target, install_path in SCRIPTS_TARGETS.items():
         features.append(rpm.install(src = target, dst = install_path, mode = 0o0755))
     for target, install_path in CONFIG_D_TARGETS.items():
@@ -128,6 +139,9 @@ def make_fbpkg_path_actions():
 
     for target, install_path in STATIC_TARGETS.items():
         path_actions[install_path.removeprefix("/")] = FBPKG_STATIC_ADD_PREFIX + target
+
+    # Currently no plans to install systemd targets on sandcastle
+
     path_actions["etc/eden/config.d"] = "fs/facebook/packaging/config.d"
 
     # Misc fbpkg files
