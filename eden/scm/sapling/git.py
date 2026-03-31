@@ -420,6 +420,10 @@ def readconfig(repo):
     return config
 
 
+# `fetch.negotiationAlgorithm = skipping` dramatically reduces the number of
+# round-trips during `git fetch` negotiation by skipping intermediate commits.
+# This is the single biggest win for fetch performance on large repos.
+#
 # By default, `git maintenance run --auto` (run by `git fetch`) triggers GC,
 # which runs repack. The gc/repack can cause compatibility issues with
 # shallow/not-shallow mix, such as some blob or tree cannot be read. `repack
@@ -434,6 +438,8 @@ def readconfig(repo):
 # The multi-pack-index (incremental-repack) is incompatible with the libgit2
 # we're using, unfortunately...
 MAINTAINED_GIT_CONFIG = """
+[fetch]
+  negotiationAlgorithm = skipping
 [maintenance "gc"]
   enabled = false
 [maintenance "loose-objects"]
