@@ -324,3 +324,287 @@ pub async fn repo_with_multiple_renamed_export_directories(
         relevant_paths,
     })
 }
+
+/// Builds a repo with a merge commit where both branches modify the export
+/// file. Both branches produce export-set commits, so the partial graph
+/// has a true 2-parent merge.
+///
+/// DAG structure:
+/// ```text
+/// A-B-C-D
+///  \ /
+///   E
+/// ```
+///
+/// - A: creates EXP/bar.txt
+/// - B: deletes EXP/bar.txt
+/// - E: branches from A, modifies EXP/bar.txt
+/// - C: merge of B and E, re-creates EXP/bar.txt
+/// - D: modifies EXP/bar.txt
+pub async fn repo_with_true_merge(
+    fb: FacebookInit,
+    ctx: &CoreContext,
+) -> Result<GitExportTestData<Repo>> {
+    let source_repo: Repo = TestRepoFactory::new(fb)?.build().await?;
+    let source_repo_ctx = RepoContext::new_test(ctx.clone(), source_repo.into()).await?;
+    let source_repo = source_repo_ctx.repo();
+
+    const HEAD_ID: &str = "D";
+
+    let relevant_paths = hashmap! {
+        "export_dir" => EXPORT_DIR,
+        "export_file" => EXPORT_FILE,
+    };
+
+    let dag_changes = changes! {
+        "A" => |c| c.add_file(EXPORT_FILE, "initial export file")
+            .set_author_date(DateTime::from_timestamp(1000, 0).unwrap()),
+        "B" => |c| c.delete_file(EXPORT_FILE)
+            .set_author_date(DateTime::from_timestamp(2000, 0).unwrap()),
+        "E" => |c| c.add_file(EXPORT_FILE, "modify export file on branch")
+            .set_author_date(DateTime::from_timestamp(1500, 0).unwrap()),
+        "C" => |c| c.add_file(EXPORT_FILE, "re-add export file after merge")
+            .set_author_date(DateTime::from_timestamp(3000, 0).unwrap()),
+        "D" => |c| c.add_file(EXPORT_FILE, "final modification")
+            .set_author_date(DateTime::from_timestamp(4000, 0).unwrap()),
+    };
+
+    let commit_id_map = create_from_dag_with_changes(
+        ctx,
+        &source_repo,
+        r##"
+         A-B-C-D
+          \ /
+           E
+         "##,
+        dag_changes,
+    )
+    .await?;
+
+    let bookmark_update_ctx = bookmark(ctx, source_repo, MASTER_BOOKMARK);
+    let _master_bookmark_key = bookmark_update_ctx.set_to(commit_id_map[HEAD_ID]).await?;
+
+    Ok(GitExportTestData {
+        repo_ctx: source_repo_ctx,
+        commit_id_map,
+        head_id: HEAD_ID,
+        relevant_paths,
+    })
+}
+
+/// Builds a repo with a merge commit where only one branch modified the
+/// exported paths. The merge should be transparent — the partial graph
+/// remains linear because the other branch has no export-set commits.
+///
+/// DAG structure:
+/// ```text
+/// A-B-C-D
+///  \ /
+///   E
+/// ```
+///
+/// - A: creates EXP/bar.txt (export path)
+/// - B: modifies internal/file.txt only (NOT in export set)
+/// - E: branches from A, modifies internal/other.txt only (NOT in export set)
+/// - C: merge of B and E, modifies EXP/bar.txt (in export set)
+/// - D: modifies EXP/bar.txt (in export set)
+pub async fn repo_with_transparent_merge(
+    fb: FacebookInit,
+    ctx: &CoreContext,
+) -> Result<GitExportTestData<Repo>> {
+    let source_repo: Repo = TestRepoFactory::new(fb)?.build().await?;
+    let source_repo_ctx = RepoContext::new_test(ctx.clone(), source_repo.into()).await?;
+    let source_repo = source_repo_ctx.repo();
+
+    const HEAD_ID: &str = "D";
+
+    let relevant_paths = hashmap! {
+        "export_dir" => EXPORT_DIR,
+        "export_file" => EXPORT_FILE,
+    };
+
+    let dag_changes = changes! {
+        "A" => |c| c.add_file(EXPORT_FILE, "initial export file")
+            .set_author_date(DateTime::from_timestamp(1000, 0).unwrap()),
+        "B" => |c| c.add_file(IRRELEVANT_FILE, "irrelevant change on main branch")
+            .set_author_date(DateTime::from_timestamp(2000, 0).unwrap()),
+        "E" => |c| c.add_file(SECOND_IRRELEVANT_FILE, "irrelevant change on side branch")
+            .set_author_date(DateTime::from_timestamp(1500, 0).unwrap()),
+        "C" => |c| c.add_file(EXPORT_FILE, "modify export file after merge")
+            .set_author_date(DateTime::from_timestamp(3000, 0).unwrap()),
+        "D" => |c| c.add_file(EXPORT_FILE, "final modification")
+            .set_author_date(DateTime::from_timestamp(4000, 0).unwrap()),
+    };
+
+    let commit_id_map = create_from_dag_with_changes(
+        ctx,
+        &source_repo,
+        r##"
+         A-B-C-D
+          \ /
+           E
+         "##,
+        dag_changes,
+    )
+    .await?;
+
+    let bookmark_update_ctx = bookmark(ctx, source_repo, MASTER_BOOKMARK);
+    let _master_bookmark_key = bookmark_update_ctx.set_to(commit_id_map[HEAD_ID]).await?;
+
+    Ok(GitExportTestData {
+        repo_ctx: source_repo_ctx,
+        commit_id_map,
+        head_id: HEAD_ID,
+        relevant_paths,
+    })
+}
+
+/// Builds a repo with an octopus merge (3 parents) where export paths are
+/// modified on all branches.
+///
+/// DAG structure:
+/// ```text
+///    B
+///   / \
+/// A---D-E
+///   \ /
+///    C
+/// ```
+///
+/// - A: creates EXP/bar.txt
+/// - B: branches from A, modifies EXP/bar.txt
+/// - C: branches from A, modifies EXP/bar.txt
+/// - D: octopus merge of B and C — modifies EXP/bar.txt
+/// - E: modifies EXP/bar.txt
+///
+/// Note: `create_from_dag_with_changes` makes A a direct parent of D in
+/// addition to B and C, so D actually has 3 real parents [A, B, C].
+pub async fn repo_with_octopus_merge(
+    fb: FacebookInit,
+    ctx: &CoreContext,
+) -> Result<GitExportTestData<Repo>> {
+    let source_repo: Repo = TestRepoFactory::new(fb)?.build().await?;
+    let source_repo_ctx = RepoContext::new_test(ctx.clone(), source_repo.into()).await?;
+    let source_repo = source_repo_ctx.repo();
+
+    const HEAD_ID: &str = "E";
+
+    let relevant_paths = hashmap! {
+        "export_dir" => EXPORT_DIR,
+        "export_file" => EXPORT_FILE,
+    };
+
+    let dag_changes = changes! {
+        "A" => |c| c.add_file(EXPORT_FILE, "initial export file")
+            .set_author_date(DateTime::from_timestamp(1000, 0).unwrap()),
+        "B" => |c| c.add_file(EXPORT_FILE, "modify on branch 1")
+            .set_author_date(DateTime::from_timestamp(2000, 0).unwrap()),
+        "C" => |c| c.add_file(EXPORT_FILE, "modify on branch 2")
+            .set_author_date(DateTime::from_timestamp(1500, 0).unwrap()),
+        "D" => |c| c.add_file(EXPORT_FILE, "octopus merge result")
+            .set_author_date(DateTime::from_timestamp(3000, 0).unwrap()),
+        "E" => |c| c.add_file(EXPORT_FILE, "final modification")
+            .set_author_date(DateTime::from_timestamp(4000, 0).unwrap()),
+    };
+
+    let commit_id_map = create_from_dag_with_changes(
+        ctx,
+        &source_repo,
+        r##"
+           B
+          / \
+         A---D-E
+          \ /
+           C
+         "##,
+        dag_changes,
+    )
+    .await?;
+
+    let bookmark_update_ctx = bookmark(ctx, source_repo, MASTER_BOOKMARK);
+    let _master_bookmark_key = bookmark_update_ctx.set_to(commit_id_map[HEAD_ID]).await?;
+
+    Ok(GitExportTestData {
+        repo_ctx: source_repo_ctx,
+        commit_id_map,
+        head_id: HEAD_ID,
+        relevant_paths,
+    })
+}
+
+/// Builds a repo where a merge commit's real parents are both NOT in the
+/// export set, requiring `find_nearest_export_ancestor` to walk back on
+/// both sides to find different export-set ancestors.
+///
+/// DAG structure:
+/// ```text
+/// A-b-c-M-D
+///  \   /
+///   E-f
+/// ```
+///
+/// - A: creates EXP/bar.txt (in export set)
+/// - b: modifies internal/bar.txt only (NOT in export set)
+/// - c: modifies internal/bar.txt only (NOT in export set)
+/// - E: branches from A, modifies EXP/bar.txt (in export set)
+/// - f: modifies internal/foo.txt only (NOT in export set)
+/// - M: merge of c and f, modifies EXP/bar.txt (in export set)
+/// - D: modifies EXP/bar.txt (in export set)
+///
+/// Export set: {A, E, M, D}. M's real parents [c, f] are both NOT in the
+/// export set. Walking back from c finds A; walking back from f finds E.
+/// So M has 2 partial parents: [A, E].
+pub async fn repo_with_merge_needing_ancestor_walk_on_both_sides(
+    fb: FacebookInit,
+    ctx: &CoreContext,
+) -> Result<GitExportTestData<Repo>> {
+    let source_repo: Repo = TestRepoFactory::new(fb)?.build().await?;
+    let source_repo_ctx = RepoContext::new_test(ctx.clone(), source_repo.into()).await?;
+    let source_repo = source_repo_ctx.repo();
+
+    const HEAD_ID: &str = "D";
+
+    let relevant_paths = hashmap! {
+        "export_dir" => EXPORT_DIR,
+        "export_file" => EXPORT_FILE,
+    };
+
+    let dag_changes = changes! {
+        "A" => |c| c.add_file(EXPORT_FILE, "initial export file")
+            .set_author_date(DateTime::from_timestamp(1000, 0).unwrap()),
+        "b" => |c| c.add_file(IRRELEVANT_FILE, "irrelevant on main")
+            .set_author_date(DateTime::from_timestamp(2000, 0).unwrap()),
+        "c" => |c| c.add_file(IRRELEVANT_FILE, "still irrelevant on main")
+            .set_author_date(DateTime::from_timestamp(3000, 0).unwrap()),
+        "E" => |c| c.add_file(EXPORT_FILE, "modify export on branch")
+            .set_author_date(DateTime::from_timestamp(1500, 0).unwrap()),
+        "f" => |c| c.add_file(SECOND_IRRELEVANT_FILE, "irrelevant on branch")
+            .set_author_date(DateTime::from_timestamp(2500, 0).unwrap()),
+        "M" => |c| c.add_file(EXPORT_FILE, "merge result")
+            .set_author_date(DateTime::from_timestamp(4000, 0).unwrap()),
+        "D" => |c| c.add_file(EXPORT_FILE, "final modification")
+            .set_author_date(DateTime::from_timestamp(5000, 0).unwrap()),
+    };
+
+    let commit_id_map = create_from_dag_with_changes(
+        ctx,
+        &source_repo,
+        r##"
+         A-b-c-M-D
+          \   /
+           E-f
+         "##,
+        dag_changes,
+    )
+    .await?;
+
+    let bookmark_update_ctx = bookmark(ctx, source_repo, MASTER_BOOKMARK);
+    let _master_bookmark_key = bookmark_update_ctx.set_to(commit_id_map[HEAD_ID]).await?;
+
+    Ok(GitExportTestData {
+        repo_ctx: source_repo_ctx,
+        commit_id_map,
+        head_id: HEAD_ID,
+        relevant_paths,
+    })
+}

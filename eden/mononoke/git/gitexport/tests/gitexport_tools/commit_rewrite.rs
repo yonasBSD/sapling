@@ -19,6 +19,7 @@ use fbinit::FacebookInit;
 use futures::future::try_join_all;
 use gitexport_tools::GitExportGraphInfo;
 use gitexport_tools::MASTER_BOOKMARK;
+use gitexport_tools::build_partial_commit_graph_for_export;
 use gitexport_tools::rewrite_partial_changesets;
 use mononoke_api::BookmarkFreshness;
 use mononoke_api::BookmarkKey;
@@ -36,6 +37,8 @@ use test_utils::build_test_repo;
 use test_utils::get_relevant_changesets_from_ids;
 use test_utils::repo_with_multiple_renamed_export_directories;
 use test_utils::repo_with_renamed_export_path;
+use test_utils::repo_with_transparent_merge;
+use test_utils::repo_with_true_merge;
 
 const IMPLICIT_DELETE_BUFFER_SIZE: usize = 100;
 
@@ -412,4 +415,199 @@ fn build_expected_tuple(msg: &str, fpaths: Vec<&str>) -> (String, Vec<NonRootMPa
             .map(|p| NonRootMPath::new(p).unwrap())
             .collect::<Vec<_>>(),
     )
+}
+
+/// End-to-end test: build partial graph and rewrite changesets for a repo
+/// with a transparent merge commit (only one branch modified the export path).
+/// Verifies the full pipeline produces correct linear output.
+#[mononoke::fbinit_test]
+async fn test_end_to_end_with_transparent_merge(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+
+    let test_data = repo_with_transparent_merge(fb, &ctx).await?;
+    let source_repo_ctx = test_data.repo_ctx;
+    let relevant_paths = test_data.relevant_paths;
+
+    let export_dir = NonRootMPath::new(relevant_paths["export_dir"]).unwrap();
+    let export_file = relevant_paths["export_file"];
+
+    let master_cs = source_repo_ctx
+        .resolve_bookmark(
+            &BookmarkKey::from_str(MASTER_BOOKMARK)?,
+            BookmarkFreshness::MostRecent,
+        )
+        .await?
+        .ok_or(anyhow!("Couldn't find master bookmark in source repo."))?;
+
+    // Step 1: Build partial commit graph (this exercises merge handling)
+    let graph_info =
+        build_partial_commit_graph_for_export(vec![(export_dir.clone(), master_cs.clone())], None)
+            .await?;
+
+    // Should have 3 changesets: A, C, D (B and E only touch internal files)
+    assert_eq!(graph_info.changesets.len(), 3);
+
+    // Step 2: Rewrite changesets to temporary repo
+    let temp_repo_ctx = rewrite_partial_changesets(
+        fb,
+        source_repo_ctx,
+        graph_info,
+        vec![(export_dir, master_cs)],
+        IMPLICIT_DELETE_BUFFER_SIZE,
+    )
+    .await?;
+
+    // Step 3: Verify the rewritten repo has correct linear history
+    let temp_master = temp_repo_ctx
+        .resolve_bookmark(
+            &BookmarkKey::from_str(MASTER_BOOKMARK)?,
+            BookmarkFreshness::MostRecent,
+        )
+        .await?
+        .ok_or(anyhow!("Couldn't find master bookmark in temp repo."))?;
+
+    // Walk the history and verify messages and files
+    let mut cs = temp_master;
+    let mut messages = vec![];
+    loop {
+        let msg = cs.message().await?;
+        let files: Vec<String> = cs
+            .file_changes()
+            .await?
+            .into_keys()
+            .map(|p| p.to_string())
+            .collect();
+        messages.push((msg, files));
+        let parents = cs.parents().await?;
+        if parents.is_empty() {
+            break;
+        }
+        assert_eq!(
+            parents.len(),
+            1,
+            "Rewritten repo should have linear history"
+        );
+        cs = temp_repo_ctx
+            .changeset(parents[0])
+            .await?
+            .ok_or(anyhow!("Parent not found"))?;
+    }
+
+    // Reverse to get oldest-first
+    messages.reverse();
+
+    assert_eq!(messages.len(), 3);
+    // All commits should only touch the export file
+    for (_msg, files) in &messages {
+        assert_eq!(files, &[export_file.to_string()]);
+    }
+
+    Ok(())
+}
+
+/// End-to-end test: build partial graph and rewrite changesets for a repo
+/// with a true merge commit (both branches modified the export path).
+/// Verifies the full pipeline produces a merge commit in the output.
+#[mononoke::fbinit_test]
+async fn test_end_to_end_with_true_merge(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+
+    let test_data = repo_with_true_merge(fb, &ctx).await?;
+    let source_repo_ctx = test_data.repo_ctx;
+    let changeset_ids = test_data.commit_id_map;
+    let relevant_paths = test_data.relevant_paths;
+
+    let export_dir = NonRootMPath::new(relevant_paths["export_dir"]).unwrap();
+    let export_file = relevant_paths["export_file"];
+
+    let C = changeset_ids["C"];
+
+    let master_cs = source_repo_ctx
+        .resolve_bookmark(
+            &BookmarkKey::from_str(MASTER_BOOKMARK)?,
+            BookmarkFreshness::MostRecent,
+        )
+        .await?
+        .ok_or(anyhow!("Couldn't find master bookmark in source repo."))?;
+
+    // Step 1: Build partial commit graph
+    let graph_info =
+        build_partial_commit_graph_for_export(vec![(export_dir.clone(), master_cs.clone())], None)
+            .await?;
+
+    // Should have 4 changesets: A, E, C, D
+    assert_eq!(graph_info.changesets.len(), 4);
+
+    // C should have 2 parents in the partial graph
+    let c_parents = &graph_info.parents_map[&C];
+    assert_eq!(
+        c_parents.len(),
+        2,
+        "C should have 2 parents: {:?}",
+        c_parents
+    );
+
+    // Step 2: Rewrite changesets to temporary repo
+    let temp_repo_ctx = rewrite_partial_changesets(
+        fb,
+        source_repo_ctx,
+        graph_info,
+        vec![(export_dir, master_cs)],
+        IMPLICIT_DELETE_BUFFER_SIZE,
+    )
+    .await?;
+
+    // Step 3: Verify the rewritten repo has a merge commit
+    let temp_master = temp_repo_ctx
+        .resolve_bookmark(
+            &BookmarkKey::from_str(MASTER_BOOKMARK)?,
+            BookmarkFreshness::MostRecent,
+        )
+        .await?
+        .ok_or(anyhow!("Couldn't find master bookmark in temp repo."))?;
+
+    // Walk backwards from master. D is the head (linear), C is the merge.
+    let d_cs = temp_master;
+    let d_msg = d_cs.message().await?;
+    assert_eq!(d_msg, "D");
+
+    let d_parents = d_cs.parents().await?;
+    assert_eq!(d_parents.len(), 1, "D should have 1 parent");
+
+    let c_cs = temp_repo_ctx
+        .changeset(d_parents[0])
+        .await?
+        .ok_or(anyhow!("C not found"))?;
+    let c_msg = c_cs.message().await?;
+    assert_eq!(c_msg, "C");
+
+    // C should be a merge commit in the rewritten repo
+    let c_rewritten_parents = c_cs.parents().await?;
+    assert_eq!(
+        c_rewritten_parents.len(),
+        2,
+        "Rewritten C should be a merge commit with 2 parents"
+    );
+
+    // Verify both parents of C have the export file
+    for parent_id in &c_rewritten_parents {
+        let parent_cs = temp_repo_ctx
+            .changeset(*parent_id)
+            .await?
+            .ok_or(anyhow!("Parent of C not found"))?;
+        let files: Vec<String> = parent_cs
+            .file_changes()
+            .await?
+            .into_keys()
+            .map(|p| p.to_string())
+            .collect();
+        assert!(
+            files.contains(&export_file.to_string()),
+            "Parent {:?} should touch export file, got: {:?}",
+            parent_cs.message().await?,
+            files
+        );
+    }
+
+    Ok(())
 }

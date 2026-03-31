@@ -33,8 +33,12 @@ use mononoke_types::ChangesetId;
 use mononoke_types::NonRootMPath;
 use test_utils::GitExportTestRepoOptions;
 use test_utils::build_test_repo;
+use test_utils::repo_with_merge_needing_ancestor_walk_on_both_sides;
 use test_utils::repo_with_multiple_renamed_export_directories;
+use test_utils::repo_with_octopus_merge;
 use test_utils::repo_with_renamed_export_path;
+use test_utils::repo_with_transparent_merge;
+use test_utils::repo_with_true_merge;
 use tracing::info;
 
 #[mononoke::fbinit_test]
@@ -91,8 +95,15 @@ async fn test_partial_commit_graph_for_single_export_path(fb: FacebookInit) -> R
     Ok(())
 }
 
+/// Test that a merge commit where both branches have export-set commits
+/// produces a 2-parent merge in the partial graph (instead of erroring).
+///
+/// DAG: A-B-C-D-E-F-G-H-I-J with K branching from E and merging into G.
+/// K modifies SECOND_EXPORT_FILE. When exporting both EXPORT_DIR and
+/// SECOND_EXPORT_DIR, G is a merge with export-set commits on both branches
+/// (F on main, K on side).
 #[mononoke::fbinit_test]
-async fn test_directories_with_merge_commits_fail_hard(fb: FacebookInit) -> Result<()> {
+async fn test_true_merge_produces_two_parent_graph(fb: FacebookInit) -> Result<()> {
     let ctx = CoreContext::test_mock(fb);
 
     let test_repo_opts = GitExportTestRepoOptions {
@@ -107,8 +118,12 @@ async fn test_directories_with_merge_commits_fail_hard(fb: FacebookInit) -> Resu
     let export_dir = NonRootMPath::new(relevant_paths["export_dir"]).unwrap();
     let second_export_dir = NonRootMPath::new(relevant_paths["second_export_dir"]).unwrap();
 
+    let A = changeset_ids["A"];
+    let C = changeset_ids["C"];
+    let E = changeset_ids["E"];
     let F = changeset_ids["F"];
-    let branch_commit = changeset_ids["K"];
+    let G = changeset_ids["G"];
+    let K = changeset_ids["K"];
 
     let master_cs = source_repo_ctx
         .resolve_bookmark(
@@ -118,21 +133,55 @@ async fn test_directories_with_merge_commits_fail_hard(fb: FacebookInit) -> Resu
         .await?
         .ok_or(anyhow!("Couldn't find master bookmark in source repo."))?;
 
-    let error = build_partial_commit_graph_for_export(
+    let graph_info = build_partial_commit_graph_for_export(
         vec![
             (export_dir, master_cs.clone()),
             (second_export_dir, master_cs),
         ],
         None,
     )
-    .await
-    .unwrap_err();
+    .await?;
 
-    let expected_error = format!(
-        "Merge commits are not supported for partial commit graphs. Commit {0:?} is not an ancestor of {1:?}",
-        branch_commit, F
+    let relevant_cs_ids = graph_info
+        .changesets
+        .iter()
+        .map(ChangesetContext::id)
+        .collect::<Vec<_>>();
+
+    // K has generation 6 (branches from E at gen 5), F has generation 6 too,
+    // so order depends on changeset ID comparison. Both should be present.
+    assert!(
+        relevant_cs_ids.contains(&K),
+        "K should be in the export set"
     );
-    assert_eq!(expected_error, error.to_string(),);
+    assert!(
+        relevant_cs_ids.contains(&F),
+        "F should be in the export set"
+    );
+
+    // G should have exactly 2 parents in the partial graph: F and K
+    let g_parents = &graph_info.parents_map[&G];
+    assert_eq!(
+        g_parents.len(),
+        2,
+        "Merge commit G should have 2 parents in partial graph, got: {:?}",
+        g_parents
+    );
+    assert!(
+        g_parents.contains(&F),
+        "G's parents should include F: {:?}",
+        g_parents
+    );
+    assert!(
+        g_parents.contains(&K),
+        "G's parents should include K: {:?}",
+        g_parents
+    );
+
+    // Other commits should have normal single parents
+    assert_eq!(graph_info.parents_map[&A], vec![]);
+    assert_eq!(graph_info.parents_map[&C], vec![A]);
+    assert_eq!(graph_info.parents_map[&E], vec![C]);
 
     Ok(())
 }
@@ -429,4 +478,275 @@ async fn test_partial_graph_with_two_renamed_export_directories(fb: FacebookInit
         },
     )
     .await
+}
+
+/// Test that a merge commit where both branches have export-set commits
+/// produces a 2-parent merge in the partial graph.
+///
+/// ```text
+/// A-B-C-D
+///  \ /
+///   E
+/// ```
+///
+/// - A: creates EXP/bar.txt (export path)
+/// - B: deletes EXP/bar.txt (not in export set — deletions followed through)
+/// - E: branches from A, modifies EXP/bar.txt
+/// - C: merge of B and E, re-creates EXP/bar.txt
+/// - D: modifies EXP/bar.txt
+///
+/// Export set: {A, E, C, D}. C's real parents [B, E] resolve to partial
+/// parents [A, E] — two distinct ancestors, so C has a 2-parent merge.
+#[mononoke::fbinit_test]
+async fn test_true_merge_with_diamond_dag(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+
+    let test_data = repo_with_true_merge(fb, &ctx).await?;
+    let source_repo_ctx = test_data.repo_ctx;
+    let changeset_ids = test_data.commit_id_map;
+    let relevant_paths = test_data.relevant_paths;
+
+    let export_dir = NonRootMPath::new(relevant_paths["export_dir"]).unwrap();
+
+    let A = changeset_ids["A"];
+    let E = changeset_ids["E"];
+    let C = changeset_ids["C"];
+    let D = changeset_ids["D"];
+
+    let master_cs = source_repo_ctx
+        .resolve_bookmark(
+            &BookmarkKey::from_str(MASTER_BOOKMARK)?,
+            BookmarkFreshness::MostRecent,
+        )
+        .await?
+        .ok_or(anyhow!("Couldn't find master bookmark in source repo."))?;
+
+    let graph_info =
+        build_partial_commit_graph_for_export(vec![(export_dir, master_cs)], None).await?;
+
+    let relevant_cs_ids = graph_info
+        .changesets
+        .iter()
+        .map(ChangesetContext::id)
+        .collect::<Vec<_>>();
+
+    // Export set should be {A, E, C, D}
+    assert_eq!(relevant_cs_ids.len(), 4);
+    assert!(relevant_cs_ids.contains(&A));
+    assert!(relevant_cs_ids.contains(&E));
+    assert!(relevant_cs_ids.contains(&C));
+    assert!(relevant_cs_ids.contains(&D));
+
+    // C should have 2 parents: A and E
+    let c_parents = &graph_info.parents_map[&C];
+    assert_eq!(
+        c_parents.len(),
+        2,
+        "Merge commit C should have 2 parents, got: {:?}",
+        c_parents
+    );
+    assert!(c_parents.contains(&A), "C's parents should include A");
+    assert!(c_parents.contains(&E), "C's parents should include E");
+
+    // Other commits should have normal parents
+    assert_eq!(graph_info.parents_map[&A], vec![]);
+    assert_eq!(graph_info.parents_map[&E], vec![A]);
+    assert_eq!(graph_info.parents_map[&D], vec![C]);
+
+    Ok(())
+}
+
+/// Test that octopus merges (3+ parents) produce an N-parent merge
+/// in the partial graph.
+///
+/// DAG:
+/// ```text
+///    B
+///   / \
+/// A---D-E
+///   \ /
+///    C
+/// ```
+///
+/// All of A, B, C modify EXP/bar.txt. D is a 3-parent merge.
+/// Export set: {A, B, C, D, E}. D should have 2 parents: B and C
+/// (A is an ancestor of both, so it's not a direct partial parent).
+#[mononoke::fbinit_test]
+async fn test_octopus_merge_produces_multi_parent_graph(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+
+    let test_data = repo_with_octopus_merge(fb, &ctx).await?;
+    let source_repo_ctx = test_data.repo_ctx;
+    let changeset_ids = test_data.commit_id_map;
+    let relevant_paths = test_data.relevant_paths;
+
+    let export_dir = NonRootMPath::new(relevant_paths["export_dir"]).unwrap();
+
+    let A = changeset_ids["A"];
+    let B = changeset_ids["B"];
+    let C = changeset_ids["C"];
+    let D = changeset_ids["D"];
+    let E = changeset_ids["E"];
+
+    let master_cs = source_repo_ctx
+        .resolve_bookmark(
+            &BookmarkKey::from_str(MASTER_BOOKMARK)?,
+            BookmarkFreshness::MostRecent,
+        )
+        .await?
+        .ok_or(anyhow!("Couldn't find master bookmark in source repo."))?;
+
+    let graph_info =
+        build_partial_commit_graph_for_export(vec![(export_dir, master_cs)], None).await?;
+
+    let relevant_cs_ids = graph_info
+        .changesets
+        .iter()
+        .map(ChangesetContext::id)
+        .collect::<Vec<_>>();
+
+    // All commits modify the export path
+    assert_eq!(relevant_cs_ids.len(), 5);
+
+    // D is an octopus merge with 3 real parents (A, B, C) in the DAG.
+    // All three are in the export set, so D has 3 partial parents.
+    let d_parents = &graph_info.parents_map[&D];
+    assert_eq!(
+        d_parents.len(),
+        3,
+        "Octopus merge D should have 3 parents in partial graph, got: {:?}",
+        d_parents
+    );
+    assert!(d_parents.contains(&A), "D's parents should include A");
+    assert!(d_parents.contains(&B), "D's parents should include B");
+    assert!(d_parents.contains(&C), "D's parents should include C");
+
+    // Other commits
+    assert_eq!(graph_info.parents_map[&A], vec![]);
+    assert_eq!(graph_info.parents_map[&B], vec![A]);
+    assert_eq!(graph_info.parents_map[&C], vec![A]);
+    assert_eq!(graph_info.parents_map[&E], vec![D]);
+
+    Ok(())
+}
+
+/// Test that `find_nearest_export_ancestor` is exercised on BOTH parents
+/// of a merge. M's real parents [c, f] are both non-export commits that
+/// must walk back to different export-set ancestors (A and E).
+#[mononoke::fbinit_test]
+async fn test_merge_with_ancestor_walk_on_both_sides(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+
+    let test_data = repo_with_merge_needing_ancestor_walk_on_both_sides(fb, &ctx).await?;
+    let source_repo_ctx = test_data.repo_ctx;
+    let changeset_ids = test_data.commit_id_map;
+    let relevant_paths = test_data.relevant_paths;
+
+    let export_dir = NonRootMPath::new(relevant_paths["export_dir"]).unwrap();
+
+    let A = changeset_ids["A"];
+    let E = changeset_ids["E"];
+    let M = changeset_ids["M"];
+    let D = changeset_ids["D"];
+
+    let master_cs = source_repo_ctx
+        .resolve_bookmark(
+            &BookmarkKey::from_str(MASTER_BOOKMARK)?,
+            BookmarkFreshness::MostRecent,
+        )
+        .await?
+        .ok_or(anyhow!("Couldn't find master bookmark in source repo."))?;
+
+    let graph_info =
+        build_partial_commit_graph_for_export(vec![(export_dir, master_cs)], None).await?;
+
+    let relevant_cs_ids = graph_info
+        .changesets
+        .iter()
+        .map(ChangesetContext::id)
+        .collect::<Vec<_>>();
+
+    // Export set: {A, E, M, D} — b, c, f are skipped
+    assert_eq!(relevant_cs_ids.len(), 4);
+    assert!(relevant_cs_ids.contains(&A));
+    assert!(relevant_cs_ids.contains(&E));
+    assert!(relevant_cs_ids.contains(&M));
+    assert!(relevant_cs_ids.contains(&D));
+
+    // M's real parents [c, f] walk back to [A, E]
+    let m_parents = &graph_info.parents_map[&M];
+    assert_eq!(
+        m_parents.len(),
+        2,
+        "M should have 2 partial parents after ancestor walk, got: {:?}",
+        m_parents
+    );
+    assert!(m_parents.contains(&A), "M's parents should include A");
+    assert!(m_parents.contains(&E), "M's parents should include E");
+
+    // Other commits
+    assert_eq!(graph_info.parents_map[&A], vec![]);
+    assert_eq!(graph_info.parents_map[&E], vec![A]);
+    assert_eq!(graph_info.parents_map[&D], vec![M]);
+
+    Ok(())
+}
+
+/// Test that a merge commit is handled transparently when only one branch
+/// of the merge modified the exported paths. The partial graph should
+/// remain linear — the merge is invisible because the other branch has
+/// no export-set commits.
+///
+/// DAG:
+/// ```text
+/// A-B-C-D
+///  \ /
+///   E
+/// ```
+///
+/// Only A, C, D touch the export path. B and E only touch internal files.
+/// Export set: {A, C, D}
+/// C's real parents [B, E] both resolve to A in the partial graph.
+/// After dedup, partial_parents = [A]. Linear!
+#[mononoke::fbinit_test]
+async fn test_transparent_merge_produces_linear_graph(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+
+    let test_data = repo_with_transparent_merge(fb, &ctx).await?;
+    let source_repo_ctx = test_data.repo_ctx;
+    let changeset_ids = test_data.commit_id_map;
+    let relevant_paths = test_data.relevant_paths;
+
+    let export_dir = NonRootMPath::new(relevant_paths["export_dir"]).unwrap();
+
+    let A = changeset_ids["A"];
+    let C = changeset_ids["C"];
+    let D = changeset_ids["D"];
+
+    let master_cs = source_repo_ctx
+        .resolve_bookmark(
+            &BookmarkKey::from_str(MASTER_BOOKMARK)?,
+            BookmarkFreshness::MostRecent,
+        )
+        .await?
+        .ok_or(anyhow!("Couldn't find master bookmark in source repo."))?;
+
+    let graph_info =
+        build_partial_commit_graph_for_export(vec![(export_dir, master_cs)], None).await?;
+
+    let relevant_cs_ids = graph_info
+        .changesets
+        .iter()
+        .map(ChangesetContext::id)
+        .collect::<Vec<_>>();
+
+    // Only A, C, D should be in the export set (B and E only touch internal files)
+    assert_eq!(relevant_cs_ids, vec![A, C, D]);
+
+    // The partial graph should be linear: A -> C -> D
+    assert_eq!(graph_info.parents_map[&A], vec![]);
+    assert_eq!(graph_info.parents_map[&C], vec![A]);
+    assert_eq!(graph_info.parents_map[&D], vec![C]);
+
+    Ok(())
 }

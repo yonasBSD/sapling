@@ -6,14 +6,13 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use anyhow::Result;
-use anyhow::anyhow;
 use futures::future::try_join_all;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use futures::stream::{self};
-use itertools::Itertools;
 use mononoke_api::ChangesetContext;
 use mononoke_api::MononokeRepo;
 use mononoke_api::changeset_path::ChangesetPathHistoryOptions;
@@ -122,6 +121,13 @@ async fn get_relevant_changesets_for_single_path<R: MononokeRepo>(
 /// Example: Given the graph `A -> b -> c -> D -> e`, where commits with uppercase
 /// have modified export paths, the parent map should be `{A: [D]}`, because
 /// the partial graph is `A -> D`.
+///
+/// Merge commits in the real DAG are handled by resolving each real parent
+/// to its nearest ancestor in the export set. If all real parents resolve
+/// to the same export-set ancestor (or have no ancestor), the merge is
+/// transparent and the partial graph stays linear. If they resolve to
+/// multiple different ancestors, the merge is preserved as an N-parent
+/// merge in the partial graph.
 async fn merge_cs_lists_and_build_parents_map<R: MononokeRepo>(
     changeset_lists: Vec<Vec<ChangesetContext<R>>>,
 ) -> Result<(Vec<ChangesetContext<R>>, ChangesetParents)> {
@@ -137,8 +143,7 @@ async fn merge_cs_lists_and_build_parents_map<R: MononokeRepo>(
 
     // Sort by generation number
     debug!("Sorting changesets by generation number...");
-    changesets_with_gen
-        .sort_by(|(cs_a, gen_a), (cs_b, gen_b)| (gen_a, cs_a.id()).cmp(&(gen_b, cs_b.id())));
+    changesets_with_gen.sort_by_key(|(cs, generation)| (*generation, cs.id()));
 
     // Collect the sorted changesets
     let mut sorted_css = changesets_with_gen
@@ -149,28 +154,73 @@ async fn merge_cs_lists_and_build_parents_map<R: MononokeRepo>(
     // Remove any duplicates from the list.
     // NOTE: `dedup_by` can only be used here because the list is sorted!
     debug!("Deduping changesets...");
-    sorted_css.dedup_by(|cs_a, cs_b| cs_a.id().eq(&cs_b.id()));
+    sorted_css.dedup_by_key(|cs| cs.id());
 
-    // Make sure that there are no merge commits by checking that consecutive
-    // changesest are ancestors of each other.
-    // In this process, also build the parents map.
+    // Build a set of all changeset IDs in the export set for quick lookup.
+    let export_cs_ids: HashSet<ChangesetId> = sorted_css.iter().map(|cs| cs.id()).collect();
+
+    // Build the parents map by resolving actual parent relationships.
+    // For each changeset, find its parents in the partial graph by walking
+    // backwards through its real Mononoke parents until we find one in the
+    // export set. Process changesets concurrently for performance.
     debug!("Building parents map...");
-    let mut parents_map = try_join_all(sorted_css.iter().tuple_windows().map(|(parent, child)| async {
-         let is_ancestor = parent.is_ancestor_of(child.id()).await?;
-         if !is_ancestor {
-             return Err(anyhow!(
-                 "Merge commits are not supported for partial commit graphs. Commit {:?} is not an ancestor of {:?}", parent.id(), child.id(),
-             ));
-         };
-         Ok((child.id(), vec![parent.id()]),)
-     }))
-     .await?
-     .into_iter()
-     .collect::<HashMap<ChangesetId, Vec<ChangesetId>>>();
+    let parents_map: ChangesetParents =
+        stream::iter(sorted_css.iter().enumerate().map(|(idx, cs)| {
+            let export_cs_ids = &export_cs_ids;
+            let sorted_css = &sorted_css;
+            async move {
+                let real_parents = cs.parents().await?;
 
-    if let Some(root_cs) = sorted_css.first() {
-        parents_map.insert(root_cs.id(), vec![]);
-    };
+                if real_parents.is_empty() {
+                    // Root commit
+                    return anyhow::Ok((cs.id(), vec![]));
+                }
+
+                // Resolve each real parent to its nearest ancestor in the export set.
+                // Parents already in the set map directly; others require walking
+                // backwards through the DAG. Results are deduped because multiple
+                // real parents may resolve to the same export-set ancestor.
+                //
+                // Only search among changesets with lower generation (i.e. earlier
+                // in the sorted list) since ancestors always have lower generation.
+                let ancestors_slice = &sorted_css[..idx];
+                let resolved: Vec<Option<ChangesetId>> =
+                    try_join_all(real_parents.iter().map(|parent_id| async {
+                        if export_cs_ids.contains(parent_id) {
+                            Ok(Some(*parent_id))
+                        } else {
+                            find_nearest_export_ancestor(*parent_id, ancestors_slice).await
+                        }
+                    }))
+                    .await?;
+                let mut partial_parents: Vec<ChangesetId> =
+                    resolved.into_iter().flatten().collect();
+                partial_parents.sort();
+                partial_parents.dedup();
+
+                Ok((cs.id(), partial_parents))
+            }
+        }))
+        .buffer_unordered(100)
+        .try_collect::<HashMap<_, _>>()
+        .await?;
 
     Ok((sorted_css, parents_map))
+}
+
+/// Find the nearest ancestor of `start_parent_id` that is in the export set.
+/// `candidates` must only contain changesets with lower generation than the
+/// commit being processed (i.e. the caller passes `&sorted_css[..idx]`).
+async fn find_nearest_export_ancestor<R: MononokeRepo>(
+    start_parent_id: ChangesetId,
+    candidates: &[ChangesetContext<R>],
+) -> Result<Option<ChangesetId>> {
+    // Search backwards (newest first) to find the most recent ancestor.
+    for candidate in candidates.iter().rev() {
+        if candidate.is_ancestor_of(start_parent_id).await? {
+            return Ok(Some(candidate.id()));
+        }
+    }
+    // No ancestor found in the export set — this is a root in the partial graph
+    Ok(None)
 }
