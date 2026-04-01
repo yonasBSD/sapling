@@ -134,13 +134,12 @@ export function AICodeReviewUpsell({
     );
 
   return (
-    <Banner kind={BannerKind.default}>
+    <Banner kind={BannerKind.default} buttons={reviewButton} alwaysShowButtons>
       <div className="code-review-upsell-inner">
         <div className="code-review-upsell-icon-text">
           <Icon icon="sparkle" />
           {bannerText}
         </div>
-        {reviewButton}
       </div>
     </Banner>
   );
