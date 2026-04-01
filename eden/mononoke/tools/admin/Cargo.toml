@@ -8,6 +8,7 @@ edition = "2024"
 license = "GPLv2+"
 
 [dependencies]
+acl_manifest = { version = "0.1.0", path = "../../derived_data/acl_manifest" }
 anyhow = "1.0.102"
 async-stream = "0.3"
 async_requests = { version = "0.1.0", path = "../../features/async_requests" }

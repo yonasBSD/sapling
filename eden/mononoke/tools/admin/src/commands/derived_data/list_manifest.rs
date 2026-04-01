@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+use acl_manifest::RootAclManifestId;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
@@ -49,6 +50,9 @@ use mononoke_types::FsnodeId;
 use mononoke_types::MPathElement;
 use mononoke_types::ManifestUnodeId;
 use mononoke_types::SkeletonManifestId;
+use mononoke_types::acl_manifest::AclManifest;
+use mononoke_types::acl_manifest::AclManifestDirectoryRestriction;
+use mononoke_types::acl_manifest::AclManifestEntry;
 use mononoke_types::content_manifest::ContentManifestFile;
 use mononoke_types::deleted_manifest_common::DeletedManifestCommon;
 use mononoke_types::deleted_manifest_v2::DeletedManifestV2;
@@ -57,6 +61,7 @@ use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterMan
 use mononoke_types::fsnode::FsnodeFile;
 use mononoke_types::path::MPath;
 use mononoke_types::skeleton_manifest_v2::SkeletonManifestV2;
+use mononoke_types::typed_hash::AclManifestId;
 use repo_blobstore::RepoBlobstore;
 use repo_blobstore::RepoBlobstoreRef;
 use skeleton_manifest::RootSkeletonManifestId;
@@ -78,6 +83,7 @@ enum ListManifestType {
     HgManifests,
     HgAugmentedManifests,
     GitTrees,
+    AclManifests,
 }
 
 #[derive(Args)]
@@ -459,6 +465,128 @@ where
     .boxed())
 }
 
+/// Custom listing function for AclManifest.
+/// AclManifest is a sparse manifest using ShardedMapV2 that only stores restriction
+/// roots and their ancestors. We work with AclManifestEntry directly to show
+/// ACL-specific metadata (is_restricted, has_restricted_descendants).
+async fn list_acl(
+    ctx: &CoreContext,
+    repo: &Repo,
+    root_id: AclManifestId,
+    path: MPath,
+    directory: bool,
+    recursive: bool,
+) -> Result<BoxStream<'static, Result<ListItem>>> {
+    let blobstore = repo.repo_blobstore().clone();
+    let root: AclManifest = root_id.load(ctx, &blobstore).await?;
+
+    // Navigate to the target path
+    let mut current = root;
+    for elem in path.clone().into_iter() {
+        let entry = current
+            .lookup(ctx, &blobstore, &elem)
+            .await?
+            .ok_or_else(|| anyhow!("No ACL manifest for path '{}'", path))?;
+        match entry {
+            AclManifestEntry::Directory(dir) => {
+                current = dir.id.load(ctx, &blobstore).await?;
+            }
+            AclManifestEntry::AclFile(_) => {
+                if directory {
+                    return Ok(futures::stream::once(async move {
+                        Ok(ListItem::File(path, format_acl_entry(&entry)))
+                    })
+                    .boxed());
+                }
+                return Err(anyhow!("Path '{}' is a leaf, not a directory", path));
+            }
+        }
+    }
+
+    if directory {
+        let desc = format_acl_restriction(&current.restriction);
+        return Ok(
+            futures::stream::once(async move { Ok(ListItem::Directory(path, desc)) }).boxed(),
+        );
+    }
+
+    if recursive {
+        return list_acl_recursive(ctx, repo, current, path).await;
+    }
+
+    // List immediate children
+    let items: Vec<ListItem> = current
+        .into_subentries(ctx, &blobstore)
+        .map_ok(|(elem, entry)| {
+            let subpath = path.join_element(Some(&elem));
+            let desc = format_acl_entry(&entry);
+            match entry {
+                AclManifestEntry::Directory(_) => ListItem::Directory(subpath, desc),
+                AclManifestEntry::AclFile(_) => ListItem::File(subpath, desc),
+            }
+        })
+        .try_collect()
+        .await?;
+
+    Ok(futures::stream::iter(items.into_iter().map(Ok)).boxed())
+}
+
+async fn list_acl_recursive(
+    ctx: &CoreContext,
+    repo: &Repo,
+    root: AclManifest,
+    start_path: MPath,
+) -> Result<BoxStream<'static, Result<ListItem>>> {
+    cloned!(ctx);
+    let blobstore = repo.repo_blobstore().clone();
+
+    Ok(try_stream! {
+        let mut stack: Vec<(MPath, AclManifest)> = vec![(start_path, root)];
+
+        while let Some((current_path, manifest)) = stack.pop() {
+            let mut subentries = manifest.into_subentries(&ctx, &blobstore);
+            while let Some((elem, entry)) = subentries.try_next().await? {
+                let subpath = current_path.join_element(Some(&elem));
+                let desc = format_acl_entry(&entry);
+                match entry {
+                    AclManifestEntry::Directory(dir) => {
+                        yield ListItem::Directory(subpath.clone(), desc);
+                        let child: AclManifest = dir.id.load(&ctx, &blobstore).await?;
+                        stack.push((subpath, child));
+                    }
+                    AclManifestEntry::AclFile(_) => {
+                        yield ListItem::File(subpath, desc);
+                    }
+                }
+            }
+        }
+    }
+    .boxed())
+}
+
+fn format_acl_restriction(restriction: &AclManifestDirectoryRestriction) -> String {
+    match restriction {
+        AclManifestDirectoryRestriction::Unrestricted => String::from("unrestricted"),
+        AclManifestDirectoryRestriction::Restricted(r) => {
+            format!("restricted\tentry_blob={}", r.entry_blob_id)
+        }
+    }
+}
+
+fn format_acl_entry(entry: &AclManifestEntry) -> String {
+    match entry {
+        AclManifestEntry::AclFile(restriction) => {
+            format!("acl_file\tentry_blob={}", restriction.entry_blob_id)
+        }
+        AclManifestEntry::Directory(dir) => {
+            format!(
+                "directory\tid={}\tis_restricted={}\thas_restricted_descendants={}",
+                dir.id, dir.is_restricted, dir.has_restricted_descendants
+            )
+        }
+    }
+}
+
 /// Same as `list`, but for deleted manifests, which are structured differently and have their own `Ops`.
 async fn list_deleted(
     ctx: &CoreContext,
@@ -650,6 +778,13 @@ pub(super) async fn list_manifest(
                     .fetch_root_tree(ctx, repo.repo_blobstore())
                     .await?;
             list(ctx, repo, root_id, path, args.directory, args.recursive).await?
+        }
+        ListManifestType::AclManifests => {
+            let root_id =
+                fetch_or_derive_root::<RootAclManifestId>(ctx, manager, cs_id, args.derive)
+                    .await?
+                    .into_inner_id();
+            list_acl(ctx, repo, root_id, path, args.directory, args.recursive).await?
         }
     };
 
