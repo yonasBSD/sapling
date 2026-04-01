@@ -768,6 +768,26 @@ def do_buildinfo(instance: EdenInstance, out: Optional[IO[bytes]] = None) -> Non
         out.write(b"%s: %s\n" % (key.encode(), value.encode()))
 
 
+@debug_cmd("systemd", "Print the systemd unit name for this EdenFS instance")
+class SystemdCmd(Subcmd):
+    def run(self, args: argparse.Namespace) -> int:
+        if sys.platform != "linux":
+            print(
+                "error: eden debug systemd is only supported on Linux", file=sys.stderr
+            )
+            return 1
+        instance = cmd_util.get_eden_instance(args)
+        from . import daemon
+
+        try:
+            unit = daemon._get_systemd_unit(instance)
+            print(unit)
+            return 0
+        except (RuntimeError, OSError) as e:
+            print(f"error: failed to get systemd unit name: {e}", file=sys.stderr)
+            return 1
+
+
 @debug_cmd(
     "gc_process_fetch", "clear and start a new recording of process fetch counts"
 )
