@@ -709,7 +709,28 @@ impl SaplingRemoteApiHandler for FetchSnapshotHandler {
             .labels_from_bubble(repo.ctx(), &bubble_id)
             .await
             .context("Failed to fetch labels associated with the snapshot")?;
-        let blobstore = repo.bubble_blobstore(Some(bubble_id)).await?;
+        let bubble = match repo
+            .ephemeral_store()
+            .open_bubble(repo.ctx(), bubble_id)
+            .await
+        {
+            Ok(bubble) => bubble,
+            Err(e) => {
+                let bubble_expired = e
+                    .downcast_ref::<EphemeralBlobstoreError>()
+                    .is_some_and(EphemeralBlobstoreError::is_bubble_expiry);
+                let err = if bubble_expired {
+                    HttpError::e400(MononokeError::NotAvailable(format!(
+                        "Snapshot for changeset {} with bubble ID {} expired",
+                        cs_id, bubble_id
+                    )))
+                } else {
+                    HttpError::e500(MononokeError::from(e))
+                };
+                return Err(err.into());
+            }
+        };
+        let blobstore = bubble.wrap_repo_blobstore(repo.repo().repo_blobstore().clone());
         let fallible_cs = cs_id
             .load(repo.ctx(), &blobstore)
             .await
@@ -717,12 +738,11 @@ impl SaplingRemoteApiHandler for FetchSnapshotHandler {
         let cs = match fallible_cs {
             Ok(cs) => cs.into_mut(),
             Err(e) => {
-                // Check if this is a bubble expiration error by downcasting
-                let bubble_expired =
-                    e.downcast_ref::<EphemeralBlobstoreError>()
-                        .is_some_and(|ephemeral_err| {
-                            matches!(ephemeral_err, EphemeralBlobstoreError::NoSuchBubble(_))
-                        });
+                // Check if this is a bubble expiration error by downcasting.
+                // Matches both NoSuchBubble (open-time) and BubbleExpired (mid-operation).
+                let bubble_expired = e
+                    .downcast_ref::<EphemeralBlobstoreError>()
+                    .is_some_and(EphemeralBlobstoreError::is_bubble_expiry);
                 let err = if bubble_expired {
                     HttpError::e400(MononokeError::NotAvailable(format!(
                         "Snapshot for changeset {} with bubble ID {} expired",
@@ -921,11 +941,9 @@ impl SaplingRemoteApiHandler for EphemeralExtendHandler {
         {
             Ok(outcome) => outcome,
             Err(e) => {
-                let bubble_expired =
-                    e.downcast_ref::<EphemeralBlobstoreError>()
-                        .is_some_and(|ephemeral_err| {
-                            matches!(ephemeral_err, EphemeralBlobstoreError::NoSuchBubble(_))
-                        });
+                let bubble_expired = e
+                    .downcast_ref::<EphemeralBlobstoreError>()
+                    .is_some_and(EphemeralBlobstoreError::is_bubble_expiry);
                 let err = if bubble_expired {
                     HttpError::e400(MononokeError::NotAvailable(format!(
                         "Bubble with ID {} expired",
