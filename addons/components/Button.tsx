@@ -34,7 +34,7 @@ export const buttonStyles = stylex.create({
     color: 'var(--button-secondary-foreground)',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--button-border)',
+    borderColor: 'var(--button-border, transparent)',
     borderRadius: '2px',
     padding: '4px 11px',
     fontFamily: 'var(--font-family)',

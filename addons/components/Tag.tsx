@@ -15,7 +15,7 @@ const styles = stylex.create({
     backgroundColor: 'var(--badge-background)',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--button-border)',
+    borderColor: 'var(--button-border, transparent)',
     borderRadius: 'var(--tag-corner-radius, 2px)',
     color: 'var(--badge-foreground)',
     padding: '2px 4px',

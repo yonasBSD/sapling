@@ -65,7 +65,7 @@ export const styles = stylex.create({
     lineHeight: '0',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--button-border)',
+    borderColor: 'var(--button-border, transparent)',
     borderLeftColor:
       'var(--button-border, hsl(from var(--button-secondary-foreground) h s l / 0.3))',
   },
