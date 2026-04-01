@@ -57,6 +57,9 @@ class GitBackingStore final : public BijectiveBackingStore {
   ImmediateFuture<GetRootTreeResult> getRootTree(
       const RootId& rootId,
       const ObjectFetchContextPtr& context) override;
+  folly::coro::now_task<GetRootTreeResult> co_getRootTree(
+      const RootId& rootId,
+      const ObjectFetchContextPtr& context) override;
   ImmediateFuture<std::shared_ptr<TreeEntry>> getTreeEntryForObjectId(
       const ObjectId& /* objectId */,
       TreeEntryType /* treeEntryType */,
@@ -86,6 +89,7 @@ class GitBackingStore final : public BijectiveBackingStore {
       const std::vector<std::string>& globs,
       const std::vector<std::string>& prefixes) override;
 
+  GetRootTreeResult getRootTreeImpl(const RootId& rootId);
   TreePtr getTreeImpl(const ObjectId& id);
   BlobPtr getBlobImpl(const ObjectId& id);
 

@@ -106,9 +106,8 @@ std::string GitBackingStore::renderObjectId(const ObjectId& objectId) {
   return objectId.asHexString();
 }
 
-ImmediateFuture<BackingStore::GetRootTreeResult> GitBackingStore::getRootTree(
-    const RootId& rootId,
-    const ObjectFetchContextPtr& /*context*/) {
+BackingStore::GetRootTreeResult GitBackingStore::getRootTreeImpl(
+    const RootId& rootId) {
   // TODO: Use a separate thread pool to do the git I/O
   XLOGF(DBG4, "resolving tree for commit {}", rootId);
 
@@ -141,6 +140,19 @@ ImmediateFuture<BackingStore::GetRootTreeResult> GitBackingStore::getRootTree(
 
   // Now get the specified tree.
   return GetRootTreeResult{getTreeImpl(treeID), treeID};
+}
+
+ImmediateFuture<BackingStore::GetRootTreeResult> GitBackingStore::getRootTree(
+    const RootId& rootId,
+    const ObjectFetchContextPtr& /*context*/) {
+  return getRootTreeImpl(rootId);
+}
+
+folly::coro::now_task<BackingStore::GetRootTreeResult>
+GitBackingStore::co_getRootTree(
+    const RootId& rootId,
+    const ObjectFetchContextPtr& /*context*/) {
+  co_return getRootTreeImpl(rootId);
 }
 
 folly::SemiFuture<BackingStore::GetTreeAuxResult>
