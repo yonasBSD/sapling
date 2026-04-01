@@ -74,7 +74,7 @@ pub fn filter_paths_from_config(config: &dyn Config) -> Option<HashSet<Text>> {
 
 // Parses the filter file and returns a list of active filter paths. Returns an error when the
 // filter file is malformed or can't be read.
-pub(crate) fn read_filter_config(dot_dir: &Path) -> anyhow::Result<Option<HashSet<RepoPathBuf>>> {
+pub fn read_filter_config(dot_dir: &Path) -> anyhow::Result<Option<HashSet<RepoPathBuf>>> {
     // The filter file may be in 3 different states:
     //
     // 1) It may not exist, which indicates FilteredFS is not active

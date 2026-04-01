@@ -45,9 +45,17 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     // Replicate the source repo's scm type and active filters.
     // When edensparse is in requirements, the backing store should be filteredhg
     // (even with no filter paths configured). Otherwise the backing store is hg.
-    let clone_filters = repo.requirements.contains("edensparse").then(|| {
-        filters::util::filter_paths_from_config(repo.config().as_ref()).unwrap_or_default()
-    });
+    // Read active filter paths from the source repo's .sl/sparse file.
+    let clone_filters = repo
+        .requirements
+        .contains("edensparse")
+        .then(|| -> anyhow::Result<_> {
+            let paths = filters::util::read_filter_config(repo.dot_hg_path())?
+                .map(|paths| paths.into_iter().map(|p| p.into_string().into()).collect())
+                .unwrap_or_default();
+            Ok(paths)
+        })
+        .transpose()?;
 
     // Pre-compute the canonical path for the source repo before acquiring the lock.
     let canonical_repo_path = fs::canonicalize(repo.path())

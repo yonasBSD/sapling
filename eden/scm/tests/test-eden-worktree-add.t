@@ -101,19 +101,11 @@ verify both checkouts have the same sparse config content
 
 test worktree add - sl status works in linked filteredfs worktree
 
-FIXME: sl status fails in a freshly created filteredfs worktree because
-eden clone is called without --filter-path, writing the SNAPSHOT with a "null"
-filter ID. The Rust client then computes a real filter ID from .sl/sparse,
-causing a mismatch.
-
   $ cd $TESTTMP/sparse_client
   $ sl worktree add $TESTTMP/sparse_linked_status
   created linked worktree at $TESTTMP/sparse_linked_status
   $ cd $TESTTMP/sparse_linked_status
   $ sl status
-  abort: EdenError: error computing status: requested parent commit is out-of-date: requested *, but current parent commit is *. (glob)
-  Try running `eden doctor` to remediate
-  [255]
 
   $ cd $TESTTMP/sparse_client
 
