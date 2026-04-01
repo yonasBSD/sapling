@@ -214,6 +214,9 @@ class FakeBackingStore final : public BackingStore {
   ImmediateFuture<GetRootTreeResult> getRootTree(
       const RootId& commitID,
       const ObjectFetchContextPtr& context) override;
+  folly::coro::now_task<GetRootTreeResult> co_getRootTree(
+      const RootId& rootId,
+      const ObjectFetchContextPtr& context) override;
   ImmediateFuture<std::shared_ptr<TreeEntry>> getTreeEntryForObjectId(
       const ObjectId& /* commitID */,
       TreeEntryType /* treeEntryType */,

@@ -96,6 +96,39 @@ ImmediateFuture<BackingStore::GetRootTreeResult> FakeBackingStore::getRootTree(
       .semi();
 }
 
+folly::coro::now_task<BackingStore::GetRootTreeResult>
+FakeBackingStore::co_getRootTree(
+    const RootId& commitID,
+    const ObjectFetchContextPtr& /*context*/) {
+  StoredId* storedTreeId;
+  {
+    auto data = data_.wlock();
+    ++data->commitAccessCounts[commitID];
+    auto commitIter = data->commits.find(commitID);
+    if (commitIter == data->commits.end()) {
+      throw std::domain_error(fmt::format("commit {} not found", commitID));
+    }
+    storedTreeId = commitIter->second.get();
+  }
+
+  auto id = co_await storedTreeId->getFuture().semi();
+
+  folly::SemiFuture<TreePtr> treeFuture =
+      folly::SemiFuture<TreePtr>::makeEmpty();
+  {
+    auto data = data_.rlock();
+    auto treeIter = data->trees.find(*id);
+    if (treeIter == data->trees.end()) {
+      throw std::domain_error(
+          fmt::format("tree {} for commit {} not found", *id, commitID));
+    }
+    treeFuture = std::move(treeIter->second->getFuture()).semi();
+  }
+  auto tree = co_await std::move(treeFuture);
+
+  co_return GetRootTreeResult{tree, storedTreeId->get()};
+}
+
 SemiFuture<BackingStore::GetTreeResult> FakeBackingStore::getTree(
     const ObjectId& id,
     const ObjectFetchContextPtr& /*context*/) {
