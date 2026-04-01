@@ -519,7 +519,7 @@ class SaplingBackingStore final
       const ObjectFetchContextPtr& context,
       const SaplingImportRequest::FetchType fetch_type);
 
-  folly::coro::Task<GetBlobResult> co_getBlobEnqueue(
+  folly::coro::now_task<GetBlobResult> co_getBlobEnqueue(
       const SlOid& slOid,
       const ObjectFetchContextPtr& context,
       const SaplingImportRequest::FetchType fetch_type);

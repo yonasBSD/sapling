@@ -1524,7 +1524,7 @@ SaplingBackingStore::getBlobEnqueue(
       });
 }
 
-folly::coro::Task<BackingStore::GetBlobResult>
+folly::coro::now_task<BackingStore::GetBlobResult>
 SaplingBackingStore::co_getBlobEnqueue(
     const SlOid& slOid,
     const ObjectFetchContextPtr& context,
