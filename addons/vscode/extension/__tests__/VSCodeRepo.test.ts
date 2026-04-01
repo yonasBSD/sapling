@@ -195,3 +195,138 @@ describe('adding and removing repositories', () => {
     repos.dispose();
   });
 });
+
+describe('subscribeWithinAllRepos', () => {
+  let foldersEmitter: TypedEventEmitter<'value', vscode.WorkspaceFoldersChangeEvent>;
+  beforeEach(() => {
+    foldersEmitter = new TypedEventEmitter();
+    (vscode.workspace.onDidChangeWorkspaceFolders as jest.Mock).mockImplementation(cb => {
+      foldersEmitter.on('value', cb);
+      return {dispose: () => foldersEmitter.off('value', cb)};
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    repositoryCache.clearCache();
+    foldersEmitter.removeAllListeners();
+  });
+
+  const ENABLED = new Set<EnabledSCMApiFeature>(['blame', 'sidebar']);
+
+  const addRepo = (path: string) => {
+    foldersEmitter.emit('value', {
+      added: [{name: 'folder', index: 0, uri: vscode.Uri.file(path)}],
+      removed: [],
+    });
+  };
+
+  const removeRepo = (path: string) => {
+    foldersEmitter.emit('value', {
+      added: [],
+      removed: [{name: 'folder', index: 0, uri: vscode.Uri.file(path)}],
+    });
+  };
+
+  it('calls callback immediately for existing repos', async () => {
+    const reposList = new VSCodeReposList(mockLogger, mockTracker, ENABLED);
+    addRepo('/path/to/repo1');
+    await nextTick();
+
+    const cb = jest.fn(() => ({dispose: jest.fn()}));
+    reposList.subscribeWithinAllRepos(cb);
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith(expect.objectContaining({rootPath: '/path/to/repo1'}));
+
+    reposList.dispose();
+  });
+
+  it('calls callback when a new repo is added', async () => {
+    const reposList = new VSCodeReposList(mockLogger, mockTracker, ENABLED);
+    const cb = jest.fn(() => ({dispose: jest.fn()}));
+    reposList.subscribeWithinAllRepos(cb);
+
+    expect(cb).toHaveBeenCalledTimes(0);
+
+    addRepo('/path/to/repo1');
+    await nextTick();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith(expect.objectContaining({rootPath: '/path/to/repo1'}));
+
+    reposList.dispose();
+  });
+
+  it('does not call callback twice for the same repo', async () => {
+    const reposList = new VSCodeReposList(mockLogger, mockTracker, ENABLED);
+    addRepo('/path/to/repo1/foo');
+    await nextTick();
+
+    const cb = jest.fn(() => ({dispose: jest.fn()}));
+    reposList.subscribeWithinAllRepos(cb);
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    // Adding another folder in the same repo triggers observeActiveRepos but should not call cb again
+    addRepo('/path/to/repo1/bar');
+    await nextTick();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    reposList.dispose();
+  });
+
+  it('disposes per-repo subscription when repo is removed', async () => {
+    const reposList = new VSCodeReposList(mockLogger, mockTracker, ENABLED);
+    addRepo('/path/to/repo1/foo');
+    await nextTick();
+
+    const innerDispose = jest.fn();
+    const cb = jest.fn(() => ({dispose: innerDispose}));
+    reposList.subscribeWithinAllRepos(cb);
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(innerDispose).not.toHaveBeenCalled();
+
+    removeRepo('/path/to/repo1/foo');
+    await nextTick();
+
+    expect(innerDispose).toHaveBeenCalledTimes(1);
+
+    reposList.dispose();
+  });
+
+  it('disposes all per-repo subscriptions when outer disposable is disposed', async () => {
+    const reposList = new VSCodeReposList(mockLogger, mockTracker, ENABLED);
+    addRepo('/path/to/repo1');
+    addRepo('/path/to/repo2');
+    await nextTick();
+
+    const innerDisposes = [jest.fn(), jest.fn()];
+    let callCount = 0;
+    const cb = jest.fn(() => ({dispose: innerDisposes[callCount++]}));
+    const subscription = reposList.subscribeWithinAllRepos(cb);
+    expect(cb).toHaveBeenCalledTimes(2);
+
+    subscription.dispose();
+
+    expect(innerDisposes[0]).toHaveBeenCalledTimes(1);
+    expect(innerDisposes[1]).toHaveBeenCalledTimes(1);
+
+    reposList.dispose();
+  });
+
+  it('does not call callback for repos added after outer dispose', async () => {
+    const reposList = new VSCodeReposList(mockLogger, mockTracker, ENABLED);
+    const cb = jest.fn(() => ({dispose: jest.fn()}));
+    const subscription = reposList.subscribeWithinAllRepos(cb);
+
+    subscription.dispose();
+
+    addRepo('/path/to/repo1');
+    await nextTick();
+
+    expect(cb).not.toHaveBeenCalled();
+
+    reposList.dispose();
+  });
+});

@@ -60,7 +60,20 @@ export class ThemeColor {
 }
 
 export class Disposable implements vscode.Disposable {
-  dispose = jest.fn();
+  static from(...disposables: vscode.Disposable[]): vscode.Disposable {
+    return new Disposable(() => {
+      for (const d of disposables) {
+        d.dispose();
+      }
+    });
+  }
+  private callOnDispose?: () => void;
+  constructor(callOnDispose?: () => void) {
+    this.callOnDispose = callOnDispose;
+  }
+  dispose = jest.fn(() => {
+    this.callOnDispose?.();
+  });
 }
 
 // to avoid manually writing jest.fn() for every API,

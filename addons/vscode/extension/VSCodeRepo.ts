@@ -96,6 +96,7 @@ export class VSCodeReposList {
           repo.onDidDispose(() => {
             vscodeRepo.dispose();
             this.vscodeRepos.delete(root);
+            this.emitActiveRepos();
           });
 
           this.emitActiveRepos();
@@ -157,6 +158,47 @@ export class VSCodeReposList {
         this.updateCallbacks = this.updateCallbacks.filter(c => c !== cb);
       },
     };
+  }
+
+  /**
+   * Run a callback on each repository once, when it's added (or immediately if it already exists).
+   * The callback is given the VSCodeRepo, so you can subscribe to various events within the repo.
+   */
+  public subscribeWithinAllRepos(cb: (repo: VSCodeRepo) => vscode.Disposable): vscode.Disposable {
+    const perRepoDisposables = new Map<VSCodeRepo, vscode.Disposable>();
+
+    const trySubscribe = (repo: VSCodeRepo) => {
+      if (!perRepoDisposables.has(repo)) {
+        perRepoDisposables.set(repo, cb(repo));
+      }
+    };
+
+    for (const repo of this.vscodeRepos.values()) {
+      trySubscribe(repo);
+    }
+
+    const repoObserver = this.observeActiveRepos(repos => {
+      const activeSet = new Set(repos);
+
+      for (const repo of repos) {
+        trySubscribe(repo);
+      }
+
+      for (const [repo, disposable] of perRepoDisposables) {
+        if (!activeSet.has(repo)) {
+          disposable.dispose();
+          perRepoDisposables.delete(repo);
+        }
+      }
+    });
+
+    return new vscode.Disposable(() => {
+      repoObserver.dispose();
+      for (const disposable of perRepoDisposables.values()) {
+        disposable.dispose();
+      }
+      perRepoDisposables.clear();
+    });
   }
 
   public getCurrentActiveRepos(): Array<VSCodeRepo> {

@@ -105,6 +105,11 @@ export async function activate(
 
     extensionTracker.track('VSCodeExtensionActivated', {duration: Date.now() - start});
     const api = makeExtensionApi(platform, ctx, reposList);
+
+    context.subscriptions.push(
+      Internal?.vscodeCommandBasedApi?.(reposList) ?? vscode.Disposable.from(),
+    );
+
     return api;
   } catch (error) {
     extensionTracker.error('VSCodeExtensionActivated', 'VSCodeActivationError', error as Error, {
