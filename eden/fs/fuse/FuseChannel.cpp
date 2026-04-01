@@ -64,6 +64,13 @@ struct FuseArg {
   }
 
   /**
+   * Skips n bytes without interpreting them.
+   */
+  void skip(size_t n) {
+    range.advance(n);
+  }
+
+  /**
    * Reads a null-terminated from the ByteRange.
    *
    * Throws std::out_of_range if not enough space remaining.
@@ -155,8 +162,14 @@ constexpr RenderFn release = default_render;
 constexpr RenderFn fsync = default_render;
 
 std::string setxattr(FuseArg arg) {
+#ifdef __linux__
+  // Skip the compat-sized setxattr_in (8 bytes) because EdenFS does not
+  // negotiate FUSE_SETXATTR_EXT, so the kernel sends the old 2-field layout.
+  arg.skip(FUSE_COMPAT_SETXATTR_IN_SIZE);
+#else
   auto& in = arg.read<fuse_setxattr_in>();
   (void)in;
+#endif
   auto name = arg.readz();
   return fmt::format("name={}", name);
 }
@@ -1531,11 +1544,18 @@ void FuseChannel::readInitPacket() {
       throw FuseDeviceUnmountedDuringInitialization(mountPath_);
     }
 
-    // Error out if the kernel sends less data than we expected.
-    // We currently don't error out for now if we receive more data: maybe this
-    // could happen for future kernel versions that speak a newer FUSE protocol
-    // with extra fields in fuse_init_in?
-    if (static_cast<size_t>(res) < sizeof(init) - sizeof(init.padding_)) {
+    // Error out if the kernel sends less data than the minimum INIT packet.
+#ifdef __linux__
+    // On Linux, use the compat size (16 bytes) for the original fuse_init_in
+    // before flags2 was added. Newer kernels may send a larger fuse_init_in
+    // with flags2, which we accept but don't require.
+    if (static_cast<size_t>(res) <
+        sizeof(init.header) + FUSE_COMPAT_INIT_IN_SIZE)
+#else
+    // On macOS (osxfuse), fuse_init_in is fixed at 16 bytes.
+    if (static_cast<size_t>(res) < sizeof(init) - sizeof(init.padding_))
+#endif
+    {
       throw_<std::runtime_error>(
           "received partial FUSE_INIT packet on mount \"",
           mountPath_,
@@ -2426,7 +2446,17 @@ ImmediateFuture<folly::Unit> FuseChannel::fuseSetXAttr(
     const fuse_in_header& header,
     ByteRange arg) {
   const auto setxattr = reinterpret_cast<const fuse_setxattr_in*>(arg.data());
+#ifdef __linux__
+  // Use the compat size (8 bytes) because EdenFS does not negotiate
+  // FUSE_SETXATTR_EXT, so the kernel sends the old 2-field struct.
+  // sizeof(fuse_setxattr_in) is 16 bytes in FUSE 7.33+, which would
+  // overshoot the name offset.
+  const auto nameStr =
+      reinterpret_cast<const char*>(arg.data()) + FUSE_COMPAT_SETXATTR_IN_SIZE;
+#else
+  // On macOS, fuse_setxattr_in is the original struct.
   const auto nameStr = reinterpret_cast<const char*>(setxattr + 1);
+#endif
   const StringPiece attrName{nameStr};
   const auto bufPtr = nameStr + attrName.size() + 1;
   const StringPiece value(bufPtr, setxattr->size);

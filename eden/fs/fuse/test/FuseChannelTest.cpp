@@ -60,7 +60,7 @@ fuse_entry_out genRandomLookupResponse(uint64_t nodeid) {
   response.attr.gid = Random::rand32();
   response.attr.rdev = Random::rand32();
   response.attr.blksize = Random::rand32();
-  response.attr.padding = Random::rand32();
+  response.attr.flags = Random::rand32();
   return response;
 }
 

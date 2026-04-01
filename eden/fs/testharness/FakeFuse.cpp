@@ -150,7 +150,7 @@ uint32_t FakeFuse::sendInitRequest(
     uint32_t minorVersion,
     uint32_t maxReadahead,
     uint32_t flags) {
-  struct fuse_init_in initArg;
+  struct fuse_init_in initArg = {};
   initArg.major = majorVersion;
   initArg.minor = minorVersion;
   initArg.max_readahead = maxReadahead;
