@@ -20,6 +20,8 @@ mod compact_local_storage;
 mod counters;
 mod stress;
 mod subscribe;
+#[cfg(target_os = "linux")]
+mod systemd;
 
 #[derive(Parser, Debug)]
 #[clap(about = "Internal commands for examining eden state")]
@@ -39,6 +41,8 @@ pub enum DebugSubcommand {
     Stress(stress::StressCmd),
     #[clap(subcommand)]
     Bench(bench::cmd::BenchCmd),
+    #[cfg(target_os = "linux")]
+    Systemd(systemd::SystemdCmd),
 }
 
 #[async_trait]
@@ -52,6 +56,8 @@ impl Subcommand for DebugCmd {
             Subscribe(cmd) => cmd,
             Stress(cmd) => cmd,
             Bench(cmd) => cmd,
+            #[cfg(target_os = "linux")]
+            Systemd(cmd) => cmd,
         };
         sc.run().await
     }
