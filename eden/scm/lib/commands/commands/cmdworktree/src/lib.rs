@@ -27,6 +27,9 @@ define_flags! {
         #[argtype("TEXT")]
         label: String,
 
+        /// create a snapshot of the current working copy, then restore it in the new worktree (for 'add')
+        snapshot: bool,
+
         /// only unlink from group, keep the checkout on disk (for 'remove')
         keep: bool,
 
@@ -84,7 +87,7 @@ pub fn doc() -> &'static str {
     Subcommands::
 
       list [-Tjson]                           List all worktrees in the group
-      add PATH [--label TEXT]                 Create a new linked worktree
+      add PATH [--label TEXT] [--snapshot]    Create a new linked worktree
       remove PATH [--all] [--keep] [-y]       Remove linked worktree(s)
       label [PATH] TEXT [--remove]            Set or remove a worktree label
 

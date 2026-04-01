@@ -32,6 +32,11 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     if dest.exists() {
         abort!("destination path '{}' already exists", dest.display());
     }
+
+    if ctx.opts.snapshot {
+        abort!("--snapshot is not yet implemented");
+    }
+
     check_dest_not_in_repo(&dest)?;
 
     let shared_store_path = repo.store_path().to_path_buf();
