@@ -1742,6 +1742,51 @@ SaplingBackingStore::getRootTree(
       });
 }
 
+folly::coro::now_task<BackingStore::GetRootTreeResult>
+SaplingBackingStore::co_getRootTree(
+    const RootId& rootId,
+    const ObjectFetchContextPtr& context) {
+  // increase ref count to keep alive during eden shutdown and changing executor
+  auto self = shared_from_this();
+  folly::stop_watch<std::chrono::milliseconds> watch;
+  ObjectId commitId = hashFromRootId(rootId);
+
+  co_await faultInjector_.co_checkAsync(
+      "SaplingBackingStore::getRootTree", commitId.asHexString());
+
+  auto result = co_await co_withExecutor(
+      serverThreadPool_,
+      folly::coro::co_invoke(
+          [self, commitId, context = context.copy(), watch]()
+              -> folly::coro::Task<GetRootTreeResult> {
+            auto manifestNode = self->getManifestNode(commitId);
+
+            if (!manifestNode.has_value()) {
+              throw std::runtime_error(
+                  "Manifest node could not be found for commitId");
+            }
+
+            XLOGF(
+                DBG3,
+                "commit {} has manifest node {}",
+                commitId,
+                manifestNode.value());
+
+            auto rootTree = self->importTreeManifestSync(
+                                    *std::move(manifestNode),
+                                    context,
+                                    ObjectFetchContext::ObjectType::RootTree)
+                                .value();
+
+            self->stats_->addDuration(
+                &SaplingBackingStoreStats::getRootTree, watch.elapsed());
+
+            co_return GetRootTreeResult{rootTree, rootTree->getObjectId()};
+          }));
+
+  co_return std::move(result);
+}
+
 std::optional<Hash20> SaplingBackingStore::getManifestNode(
     const ObjectId& commitId) {
   auto node = commitId.getBytes();
@@ -1764,7 +1809,7 @@ std::optional<Hash20> SaplingBackingStore::getManifestNode(
   }
 }
 
-folly::Future<TreePtr> SaplingBackingStore::importTreeManifestImpl(
+folly::Try<TreePtr> SaplingBackingStore::importTreeManifestSync(
     Hash20 manifestNode,
     const ObjectFetchContextPtr& context,
     const ObjectFetchContext::ObjectType type) {
@@ -1822,10 +1867,16 @@ folly::Future<TreePtr> SaplingBackingStore::importTreeManifestImpl(
 
   if (tree.hasValue()) {
     XLOGF(DBG4, "imported tree {}", slOid);
-    return folly::makeFuture(std::move(tree.value()));
-  } else {
-    return folly::makeFuture<TreePtr>(tree.exception());
   }
+  return tree;
+}
+
+folly::Future<TreePtr> SaplingBackingStore::importTreeManifestImpl(
+    Hash20 manifestNode,
+    const ObjectFetchContextPtr& context,
+    const ObjectFetchContext::ObjectType type) {
+  auto tree = importTreeManifestSync(manifestNode, context, type);
+  return folly::makeFuture(std::move(tree));
 }
 
 folly::Try<TreePtr> SaplingBackingStore::getTreeFromBackingStore(

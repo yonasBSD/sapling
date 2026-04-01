@@ -374,7 +374,15 @@ class SaplingBackingStore final
       const ObjectFetchContextPtr& context,
       const ObjectFetchContext::ObjectType type);
 
+  folly::Try<TreePtr> importTreeManifestSync(
+      Hash20 manifestNode,
+      const ObjectFetchContextPtr& context,
+      const ObjectFetchContext::ObjectType type);
+
   ImmediateFuture<GetRootTreeResult> getRootTree(
+      const RootId& rootId,
+      const ObjectFetchContextPtr& context) override;
+  folly::coro::now_task<GetRootTreeResult> co_getRootTree(
       const RootId& rootId,
       const ObjectFetchContextPtr& context) override;
   ImmediateFuture<std::shared_ptr<TreeEntry>> getTreeEntryForObjectId(
