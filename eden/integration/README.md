@@ -24,7 +24,7 @@ class StatusTest(EdenHgTestCase):
 The decorator @hg_cached_status_test is used so the same test can be replicated into variant setup.
 
 **Initial Repo Setup**
-You define the initial director/file structure for your test by implementing this function
+You define the initial directory/file structure for your test by implementing this function
 
 ```python
     def populate_backing_repo(self, repo: hgrepo.HgRepository) -> None:
@@ -51,24 +51,7 @@ You call `sl` command from the test by using this helper function
 
 **Run an Integration Test**
 
-We use buck test to trigger the integration tests.
-To run all tests from a file for all variants
-
-```bash
-buck test '@fbcode//mode/opt' fbcode//eden/integration/hg:status --
-```
-
-**To run a specific test case for all variants** (use -r to match a regex)
-
-```bash
-buck test '@fbcode//mode/opt' fbcode//eden/integration/hg:status -- -r '.*test_status_thrift_apis.*'
-```
-
-**To run a specific test case for a specific variant**
-
-```bash
-buck2 test '@fbcode//mode/opt' fbcode//eden/integration:clone -- --exact 'eden/integration:clone - test_clone_should_start_daemon (eden.integration.clone_test.CloneTestFilteredHg)'
-```
+See `eden/.claude/CLAUDE.md` → "Running Tests" for `buck2 test` commands and examples.
 
 ### Debug an Integration Test
 
@@ -84,3 +67,24 @@ To tune DBG level for integration tests, just override this method for your test
             "eden.fs.inodes.CheckoutContext": "DBG5",
         }
 ```
+
+### Test Framework Repo Objects
+
+A **backing repo** is the on-disk Sapling/Hg repository that EdenFS reads data from (see `eden/fs/docs/Glossary.md` → "Backing Repository"). EdenFS only reads the object store — it ignores the backing repo's working copy.
+
+The two test base classes use **different naming conventions** for the same concepts:
+
+| Concept | `EdenRepoTest` | `EdenHgTestCase` | Use for |
+|---------|---------------|------------------|---------|
+| **Backing repo** | `self.repo` | `self.backing_repo` | Adding commits the mount will serve |
+| **EdenFS mount** | `self.eden_repo` | `self.repo` | `hg update`, `hg status`, commands through EdenFS |
+| **Mount path** (`str`) | `self.mount` | `self.mount` | `os.listdir`, `open()`, `os.stat` |
+
+`EdenRepoTest`: override `populate_repo()`. `EdenHgTestCase`: override `populate_backing_repo()`.
+
+> ⚠️ **`self.repo` means different things in each base class.** In `EdenRepoTest` it's the backing repo; in `EdenHgTestCase` it's the EdenFS mount.
+
+### Common Pitfalls
+
+- **Updating in the wrong repo:** `self.repo.hg("update", commit)` in an `EdenRepoTest` subclass updates the backing repo's working copy, which EdenFS ignores — use `self.eden_repo.hg("update", commit)` instead.
+- **Bookmark behavior:** `eden clone` checks out the backing repo's active bookmark, not the working-copy parent. If `populate_repo` sets a bookmark, the mount starts there. Explicitly call `self.eden_repo.hg("update", target_commit)` to be safe.
