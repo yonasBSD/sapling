@@ -484,6 +484,33 @@ FilteredBackingStore::getRootTree(
       });
 }
 
+folly::coro::now_task<BackingStore::GetRootTreeResult>
+FilteredBackingStore::co_getRootTree(
+    const RootId& rootId,
+    const ObjectFetchContextPtr& context) {
+  auto [parsedRootId, filterId] = parseFilterIdFromRootId(rootId);
+  XLOGF(
+      DBG7, "co_getRootTree {} with filter {}", parsedRootId.value(), filterId);
+  auto rootTreeResult =
+      co_await backingStore_->co_getRootTree(parsedRootId, context);
+
+  // Apply the filter to the root tree. The root tree is always a regular
+  // "unfiltered" tree.
+  auto pathMap = co_await co_filterImpl(
+      rootTreeResult.tree,
+      RelativePath{""},
+      filterId,
+      FilteredObjectIdType::OBJECT_TYPE_TREE);
+
+  auto rootFOID =
+      FilteredObjectId{RelativePath{""}, filterId, rootTreeResult.treeId};
+  co_return GetRootTreeResult{
+      std::make_shared<const Tree>(
+          std::move(*pathMap), ObjectId{rootFOID.getValue()}),
+      ObjectId{rootFOID.getValue()},
+  };
+}
+
 ImmediateFuture<std::shared_ptr<TreeEntry>>
 FilteredBackingStore::getTreeEntryForObjectId(
     const ObjectId& objectId,
