@@ -1,10 +1,10 @@
 #require windows no-eden
 
   $ export HGIDENTITY=sl
-  $ setconfig experimental.windows-symlinks=False
-
 Make sure Windows symlink support respects absence of windowssymlinks requirement
   $ newrepo
+  $ grep -v windowssymlinks .sl/requires > .sl/requires.new
+  $ mv .sl/requires.new .sl/requires
   $ echo bar > foo
   $ ln -s foo foolink
   $ sl add -q

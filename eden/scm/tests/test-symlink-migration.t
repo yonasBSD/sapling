@@ -28,15 +28,15 @@ Create a repo to be cloned
 Clone the repo with symlinks disabled and verify that files are regular
 TODO(sggutier): figure out why shallow is necessary here (replacing test with eager renders the same results)
   $ cd
-  $ sl clone --enable-profile all.sparse test:e1 cloned --config experimental.windows-symlinks=False -q
+  $ sl clone --enable-profile all.sparse test:e1 cloned -q
   $ cd cloned
-  $ sl st
-  $ sl go master -q
+  $ sl debugmigratesymlinks disable
+  Disabling symlinks for the repo...
+  Symlinks disabled for the repo
   $ sl st
   $ sl debugtreestate list | grep x
   x/dir: 0666 6 * EXIST_P1 EXIST_NEXT * (glob)
   x/file: 0666 8 * EXIST_P1 EXIST_NEXT * (glob)
-  $ cat .sl/requires | grep -v windowssymlinks > .sl/requires
   $ sl st
   $ cat x/file
   ../a/b/c (no-eol)

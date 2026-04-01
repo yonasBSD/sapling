@@ -130,20 +130,7 @@ fn write_requirements(path: &Path, config: &ConfigSet) -> Result<(), InitError> 
     {
         requirements.insert("generaldelta");
     }
-    let enable_windows_symlinks = if let Ok(enabled_everywhere) =
-        config.get_or_default::<bool>("experimental", "windows-symlinks")
-    {
-        enabled_everywhere
-    } else if let Ok(places_enabled) =
-        config.get_or_default::<Vec<String>>("experimental", "windows-symlinks")
-    {
-        // Config for EdenFS lives in clone crate
-        places_enabled.contains(&"watchman".to_owned())
-            || places_enabled.contains(&"no-fsmonitor".to_owned())
-    } else {
-        false
-    };
-    if enable_windows_symlinks {
+    if cfg!(windows) {
         requirements.insert("windowssymlinks");
     }
 
@@ -219,24 +206,37 @@ mod tests {
         let mut config = ConfigSet::new();
 
         write_requirements(tmp.path(), &config).unwrap();
-        assert_eq!(
-            fs::read_to_string(&path).unwrap(),
+        let expected = if cfg!(windows) {
+            r#"revlogv1
+store
+treestate
+windowssymlinks
+"#
+        } else {
             r#"revlogv1
 store
 treestate
 "#
-        );
+        };
+        assert_eq!(fs::read_to_string(&path).unwrap(), expected);
 
         config.set("format", "usegeneraldelta", Some("true"), &"".into());
         write_requirements(tmp.path(), &config).unwrap();
-        assert_eq!(
-            fs::read_to_string(&path).unwrap(),
+        let expected = if cfg!(windows) {
+            r#"generaldelta
+revlogv1
+store
+treestate
+windowssymlinks
+"#
+        } else {
             r#"generaldelta
 revlogv1
 store
 treestate
 "#
-        );
+        };
+        assert_eq!(fs::read_to_string(&path).unwrap(), expected);
     }
 
     #[test]
