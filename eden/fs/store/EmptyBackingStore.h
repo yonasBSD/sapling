@@ -41,6 +41,11 @@ class EmptyBackingStore final : public BijectiveBackingStore {
   ImmediateFuture<GetRootTreeResult> getRootTree(
       const RootId& rootId,
       const ObjectFetchContextPtr& context) override;
+  folly::coro::now_task<GetRootTreeResult> co_getRootTree(
+      const RootId& /* rootId */,
+      const ObjectFetchContextPtr& /* context */) override {
+    throw std::domain_error("empty backing store");
+  }
   ImmediateFuture<std::shared_ptr<TreeEntry>> getTreeEntryForObjectId(
       const ObjectId& /* objectId */,
       TreeEntryType /* treeEntryType */,
