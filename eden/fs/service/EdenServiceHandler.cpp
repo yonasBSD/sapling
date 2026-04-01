@@ -4156,13 +4156,9 @@ EdenServiceHandler::semifuture_globFiles(std::unique_ptr<GlobParams> params) {
       globber.logString());
   auto& context = helper->getFetchContext();
   auto isBackground = *params->background();
-  // Multi-revision globs call getRootTree() to resolve each revision.
-  // co_getRootTree isn't available on BackingStore yet (added in D96537581),
-  // so restrict the coroutine path to working-copy globs for now.
-  auto useCoGlob = params->revisions().value().empty() &&
-      server_->getServerState()
-          ->getEdenConfig()
-          ->enableCoroutinesPhase2.getValue();
+  auto useCoGlob = server_->getServerState()
+                       ->getEdenConfig()
+                       ->enableCoroutinesPhase2.getValue();
 
   ImmediateFuture<folly::Unit> backgroundFuture{std::in_place};
   if (isBackground ||

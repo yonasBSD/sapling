@@ -248,7 +248,7 @@ ObjectStore::co_getRootTree(
   DurationScope<EdenStats> statScope{stats_, &ObjectStoreStats::getRootTree};
 
   try {
-    auto result = co_await backingStore_->getRootTree(rootId, context).semi();
+    auto result = co_await backingStore_->co_getRootTree(rootId, context);
     stats_->increment(&ObjectStoreStats::getRootTreeFromBackingStore);
     auto tree = changeCaseSensitivity(std::move(result.tree), caseSensitive_);
     treeCache_->insert(result.treeId, tree);

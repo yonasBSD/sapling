@@ -241,15 +241,10 @@ class BackingStore : public RootIdCodec, public ObjectIdCodec {
 
   /**
    * Coroutine version of getRootTree.
-   *
-   * Default implementation wraps getRootTree() via .semi(). Subclasses
-   * may override with native coroutine implementations.
    */
   virtual folly::coro::now_task<GetRootTreeResult> co_getRootTree(
       const RootId& rootId,
-      const ObjectFetchContextPtr& context) {
-    co_return co_await getRootTree(rootId, context).semi();
-  }
+      const ObjectFetchContextPtr& context) = 0;
 
   virtual ImmediateFuture<std::shared_ptr<TreeEntry>> getTreeEntryForObjectId(
       const ObjectId& objectId,
