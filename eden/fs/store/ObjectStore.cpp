@@ -534,7 +534,7 @@ folly::coro::now_task<folly::Unit> ObjectStore::co_prefetchBlobs(
   if (ids.empty()) {
     co_return folly::unit;
   }
-  co_await backingStore_->prefetchBlobs(ids, fetchContext);
+  co_await backingStore_->co_prefetchBlobs(ids, fetchContext);
   co_return folly::unit;
 }
 

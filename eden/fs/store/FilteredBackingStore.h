@@ -192,7 +192,7 @@ class FilteredBackingStore
 
   folly::coro::now_task<folly::Unit> co_prefetchBlobs(
       ObjectIdRange ids,
-      const ObjectFetchContextPtr& context);
+      const ObjectFetchContextPtr& context) override;
 
   ImmediateFuture<GetGlobFilesResult> getGlobFiles(
       const RootId& id,

@@ -705,7 +705,7 @@ folly::coro::now_task<folly::Unit> FilteredBackingStore::co_prefetchBlobs(
   // Fast path: avoid allocation if all ids can be passed through.
   if (std::all_of(
           ids.begin(), ids.end(), [this](auto& id) { return isSlOid(id); })) {
-    co_await backingStore_->prefetchBlobs(ids, context);
+    co_await backingStore_->co_prefetchBlobs(ids, context);
     co_return folly::unit;
   }
 
@@ -721,7 +721,7 @@ folly::coro::now_task<folly::Unit> FilteredBackingStore::co_prefetchBlobs(
         }
         return FilteredObjectId::fromObjectId(id).object();
       });
-  co_await backingStore_->prefetchBlobs(unfilteredIds, context);
+  co_await backingStore_->co_prefetchBlobs(unfilteredIds, context);
   co_return folly::unit;
 }
 

@@ -594,7 +594,7 @@ class SaplingBackingStore final
 
   folly::coro::now_task<folly::Unit> co_prefetchBlobs(
       ObjectIdRange ids,
-      const ObjectFetchContextPtr& context);
+      const ObjectFetchContextPtr& context) override;
 
   void workingCopyParentHint(const RootId& parent) override {
     sapling_backingstore_set_parent_hint(*store_.get(), parent.value());

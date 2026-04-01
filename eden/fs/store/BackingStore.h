@@ -320,6 +320,18 @@ class BackingStore : public RootIdCodec, public ObjectIdCodec {
     return folly::unit;
   }
 
+  /**
+   * Coroutine version of prefetchBlobs.
+   *
+   * Default implementation is a no-op. Subclasses may override
+   * with native coroutine implementations.
+   */
+  virtual folly::coro::now_task<folly::Unit> co_prefetchBlobs(
+      ObjectIdRange /*ids*/,
+      const ObjectFetchContextPtr& /*context*/) {
+    co_return folly::unit;
+  }
+
   virtual void workingCopyParentHint(const RootId&) {}
 
   /**
