@@ -47,6 +47,7 @@ cpp_unittest(
         "//folly:range",
         "//folly:scope_guard",
         "//folly:try",
+        "//folly/coro:collect",
         "//folly/coro:gtest_helpers",
         "//folly/coro:task",
         "//folly/executors:cpu_thread_pool_executor",

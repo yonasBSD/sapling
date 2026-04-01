@@ -6,6 +6,7 @@
  */
 
 #include <folly/ScopeGuard.h>
+#include <folly/coro/Collect.h>
 #include <folly/coro/GtestHelpers.h>
 #include <folly/coro/Task.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
@@ -602,37 +603,68 @@ TEST_F(SaplingBackingStoreNoFaultInjectorTest, testCompareRootsById) {
       ObjectComparison::Different);
 }
 
-TEST_F(
+CO_TEST_F(
     SaplingBackingStoreWithFaultInjectorTest,
-    getRootTreeFutureChainCanBePausedAndResumed) {
-  // This test deterministically reproduces the shutdown race by using fault
-  // injection to pause getRootTree, then destroying the backing store while
-  // the future is in-flight. The fix (capturing shared_from_this() instead
-  // of raw this) ensures the object stays alive until the future completes.
+    coGetRootTreeFaultInjection) {
+  // Coroutine variant of getRootTreeFutureChainCanBePausedAndResumed.
+  //
+  // This test deterministically reproduces the shutdown race for the
+  // coroutine implementation of co_getRootTree. We use fault injection to
+  // pause the coroutine mid-execution, then destroy the backing store while
+  // it's suspended. The coroutine's lambda must capture a shared_ptr (not
+  // a raw pointer) to keep the object alive across the suspension point.
+  //
+  // Pattern: CO_TEST_F + collectAll for concurrent coroutine testing.
+  // co_getRootTree is a now_task (lazy, inline), so we can't co_await it
+  // directly and also interact with it while suspended. Instead we use
+  // collectAll to run two tasks concurrently on the CO_TEST_F's executor:
+  //   1. getRootTreeTask — calls co_getRootTree, suspends at fault injection
+  //   2. lifetimeCheckTask — verifies the object is alive, then unblocks
   auto weak = std::weak_ptr<SaplingBackingStore>(queuedBackingStore);
 
   faultInjector.injectBlock("SaplingBackingStore::getRootTree", ".*");
 
-  auto future = queuedBackingStore->getRootTree(
-      commit1, ObjectFetchContext::getNullContext());
+  // Task 1: Wraps co_getRootTree (a now_task) in a Task via co_invoke.
+  // No shared_ptr capture here — co_getRootTree internally captures
+  // shared_from_this(), so the caller doesn't need to manage lifetime.
+  // This mirrors how the futures test calls getRootTree() directly.
+  auto getRootTreeTask = folly::coro::co_invoke(
+      [&]() -> folly::coro::Task<BackingStore::GetRootTreeResult> {
+        co_return co_await queuedBackingStore->co_getRootTree(
+            commit1, ObjectFetchContext::getNullContext());
+      });
 
-  EXPECT_FALSE(future.isReady());
+  // Task 2: Runs after task 1 suspends at the fault injection point.
+  // Verifies co_getRootTree's internal shared_from_this() keeps the
+  // object alive, then unblocks so task 1 can complete.
+  auto lifetimeCheckTask =
+      folly::coro::co_invoke([&]() -> folly::coro::Task<void> {
+        // Yield to let task 1 start and suspend at the fault injection point.
+        // After this, task 1's co_checkAsync has registered as blocked.
+        co_await folly::coro::co_reschedule_on_current_executor;
 
-  // Drop the test fixture's shared_ptr. With the fix (shared_from_this()),
-  // the lambdas in the future chain hold shared_ptr copies, keeping the
-  // object alive. Without the fix (raw this), the object would be destroyed
-  // here and the continuation would access freed memory.
-  queuedBackingStore.reset();
+        // Confirm task 1 is suspended at the fault injection point.
+        EXPECT_TRUE(faultInjector.waitUntilBlocked(
+            "SaplingBackingStore::getRootTree", 0ms));
 
-  // The object is still alive because the lambdas captured
-  // shared_from_this(). If someone reverts to raw `this`, this fails
-  // because the object was destroyed by reset() above.
-  EXPECT_FALSE(weak.expired());
+        // Drop the test fixture's shared_ptr — the only external reference.
+        // co_getRootTree internally captured shared_from_this(), so the
+        // object stays alive. If co_getRootTree used raw `this` instead,
+        // the object would be destroyed here and this assertion would fail.
+        queuedBackingStore.reset();
+        EXPECT_FALSE(weak.expired());
 
-  faultInjector.unblock("SaplingBackingStore::getRootTree", ".*");
+        // Unblock the fault so task 1 can resume and complete.
+        faultInjector.unblock("SaplingBackingStore::getRootTree", ".*");
+      });
 
-  // The future should complete without crashing.
-  std::move(future).getTry(kTestTimeout);
+  // Run both tasks concurrently. collectAll requires Task<T> (not now_task),
+  // which is why we wrapped co_getRootTree with co_invoke above.
+  auto [result, _] = co_await folly::coro::collectAll(
+      std::move(getRootTreeTask), std::move(lifetimeCheckTask));
+
+  // The coroutine completed successfully — the tree was fetched.
+  EXPECT_NE(result.tree, nullptr);
 }
 
 TEST_F(

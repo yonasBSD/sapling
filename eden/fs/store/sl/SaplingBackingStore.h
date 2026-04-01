@@ -355,6 +355,9 @@ class SaplingBackingStore final
   FRIEND_TEST(
       SaplingBackingStoreWithFaultInjectorTest,
       coGetTreeEnqueueCoroutineKeepsObjectAlive);
+  FRIEND_TEST(
+      SaplingBackingStoreWithFaultInjectorTest,
+      coGetRootTreeFaultInjection);
   friend class EdenServiceHandler;
 
   // Forbidden copy constructor and assignment operator
