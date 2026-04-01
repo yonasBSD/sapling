@@ -782,6 +782,14 @@ class EdenConfig : private ConfigSettingManager {
    */
   ConfigSetting<uint32_t> fuseMaxPages{"fuse:max-pages", 0, this};
 
+  /**
+   * Whether to use io_uring for FUSE request/reply transport instead of
+   * traditional /dev/fuse read/write. Requires Linux 6.11+ with
+   * CONFIG_FUSE_IO_URING=y. Falls back to /dev/fuse automatically if
+   * the kernel doesn't support it.
+   */
+  ConfigSetting<bool> fuseUseIoUring{"fuse:use-io-uring", false, this};
+
   // [nfs]
 
   /**
