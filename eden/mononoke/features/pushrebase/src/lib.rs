@@ -833,6 +833,15 @@ async fn rebase_in_loop(
             .as_ref()
             .map(|overrides| overrides.iter().map(|info| info.path.clone()).collect());
 
+        // INVARIANT: if any previous attempt resolved conflicts, the
+        // successful attempt must also have resolved them. If not,
+        // merge resolution was lost during retry — fail before rebasing
+        // to prevent landing content that overwrites server changes.
+        if any_attempt_resolved_conflicts && merge_resolved_paths.is_none() {
+            STATS::merge_resolution_lost_on_retry.add_value(1, repo_args.clone());
+            return Err(PushrebaseInternalError::MergeResolutionLostOnRetry.into());
+        }
+
         let rebase_outcome = do_rebase(
             ctx,
             repo,
@@ -853,15 +862,6 @@ async fn rebase_in_loop(
             .try_into()
             .unwrap_or(i64::MAX);
         if let Some((head, log_id, rebased_changesets)) = rebase_outcome {
-            // INVARIANT: if any previous attempt resolved conflicts, the
-            // successful attempt must also have resolved them. If not,
-            // merge resolution was lost during retry — fail rather than
-            // silently landing content that overwrites server changes.
-            if any_attempt_resolved_conflicts && merge_resolved_paths.is_none() {
-                STATS::merge_resolution_lost_on_retry.add_value(1, repo_args);
-                return Err(PushrebaseInternalError::MergeResolutionLostOnRetry.into());
-            }
-
             if should_log {
                 STATS::critical_section_success_duration_us
                     .add_value(critical_section_duration_us, repo_args.clone());
