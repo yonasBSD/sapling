@@ -26,7 +26,7 @@ rust_library(
     crate_root = "src/lib.rs",
     test_deps = [
         "fbsource//third-party/rust:rand_08",
-        "fbsource//third-party/rust:rand_chacha",
+        "fbsource//third-party/rust:rand_chacha_03",
         "fbsource//third-party/rust:tempfile",
         "//eden/scm/lib/drawdag:drawdag",
     ],

@@ -28,7 +28,7 @@ rust_library(
             ],
             "dev-dependencies": [
                 "fbsource//third-party/rust:rand_09",
-                "fbsource//third-party/rust:rand_chacha",
+                "fbsource//third-party/rust:rand_chacha_03",
                 "//eden/scm/lib/manifest:manifest",
                 "//eden/scm/lib/minibench:minibench",
                 "//eden/scm/lib/types:types",
