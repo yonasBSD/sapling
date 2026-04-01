@@ -7,6 +7,7 @@
 
 use anyhow::Error;
 use blobstore::Loadable;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
 use fsnodes::RootFsnodeId;
@@ -17,10 +18,53 @@ use manifest::ManifestOps;
 use mercurial_derivation::DeriveHgChangeset;
 use mercurial_types::NonRootMPath;
 use mononoke_types::ChangesetId;
+use mononoke_types::content_manifest::compat;
 use tracing::info;
 use unodes::RootUnodeManifestId;
 
 use crate::Repo;
+
+async fn derive_compat_manifest_ids(
+    ctx: &CoreContext,
+    repo: &impl Repo,
+    bcs_id: ChangesetId,
+    base_cs_id: ChangesetId,
+) -> Result<(compat::ContentManifestId, compat::ContentManifestId), Error> {
+    let use_content_manifests = justknobs::eval(
+        "scm/mononoke:derived_data_use_content_manifests",
+        None,
+        Some(repo.repo_identity().name()),
+    )?;
+
+    if use_content_manifests {
+        let id = repo.repo_derived_data().derive::<RootContentManifestId>(
+            ctx,
+            bcs_id,
+            DerivationPriority::LOW,
+        );
+        let base_id = repo.repo_derived_data().derive::<RootContentManifestId>(
+            ctx,
+            base_cs_id,
+            DerivationPriority::LOW,
+        );
+        let (id, base_id) = try_join(id, base_id).await?;
+        Ok((
+            id.into_content_manifest_id().into(),
+            base_id.into_content_manifest_id().into(),
+        ))
+    } else {
+        let id =
+            repo.repo_derived_data()
+                .derive::<RootFsnodeId>(ctx, bcs_id, DerivationPriority::LOW);
+        let base_id = repo.repo_derived_data().derive::<RootFsnodeId>(
+            ctx,
+            base_cs_id,
+            DerivationPriority::LOW,
+        );
+        let (id, base_id) = try_join(id, base_id).await?;
+        Ok((id.into_fsnode_id().into(), base_id.into_fsnode_id().into()))
+    }
+}
 
 pub async fn get_working_copy_paths(
     ctx: &CoreContext,
@@ -48,22 +92,11 @@ pub async fn get_changed_content_working_copy_paths(
     bcs_id: ChangesetId,
     base_cs_id: ChangesetId,
 ) -> Result<Vec<NonRootMPath>, Error> {
-    let unode_id =
-        repo.repo_derived_data()
-            .derive::<RootFsnodeId>(ctx, bcs_id, DerivationPriority::LOW);
-    let base_unode_id =
-        repo.repo_derived_data()
-            .derive::<RootFsnodeId>(ctx, base_cs_id, DerivationPriority::LOW);
+    let (root_manifest_id, base_root_manifest_id) =
+        derive_compat_manifest_ids(ctx, repo, bcs_id, base_cs_id).await?;
 
-    let (unode_id, base_unode_id) = try_join(unode_id, base_unode_id).await?;
-
-    let mut paths = base_unode_id
-        .fsnode_id()
-        .diff(
-            ctx.clone(),
-            repo.repo_blobstore().clone(),
-            *unode_id.fsnode_id(),
-        )
+    let mut paths = base_root_manifest_id
+        .diff(ctx.clone(), repo.repo_blobstore().clone(), root_manifest_id)
         .try_filter_map(|diff| async move {
             use Diff::*;
             let maybe_path =
@@ -92,22 +125,11 @@ pub async fn get_colliding_paths_between_commits(
     bcs_id: ChangesetId,
     base_cs_id: ChangesetId,
 ) -> Result<Vec<NonRootMPath>, Error> {
-    let unode_id =
-        repo.repo_derived_data()
-            .derive::<RootFsnodeId>(ctx, bcs_id, DerivationPriority::LOW);
-    let base_unode_id =
-        repo.repo_derived_data()
-            .derive::<RootFsnodeId>(ctx, base_cs_id, DerivationPriority::LOW);
+    let (root_manifest_id, base_root_manifest_id) =
+        derive_compat_manifest_ids(ctx, repo, bcs_id, base_cs_id).await?;
 
-    let (unode_id, base_unode_id) = try_join(unode_id, base_unode_id).await?;
-
-    let mut paths = base_unode_id
-        .fsnode_id()
-        .diff(
-            ctx.clone(),
-            repo.repo_blobstore().clone(),
-            *unode_id.fsnode_id(),
-        )
+    let mut paths = base_root_manifest_id
+        .diff(ctx.clone(), repo.repo_blobstore().clone(), root_manifest_id)
         .try_filter_map(|diff| async move {
             use Diff::*;
             let maybe_path =
