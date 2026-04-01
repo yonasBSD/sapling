@@ -40,3 +40,16 @@ pub enum EphemeralBlobstoreError {
     #[error("failed to fetch labels for bubble {0}")]
     FetchBubbleLabelsFailed(BubbleId),
 }
+
+impl EphemeralBlobstoreError {
+    /// Returns true if this error indicates a bubble has expired or does not exist.
+    ///
+    /// Covers both `NoSuchBubble` (bubble expired at open time, from `open_bubble_raw`)
+    /// and `BubbleExpired` (bubble expired mid-operation, from `check_unexpired`).
+    pub fn is_bubble_expiry(&self) -> bool {
+        matches!(
+            self,
+            EphemeralBlobstoreError::NoSuchBubble(_) | EphemeralBlobstoreError::BubbleExpired(_)
+        )
+    }
+}
