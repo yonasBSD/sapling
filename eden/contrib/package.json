@@ -10,12 +10,12 @@
     "@babel/runtime": "^7.21.0",
     "@eslint/js": "^9.26.0",
     "@types/eslint__js": "^8.42.3",
-    "typescript-eslint": "^8.32.0",
     "eslint": "^9.26.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^16.1.0",
-    "prettier": "2.8.8"
+    "prettier": "2.8.8",
+    "typescript-eslint": "^8.32.0"
   },
   "scripts": {
     "eslint": "eslint reviewstack/src reviewstack.dev/src shared",
