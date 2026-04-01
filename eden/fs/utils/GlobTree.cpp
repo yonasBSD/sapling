@@ -45,18 +45,16 @@ folly::coro::now_task<folly::Unit> GlobTree::co_evaluate(
     PrefetchList* fileBlobsToPrefetch,
     ResultList* globResult,
     const RootId& originRootId) const {
-  co_await evaluateImpl<GlobNodeImpl::TreeRoot, GlobNodeImpl::TreeRootPtr>(
+  co_return co_await co_evaluateImpl<
+      GlobNodeImpl::TreeRoot,
+      GlobNodeImpl::TreeRootPtr>(
       store.get(),
       context,
       rootPath,
       GlobNodeImpl::TreeRoot(std::move(tree)),
       fileBlobsToPrefetch,
       globResult,
-      originRootId)
-      // Make sure the store stays alive for the duration of globbing.
-      .ensure([store] {})
-      .semi();
-  co_return folly::unit;
+      originRootId);
 }
 
 } // namespace facebook::eden
