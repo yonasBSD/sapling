@@ -182,7 +182,7 @@ SaplingBackingStore::SaplingBackingStore(
     AbsolutePathPiece mount,
     CaseSensitivity caseSensitive,
     EdenStatsPtr stats,
-    folly::InlineExecutor* inlineExecutor,
+    folly::Executor* executor,
     std::shared_ptr<ReloadableConfig> config,
     std::unique_ptr<SaplingBackingStoreOptions> runtimeOptions,
     std::shared_ptr<StructuredLogger> structuredLogger,
@@ -190,7 +190,7 @@ SaplingBackingStore::SaplingBackingStore(
     FaultInjector* FOLLY_NONNULL faultInjector)
     : stats_(std::move(stats)),
       config_(config),
-      serverThreadPool_(inlineExecutor),
+      serverThreadPool_(executor),
       queue_(std::move(config)),
       structuredLogger_{std::move(structuredLogger)},
       logger_(std::move(logger)),

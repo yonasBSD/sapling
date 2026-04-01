@@ -189,16 +189,17 @@ class SaplingBackingStore final
       FaultInjector* FOLLY_NONNULL faultInjector);
 
   /**
-   * Create an SaplingBackingStore suitable for use in unit tests. It uses an
-   * inline executor to process loaded objects rather than the thread pools used
-   * in production Eden.
+   * Create a SaplingBackingStore suitable for use in unit tests. Pass any
+   * executor (InlineExecutor for synchronous tests, CPUThreadPoolExecutor
+   * for coroutine tests that need a real executor to avoid the coro::Task
+   * DCHECK on InlineExecutor).
    */
   SaplingBackingStore(
       AbsolutePathPiece repository,
       AbsolutePathPiece mount,
       CaseSensitivity caseSensitive,
       EdenStatsPtr stats,
-      folly::InlineExecutor* inlineExecutor,
+      folly::Executor* executor,
       std::shared_ptr<ReloadableConfig> config,
       std::unique_ptr<SaplingBackingStoreOptions> runtimeOptions,
       std::shared_ptr<StructuredLogger> structuredLogger,
