@@ -8,6 +8,8 @@
 #include "eden/fs/store/FilteredBackingStore.h"
 
 #include <folly/Varint.h>
+#include <folly/coro/Collect.h>
+#include <folly/coro/Invoke.h>
 #include <stdexcept>
 #include <tuple>
 
@@ -370,71 +372,79 @@ FilteredBackingStore::co_filterImpl(
     RelativePathPiece treePath,
     folly::StringPiece filterId,
     FilteredObjectIdType treeType) {
-  // This PathMap will only contain tree entries that aren't filtered.
-  auto pathMap = PathMap<TreeEntry>{unfilteredTree->getCaseSensitivity()};
-
   // Determine whether each child should be filtered. Failure to determine
   // whether a file is filtered would cause it to disappear from the source
   // tree. Instead of leaving users in a weird state where some files are
   // missing, we let the exception propagate to fail the entire getTree()
   // request so the caller can decide to retry.
+  //
+  // collectAllRange matches the futures path's collectAllSafe — all checks
+  // run concurrently and any failure aborts the entire request.
+  std::vector<folly::coro::Task<std::pair<RelativePath, FilterCoverage>>>
+      filterTasks;
   for (const auto& [path, entry] : *unfilteredTree) {
     auto relPath = RelativePath{treePath + path};
 
-    FilterCoverage filterCoverage;
-    // For normal (unfiltered) trees, we call into Mercurial to determine
-    // whether each child is filtered or not.
     if (treeType == FilteredObjectIdType::OBJECT_TYPE_TREE) {
-      filterCoverage =
-          co_await filter_->co_getFilterCoverageForPath(relPath, filterId);
+      filterTasks.emplace_back(
+          folly::coro::co_invoke(
+              [](Filter* filter, RelativePath rp, std::string fid)
+                  -> folly::coro::Task<
+                      std::pair<RelativePath, FilterCoverage>> {
+                auto coverage =
+                    co_await filter->co_getFilterCoverageForPath(rp, fid);
+                co_return std::pair(std::move(rp), coverage);
+              },
+              filter_.get(),
+              std::move(relPath),
+              std::string{filterId}));
     } else if (treeType == FilteredObjectIdType::OBJECT_TYPE_UNFILTERED_TREE) {
-      // For recursively unfiltered trees, we know that every child will also
-      // be recursively unfiltered. Therefore, we can avoid the cost of
-      // calling into Mercurial to check each child.
-      filterCoverage = FilterCoverage::RECURSIVELY_UNFILTERED;
+      filterTasks.emplace_back(
+          folly::coro::co_invoke(
+              [](RelativePath rp) -> folly::coro::Task<
+                                      std::pair<RelativePath, FilterCoverage>> {
+                co_return std::pair(
+                    std::move(rp), FilterCoverage::RECURSIVELY_UNFILTERED);
+              },
+              std::move(relPath)));
     } else {
-      // OBJECT_TYPE_BLOB should never be passed to filterImpl
       throwf<std::invalid_argument>(
           "FilterImpl() received an unexpected tree type: {}",
           foidTypeToString(treeType));
     }
+  }
 
-    // Recursively filtered objects are simply omitted from the PathMap.
+  auto filterResults =
+      co_await folly::coro::collectAllRange(std::move(filterTasks));
+
+  // Build PathMap from filter results
+  auto pathMap = PathMap<TreeEntry>{unfilteredTree->getCaseSensitivity()};
+  for (auto& [relPath, filterCoverage] : filterResults) {
     if (filterCoverage == FilterCoverage::RECURSIVELY_FILTERED) {
       continue;
     }
 
-    auto entryType = entry.getType();
+    auto entry = unfilteredTree->find(relPath.basename().piece());
+    auto entryType = entry->second.getType();
     ObjectId oid;
 
-    // The entry type is a tree. Trees can either be unfiltered or
-    // recursively unfiltered. We handle these cases differently.
     if (entryType == TreeEntryType::TREE) {
       if (filterCoverage == FilterCoverage::UNFILTERED) {
-        // We can't guarantee all the tree's descendants are
-        // filtered, so we need to create a normal tree FOID.
-        auto foid =
-            FilteredObjectId(relPath.piece(), filterId, entry.getObjectId());
+        auto foid = FilteredObjectId(
+            relPath.piece(), filterId, entry->second.getObjectId());
         oid = ObjectId{foid.getValue()};
       } else {
-        // We can guarantee that all the descendants of this tree
-        // are unfiltered. We can special case this tree to avoid
-        // recursive filter lookups in the future.
         auto foid = FilteredObjectId{
-            entry.getObjectId(),
+            entry->second.getObjectId(),
             FilteredObjectIdType::OBJECT_TYPE_UNFILTERED_TREE};
         oid = ObjectId{foid.getValue()};
       }
     } else {
-      // Blobs are the same regardless of recursive/non-recursive
-      // FilterCoverage.
       auto foid = FilteredObjectId{
-          entry.getObjectId(), FilteredObjectIdType::OBJECT_TYPE_BLOB};
+          entry->second.getObjectId(), FilteredObjectIdType::OBJECT_TYPE_BLOB};
       oid = ObjectId{foid.getValue()};
     }
 
-    // Regardless of FilteredObjectIdType, all unfiltered entries
-    // need to be placed into the unfiltered PathMap.
     pathMap.insert(
         std::pair{
             relPath.basename().copy(), TreeEntry{std::move(oid), entryType}});
@@ -687,6 +697,32 @@ folly::SemiFuture<folly::Unit> FilteredBackingStore::prefetchBlobs(
   auto fut = backingStore_->prefetchBlobs(unfilteredIds, context);
   return std::move(fut).deferEnsure(
       [unfilteredIds = std::move(unfilteredIds)]() {});
+}
+
+folly::coro::now_task<folly::Unit> FilteredBackingStore::co_prefetchBlobs(
+    ObjectIdRange ids,
+    const ObjectFetchContextPtr& context) {
+  // Fast path: avoid allocation if all ids can be passed through.
+  if (std::all_of(
+          ids.begin(), ids.end(), [this](auto& id) { return isSlOid(id); })) {
+    co_await backingStore_->prefetchBlobs(ids, context);
+    co_return folly::unit;
+  }
+
+  std::vector<ObjectId> unfilteredIds;
+  unfilteredIds.reserve(ids.size());
+  std::transform(
+      ids.begin(),
+      ids.end(),
+      std::back_inserter(unfilteredIds),
+      [this](auto& id) {
+        if (isSlOid(id)) {
+          return id;
+        }
+        return FilteredObjectId::fromObjectId(id).object();
+      });
+  co_await backingStore_->prefetchBlobs(unfilteredIds, context);
+  co_return folly::unit;
 }
 
 ImmediateFuture<BackingStore::GetGlobFilesResult>

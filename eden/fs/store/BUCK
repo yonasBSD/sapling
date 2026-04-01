@@ -82,6 +82,8 @@ cpp_library(
         "//eden/fs/store/sl:sapling_backing_store",
         "//eden/fs/utils:filter_utils",
         "//folly:varint",
+        "//folly/coro:collect",
+        "//folly/coro:invoke",
     ],
     exported_deps = [
         "fbsource//third-party/googletest:gtest",

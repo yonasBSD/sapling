@@ -190,6 +190,10 @@ class FilteredBackingStore
       ObjectIdRange ids,
       const ObjectFetchContextPtr& context) override;
 
+  folly::coro::now_task<folly::Unit> co_prefetchBlobs(
+      ObjectIdRange ids,
+      const ObjectFetchContextPtr& context);
+
   ImmediateFuture<GetGlobFilesResult> getGlobFiles(
       const RootId& id,
       const std::vector<std::string>& globs,
