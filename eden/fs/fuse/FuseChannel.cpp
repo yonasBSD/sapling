@@ -882,7 +882,8 @@ FuseChannel::FuseChannel(
     bool useWriteBackCache,
     size_t fuseTraceBusCapacity,
     std::optional<uint32_t> fuseBdiReadAheadKb,
-    uint32_t fuseMaxPages)
+    uint32_t fuseMaxPages,
+    bool useIoUring)
     : privHelper_{privHelper},
       // Pre-allocate based on configured max_pages so the buffer can handle
       // the larger requests we'll negotiate during FUSE_INIT. This is
@@ -911,6 +912,7 @@ FuseChannel::FuseChannel(
       useWriteBackCache_{useWriteBackCache},
       fuseBdiReadAheadKb_{fuseBdiReadAheadKb},
       fuseMaxPages_{fuseMaxPages},
+      useIoUring_{useIoUring},
       fuseDevice_(std::move(fuseDevice)),
       processAccessLog_(std::move(processInfoCache)),
       traceDetailedArguments_(std::make_shared<std::atomic<size_t>>(0)),
