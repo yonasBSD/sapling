@@ -18,6 +18,7 @@
 #include <folly/Executor.h>
 #include <folly/Range.h>
 #include <folly/String.h>
+#include <folly/coro/Collect.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include <folly/executors/thread_factory/InitThreadFactory.h>
@@ -2052,6 +2053,106 @@ folly::SemiFuture<folly::Unit> SaplingBackingStore::prefetchBlobs(
 
     return collectAllSafe(std::move(futures)).unit().semi();
   }
+}
+
+folly::coro::now_task<folly::Unit> SaplingBackingStore::co_prefetchBlobs(
+    ObjectIdRange ids,
+    const ObjectFetchContextPtr& context) {
+  bool prefetchOptimizations =
+      config_->getEdenConfig()->prefetchOptimizations.getValue();
+
+  std::vector<SlOidView> slOids;
+  slOids.reserve(ids.size());
+  for (const auto& id : ids) {
+    slOids.emplace_back(id);
+  }
+
+  if (slOids.empty()) {
+    co_return folly::unit;
+  }
+
+  logBackingStoreFetch(
+      *context,
+      folly::Range{slOids.data(), slOids.size()},
+      ObjectFetchContext::ObjectType::Blob);
+
+  if (prefetchOptimizations &&
+      config_->getEdenConfig()->ignorePrefetchResult.getValue()) {
+    std::vector<sapling::SaplingRequest> requests;
+    requests.reserve(ids.size());
+    for (size_t i = 0; i < ids.size(); i++) {
+      requests.emplace_back(slOids[i], context->getCause(), context.copy());
+    }
+
+    co_await folly::coro::co_reschedule_on_current_executor;
+
+    auto importTracker = RequestMetricsScope{&pendingImportPrefetchWatches_};
+
+    auto unique = generateUniqueID();
+    traceBus_->publish(
+        HgImportTraceEvent::start(
+            unique,
+            HgImportTraceEvent::BLOB_BATCH,
+            slOids[0],
+            context->getPriority().getClass(),
+            context->getCause(),
+            context->getClientPid()));
+
+    folly::stop_watch<std::chrono::milliseconds> watch;
+    XLOGF(DBG4, "Batch fetching {} blobs from Sapling", requests.size());
+
+    size_t failureCount = 0;
+    nativeGetBlobBatch(
+        folly::range(requests),
+        sapling::FetchMode::AllowRemote,
+        true,
+        [&](size_t index, folly::Try<std::unique_ptr<folly::IOBuf>> content) {
+          if (content.hasException()) {
+            failureCount++;
+            XLOGF(
+                ERR,
+                "Failed to batch import {} from Sapling: {}",
+                requests[index].oid,
+                content.exception().what().toStdString());
+          }
+        });
+
+    traceBus_->publish(
+        HgImportTraceEvent::finish(
+            unique,
+            HgImportTraceEvent::BLOB_BATCH,
+            slOids[0],
+            context->getPriority().getClass(),
+            context->getCause(),
+            context->getClientPid(),
+            context->getFetchedSource()));
+
+    stats_->increment(
+        &SaplingBackingStoreStats::prefetchBlobFailure, failureCount);
+    stats_->increment(
+        &SaplingBackingStoreStats::prefetchBlobSuccess,
+        requests.size() - failureCount);
+    stats_->addDuration(
+        &SaplingBackingStoreStats::prefetchBlob, watch.elapsed());
+  } else {
+    std::vector<folly::coro::Task<GetBlobResult>> tasks;
+    tasks.reserve(ids.size());
+
+    for (size_t i = 0; i < ids.size(); i++) {
+      tasks.emplace_back(
+          folly::coro::co_invoke(
+              [this](SlOid slOid, ObjectFetchContextPtr ctx)
+                  -> folly::coro::Task<GetBlobResult> {
+                co_return co_await co_getBlobEnqueue(
+                    slOid, ctx, SaplingImportRequest::FetchType::Prefetch);
+              },
+              SlOid{slOids[i]},
+              context.copy()));
+    }
+
+    co_await folly::coro::collectAllRange(std::move(tasks));
+  }
+  co_return folly::unit;
 }
 
 void SaplingBackingStore::nativeGetBlobBatch(
