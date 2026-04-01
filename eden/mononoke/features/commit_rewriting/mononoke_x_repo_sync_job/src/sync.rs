@@ -21,6 +21,7 @@ use bookmarks::BookmarkUpdateReason;
 use bookmarks::BookmarksRef;
 use bulk_derivation::BulkDerivation;
 use commit_graph::CommitGraphRef;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use cross_repo_sync::CandidateSelectionHint;
 use cross_repo_sync::CommitSyncContext;
@@ -690,21 +691,38 @@ where
             format!("Ancestor {ancestor_cs_id} synced successfully as {synced}"),
         );
 
-        // Fsnodes always need to be derived synchronously during initial
-        // import because syncing a commit with submodule expansion depends
-        // on the fsnodes of its parents.
+        // Fsnodes/content manifests always need to be derived synchronously
+        // during initial import because syncing a commit with submodule
+        // expansion depends on the manifests of its parents.
         //
-        // If fsnodes aren't derived synchronously, expansion of submodules
+        // If manifests aren't derived synchronously, expansion of submodules
         // will derive it using an InMemoryRepo, throwing away all the results
         // and doing it all again in the next changeset.
-        let root_fsnode_id = large_repo
-            .repo_derived_data()
-            .derive::<RootFsnodeId>(ctx, synced, DerivationPriority::LOW)
-            .await?;
-        trace!(
-            "Root fsnode id from {synced}: {0}",
-            root_fsnode_id.into_fsnode_id()
-        );
+        let use_content_manifests = justknobs::eval(
+            "scm/mononoke:derived_data_use_content_manifests",
+            None,
+            Some(large_repo.repo_identity().name()),
+        )?;
+
+        if use_content_manifests {
+            let root_content_manifest_id = large_repo
+                .repo_derived_data()
+                .derive::<RootContentManifestId>(ctx, synced, DerivationPriority::LOW)
+                .await?;
+            trace!(
+                "Root content manifest id from {synced}: {0}",
+                root_content_manifest_id.into_content_manifest_id()
+            );
+        } else {
+            let root_fsnode_id = large_repo
+                .repo_derived_data()
+                .derive::<RootFsnodeId>(ctx, synced, DerivationPriority::LOW)
+                .await?;
+            trace!(
+                "Root fsnode id from {synced}: {0}",
+                root_fsnode_id.into_fsnode_id()
+            );
+        }
 
         if !no_automatic_derivation {
             if changesets_to_derive.len() >= derivation_batch_size {
