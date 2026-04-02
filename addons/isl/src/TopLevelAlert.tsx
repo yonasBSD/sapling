@@ -8,21 +8,21 @@
 import type {ReactNode} from 'react';
 import type {Alert, AlertSeverity} from './types';
 
-import * as stylex from '@stylexjs/stylex';
 import {Banner, BannerKind} from 'isl-components/Banner';
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {Subtle} from 'isl-components/Subtle';
+import {layout} from 'isl-components/theme/layout';
 import {atom, useAtom, useAtomValue} from 'jotai';
 import {useEffect} from 'react';
-import {colors, font, radius, spacing} from '../../components/theme/tokens.stylex';
+import {cn} from 'shared/cn';
 import serverAPI from './ClientToServerAPI';
 import {Link} from './Link';
+import css from './TopLevelAlert.module.css';
 import {tracker} from './analytics';
 import {T} from './i18n';
 import {localStorageBackedAtom, writeAtom} from './jotaiUtils';
 import {applicationinfo} from './serverAPIState';
-import {layout} from './stylexUtils';
 
 const dismissedAlerts = localStorageBackedAtom<{[key: string]: boolean}>(
   'isl.dismissed-alerts',
@@ -86,53 +86,26 @@ export function TopLevelAlerts() {
   );
 }
 
-const styles = stylex.create({
-  alertContainer: {
-    margin: spacing.pad,
-    position: 'relative',
-  },
-  alert: {
-    fontSize: font.bigger,
-    padding: spacing.pad,
-    gap: spacing.half,
-    alignItems: 'flex-start',
-  },
-  alertContent: {
-    verticalAlign: 'center',
-    gap: spacing.half,
-    fontWeight: 'bold',
-  },
-  sev: {
-    color: 'white',
-    paddingInline: spacing.half,
-    paddingBlock: spacing.quarter,
-    borderRadius: radius.small,
-    fontSize: font.small,
-  },
-  dismissX: {
-    position: 'absolute',
-    right: spacing.double,
-    top: spacing.pad,
-  },
-  'SEV 0': {backgroundColor: colors.purple},
-  'SEV 1': {backgroundColor: colors.red},
-  'SEV 2': {backgroundColor: colors.orange},
-  'SEV 3': {backgroundColor: colors.blue},
-  'SEV 4': {backgroundColor: colors.grey},
-  UBN: {backgroundColor: colors.purple},
-});
+const sevClassMap: Record<AlertSeverity, string> = {
+  'SEV 0': css.sev0,
+  'SEV 1': css.sev1,
+  'SEV 2': css.sev2,
+  'SEV 3': css.sev3,
+  'SEV 4': css.sev4,
+  UBN: css.ubn,
+};
 
 function SevBadge({children, severity}: {children: ReactNode; severity: AlertSeverity}) {
-  return <span {...stylex.props(styles.sev, styles[severity])}>{children}</span>;
+  return <span className={cn(css.sev, sevClassMap[severity])}>{children}</span>;
 }
 
 function TopLevelAlert({alert, onDismiss}: {alert: Alert; onDismiss: () => unknown}) {
   const {title, description, url, severity} = alert;
   return (
-    <div {...stylex.props(styles.alertContainer)}>
+    <div className={css.alertContainer}>
       <Banner kind={BannerKind.default} icon={<Icon icon="flame" size="M" color="red" />}>
-        <div {...stylex.props(layout.flexCol, styles.alert)}>
-          <div {...stylex.props(styles.dismissX)}>
+        <div className={cn(layout.flexCol, css.alert)}>
+          <div className={css.dismissX}>
             <Button onClick={onDismiss} data-testid="dismiss-alert">
               <Icon icon="x" />
             </Button>
@@ -140,7 +113,7 @@ function TopLevelAlert({alert, onDismiss}: {alert: Alert; onDismiss: () => unkno
           <b>
             <T>Ongoing Issue</T>
           </b>
-          <span {...stylex.props(layout.flexRow, styles.alertContent)}>
+          <span className={cn(layout.flexRow, css.alertContent)}>
             <SevBadge severity={severity}>{severity}</SevBadge> <Link href={url}>{title}</Link>
             <Icon icon="link-external" />
           </span>
