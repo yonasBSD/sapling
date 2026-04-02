@@ -327,7 +327,6 @@ class EdenTestCase(EdenTestCaseBase):
         configs = {
             "experimental": [
                 "enable-nfs-server = true",
-                "windows-symlinks = false",
                 "propagate-checkout-errors = true",
                 "filteredfs-optimize-unfiltered = true",
                 "lazy-inode-persistence = true",
@@ -680,8 +679,6 @@ class EdenRepoTest(EdenTestCase):
     # case sensitivities on a single platform.
     is_case_sensitive: Optional[bool] = None
 
-    enable_windows_symlinks: bool = False
-
     backing_store_type: Optional[str] = None
 
     def setup_eden_test(self) -> None:
@@ -958,7 +955,6 @@ class HgRepoTestMixin:
         # pyre-fixme[16]: `HgRepoTestMixin` has no attribute `create_hg_repo`.
         return self.create_hg_repo(
             name,
-            init_configs=["experimental.windows-symlinks=True"],
             filtered=filtered,
         )
 

@@ -81,7 +81,6 @@ class EdenHgTestCase(testcase.EdenTestCase, metaclass=abc.ABCMeta):
 
     repo: hgrepo.HgRepository
     backing_repo: hgrepo.HgRepository
-    enable_windows_symlinks: bool = False
     inode_catalog_type: Optional[str] = None
     backing_store_type: Optional[str] = None
     adtl_repos: List[Tuple[hgrepo.HgRepository, Optional[hgrepo.HgRepository]]] = []
@@ -122,12 +121,8 @@ class EdenHgTestCase(testcase.EdenTestCase, metaclass=abc.ABCMeta):
         return configs
 
     def create_backing_repo(self) -> hgrepo.HgRepository:
-        if self.enable_windows_symlinks:
-            init_configs = ["experimental.windows-symlinks=True"]
-        else:
-            init_configs = []
         hgrc = self.get_hgrc()
-        repo = self.create_hg_repo("main", hgrc=hgrc, init_configs=init_configs)
+        repo = self.create_hg_repo("main", hgrc=hgrc)
         self.populate_backing_repo(repo)
         return repo
 

@@ -25,10 +25,6 @@ class RemoveTestBase(testcase.EdenRepoTest):
     # pyre-fixme[13]: Attribute `expected_mount_entries` is never initialized.
     expected_mount_entries: Set[str]
 
-    def setup_eden_test(self) -> None:
-        self.enable_windows_symlinks = True
-        super().setup_eden_test()
-
     def populate_repo(self) -> None:
         self.repo.write_file("hello", "hola\n")
         self.repo.write_file("adir/file", "foo!\n")

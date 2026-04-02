@@ -56,10 +56,6 @@ class ThriftTest(testcase.EdenRepoTest):
     expected_adir_file_blake3: bytes = b""
     _blake3_computed: bool = False
 
-    def setup_eden_test(self) -> None:
-        self.enable_windows_symlinks = True
-        super().setup_eden_test()
-
     def edenfs_extra_config(self) -> Optional[Dict[str, List[str]]]:
         result = super().edenfs_extra_config() or {}
         result.setdefault("hash", []).append(

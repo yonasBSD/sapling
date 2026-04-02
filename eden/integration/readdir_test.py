@@ -87,10 +87,6 @@ class ReaddirTest(testcase.EdenRepoTest):
     cdir_subdir_digest_size_result: DigestSizeOrError = DigestSizeOrError()
     cdir_subdir_digest_hash_result: DigestHashOrError = DigestHashOrError()
 
-    def setup_eden_test(self) -> None:
-        self.enable_windows_symlinks = True
-        super().setup_eden_test()
-
     def edenfs_extra_config(self) -> Optional[Dict[str, List[str]]]:
         result = super().edenfs_extra_config() or {}
         result.setdefault("hash", []).append(

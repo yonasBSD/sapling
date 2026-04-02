@@ -23,10 +23,6 @@ class SymlinkTest(EdenHgTestCase):
     # pyre-fixme[13]: Attribute `quasi_symlink_commit` is never initialized.
     quasi_symlink_commit: str
 
-    def setup_eden_test(self) -> None:
-        self.enable_windows_symlinks = True
-        super().setup_eden_test()
-
     def populate_backing_repo(self, repo: hgrepo.HgRepository) -> None:
         repo.write_file("adir/hello.txt", "hola")
         self.simple_commit = repo.commit("Initial commit.")
