@@ -22,6 +22,9 @@ Requirements:
 - \`yarn install\` has already been run in the addons/ folder
 - \`sl\` required to be on the PATH for isl integration tests`;
 
+const TASK_LABEL_WIDTH = 14;
+const COMMAND_LABEL_WIDTH = 34;
+
 /**
  * @typedef {{
  *   useVendoredGrammars: boolean;
@@ -30,13 +33,27 @@ Requirements:
  */
 
 class CommandError extends Error {
+  /** @type {string} */
+  taskLabel;
+
+  /** @type {string} */
+  commandLabel;
+
+  /** @type {string} */
+  output;
+
   /**
+   * @param {string} cwd
    * @param {string[]} command
    * @param {number | null} exitCode
+   * @param {string} output
    */
-  constructor(command, exitCode) {
+  constructor(cwd, command, exitCode, output) {
     super(`command failed (${exitCode ?? 'unknown'}): ${command.join(' ')}`);
     this.name = 'CommandError';
+    this.taskLabel = deriveTaskLabel(cwd);
+    this.commandLabel = deriveCommandLabel(command);
+    this.output = output;
   }
 }
 
@@ -44,20 +61,16 @@ class Timer {
   /** @type {number} */
   #start;
 
-  /**
-   * @param {string} message
-   */
-  constructor(message) {
+  constructor() {
     this.#start = Date.now();
-    console.log(message);
   }
 
   /**
-   * @param {string} message
+   * @returns {string}
    */
-  report(message) {
+  elapsed() {
     const durationSeconds = (Date.now() - this.#start) / 1000;
-    console.log(`${message} in ${durationSeconds.toFixed(2)}s`);
+    return `${durationSeconds.toFixed(2)}s`;
   }
 }
 
@@ -105,7 +118,7 @@ function printHelp(exitCode, errorMessage) {
     description,
     '',
     'options:',
-    '  --use-vendored-grammars  No-op. Provided for compatibility.',
+    '  --use-vendored-grammars   No-op. Provided for compatibility.',
     "  --skip-integration-tests  Don't run isl integrations tests",
     '  -h, --help                show this help message and exit',
   ];
@@ -137,41 +150,31 @@ async function verify(args) {
 
 /** @returns {Promise<void>} */
 async function verifyPrettier() {
-  const timer = new Timer('verifying prettier');
-  await run(['yarn', 'run', 'prettier-check'], addons);
-  timer.report(ok('prettier'));
+  await runTask(['yarn', 'run', 'prettier-check'], addons);
 }
 
 /** @returns {Promise<void>} */
 async function verifyShared() {
-  const timer = new Timer('verifying shared/');
   await lintAndTest(path.join(addons, 'shared'));
-  timer.report(ok('shared/'));
 }
 
 /** @returns {Promise<void>} */
 async function verifyComponents() {
-  const timer = new Timer('verifying components/');
   await lintAndTest(path.join(addons, 'components'));
-  timer.report(ok('components/'));
 }
 
 /** @returns {Promise<void>} */
 async function verifyTextmate() {
-  const timer = new Timer('verifying textmate/');
   const textmate = path.join(addons, 'textmate');
   await Promise.all([
-    run(['yarn', 'run', 'tsc', '--noEmit'], textmate),
-    run(['yarn', 'run', 'lint'], textmate),
+    runTask(['yarn', 'run', 'tsc', '--noEmit'], textmate),
+    runTask(['yarn', 'run', 'lint'], textmate),
   ]);
-  timer.report(ok('textmate/'));
 }
 
 /** @returns {Promise<void>} */
 async function verifyInternal() {
-  const timer = new Timer('verifying internal');
-  await run(['yarn', 'run', 'verify-internal'], addons);
-  timer.report(ok('internal'));
+  await runTask(['yarn', 'run', 'verify-internal'], addons);
 }
 
 /**
@@ -180,28 +183,20 @@ async function verifyInternal() {
  * @returns {Promise<void>}
  */
 async function verifyIsl(args) {
-  const timer = new Timer('verifying ISL');
   const isl = path.join(addons, 'isl');
   const islServer = path.join(addons, 'isl-server');
   const vscode = path.join(addons, 'vscode');
 
-  await run(['yarn', 'codegen'], islServer);
-  await Promise.all([run(['yarn', 'build'], islServer), run(['yarn', 'build'], isl)]);
+  await runTask(['yarn', 'codegen'], islServer);
+  await Promise.all([runTask(['yarn', 'build'], islServer), runTask(['yarn', 'build'], isl)]);
   await Promise.all([
-    run(['yarn', 'build-extension'], vscode),
-    run(['yarn', 'build-webview'], vscode),
+    runTask(['yarn', 'build-extension'], vscode),
+    runTask(['yarn', 'build-webview'], vscode),
   ]);
   await Promise.all([lintAndTest(isl), lintAndTest(islServer), lintAndTest(vscode)]);
   if (!args.skipIntegrationTests) {
-    timer.report('running isl integration tests');
-    await runIslIntegrationTests();
+    await runTask(['yarn', 'integration', '--watchAll=false'], isl);
   }
-  timer.report(ok('ISL'));
-}
-
-/** @returns {Promise<void>} */
-async function runIslIntegrationTests() {
-  await run(['yarn', 'integration', '--watchAll=false'], path.join(addons, 'isl'));
 }
 
 /**
@@ -210,10 +205,23 @@ async function runIslIntegrationTests() {
  */
 async function lintAndTest(cwd) {
   await Promise.all([
-    run(['yarn', 'run', 'lint'], cwd),
-    run(['yarn', 'run', 'tsc', '--noEmit'], cwd),
-    run(['yarn', 'test', '--watchAll=false'], cwd),
+    runTask(['yarn', 'run', 'lint'], cwd),
+    runTask(['yarn', 'run', 'tsc', '--noEmit'], cwd),
+    runTask(['yarn', 'test', '--watchAll=false'], cwd),
   ]);
+}
+
+/**
+ * @param {string[]} command
+ * @param {string} cwd
+ * @returns {Promise<void>}
+ */
+async function runTask(command, cwd) {
+  const timer = new Timer();
+  const taskLabel = formatTask(deriveTaskLabel(cwd));
+  const commandLabel = formatCommand(deriveCommandLabel(command));
+  await run(command, cwd);
+  console.log(`${ok(taskLabel, commandLabel)} in ${timer.elapsed()}`);
 }
 
 /**
@@ -240,35 +248,100 @@ function run(command, cwd) {
     child.stderr.on('data', chunk => {
       stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     });
-    child.on('error', reject);
+    child.on('error', error => {
+      reject(new CommandError(cwd, command, null, String(error)));
+    });
     child.on('close', code => {
       if (code === 0) {
         resolve();
         return;
       }
 
-      const stdout = Buffer.concat(stdoutChunks).toString('utf8');
-      const stderr = Buffer.concat(stderrChunks).toString('utf8');
-      if (stdout !== '') {
-        console.log(`[stdout]\n${stdout}`);
-      }
-      if (stderr !== '') {
-        console.log(`[stderr]\n${stderr}`);
-      }
-      reject(new CommandError(command, code));
+      const stdout = Buffer.concat(stdoutChunks).toString('utf8').trimEnd();
+      const stderr = Buffer.concat(stderrChunks).toString('utf8').trimEnd();
+      const output = [stdout, stderr].filter(part => part !== '').join('\n');
+      reject(new CommandError(cwd, command, code, output));
     });
   });
 }
 
 /**
- * @param {string} message
+ * @param {string} cwd
  * @returns {string}
  */
-function ok(message) {
-  return `\u001b[0;32mOK\u001b[00m ${message}`;
+function deriveTaskLabel(cwd) {
+  if (cwd === addons) {
+    return '';
+  }
+
+  return `${path.basename(cwd)}/`;
+}
+
+/**
+ * @param {string[]} command
+ * @returns {string}
+ */
+function deriveCommandLabel(command) {
+  return command.join(' ');
+}
+
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function formatTask(value) {
+  return value === '' ? ''.padEnd(TASK_LABEL_WIDTH) : `[${value}]`.padEnd(TASK_LABEL_WIDTH);
+}
+
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function formatCommand(value) {
+  return value.padEnd(COMMAND_LABEL_WIDTH);
+}
+
+/**
+ * @param {unknown} error
+ */
+function reportFailure(error) {
+  if (error instanceof CommandError) {
+    console.error(`\n${fail(formatTask(error.taskLabel), formatCommand(error.commandLabel))}:`);
+    if (error.output !== '') {
+      console.error(error.output);
+    } else {
+      console.error(error.message);
+    }
+    return;
+  }
+
+  console.error('\nFAIL unexpected error:');
+  console.error(error);
+}
+
+const RED = '\u001b[0;31m';
+const GREEN = '\u001b[0;32m';
+const RESET = '\u001b[0m';
+
+/**
+ * @param {string} taskLabel
+ * @param {string} commandLabel
+ * @returns {string}
+ */
+function ok(taskLabel, commandLabel) {
+  return `${GREEN}OK${RESET} ${taskLabel} ${commandLabel}`;
+}
+
+/**
+ * @param {string} taskLabel
+ * @param {string} commandLabel
+ * @returns {string}
+ */
+function fail(taskLabel, commandLabel) {
+  return `${RED}FAIL${RESET} ${taskLabel} ${commandLabel}`;
 }
 
 verify(parseArgs()).catch(error => {
-  console.error(error);
+  reportFailure(error);
   process.exit(1);
 });
