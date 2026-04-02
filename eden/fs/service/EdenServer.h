@@ -25,6 +25,7 @@
 #include <folly/Synchronized.h>
 #include <folly/ThreadLocal.h>
 #include <folly/futures/SharedPromise.h>
+#include <folly/synchronization/LifoSem.h>
 
 #include "eden/common/utils/PathFuncs.h"
 #include "eden/common/utils/PathMap.h"
@@ -957,6 +958,12 @@ class EdenServer : private TakeoverHandler {
   PeriodicFnTask<&EdenServer::createOrUpdateEdenHeartbeatFile>
       updateEdenHeartbeatFileTask_{this, "update-eden-heartbeat"};
 #endif
+
+  /**
+   * Semaphore limiting concurrent fsck operations during startup.
+   * Prevents OOM when many mounts need fsck after ungraceful shutdown.
+   */
+  std::unique_ptr<folly::LifoSem> fsckSemaphore_;
 
   /**
    * Cancellation source for garbage collection operations.

@@ -1405,6 +1405,15 @@ Future<Unit> EdenServer::prepareImpl(std::shared_ptr<StartupLogger> logger) {
        takeoverData = std::move(takeoverData),
 #endif
        thriftRunningFuture = std::move(thriftRunningFuture)]() mutable {
+        // Create fsck concurrency semaphore before either mount path.
+        // A value of 0 means unlimited concurrency (no semaphore).
+        auto maxConcurrentFsck = serverState_->getReloadableConfig()
+                                     ->getEdenConfig()
+                                     ->fsckMaxConcurrentMounts.getValue();
+        if (maxConcurrentFsck > 0) {
+          fsckSemaphore_ = std::make_unique<folly::LifoSem>(maxConcurrentFsck);
+        }
+
         std::vector<ImmediateFuture<Unit>> mountFutures;
         if (doingTakeover) {
 #ifndef _WIN32
@@ -1902,6 +1911,10 @@ ImmediateFuture<std::shared_ptr<EdenMount>> EdenServer::mount(
       std::move(journal),
       getStats().copy());
   addToMountPoints(edenMount);
+
+  if (fsckSemaphore_) {
+    edenMount->getOverlay()->setFsckSemaphore(fsckSemaphore_.get());
+  }
 
   registerStats(edenMount);
 

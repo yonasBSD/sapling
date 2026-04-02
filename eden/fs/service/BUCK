@@ -449,6 +449,7 @@ cpp_library(
         "//folly/futures:shared_promise",
         "//folly/io/async:async_base",
         "//folly/portability:sys_stat",
+        "//folly/synchronization:lifo_sem",
         "//monitoring/obc:obc_lib",
         "//thrift/lib/cpp:event_handler_base",
     ],
