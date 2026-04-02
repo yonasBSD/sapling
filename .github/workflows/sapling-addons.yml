@@ -21,6 +21,6 @@ jobs:
       - name: yarn install
         working-directory: ./addons
         run: yarn install --prefer-offline
-      - name: Run addons/verify-addons-folder.py
+      - name: Run addons/verify-addons-folder.js
         working-directory: ./addons
-        run: ./verify-addons-folder.py --skip-integration-tests
+        run: ./verify-addons-folder.js --skip-integration-tests

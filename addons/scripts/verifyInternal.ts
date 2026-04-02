@@ -10,7 +10,7 @@ import {Internal} from './Internal';
 /* eslint-disable no-console */
 
 /**
- * This script is run during verify-addons-folder.js to validate any internal files.
+ * This script is run during `verify-addons-folder.js` to validate any internal files.
  * This is a noop in OSS.
  */
 async function main() {
