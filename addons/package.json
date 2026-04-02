@@ -11,12 +11,7 @@
   ],
   "devDependencies": {
     "@babel/runtime": "^7.21.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.11.0",
-    "eslint-plugin-import": "^2.25.4",
-    "eslint-plugin-react-hooks": "^4.3.0",
-    "eslint-plugin-rulesdir": "^0.2.1",
+    "oxlint": "^1.58.0",
     "prettier": "3.6.2",
     "prettier-plugin-organize-imports": "^4.1.0",
     "ts-node": "10.9.2",
@@ -24,6 +19,7 @@
   },
   "resolutions": {},
   "scripts": {
+    "lint": "oxlint -c .oxlintrc.json --react-plugin --import-plugin isl/src isl-server/src shared components vscode/extension vscode/webview textmate/src",
     "dev": "tsx ./scripts/dev.ts",
     "sync-api": "tsx ./scripts/sync-api.ts",
     "sync-edenfs-notifications": "tsx ./scripts/sync-edenfs-notifications.ts",

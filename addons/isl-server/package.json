@@ -30,7 +30,7 @@
     "watch": "rolldown -c --watch",
     "serve": "node --enable-source-maps ./dist/run-proxy.js",
     "test": "jest",
-    "eslint": "eslint src --ext .ts --ext .tsx",
+    "lint": "oxlint -c ../.oxlintrc.json --react-plugin --import-plugin src --ignore-pattern 'src/__generated__/**'",
     "build": "rolldown -c --environment NODE_ENV:production",
     "codegen": "node ./codegen.js"
   },

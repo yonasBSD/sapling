@@ -29,8 +29,8 @@ buck_genrule(
             "isl-server/dist/**",
         ],
     ) + [
-        ".eslintrc.js",
         ".gitignore",
+        ".oxlintrc.json",
         "package.json",
         "prettier.config.cjs",
         "yarn.lock",

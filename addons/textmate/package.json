@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "eslint": "eslint src --ext .ts --ext .tsx"
+    "lint": "oxlint -c ../.oxlintrc.json --react-plugin --import-plugin src"
   },
   "devDependencies": {
     "@types/minimist": "^1.2.2",

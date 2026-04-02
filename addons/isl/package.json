@@ -31,7 +31,6 @@
     "vscode-textmate": "^6.0.0"
   },
   "devDependencies": {
-    "@stylexjs/eslint-plugin": "^0.18.1",
     "@types/jest": "29.5.12",
     "execa": "5.1.1",
     "jest": "29.7.0",
@@ -45,6 +44,6 @@
     "textmate": "node ./textmate.js",
     "test": "jest",
     "integration": "jest --config=./integrationTests/integration.jest.config.ts",
-    "eslint": "eslint ./src --ext .ts --ext .tsx"
+    "lint": "oxlint -c ../.oxlintrc.json --react-plugin --import-plugin --ignore-pattern 'src/third-party/**' ./src"
   }
 }

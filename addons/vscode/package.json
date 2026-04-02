@@ -305,7 +305,7 @@
     }
   },
   "scripts": {
-    "eslint": "eslint extension webview --ext .ts --ext .tsx",
+    "lint": "oxlint -c ../.oxlintrc.json --react-plugin --import-plugin extension webview",
     "test": "jest",
     "watch-extension": "rolldown -c rolldown.extension.config.ts --watch",
     "watch-webview": "vite",
