@@ -2100,6 +2100,16 @@ class EdenConfig : private ConfigSettingManager {
       4,
       this};
 
+  /**
+   * Maximum number of mounts that can run fsck concurrently during startup.
+   * Limits peak memory usage after ungraceful shutdown to N times a single
+   * mount's fsck. Set to 0 for unlimited concurrency (no semaphore).
+   */
+  ConfigSetting<uint32_t> fsckMaxConcurrentMounts{
+      "fsck:max-concurrent-mounts",
+      5,
+      this};
+
   // [glob]
 
   /**
