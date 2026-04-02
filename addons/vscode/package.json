@@ -101,22 +101,21 @@
       "activitybar": [
         {
           "id": "sapling",
-          "icon": "resources/Sapling_viewContainer.svg",
-          "title": "%sapling.command-category%"
+          "title": "%sapling.command-category%",
+          "icon": "resources/Sapling_viewContainer.svg"
         },
         {
           "id": "fbRunCommand__sapling_DOT_open-isl",
-          "title": "%isl.title%",
-          "icon": "resources/Smartlog_viewContainer.svg"
+          "title": "%sapling.command-category%",
+          "icon": "resources/Sapling_viewContainer.svg"
         }
       ]
     },
     "views": {
       "fbRunCommand__sapling_DOT_open-isl": [
         {
-          "id": "empty-view-sapling",
+          "id": "sapling.isl.openButton",
           "name": "%isl.title%",
-          "icon": "resources/Smartlog_viewContainer.svg",
           "when": "isl.openInteractiveSmartlogShortcutEnabled && !config.sapling.isl.showInSidebar"
         }
       ],
