@@ -128,6 +128,16 @@ export const getVSCodePlatform = (context: vscode.ExtensionContext): VSCodeServe
           vscode.env.openExternal(vscode.Uri.parse(message.url));
           break;
         }
+        case 'platform/openInNewWindow': {
+          const folderUri = vscode.Uri.file(message.path);
+          vscode.commands.executeCommand('vscode.openFolder', folderUri, {forceNewWindow: true});
+          break;
+        }
+        case 'platform/openFolder': {
+          const folderUri = vscode.Uri.file(message.path);
+          vscode.commands.executeCommand('vscode.openFolder', folderUri, {forceNewWindow: false});
+          break;
+        }
         case 'platform/changeTitle': {
           if (this.panelOrView != null) {
             this.panelOrView.title = message.title;

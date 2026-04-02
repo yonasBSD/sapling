@@ -8,7 +8,12 @@
 import type {EjecaOptions, EjecaReturn} from 'shared/ejeca';
 import type {RepositoryContext} from './serverTypes';
 
-import {ConflictType, type AbsolutePath, type MergeConflicts} from 'isl/src/types';
+import {
+  ConflictType,
+  type AbsolutePath,
+  type MergeConflicts,
+  type WorktreeEntry,
+} from 'isl/src/types';
 import os from 'node:os';
 import {ejeca} from 'shared/ejeca';
 import {isEjecaError} from './utils';
@@ -132,6 +137,33 @@ export async function findDotDir(ctx: RepositoryContext): Promise<AbsolutePath |
   } catch (error) {
     ctx.logger.error(`Failed to find repository dotdir in ${ctx.cwd}`, error);
     return undefined;
+  }
+}
+
+/**
+ * Find the shared root of a worktree group (the main repo root).
+ * Returns undefined if the command fails (e.g., worktrees not supported).
+ */
+export async function findSharedRoot(ctx: RepositoryContext): Promise<AbsolutePath | undefined> {
+  try {
+    return (await runCommand(ctx, ['root', '--shared'])).stdout.trim();
+  } catch (error) {
+    ctx.logger.error(`Failed to find shared root for ${ctx.cwd}`, error);
+    return undefined;
+  }
+}
+
+/**
+ * List all worktrees in the current worktree group.
+ * Returns an empty array if worktrees are not available or not enabled.
+ */
+export async function listWorktrees(ctx: RepositoryContext): Promise<WorktreeEntry[]> {
+  try {
+    const result = await runCommand(ctx, ['worktree', 'list', '-Tjson']);
+    return JSON.parse(result.stdout);
+  } catch (error) {
+    ctx.logger.error(`Failed to list worktrees for ${ctx.cwd}`, error);
+    return [];
   }
 }
 

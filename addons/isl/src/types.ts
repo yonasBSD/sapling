@@ -280,6 +280,28 @@ export type ValidatedRepoInfo = {
   pullRequestDomain: string | undefined;
   preferredSubmitCommand?: PreferredSubmitCommand;
   isEdenFs: boolean;
+  /**
+   * Information about sibling worktrees in the same worktree group.
+   * Only populated when there are multiple worktrees (i.e., more than just the main repo).
+   * Undefined when worktrees are not enabled or only a single worktree exists.
+   */
+  worktreeInfo?: WorktreeInfo;
+};
+
+export type WorktreeInfo = {
+  /** The shared/main repo root, as returned by `sl root --shared`. */
+  sharedRoot: AbsolutePath;
+  /** All worktrees in this group, including the current one. */
+  worktrees: WorktreeEntry[];
+};
+
+export type WorktreeEntry = {
+  /** Absolute path to this worktree's working directory. */
+  path: AbsolutePath;
+  /** User-assigned label, or null if none. */
+  label?: string;
+  /** Whether this is the main (original) worktree. */
+  role: 'main' | 'linked';
 };
 
 export type ApplicationInfo = {
@@ -750,6 +772,8 @@ export type PlatformSpecificClientToServerMessages =
   | {type: 'platform/revealInExplorerView'; path: RepoRelativePath}
   | {type: 'platform/openDiff'; path: RepoRelativePath; comparison: Comparison}
   | {type: 'platform/openExternal'; url: string}
+  | {type: 'platform/openInNewWindow'; path: AbsolutePath}
+  | {type: 'platform/openFolder'; path: AbsolutePath}
   | {type: 'platform/changeTitle'; title: string}
   | {type: 'platform/confirm'; message: string; details?: string | undefined}
   | {type: 'platform/subscribeToAvailableCwds'}
