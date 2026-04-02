@@ -19,6 +19,7 @@ import type {
   SubscriptionResultsData,
   UncommittedChanges,
   ValidatedRepoInfo,
+  WorktreeInfo,
 } from './types';
 
 import {Set as ImSet} from 'immutable';
@@ -167,6 +168,7 @@ export const mostRecentSubscriptionIds: Record<SubscriptionKind, string> = {
   mergeConflicts: '',
   submodules: '',
   subscribedFullRepoBranches: '',
+  worktreeInfo: '',
 };
 
 /**
@@ -528,5 +530,14 @@ registerCleanup(
   subscribedFullRepoBranches,
   subscriptionEffect('subscribedFullRepoBranches', data => {
     writeAtom(subscribedFullRepoBranches, _ => data);
+  }),
+);
+
+export const worktreeInfoData = atom<WorktreeInfo | undefined>(undefined);
+
+registerCleanup(
+  worktreeInfoData,
+  subscriptionEffect('worktreeInfo', data => {
+    writeAtom(worktreeInfoData, _ => data);
   }),
 );

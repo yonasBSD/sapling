@@ -35,6 +35,7 @@ import type {
   SubmodulesByRoot,
   UncommittedChanges,
   ValidatedRepoInfo,
+  WorktreeInfo,
 } from 'isl/src/types';
 import type {Comparison} from 'shared/Comparison';
 import type {EjecaChildProcess, EjecaOptions} from 'shared/ejeca';
@@ -74,8 +75,10 @@ import {
   findDotDir,
   findRoot,
   findRoots,
+  findSharedRoot,
   getConfigs,
   getExecParams,
+  listWorktrees,
   runCommand,
   setConfig,
 } from './commands';
@@ -117,12 +120,14 @@ export class Repository {
   private uncommittedChanges: FetchedUncommittedChanges | null = null;
   private smartlogCommits: FetchedCommits | null = null;
   private submodulesByRoot: SubmodulesByRoot | undefined = undefined;
+  private worktreeInfo: WorktreeInfo | undefined = undefined;
   private submodulePathCache: ImSet<RepoRelativePath> | undefined = undefined;
 
   private mergeConflictsEmitter = new TypedEventEmitter<'change', MergeConflicts | undefined>();
   private uncommittedChangesEmitter = new TypedEventEmitter<'change', FetchedUncommittedChanges>();
   private smartlogCommitsChangesEmitter = new TypedEventEmitter<'change', FetchedCommits>();
   private submodulesChangesEmitter = new TypedEventEmitter<'change', SubmodulesByRoot>();
+  private worktreeInfoEmitter = new TypedEventEmitter<'change', WorktreeInfo | undefined>();
 
   private smartlogCommitsBeginFetchingEmitter = new TypedEventEmitter<'start', undefined>();
   private uncommittedChangesBeginFetchingEmitter = new TypedEventEmitter<'start', undefined>();
@@ -133,6 +138,7 @@ export class Repository {
     () => this.smartlogCommitsChangesEmitter.removeAllListeners(),
     () => this.smartlogCommitsBeginFetchingEmitter.removeAllListeners(),
     () => this.uncommittedChangesBeginFetchingEmitter.removeAllListeners(),
+    () => this.worktreeInfoEmitter.removeAllListeners(),
   ];
   public onDidDispose(callback: () => unknown): void {
     this.disposables.push(callback);
@@ -243,6 +249,7 @@ export class Repository {
         this.fetchUncommittedChanges();
         this.fetchSmartlogCommits();
         this.checkForMergeConflicts();
+        this.refreshWorktreeInfo();
 
         this.codeReviewProvider?.triggerDiffSummariesFetch(
           // We could choose to only fetch the diffs that changed (`newDiffs`) rather than all diffs,
@@ -920,6 +927,42 @@ export class Repository {
         fetchCompletedTimestamp: Date.now(),
         files: {error: error instanceof Error ? error : new Error(error as string)},
       });
+    }
+  });
+
+  getWorktreeInfo(): WorktreeInfo | undefined {
+    return this.worktreeInfo;
+  }
+
+  subscribeToWorktreeInfoChanges(
+    callback: (result: WorktreeInfo | undefined) => unknown,
+  ): Disposable {
+    this.worktreeInfoEmitter.on('change', callback);
+    return {
+      dispose: () => {
+        this.worktreeInfoEmitter.off('change', callback);
+      },
+    };
+  }
+
+  refreshWorktreeInfo = serializeAsyncCall(async () => {
+    try {
+      const ctx = this.initialConnectionContext;
+      const [sharedRoot, worktrees] = await Promise.all([findSharedRoot(ctx), listWorktrees(ctx)]);
+      const repoRoot = this.info.repoRoot;
+      const worktreeEntries =
+        worktrees.length > 0 ? worktrees : [{path: repoRoot, role: 'main' as const}];
+      const worktreeInfo: WorktreeInfo | undefined =
+        sharedRoot != null
+          ? {
+              sharedRoot,
+              worktrees: worktreeEntries,
+            }
+          : undefined;
+      this.worktreeInfo = worktreeInfo;
+      this.worktreeInfoEmitter.emit('change', worktreeInfo);
+    } catch (err) {
+      this.initialConnectionContext.logger.error('Failed to refresh worktree info:', err);
     }
   });
 

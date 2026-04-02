@@ -15,6 +15,7 @@ import type {
   ServerToClientMessage,
   SmartlogCommits,
   UncommittedChanges,
+  ValidatedRepoInfo,
 } from './types';
 
 import {act, screen, waitFor, within} from '@testing-library/react';
@@ -90,7 +91,11 @@ export function simulateUncommittedChangedFiles(files: Result<UncommittedChanges
     },
   });
 }
-export function simulateRepoConnected(repoRoot?: string, cwd?: string) {
+export function simulateRepoConnected(
+  repoRoot?: string,
+  cwd?: string,
+  repoInfoOverrides?: Partial<ValidatedRepoInfo>,
+) {
   const root = repoRoot ?? '/path/to/repo';
   simulateMessageFromServer({
     type: 'repoInfo',
@@ -102,6 +107,7 @@ export function simulateRepoConnected(repoRoot?: string, cwd?: string) {
       pullRequestDomain: undefined,
       codeReviewSystem: {type: 'github', owner: 'owner', repo: 'repo', hostname: 'github.com'},
       isEdenFs: false,
+      ...repoInfoOverrides,
     },
     cwd,
   });

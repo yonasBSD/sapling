@@ -23,6 +23,7 @@ import type {
   ServerToClientMessage,
   StableLocationData,
   SubmodulesByRoot,
+  WorktreeInfo,
 } from 'isl/src/types';
 import type {EjecaError, EjecaReturn} from 'shared/ejeca';
 import type {ExportStack, ImportedStack} from 'shared/types/stack';
@@ -462,6 +463,29 @@ export default class ServerToClientAPI {
             repo.fetchSubmoduleMap();
 
             const disposable = repo.subscribeToSubmodulesChanges(postSubmodules);
+            this.subscriptions.set(subscriptionID, {
+              dispose: () => {
+                disposable.dispose();
+              },
+            });
+            break;
+          }
+          case 'worktreeInfo': {
+            const postWorktreeInfo = (worktreeInfo: WorktreeInfo | undefined) => {
+              this.postMessage({
+                type: 'subscriptionResult',
+                kind: 'worktreeInfo',
+                subscriptionID,
+                data: worktreeInfo,
+              });
+            };
+            const worktreeInfo = repo.getWorktreeInfo();
+            if (worktreeInfo !== undefined) {
+              postWorktreeInfo(worktreeInfo);
+            }
+            repo.refreshWorktreeInfo();
+
+            const disposable = repo.subscribeToWorktreeInfoChanges(postWorktreeInfo);
             this.subscriptions.set(subscriptionID, {
               dispose: () => {
                 disposable.dispose();

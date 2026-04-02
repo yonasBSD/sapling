@@ -139,6 +139,7 @@ describe('Repository', () => {
           hostname: 'github.com',
         },
         pullRequestDomain: 'github.com',
+        preferredSubmitCommand: undefined,
         isEdenFs: false,
       });
     });
@@ -160,6 +161,7 @@ describe('Repository', () => {
           hostname: 'ghe.myCompany.com',
         },
         pullRequestDomain: 'github.com',
+        preferredSubmitCommand: undefined,
         isEdenFs: false,
       });
     });
@@ -179,6 +181,7 @@ describe('Repository', () => {
           path: 'https://gitlab.myCompany.com/myUsername/myRepo.git',
         },
         pullRequestDomain: 'github.com',
+        preferredSubmitCommand: undefined,
         isEdenFs: false,
       });
     });
@@ -210,6 +213,7 @@ describe('Repository', () => {
       dotdir: '/path/to/myRepo/.sl',
       codeReviewSystem: expect.anything(),
       pullRequestDomain: undefined,
+      preferredSubmitCommand: undefined,
       isEdenFs: false,
     });
   });
@@ -1189,5 +1193,135 @@ describe('fetchSubmoduleMap', () => {
     expect(fetchedSubmoduleMap?.get(myRepoRoot)?.value).toBeUndefined();
     expect(fetchedSubmoduleMap?.get(myRepoRoot)?.error?.message).toMatch(msg);
     repo.dispose();
+  });
+
+  describe('worktree discovery', () => {
+    beforeEach(() => {
+      setConfigOverrideForTests([['paths.default', 'https://github.com/owner/repo.git']]);
+    });
+
+    it('populates worktreeInfo when multiple worktrees exist', async () => {
+      mockEjeca([
+        [/^sl root --dotdir/, {stdout: '/repo/main/.sl'}],
+        [/^sl root --shared/, {stdout: '/repo/main'}],
+        [/^sl root/, {stdout: '/repo/main'}],
+        [/^sl debugroots/, {stdout: '/repo/main'}],
+        [
+          /^sl worktree list/,
+          {
+            stdout: JSON.stringify([
+              {path: '/repo/main', role: 'main'},
+              {path: '/repo/feature', label: 'feature-x', role: 'linked'},
+            ]),
+          },
+        ],
+      ]);
+
+      const info = (await Repository.getRepoInfo(ctx)) as ValidatedRepoInfo;
+      const repo = new Repository(info, ctx);
+      await repo.refreshWorktreeInfo();
+      expect(repo.getWorktreeInfo()).toBeDefined();
+      expect(repo.getWorktreeInfo()).toEqual({
+        sharedRoot: '/repo/main',
+        worktrees: [
+          {path: '/repo/main', role: 'main'},
+          {path: '/repo/feature', label: 'feature-x', role: 'linked'},
+        ],
+      });
+    });
+
+    it('populates worktreeInfo for solo repos with sharedRoot', async () => {
+      mockEjeca([
+        [/^sl root --dotdir/, {stdout: '/repo/main/.sl'}],
+        [/^sl root --shared/, {stdout: '/repo/main'}],
+        [/^sl root/, {stdout: '/repo/main'}],
+        [/^sl debugroots/, {stdout: '/repo/main'}],
+        [
+          /^sl worktree list/,
+          {
+            stdout: JSON.stringify([{path: '/repo/main', role: 'main'}]),
+          },
+        ],
+      ]);
+
+      const info = (await Repository.getRepoInfo(ctx)) as ValidatedRepoInfo;
+      const repo = new Repository(info, ctx);
+      await repo.refreshWorktreeInfo();
+      expect(repo.getWorktreeInfo()).toEqual({
+        sharedRoot: '/repo/main',
+        worktrees: [{path: '/repo/main', role: 'main'}],
+      });
+    });
+
+    it('falls back to synthetic current worktree when worktree command fails', async () => {
+      mockEjeca([
+        [/^sl root --dotdir/, {stdout: '/repo/main/.sl'}],
+        [/^sl root --shared/, {stdout: '/repo/main'}],
+        [/^sl root/, {stdout: '/repo/main'}],
+        [/^sl debugroots/, {stdout: '/repo/main'}],
+        [/^sl worktree list/, new Error('worktree feature not enabled')],
+      ]);
+
+      const info = (await Repository.getRepoInfo(ctx)) as ValidatedRepoInfo;
+      const repo = new Repository(info, ctx);
+      await repo.refreshWorktreeInfo();
+      expect(repo.getWorktreeInfo()).toEqual({
+        sharedRoot: '/repo/main',
+        worktrees: [{path: '/repo/main', role: 'main'}],
+      });
+    });
+
+    it('correctly identifies non-main worktree', async () => {
+      mockEjeca([
+        [/^sl root --dotdir/, {stdout: '/repo/feature/.sl'}],
+        [/^sl root --shared/, {stdout: '/repo/main'}],
+        [/^sl root/, {stdout: '/repo/feature'}],
+        [/^sl debugroots/, {stdout: '/repo/feature'}],
+        [
+          /^sl worktree list/,
+          {
+            stdout: JSON.stringify([
+              {path: '/repo/main', role: 'main'},
+              {path: '/repo/feature', label: 'feature-x', role: 'linked'},
+            ]),
+          },
+        ],
+      ]);
+
+      const info = (await Repository.getRepoInfo(ctx)) as ValidatedRepoInfo;
+      const repo = new Repository(info, ctx);
+      await repo.refreshWorktreeInfo();
+      const worktreeInfo = repo.getWorktreeInfo();
+      expect(worktreeInfo).toBeDefined();
+      expect(worktreeInfo!.sharedRoot).toBe('/repo/main');
+      expect(worktreeInfo!.worktrees).toEqual([
+        {path: '/repo/main', role: 'main'},
+        {path: '/repo/feature', label: 'feature-x', role: 'linked'},
+      ]);
+    });
+
+    it('leaves worktreeInfo undefined when sharedRoot is unavailable', async () => {
+      mockEjeca([
+        [/^sl root --dotdir/, {stdout: '/repo/main/.sl'}],
+        [/^sl root --shared/, new Error('not supported')],
+        [/^sl root/, {stdout: '/repo/main'}],
+        [/^sl debugroots/, {stdout: '/repo/main'}],
+        [
+          /^sl worktree list/,
+          {
+            stdout: JSON.stringify([
+              {path: '/repo/main', role: 'main'},
+              {path: '/repo/feature', label: 'feature-x', role: 'linked'},
+            ]),
+          },
+        ],
+      ]);
+
+      const info = (await Repository.getRepoInfo(ctx)) as ValidatedRepoInfo;
+      const repo = new Repository(info, ctx);
+      await repo.refreshWorktreeInfo();
+      // Without sharedRoot, worktreeInfo should not be populated
+      expect(repo.getWorktreeInfo()).toBeUndefined();
+    });
   });
 });

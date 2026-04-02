@@ -280,12 +280,6 @@ export type ValidatedRepoInfo = {
   pullRequestDomain: string | undefined;
   preferredSubmitCommand?: PreferredSubmitCommand;
   isEdenFs: boolean;
-  /**
-   * Information about sibling worktrees in the same worktree group.
-   * Only populated when there are multiple worktrees (i.e., more than just the main repo).
-   * Undefined when worktrees are not enabled or only a single worktree exists.
-   */
-  worktreeInfo?: WorktreeInfo;
 };
 
 export type WorktreeInfo = {
@@ -916,7 +910,8 @@ export type SubscriptionKind =
   | 'smartlogCommits'
   | 'mergeConflicts'
   | 'submodules'
-  | 'subscribedFullRepoBranches';
+  | 'subscribedFullRepoBranches'
+  | 'worktreeInfo';
 
 export const allConfigNames = [
   // these config names are for compatibility.
@@ -1172,6 +1167,7 @@ export type SubscriptionResultsData = {
   mergeConflicts: MergeConflicts | undefined;
   submodules: SubmodulesByRoot;
   subscribedFullRepoBranches: Array<InternalTypes['FullRepoBranch']>;
+  worktreeInfo: WorktreeInfo | undefined;
 };
 
 export type SubscriptionResult<K extends SubscriptionKind> = {
@@ -1187,6 +1183,7 @@ export type ServerToClientMessage =
   | SubscriptionResult<'mergeConflicts'>
   | SubscriptionResult<'submodules'>
   | SubscriptionResult<'subscribedFullRepoBranches'>
+  | SubscriptionResult<'worktreeInfo'>
   | BeganFetchingUncommittedChangesEvent
   | BeganFetchingSmartlogCommitsEvent
   | {
