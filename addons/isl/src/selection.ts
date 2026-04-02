@@ -18,7 +18,7 @@ import {useCommand} from './ISLShortcuts';
 import {useSelectAllCommitsShortcut} from './SelectAllCommits';
 import {successionTracker} from './SuccessionTracker';
 import {YOU_ARE_HERE_VIRTUAL_COMMIT} from './dag/virtualCommit';
-import {islDrawerState} from './drawerState';
+import {expandCommitInfoView} from './drawerState';
 import {findPublicBaseAncestor} from './getCommitTree';
 import {t} from './i18n';
 import {readAtom, useAtomHas, writeAtom} from './jotaiUtils';
@@ -240,13 +240,7 @@ export function useCommitCallbacks(commit: CommitInfo): {
       }
     }
     // Show the drawer.
-    writeAtom(islDrawerState, state => ({
-      ...state,
-      right: {
-        ...state.right,
-        collapsed: false,
-      },
-    }));
+    expandCommitInfoView();
     if (commit.isDot) {
       // if we happened to be in commit mode, swap to amend mode so you see the details instead
       writeAtom(commitMode, 'amend');
@@ -258,13 +252,7 @@ export function useCommitCallbacks(commit: CommitInfo): {
 export function useArrowKeysToChangeSelection() {
   const cb = useCallback((which: ISLCommandName) => {
     if (which === 'OpenDetails') {
-      writeAtom(islDrawerState, previous => ({
-        ...previous,
-        right: {
-          ...previous.right,
-          collapsed: false,
-        },
-      }));
+      expandCommitInfoView();
     }
 
     const dag = readAtom(dagWithPreviews);

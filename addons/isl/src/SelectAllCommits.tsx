@@ -12,7 +12,7 @@ import {KeyCode, Modifier} from 'isl-components/KeyboardShortcuts';
 import {Tooltip} from 'isl-components/Tooltip';
 import {useCallback} from 'react';
 import {useCommand} from './ISLShortcuts';
-import {islDrawerState} from './drawerState';
+import {expandCommitInfoView} from './drawerState';
 import {t, T} from './i18n';
 import {readAtom, writeAtom} from './jotaiUtils';
 import {dagWithPreviews} from './previews';
@@ -39,13 +39,7 @@ export function useSelectAllCommits() {
     const draftCommits = getSelectAllCommitHashSet();
     writeAtom(selectedCommits, draftCommits);
     // pop open sidebar so you can act on the bulk selection
-    writeAtom(islDrawerState, last => ({
-      ...last,
-      right: {
-        ...last.right,
-        collapsed: false,
-      },
-    }));
+    expandCommitInfoView();
   }, []);
 }
 

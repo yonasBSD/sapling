@@ -61,7 +61,7 @@ import {processChangedFiles} from './UncommittedChangesUtils';
 import {UnsavedFilesCount, confirmUnsavedFiles} from './UnsavedFiles';
 import {tracker} from './analytics';
 import {latestCommitMessageFields} from './codeReview/CodeReviewInfo';
-import {islDrawerState} from './drawerState';
+import {expandCommitInfoView} from './drawerState';
 import {externalMergeToolAtom} from './externalMergeTool';
 import {useFeatureFlagSync} from './featureFlags';
 import {T, t} from './i18n';
@@ -438,7 +438,7 @@ export function UncommittedChanges({place}: {place: Place}) {
   const openCommitForm = useCallback(
     (which: 'commit' | 'amend') => {
       // make sure view is expanded
-      writeAtom(islDrawerState, val => ({...val, right: {...val.right, collapsed: false}}));
+      expandCommitInfoView();
 
       // show head commit & set to correct mode
       writeAtom(selectedCommits, new Set());

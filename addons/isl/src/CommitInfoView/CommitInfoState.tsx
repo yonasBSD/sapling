@@ -15,7 +15,7 @@ import serverAPI from '../ClientToServerAPI';
 import {successionTracker} from '../SuccessionTracker';
 import {tracker} from '../analytics';
 import {latestCommitMessageFields} from '../codeReview/CodeReviewInfo';
-import {islDrawerState} from '../drawerState';
+import {expandCommitInfoView} from '../drawerState';
 import {atomFamilyWeak, localStorageBackedAtomFamily, readAtom, writeAtom} from '../jotaiUtils';
 import {AmendMessageOperation} from '../operations/AmendMessageOperation';
 import {AmendOperation, PartialAmendOperation} from '../operations/AmendOperation';
@@ -140,7 +140,7 @@ registerDisposable(
       return;
     }
 
-    writeAtom(islDrawerState, val => ({...val, right: {...val.right, collapsed: false}}));
+    expandCommitInfoView();
     const schema = readAtom(commitMessageFieldsSchema);
     const fields = parseCommitMessageFields(schema, title, description);
 

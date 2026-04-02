@@ -13,6 +13,19 @@ import {getWindowWidthInPixels, registerCleanup} from './utils';
 const AUTO_CLOSE_MAX_SIZE = 700;
 const DEFAULT_RIGHT_DRAWER_WIDTH = 500;
 
+export type CommitInfoLocation = 'right' | 'bottom' | 'left' | 'top';
+
+export const commitInfoLocationAtom = localStorageBackedAtom<CommitInfoLocation>(
+  'isl.commit-info-location',
+  'right',
+);
+
+/** Expand the commit info drawer at the current configured location. */
+export function expandCommitInfoView() {
+  const loc = readAtom(commitInfoLocationAtom);
+  writeAtom(islDrawerState, val => ({...val, [loc]: {...val[loc], collapsed: false}}));
+}
+
 export const islDrawerState = localStorageBackedAtom<AllDrawersState>('isl.drawer-state', {
   right: {
     size: DEFAULT_RIGHT_DRAWER_WIDTH,
@@ -23,7 +36,7 @@ export const islDrawerState = localStorageBackedAtom<AllDrawersState>('isl.drawe
   bottom: {size: 200, collapsed: true},
 });
 
-// On startup, override existing state to collapse the right sidebar if the screen is too small.
+// On startup, override existing state to collapse the sidebar if the screen is too small.
 // This allows collapsing even if the size has been previous persisted.
 function autoCloseBasedOnWindowWidth() {
   const windowWidth = getWindowWidthInPixels();
@@ -32,12 +45,19 @@ function autoCloseBasedOnWindowWidth() {
     return;
   }
 
-  const current = readAtom(islDrawerState).right.size;
+  const location = readAtom(commitInfoLocationAtom);
+  const isVertical = location === 'top' || location === 'bottom';
+  if (isVertical) {
+    // Only auto-close for horizontal (left/right) drawers based on window width.
+    return;
+  }
+
+  const current = readAtom(islDrawerState)[location].size;
   const setDrawer = (state: DrawerState) => {
     const oldValue = readAtom(islDrawerState);
     writeAtom(islDrawerState, {
       ...oldValue,
-      right: state,
+      [location]: state,
     });
   };
   if (windowWidth < AUTO_CLOSE_MAX_SIZE) {

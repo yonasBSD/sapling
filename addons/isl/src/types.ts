@@ -958,6 +958,7 @@ export type SettableConfigName = (typeof settableConfigNames)[number];
 /** local storage keys written by ISL */
 export type LocalStorageName =
   | 'isl.drawer-state'
+  | 'isl.commit-info-location'
   | 'isl.bookmarks'
   | 'isl.recommended-bookmarks-reminder'
   | 'isl.recommended-bookmarks-onboarding'
