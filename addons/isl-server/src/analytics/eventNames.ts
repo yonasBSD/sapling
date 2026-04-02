@@ -128,6 +128,8 @@ export type TrackEventName =
   | 'ShelveOperation'
   | 'DeleteShelveOperation'
   | 'UnshelveOperation'
+  | 'AddWorktreeOperation'
+  | 'RemoveWorktreeOperation'
   | 'RunCommand'
   | 'StatusCommand'
   | 'SawStableLocation'
