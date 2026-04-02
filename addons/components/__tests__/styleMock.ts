@@ -5,5 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-// this file is empty to allow jest to ignore CSS files
-export {};
+// return a proxy so css modules imports give strings like class names
+// e.g. import style from './style.css'; style.myClass => 'myClass'
+
+const obj = {};
+export default new Proxy(obj, {
+  get: (_, prop) => prop,
+});

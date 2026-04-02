@@ -236,9 +236,9 @@ export function assignWebviewHtml({
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<base href="${baseUri}/">
 		<title>${title}</title>
+		<style>@layer base, components;</style>
 
 		<link href="${cssEntryPointFile}" rel="stylesheet">
-		<link href="res/stylex.css" rel="stylesheet">
     <style>
         ${getVSCodeCompatibilityStyles()}
         ${extraStyles}

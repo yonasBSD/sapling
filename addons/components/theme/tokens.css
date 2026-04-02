@@ -1,0 +1,79 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * CSS custom properties for theme tokens.
+ * Default values are for the dark theme.
+ *
+ * Naming convention: --{group}-{kebab-case-key}
+ *   colors.brightFg  → --color-bright-fg
+ *   spacing.pad      → --spacing-pad
+ *   radius.round     → --radius-round
+ *   font.small       → --font-small
+ */
+:root {
+  /* colors */
+  --color-bg: var(--background);
+  --color-fg: var(--foreground);
+  --color-bright-fg: white;
+  --color-focus-border: var(--focus-border);
+
+  --color-hover-darken: rgba(255, 255, 255, 0.1);
+  --color-subtle-hover-darken: rgba(255, 255, 255, 0.03);
+  --color-highlight-fg: #f0f0f0;
+
+  --color-modified-fg: #e2c08d;
+  --color-added-fg: #73c991;
+  --color-removed-fg: #f3674f;
+  --color-missing-fg: #b4eaed;
+
+  --color-tooltip-bg: var(--vscode-editorWidget-background, #252526);
+  --color-tooltip-border: var(--vscode-editorWidget-border, #454545);
+
+  --color-purple: #713fc8;
+  --color-red: #cf222e;
+  --color-yellow: #e0d12d;
+  --color-orange: #dd7c26;
+  --color-green: #2da44e;
+  --color-blue: #007acc;
+  --color-grey: #5f6a79;
+
+  --color-signal-fg: white;
+  --color-signal-good-bg: #2da44e;
+  --color-signal-medium-bg: #e0d12d;
+  --color-signal-bad-bg: #cf222e;
+
+  --color-error-fg: #f3674f;
+  --color-error-bg: #f3674f20;
+
+  --color-land-fg: white;
+  --color-land-bg: #24853c;
+  --color-land-hover-bg: #207134;
+
+  /* spacing */
+  --spacing-none: 0px;
+  --spacing-quarter: 2.5px;
+  --spacing-half: 5px;
+  --spacing-pad: 10px;
+  --spacing-double: 20px;
+  --spacing-xlarge: 32px;
+  --spacing-xxlarge: 48px;
+  --spacing-xxxlarge: 96px;
+
+  /* radius */
+  --radius-small: 2.5px;
+  --radius-round: 5px;
+  --radius-extraround: 5px;
+  --radius-full: 50%;
+
+  /* font */
+  --font-smaller: 80%;
+  --font-small: 90%;
+  --font-normal: 100%;
+  --font-big: 110%;
+  --font-bigger: 120%;
+}

@@ -12,6 +12,7 @@ import App from './App';
 // Include CSS variables we use, originally from vscode-webview-ui-toolkit
 import 'isl-components/theme/themeDarkVariables.css';
 import 'isl-components/theme/themeLightVariables.css';
+import 'isl-components/theme/tokens.css';
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const root = ReactDOM.createRoot(document.getElementById('root')!);

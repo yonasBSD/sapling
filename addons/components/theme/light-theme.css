@@ -1,0 +1,29 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * Light theme overrides for CSS custom properties defined in tokens.css.
+ * Only properties that differ from the dark theme defaults are listed.
+ */
+.light-theme {
+  --color-bright-fg: black;
+
+  --color-hover-darken: rgba(0, 0, 0, 0.1);
+  --color-subtle-hover-darken: rgba(0, 0, 0, 0.03);
+  --color-highlight-fg: #2a2a2a;
+
+  --color-modified-fg: #895503;
+  --color-added-fg: #007100;
+  --color-removed-fg: #ad0707;
+  --color-missing-fg: #418c91;
+
+  --color-tooltip-bg: var(--vscode-editorWidget-background, #f3f3f3);
+  --color-tooltip-border: var(--vscode-editorWidget-border, #c8c8c8);
+
+  --color-error-fg: #e35941ff;
+  --color-error-bg: #e3594120;
+}
