@@ -1230,7 +1230,7 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
 
         // Spawn a simple HTTP responder
-        tokio::spawn(async move {
+        mononoke_macros::mononoke::spawn_task(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             use tokio::io::AsyncReadExt;
             use tokio::io::AsyncWriteExt;
