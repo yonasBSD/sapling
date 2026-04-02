@@ -18,6 +18,7 @@ import type {
 import {Badge} from 'isl-components/Badge';
 import {Button, buttonStyles} from 'isl-components/Button';
 import {ButtonDropdown} from 'isl-components/ButtonDropdown';
+import {Checkbox} from 'isl-components/Checkbox';
 import {Divider} from 'isl-components/Divider';
 import {Icon} from 'isl-components/Icon';
 import {Kbd} from 'isl-components/Kbd';
@@ -336,40 +337,102 @@ function WorktreeSection({dismiss}: {dismiss: () => unknown}) {
   }
 
   const allWorktrees = worktreeInfo?.worktrees ?? [];
-  const mainWorktree = allWorktrees.find(wt => wt.role === 'main');
-  const childWorktrees = allWorktrees
-    .filter(wt => wt.role !== 'main')
-    .sort((a, b) =>
-      basename(a.path, guessPathSep(a.path)).localeCompare(basename(b.path, guessPathSep(b.path))),
+  const sortedWorktrees = [...allWorktrees].sort((a, b) => {
+    if (a.role === 'main') {
+      return -1;
+    }
+    if (b.role === 'main') {
+      return 1;
+    }
+    return basename(a.path, guessPathSep(a.path)).localeCompare(
+      basename(b.path, guessPathSep(b.path)),
     );
+  });
 
-  const renderWorktreeRow = (wt: WorktreeEntry, isChild: boolean, isLast?: boolean) => {
-    const isCurrent = wt.path === repoRoot;
+  const renderWorktreeRow = (wt: WorktreeEntry) => {
+    const isCurrent = pathsAreIdentical(wt.path, repoRoot);
     const wtBasename = basename(wt.path, guessPathSep(wt.path));
-    const rowClass = isChild
-      ? isCurrent
-        ? css.worktreeChildRowCurrent
-        : css.worktreeChildRow
-      : isCurrent
-        ? css.worktreeRowCurrent
-        : css.worktreeRow;
+    const rowClass = isCurrent ? css.worktreeRowCurrent : css.worktreeRow;
+    const hasLabel = wt.label != null && wt.label !== '';
     return (
-      <div
+      <WorktreeRowWithHover
         key={wt.path}
-        className={rowClass}
-        data-testid={isCurrent ? 'current-worktree' : 'sibling-worktree'}>
-        {isChild && <span className={css.worktreeTreeGuide}>{isLast ? '└' : '├'}</span>}
-        <code className={css.worktreePath} title={wt.path}>
-          {wtBasename}
-        </code>
-        {wt.label != null && (
-          <Tooltip title={wt.label}>
-            <Badge className={css.worktreeLabelBadge}>{wt.label}</Badge>
-          </Tooltip>
-        )}
-        {!isCurrent && (
-          <div className={css.worktreeActions}>
+        rowClass={rowClass}
+        isCurrent={isCurrent}
+        wt={wt}
+        wtBasename={wtBasename}
+        hasLabel={hasLabel}
+        removingPath={removingPath}
+        setRemovingPath={setRemovingPath}
+        runOperation={runOperation}
+        showModal={showModal}
+        dismiss={dismiss}
+      />
+    );
+  };
+
+  return (
+    <DropdownField
+      title={
+        <Tooltip
+          title={t(
+            'Worktrees are lightweight copies of your repository, like branches with their own working copy. Useful for working in parallel on the same machine.',
+          )}>
+          <Row>
+            <T>Worktrees</T> <Icon icon="question" />
+          </Row>
+        </Tooltip>
+      }>
+      <div className={css.worktreeSection} data-testid="worktree-section">
+        {sortedWorktrees.map(wt => renderWorktreeRow(wt))}
+        <AddWorktreeButton
+          dismiss={dismiss}
+          repoRoot={sortedWorktrees.find(wt => wt.role === 'main')?.path ?? repoRoot}
+          existingWorktreePaths={allWorktrees.map(wt => wt.path)}
+        />
+      </div>
+    </DropdownField>
+  );
+}
+
+function WorktreeRowWithHover({
+  rowClass,
+  isCurrent,
+  wt,
+  wtBasename,
+  hasLabel,
+  removingPath,
+  setRemovingPath,
+  runOperation,
+  showModal,
+  dismiss,
+}: {
+  rowClass: string;
+  isCurrent: boolean | undefined;
+  wt: WorktreeEntry;
+  wtBasename: string;
+  hasLabel: boolean;
+  removingPath: string | null;
+  setRemovingPath: (path: string | null) => void;
+  runOperation: ReturnType<typeof useRunOperation>;
+  showModal: ReturnType<typeof useModal>;
+  dismiss: () => unknown;
+}) {
+  return (
+    <div
+      key={wt.path}
+      className={rowClass}
+      data-testid={isCurrent ? 'current-worktree' : 'sibling-worktree'}>
+      <code className={css.worktreePath} title={wt.path}>
+        {hasLabel ? wt.label : wtBasename}
+      </code>
+      {isCurrent ? (
+        <Badge className={css.activeBadge}>Active</Badge>
+      ) : (
+        <div className={css.worktreeActions}>
+          <Tooltip title={t('Switch to this worktree')}>
             <Button
+              icon
               data-testid="worktree-switch-button"
               onClick={async () => {
                 dismiss();
@@ -408,45 +471,36 @@ function WorktreeSection({dismiss}: {dismiss: () => unknown}) {
                   }
                 }
               }}>
-              <T>Switch</T>
+              <Icon icon="arrow-swap" />
             </Button>
-            {wt.role !== 'main' && (
-              <Tooltip title={t('Remove this worktree at $path', {replace: {$path: wt.path}})}>
-                <Button
-                  data-testid="worktree-remove-button"
-                  disabled={removingPath === wt.path}
-                  onClick={async () => {
-                    setRemovingPath(wt.path);
-                    try {
-                      await runOperation(new RemoveWorktreeOperation(wt.path), true);
-                    } finally {
-                      setRemovingPath(null);
-                    }
-                  }}>
-                  <Icon icon={removingPath === wt.path ? 'loading' : 'trash'} />
-                </Button>
-              </Tooltip>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <DropdownField title={<T>Worktrees</T>}>
-      <div className={css.worktreeSection} data-testid="worktree-section">
-        {mainWorktree && renderWorktreeRow(mainWorktree, false)}
-        {childWorktrees.map((wt, i) =>
-          renderWorktreeRow(wt, true, i === childWorktrees.length - 1),
-        )}
-        <AddWorktreeButton
-          dismiss={dismiss}
-          repoRoot={mainWorktree?.path ?? repoRoot}
-          existingWorktreePaths={allWorktrees.map(wt => wt.path)}
-        />
-      </div>
-    </DropdownField>
+          </Tooltip>
+          {wt.role === 'main' ? (
+            <Tooltip title={t('The main worktree cannot be removed')}>
+              <Button icon disabled data-testid="worktree-remove-button">
+                <Icon icon="trash" />
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip title={t('Remove this worktree at $path', {replace: {$path: wt.path}})}>
+              <Button
+                icon
+                data-testid="worktree-remove-button"
+                disabled={removingPath === wt.path}
+                onClick={async () => {
+                  setRemovingPath(wt.path);
+                  try {
+                    await runOperation(new RemoveWorktreeOperation(wt.path), true);
+                  } finally {
+                    setRemovingPath(null);
+                  }
+                }}>
+                <Icon icon={removingPath === wt.path ? 'loading' : 'trash'} />
+              </Button>
+            </Tooltip>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 function AddWorktreeButton({
@@ -474,8 +528,19 @@ function AddWorktreeButton({
     dismiss();
     const result = await showModal<AddWorktreeResult>({
       type: 'custom',
-      title: <T>Add Worktree</T>,
+      title: (
+        <Row>
+          <T>Add Worktree</T>{' '}
+          <Tooltip
+            title={t(
+              'Worktrees are lightweight copies of your repository, like branches with their own working copy. Useful for working in parallel on the same machine.',
+            )}>
+            <Icon icon="question" />
+          </Tooltip>
+        </Row>
+      ),
       icon: 'worktree',
+      maxWidth: 500,
       component: ({returnResultAndDismiss}) => (
         <AddWorktreeModal
           returnResultAndDismiss={returnResultAndDismiss}
@@ -517,7 +582,10 @@ function AddWorktreeButton({
   }, [dismiss, showModal, runOperation, defaultDest]);
 
   return (
-    <Button data-testid="add-worktree-button" onClick={onClickAdd}>
+    <Button
+      data-testid="add-worktree-button"
+      className={css.addWorktreeButton}
+      onClick={onClickAdd}>
       <Icon icon="plus" /> <T>Add Worktree</T>
     </Button>
   );
@@ -538,33 +606,69 @@ function AddWorktreeModal({
 }) {
   const [destPath, setDestPath] = useState(defaultDest);
   const [label, setLabel] = useState('');
-  const [openIn, setOpenIn] = useState<AddWorktreeResult['openIn']>('none');
+  const isVSCode = platform.platformName === 'vscode';
+  const [openIn, setOpenIn] = useState<AddWorktreeResult['openIn']>(isVSCode ? 'new' : 'none');
+  const [activate, setActivate] = useState(false);
+  const [showPathEditor, setShowPathEditor] = useState(false);
 
   return (
     <div className={css.addWorktreeForm} data-testid="add-worktree-form">
-      <TextField
-        data-testid="add-worktree-path"
-        placeholder={t('Destination path')}
-        value={destPath}
-        onInput={e => setDestPath(e.currentTarget?.value ?? '')}
-      />
       <TextField
         data-testid="add-worktree-label"
         placeholder={t('Label (optional)')}
         value={label}
         onInput={e => setLabel(e.currentTarget?.value ?? '')}
       />
-      <RadioGroup
-        choices={
-          [
-            {title: <T>Don't open</T>, value: 'none'},
-            {title: <T>Open in current window</T>, value: 'current'},
-            {title: <T>Open in new window</T>, value: 'new'},
-          ] as const
-        }
-        current={openIn}
-        onChange={setOpenIn}
-      />
+      <div className={css.worktreePathDisplay}>
+        <Subtle>{destPath}</Subtle>
+        <Button
+          icon
+          onClick={() => setShowPathEditor(prev => !prev)}
+          data-testid="add-worktree-edit-path">
+          <Icon icon="edit" />
+        </Button>
+      </div>
+      {showPathEditor && (
+        <TextField
+          data-testid="add-worktree-path"
+          placeholder={t('Destination path')}
+          value={destPath}
+          onInput={e => setDestPath(e.currentTarget?.value ?? '')}
+        />
+      )}
+      {isVSCode ? (
+        <RadioGroup
+          choices={
+            [
+              {
+                title: (
+                  <Row>
+                    <T>Open in new window</T>
+                    <Badge>Recommended</Badge>
+                  </Row>
+                ),
+                value: 'new',
+              },
+              {
+                title: <T>Open in current window</T>,
+                value: 'current',
+              },
+              {title: <T>Don't open</T>, value: 'none'},
+            ] as const
+          }
+          current={openIn}
+          onChange={setOpenIn}
+        />
+      ) : (
+        <Checkbox
+          checked={activate}
+          onChange={checked => {
+            setActivate(checked);
+            setOpenIn(checked ? 'current' : 'none');
+          }}>
+          <T>Activate</T>
+        </Checkbox>
+      )}
       <div className={css.addWorktreeFormActions}>
         <Button
           primary
@@ -608,6 +712,18 @@ function guessPathSep(path: string): '/' | '\\' {
   } else {
     return '/';
   }
+}
+
+function pathsAreIdentical(path1: string, path2: string): boolean {
+  const normalizedPath1 = path1.replaceAll('\\', '/');
+  const normalizedPath2 = path2.replaceAll('\\', '/');
+
+  const isWindowsAbsolutePath = (path: string) => /^[A-Za-z]:\//.test(path);
+  if (isWindowsAbsolutePath(normalizedPath1) && isWindowsAbsolutePath(normalizedPath2)) {
+    return normalizedPath1.toLowerCase() === normalizedPath2.toLowerCase();
+  }
+
+  return normalizedPath1 === normalizedPath2;
 }
 
 export function CwdSelections({dismiss, divider}: {dismiss: () => unknown; divider?: boolean}) {

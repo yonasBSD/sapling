@@ -145,6 +145,7 @@
   flex-direction: row;
   gap: var(--halfpad);
   padding-top: var(--halfpad);
+  justify-content: flex-end;
 }
 
 .worktreeLabelBadge {
@@ -155,6 +156,24 @@
   white-space: nowrap;
   padding-top: 0;
   padding-bottom: 0;
+}
+
+.addWorktreeButton {
+  max-width: 200px;
+  align-self: center;
+  margin-top: var(--pad);
+}
+
+.worktreePathDisplay {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--halfpad);
+}
+
+.activeBadge {
+  background-color: var(--button-primary-background);
+  color: var(--button-primary-foreground);
 }
 
 .worktreeSpinner {
