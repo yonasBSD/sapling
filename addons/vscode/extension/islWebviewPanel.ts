@@ -358,10 +358,17 @@ export function registerISLCommands(
       },
     }),
     vscode.workspace.onDidChangeConfiguration(e => {
-      // if we start using ISL as a view, dispose the panel
       if (e.affectsConfiguration('sapling.isl.showInSidebar')) {
-        if (islPanelOrViewResult && isPanel(islPanelOrViewResult.panel) && shouldUseWebviewView()) {
-          islPanelOrViewResult.panel.dispose();
+        if (shouldUseWebviewView()) {
+          // Switching to sidebar mode: dispose the panel if it exists
+          if (islPanelOrViewResult && isPanel(islPanelOrViewResult.panel)) {
+            islPanelOrViewResult.panel.dispose();
+          }
+        } else {
+          // Switching to panel mode: clear the view reference so a new panel can be created
+          if (islPanelOrViewResult && !isPanel(islPanelOrViewResult.panel)) {
+            islPanelOrViewResult = undefined;
+          }
         }
       }
     }),
