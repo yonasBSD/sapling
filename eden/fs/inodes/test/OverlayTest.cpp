@@ -17,11 +17,14 @@
 #include <folly/Range.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/logging/test/TestLogHandler.h>
+#include <folly/synchronization/Baton.h>
+#include <folly/synchronization/LifoSem.h>
 #include <folly/synchronization/test/Barrier.h>
 #include <folly/test/TestUtils.h>
 #include <folly/testing/TestUtil.h>
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <thread>
 
 #include "eden/common/telemetry/NullStructuredLogger.h"
 #include "eden/common/testharness/TempFile.h"
@@ -1011,6 +1014,162 @@ TEST_F(DebugDumpOverlayInodesTest, directories_are_dumped_depth_first) {
       "  Inode number: 6\n"
       "  Entries (0 total):\n",
       debugDumpOverlayInodes(*overlay, rootIno));
+}
+
+namespace {
+// Create an overlay with some data, then simulate dirty shutdown by deleting
+// next-inode-number so fsck runs on next initialize.
+void createDirtyOverlay(const AbsolutePath& dir) {
+  auto config =
+      std::make_shared<ReloadableConfig>(EdenConfig::createTestEdenConfig());
+  auto ov = Overlay::create(
+      dir,
+      kPathMapDefaultCaseSensitive,
+      kInodeCatalogType,
+      kInodeCatalogOptions,
+      std::make_shared<NullStructuredLogger>(),
+      makeRefPtr<EdenStats>(),
+      *EdenConfig::createTestEdenConfig());
+  ov->initialize(config).get();
+
+  auto ino2 = ov->allocateInodeNumber();
+  auto ino3 = ov->allocateInodeNumber();
+
+  ov->createOverlayFile(ino3, folly::ByteRange{"data"_sp});
+
+  DirContents root(kPathMapDefaultCaseSensitive);
+  root.emplace("file"_pc, S_IFREG | 0644, ino3);
+  root.emplace("subdir"_pc, S_IFDIR | 0755, ino2);
+  ov->saveOverlayDir(kRootNodeId, root);
+
+  ov->close();
+
+  if (unlink((dir + "next-inode-number"_pc).c_str())) {
+    folly::throwSystemError("removing saved inode number");
+  }
+}
+
+std::shared_ptr<Overlay> createTestOverlay(const AbsolutePath& dir) {
+  return Overlay::create(
+      dir,
+      kPathMapDefaultCaseSensitive,
+      kInodeCatalogType,
+      kInodeCatalogOptions,
+      std::make_shared<NullStructuredLogger>(),
+      makeRefPtr<EdenStats>(),
+      *EdenConfig::createTestEdenConfig());
+}
+
+} // namespace
+
+TEST(PlainOverlayTest, semaphore_serializes_fsck) {
+  folly::test::TemporaryDirectory testDir1("overlay_sem_test1");
+  folly::test::TemporaryDirectory testDir2("overlay_sem_test2");
+
+  auto localDir1 = canonicalPath(testDir1.path().string());
+  auto localDir2 = canonicalPath(testDir2.path().string());
+
+  createDirtyOverlay(localDir1);
+  createDirtyOverlay(localDir2);
+
+  auto config =
+      std::make_shared<ReloadableConfig>(EdenConfig::createTestEdenConfig());
+
+  auto ov1 = createTestOverlay(localDir1);
+  auto ov2 = createTestOverlay(localDir2);
+
+  // Semaphore with capacity 1 -- only one fsck at a time.
+  folly::LifoSem sem(1);
+  ov1->setFsckSemaphore(&sem);
+  ov2->setFsckSemaphore(&sem);
+
+  // T1 enters the critical section, signals it holds the semaphore, then
+  // blocks until the test explicitly lets it continue.  T2 is started while
+  // T1 blocks, so T2 must wait at the semaphore.  When T1 is released,
+  // T2 enters and verifies T1 was already allowed to finish — proving
+  // serialization.
+  folly::Baton<> t1Entered;
+  folly::Baton<> t1Continue;
+  folly::Baton<> t2AtSemaphore;
+
+  ov1->setFsckCallback([&] {
+    t1Entered.post();
+    t1Continue.wait();
+  });
+
+  ov2->setPreFsckSemaphoreCallback([&] { t2AtSemaphore.post(); });
+
+  ov2->setFsckCallback([&] {
+    // If the semaphore works, T2 can only reach this callback after T1
+    // has finished and released its slot.
+    EXPECT_TRUE(t1Continue.ready())
+        << "T2 entered critical section before T1 was released";
+  });
+
+  std::thread t1([&] { ov1->initialize(config).get(); });
+  t1Entered.wait();
+
+  // T1 now holds the semaphore.  Start T2 — it will block at wait()
+  // once it reaches the semaphore inside initialize().
+  std::thread t2([&] { ov2->initialize(config).get(); });
+
+  // Wait until T2 has actually reached the semaphore wait point,
+  // ensuring it is blocked behind T1 before we release T1.
+  t2AtSemaphore.wait();
+
+  // Release T1 so its SCOPE_EXIT posts the semaphore, unblocking T2.
+  t1Continue.post();
+
+  t1.join();
+  t2.join();
+
+  EXPECT_FALSE(ov1->hadCleanStartup());
+  EXPECT_FALSE(ov2->hadCleanStartup());
+  EXPECT_EQ(3_ino, ov1->getMaxInodeNumber());
+  EXPECT_EQ(3_ino, ov2->getMaxInodeNumber());
+
+  ov1->close();
+  ov2->close();
+}
+
+TEST(PlainOverlayTest, no_semaphore_allows_concurrent_fsck) {
+  folly::test::TemporaryDirectory testDir1("overlay_nosem_test1");
+  folly::test::TemporaryDirectory testDir2("overlay_nosem_test2");
+
+  auto localDir1 = canonicalPath(testDir1.path().string());
+  auto localDir2 = canonicalPath(testDir2.path().string());
+
+  createDirtyOverlay(localDir1);
+  createDirtyOverlay(localDir2);
+
+  auto config =
+      std::make_shared<ReloadableConfig>(EdenConfig::createTestEdenConfig());
+
+  auto ov1 = createTestOverlay(localDir1);
+  auto ov2 = createTestOverlay(localDir2);
+  // No setFsckSemaphore -- simulates fsck:max-concurrent-mounts = 0.
+
+  // A barrier that unblocks only when both threads reach it.  If fsck
+  // operations were serialized this would deadlock, proving that both
+  // callbacks must be executing concurrently for the test to pass.
+  folly::test::Barrier gate(2);
+
+  auto cb = [&] { gate.wait(); };
+  ov1->setFsckCallback(cb);
+  ov2->setFsckCallback(cb);
+
+  std::thread t1([&] { ov1->initialize(config).get(); });
+  std::thread t2([&] { ov2->initialize(config).get(); });
+  t1.join();
+  t2.join();
+
+  EXPECT_FALSE(ov1->hadCleanStartup());
+  EXPECT_FALSE(ov2->hadCleanStartup());
+  EXPECT_EQ(3_ino, ov1->getMaxInodeNumber());
+  EXPECT_EQ(3_ino, ov2->getMaxInodeNumber());
+
+  ov1->close();
+  ov2->close();
 }
 
 } // namespace facebook::eden

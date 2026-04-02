@@ -363,6 +363,8 @@ cpp_unittest(
         "//folly:range",
         "//folly/executors:cpu_thread_pool_executor",
         "//folly/logging/test:test_handler",
+        "//folly/synchronization:baton",
+        "//folly/synchronization:lifo_sem",
         "//folly/synchronization/test:barrier",
         "//folly/test:test_utils",
         "//folly/testing:test_util",
