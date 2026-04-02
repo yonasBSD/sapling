@@ -40,6 +40,7 @@ use sha2::Sha256;
 use stats::prelude::*;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
+use tracing::debug;
 use tracing::error;
 use tracing::info;
 use tracing::trace;
@@ -145,14 +146,14 @@ impl MononokeConfigs {
         // tier_name=None and manifest_path=None, so logging would be noise.
         if tier_name.is_some() {
             if let Some(manifest_path) = manifest_path {
-                info!(
+                debug!(
                     "Split-loading enabled: config_path={}, manifest_path={}, tier_name={:?}",
                     config_path.as_ref().to_string_lossy(),
                     manifest_path,
                     tier_name.as_deref().unwrap_or("<none>"),
                 );
             } else {
-                info!(
+                debug!(
                     "Split-loading disabled: config_path={}, tier_name={:?}",
                     config_path.as_ref().to_string_lossy(),
                     tier_name.as_deref().unwrap_or("<none>"),
