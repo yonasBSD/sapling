@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use anyhow::Error;
+use cached_config::ConfigStore;
 use clientinfo::ClientEntryPoint;
 use fbinit::FacebookInit;
 use gotham::router::Router;
@@ -39,6 +40,8 @@ use mononoke_api::Mononoke;
 use mononoke_configs::MononokeConfigs;
 use rate_limiting::RateLimitEnvironment;
 use scuba_ext::MononokeScubaSampleBuilder;
+#[cfg(fbcode_build)]
+use shadow_forwarder::ShadowForwarderMiddleware;
 
 use crate::context::ServerContext;
 use crate::handlers::build_router;
@@ -61,6 +64,8 @@ pub fn build<R: Send + Sync + Clone + 'static>(
     common_config: &CommonConfig,
     readonly: bool,
     mtls_disabled: bool,
+    config_store: &ConfigStore,
+    is_shadow_tier: bool,
 ) -> Result<SaplingRemoteApi, Error> {
     let ctx = ServerContext::new(mononoke, will_exit);
 
@@ -89,7 +94,22 @@ pub fn build<R: Send + Sync + Clone + 'static>(
         .add(ServerIdentityMiddleware::new(HeaderValue::from_static(
             "edenapi_server",
         )))
-        .add(PostResponseMiddleware::default())
+        .add(PostResponseMiddleware::default());
+
+    // Shadow forwarder runs before RequestContext/ThrottleMiddleware so it
+    // captures all requests (including rate-limited ones) for a complete
+    // shadow traffic picture. This is intentional: SLAPI wants shadow
+    // traffic to reflect the full request mix. (Git server intentionally
+    // places it after rate limiting — see git_server/src/main.rs.)
+    // Only available in fbcode builds.
+    #[cfg(fbcode_build)]
+    let handler = handler.add(ShadowForwarderMiddleware::new(
+        config_store,
+        "scm/mononoke/shadow_traffic/slapi",
+        is_shadow_tier,
+    )?);
+
+    let handler = handler
         .add(RequestContextMiddleware::new(
             fb,
             scuba.clone(),

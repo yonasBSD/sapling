@@ -474,6 +474,25 @@ def setup_configerator_configs(fs: ShellFS, env: Env) -> int:
             with fs.open(f"{replication_lag_conf}/{conf}", "w") as f:
                 f.write(b"{}")
 
+    # Setup Shadow Traffic Config
+    shadow_traffic_conf = f"{local_configerator_path}/scm/mononoke/shadow_traffic"
+    env.setenv("SHADOW_TRAFFIC_CONF", shadow_traffic_conf)
+    fs.mkdir(shadow_traffic_conf)
+    default_shadow_config = b"""{
+  "enabled": false,
+  "sample_ratio": 0,
+  "path_include": "",
+  "path_exclude": "/upload/|/land/|/set_bookmark",
+  "target_url": "",
+  "semaphore_permits": 100,
+  "shadow_first_timeout_ms": 5000,
+  "shadow_first": false
+}"""
+    for conf in ["slapi", "git"]:
+        if not fs.exists(f"{shadow_traffic_conf}/{conf}"):
+            with fs.open(f"{shadow_traffic_conf}/{conf}", "w") as f:
+                f.write(default_shadow_config)
+
     return 0
 
 

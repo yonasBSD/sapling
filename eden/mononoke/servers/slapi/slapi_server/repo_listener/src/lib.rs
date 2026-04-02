@@ -61,6 +61,7 @@ pub async fn create_repo_listeners<'a>(
     acl_provider: &dyn AclProvider,
     readonly: bool,
     mtls_disabled: bool,
+    is_shadow_tier: bool,
 ) -> Result<()> {
     let rate_limiter = {
         let handle = config_store
@@ -92,6 +93,8 @@ pub async fn create_repo_listeners<'a>(
             &common_config,
             readonly,
             mtls_disabled,
+            config_store,
+            is_shadow_tier,
         )
         .context("Error instantiating SaplingRemoteAPI")?
     };

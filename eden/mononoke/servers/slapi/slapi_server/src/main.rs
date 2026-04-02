@@ -95,6 +95,10 @@ struct MononokeServerArgs {
     /// Path to a file with land service client private key
     #[clap(long, requires = "land_service_client_cert")]
     land_service_client_private_key: Option<String>,
+    /// Mark this instance as a shadow tier. Shadow tiers never forward
+    /// shadow traffic, preventing forwarding loops.
+    #[clap(long, default_value_t = false)]
+    shadow_tier: bool,
 }
 
 /// Struct representing the Mononoke server process when sharding by repo.
@@ -368,6 +372,7 @@ fn main(fb: FacebookInit) -> Result<()> {
                 env.acl_provider.as_ref(),
                 args.readonly.readonly,
                 args.tls_args.disable_mtls,
+                args.shadow_tier,
             )
             .await
         }
