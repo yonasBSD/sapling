@@ -976,35 +976,54 @@ fn test_cache_miss_returns_none() {
     assert!(cache.lookup(&cs_id).is_none(), "uncached key must miss");
 }
 
-/// Positive caching through get_or_insert_sync: inspector runs once, second
-/// call returns cached value without running the inspector again.
+/// Positive caching through get_or_insert_with: on_miss runs once, second
+/// call returns cached value and only runs on_hit.
 #[mononoke::test]
-fn test_cache_positive_via_get_or_insert_sync() {
+fn test_cache_positive_via_get_or_insert_with() {
     let cache = ChangesetEligibilityCache::new(1000, Duration::from_secs(300));
     let cs_id = mononoke_types::ChangesetId::from_bytes([1u8; 32]).expect("valid changeset id");
-    let call_count = AtomicU64::new(0);
+    let miss_count = AtomicU64::new(0);
+    let hit_count = AtomicU64::new(0);
 
-    let result = cache.get_or_insert_sync(cs_id, || {
-        call_count.fetch_add(1, Ordering::SeqCst);
-        Some(EligibleChangesetInfo {
-            parsed_username: Some("alice".to_string()),
-        })
-    });
+    let result = cache.get_or_insert_with(
+        cs_id,
+        || {
+            hit_count.fetch_add(1, Ordering::SeqCst);
+        },
+        || {
+            miss_count.fetch_add(1, Ordering::SeqCst);
+            Some(EligibleChangesetInfo {
+                parsed_username: Some("alice".to_string()),
+            })
+        },
+    );
     assert!(result.is_some());
-    assert_eq!(call_count.load(Ordering::SeqCst), 1);
+    assert_eq!(miss_count.load(Ordering::SeqCst), 1);
+    assert_eq!(hit_count.load(Ordering::SeqCst), 0);
 
-    // Second call: cached, inspector does NOT run
-    let result = cache.get_or_insert_sync(cs_id, || {
-        call_count.fetch_add(1, Ordering::SeqCst);
-        Some(EligibleChangesetInfo {
-            parsed_username: Some("alice".to_string()),
-        })
-    });
+    // Second call: cached, on_hit runs, on_miss does NOT run
+    let result = cache.get_or_insert_with(
+        cs_id,
+        || {
+            hit_count.fetch_add(1, Ordering::SeqCst);
+        },
+        || {
+            miss_count.fetch_add(1, Ordering::SeqCst);
+            Some(EligibleChangesetInfo {
+                parsed_username: Some("alice".to_string()),
+            })
+        },
+    );
     assert!(result.is_some());
     assert_eq!(
-        call_count.load(Ordering::SeqCst),
+        miss_count.load(Ordering::SeqCst),
         1,
-        "inspector must not run on cache hit"
+        "on_miss must not run on cache hit"
+    );
+    assert_eq!(
+        hit_count.load(Ordering::SeqCst),
+        1,
+        "on_hit must run on cache hit"
     );
 }
 
@@ -1063,27 +1082,42 @@ fn test_cache_different_keys_independent() {
 fn test_cache_sync_api() {
     let cache = ChangesetEligibilityCache::new(1000, Duration::from_secs(300));
     let cs_id = mononoke_types::ChangesetId::from_bytes([3u8; 32]).expect("valid changeset id");
-    let call_count = AtomicU64::new(0);
+    let miss_count = AtomicU64::new(0);
+    let hit_count = AtomicU64::new(0);
 
-    // First call: inspector runs
-    let result = cache.get_or_insert_sync(cs_id, || {
-        call_count.fetch_add(1, Ordering::SeqCst);
-        Some(EligibleChangesetInfo {
-            parsed_username: Some("alice".to_string()),
-        })
-    });
+    // First call: on_miss runs
+    let result = cache.get_or_insert_with(
+        cs_id,
+        || {
+            hit_count.fetch_add(1, Ordering::SeqCst);
+        },
+        || {
+            miss_count.fetch_add(1, Ordering::SeqCst);
+            Some(EligibleChangesetInfo {
+                parsed_username: Some("alice".to_string()),
+            })
+        },
+    );
     assert!(result.is_some());
-    assert_eq!(call_count.load(Ordering::SeqCst), 1);
+    assert_eq!(miss_count.load(Ordering::SeqCst), 1);
+    assert_eq!(hit_count.load(Ordering::SeqCst), 0);
 
-    // Second call: cached
-    let result = cache.get_or_insert_sync(cs_id, || {
-        call_count.fetch_add(1, Ordering::SeqCst);
-        Some(EligibleChangesetInfo {
-            parsed_username: Some("alice".to_string()),
-        })
-    });
+    // Second call: cached, on_hit runs
+    let result = cache.get_or_insert_with(
+        cs_id,
+        || {
+            hit_count.fetch_add(1, Ordering::SeqCst);
+        },
+        || {
+            miss_count.fetch_add(1, Ordering::SeqCst);
+            Some(EligibleChangesetInfo {
+                parsed_username: Some("alice".to_string()),
+            })
+        },
+    );
     assert!(result.is_some());
-    assert_eq!(call_count.load(Ordering::SeqCst), 1);
+    assert_eq!(miss_count.load(Ordering::SeqCst), 1);
+    assert_eq!(hit_count.load(Ordering::SeqCst), 1);
 }
 
 // =========================================================================

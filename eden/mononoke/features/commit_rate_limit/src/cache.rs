@@ -19,6 +19,7 @@ use crate::EligibleChangesetInfo;
 /// and negative results are cached.
 ///
 /// Errors are never cached — the caller should only insert successful results.
+#[derive(Clone)]
 pub struct ChangesetEligibilityCache {
     entries: Cache<ChangesetId, Option<EligibleChangesetInfo>>,
 }
@@ -46,18 +47,20 @@ impl ChangesetEligibilityCache {
         self.entries.insert(cs_id, value);
     }
 
-    /// Synchronous cache lookup and insertion. Used in the
-    /// `matching_ancestors_stream` predicate where the changeset is already
-    /// loaded and inspection is synchronous.
-    pub fn get_or_insert_sync(
+    /// Synchronous cache lookup and insertion with separate hit/miss callbacks.
+    /// On cache hit, calls `on_hit` and returns the cached value.
+    /// On cache miss, calls `on_miss` to compute the value, inserts it, and returns it.
+    pub fn get_or_insert_with(
         &self,
         cs_id: ChangesetId,
-        inspector: impl FnOnce() -> Option<EligibleChangesetInfo>,
+        on_hit: impl FnOnce(),
+        on_miss: impl FnOnce() -> Option<EligibleChangesetInfo>,
     ) -> Option<EligibleChangesetInfo> {
         if let Some(entry) = self.entries.get(&cs_id) {
+            on_hit();
             return entry;
         }
-        let result = inspector();
+        let result = on_miss();
         self.entries.insert(cs_id, result.clone());
         result
     }

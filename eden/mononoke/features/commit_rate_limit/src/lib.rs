@@ -96,15 +96,12 @@ impl CommitRateLimitCacheConfig {
     /// Returns `None` when `max_entries == 0` (cache disabled).
     /// Clamps `ttl_secs` to a minimum of 1 so that `max_entries` is the
     /// only off-switch.
-    pub fn build_cache(&self) -> Option<Arc<cache::ChangesetEligibilityCache>> {
+    pub fn build_cache(&self) -> Option<cache::ChangesetEligibilityCache> {
         if self.max_entries == 0 {
             return None;
         }
         let ttl = Duration::from_secs(self.ttl_secs.max(1));
-        Some(Arc::new(cache::ChangesetEligibilityCache::new(
-            self.max_entries,
-            ttl,
-        )))
+        Some(cache::ChangesetEligibilityCache::new(self.max_entries, ttl))
     }
 }
 
@@ -273,7 +270,7 @@ pub async fn check_commit_rate_limit(
     changeset: &BonsaiChangeset,
     config: &CommitRateLimitConfig,
     user_filter: Option<&str>,
-    cache: Option<Arc<cache::ChangesetEligibilityCache>>,
+    cache: Option<cache::ChangesetEligibilityCache>,
 ) -> Result<RateLimitOutcome> {
     if !touches_directories(changeset, &config.directories) {
         return Ok(RateLimitOutcome::Allowed);
@@ -329,7 +326,7 @@ async fn count_eligible_public_ancestors(
     window: Duration,
     config: &CommitRateLimitConfig,
     user_filter: Option<&str>,
-    cache: Option<Arc<cache::ChangesetEligibilityCache>>,
+    cache: Option<cache::ChangesetEligibilityCache>,
 ) -> Result<u64> {
     let bookmark_cs_id = repo
         .bookmarks()
@@ -371,7 +368,7 @@ async fn count_eligible_draft_ancestors(
     changeset: &BonsaiChangeset,
     config: &CommitRateLimitConfig,
     user_filter: Option<&str>,
-    cache: Option<Arc<cache::ChangesetEligibilityCache>>,
+    cache: Option<cache::ChangesetEligibilityCache>,
 ) -> Result<u64> {
     let bookmark_cs_id = repo
         .bookmarks()
@@ -506,7 +503,7 @@ fn build_cached_ancestor_predicate(
     checks: &[EligibilityCheck],
     directories: &[String],
     user_filter: Option<&str>,
-    cache: Option<Arc<cache::ChangesetEligibilityCache>>,
+    cache: Option<cache::ChangesetEligibilityCache>,
     repo_name: &str,
     rate_limit_name: &str,
 ) -> Arc<dyn Fn(&BonsaiChangeset) -> bool + Send + Sync> {
@@ -519,19 +516,18 @@ fn build_cached_ancestor_predicate(
             let stats_rl = rate_limit_name.to_owned();
             Arc::new(move |changeset: &BonsaiChangeset| {
                 let cs_id = changeset.get_changeset_id();
-
-                // Single lookup: check cache, compute on miss.
-                let info = if let Some(cached) = cache.lookup(&cs_id) {
-                    STATS::eligibility_cache_public_hit
-                        .add_value(1, (stats_repo.clone(), stats_rl.clone()));
-                    cached
-                } else {
-                    STATS::eligibility_cache_public_miss
-                        .add_value(1, (stats_repo.clone(), stats_rl.clone()));
-                    let result = inspect_changeset_eligibility(changeset, &checks, &directories);
-                    cache.insert(cs_id, result.clone());
-                    result
-                };
+                let info = cache.get_or_insert_with(
+                    cs_id,
+                    || {
+                        STATS::eligibility_cache_public_hit
+                            .add_value(1, (stats_repo.clone(), stats_rl.clone()));
+                    },
+                    || {
+                        STATS::eligibility_cache_public_miss
+                            .add_value(1, (stats_repo.clone(), stats_rl.clone()));
+                        inspect_changeset_eligibility(changeset, &checks, &directories)
+                    },
+                );
 
                 info.as_ref()
                     .map(|i| matches_user_filter(i, user_filter.as_deref()))
