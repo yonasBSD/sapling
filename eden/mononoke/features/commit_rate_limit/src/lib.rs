@@ -5,6 +5,8 @@
  * GNU General Public License version 2.
  */
 
+pub mod cache;
+
 #[cfg(test)]
 mod tests;
 
@@ -25,6 +27,15 @@ use mononoke_types::BonsaiChangeset;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedDataRef;
 use serde::Deserialize;
+use stats::prelude::*;
+
+define_stats! {
+    prefix = "mononoke.commit_rate_limit";
+    eligibility_cache_public_hit: dynamic_timeseries("{}.{}.public_hit", (repo_name: String, rate_limit_name: String); Rate, Sum),
+    eligibility_cache_public_miss: dynamic_timeseries("{}.{}.public_miss", (repo_name: String, rate_limit_name: String); Rate, Sum),
+    eligibility_cache_draft_hit: dynamic_timeseries("{}.{}.draft_hit", (repo_name: String, rate_limit_name: String); Rate, Sum),
+    eligibility_cache_draft_miss: dynamic_timeseries("{}.{}.draft_miss", (repo_name: String, rate_limit_name: String); Rate, Sum),
+}
 
 // --- Repo trait ---
 
@@ -56,8 +67,55 @@ impl<T> Repo for T where
 
 // --- Config types ---
 
+const DEFAULT_CACHE_MAX_ENTRIES: u64 = 50000;
+const DEFAULT_CACHE_TTL_SECS: u64 = 300;
+
+fn default_cache_max_entries() -> u64 {
+    DEFAULT_CACHE_MAX_ENTRIES
+}
+
+fn default_cache_ttl_secs() -> u64 {
+    DEFAULT_CACHE_TTL_SECS
+}
+
+/// Configuration for the in-memory eligibility cache.
+///
+/// When present in the hook config, a bounded moka cache is constructed.
+/// When absent, no caching is performed.
+#[derive(Deserialize, Clone, Debug)]
+pub struct CommitRateLimitCacheConfig {
+    #[serde(default = "default_cache_max_entries")]
+    max_entries: u64,
+    #[serde(default = "default_cache_ttl_secs")]
+    ttl_secs: u64,
+}
+
+impl CommitRateLimitCacheConfig {
+    /// Build a bounded cache from this config.
+    ///
+    /// Returns `None` when `max_entries == 0` (cache disabled).
+    /// Clamps `ttl_secs` to a minimum of 1 so that `max_entries` is the
+    /// only off-switch.
+    pub fn build_cache(&self) -> Option<Arc<cache::ChangesetEligibilityCache>> {
+        if self.max_entries == 0 {
+            return None;
+        }
+        let ttl = Duration::from_secs(self.ttl_secs.max(1));
+        Some(Arc::new(cache::ChangesetEligibilityCache::new(
+            self.max_entries,
+            ttl,
+        )))
+    }
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct CommitRateLimitConfig {
+    /// Repository name, set by the hook adapter for ODS tagging.
+    #[serde(skip)]
+    repo_name: String,
+    /// Rate limit name (typically the hook name), for ODS tagging.
+    #[serde(skip)]
+    rate_limit_name: String,
     /// Checks that determine if a commit is eligible for rate limiting (OR semantics).
     eligibility_checks: Vec<EligibilityCheck>,
     /// Rate limit windows -- all must pass for the commit to be allowed.
@@ -69,11 +127,32 @@ pub struct CommitRateLimitConfig {
     /// Whether to enforce limits per-author (true) or globally (false).
     #[serde(default)]
     per_user: bool,
+    /// Optional in-memory cache for config-stable inspection results.
+    /// When present, a bounded moka cache is used to skip redundant
+    /// blobstore loads.
+    #[serde(default)]
+    cache_config: Option<CommitRateLimitCacheConfig>,
 }
 
 impl CommitRateLimitConfig {
+    /// Set repo and rate-limit names after deserialization. These are used
+    /// for ODS tagging and are not part of the JSON config.
+    pub fn with_names(mut self, repo_name: String, rate_limit_name: String) -> Self {
+        self.repo_name = repo_name;
+        self.rate_limit_name = rate_limit_name;
+        self
+    }
+
     pub fn validate(&self) -> Result<()> {
         self.limits.iter().try_for_each(|limit| limit.validate())
+    }
+
+    pub fn repo_name(&self) -> &str {
+        &self.repo_name
+    }
+
+    pub fn rate_limit_name(&self) -> &str {
+        &self.rate_limit_name
     }
 
     pub fn per_user(&self) -> bool {
@@ -82,6 +161,10 @@ impl CommitRateLimitConfig {
 
     pub fn directories(&self) -> &[String] {
         &self.directories
+    }
+
+    pub fn cache_config(&self) -> Option<&CommitRateLimitCacheConfig> {
+        self.cache_config.as_ref()
     }
 }
 
@@ -190,6 +273,7 @@ pub async fn check_commit_rate_limit(
     changeset: &BonsaiChangeset,
     config: &CommitRateLimitConfig,
     user_filter: Option<&str>,
+    cache: Option<Arc<cache::ChangesetEligibilityCache>>,
 ) -> Result<RateLimitOutcome> {
     if !touches_directories(changeset, &config.directories) {
         return Ok(RateLimitOutcome::Allowed);
@@ -199,14 +283,29 @@ pub async fn check_commit_rate_limit(
     }
 
     // Draft count is independent of the time window, so compute once.
-    let draft_count =
-        count_eligible_draft_ancestors(ctx, repo, bookmark, changeset, config, user_filter).await?;
+    let draft_count = count_eligible_draft_ancestors(
+        ctx,
+        repo,
+        bookmark,
+        changeset,
+        config,
+        user_filter,
+        cache.clone(),
+    )
+    .await?;
 
     for limit in &config.limits {
         let window = Duration::from_secs(limit.window_secs());
-        let public_count =
-            count_eligible_public_ancestors(ctx, repo, bookmark, window, config, user_filter)
-                .await?;
+        let public_count = count_eligible_public_ancestors(
+            ctx,
+            repo,
+            bookmark,
+            window,
+            config,
+            user_filter,
+            cache.clone(),
+        )
+        .await?;
 
         let total = public_count + draft_count;
         if total >= limit.max_commits() {
@@ -230,6 +329,7 @@ async fn count_eligible_public_ancestors(
     window: Duration,
     config: &CommitRateLimitConfig,
     user_filter: Option<&str>,
+    cache: Option<Arc<cache::ChangesetEligibilityCache>>,
 ) -> Result<u64> {
     let bookmark_cs_id = repo
         .bookmarks()
@@ -243,8 +343,14 @@ async fn count_eligible_public_ancestors(
 
     let until_timestamp = chrono::Utc::now().timestamp() - window.as_secs() as i64;
 
-    let predicate =
-        build_ancestor_predicate(&config.eligibility_checks, &config.directories, user_filter);
+    let predicate = build_cached_ancestor_predicate(
+        &config.eligibility_checks,
+        &config.directories,
+        user_filter,
+        cache,
+        &config.repo_name,
+        &config.rate_limit_name,
+    );
 
     let opts = AncestorFilterOptions {
         until_timestamp: Some(until_timestamp),
@@ -265,6 +371,7 @@ async fn count_eligible_draft_ancestors(
     changeset: &BonsaiChangeset,
     config: &CommitRateLimitConfig,
     user_filter: Option<&str>,
+    cache: Option<Arc<cache::ChangesetEligibilityCache>>,
 ) -> Result<u64> {
     let bookmark_cs_id = repo
         .bookmarks()
@@ -278,9 +385,6 @@ async fn count_eligible_draft_ancestors(
 
     let current_cs_id = changeset.get_changeset_id();
 
-    let predicate =
-        build_ancestor_predicate(&config.eligibility_checks, &config.directories, user_filter);
-
     let stream = repo
         .commit_graph()
         .ancestors_difference_stream(ctx, vec![current_cs_id], common)
@@ -288,22 +392,54 @@ async fn count_eligible_draft_ancestors(
 
     let ctx = ctx.clone();
     let repo_blobstore = repo.repo_blobstore().clone();
+    let checks = config.eligibility_checks.clone();
+    let directories = config.directories.clone();
+    let user_filter = user_filter.map(|u| u.to_owned());
+    let stats_repo = config.repo_name.clone();
+    let stats_rl = config.rate_limit_name.clone();
 
     stream
         .try_filter_map(move |cs_id| {
             let ctx = ctx.clone();
             let repo_blobstore = repo_blobstore.clone();
-            let predicate = predicate.clone();
+            let cache = cache.clone();
+            let checks = checks.clone();
+            let directories = directories.clone();
+            let user_filter = user_filter.clone();
+            let stats_repo = stats_repo.clone();
+            let stats_rl = stats_rl.clone();
             async move {
                 if cs_id == current_cs_id {
                     return Ok(None);
                 }
-                let bonsai = cs_id.load(&ctx, &repo_blobstore).await?;
-                if predicate(&bonsai) {
-                    Ok(Some(cs_id))
-                } else {
-                    Ok(None)
+
+                // When cache is available, check BEFORE loading from blobstore.
+                // Cache hits skip the expensive cs_id.load() entirely.
+                if let Some(ref cache) = cache {
+                    if let Some(cached) = cache.lookup(&cs_id) {
+                        STATS::eligibility_cache_draft_hit.add_value(1, (stats_repo, stats_rl));
+                        let matches = cached
+                            .as_ref()
+                            .map(|i| matches_user_filter(i, user_filter.as_deref()))
+                            .unwrap_or(false);
+                        return if matches { Ok(Some(cs_id)) } else { Ok(None) };
+                    }
+                    STATS::eligibility_cache_draft_miss.add_value(1, (stats_repo, stats_rl));
                 }
+
+                // Cache miss or no cache: load from blobstore.
+                let bonsai = cs_id.load(&ctx, &repo_blobstore).await?;
+                let info = inspect_changeset_eligibility(&bonsai, &checks, &directories);
+
+                if let Some(ref cache) = cache {
+                    cache.insert(cs_id, info.clone());
+                }
+
+                let matches = info
+                    .as_ref()
+                    .map(|i| matches_user_filter(i, user_filter.as_deref()))
+                    .unwrap_or(false);
+                if matches { Ok(Some(cs_id)) } else { Ok(None) }
             }
         })
         .try_fold(0u64, |acc, _| async move { Ok(acc + 1) })
@@ -360,6 +496,49 @@ fn matches_user_filter(info: &EligibleChangesetInfo, user_filter: Option<&str>) 
             .as_deref()
             .map(|u| u == username)
             .unwrap_or(false),
+    }
+}
+
+/// Build a predicate that uses the cache (if available) to avoid redundant
+/// inspection. The cache is populated synchronously since `matching_ancestors_stream`
+/// already loads the `BonsaiChangeset` before calling the predicate.
+fn build_cached_ancestor_predicate(
+    checks: &[EligibilityCheck],
+    directories: &[String],
+    user_filter: Option<&str>,
+    cache: Option<Arc<cache::ChangesetEligibilityCache>>,
+    repo_name: &str,
+    rate_limit_name: &str,
+) -> Arc<dyn Fn(&BonsaiChangeset) -> bool + Send + Sync> {
+    match cache {
+        Some(cache) => {
+            let checks = checks.to_vec();
+            let directories = directories.to_vec();
+            let user_filter = user_filter.map(|u| u.to_owned());
+            let stats_repo = repo_name.to_owned();
+            let stats_rl = rate_limit_name.to_owned();
+            Arc::new(move |changeset: &BonsaiChangeset| {
+                let cs_id = changeset.get_changeset_id();
+
+                // Single lookup: check cache, compute on miss.
+                let info = if let Some(cached) = cache.lookup(&cs_id) {
+                    STATS::eligibility_cache_public_hit
+                        .add_value(1, (stats_repo.clone(), stats_rl.clone()));
+                    cached
+                } else {
+                    STATS::eligibility_cache_public_miss
+                        .add_value(1, (stats_repo.clone(), stats_rl.clone()));
+                    let result = inspect_changeset_eligibility(changeset, &checks, &directories);
+                    cache.insert(cs_id, result.clone());
+                    result
+                };
+
+                info.as_ref()
+                    .map(|i| matches_user_filter(i, user_filter.as_deref()))
+                    .unwrap_or(false)
+            })
+        }
+        None => build_ancestor_predicate(checks, directories, user_filter),
     }
 }
 

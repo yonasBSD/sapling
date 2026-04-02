@@ -79,6 +79,8 @@ fn recent_date() -> DateTime {
 fn make_config(directories: &[&str], per_user: bool, max_commits: u64) -> CommitRateLimitConfig {
     let dirs = directories.iter().map(|d| d.to_string()).collect();
     CommitRateLimitConfig {
+        repo_name: "test_repo".to_string(),
+        rate_limit_name: "test_hook".to_string(),
         eligibility_checks: vec![
             EligibilityCheck::CommitMessageTag {
                 tag: ELIGIBLE_TAG.to_string(),
@@ -93,6 +95,7 @@ fn make_config(directories: &[&str], per_user: bool, max_commits: u64) -> Commit
         }],
         directories: dirs,
         per_user,
+        cache_config: None,
     }
 }
 
@@ -610,19 +613,19 @@ async fn test_non_eligible_commit_never_blocked(fb: FacebookInit) -> Result<()> 
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), None).await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -650,19 +653,19 @@ async fn test_under_all_limits_accepted(fb: FacebookInit) -> Result<()> {
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), None).await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -690,19 +693,19 @@ async fn test_most_restrictive_hook_fails_first(fb: FacebookInit) -> Result<()> 
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), None).await?,
         RateLimitOutcome::Allowed,
     );
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, None).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), None).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     Ok(())
@@ -735,19 +738,19 @@ async fn test_large_stack_all_hooks_reject(fb: FacebookInit) -> Result<()> {
     let bcs = last.load(ctx, repo.repo_blobstore()).await?;
 
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, None).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), None).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, None).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), None).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     Ok(())
@@ -774,19 +777,19 @@ async fn test_eligible_commit_outside_scoped_directory(fb: FacebookInit) -> Resu
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), None).await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -809,8 +812,16 @@ async fn test_different_user_not_blocked_by_per_user_limit(fb: FacebookInit) -> 
         .await?;
     let alice_bcs = alice_draft.load(ctx, repo.repo_blobstore()).await?;
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &alice_bcs, &strict_per_user, Some("alice"))
-            .await?,
+        check_commit_rate_limit(
+            ctx,
+            repo,
+            &bm,
+            &alice_bcs,
+            &strict_per_user,
+            Some("alice"),
+            None
+        )
+        .await?,
         RateLimitOutcome::Exceeded { .. },
     ));
 
@@ -823,7 +834,16 @@ async fn test_different_user_not_blocked_by_per_user_limit(fb: FacebookInit) -> 
         .await?;
     let bob_bcs = bob_draft.load(ctx, repo.repo_blobstore()).await?;
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bob_bcs, &strict_per_user, Some("bob")).await?,
+        check_commit_rate_limit(
+            ctx,
+            repo,
+            &bm,
+            &bob_bcs,
+            &strict_per_user,
+            Some("bob"),
+            None
+        )
+        .await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -850,11 +870,11 @@ async fn test_new_bookmark_no_ancestors(fb: FacebookInit) -> Result<()> {
     let bcs = root.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, None).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), None).await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -895,7 +915,8 @@ async fn test_draft_stack_bypass_prevention(fb: FacebookInit) -> Result<()> {
     let bcs_1 = draft_1.load(ctx, repo.repo_blobstore()).await?;
     assert!(
         matches!(
-            check_commit_rate_limit(ctx, repo, &bm, &bcs_1, &users_per_user, Some("alice")).await?,
+            check_commit_rate_limit(ctx, repo, &bm, &bcs_1, &users_per_user, Some("alice"), None)
+                .await?,
             RateLimitOutcome::Exceeded { .. },
         ),
         "draft_1: alice already at limit from public ancestors"
@@ -904,7 +925,8 @@ async fn test_draft_stack_bypass_prevention(fb: FacebookInit) -> Result<()> {
     let bcs_3 = draft_3.load(ctx, repo.repo_blobstore()).await?;
     assert!(
         matches!(
-            check_commit_rate_limit(ctx, repo, &bm, &bcs_3, &users_per_user, Some("alice")).await?,
+            check_commit_rate_limit(ctx, repo, &bm, &bcs_3, &users_per_user, Some("alice"), None)
+                .await?,
             RateLimitOutcome::Exceeded { .. },
         ),
         "draft_3: 4 public + 2 draft ancestors"
@@ -919,9 +941,187 @@ async fn test_draft_stack_bypass_prevention(fb: FacebookInit) -> Result<()> {
         .await?;
     let bcs_safe = non_eligible.load(ctx, repo.repo_blobstore()).await?;
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs_safe, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(
+            ctx,
+            repo,
+            &bm,
+            &bcs_safe,
+            &users_per_user,
+            Some("alice"),
+            None
+        )
+        .await?,
         RateLimitOutcome::Allowed,
         "non-eligible commit must always pass",
     );
     Ok(())
+}
+
+// =========================================================================
+// Cache tests
+// =========================================================================
+
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
+
+use crate::cache::ChangesetEligibilityCache;
+
+/// Cache miss returns None from lookup.
+#[mononoke::test]
+fn test_cache_miss_returns_none() {
+    let cache = ChangesetEligibilityCache::new(1000, Duration::from_secs(300));
+    let cs_id = mononoke_types::ChangesetId::from_bytes([1u8; 32]).expect("valid changeset id");
+
+    assert!(cache.lookup(&cs_id).is_none(), "uncached key must miss");
+}
+
+/// Positive caching through get_or_insert_sync: inspector runs once, second
+/// call returns cached value without running the inspector again.
+#[mononoke::test]
+fn test_cache_positive_via_get_or_insert_sync() {
+    let cache = ChangesetEligibilityCache::new(1000, Duration::from_secs(300));
+    let cs_id = mononoke_types::ChangesetId::from_bytes([1u8; 32]).expect("valid changeset id");
+    let call_count = AtomicU64::new(0);
+
+    let result = cache.get_or_insert_sync(cs_id, || {
+        call_count.fetch_add(1, Ordering::SeqCst);
+        Some(EligibleChangesetInfo {
+            parsed_username: Some("alice".to_string()),
+        })
+    });
+    assert!(result.is_some());
+    assert_eq!(call_count.load(Ordering::SeqCst), 1);
+
+    // Second call: cached, inspector does NOT run
+    let result = cache.get_or_insert_sync(cs_id, || {
+        call_count.fetch_add(1, Ordering::SeqCst);
+        Some(EligibleChangesetInfo {
+            parsed_username: Some("alice".to_string()),
+        })
+    });
+    assert!(result.is_some());
+    assert_eq!(
+        call_count.load(Ordering::SeqCst),
+        1,
+        "inspector must not run on cache hit"
+    );
+}
+
+/// Negative caching through explicit insert + lookup: inserting None (ineligible)
+/// and verifying it's returned as a cache hit.
+#[mononoke::test]
+fn test_cache_negative_via_insert_and_lookup() {
+    let cache = ChangesetEligibilityCache::new(1000, Duration::from_secs(300));
+    let cs_id = mononoke_types::ChangesetId::from_bytes([2u8; 32]).expect("valid changeset id");
+
+    cache.insert(cs_id, None);
+
+    let cached = cache.lookup(&cs_id);
+    assert!(cached.is_some(), "key must be present after insert",);
+    assert!(
+        cached.expect("just checked").is_none(),
+        "cached value must be None (ineligible)",
+    );
+}
+
+/// Different keys are independent: inserting for one key does not affect another.
+#[mononoke::test]
+fn test_cache_different_keys_independent() {
+    let cache = ChangesetEligibilityCache::new(1000, Duration::from_secs(300));
+
+    let cs_id_1 = mononoke_types::ChangesetId::from_bytes([1u8; 32]).expect("valid changeset id");
+    let cs_id_2 = mononoke_types::ChangesetId::from_bytes([2u8; 32]).expect("valid changeset id");
+
+    cache.insert(
+        cs_id_1,
+        Some(EligibleChangesetInfo {
+            parsed_username: Some("alice".to_string()),
+        }),
+    );
+    cache.insert(
+        cs_id_2,
+        Some(EligibleChangesetInfo {
+            parsed_username: Some("bob".to_string()),
+        }),
+    );
+
+    let result_1 = cache.lookup(&cs_id_1).expect("key 1 must be cached");
+    let result_2 = cache.lookup(&cs_id_2).expect("key 2 must be cached");
+
+    assert_eq!(
+        result_1.as_ref().and_then(|i| i.parsed_username.as_deref()),
+        Some("alice")
+    );
+    assert_eq!(
+        result_2.as_ref().and_then(|i| i.parsed_username.as_deref()),
+        Some("bob")
+    );
+}
+
+#[mononoke::test]
+fn test_cache_sync_api() {
+    let cache = ChangesetEligibilityCache::new(1000, Duration::from_secs(300));
+    let cs_id = mononoke_types::ChangesetId::from_bytes([3u8; 32]).expect("valid changeset id");
+    let call_count = AtomicU64::new(0);
+
+    // First call: inspector runs
+    let result = cache.get_or_insert_sync(cs_id, || {
+        call_count.fetch_add(1, Ordering::SeqCst);
+        Some(EligibleChangesetInfo {
+            parsed_username: Some("alice".to_string()),
+        })
+    });
+    assert!(result.is_some());
+    assert_eq!(call_count.load(Ordering::SeqCst), 1);
+
+    // Second call: cached
+    let result = cache.get_or_insert_sync(cs_id, || {
+        call_count.fetch_add(1, Ordering::SeqCst);
+        Some(EligibleChangesetInfo {
+            parsed_username: Some("alice".to_string()),
+        })
+    });
+    assert!(result.is_some());
+    assert_eq!(call_count.load(Ordering::SeqCst), 1);
+}
+
+// =========================================================================
+// Cache config tests
+// =========================================================================
+
+#[mononoke::test]
+fn test_build_cache_disabled_when_zero_entries() {
+    let cc = CommitRateLimitCacheConfig {
+        max_entries: 0,
+        ttl_secs: 300,
+    };
+    assert!(
+        cc.build_cache().is_none(),
+        "max_entries == 0 must disable the cache"
+    );
+}
+
+#[mononoke::test]
+fn test_build_cache_enabled_when_positive_entries() {
+    let cc = CommitRateLimitCacheConfig {
+        max_entries: 1000,
+        ttl_secs: 300,
+    };
+    assert!(
+        cc.build_cache().is_some(),
+        "max_entries > 0 must produce Some(cache)"
+    );
+}
+
+#[mononoke::test]
+fn test_build_cache_clamps_zero_ttl() {
+    let cc = CommitRateLimitCacheConfig {
+        max_entries: 1000,
+        ttl_secs: 0,
+    };
+    assert!(
+        cc.build_cache().is_some(),
+        "zero TTL must be clamped, not disable the cache"
+    );
 }
