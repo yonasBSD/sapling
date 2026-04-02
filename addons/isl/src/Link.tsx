@@ -5,31 +5,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
+import {cn} from 'shared/cn';
+import css from './Link.module.css';
 import platform from './platform';
-
-const styles = stylex.create({
-  a: {
-    color: 'var(--link-foreground)',
-    cursor: 'pointer',
-    textDecoration: {
-      ':hover': 'underline',
-    },
-    outline: {
-      default: 'none',
-      ':focus-visible': '1px solid var(--focus-border)',
-    },
-  },
-});
 
 export function Link({
   children,
   href,
   onClick,
-  xstyle,
+  className,
   ...rest
 }: React.DetailedHTMLProps<React.AnchorHTMLAttributes<HTMLAnchorElement>, HTMLAnchorElement> & {
-  xstyle?: stylex.StyleXStyles;
+  className?: string;
 }) {
   const handleClick = (
     event: React.MouseEvent<HTMLAnchorElement> | React.KeyboardEvent<HTMLAnchorElement>,
@@ -53,7 +40,7 @@ export function Link({
       tabIndex={0}
       onKeyUp={handleClick}
       onClick={handleClick}
-      {...stylex.props(styles.a, xstyle)}
+      className={cn(css.a, className)}
       {...rest}>
       {children}
     </a>

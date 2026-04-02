@@ -16,7 +16,6 @@ import type {
   RepoRelativePath,
 } from './types';
 
-import * as stylex from '@stylexjs/stylex';
 import {Badge} from 'isl-components/Badge';
 import {Banner, BannerKind} from 'isl-components/Banner';
 import {Button} from 'isl-components/Button';
@@ -57,6 +56,7 @@ import {useGeneratedFileStatuses} from './GeneratedFile';
 import {Internal} from './Internal';
 import {AbsorbButton} from './StackActions';
 import {confirmSuggestedEditsForFiles} from './SuggestedEdits';
+import css from './UncommittedChanges.module.css';
 import {processChangedFiles} from './UncommittedChangesUtils';
 import {UnsavedFilesCount, confirmUnsavedFiles} from './UnsavedFiles';
 import {tracker} from './analytics';
@@ -798,22 +798,6 @@ export function UncommittedChanges({place}: {place: Place}) {
   );
 }
 
-const styles = stylex.create({
-  conflictingIncomingContainer: {
-    gap: 'var(--halfpad)',
-    position: 'relative',
-    paddingLeft: '20px',
-    paddingTop: '5px',
-    marginBottom: '-5px',
-    color: 'var(--scm-added-foreground)',
-  },
-  downwardArrow: {
-    position: 'absolute',
-    top: '20px',
-    left: '5px',
-  },
-});
-
 function ConflictingIncomingCommit() {
   const conflicts = useAtomValue(optimisticMergeConflicts);
   // "other" is the incoming / source / your commit
@@ -822,8 +806,8 @@ function ConflictingIncomingCommit() {
     return null;
   }
   return (
-    <Row xstyle={styles.conflictingIncomingContainer}>
-      <DownwardArrow {...stylex.props(styles.downwardArrow)} />
+    <Row className={css.conflictingIncomingContainer}>
+      <DownwardArrow className={css.downwardArrow} />
       <Avatar username={commit.author} />
       <Commit
         commit={commit}

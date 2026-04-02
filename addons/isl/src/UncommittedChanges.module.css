@@ -1,0 +1,21 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.conflictingIncomingContainer {
+  gap: var(--halfpad);
+  position: relative;
+  padding-left: 20px;
+  padding-top: 5px;
+  margin-bottom: -5px;
+  color: var(--scm-added-foreground);
+}
+
+.downwardArrow {
+  position: absolute;
+  top: 20px;
+  left: 5px;
+}

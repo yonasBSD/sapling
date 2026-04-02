@@ -1,0 +1,21 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.container {
+  min-width: 500px;
+  min-height: 300px;
+}
+
+.loading {
+  padding-bottom: calc(24px + 2 * var(--pad));
+}
+
+.tab {
+  font-size: 110%;
+  padding-block: var(--halfpad);
+  padding-inline: calc(2 * var(--pad));
+}

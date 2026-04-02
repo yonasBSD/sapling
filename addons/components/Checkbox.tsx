@@ -8,50 +8,10 @@
 import type react from 'react';
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
 import {useEffect, useId, useRef} from 'react';
+import {cn} from 'shared/cn';
+import css from './Checkbox.module.css';
 import {layout} from './theme/layout';
-import {spacing} from './theme/tokens.stylex';
-
-const cssVarFocusWithinBorder = '--checkbox-focus-within-color';
-const styles = stylex.create({
-  label: {
-    [cssVarFocusWithinBorder]: {
-      default: 'var(--checkbox-border)',
-      ':focus-within': 'var(--focus-border)',
-    },
-    cursor: 'pointer',
-    alignItems: 'center',
-    position: 'relative',
-    outline: 'none',
-    userSelect: 'none',
-  },
-  input: {
-    opacity: 0,
-    outline: 'none',
-    appearance: 'none',
-    position: 'absolute',
-  },
-  disabled: {
-    opacity: 0.5,
-    cursor: 'not-allowed',
-  },
-  withChildren: {
-    marginRight: spacing.pad,
-  },
-  checkmark: {
-    backgroundColor: 'var(--checkbox-background)',
-    borderRadius: '3px',
-    width: '16px',
-    height: '16px',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: `var(${cssVarFocusWithinBorder})`,
-    display: 'inline-block',
-    color: 'var(--checkbox-foreground)',
-    transition: '60ms transform ease-in-out',
-  },
-});
 
 function Checkmark({checked}: {checked: boolean}) {
   return (
@@ -61,7 +21,7 @@ function Checkmark({checked}: {checked: boolean}) {
       viewBox="0 0 16 16"
       xmlns="http://www.w3.org/2000/svg"
       fill={checked ? 'currentColor' : 'transparent'}
-      {...stylex.props(styles.checkmark)}>
+      className={css.checkmark}>
       <path
         fillRule="evenodd"
         clipRule="evenodd"
@@ -78,7 +38,7 @@ function Indeterminate() {
       viewBox="0 0 16 16"
       xmlns="http://www.w3.org/2000/svg"
       fill={'currentColor'}
-      {...stylex.props(styles.checkmark)}>
+      className={css.checkmark}>
       <rect x="4" y="4" height="8" width="8" rx="2" />
     </svg>
   );
@@ -90,7 +50,7 @@ export function Checkbox({
   onChange,
   disabled,
   indeterminate,
-  xstyle,
+  className,
   ...rest
 }: {
   children?: react.ReactNode;
@@ -100,7 +60,7 @@ export function Checkbox({
   indeterminate?: boolean;
   disabled?: boolean;
   onChange?: (checked: boolean) => unknown;
-  xstyle?: stylex.StyleXStyles;
+  className?: string;
 } & Omit<ReactProps<HTMLInputElement>, 'onChange'>) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -113,12 +73,12 @@ export function Checkbox({
   return (
     <label
       htmlFor={id}
-      {...stylex.props(
+      className={cn(
         layout.flexRow,
-        styles.label,
-        children != null && styles.withChildren,
-        disabled && styles.disabled,
-        xstyle,
+        css.label,
+        children != null && css.withChildren,
+        disabled && css.disabled,
+        className,
       )}>
       <input
         ref={inputRef}
@@ -127,7 +87,7 @@ export function Checkbox({
         checked={checked}
         onChange={e => !disabled && onChange?.(e.target.checked)}
         disabled={disabled}
-        {...stylex.props(styles.input)}
+        className={css.input}
         {...rest}
       />
       {indeterminate === true ? <Indeterminate /> : <Checkmark checked={checked} />}

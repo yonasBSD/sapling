@@ -1,0 +1,42 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .tabList {
+    padding: 4px;
+    padding-bottom: var(--spacing-pad);
+    gap: 32px;
+  }
+
+  .tab {
+    color: var(--panel-tab-foreground);
+    padding: 4px 0;
+    background-color: transparent;
+    border-style: none;
+    cursor: pointer;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: transparent;
+  }
+
+  .tab:hover {
+    color: var(--panel-tab-active-foreground);
+  }
+
+  .activeTab {
+    border-bottom-color: var(--panel-tab-active-foreground);
+    color: var(--panel-tab-active-foreground);
+  }
+
+  .tabpanel {
+    padding: 0 6px 10px 6px;
+  }
+
+  .spaceBetween {
+    justify-content: space-between;
+  }
+}

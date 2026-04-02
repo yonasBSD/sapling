@@ -7,25 +7,13 @@
 
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
-
-const styles = stylex.create({
-  hr: {
-    margin: '4px 0',
-    borderStyle: 'none',
-    borderTopWidth: 1,
-    borderTopStyle: 'solid',
-    borderTopColor: 'var(--divider-background)',
-    outline: 'none',
-    height: 0,
-    width: '100%',
-  },
-});
+import {cn} from 'shared/cn';
+import css from './Divider.module.css';
 
 export function Divider({
-  xstyle,
+  className,
 }: {
-  xstyle?: stylex.StyleXStyles;
+  className?: string;
 } & ReactProps<HTMLHRElement>) {
-  return <hr {...stylex.props(styles.hr, xstyle)} />;
+  return <hr className={cn(css.hr, className)} />;
 }

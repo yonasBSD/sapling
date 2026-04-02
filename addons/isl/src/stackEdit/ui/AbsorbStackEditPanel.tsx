@@ -19,17 +19,16 @@ import type {HashSet} from '../../dag/set';
 import type {AbsorbEdit, AbsorbEditId} from '../absorb';
 import type {CommitRev, CommitStackState, FileRev, FileStackIndex} from '../commitStackState';
 
-import * as stylex from '@stylexjs/stylex';
 import {Banner, BannerKind} from 'isl-components/Banner';
 import {Button} from 'isl-components/Button';
 import {Column, Row} from 'isl-components/Flex';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
-import {stylexPropsWithClassName} from 'isl-components/utils';
 import {atom, useAtomValue} from 'jotai';
 import React, {useEffect, useMemo, useRef} from 'react';
 import {ComparisonType} from 'shared/Comparison';
 import {useContextMenu} from 'shared/ContextMenu';
+import {cn} from 'shared/cn';
 import {firstLine, nullthrows} from 'shared/utils';
 import {FileHeader, IconType} from '../../ComparisonView/SplitDiffView/SplitDiffFileHeader';
 import {SplitDiffTable} from '../../ComparisonView/SplitDiffView/SplitDiffHunk';
@@ -43,109 +42,8 @@ import {readAtom, writeAtom} from '../../jotaiUtils';
 import {themeState} from '../../theme';
 import {prev} from '../revMath';
 import {calculateDagFromStack} from '../stackDag';
+import css from './AbsorbStackEditPanel.module.css';
 import {stackEditStack, useStackEditState} from './stackEditState';
-
-const styles = stylex.create({
-  container: {
-    padding: 'var(--pad)',
-  },
-  absorbEditSingleChunk: {
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--tooltip-border)',
-    // The negative margins match <FileHeader />.
-    marginLeft: -1,
-    marginRight: -1,
-    marginBottom: -1,
-    display: 'flex',
-    borderTopWidth: 0,
-    // eslint-disable-next-line @stylexjs/valid-styles
-    ':not(#__unused__):hover .send-to-commit': {
-      visibility: 'visible',
-    },
-    // eslint-disable-next-line @stylexjs/valid-styles
-    ':not(#__unused__):focus-within .send-to-commit': {
-      visibility: 'visible',
-    },
-  },
-  inDraggingOverlay: {
-    borderStyle: 'none',
-  },
-  beingDragged: {
-    opacity: 0.5,
-  },
-  dragHandlerWrapper: {
-    width: 'fit-content',
-    display: 'flex',
-    alignItems: 'center',
-    backgroundColor: {
-      ':hover': 'var(--tooltip-background)',
-    },
-    position: 'relative',
-  },
-  dragHandle: {
-    paddingBlock: '0',
-    paddingInline: 'var(--pad)',
-    alignItems: 'center',
-    height: '100%',
-    userSelect: 'none',
-    cursor: 'grab',
-  },
-  sendToCommitButton: {
-    position: 'absolute',
-    left: '100%',
-    zIndex: 100,
-    visibility: 'hidden',
-    borderRadius: '5px',
-    marginInline: 'var(--pad)',
-    // eslint-disable-next-line @stylexjs/valid-styles
-    ':not(#__unused__) .tooltip-creator': {
-      backgroundColor: 'var(--background)',
-      borderRadius: '5px',
-    },
-  },
-  commitTitle: {
-    paddingBlock: 'var(--halfpad)',
-    paddingInline: 'var(--pad)',
-    transition: 'opacity 0.1s ease-out',
-  },
-  deemphasizeCommitTitle: {
-    opacity: 0.5,
-  },
-  inlineIcon: {
-    verticalAlign: 'top',
-    height: 12,
-  },
-  scrollYPadding: {
-    paddingRight: 'var(--pad)',
-  },
-  commitExtras: {
-    paddingLeft: 'var(--pad)',
-    marginBottom: 'var(--pad)',
-  },
-  instruction: {
-    width: '100%',
-  },
-  uncommittedChanges: {
-    opacity: 0.9,
-    fontVariant: 'all-small-caps',
-    fontSize: '90%',
-    fontWeight: 'bold',
-    marginBottom: 'var(--halfpad)',
-  },
-  fileHint: {
-    padding: 'var(--pad)',
-    outlineWidth: '1px',
-    outlineStyle: 'solid',
-    outlineColor: 'var(--panel-view-border)',
-    backgroundColor: 'var(--hint-background)',
-    display: 'flex',
-    gap: 'var(--halfpad)',
-  },
-  unmoveable: {
-    cursor: 'not-allowed',
-  },
-});
 
 /** The `AbsorbEdit` that is currently being dragged. */
 const draggingAbsorbEdit = atom<AbsorbEdit | null>(null);
@@ -161,9 +59,9 @@ export function AbsorbStackEditPanel() {
 
   return (
     <>
-      <Column xstyle={styles.container}>
+      <Column className={css.container}>
         <AbsorbInstruction dag={dag} subset={subset} />
-        <ScrollY maxSize="calc(100vh - 200px)" {...stylex.props(styles.scrollYPadding)}>
+        <ScrollY maxSize="calc(100vh - 200px)" className={css.scrollYPadding}>
           <RenderDag
             className="absorb-dag"
             dag={dag}
@@ -192,8 +90,7 @@ function AbsorbInstruction(props: {subset: HashSet; dag: Dag}) {
   if (hasDndDestinations) {
     tips.push(
       <T>Changes have been automatically distributed through your stack.</T>,
-      <T
-        replace={{$grabber: <Icon icon="grabber" size="S" {...stylex.props(styles.inlineIcon)} />}}>
+      <T replace={{$grabber: <Icon icon="grabber" size="S" className={css.inlineIcon} />}}>
         Drag $grabber to move changes to different commits
       </T>,
     );
@@ -206,8 +103,8 @@ function AbsorbInstruction(props: {subset: HashSet; dag: Dag}) {
   }
 
   return (
-    <Row xstyle={styles.instruction}>
-      <Banner xstyle={styles.instruction} kind={bannerKind}>
+    <Row className={css.instruction}>
+      <Banner className={css.instruction} kind={bannerKind}>
         <Icon icon="info" />
         <div>
           {tips.map((tip, idx) => (
@@ -304,9 +201,7 @@ function RenderCommit(props: {info: DagCommitInfo}) {
   }
   // Just show the commit title for now.
   return (
-    <div {...stylex.props(styles.commitTitle, fadeout && styles.deemphasizeCommitTitle)}>
-      {info.title}
-    </div>
+    <div className={cn(css.commitTitle, fadeout && css.deemphasizeCommitTitle)}>{info.title}</div>
   );
 }
 
@@ -371,9 +266,9 @@ function AbsorbDagCommitExtras(props: {info: DagCommitInfo}) {
   const isWdir = info.hash === YOU_ARE_HERE_VIRTUAL_COMMIT.hash;
 
   return (
-    <div {...stylex.props(styles.commitExtras)}>
+    <div className={css.commitExtras}>
       {isWdir && (
-        <div {...stylex.props(styles.uncommittedChanges)}>
+        <div className={css.uncommittedChanges}>
           <T>Uncommitted Changes</T>
         </div>
       )}
@@ -459,7 +354,7 @@ function AbsorbEditsForFile(props: {
         />
       )}
       {fileHasAnyDestinations === false && !isCollapsed ? (
-        <div {...stylex.props(styles.fileHint)}>
+        <div className={css.fileHint}>
           <Icon icon="warning" />
           <T>This file was not changed in this stack and can't be absorbed</T>
         </div>
@@ -569,18 +464,18 @@ function SingleAbsorbEdit(props: {
   return (
     <div
       ref={ref}
-      {...stylex.props(
-        styles.absorbEditSingleChunk,
-        inDraggingOverlay && styles.inDraggingOverlay,
-        !inDraggingOverlay && isDragging === edit && styles.beingDragged,
+      className={cn(
+        css.absorbEditSingleChunk,
+        inDraggingOverlay && css.inDraggingOverlay,
+        !inDraggingOverlay && isDragging === edit && css.beingDragged,
       )}
       data-reorder-id={reorderId}>
       {props.collapsed ? null : (
         <>
-          <div {...stylex.props(styles.dragHandlerWrapper)}>
+          <div className={css.dragHandlerWrapper}>
             <DragHandle
               onDrag={unmovable ? undefined : handleDrag}
-              xstyle={[styles.dragHandle, unmovable ? styles.unmoveable : undefined]}>
+              className={cn(css.dragHandle, unmovable ? css.unmoveable : undefined)}>
               <Icon icon="grabber" />
             </DragHandle>
             {!inDraggingOverlay && !unmovable && <SendToCommitButton edit={edit} />}
@@ -633,7 +528,7 @@ function SendToCommitButton({edit}: {edit: AbsorbEdit}) {
     return items;
   });
   return (
-    <div {...stylexPropsWithClassName(styles.sendToCommitButton, 'send-to-commit')}>
+    <div className={cn(css.sendToCommitButton, 'send-to-commit')}>
       <Tooltip title={t('Move to a specific commit')}>
         <Button icon onClick={menu}>
           <Icon icon="insert" />

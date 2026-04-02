@@ -7,51 +7,11 @@
 
 import {type ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
+import {cn} from 'shared/cn';
 import {Button} from './Button';
+import css from './ButtonWithDropdownTooltip.module.css';
 import {Icon} from './Icon';
-import {colors, spacing} from './theme/tokens.stylex';
 import {Tooltip} from './Tooltip';
-
-const styles = stylex.create({
-  container: {
-    display: 'flex',
-    alignItems: 'stretch',
-    position: 'relative',
-  },
-  button: {
-    borderBottomRightRadius: 0,
-    borderTopRightRadius: 0,
-  },
-  chevron: {
-    borderBottomLeftRadius: 0,
-    borderTopLeftRadius: 0,
-    borderLeftWidth: 'unset',
-    borderLeftStyle: 'unset',
-    borderLeftColor: 'unset',
-    width: '24px',
-    height: '24px',
-    paddingTop: 6,
-  },
-  builtinButtonBorder: {
-    borderLeftWidth: 'unset',
-    borderLeftStyle: 'unset',
-    borderLeftColor: 'unset',
-  },
-  iconButton: {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    paddingRight: spacing.half,
-  },
-  iconSelect: {
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    borderLeftColor: colors.hoverDarken,
-  },
-  chevronDisabled: {
-    opacity: 0.5,
-  },
-});
 
 export function ButtonWithDropdownTooltip({
   label,
@@ -73,12 +33,12 @@ export function ButtonWithDropdownTooltip({
   ref?: React.Ref<HTMLButtonElement>;
 }) {
   return (
-    <div {...stylex.props(styles.container)}>
+    <div className={css.container}>
       <Button
         kind={kind}
         onClick={disabled ? undefined : () => onClick()}
         disabled={disabled}
-        xstyle={[styles.button, kind === 'icon' && styles.iconButton]}
+        className={cn(css.button, kind === 'icon' && css.iconButton)}
         ref={ref}
         {...rest}>
         {icon ?? null} {label}
@@ -92,12 +52,9 @@ export function ButtonWithDropdownTooltip({
           kind={kind}
           onClick={undefined}
           disabled={disabled}
-          xstyle={[styles.chevron]}
+          className={css.chevron}
           {...rest}>
-          <Icon
-            icon="chevron-down"
-            {...stylex.props(styles.chevron, disabled && styles.chevronDisabled)}
-          />
+          <Icon icon="chevron-down" className={cn(css.chevron, disabled && css.chevronDisabled)} />
         </Button>
       </Tooltip>
     </div>

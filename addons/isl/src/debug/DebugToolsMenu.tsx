@@ -9,7 +9,6 @@ import type {ReactNode} from 'react';
 import type {ExclusiveOr} from 'shared/typeUtils';
 import type {Heartbeat} from '../heartbeat';
 
-import * as stylex from '@stylexjs/stylex';
 import {Badge} from 'isl-components/Badge';
 import {Banner, BannerKind} from 'isl-components/Banner';
 import {Button} from 'isl-components/Button';
@@ -20,7 +19,6 @@ import {Subtle} from 'isl-components/Subtle';
 import {Tooltip} from 'isl-components/Tooltip';
 import {atom, useAtom, useAtomValue} from 'jotai';
 import {useCallback, useEffect, useState} from 'react';
-import {colors} from '../../../components/theme/tokens.stylex';
 import serverApi, {debugLogMessageTraffic} from '../ClientToServerAPI';
 import {Column, Row} from '../ComponentUtils';
 import {DropdownField, DropdownFields} from '../DropdownFields';
@@ -44,6 +42,7 @@ import {
 import {showToast} from '../toast';
 import {isDev} from '../utils';
 import {ComponentExplorerButton} from './ComponentExplorer';
+import css from './DebugToolsMenu.module.css';
 import {readInterestingAtoms, serializeAtomsState} from './getInterestingAtoms';
 
 import './DebugToolsMenu.css';
@@ -307,38 +306,17 @@ function DebugPerfInfo() {
   );
 }
 
-const styles = stylex.create({
-  slow: {
-    color: colors.signalFg,
-    backgroundColor: colors.signalBadBg,
-  },
-  ok: {
-    color: colors.signalFg,
-    backgroundColor: colors.signalMediumBg,
-  },
-  fast: {
-    color: colors.signalFg,
-    backgroundColor: colors.signalGoodBg,
-  },
-});
-
 function FetchDurationInfo(
   props: {name: ReactNode} & ExclusiveOr<{start?: number; end?: number}, {duration: number}>,
 ) {
   const {name} = props;
   const {end, start, duration} = props;
   const deltaMs = duration != null ? duration : end == null || start == null ? null : end - start;
-  const xstyle =
-    deltaMs == null
-      ? undefined
-      : deltaMs < 1000
-        ? styles.fast
-        : deltaMs < 3000
-          ? styles.ok
-          : styles.slow;
+  const badgeClassName =
+    deltaMs == null ? undefined : deltaMs < 1000 ? css.fast : deltaMs < 3000 ? css.ok : css.slow;
   return (
     <div className={`fetch-duration-info`}>
-      {name} <Badge xstyle={xstyle}>{deltaMs == null ? 'N/A' : `${deltaMs}ms`}</Badge>
+      {name} <Badge className={badgeClassName}>{deltaMs == null ? 'N/A' : `${deltaMs}ms`}</Badge>
       {end == null ? null : (
         <Subtle>
           <Tooltip title={new Date(end).toLocaleString()} placement="right">

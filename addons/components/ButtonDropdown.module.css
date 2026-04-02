@@ -1,0 +1,94 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .container {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+  }
+
+  .container::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  .button {
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+  }
+
+  .chevron {
+    color: var(--button-secondary-foreground);
+    position: absolute;
+    top: calc(50% - 0.5em);
+    right: calc(var(--halfpad) - 1px);
+    pointer-events: none;
+  }
+
+  .select {
+    background-color: var(--_bg, var(--button-secondary-background));
+    color: var(--_fg, var(--button-secondary-foreground));
+    opacity: 1;
+    cursor: pointer;
+    width: 24px;
+    border-radius: 0px 2px 2px 0px;
+    outline: none;
+    outline-offset: 2px;
+    vertical-align: bottom;
+    appearance: none;
+    line-height: 0;
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--button-border, transparent);
+    border-left-color: hsl(from var(--button-secondary-foreground) h s l / 0.3);
+  }
+
+  .select:hover {
+    background-color: var(--_hover-bg, var(--button-secondary-hover-background));
+  }
+
+  .select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .select:focus {
+    outline: 1px solid var(--focus-border);
+  }
+
+  .builtinButtonBorder {
+    border-left-width: unset;
+    border-left-style: unset;
+    border-left-color: unset;
+  }
+
+  .iconButton {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-right: var(--spacing-half);
+  }
+
+  .iconSelect {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left-color: var(--color-hover-darken);
+  }
+
+  .iconChevron {
+    color: var(--button-icon-foreground);
+  }
+
+  .chevronDisabled {
+    opacity: 0.5;
+  }
+}

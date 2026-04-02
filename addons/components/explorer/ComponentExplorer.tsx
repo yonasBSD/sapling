@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
 import {useState, type ReactNode} from 'react';
+import {cn} from 'shared/cn';
 import {Badge} from '../Badge';
 import {Banner, BannerKind} from '../Banner';
 import {Button} from '../Button';
@@ -29,7 +29,8 @@ import {TextField} from '../TextField';
 import {Tooltip} from '../Tooltip';
 import {Typeahead} from '../Typeahead';
 import {layout} from '../theme/layout';
-import {colors, font, radius, spacing} from '../theme/tokens.stylex';
+import {colors, font, spacing} from '../theme/tokens';
+import css from './ComponentExplorer.module.css';
 
 /* eslint-disable no-console */
 
@@ -58,9 +59,9 @@ export default function ComponentExplorer() {
   const [activePanel, setActivePanel] = useState<'fruit' | 'vegetables'>('fruit');
   const [buttonDropdownChoice, setButtonDropdownChoice] = useState(buttonDropdownOptions[0]);
   return (
-    <div {...stylex.props(styles.container)}>
+    <div className={css.container}>
       <h2>Component Explorer</h2>
-      <div {...stylex.props(styles.container, layout.flexCol, layout.fullWidth)}>
+      <div className={cn(css.container, layout.flexCol, layout.fullWidth)}>
         <GroupName>Colors</GroupName>
         <Row>
           Normal
@@ -339,15 +340,15 @@ export default function ComponentExplorer() {
         <GroupName>Spacing</GroupName>
         <Row>
           {paddings.map(size => (
-            <ColorBadge style={styles.padding(size)} key={size}>
+            <ColorBadge style={{padding: spacing[size]}} key={size}>
               {size}
             </ColorBadge>
           ))}
         </Row>
         <Row>
-          <div {...stylex.props(layout.flexCol)} style={{alignItems: 'flex-start'}}>
+          <div className={layout.flexCol} style={{alignItems: 'flex-start'}}>
             {paddings.map(size => (
-              <div {...stylex.props(layout.flexRow)} style={{gap: spacing[size]}} key={size}>
+              <div className={layout.flexRow} style={{gap: spacing[size]}} key={size}>
                 <ColorBadge>A</ColorBadge>
                 <ColorBadge>B</ColorBadge>
                 <ColorBadge>{size}</ColorBadge>
@@ -358,7 +359,7 @@ export default function ComponentExplorer() {
         <GroupName>Font</GroupName>
         <Row>
           {fontSizes.map(size => (
-            <ColorBadge style={styles.font(size)} bg={colors.hoverDarken} key={size}>
+            <ColorBadge style={{fontSize: font[size]}} bg={colors.hoverDarken} key={size}>
               {size}
             </ColorBadge>
           ))}
@@ -368,33 +369,6 @@ export default function ComponentExplorer() {
   );
 }
 
-const styles = stylex.create({
-  container: {
-    padding: spacing.pad,
-    overflow: 'auto',
-  },
-  badge: (fg, bg) => ({
-    backgroundColor: bg,
-    color: fg,
-    fontFamily: 'monospace',
-    paddingBlock: spacing.half,
-    paddingInline: spacing.pad,
-    borderRadius: radius.round,
-  }),
-  groupName: {
-    fontSize: font.bigger,
-    width: '100%',
-    paddingTop: spacing.double,
-    fontWeight: 'bold',
-  },
-  padding: (pad: (typeof paddings)[number]) => ({
-    padding: spacing[pad],
-  }),
-  font: (size: (typeof fontSizes)[number]) => ({
-    fontSize: font[size],
-  }),
-});
-
 function ColorBadge({
   children,
   bg,
@@ -402,23 +376,29 @@ function ColorBadge({
   style,
 }: {
   children: ReactNode;
-  bg?: stylex.StyleXVar<string>;
-  fg?: stylex.StyleXVar<string>;
-  style?: stylex.StyleXStyles;
+  bg?: string;
+  fg?: string;
+  style?: React.CSSProperties;
 }) {
   return (
-    <div {...stylex.props(layout.flexRow, styles.badge(fg, bg ?? colors.hoverDarken), style)}>
+    <div
+      className={cn(layout.flexRow, css.badge)}
+      style={{backgroundColor: bg ?? colors.hoverDarken, color: fg, ...style}}>
       {children}
     </div>
   );
 }
 
-function Row({children, style}: {children: ReactNode; style?: stylex.StyleXStyles}) {
-  return <div {...stylex.props(layout.flexRow, layout.fullWidth, style)}>{children}</div>;
+function Row({children, style}: {children: ReactNode; style?: React.CSSProperties}) {
+  return (
+    <div className={cn(layout.flexRow, layout.fullWidth)} style={style}>
+      {children}
+    </div>
+  );
 }
 
 function GroupName({children}: {children: ReactNode}) {
-  return <div {...stylex.props(styles.groupName)}>{children}</div>;
+  return <div className={css.groupName}>{children}</div>;
 }
 
 function ExampleTypeahead() {

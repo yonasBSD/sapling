@@ -5,36 +5,22 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
 import {ErrorNotice} from 'isl-components/ErrorNotice';
 import {Icon} from 'isl-components/Icon';
 import {Panels} from 'isl-components/Panels';
 import {useAtom, useAtomValue} from 'jotai';
 import {useState} from 'react';
+import {cn} from 'shared/cn';
 import {Center, FlexSpacer, Row, ScrollY} from '../../ComponentUtils';
 import {Modal} from '../../Modal';
 import {tracker} from '../../analytics';
 import {t} from '../../i18n';
 import {AbsorbStackEditPanel} from './AbsorbStackEditPanel';
+import css from './EditStackModal.module.css';
 import {SplitStackEditPanel, SplitStackToolbar} from './SplitStackEditPanel';
 import {StackEditConfirmButtons} from './StackEditConfirmButtons';
 import {StackEditSubTree} from './StackEditSubTree';
 import {editingStackIntentionHashes, loadingStackState} from './stackEditState';
-
-const styles = stylex.create({
-  container: {
-    minWidth: '500px',
-    minHeight: '300px',
-  },
-  loading: {
-    paddingBottom: 'calc(24px + 2 * var(--pad))',
-  },
-  tab: {
-    fontSize: '110%',
-    paddingBlock: 'var(--halfpad)',
-    paddingInline: 'calc(2 * var(--pad))',
-  },
-});
 
 /// Show a <Modal /> when editing a stack.
 export function MaybeEditStackModal() {
@@ -59,11 +45,11 @@ export function MaybeEditStackModal() {
         setStackIntention(['general', new Set()]);
       }}>
       <Center
-        xstyle={[
-          (stackIntention === 'general' || stackIntention === 'absorb') && styles.container,
-          styles.loading,
-        ]}
-        className={stackIntention === 'split' ? 'interactive-split' : undefined}>
+        className={cn(
+          (stackIntention === 'general' || stackIntention === 'absorb') && css.container,
+          stackIntention === 'split' && 'interactive-split',
+          css.loading,
+        )}>
         {loadingState.state === 'hasError' ? (
           <ErrorNotice error={new Error(loadingState.error)} title={t('Loading stack failed')} />
         ) : (
@@ -140,8 +126,8 @@ function LoadedEditStackModal() {
           setActiveTab(tab);
           tracker.track('StackEditChangeTab', {extras: {tab}});
         }}
-        xstyle={styles.container}
-        tabXstyle={styles.tab}
+        className={css.container}
+        tabClassName={css.tab}
       />
       <Row style={{padding: 'var(--pad) 0', justifyContent: 'flex-end'}}>
         {activeTab === 'split' && <SplitStackToolbar />}

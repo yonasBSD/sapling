@@ -1,0 +1,23 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .linkButton {
+    font-size: var(--font-normal);
+    text-decoration: underline;
+    border-style: none;
+    background-color: transparent;
+    margin: 0;
+    padding: 0;
+    color: var(--color-fg);
+    cursor: pointer;
+  }
+
+  .linkButton:hover {
+    color: var(--color-bright-fg);
+  }
+}

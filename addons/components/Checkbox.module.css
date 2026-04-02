@@ -1,0 +1,50 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .label {
+    --checkbox-focus-within-color: var(--checkbox-border);
+    cursor: pointer;
+    align-items: center;
+    position: relative;
+    outline: none;
+    user-select: none;
+  }
+
+  .label:focus-within {
+    --checkbox-focus-within-color: var(--focus-border);
+  }
+
+  .input {
+    opacity: 0;
+    outline: none;
+    appearance: none;
+    position: absolute;
+  }
+
+  .disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .withChildren {
+    margin-right: var(--spacing-pad);
+  }
+
+  .checkmark {
+    background-color: var(--checkbox-background);
+    border-radius: 3px;
+    width: 16px;
+    height: 16px;
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--checkbox-focus-within-color);
+    display: inline-block;
+    color: var(--checkbox-foreground);
+    transition: 60ms transform ease-in-out;
+  }
+}

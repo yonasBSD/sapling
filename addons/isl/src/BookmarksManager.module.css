@@ -1,0 +1,35 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.container {
+  align-items: flex-start;
+  gap: var(--spacing-double);
+  width: 500px;
+  max-width: 500px;
+}
+
+.bookmarkGroup {
+  align-items: flex-start;
+  margin-inline: var(--spacing-half);
+  gap: var(--spacing-half);
+}
+
+.description {
+  margin-bottom: var(--spacing-half);
+}
+
+.masterBookmarkRow {
+  align-items: center;
+  gap: 8px;
+}
+
+.masterBookmarkDropdown {
+  font-size: 11px;
+  padding-block: 1px;
+  padding-inline: 2px;
+  height: 20px;
+}

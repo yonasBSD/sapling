@@ -5,33 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
 import {Icon} from 'isl-components/Icon';
-import {notEmpty} from 'shared/utils';
-import {spacing} from '../../components/theme/tokens.stylex';
+import {cn} from 'shared/cn';
+import css from './ComponentUtils.module.css';
 
 import './ComponentUtils.css';
-
-const styles = stylex.create({
-  center: {
-    display: 'flex',
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  flex: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: spacing.pad,
-  },
-  spacer: {
-    flexGrow: 1,
-  },
-  alignStart: {
-    alignItems: 'flex-start',
-  },
-});
 
 export type ReactProps<T extends HTMLElement> = React.DetailedHTMLProps<React.HTMLAttributes<T>, T>;
 
@@ -44,13 +22,8 @@ export function LargeSpinner() {
 }
 
 export function Center(props: ContainerProps) {
-  const {className, xstyle, ...rest} = props;
-  return (
-    <div
-      {...stylexPropsWithClassName([styles.center, xstyle].filter(notEmpty), className)}
-      {...rest}
-    />
-  );
+  const {className, ...rest} = props;
+  return <div className={cn(css.center, className)} {...rest} />;
 }
 
 /** Flexbox container with horizontal children. */
@@ -75,23 +48,21 @@ export function ScrollY(props: ScrollProps) {
 
 /** Visually empty flex item with `flex-grow: 1` to insert as much space as possible between siblings. */
 export function FlexSpacer() {
-  return <div {...stylex.props(styles.spacer)} />;
+  return <div className={css.spacer} />;
 }
 
-type ContainerProps = ReactProps<HTMLDivElement> & {xstyle?: stylex.StyleXStyles} & {
+type ContainerProps = ReactProps<HTMLDivElement> & {
+  className?: string;
   /** If true, use alignItems: flex-start instead of centering */
   alignStart?: boolean;
 };
 
 /** See `<Row>` and `<Column>`. */
 function FlexBox(props: ContainerProps, flexDirection: 'row' | 'column') {
-  const {className, style, alignStart, xstyle, ...rest} = props;
+  const {className, style, alignStart, ...rest} = props;
   return (
     <div
-      {...stylexPropsWithClassName(
-        [styles.flex, alignStart && styles.alignStart, xstyle].filter(notEmpty),
-        className,
-      )}
+      className={cn(css.flex, alignStart && css.alignStart, className)}
       {...rest}
       style={{flexDirection, ...style}}
     />
@@ -151,17 +122,4 @@ function Scroll(props: ScrollProps) {
       <div {...mergedProps}>{props.children}</div>
     </div>
   );
-}
-
-/**
- * Like stylex.props(), but also adds in extra classNames.
- * Useful since `{...stylex.props()}` sets className,
- * and either overwrites or is overwritten by other `className="..."` props.
- */
-export function stylexPropsWithClassName(
-  style: stylex.StyleXStyles,
-  ...names: Array<string | undefined>
-) {
-  const {className, ...rest} = stylex.props(style);
-  return {...rest, className: className + ' ' + names.filter(notEmpty).join(' ')};
 }

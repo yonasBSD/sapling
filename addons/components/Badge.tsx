@@ -8,37 +8,12 @@
 import type {ReactNode} from 'react';
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
-
-const styles = stylex.create({
-  badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    boxSizing: 'border-box',
-    backgroundColor: 'var(--badge-background)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--button-border, transparent)',
-    borderRadius: '11px',
-    color: 'var(--badge-foreground)',
-    padding: '3px 6px',
-    fontFamily: 'var(--font-family)',
-    fontSize: '11px',
-    minHeight: '18px',
-    minWidth: '18px',
-    lineHeight: '16px',
-    height: '16px',
-
-    textOverflow: 'ellipsis',
-    maxWidth: '150px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-  },
-});
+import {cn} from 'shared/cn';
+import css from './Badge.module.css';
 
 export function Badge({
-  xstyle,
+  className,
   ...rest
-}: {children: ReactNode; xstyle?: stylex.StyleXStyles} & ReactProps<HTMLSpanElement>) {
-  return <span {...stylex.props(styles.badge, xstyle)} {...rest} />;
+}: {children: ReactNode; className?: string} & ReactProps<HTMLSpanElement>) {
+  return <span className={cn(css.badge, className)} {...rest} />;
 }

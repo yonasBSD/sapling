@@ -1,0 +1,27 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .container {
+    padding: var(--spacing-pad);
+    overflow: auto;
+  }
+
+  .badge {
+    font-family: monospace;
+    padding-block: var(--spacing-half);
+    padding-inline: var(--spacing-pad);
+    border-radius: var(--radius-round);
+  }
+
+  .groupName {
+    font-size: var(--font-bigger);
+    width: 100%;
+    padding-top: var(--spacing-double);
+    font-weight: bold;
+  }
+}

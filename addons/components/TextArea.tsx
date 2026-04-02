@@ -7,65 +7,39 @@
 
 import type {ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
 import {useId} from 'react';
+import {cn} from 'shared/cn';
 import {Column} from './Flex';
-
-const styles = stylex.create({
-  root: {
-    gap: '2px',
-  },
-  label: {
-    marginBlock: '0px',
-  },
-  textarea: {
-    fontFamily: 'var(--font-family)',
-    boxSizing: 'border-box',
-    padding: '8px',
-    minWidth: '100px',
-    minHeight: '42px',
-    width: '100%',
-    backgroundColor: 'var(--input-background)',
-    color: 'var(--input-foreground)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--dropdown-border)',
-    outline: {
-      default: 'none',
-      ':focus-visible': '1px solid var(--focus-border)',
-    },
-    outlineOffset: '-1px',
-  },
-});
+import css from './TextArea.module.css';
 
 export type TextAreaProps = {
   children?: ReactNode;
-  xstyle?: stylex.StyleXStyles;
-  containerXstyle?: stylex.StyleXStyles;
+  className?: string;
+  containerClassName?: string;
   resize?: 'none' | 'vertical' | 'horizontal' | 'both';
   ref?: React.Ref<HTMLTextAreaElement>;
 } & React.DetailedHTMLProps<React.TextareaHTMLAttributes<HTMLTextAreaElement>, HTMLTextAreaElement>;
 
 export function TextArea({
   children,
-  xstyle,
-  containerXstyle,
+  className: classNameProp,
+  containerClassName,
   resize = 'none',
   ref,
   ...rest
 }: TextAreaProps) {
   const id = useId();
   return (
-    <Column xstyle={[styles.root, containerXstyle ?? null]} alignStart>
+    <Column className={cn(css.root, containerClassName)} alignStart>
       {children && (
-        <label htmlFor={id} {...stylex.props(styles.label)}>
+        <label htmlFor={id} className={css.label}>
           {children}
         </label>
       )}
       <textarea
         ref={ref}
         style={{resize}}
-        {...stylex.props(styles.textarea, xstyle)}
+        className={cn(css.textarea, classNameProp)}
         id={id}
         {...rest}
       />

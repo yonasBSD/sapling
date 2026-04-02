@@ -1,0 +1,121 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.container {
+  padding: var(--pad);
+}
+
+.absorbEditSingleChunk {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--tooltip-border);
+  margin-left: -1px;
+  margin-right: -1px;
+  margin-bottom: -1px;
+  display: flex;
+  border-top-width: 0;
+}
+
+.absorbEditSingleChunk:hover :global(.send-to-commit) {
+  visibility: visible;
+}
+
+.absorbEditSingleChunk:focus-within :global(.send-to-commit) {
+  visibility: visible;
+}
+
+.inDraggingOverlay {
+  border-style: none;
+}
+
+.beingDragged {
+  opacity: 0.5;
+}
+
+.dragHandlerWrapper {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.dragHandlerWrapper:hover {
+  background-color: var(--tooltip-background);
+}
+
+.dragHandle {
+  padding-block: 0;
+  padding-inline: var(--pad);
+  align-items: center;
+  height: 100%;
+  user-select: none;
+  cursor: grab;
+}
+
+.sendToCommitButton {
+  position: absolute;
+  left: 100%;
+  z-index: 100;
+  visibility: hidden;
+  border-radius: 5px;
+  margin-inline: var(--pad);
+}
+
+.sendToCommitButton :global(.tooltip-creator) {
+  background-color: var(--background);
+  border-radius: 5px;
+}
+
+.commitTitle {
+  padding-block: var(--halfpad);
+  padding-inline: var(--pad);
+  transition: opacity 0.1s ease-out;
+}
+
+.deemphasizeCommitTitle {
+  opacity: 0.5;
+}
+
+.inlineIcon {
+  vertical-align: top;
+  height: 12px;
+}
+
+.scrollYPadding {
+  padding-right: var(--pad);
+}
+
+.commitExtras {
+  padding-left: var(--pad);
+  margin-bottom: var(--pad);
+}
+
+.instruction {
+  width: 100%;
+}
+
+.uncommittedChanges {
+  opacity: 0.9;
+  font-variant: all-small-caps;
+  font-size: 90%;
+  font-weight: bold;
+  margin-bottom: var(--halfpad);
+}
+
+.fileHint {
+  padding: var(--pad);
+  outline-width: 1px;
+  outline-style: solid;
+  outline-color: var(--panel-view-border);
+  background-color: var(--hint-background);
+  display: flex;
+  gap: var(--halfpad);
+}
+
+.unmoveable {
+  cursor: not-allowed;
+}

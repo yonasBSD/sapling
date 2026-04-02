@@ -14,7 +14,6 @@ import type {
   SubmodulesByRoot,
 } from './types';
 
-import * as stylex from '@stylexjs/stylex';
 import {Badge} from 'isl-components/Badge';
 import {Button, buttonStyles} from 'isl-components/Button';
 import {ButtonDropdown} from 'isl-components/ButtonDropdown';
@@ -28,10 +27,11 @@ import {TextField} from 'isl-components/TextField';
 import {Tooltip} from 'isl-components/Tooltip';
 import {atom, useAtomValue} from 'jotai';
 import {Suspense, useState} from 'react';
+import {cn} from 'shared/cn';
 import {basename} from 'shared/utils';
-import {colors, spacing} from '../../components/theme/tokens.stylex';
 import serverAPI from './ClientToServerAPI';
 import {Column, Row, ScrollY} from './ComponentUtils';
+import css from './CwdSelector.module.css';
 import {DropdownField, DropdownFields} from './DropdownFields';
 import {useCommandEvent} from './ISLShortcuts';
 import {codeReviewProvider} from './codeReview/CodeReviewInfo';
@@ -127,62 +127,6 @@ registerDisposable(
   import.meta.hot,
 );
 
-const styles = stylex.create({
-  container: {
-    display: 'flex',
-    gap: 0,
-  },
-  hideRightBorder: {
-    borderRightWidth: 0,
-    borderRightStyle: 'none',
-    marginRight: 0,
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-  },
-  hideLeftBorder: {
-    borderLeftWidth: 0,
-    borderLeftStyle: 'none',
-    marginLeft: 0,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-  },
-  submoduleSelect: {
-    width: 'auto',
-    maxWidth: '96px',
-    textOverflow: 'ellipsis',
-    boxShadow: 'none',
-    outline: 'none',
-  },
-  submoduleSeparator: {
-    // Override background to disable hover effect
-    backgroundColor: {
-      default: colors.subtleHoverDarken,
-    },
-  },
-  submoduleDropdownContainer: {
-    minWidth: '200px',
-    alignItems: 'flex-start',
-    gap: spacing.pad,
-  },
-  submoduleList: {
-    width: '100%',
-    overflow: 'hidden',
-  },
-  submoduleOption: {
-    padding: 'var(--halfpad)',
-    borderRadius: 'var(--halfpad)',
-    cursor: 'pointer',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    boxSizing: 'border-box',
-    backgroundColor: {
-      ':hover': 'var(--hover-darken)',
-      ':focus': 'var(--hover-darken)',
-    },
-    width: '100%',
-  },
-});
-
 export function CwdSelector() {
   const info = useAtomValue(repositoryInfo);
   const currentCwd = useAtomValue(serverCwd);
@@ -199,7 +143,7 @@ export function CwdSelector() {
   const mainLabel = getMainSelectorLabel(repoRoot, repoRoots, currentCwd);
 
   return (
-    <div {...stylex.props(styles.container)}>
+    <div className={css.container}>
       <MainCwdSelector
         currentCwd={currentCwd}
         label={mainLabel}
@@ -245,7 +189,7 @@ function MainCwdSelector({
         <Button
           icon
           data-testid="cwd-dropdown-button"
-          {...stylex.props(hideRightBorder && styles.hideRightBorder)}>
+          className={hideRightBorder ? css.hideRightBorder : undefined}>
           <Icon icon="folder" />
           {label}
         </Button>
@@ -466,11 +410,11 @@ function SubmoduleSelector({
     <>
       <Icon
         icon="chevron-right"
-        {...stylex.props(
+        className={cn(
           buttonStyles.icon,
-          styles.submoduleSeparator,
-          styles.hideLeftBorder,
-          styles.hideRightBorder,
+          css.submoduleSeparator,
+          css.hideLeftBorder,
+          css.hideRightBorder,
         )}
       />
       <Tooltip
@@ -478,7 +422,7 @@ function SubmoduleSelector({
         placement="bottom"
         title={<SubmoduleHint path={selectedValue} root={root} />}
         component={dismiss => (
-          <Column xstyle={styles.submoduleDropdownContainer}>
+          <Column className={css.submoduleDropdownContainer}>
             <TextField
               autoFocus
               width="100%"
@@ -486,12 +430,12 @@ function SubmoduleSelector({
               value={query}
               onInput={e => setQuery(e.currentTarget?.value ?? '')}
             />
-            <div {...stylex.props(styles.submoduleList)}>
+            <div className={css.submoduleList}>
               <ScrollY maxSize={360}>
                 {toDisplay.map(m => (
                   <div
                     key={m.path}
-                    {...stylex.props(styles.submoduleOption)}
+                    className={css.submoduleOption}
                     onClick={() => {
                       onChangeSelected(m);
                       setQuery('');
@@ -507,10 +451,10 @@ function SubmoduleSelector({
         )}>
         <Button
           kind="icon"
-          {...stylex.props(
-            styles.submoduleSelect,
-            styles.hideLeftBorder,
-            hideRightBorder && styles.hideRightBorder,
+          className={cn(
+            css.submoduleSelect,
+            css.hideLeftBorder,
+            hideRightBorder && css.hideRightBorder,
           )}>
           {selected ? selected.name : `${t('submodules')}...`}
         </Button>

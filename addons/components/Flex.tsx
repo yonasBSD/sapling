@@ -7,44 +7,10 @@
 
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
-import {spacing} from './theme/tokens.stylex';
+import {cn} from 'shared/cn';
+import css from './Flex.module.css';
 
-type ContainerProps = ReactProps<HTMLDivElement> & {xstyle?: stylex.StyleXStyles};
-
-const styles = stylex.create({
-  center: {
-    display: 'flex',
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  column: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  flex: {
-    display: 'flex',
-    gap: spacing.pad,
-  },
-  spacer: {
-    flexGrow: 1,
-  },
-  alignStart: {
-    alignItems: 'flex-start',
-  },
-  alignCenter: {
-    alignItems: 'center',
-  },
-  alignCustom: alignItems => ({
-    alignItems,
-  }),
-});
+type ContainerProps = ReactProps<HTMLDivElement>;
 
 export type ColumnAlignmentProps =
   | {alignStart: true; alignCenter?: undefined | false; alignItems?: undefined}
@@ -57,32 +23,29 @@ export type ColumnAlignmentProps =
 
 /** Vertical flex layout */
 export function Column(props: ContainerProps & ColumnAlignmentProps) {
-  const {xstyle, alignStart, alignCenter, alignItems, className, ...rest} = props;
+  const {alignStart, alignCenter, alignItems, className, style, ...rest} = props;
 
-  const {className: stylexClassName, ...otherStylex} = stylex.props(
-    styles.flex,
-    styles.column,
-    xstyle,
-    alignStart && styles.alignStart,
-    alignCenter && styles.alignCenter,
-    alignItems && styles.alignCustom(alignItems),
-  );
   return (
     <div
       {...rest}
-      className={stylexClassName + (className ? ' ' + className : '')}
-      {...otherStylex}
+      className={cn(
+        css.flex,
+        css.column,
+        alignStart && css.alignStart,
+        alignCenter && css.alignCenter,
+        className,
+      )}
+      style={alignItems ? {...(style ?? {}), alignItems} : style}
     />
   );
 }
 
 /** Horizontal flex layout */
-export function Row(props: ContainerProps) {
-  const {xstyle, ...rest} = props;
-  return <div {...rest} {...stylex.props(styles.flex, styles.row, xstyle)} />;
+export function Row({className, ...rest}: ContainerProps) {
+  return <div {...rest} className={cn(css.flex, css.row, className)} />;
 }
 
 /** Visually empty flex item with `flex-grow: 1` to insert as much space as possible between siblings. */
 export function FlexSpacer() {
-  return <div {...stylex.props(styles.spacer)} />;
+  return <div className={css.spacer} />;
 }

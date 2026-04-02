@@ -1,0 +1,62 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.list {
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 300px;
+  overflow-y: auto;
+  align-items: flex-start;
+}
+
+.comment {
+  align-items: flex-start;
+  width: calc(100% - 12px);
+  background-color: var(--color-bg);
+  padding-block: 2px;
+  padding-inline: 6px;
+  border-radius: var(--radius-round);
+}
+
+.commentInfo {
+  gap: var(--spacing-half);
+  margin-block: var(--spacing-half);
+  align-items: flex-start;
+}
+
+.inlineCommentFilename {
+  margin-bottom: var(--spacing-half);
+}
+
+.commentContent {
+  white-space: pre-wrap;
+}
+
+.left {
+  align-items: end;
+  flex-shrink: 0;
+}
+
+.author {
+  font-size: var(--font-small);
+  flex-shrink: 0;
+}
+
+.avatar {
+  margin-block: var(--spacing-half);
+}
+
+.byline {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-pad);
+  align-items: center;
+}
+
+.diffView {
+  margin-block: var(--spacing-pad);
+}

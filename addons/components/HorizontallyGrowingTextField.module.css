@@ -1,0 +1,31 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .horizontalGrowContainer {
+    display: inline-grid;
+    max-width: 600px;
+    align-items: center;
+  }
+
+  .horizontalGrowContainer::after {
+    width: auto;
+    min-width: 1em;
+    content: attr(data-value);
+    visibility: hidden;
+    white-space: pre-wrap;
+    grid-area: 1 / 2;
+    height: 26px;
+    padding: 0 9px;
+  }
+
+  .horizontalGrow {
+    width: auto;
+    min-width: 1em;
+    grid-area: 1 / 2;
+  }
+}

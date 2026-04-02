@@ -12,7 +12,6 @@ import type {CommitRev, CommitStackState, FileMetadata, FileStackIndex} from '..
 import type {FileRev, FileStackState} from '../fileStackState';
 import type {UseStackEditState} from './stackEditState';
 
-import * as stylex from '@stylexjs/stylex';
 import {Set as ImSet, type List, Range} from 'immutable';
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
@@ -46,6 +45,7 @@ import {isAbsent, reorderedRevs} from '../commitStackState';
 import {max, next, prev} from '../revMath';
 import {AISplitButton} from './AISplit';
 import {computeLinesForFileStackEditor} from './FileStackEditorLines';
+import css from './SplitStackEditPanel.module.css';
 import {
   bumpStackEditMetric,
   findStartEndRevs,
@@ -55,12 +55,6 @@ import {
 } from './stackEditState';
 
 import './SplitStackEditPanel.css';
-
-const styles = stylex.create({
-  full: {
-    width: '100%',
-  },
-});
 
 export function SplitStackEditPanel() {
   const stackEdit = useStackEditState();
@@ -822,7 +816,7 @@ function EditableCommitTitle(props: MaybeEditableCommitTitleProps) {
   };
   return (
     <TextField
-      containerXstyle={styles.full}
+      containerClassName={css.full}
       value={existingTitle}
       title={t('Edit commit title')}
       style={{width: 'calc(100% - var(--pad))'}}

@@ -7,7 +7,6 @@
 
 import type {CommitInfo} from '../types';
 
-import * as stylex from '@stylexjs/stylex';
 import {ErrorBoundary} from 'isl-components/ErrorNotice';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
@@ -17,18 +16,9 @@ import {
   useFetchPendingSignificantLinesOfCode,
   useFetchSignificantLinesOfCode,
 } from '../sloc/useFetchSignificantLinesOfCode';
+import css from './DiffStats.module.css';
 
 type Props = {commit: CommitInfo};
-const styles = stylex.create({
-  locInfo: {
-    alignItems: 'center',
-    fontWeight: 'bold',
-    textTransform: 'lowercase',
-    fontSize: '85%',
-    opacity: 0.9,
-    gap: 'var(--halfpad)',
-  },
-});
 export function LoadingDiffStatsView() {
   return (
     <DiffStatsView>
@@ -87,7 +77,7 @@ function ResolvedDiffStatsView({
 
 function DiffStatsView({extras, children}: {extras?: React.ReactNode; children: React.ReactNode}) {
   return (
-    <Row xstyle={styles.locInfo}>
+    <Row className={css.locInfo}>
       <Icon icon="code" />
       {children}
       <Tooltip

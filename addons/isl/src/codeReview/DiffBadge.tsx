@@ -9,7 +9,6 @@ import type {ReactNode} from 'react';
 import type {CommitInfo, DiffId, DiffSummary} from '../types';
 import type {UICodeReviewProvider} from './UICodeReviewProvider';
 
-import * as stylex from '@stylexjs/stylex';
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
@@ -31,6 +30,7 @@ import {inMergeConflicts, repositoryInfo} from '../serverAPIState';
 import {exactRevset} from '../types';
 import {codeReviewProvider, diffSummary} from './CodeReviewInfo';
 import './DiffBadge.css';
+import css from './DiffBadge.module.css';
 import {openerUrlForDiffUrl} from './github/GitHubUrlOpener';
 import {SyncStatus, syncStatusAtom} from './syncStatus';
 
@@ -64,31 +64,6 @@ export function DiffInfo({commit, hideActions}: {commit: CommitInfo; hideActions
   );
 }
 
-const styles = stylex.create({
-  diffBadge: {
-    color: 'white',
-    cursor: 'pointer',
-    textDecoration: {
-      default: 'none',
-      ':hover': 'underline',
-    },
-  },
-  diffFollower: {
-    alignItems: 'center',
-    display: 'inline-flex',
-    gap: '5px',
-    opacity: '0.9',
-    fontSize: '90%',
-    paddingBlock: '0',
-    paddingInline: 'var(--halfpad)',
-  },
-  diffFollowerIcon: {
-    '::before': {
-      fontSize: '90%',
-    },
-  },
-});
-
 export function DiffBadge({
   diff,
   children,
@@ -105,7 +80,7 @@ export function DiffBadge({
   const openerUrl = useAtomValue(openerUrlForDiffUrl(url));
 
   return (
-    <Link href={openerUrl} xstyle={styles.diffBadge}>
+    <Link href={openerUrl} className={css.diffBadge}>
       <provider.DiffBadgeContent diff={diff} syncStatus={syncStatus}>
         {children}
       </provider.DiffBadgeContent>
@@ -120,8 +95,8 @@ export function DiffFollower({commit}: {commit: CommitInfo}) {
 
   return (
     <Tooltip title={t('This commit follows the Pull Request of its nearest descendant above')}>
-      <span {...stylex.props(styles.diffFollower)}>
-        <Icon icon="fold-up" size="S" {...stylex.props(styles.diffFollowerIcon)} />
+      <span className={css.diffFollower}>
+        <Icon icon="fold-up" size="S" className={css.diffFollowerIcon} />
         <T>follower</T>
       </span>
     </Tooltip>

@@ -1,0 +1,30 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.diffBadge {
+  color: white;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.diffBadge:hover {
+  text-decoration: underline;
+}
+
+.diffFollower {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  opacity: 0.9;
+  font-size: 90%;
+  padding-block: 0;
+  padding-inline: var(--halfpad);
+}
+
+.diffFollowerIcon::before {
+  font-size: 90%;
+}

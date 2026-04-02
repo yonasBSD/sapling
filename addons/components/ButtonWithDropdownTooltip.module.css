@@ -1,0 +1,52 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .container {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+  }
+
+  .button {
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+  }
+
+  .chevron {
+    border-bottom-left-radius: 0;
+    border-top-left-radius: 0;
+    border-left-width: unset;
+    border-left-style: unset;
+    border-left-color: unset;
+    width: 24px;
+    height: 24px;
+    padding-top: 6px;
+  }
+
+  .builtinButtonBorder {
+    border-left-width: unset;
+    border-left-style: unset;
+    border-left-color: unset;
+  }
+
+  .iconButton {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-right: var(--spacing-half);
+  }
+
+  .iconSelect {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left-color: var(--color-hover-darken);
+  }
+
+  .chevronDisabled {
+    opacity: 0.5;
+  }
+}

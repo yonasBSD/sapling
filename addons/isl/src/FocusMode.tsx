@@ -5,26 +5,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {Kbd} from 'isl-components/Kbd';
 import {KeyCode, Modifier} from 'isl-components/KeyboardShortcuts';
 import {Tooltip} from 'isl-components/Tooltip';
 import {useAtom} from 'jotai';
-import {colors} from '../../components/theme/tokens.stylex';
 import {Column} from './ComponentUtils';
+import css from './FocusMode.module.css';
 import {useCommand} from './ISLShortcuts';
 import {tracker} from './analytics';
 import {focusMode} from './atoms/FocusModeState';
 import {T} from './i18n';
-
-const styles = stylex.create({
-  focused: {
-    backgroundColor: colors.blue,
-    color: 'white',
-  },
-});
 
 export function FocusModeToggle() {
   const [focused, setFocused] = useAtom(focusMode);
@@ -57,7 +49,7 @@ export function FocusModeToggle() {
       }>
       <Button
         icon
-        xstyle={focused && styles.focused}
+        className={focused ? css.focused : undefined}
         onClick={toggleFocus}
         data-focus-mode={focused}
         data-testid="focus-mode-toggle">

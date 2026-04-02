@@ -7,18 +7,11 @@
 
 import type {TextAreaProps} from 'isl-components/TextArea';
 
-import * as stylex from '@stylexjs/stylex';
 import {TextArea} from 'isl-components/TextArea';
 import {useEffect} from 'react';
-import {notEmpty} from 'shared/utils';
+import {cn} from 'shared/cn';
 import {assert} from '../utils';
-
-const styles = stylex.create({
-  minHeight: {
-    overflow: 'hidden',
-    minHeight: '26px',
-  },
-});
+import css from './MinHeightTextField.module.css';
 
 /**
  * Wrap `TextArea` to auto-resize to minimum height and optionally disallow newlines.
@@ -28,12 +21,12 @@ export function MinHeightTextField(
   props: TextAreaProps & {
     onInput: (event: {currentTarget: HTMLTextAreaElement}) => unknown;
     keepNewlines?: boolean;
-    xstyle?: stylex.StyleXStyles;
-    containerXstyle?: stylex.StyleXStyles;
-    ref?: React.Ref<HTMLTextAreaElement>;
+    className?: string;
+    containerClassName?: string;
+    ref?: React.RefObject<HTMLTextAreaElement | null>;
   },
 ) {
-  const {onInput, keepNewlines, xstyle, ref, ...rest} = props;
+  const {onInput, keepNewlines, className, ref, ...rest} = props;
 
   // ref could also be a callback ref; don't bother supporting that right now.
   assert(typeof ref === 'object', 'MinHeightTextArea requires ref object');
@@ -59,7 +52,7 @@ export function MinHeightTextField(
     <TextArea
       ref={ref}
       {...rest}
-      xstyle={[styles.minHeight, xstyle].filter(notEmpty)}
+      className={cn(css.minHeight, className)}
       onInput={e => {
         const newValue = e.currentTarget?.value;
         const result = keepNewlines

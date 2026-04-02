@@ -5,17 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
 import {Button} from 'isl-components/Button';
 import {Row} from 'isl-components/Flex';
 import {Icon} from 'isl-components/Icon';
-
-const styles = stylex.create({
-  actionBarRow: {
-    alignItems: 'flex-start',
-    marginBlock: 1, // Ensure buttons in different themes have sufficient height, regardless of their border
-  },
-});
+import css from './InlineCommentSuggestionActionBottomBar.module.css';
 
 export default function InlineCommentActionBottomBar({
   resolved = false,
@@ -33,7 +26,7 @@ export default function InlineCommentActionBottomBar({
   isToggle?: boolean;
 }) {
   return isToggle ? (
-    <Row xstyle={styles.actionBarRow}>
+    <Row className={css.actionBarRow}>
       {!resolved ? (
         <Button onClick={onAccept} primary={true}>
           {acceptLabel ? acceptLabel : 'Apply'}
@@ -47,7 +40,7 @@ export default function InlineCommentActionBottomBar({
       )}
     </Row>
   ) : (
-    <Row xstyle={styles.actionBarRow}>
+    <Row className={css.actionBarRow}>
       <Button onClick={onAccept} primary={true}>
         {acceptLabel ? acceptLabel : 'Apply'}
         <Icon icon="check" />

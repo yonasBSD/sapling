@@ -9,7 +9,6 @@ import type {Operation} from '../../operations/Operation';
 import type {CommitInfo} from '../../types';
 import type {GithubUICodeReviewProvider} from './github';
 
-import * as stylex from '@stylexjs/stylex';
 import {Badge} from 'isl-components/Badge';
 import {Button} from 'isl-components/Button';
 import {Checkbox} from 'isl-components/Checkbox';
@@ -24,12 +23,7 @@ import {T} from '../../i18n';
 import {PushOperation} from '../../operations/PushOperation';
 import {CommitPreview, dagWithPreviews} from '../../previews';
 import {latestSuccessorUnlessExplicitlyObsolete} from '../../successionUtils';
-
-const styles = stylex.create({
-  sectionTitle: {
-    fontWeight: 'bold',
-  },
-});
+import css from './BranchingPrModalContent.module.css';
 
 function getPushChoices(provider: GithubUICodeReviewProvider) {
   const system = provider.system;
@@ -79,7 +73,7 @@ export default function BranchingPrModalContent({
   return (
     <Column alignStart style={{height: '100%'}}>
       <div>
-        <Row {...stylex.props(styles.sectionTitle)}>
+        <Row className={css.sectionTitle}>
           <span>
             <T>Commits</T>
           </span>

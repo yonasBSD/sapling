@@ -1,0 +1,19 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .hr {
+    margin: 4px 0;
+    border-style: none;
+    border-top-width: 1px;
+    border-top-style: solid;
+    border-top-color: var(--divider-background);
+    outline: none;
+    height: 0;
+    width: 100%;
+  }
+}

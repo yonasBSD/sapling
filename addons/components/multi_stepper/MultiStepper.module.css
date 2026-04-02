@@ -1,0 +1,30 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .container {
+    overflow-y: hidden;
+    height: 100%;
+  }
+
+  .contentLayout {
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+    height: 100%;
+  }
+
+  .leftContentContainer {
+    flex-shrink: 0;
+    min-width: 200px;
+  }
+
+  .stepContent {
+    flex: 1;
+    overflow-y: auto;
+  }
+}

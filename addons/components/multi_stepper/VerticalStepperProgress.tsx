@@ -7,53 +7,9 @@
 
 import type {MultiStepperContext} from 'isl-components/multi_stepper/MultiStepperContext';
 
-import * as stylex from '@stylexjs/stylex';
 import {Icon} from 'isl-components/Icon';
-
-const styles = stylex.create({
-  stepItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px',
-    borderRadius: '4px',
-    marginBottom: '8px',
-  },
-  stepItemActive: {
-    backgroundColor: 'var(--highlight-background)',
-  },
-  stepItemCompleted: {
-    cursor: 'pointer',
-  },
-  stepNumber: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '20px',
-    height: '20px',
-    borderRadius: '50%',
-    borderWidth: 2,
-    borderStyle: 'solid',
-    borderColor: 'var(--foreground)',
-    fontSize: '12px',
-    fontWeight: 'bold',
-  },
-  stepNumberActive: {
-    backgroundColor: 'var(--button-primary-background)',
-    borderColor: 'var(--button-primary-background)',
-    color: 'var(--button-primary-foreground)',
-  },
-  stepNumberCompleted: {
-    backgroundColor: 'var(--success-background)',
-    borderColor: 'var(--success-background)',
-  },
-  stepLabel: {
-    fontSize: '14px',
-  },
-  stepLabelActive: {
-    fontWeight: 'bold',
-  },
-});
+import {cn} from 'shared/cn';
+import css from './VerticalStepperProgress.module.css';
 
 type Props<TKey> = {
   stepper: MultiStepperContext<TKey>;
@@ -78,22 +34,20 @@ export function VerticalStepperProgress<TKey>({stepper}: Props<TKey>) {
           <div
             key={String(step.key)}
             onClick={() => (isCompleted ? stepper.goToStepByKey(step.key) : undefined)}
-            {...stylex.props(
-              styles.stepItem,
-              isActive && styles.stepItemActive,
-              isCompleted && styles.stepItemCompleted,
+            className={cn(
+              css.stepItem,
+              isActive && css.stepItemActive,
+              isCompleted && css.stepItemCompleted,
             )}>
             <div
-              {...stylex.props(
-                styles.stepNumber,
-                isActive && styles.stepNumberActive,
-                isCompleted && styles.stepNumberCompleted,
+              className={cn(
+                css.stepNumber,
+                isActive && css.stepNumberActive,
+                isCompleted && css.stepNumberCompleted,
               )}>
               {isCompleted ? icon : index + 1}
             </div>
-            <div {...stylex.props(styles.stepLabel, isActive && styles.stepLabelActive)}>
-              {step.label}
-            </div>
+            <div className={cn(css.stepLabel, isActive && css.stepLabelActive)}>{step.label}</div>
           </div>
         );
       })}

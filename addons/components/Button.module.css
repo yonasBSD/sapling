@@ -1,0 +1,80 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .button {
+    background-color: var(--_bg, var(--button-secondary-background));
+    color: var(--_fg, var(--button-secondary-foreground));
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--button-border, transparent);
+    border-radius: 2px;
+    padding: 4px 11px;
+    font-family: var(--font-family);
+    line-height: 16px;
+    cursor: pointer;
+    gap: 8px;
+    outline-offset: 2px;
+    outline-style: solid;
+    outline-width: 1px;
+    outline-color: transparent;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
+  .button:hover {
+    background-color: var(--_hover-bg, var(--button-secondary-hover-background));
+  }
+
+  .button:focus-visible {
+    outline-color: var(--focus-border, transparent);
+  }
+
+  .primary {
+    --_bg: var(--button-primary-background);
+    --_fg: var(--button-primary-foreground);
+    --_hover-bg: var(--button-primary-hover-background);
+  }
+
+  .primary:hover {
+    background-color: var(--_hover-bg);
+  }
+
+  .icon {
+    --_bg: var(--color-subtle-hover-darken);
+    --_fg: var(--foreground);
+    --_hover-bg: var(--button-icon-hover-background, rgba(90, 93, 94, 0.31));
+
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--color-subtle-hover-darken);
+    border-radius: 5px;
+    padding: 3px;
+    outline-style: solid;
+    outline-offset: 0;
+    outline-color: transparent;
+  }
+
+  .icon:hover {
+    background-color: var(--_hover-bg);
+    outline-style: dotted;
+    outline-color: var(--contrast-active-border, transparent);
+  }
+
+  .icon:focus-within {
+    outline-style: solid;
+  }
+
+  .icon:focus-visible {
+    outline-color: var(--focus-border, transparent);
+  }
+
+  .disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}

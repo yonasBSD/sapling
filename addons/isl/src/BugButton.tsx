@@ -7,12 +7,12 @@
 
 import type {Heartbeat} from './heartbeat';
 
-import * as stylex from '@stylexjs/stylex';
 import {Button} from 'isl-components/Button';
 import {ErrorNotice} from 'isl-components/ErrorNotice';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
 import {useAtomValue} from 'jotai';
+import css from './BugButton.module.css';
 import {Copyable} from './Copyable';
 import {DropdownFields} from './DropdownFields';
 import {Internal} from './Internal';
@@ -22,12 +22,6 @@ import platform from './platform';
 import {applicationinfo} from './serverAPIState';
 
 import './BugButton.css';
-
-const styles = stylex.create({
-  centered: {
-    justifyContent: 'center',
-  },
-});
 
 export function BugButton() {
   return (
@@ -121,7 +115,7 @@ function OSSFileABug() {
   return (
     <>
       <Button
-        xstyle={styles.centered}
+        className={css.centered}
         onClick={() => {
           platform.openExternalLink('https://sapling-scm.com/docs/addons/isl');
         }}>
@@ -129,7 +123,7 @@ function OSSFileABug() {
         <T>View Documentation</T>
       </Button>
       <Button
-        xstyle={styles.centered}
+        className={css.centered}
         onClick={() => {
           platform.openExternalLink('https://discord.gg/X6baZ94Vzh');
         }}>
@@ -137,7 +131,7 @@ function OSSFileABug() {
         <T>Help and Feedback on Discord</T>
       </Button>
       <Button
-        xstyle={styles.centered}
+        className={css.centered}
         onClick={() => {
           platform.openExternalLink('https://github.com/facebook/sapling/issues');
         }}>

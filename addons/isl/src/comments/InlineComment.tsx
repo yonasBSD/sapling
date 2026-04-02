@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
 import type {ParsedDiff} from 'diff';
 import {Icon} from 'isl-components/Icon';
 import type {ReactNode} from 'react';
@@ -16,31 +15,11 @@ import {Column, Row} from '../ComponentUtils';
 import type {ThemeColor} from '../theme';
 import type {CodeChange, DiffComment, SuggestedChange} from '../types';
 import {CodePatchSuggestionStatus, SuggestedChangeType} from '../types';
+import css from './InlineComment.module.css';
 import InlineCommentContent from './InlineCommentContent';
 import InlineCommentSuggestionActionBottomBar from './InlineCommentSuggestionActionBottomBar';
 
 const InlineCommentComparisonView = lazy(() => import('./InlineCommentComparisonView'));
-
-const styles = stylex.create({
-  subheadingsAlignBaseline: {alignItems: 'baseline', gap: '4px'},
-  tooltipBar: {width: '100%', justifyContent: 'space-between'},
-  boldText: {fontWeight: 700, fontSize: '100%'},
-  subtle: {fontSize: '90%', opacity: 0.8},
-  headerRow: {
-    justifyContent: 'space-between',
-    alignItems: 'start',
-    wordBreak: 'break-word',
-  },
-  headerContent: {
-    maxWidth: '320px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  },
-  headerControl: {
-    gap: '4px',
-  },
-});
 
 export function InlineComment({
   comment,
@@ -94,9 +73,7 @@ export function InlineComment({
     return changes.map((change, i) => {
       return (
         <div key={i}>
-          {changes.length === 1 ? null : (
-            <div {...stylex.props(styles.boldText)}>Change {i + 1}</div>
-          )}
+          {changes.length === 1 ? null : <div className={css.boldText}>Change {i + 1}</div>}
           <InlineCommentComparisonView
             path={path}
             suggestion={change.patch}
@@ -127,17 +104,17 @@ export function InlineComment({
           <div className="headerLeftContent">
             <Icon icon="comment" />
             <div className="headerTitle">
-              <span {...stylex.props(styles.boldText)}>{authorName}</span>
+              <span className={css.boldText}>{authorName}</span>
               {comment.content != null && comment.content !== '' && (
-                <div {...stylex.props(styles.subtle, styles.headerContent)}>{comment.content}</div>
+                <div className={`${css.subtle} ${css.headerContent}`}>{comment.content}</div>
               )}
             </div>
           </div>
-          <Row xstyle={styles.headerControl}>{headerControls}</Row>
+          <Row className={css.headerControl}>{headerControls}</Row>
         </div>
       ) : (
         <>
-          <Row xstyle={styles.headerRow}>
+          <Row className={css.headerRow}>
             <Column alignStart style={{marginBlock: '8px'}}>
               <InlineCommentContent
                 comment={comment}
@@ -149,25 +126,25 @@ export function InlineComment({
                 <InlineCommentContent comment={reply} key={i} />
               ))}
             </Column>
-            <Row xstyle={styles.headerControl}>{headerControls}</Row>
+            <Row className={css.headerControl}>{headerControls}</Row>
           </Row>
           <Column alignStart style={{marginBlock: '8px'}}>
             {path && codeSuggestion != null && codeChange != null && (
               <>
                 {codeSuggestion.type !== SuggestedChangeType.HUMAN_SUGGESTION && (
-                  <Row xstyle={styles.subheadingsAlignBaseline}>
-                    <div {...stylex.props(styles.boldText)}>
+                  <Row className={css.subheadingsAlignBaseline}>
+                    <div className={css.boldText}>
                       {codeSuggestion.type === SuggestedChangeType.METAMATE_SUGGESTION
                         ? 'Metamate'
                         : 'Signal'}
                     </div>
-                    <div {...stylex.props(styles.subtle)}>suggested changes</div>
+                    <div className={css.subtle}>suggested changes</div>
                   </Row>
                 )}
                 <Suspense>{renderDiffView(codeChange)}</Suspense>
               </>
             )}
-            <Row xstyle={styles.tooltipBar}>
+            <Row className={css.tooltipBar}>
               {codeSuggestion?.status != null ? (
                 <InlineCommentSuggestionActionBottomBar
                   resolved={codeSuggestion.status === CodePatchSuggestionStatus.Accepted}

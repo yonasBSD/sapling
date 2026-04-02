@@ -5,11 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type * as stylex from '@stylexjs/stylex';
 import type {PointerEventHandler, ReactElement} from 'react';
 
 import {Icon} from 'isl-components/Icon';
-import {stylexPropsWithClassName} from 'isl-components/utils';
+import {cn} from 'shared/cn';
 
 export type DragHandler = (x: number, y: number, isDragging: boolean) => void;
 
@@ -28,12 +27,10 @@ export type DragHandler = (x: number, y: number, isDragging: boolean) => void;
 export function DragHandle(props: {
   onDrag?: DragHandler;
   children?: ReactElement;
-  xstyle?: stylex.StyleXStyles;
+  className?: string;
 }): ReactElement {
   return (
-    <span
-      {...dragHandleProps(props.onDrag)}
-      {...stylexPropsWithClassName(props.xstyle, 'drag-handle')}>
+    <span {...dragHandleProps(props.onDrag)} className={cn(props.className, 'drag-handle')}>
       {props.children ?? <Icon icon="gripper" />}
     </span>
   );

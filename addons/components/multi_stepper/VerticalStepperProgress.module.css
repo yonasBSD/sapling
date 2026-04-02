@@ -1,0 +1,58 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .stepItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  .stepItemActive {
+    background-color: var(--highlight-background);
+  }
+
+  .stepItemCompleted {
+    cursor: pointer;
+  }
+
+  .stepNumber {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border-width: 2px;
+    border-style: solid;
+    border-color: var(--foreground);
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .stepNumberActive {
+    background-color: var(--button-primary-background);
+    border-color: var(--button-primary-background);
+    color: var(--button-primary-foreground);
+  }
+
+  .stepNumberCompleted {
+    background-color: var(--success-background);
+    border-color: var(--success-background);
+  }
+
+  .stepLabel {
+    font-size: 14px;
+  }
+
+  .stepLabelActive {
+    font-weight: bold;
+  }
+}

@@ -7,43 +7,12 @@
 
 import type {DiffComment, SuggestedChange} from 'isl/src/types';
 
-import * as stylex from '@stylexjs/stylex';
 import {Badge} from 'isl-components/Badge';
 import {Column, Row} from 'isl-components/Flex';
 import {Icon} from 'isl-components/Icon';
 import {AvatarImg} from 'isl/src/Avatar';
 import {ArchivedReasonType, ArchivedStateType, CodePatchSuggestionStatus} from 'isl/src/types';
-
-const styles = stylex.create({
-  avatarColumn: {
-    flexShrink: 0,
-  },
-  avatar: {
-    marginBlock: '5px',
-  },
-  commentColumn: {
-    gap: 1,
-  },
-  commentAuthorRow: {
-    gap: 6,
-  },
-  commentAuthor: {
-    lineHeight: '17px',
-    textWrap: 'nowrap',
-    opacity: 0.75,
-  },
-  versionAbbr: {
-    opacity: 0.5,
-    whiteSpace: 'nowrap',
-  },
-  primaryBadge: {
-    backgroundColor: 'var(--button-primary-background)',
-    color: 'var(--button-primary-foreground)',
-  },
-  suggestionBadge: {
-    gap: '2px',
-  },
-});
+import css from './InlineCommentContent.module.css';
 
 function getSuggestionBadgeLabel(
   suggestedChange: SuggestedChange | undefined,
@@ -82,8 +51,8 @@ export function CommentCardBadge({
   icon: string;
 }) {
   return (
-    <Badge xstyle={label.isPrimary && styles.primaryBadge}>
-      <Row xstyle={styles.suggestionBadge}>
+    <Badge className={label.isPrimary ? css.primaryBadge : undefined}>
+      <Row className={css.suggestionBadge}>
         <span>
           <Icon icon={icon} size="XS" />
         </span>
@@ -108,22 +77,22 @@ export default function InlineCommentContent({
 }) {
   const label = getSuggestionBadgeLabel(comment.suggestedChange);
   return (
-    <Column alignStart xstyle={styles.commentColumn}>
-      <Row xstyle={styles.commentAuthorRow}>
-        <Column alignStart xstyle={styles.avatarColumn}>
+    <Column alignStart className={css.commentColumn}>
+      <Row className={css.commentAuthorRow}>
+        <Column alignStart className={css.avatarColumn}>
           <AvatarImg
             username={comment.author}
             url={comment.authorAvatarUri}
-            xstyle={styles.avatar}
+            className={css.avatar}
           />
         </Column>
-        <div {...stylex.props(styles.commentAuthor)}>{comment.authorName}</div>
+        <div className={css.commentAuthor}>{comment.authorName}</div>
         {label && <CommentCardBadge label={label} icon="code" />}
         {isHidden && (
           <CommentCardBadge label={{text: 'Hidden', isPrimary: false}} icon="eye-closed" />
         )}
         {isHeadComment && !isLatestVersion && versionAbbr && (
-          <div {...stylex.props(styles.versionAbbr)}>[Original comment on {versionAbbr}]</div>
+          <div className={css.versionAbbr}>[Original comment on {versionAbbr}]</div>
         )}
       </Row>
       <Row>{comment.content}</Row>

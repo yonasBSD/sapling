@@ -14,7 +14,6 @@ import {
   type UseStackEditState,
 } from './stackEditState';
 
-import * as stylex from '@stylexjs/stylex';
 import {Button} from 'isl-components/Button';
 import {ButtonWithDropdownTooltip} from 'isl-components/ButtonWithDropdownTooltip';
 import {InlineErrorBadge} from 'isl-components/ErrorNotice';
@@ -32,13 +31,7 @@ import {t, T} from '../../i18n';
 import {GeneratedStatus} from '../../types';
 import {applyDiffSplit, diffCommit} from '../diffSplit';
 import {next} from '../revMath';
-
-const styles = stylex.create({
-  full: {
-    minWidth: '300px',
-    width: '100%',
-  },
-});
+import css from './AISplit.module.css';
 
 type AISplitButtonProps = {
   stackEdit: UseStackEditState;
@@ -262,7 +255,7 @@ function DetailsDropdown({
       <MinHeightTextField
         ref={ref}
         keepNewlines
-        containerXstyle={styles.full}
+        containerClassName={css.full}
         value={guidanceToAI}
         onInput={e => setGuidanceToAI(e.currentTarget.value)}>
         <T>Provide additional instructions to AI (optional)</T>

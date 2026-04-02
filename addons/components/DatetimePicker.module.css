@@ -1,0 +1,36 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .root {
+    gap: 0;
+  }
+
+  .label {
+    margin-block: 1px;
+  }
+
+  .input {
+    box-sizing: border-box;
+    height: 26px;
+    padding: 0 9px;
+    margin-block: 0;
+    min-width: 100px;
+    width: 100%;
+    background-color: var(--input-background);
+    color: var(--input-foreground);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--dropdown-border);
+    outline: none;
+    outline-offset: -1px;
+  }
+
+  .input:focus-visible {
+    outline: 1px solid var(--focus-border);
+  }
+}

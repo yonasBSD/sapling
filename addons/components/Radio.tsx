@@ -7,38 +7,15 @@
 
 import type react from 'react';
 
-import * as stylex from '@stylexjs/stylex';
 import {useId} from 'react';
+import {cn} from 'shared/cn';
 import {Column} from './Flex';
+import css from './Radio.module.css';
 import {Tooltip} from './Tooltip';
 import {layout} from './theme/layout';
-import {spacing} from './theme/tokens.stylex';
 
 // stylex doesn't support :checked and :before simultaneously very well
 import './Radio.css';
-
-const styles = stylex.create({
-  group: {
-    appearance: 'none',
-    borderStyle: 'none',
-    boxSizing: 'border-box',
-    alignItems: 'flex-start',
-    marginInline: 0,
-    marginBlock: spacing.pad,
-    padding: 0,
-  },
-  label: {
-    cursor: 'pointer',
-  },
-  horizontal: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  disabled: {
-    opacity: 0.5,
-    cursor: 'not-allowed',
-  },
-});
 
 export function RadioGroup<T extends string>({
   title,
@@ -54,8 +31,7 @@ export function RadioGroup<T extends string>({
   horizontal?: boolean;
 }) {
   const inner = (
-    <fieldset
-      {...stylex.props(layout.flexCol, styles.group, horizontal === true && styles.horizontal)}>
+    <fieldset className={cn(layout.flexCol, css.group, horizontal === true && css.horizontal)}>
       {choices.map(({value, title, tooltip, disabled}) => (
         <Radio
           key={value}
@@ -96,9 +72,7 @@ function Radio({
 }) {
   const id = useId();
   const inner = (
-    <label
-      htmlFor={id}
-      {...stylex.props(layout.flexRow, styles.label, disabled && styles.disabled)}>
+    <label htmlFor={id} className={cn(layout.flexRow, css.label, disabled && css.disabled)}>
       <input
         type="radio"
         id={id}

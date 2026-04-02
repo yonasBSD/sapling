@@ -1,0 +1,36 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.diagnosticList {
+  padding-inline: var(--spacing-double);
+  padding-block: var(--spacing-half);
+  gap: 0;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.diagnosticRow {
+  max-width: max(400px, 80vw);
+  padding: var(--spacing-half);
+  cursor: pointer;
+}
+
+.diagnosticRow:hover {
+  background-color: var(--hover-darken);
+}
+
+.allDiagnostics {
+  max-height: calc(100vh - 200px);
+  min-height: 50px;
+  overflow-y: scroll;
+}
+
+.confirmCheckbox {
+  padding-top: var(--spacing-double);
+}

@@ -7,36 +7,20 @@
 
 import type {ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-import {colors, font} from './theme/tokens.stylex';
-
-const styles = stylex.create({
-  linkButton: {
-    fontSize: font.normal,
-    textDecoration: 'underline',
-    borderStyle: 'none',
-    backgroundColor: 'transparent',
-    margin: 0,
-    padding: 0,
-    color: colors.fg,
-    cursor: 'pointer',
-    ':hover': {
-      color: colors.brightFg,
-    },
-  },
-});
+import {cn} from 'shared/cn';
+import css from './LinkButton.module.css';
 
 export function LinkButton({
   children,
   onClick,
-  style,
+  className,
 }: {
   children: ReactNode;
   onClick: () => unknown;
-  style?: stylex.StyleXStyles;
+  className?: string;
 }) {
   return (
-    <button {...stylex.props(styles.linkButton, style)} onClick={onClick}>
+    <button className={cn(css.linkButton, className)} onClick={onClick}>
       {children}
     </button>
   );

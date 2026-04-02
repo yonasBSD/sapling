@@ -7,28 +7,7 @@
 
 import type {MultiStepperContext} from './MultiStepperContext';
 
-import * as stylex from '@stylexjs/stylex';
-
-const styles = stylex.create({
-  container: {
-    overflowY: 'hidden',
-    height: '100%',
-  },
-  contentLayout: {
-    display: 'flex',
-    flexDirection: 'row',
-    gap: '24px',
-    height: '100%',
-  },
-  leftContentContainer: {
-    flexShrink: 0,
-    minWidth: '200px',
-  },
-  stepContent: {
-    flex: 1,
-    overflowY: 'auto',
-  },
-});
+import css from './MultiStepper.module.css';
 
 type Props<TKey> = {
   /**
@@ -57,10 +36,10 @@ type Props<TKey> = {
  */
 export function MultiStepper<TKey>({leftContent, stepper, children}: Props<TKey>) {
   return (
-    <div {...stylex.props(styles.container)}>
-      <div {...stylex.props(styles.contentLayout)}>
-        {leftContent && <div {...stylex.props(styles.leftContentContainer)}>{leftContent}</div>}
-        <div {...stylex.props(styles.stepContent)}>{children[stepper.getStepIndex()]}</div>
+    <div className={css.container}>
+      <div className={css.contentLayout}>
+        {leftContent && <div className={css.leftContentContainer}>{leftContent}</div>}
+        <div className={css.stepContent}>{children[stepper.getStepIndex()]}</div>
       </div>
     </div>
   );

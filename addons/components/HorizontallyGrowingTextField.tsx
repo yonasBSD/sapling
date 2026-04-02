@@ -7,32 +7,9 @@
 
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
+import {cn} from 'shared/cn';
+import css from './HorizontallyGrowingTextField.module.css';
 import {textFieldStyles} from './TextField';
-
-const styles = stylex.create({
-  horizontalGrowContainer: {
-    display: 'inline-grid',
-    maxWidth: '600px',
-    alignItems: 'center',
-    '::after': {
-      width: 'auto',
-      minWidth: '1em',
-      content: 'attr(data-value)',
-      visibility: 'hidden',
-      whiteSpace: 'pre-wrap',
-      gridArea: '1 / 2',
-      height: '26px',
-      padding: '0 9px',
-    },
-  },
-
-  horizontalGrow: {
-    width: 'auto',
-    minWidth: '1em',
-    gridArea: '1 / 2',
-  },
-});
 
 /**
  * Like a normal text field / {@link TextField}, but grows horizontally to fit the text.
@@ -47,9 +24,9 @@ export function HorizontallyGrowingTextField(
   const {onInput, ref, ...otherProps} = props;
 
   return (
-    <div {...stylex.props(styles.horizontalGrowContainer)} data-value={otherProps.value}>
+    <div className={css.horizontalGrowContainer} data-value={otherProps.value}>
       <input
-        {...stylex.props(textFieldStyles.input, styles.horizontalGrow)}
+        className={cn(textFieldStyles.input, css.horizontalGrow)}
         type="text"
         ref={ref}
         onInput={e => {

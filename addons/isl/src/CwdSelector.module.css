@@ -1,0 +1,65 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.container {
+  display: flex;
+  gap: 0;
+}
+
+.hideRightBorder {
+  border-right-width: 0;
+  border-right-style: none;
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.hideLeftBorder {
+  border-left-width: 0;
+  border-left-style: none;
+  margin-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.submoduleSelect {
+  width: auto;
+  max-width: 96px;
+  text-overflow: ellipsis;
+  box-shadow: none;
+  outline: none;
+}
+
+.submoduleSeparator {
+  background-color: var(--color-subtle-hover-darken);
+}
+
+.submoduleDropdownContainer {
+  min-width: 200px;
+  align-items: flex-start;
+  gap: var(--spacing-pad);
+}
+
+.submoduleList {
+  width: 100%;
+  overflow: hidden;
+}
+
+.submoduleOption {
+  padding: var(--halfpad);
+  border-radius: var(--halfpad);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.submoduleOption:hover,
+.submoduleOption:focus {
+  background-color: var(--hover-darken);
+}

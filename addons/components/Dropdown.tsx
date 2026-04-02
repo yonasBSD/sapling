@@ -8,38 +8,14 @@
 import type {ReactNode} from 'react';
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
 import {useId} from 'react';
-
-const styles = stylex.create({
-  label: {
-    marginBlock: '0px',
-  },
-  select: {
-    fontFamily: 'var(--font-family)',
-    boxSizing: 'border-box',
-    padding: '3px 6px',
-    backgroundColor: 'var(--input-background)',
-    color: 'var(--input-foreground)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--dropdown-border)',
-    outline: {
-      default: 'none',
-      ':focus-visible': '1px solid var(--focus-border)',
-    },
-    outlineOffset: '-1px',
-  },
-  disabled: {
-    opacity: 0.4,
-    cursor: 'not-allowed',
-  },
-});
+import {cn} from 'shared/cn';
+import css from './Dropdown.module.css';
 
 export function Dropdown<T extends string | {value: string; name: string; disabled?: boolean}>({
   options,
   children,
-  xstyle,
+  className,
   value,
   disabled,
   ...rest
@@ -48,17 +24,17 @@ export function Dropdown<T extends string | {value: string; name: string; disabl
   children?: ReactNode;
   value?: T extends string ? T : T extends {value: string; name: string} ? T['value'] : never;
   disabled?: boolean;
-  xstyle?: stylex.StyleXStyles;
+  className?: string;
 } & ReactProps<HTMLSelectElement>) {
   const id = useId();
   return (
     <select
-      {...stylex.props(styles.select, xstyle, disabled && styles.disabled)}
+      className={cn(css.select, className, disabled && css.disabled)}
       {...rest}
       disabled={disabled || options.length === 0}
       value={value}>
       {children && (
-        <label htmlFor={id} {...stylex.props(styles.label)}>
+        <label htmlFor={id} className={css.label}>
           {children}
         </label>
       )}

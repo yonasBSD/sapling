@@ -8,49 +8,24 @@
 import type {ReactNode} from 'react';
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
 import {useId} from 'react';
+import {cn} from 'shared/cn';
 import {Column} from './Flex';
-
-export const textFieldStyles = stylex.create({
-  root: {
-    gap: 0,
-  },
-  label: {
-    marginBlock: '1px',
-  },
-  input: {
-    boxSizing: 'border-box',
-    height: '26px',
-    padding: '0 9px',
-    marginBlock: 0,
-    minWidth: '100px',
-    width: '100%',
-    backgroundColor: 'var(--input-background)',
-    color: 'var(--input-foreground)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--dropdown-border)',
-    outline: {
-      default: 'none',
-      ':focus-visible': '1px solid var(--focus-border)',
-    },
-    outlineOffset: '-1px',
-  },
-});
+import css from './TextField.module.css';
+export {default as textFieldStyles} from './TextField.module.css';
 
 export function TextField({
   children,
-  xstyle,
-  containerXstyle,
+  className: classNameProp,
+  containerClassName,
   value,
   width,
   ref,
   ...rest
 }: {
   children?: ReactNode;
-  xstyle?: stylex.StyleXStyles;
-  containerXstyle?: stylex.StyleXStyles;
+  className?: string;
+  containerClassName?: string;
   value?: string;
   width?: string;
   placeholder?: string;
@@ -59,14 +34,14 @@ export function TextField({
 } & ReactProps<HTMLInputElement>) {
   const id = useId();
   return (
-    <Column xstyle={[textFieldStyles.root, containerXstyle ?? null]} style={{width}} alignStart>
+    <Column className={cn(css.root, containerClassName)} style={{width}} alignStart>
       {children && (
-        <label htmlFor={id} {...stylex.props(textFieldStyles.label)}>
+        <label htmlFor={id} className={css.label}>
           {children}
         </label>
       )}
       <input
-        {...stylex.props(textFieldStyles.input, xstyle)}
+        className={cn(css.input, classNameProp)}
         type="text"
         id={id}
         value={value}

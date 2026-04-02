@@ -8,64 +8,33 @@
 import type {ReactNode} from 'react';
 import type {ColumnAlignmentProps} from './Flex';
 
-import * as stylex from '@stylexjs/stylex';
+import {cn} from 'shared/cn';
 import {Column, Row} from './Flex';
-import {spacing} from './theme/tokens.stylex';
-
-const styles = stylex.create({
-  tabList: {
-    padding: '4px',
-    paddingBottom: spacing.pad,
-    gap: '32px',
-  },
-  tab: {
-    color: {
-      default: 'var(--panel-tab-foreground)',
-      ':hover': 'var(--panel-tab-active-foreground)',
-    },
-    padding: '4px 0',
-    backgroundColor: 'transparent',
-    borderStyle: 'none',
-    cursor: 'pointer',
-    borderBottomWidth: 1,
-    borderBottomStyle: 'solid',
-    borderBottomColor: 'transparent',
-  },
-  activeTab: {
-    borderBottomColor: 'var(--panel-tab-active-foreground)',
-    color: 'var(--panel-tab-active-foreground)',
-  },
-  tabpanel: {
-    padding: '0 6px 10px 6px',
-  },
-  spaceBetween: {
-    justifyContent: 'space-between',
-  },
-});
+import css from './Panels.module.css';
 
 export type PanelInfo = {render: () => ReactNode; label: ReactNode};
 export function Panels<T extends string>({
   panels,
-  xstyle,
-  tabXstyle,
-  tabListXstyle,
+  className,
+  tabClassName,
+  tabListClassName,
   alignmentProps,
   active,
   onSelect,
   tabListOptionalComponent,
 }: {
   panels: Record<T, PanelInfo>;
-  xstyle?: stylex.StyleXStyles;
-  tabXstyle?: stylex.StyleXStyles;
-  tabListXstyle?: stylex.StyleXStyles;
+  className?: string;
+  tabClassName?: string;
+  tabListClassName?: string;
   alignmentProps?: ColumnAlignmentProps;
   active: T;
   onSelect: (item: T) => void;
   tabListOptionalComponent?: ReactNode;
 }) {
   return (
-    <Column xstyle={xstyle} {...(alignmentProps ?? {alignStart: true})}>
-      <Row xstyle={[styles.tabList, styles.spaceBetween, tabListXstyle]} role="tablist">
+    <Column className={className} {...(alignmentProps ?? {alignStart: true})}>
+      <Row className={cn(css.tabList, css.spaceBetween, tabListClassName)} role="tablist">
         <Row>
           {(Object.entries(panels) as Array<[T, PanelInfo]>).map(([name, value]) => {
             return (
@@ -74,7 +43,7 @@ export function Panels<T extends string>({
                 aria-selected={active === name}
                 key={name}
                 onClick={() => onSelect(name)}
-                {...stylex.props(styles.tab, active === name && styles.activeTab, tabXstyle)}>
+                className={cn(css.tab, active === name && css.activeTab, tabClassName)}>
                 {value.label}
               </button>
             );
@@ -82,7 +51,7 @@ export function Panels<T extends string>({
         </Row>
         {tabListOptionalComponent}
       </Row>
-      <div role="tabpanel" {...stylex.props(styles.tabpanel)}>
+      <div role="tabpanel" className={css.tabpanel}>
         {panels[active]?.render()}
       </div>
     </Column>

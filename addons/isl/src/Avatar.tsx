@@ -7,9 +7,9 @@
 
 import type {DetailedHTMLProps} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
 import {useAtomValue} from 'jotai';
-import {colors, radius} from '../../components/theme/tokens.stylex';
+import {cn} from 'shared/cn';
+import css from './Avatar.module.css';
 import serverAPI from './ClientToServerAPI';
 import {t} from './i18n';
 import {atomFamilyWeak, lazyAtom} from './jotaiUtils';
@@ -31,15 +31,15 @@ const avatarUrl = atomFamilyWeak((author: string) => {
 export function AvatarImg({
   url,
   username,
-  xstyle,
+  className,
   ...rest
-}: {url?: string; username: string; xstyle?: stylex.StyleXStyles} & DetailedHTMLProps<
+}: {url?: string; username: string; className?: string} & DetailedHTMLProps<
   React.ImgHTMLAttributes<HTMLImageElement>,
   HTMLImageElement
 >) {
   return url == null ? null : (
     <img
-      {...stylex.props(styles.circle, xstyle)}
+      className={cn(css.circle, className)}
       src={url}
       width={14}
       height={14}
@@ -49,23 +49,8 @@ export function AvatarImg({
   );
 }
 
-const styles = stylex.create({
-  circle: {
-    width: 14,
-    height: 14,
-    borderWidth: 2,
-    borderStyle: 'solid',
-    borderRadius: radius.full,
-    borderColor: colors.fg,
-  },
-  empty: {
-    content: '',
-    backgroundColor: 'var(--foreground)',
-  },
-});
-
 export function BlankAvatar() {
-  return <div {...stylex.props(styles.circle, styles.empty)} />;
+  return <div className={`${css.circle} ${css.empty}`} />;
 }
 
 export function Avatar({

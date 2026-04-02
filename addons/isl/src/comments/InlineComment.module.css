@@ -1,0 +1,43 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.subheadingsAlignBaseline {
+  align-items: baseline;
+  gap: 4px;
+}
+
+.tooltipBar {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.boldText {
+  font-weight: 700;
+  font-size: 100%;
+}
+
+.subtle {
+  font-size: 90%;
+  opacity: 0.8;
+}
+
+.headerRow {
+  justify-content: space-between;
+  align-items: start;
+  word-break: break-word;
+}
+
+.headerContent {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerControl {
+  gap: 4px;
+}

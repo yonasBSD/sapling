@@ -8,84 +8,11 @@
 import type {ExclusiveOr} from './Types';
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
 import {type ReactNode} from 'react';
+import {cn} from 'shared/cn';
+import css from './Button.module.css';
 import {layout} from './theme/layout';
-import {colors} from './theme/tokens.stylex';
-
-/**
- * StyleX tries to evaluate CSS variables and store them separately.
- * Use a layer of indirection so the CSS variable is used literally.
- */
-export const vars = {
-  fg: 'var(--foreground)',
-  border: 'var(--contrast-border)',
-  /** very bright border, usually only set in high-contrast themes */
-  activeBorder: 'var(--contrast-active-border, transparent)',
-  focusBorder: 'var(--focus-border, transparent)',
-};
-
-export const buttonStyles = stylex.create({
-  button: {
-    backgroundColor: {
-      default: 'var(--button-secondary-background)',
-      ':hover': 'var(--button-secondary-hover-background)',
-    },
-    color: 'var(--button-secondary-foreground)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--button-border, transparent)',
-    borderRadius: '2px',
-    padding: '4px 11px',
-    fontFamily: 'var(--font-family)',
-    lineHeight: '16px',
-    cursor: 'pointer',
-    gap: '8px',
-    outlineOffset: '2px',
-    outlineStyle: 'solid',
-    outlineWidth: '1px',
-    outlineColor: {
-      default: 'transparent',
-      ':focus-visible': vars.focusBorder,
-    },
-    flexWrap: 'nowrap',
-    whiteSpace: 'nowrap',
-  },
-  primary: {
-    backgroundColor: {
-      default: 'var(--button-primary-background)',
-      ':hover': 'var(--button-primary-hover-background)',
-    },
-    color: 'var(--button-primary-foreground)',
-  },
-  icon: {
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: colors.subtleHoverDarken,
-    backgroundColor: {
-      default: colors.subtleHoverDarken,
-      ':hover': 'var(--button-icon-hover-background, rgba(90, 93, 94, 0.31))',
-    },
-    borderRadius: '5px',
-    color: vars.fg,
-    padding: '3px',
-    outlineStyle: {
-      default: 'solid',
-      ':hover': 'dotted',
-      ':focus-within': 'solid',
-    },
-    outlineOffset: 0,
-    outlineColor: {
-      default: 'transparent',
-      ':hover': vars.activeBorder,
-      ':focus-visible': vars.focusBorder,
-    },
-  },
-  disabled: {
-    opacity: '0.4',
-    cursor: 'not-allowed',
-  },
-});
+export {default as buttonStyles} from './Button.module.css';
 
 export function Button({
   icon: iconProp,
@@ -93,16 +20,14 @@ export function Button({
   disabled,
   onClick,
   children,
-  xstyle,
-  kind,
   className,
+  kind,
   ref,
   ...rest
 }: {
   className?: string;
   children?: ReactNode;
   disabled?: boolean;
-  xstyle?: stylex.StyleXStyles;
   primary?: boolean;
   icon?: boolean;
   ref?: React.Ref<HTMLButtonElement>;
@@ -129,14 +54,6 @@ export function Button({
   >) {
   const primary = kind === 'primary' || primaryProp === true;
   const icon = kind === 'icon' || iconProp === true;
-  const {className: stylexClassName, ...otherStylex} = stylex.props(
-    layout.flexRow,
-    buttonStyles.button,
-    primary && buttonStyles.primary,
-    icon && buttonStyles.icon,
-    disabled && buttonStyles.disabled,
-    xstyle,
-  );
   return (
     <button
       tabIndex={disabled ? -1 : 0}
@@ -145,8 +62,14 @@ export function Button({
         disabled !== true && onClick?.(e);
       }}
       ref={ref}
-      className={stylexClassName + (className ? ' ' + className : '')}
-      {...otherStylex}
+      className={cn(
+        layout.flexRow,
+        css.button,
+        primary && css.primary,
+        icon && css.icon,
+        disabled && css.disabled,
+        className,
+      )}
       disabled={disabled}
       {...rest}>
       {children}

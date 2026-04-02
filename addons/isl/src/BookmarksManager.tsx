@@ -10,7 +10,6 @@ import type {ReactNode} from 'react';
 import type {BookmarkKind} from './Bookmark';
 import type {Result, StableInfo} from './types';
 
-import * as stylex from '@stylexjs/stylex';
 import {Banner, BannerKind} from 'isl-components/Banner';
 import {Button} from 'isl-components/Button';
 import {Checkbox} from 'isl-components/Checkbox';
@@ -26,7 +25,6 @@ import {Typeahead} from 'isl-components/Typeahead';
 import {atom, useAtom, useAtomValue} from 'jotai';
 import React, {useState} from 'react';
 import {firstLine, notEmpty} from 'shared/utils';
-import {spacing} from '../../components/theme/tokens.stylex';
 import {Bookmark, getBookmarkAddons} from './Bookmark';
 import {
   addManualStable,
@@ -39,6 +37,7 @@ import {
   remoteBookmarks,
   removeManualStable,
 } from './BookmarksData';
+import css from './BookmarksManager.module.css';
 import serverAPI from './ClientToServerAPI';
 import {Column, Row, ScrollY} from './ComponentUtils';
 import {DropdownFields} from './DropdownFields';
@@ -48,33 +47,6 @@ import {Internal} from './Internal';
 import {T, t} from './i18n';
 import {readAtom} from './jotaiUtils';
 import {latestDag} from './serverAPIState';
-
-const styles = stylex.create({
-  container: {
-    alignItems: 'flex-start',
-    gap: spacing.double,
-    width: 500,
-    maxWidth: 500,
-  },
-  bookmarkGroup: {
-    alignItems: 'flex-start',
-    marginInline: spacing.half,
-    gap: spacing.half,
-  },
-  description: {
-    marginBottom: spacing.half,
-  },
-  masterBookmarkRow: {
-    alignItems: 'center',
-    gap: '8px',
-  },
-  masterBookmarkDropdown: {
-    fontSize: '11px',
-    paddingBlock: '1px',
-    paddingInline: '2px',
-    height: '20px',
-  },
-});
 
 export function BookmarksManagerMenu() {
   const additionalToggles = useCommandEvent('ToggleBookmarksManagerDropdown');
@@ -126,7 +98,7 @@ function BookmarksManager(_props: {dismiss: () => void}) {
       title={<T>Bookmarks Manager</T>}
       icon="bookmark"
       data-testid="bookmarks-manager-dropdown">
-      <Column xstyle={styles.container}>
+      <Column className={css.container}>
         {Internal.RecommendedBookmarkSection?.()}
         <Section
           title={<T>Remote Bookmarks</T>}
@@ -336,9 +308,9 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <Column xstyle={styles.bookmarkGroup}>
+    <Column className={css.bookmarkGroup}>
       <strong>{title}</strong>
-      {description && <Subtle {...stylex.props(styles.description)}>{description}</Subtle>}
+      {description && <Subtle className={css.description}>{description}</Subtle>}
       {children}
     </Column>
   );
@@ -367,7 +339,7 @@ function BookmarksList({
   }
   return (
     <ScrollY maxSize={300}>
-      <Column xstyle={styles.bookmarkGroup}>
+      <Column className={css.bookmarkGroup}>
         {bookmarks.map(bookmark => {
           if (typeof bookmark !== 'string' && bookmark.kind === 'custom') {
             return bookmark.custom;
@@ -397,7 +369,7 @@ function BookmarksList({
             // Determine the label for "Auto" based on whether this repo would be auto-hidden
             const autoLabel = shouldAutoHideMaster ? t('Auto (hide)') : t('Auto (show)');
             return (
-              <Row key={name} xstyle={styles.masterBookmarkRow}>
+              <Row key={name} className={css.masterBookmarkRow}>
                 <Bookmark fullLength kind={kind} tooltip={tooltip} icon={icon}>
                   {name}
                 </Bookmark>
@@ -407,7 +379,7 @@ function BookmarksList({
                   )}>
                   <Dropdown<{value: MasterBookmarkVisibility; name: string}>
                     value={currentVisibility}
-                    xstyle={styles.masterBookmarkDropdown}
+                    className={css.masterBookmarkDropdown}
                     options={[
                       {value: 'auto', name: autoLabel},
                       {value: 'show', name: t('Show')},

@@ -1,0 +1,70 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@layer components {
+  .group {
+    display: flex;
+    flex-wrap: nowrap;
+    --_border-color: hsl(from var(--button-secondary-foreground) h s l / 0.3);
+  }
+
+  .group > button:not(:first-child):not(:last-child) {
+    border-radius: 0;
+    border-left-width: 1px;
+    border-left-style: solid;
+    border-left-color: var(--_border-color);
+  }
+
+  .group > *:not(:first-child):not(:last-child) > button {
+    border-radius: 0;
+    border-left-width: 1px;
+    border-left-style: solid;
+    border-left-color: var(--_border-color);
+  }
+
+  .group > *:first-child > button {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .group > button:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .group > *:last-child > button {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left-width: 1px;
+    border-left-style: solid;
+    border-left-color: var(--_border-color);
+  }
+
+  .group > button:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left-width: 1px;
+    border-left-style: solid;
+    border-left-color: var(--_border-color);
+  }
+
+  .icon > button:not(:first-child):not(:last-child) {
+    border-left-color: var(--color-hover-darken);
+  }
+
+  .icon > *:not(:first-child):not(:last-child) > button {
+    border-left-color: var(--color-hover-darken);
+  }
+
+  .icon > button:last-child {
+    border-left-color: var(--color-hover-darken);
+  }
+
+  .icon > *:last-child > button {
+    border-left-color: var(--color-hover-darken);
+  }
+}

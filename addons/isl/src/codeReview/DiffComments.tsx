@@ -8,7 +8,6 @@
 import type {ParsedDiff} from 'shared/patch/types';
 import type {DiffComment, DiffCommentReaction, DiffId} from '../types';
 
-import * as stylex from '@stylexjs/stylex';
 import {ErrorNotice} from 'isl-components/ErrorNotice';
 import {Icon} from 'isl-components/Icon';
 import {Subtle} from 'isl-components/Subtle';
@@ -16,8 +15,10 @@ import {Tooltip} from 'isl-components/Tooltip';
 import {useAtom, useAtomValue} from 'jotai';
 import {useEffect} from 'react';
 import {ComparisonType} from 'shared/Comparison';
+import {cn} from 'shared/cn';
 import {group} from 'shared/utils';
-import {colors, font, radius, spacing} from '../../../components/theme/tokens.stylex';
+import {layout} from '../../../components/theme/layout';
+import {spacing} from '../../../components/theme/tokens';
 import {AvatarImg} from '../Avatar';
 import {SplitDiffTable} from '../ComparisonView/SplitDiffView/SplitDiffHunk';
 import {Column, Row} from '../ComponentUtils';
@@ -25,71 +26,22 @@ import {Link} from '../Link';
 import {T, t} from '../i18n';
 import platform from '../platform';
 import {RelativeDate} from '../relativeDate';
-import {layout} from '../stylexUtils';
 import {themeState} from '../theme';
+import css from './DiffComments.module.css';
 import {diffCommentData} from './codeReviewAtoms';
-
-const styles = stylex.create({
-  list: {
-    minWidth: '400px',
-    maxWidth: '600px',
-    maxHeight: '300px',
-    overflowY: 'auto',
-    alignItems: 'flex-start',
-  },
-  comment: {
-    alignItems: 'flex-start',
-    width: 'calc(100% - 12px)',
-    backgroundColor: colors.bg,
-    paddingBlock: '2px',
-    paddingInline: '6px',
-    borderRadius: radius.round,
-  },
-  commentInfo: {
-    gap: spacing.half,
-    marginBlock: spacing.half,
-    alignItems: 'flex-start',
-  },
-  inlineCommentFilename: {
-    marginBottom: spacing.half,
-  },
-  commentContent: {
-    whiteSpace: 'pre-wrap',
-  },
-  left: {
-    alignItems: 'end',
-    flexShrink: 0,
-  },
-  author: {
-    fontSize: font.small,
-    flexShrink: 0,
-  },
-  avatar: {
-    marginBlock: spacing.half,
-  },
-  byline: {
-    display: 'flex',
-    flexDirection: 'row',
-    gap: spacing.pad,
-    alignItems: 'center',
-  },
-  diffView: {
-    marginBlock: spacing.pad,
-  },
-});
 
 function Comment({comment, isTopLevel}: {comment: DiffComment; isTopLevel?: boolean}) {
   return (
-    <Row xstyle={styles.comment}>
-      <Column {...stylex.props(styles.left)}>
-        <AvatarImg username={comment.author} url={comment.authorAvatarUri} xstyle={styles.avatar} />
+    <Row className={css.comment}>
+      <Column className={css.left}>
+        <AvatarImg username={comment.author} url={comment.authorAvatarUri} className={css.avatar} />
       </Column>
-      <Column xstyle={styles.commentInfo}>
-        <b {...stylex.props(styles.author)}>{comment.author}</b>
+      <Column className={css.commentInfo}>
+        <b className={css.author}>{comment.author}</b>
         <div>
           {isTopLevel && comment.filename && (
             <Link
-              xstyle={styles.inlineCommentFilename}
+              className={css.inlineCommentFilename}
               onClick={() =>
                 comment.filename && platform.openFile(comment.filename, {line: comment.line})
               }>
@@ -97,14 +49,14 @@ function Comment({comment, isTopLevel}: {comment: DiffComment; isTopLevel?: bool
               {comment.line == null ? '' : ':' + comment.line}
             </Link>
           )}
-          <div {...stylex.props(styles.commentContent)}>
+          <div className={css.commentContent}>
             <div className="rendered-markup" dangerouslySetInnerHTML={{__html: comment.html}} />
           </div>
           {comment.suggestedChange != null && comment.suggestedChange.patch != null && (
             <InlineDiff patch={comment.suggestedChange.patch} />
           )}
         </div>
-        <Subtle {...stylex.props(styles.byline)}>
+        <Subtle className={css.byline}>
           <RelativeDate date={comment.created} />
           <Reactions reactions={comment.reactions} />
           {comment.isResolved === true ? (
@@ -130,7 +82,7 @@ const useThemeHook = () => useAtomValue(themeState);
 function InlineDiff({patch}: {patch: ParsedDiff}) {
   const path = patch.newFileName ?? '';
   return (
-    <div {...stylex.props(styles.diffView)}>
+    <div className={css.diffView}>
       <div className="split-diff-view">
         <SplitDiffTable
           patch={patch}
@@ -215,7 +167,7 @@ export default function DiffCommentsDetails({diffId}: {diffId: DiffId}) {
     );
   }
   return (
-    <div {...stylex.props(layout.flexCol, styles.list)}>
+    <div className={cn(layout.flexCol, css.list)}>
       {comments.data.map((comment, i) => (
         <Comment key={i} comment={comment} isTopLevel />
       ))}

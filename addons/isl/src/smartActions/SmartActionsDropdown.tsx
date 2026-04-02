@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
 import {Button, buttonStyles} from 'isl-components/Button';
 import {ButtonDropdown, styles} from 'isl-components/ButtonDropdown';
 import {Icon} from 'isl-components/Icon';
@@ -14,6 +13,7 @@ import {getZoomLevel} from 'isl-components/zoom';
 import {atom, useAtomValue} from 'jotai';
 import {loadable} from 'jotai/utils';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {cn} from 'shared/cn';
 import {contextMenuState, useContextMenu} from 'shared/ContextMenu';
 import {tracker} from '../analytics';
 import serverAPI from '../ClientToServerAPI';
@@ -216,7 +216,7 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
           onChangeSelected={() => {}}
           customSelectComponent={
             <Button
-              {...stylex.props(styles.select, buttonStyles.icon, styles.iconSelect)}
+              className={cn(styles.select, buttonStyles.icon, styles.iconSelect)}
               onPointerDown={() => {
                 wasMenuOpenOnPointerDown.current = isMenuOpen;
               }}

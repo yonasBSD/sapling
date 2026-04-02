@@ -1,0 +1,21 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.slow {
+  color: var(--color-signal-fg);
+  background-color: var(--color-signal-bad-bg);
+}
+
+.ok {
+  color: var(--color-signal-fg);
+  background-color: var(--color-signal-medium-bg);
+}
+
+.fast {
+  color: var(--color-signal-fg);
+  background-color: var(--color-signal-good-bg);
+}

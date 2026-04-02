@@ -8,31 +8,12 @@
 import type {ReactNode} from 'react';
 import type {ReactProps} from './utils';
 
-import * as stylex from '@stylexjs/stylex';
-
-const styles = stylex.create({
-  tag: {
-    backgroundColor: 'var(--badge-background)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--button-border, transparent)',
-    borderRadius: 'var(--tag-corner-radius, 2px)',
-    color: 'var(--badge-foreground)',
-    padding: '2px 4px',
-    fontFamily: 'var(--font-family)',
-    fontSize: '11px',
-    lineHeight: '16px',
-
-    textOverflow: 'ellipsis',
-    maxWidth: '150px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-  },
-});
+import {cn} from 'shared/cn';
+import css from './Tag.module.css';
 
 export function Tag({
-  xstyle,
+  className,
   ...rest
-}: {children: ReactNode; xstyle?: stylex.StyleXStyles} & ReactProps<HTMLSpanElement>) {
-  return <span {...stylex.props(styles.tag, xstyle)} {...rest} />;
+}: {children: ReactNode; className?: string} & ReactProps<HTMLSpanElement>) {
+  return <span className={cn(css.tag, className)} {...rest} />;
 }

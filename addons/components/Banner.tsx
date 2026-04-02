@@ -7,7 +7,7 @@
 
 import type {ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
+import {cn} from 'shared/cn';
 import {Tooltip} from './Tooltip';
 
 import './Banner.css';
@@ -25,18 +25,17 @@ export function Banner({
   icon,
   buttons,
   alwaysShowButtons,
-  xstyle,
+  className,
 }: {
   kind?: BannerKind;
   children: ReactNode;
   icon?: ReactNode;
   buttons?: ReactNode;
   alwaysShowButtons?: boolean;
-  xstyle?: stylex.StyleXStyles;
+  className?: string;
 }) {
-  const {className: stylexClassName, ...otherStylex} = stylex.props(xstyle);
   return (
-    <div className={`${stylexClassName} banner banner-${kind ?? 'default'}`} {...otherStylex}>
+    <div className={cn(className, 'banner', `banner-${kind ?? 'default'}`)}>
       <div className="banner-content">
         {icon ?? null} <span>{children}</span>
       </div>

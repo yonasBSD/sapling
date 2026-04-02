@@ -1,0 +1,45 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  min-width: 300px;
+  padding-right: 24px;
+}
+
+.clearButton {
+  position: absolute;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background-color: transparent;
+  border-style: none;
+  padding: 2px;
+  color: var(--foreground);
+  opacity: 0.7;
+}
+
+.clearButton:hover {
+  opacity: 1;
+}
+
+.active {
+  background-color: var(--color-blue);
+  color: white;
+}
+
+.buttonContainer {
+  position: relative;
+  display: flex;
+}

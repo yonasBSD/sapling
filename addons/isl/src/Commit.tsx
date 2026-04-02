@@ -12,7 +12,6 @@ import type {DagCommitInfo} from './dag/dag';
 import type {CommitInfo, SuccessorInfo} from './types';
 import {succeedableRevset, WarningCheckResult} from './types';
 
-import * as stylex from '@stylexjs/stylex';
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {Subtle} from 'isl-components/Subtle';
@@ -24,9 +23,9 @@ import {contextMenuState, useContextMenu} from 'shared/ContextMenu';
 import {MS_PER_DAY} from 'shared/constants';
 import {useAutofocusRef} from 'shared/hooks';
 import {notEmpty, nullthrows} from 'shared/utils';
-import {spacing} from '../../components/theme/tokens.stylex';
 import {AllBookmarksTruncated, Bookmark, Bookmarks, createBookmarkAtCommit} from './Bookmark';
 import {openBrowseUrlForHash, supportsBrowseUrlForHash} from './BrowseRepo';
+import css from './Commit.module.css';
 import {hasUnsavedEditedCommitMessage} from './CommitInfoView/CommitInfoState';
 import {showComparison} from './ComparisonView/atoms';
 import {Row} from './ComponentUtils';
@@ -540,7 +539,7 @@ export const Commit = memo(
             delayMs={250}>
             <Button
               aria-label={t('Go to commit "$title"', {replace: {$title: commit.title}})}
-              xstyle={styles.gotoButton}
+              className={css.gotoButton}
               onClick={async event => {
                 event.stopPropagation(); // don't toggle selection by letting click propagate onto selection target.
                 await gotoAction(runOperation, commit);
@@ -704,20 +703,8 @@ function BranchingPr({bookmark, provider}: {bookmark: string; provider: UICodeRe
   );
 }
 
-const styles = stylex.create({
-  commitLabel: {
-    fontVariant: 'all-petite-caps',
-    opacity: '0.8',
-    fontWeight: 'bold',
-    fontSize: '90%',
-  },
-  gotoButton: {
-    gap: spacing.half,
-  },
-});
-
 function CommitLabel({children}: {children?: ReactNode}) {
-  return <div {...stylex.props(styles.commitLabel)}>{children}</div>;
+  return <div className={css.commitLabel}>{children}</div>;
 }
 
 export function InlineProgressSpan(props: {message: string}) {
