@@ -472,13 +472,6 @@ class localrepository:
         except IOError as inst:
             if inst.errno != errno.ENOENT:
                 raise
-        forcewindowssymlinks = self.ui.configbool(
-            "experimental", "windows-symlinks.force", None
-        )
-        if forcewindowssymlinks:
-            self.requirements.add("windowssymlinks")
-        elif forcewindowssymlinks is False:
-            self.requirements.remove("windowssymlinks")
 
         # wvfs: rooted at the repository root, used to access the working copy
         disablesymlinks = util.iswindows and "windowssymlinks" not in self.requirements
