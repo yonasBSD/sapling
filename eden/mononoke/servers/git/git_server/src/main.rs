@@ -13,6 +13,7 @@
 use std::fs::File;
 use std::io::Write;
 use std::net::ToSocketAddrs;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI64;
@@ -66,6 +67,8 @@ use mononoke_app::monitoring::AliveService;
 use mononoke_app::monitoring::MonitoringAppExtension;
 use ods_counters::OdsCounterManager;
 use rate_limiting::RateLimitEnvironment;
+#[cfg(fbcode_build)]
+use shadow_forwarder::ShadowForwarderMiddleware;
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -153,6 +156,10 @@ struct GitServerArgs {
     /// If not set, SMC tier lookup is used in production.
     #[clap(long)]
     multi_repo_land_service_address: Option<String>,
+    /// Mark this instance as a shadow tier. Shadow tiers never forward
+    /// shadow traffic, preventing forwarding loops.
+    #[clap(long, default_value_t = false)]
+    shadow_tier: bool,
 }
 
 #[derive(Clone)]
@@ -327,7 +334,23 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
                 ))
                 .add(PushvarsParsingMiddleware {})
                 .add(ResponseContentTypeMiddleware {})
-                .add(PostResponseMiddleware::default())
+                .add(PostResponseMiddleware::default());
+
+            // Shadow forwarder runs after RequestContext and rate limiting,
+            // so only non-rate-limited requests are forwarded to shadow.
+            // This is intentional: git server only shadows non-throttled
+            // traffic. (SLAPI intentionally places it before rate limiting
+            // — see slapi_service/src/lib.rs.)
+            // Only available in fbcode builds.
+            #[cfg(fbcode_build)]
+            let handler = handler.add(ShadowForwarderMiddleware::new(
+                &app.environment().config_store,
+                "scm/mononoke/shadow_traffic/git",
+                args.shadow_tier,
+                args.tls_params.as_ref().map(|t| Path::new(&t.tls_ca)),
+            )?);
+
+            let handler = handler
                 .add(LoadMiddleware::new_with_requests_counter(requests_counter))
                 .add(log_middleware)
                 .add(Ods3Middleware::new())
