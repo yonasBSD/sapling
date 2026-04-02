@@ -35,7 +35,9 @@ import {Column, Row, ScrollY} from './ComponentUtils';
 import css from './CwdSelector.module.css';
 import {DropdownField, DropdownFields} from './DropdownFields';
 import {useCommandEvent} from './ISLShortcuts';
+import {Internal} from './Internal';
 import {codeReviewProvider} from './codeReview/CodeReviewInfo';
+import {useFeatureFlagSync} from './featureFlags';
 import {T, t} from './i18n';
 import {writeAtom} from './jotaiUtils';
 import {AddWorktreeOperation} from './operations/AddWorktreeOperation';
@@ -321,12 +323,17 @@ function CwdDetails({dismiss}: {dismiss: () => unknown}) {
 }
 
 function WorktreeSection({dismiss}: {dismiss: () => unknown}) {
+  const worktreesEnabled = useFeatureFlagSync(Internal.featureFlags?.Worktrees);
   const info = useAtomValue(repositoryInfo);
   const worktreeInfo = useAtomValue(worktreeInfoData);
   const repoRoot = info?.repoRoot ?? '';
   const runOperation = useRunOperation();
   const showModal = useModal();
   const [removingPath, setRemovingPath] = useState<string | null>(null);
+
+  if (!worktreesEnabled) {
+    return null;
+  }
 
   const allWorktrees = worktreeInfo?.worktrees ?? [];
   const mainWorktree = allWorktrees.find(wt => wt.role === 'main');
