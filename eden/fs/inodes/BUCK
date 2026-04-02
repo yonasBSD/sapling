@@ -177,6 +177,7 @@ cpp_library(
         "//folly:file_util",
         "//folly:likely",
         "//folly:random",
+        "//folly:scope_guard",
         "//folly:string",
         "//folly:unit",
         "//folly/chrono:conv",

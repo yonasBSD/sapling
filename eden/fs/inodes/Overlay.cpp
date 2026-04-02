@@ -14,6 +14,7 @@
 #include <folly/File.h>
 #include <folly/FileUtil.h>
 #include <folly/Range.h>
+#include <folly/ScopeGuard.h>
 #include <folly/io/IOBuf.h>
 #include <folly/logging/xlog.h>
 #include <folly/stop_watch.h>
@@ -391,6 +392,31 @@ void Overlay::initOverlay(
         WARN,
         "Overlay {} was not shut down cleanly.  Performing fsck scan.",
         localDir_);
+
+    // Limit concurrent fsck operations to prevent OOM when many mounts
+    // need fsck after ungraceful shutdown.
+    if (fsckSemaphore_) {
+      if (preFsckSemaphoreCallback_) {
+        preFsckSemaphoreCallback_();
+      }
+      folly::stop_watch<std::chrono::milliseconds> waitTimer;
+      XLOGF(DBG2, "Overlay {}: waiting for fsck slot", localDir_);
+      fsckSemaphore_->wait();
+      XLOGF(
+          DBG2,
+          "Overlay {}: acquired fsck slot after {}ms",
+          localDir_,
+          waitTimer.elapsed().count());
+    }
+    SCOPE_EXIT {
+      if (fsckSemaphore_) {
+        fsckSemaphore_->post();
+      }
+    };
+
+    if (fsckCallback_) {
+      fsckCallback_();
+    }
 
     // TODO(zeyi): `OverlayCheck` should be associated with the specific
     // Overlay implementation.

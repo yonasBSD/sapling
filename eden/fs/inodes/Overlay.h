@@ -12,6 +12,7 @@
 #include <folly/futures/Future.h>
 #include <folly/futures/Promise.h>
 #include <folly/synchronization/Baton.h>
+#include <folly/synchronization/LifoSem.h>
 #include <atomic>
 #include <condition_variable>
 #include <optional>
@@ -319,6 +320,27 @@ class Overlay : public std::enable_shared_from_this<Overlay> {
     return localDir_;
   }
 
+  void setFsckSemaphore(folly::LifoSem* sem) {
+    fsckSemaphore_ = sem;
+  }
+
+  /**
+   * Optional callback invoked inside the fsck critical section
+   * (after semaphore acquire, before fsck work). Used by tests
+   * to observe concurrency behavior.
+   */
+  void setFsckCallback(folly::Function<void()> cb) {
+    fsckCallback_ = std::move(cb);
+  }
+
+  /**
+   * Optional callback invoked just before the fsck semaphore wait.
+   * Used by tests to know when a thread has reached the semaphore.
+   */
+  void setPreFsckSemaphoreCallback(folly::Function<void()> cb) {
+    preFsckSemaphoreCallback_ = std::move(cb);
+  }
+
  private:
   explicit Overlay(
       AbsolutePathPiece localDir,
@@ -463,6 +485,13 @@ class Overlay : public std::enable_shared_from_this<Overlay> {
 
   std::shared_ptr<StructuredLogger> structuredLogger_;
   EdenStatsPtr stats_;
+
+  // Borrowed from EdenServer. Valid for Overlay's lifetime because
+  // EdenServer::unmountAll() completes before semaphore destruction.
+  folly::LifoSem* fsckSemaphore_{nullptr};
+
+  folly::Function<void()> fsckCallback_;
+  folly::Function<void()> preFsckSemaphoreCallback_;
 
   friend class IORequest;
 
