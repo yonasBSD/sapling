@@ -29,7 +29,7 @@ git_delta = { version = "0.1.0", path = "../../third_party/git_delta" }
 git_types_thrift = { version = "0.1.0", path = "if" }
 gix-actor = "0.35.1"
 gix-hash = "0.18.0"
-gix-object = "0.49.1"
+gix-object = "0.49"
 gix-pack = "0.59.1"
 itertools = "0.14.0"
 justknobs = { version = "0.1.0", git = "https://github.com/facebookexperimental/rust-shed.git", branch = "main" }
