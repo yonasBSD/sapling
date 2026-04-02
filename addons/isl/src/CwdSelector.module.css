@@ -63,3 +63,94 @@
 .submoduleOption:focus {
   background-color: var(--hover-darken);
 }
+
+.worktreeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.worktreeRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--halfpad);
+  padding: var(--halfpad);
+  border-radius: var(--halfpad);
+}
+
+.worktreeRowCurrent {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--halfpad);
+  padding: var(--halfpad);
+  border-radius: var(--halfpad);
+  background-color: var(--hover-darken);
+}
+
+.worktreeChildRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--halfpad);
+  padding: var(--halfpad);
+  padding-left: 0;
+  border-radius: var(--halfpad);
+}
+
+.worktreeChildRowCurrent {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--halfpad);
+  padding: var(--halfpad);
+  padding-left: 0;
+  border-radius: var(--halfpad);
+  background-color: var(--hover-darken);
+}
+
+.worktreeTreeGuide {
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  color: var(--grey);
+  font-family: monospace;
+  user-select: none;
+}
+
+.worktreePath {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktreeActions {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.addWorktreeForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad);
+  padding-top: var(--halfpad);
+}
+
+.addWorktreeFormActions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--halfpad);
+  padding-top: var(--halfpad);
+}
+
+.worktreeSpinner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--pad);
+  padding: var(--pad);
+}

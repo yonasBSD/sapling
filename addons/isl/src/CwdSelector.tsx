@@ -12,6 +12,7 @@ import type {
   RepoRelativePath,
   Submodule,
   SubmodulesByRoot,
+  WorktreeEntry,
 } from './types';
 
 import {Badge} from 'isl-components/Badge';
@@ -26,9 +27,9 @@ import {Subtle} from 'isl-components/Subtle';
 import {TextField} from 'isl-components/TextField';
 import {Tooltip} from 'isl-components/Tooltip';
 import {atom, useAtomValue} from 'jotai';
-import {Suspense, useState} from 'react';
+import {Suspense, useCallback, useState} from 'react';
 import {cn} from 'shared/cn';
-import {basename} from 'shared/utils';
+import {basename, dirname} from 'shared/utils';
 import serverAPI from './ClientToServerAPI';
 import {Column, Row, ScrollY} from './ComponentUtils';
 import css from './CwdSelector.module.css';
@@ -37,9 +38,13 @@ import {useCommandEvent} from './ISLShortcuts';
 import {codeReviewProvider} from './codeReview/CodeReviewInfo';
 import {T, t} from './i18n';
 import {writeAtom} from './jotaiUtils';
+import {AddWorktreeOperation} from './operations/AddWorktreeOperation';
+import {RemoveWorktreeOperation} from './operations/RemoveWorktreeOperation';
+import {useRunOperation} from './operationsState';
 import platform from './platform';
 import {serverCwd} from './repositoryData';
-import {repositoryInfo, submodulesByRoot} from './serverAPIState';
+import {repositoryInfo, submodulesByRoot, worktreeInfoData} from './serverAPIState';
+import {useModal} from './useModal';
 import {registerCleanup, registerDisposable} from './utils';
 
 /**
@@ -303,6 +308,7 @@ function CwdDetails({dismiss}: {dismiss: () => unknown}) {
       <DropdownField title={<T>Repository Root</T>}>
         <code>{repoRoot}</code>
       </DropdownField>
+      <WorktreeSection dismiss={dismiss} />
       {provider != null ? (
         <DropdownField title={<T>Code Review Provider</T>}>
           <span>
@@ -311,6 +317,259 @@ function CwdDetails({dismiss}: {dismiss: () => unknown}) {
         </DropdownField>
       ) : null}
     </DropdownFields>
+  );
+}
+
+function WorktreeSection({dismiss}: {dismiss: () => unknown}) {
+  const info = useAtomValue(repositoryInfo);
+  const worktreeInfo = useAtomValue(worktreeInfoData);
+  const repoRoot = info?.repoRoot ?? '';
+  const runOperation = useRunOperation();
+  const showModal = useModal();
+  const [removingPath, setRemovingPath] = useState<string | null>(null);
+
+  const allWorktrees = worktreeInfo?.worktrees ?? [];
+  const mainWorktree = allWorktrees.find(wt => wt.role === 'main');
+  const childWorktrees = allWorktrees
+    .filter(wt => wt.role !== 'main')
+    .sort((a, b) =>
+      basename(a.path, guessPathSep(a.path)).localeCompare(basename(b.path, guessPathSep(b.path))),
+    );
+
+  const renderWorktreeRow = (wt: WorktreeEntry, isChild: boolean, isLast?: boolean) => {
+    const isCurrent = wt.path === repoRoot;
+    const wtBasename = basename(wt.path, guessPathSep(wt.path));
+    const rowClass = isChild
+      ? isCurrent
+        ? css.worktreeChildRowCurrent
+        : css.worktreeChildRow
+      : isCurrent
+        ? css.worktreeRowCurrent
+        : css.worktreeRow;
+    return (
+      <div
+        key={wt.path}
+        className={rowClass}
+        data-testid={isCurrent ? 'current-worktree' : 'sibling-worktree'}>
+        {isChild && <span className={css.worktreeTreeGuide}>{isLast ? '└' : '├'}</span>}
+        <code className={css.worktreePath} title={wt.path}>
+          {wtBasename}
+        </code>
+        {wt.label != null && <Badge>{wt.label}</Badge>}
+        {!isCurrent && (
+          <div className={css.worktreeActions}>
+            <Button
+              data-testid="worktree-switch-button"
+              onClick={async () => {
+                dismiss();
+                if (platform.platformName !== 'vscode') {
+                  changeCwd(wt.path);
+                  return;
+                }
+                const choice = await showModal({
+                  type: 'confirm',
+                  title: <T>Switch Worktree</T>,
+                  icon: 'worktree',
+                  message: (
+                    <Row>
+                      <span>
+                        <T replace={{$path: <code>{wtBasename}</code>}}>
+                          Switch to worktree $path?
+                        </T>
+                      </span>
+                      <Subtle>
+                        <T>
+                          This will reload the editor. Unsaved changes will be prompted to save.
+                        </T>
+                      </Subtle>
+                    </Row>
+                  ),
+                  buttons: [
+                    {label: t('Open in Current Window'), primary: true},
+                    {label: t('Open in New Window')},
+                  ],
+                });
+                if (choice != null) {
+                  if (choice.label === t('Open in New Window')) {
+                    serverAPI.postMessage({type: 'platform/openInNewWindow', path: wt.path});
+                  } else {
+                    serverAPI.postMessage({type: 'platform/openFolder', path: wt.path});
+                  }
+                }
+              }}>
+              <T>Switch</T>
+            </Button>
+            {wt.role !== 'main' && (
+              <Tooltip title={t('Remove this worktree at $path', {replace: {$path: wt.path}})}>
+                <Button
+                  data-testid="worktree-remove-button"
+                  disabled={removingPath === wt.path}
+                  onClick={async () => {
+                    setRemovingPath(wt.path);
+                    try {
+                      await runOperation(new RemoveWorktreeOperation(wt.path), true);
+                    } finally {
+                      setRemovingPath(null);
+                    }
+                  }}>
+                  <Icon icon={removingPath === wt.path ? 'loading' : 'trash'} />
+                </Button>
+              </Tooltip>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <DropdownField title={<T>Worktrees</T>}>
+      <div className={css.worktreeSection} data-testid="worktree-section">
+        {mainWorktree && renderWorktreeRow(mainWorktree, false)}
+        {childWorktrees.map((wt, i) =>
+          renderWorktreeRow(wt, true, i === childWorktrees.length - 1),
+        )}
+        <AddWorktreeButton
+          dismiss={dismiss}
+          repoRoot={mainWorktree?.path ?? repoRoot}
+          existingWorktreePaths={allWorktrees.map(wt => wt.path)}
+        />
+      </div>
+    </DropdownField>
+  );
+}
+function AddWorktreeButton({
+  dismiss,
+  repoRoot,
+  existingWorktreePaths,
+}: {
+  dismiss: () => unknown;
+  repoRoot: string;
+  existingWorktreePaths: string[];
+}) {
+  const showModal = useModal();
+  const runOperation = useRunOperation();
+  const sep = guessPathSep(repoRoot);
+  const parentDir = dirname(repoRoot, sep);
+  const repoName = basename(repoRoot, sep);
+  const existingBasenames = new Set(existingWorktreePaths.map(p => basename(p, guessPathSep(p))));
+  let suffix = 2;
+  while (existingBasenames.has(`${repoName}_${suffix}`)) {
+    suffix++;
+  }
+  const defaultDest = `${parentDir}${sep}${repoName}.worktrees${sep}${repoName}_${suffix}`;
+
+  const onClickAdd = useCallback(async () => {
+    dismiss();
+    const result = await showModal<AddWorktreeResult>({
+      type: 'custom',
+      title: <T>Add Worktree</T>,
+      icon: 'worktree',
+      component: ({returnResultAndDismiss}) => (
+        <AddWorktreeModal
+          returnResultAndDismiss={returnResultAndDismiss}
+          defaultDest={defaultDest}
+        />
+      ),
+    });
+    if (result != null) {
+      const spinnerDismiss = await new Promise<() => void>(resolve => {
+        showModal({
+          type: 'custom',
+          title: <T>Creating Worktree</T>,
+          icon: 'worktree',
+          component: ({returnResultAndDismiss}) => {
+            resolve(() => returnResultAndDismiss(undefined));
+            return (
+              <div className={css.worktreeSpinner}>
+                <Icon icon="loading" />
+                <T>Creating worktree at</T> <code>{result.destPath}</code>
+              </div>
+            );
+          },
+        });
+      });
+      try {
+        await runOperation(
+          new AddWorktreeOperation(result.destPath, result.label || undefined),
+          true,
+        );
+      } finally {
+        spinnerDismiss();
+      }
+      if (result.openIn === 'current') {
+        changeCwd(result.destPath);
+      } else if (result.openIn === 'new') {
+        serverAPI.postMessage({type: 'platform/openInNewWindow', path: result.destPath});
+      }
+    }
+  }, [dismiss, showModal, runOperation, defaultDest]);
+
+  return (
+    <Button data-testid="add-worktree-button" onClick={onClickAdd}>
+      <Icon icon="plus" /> <T>Add Worktree</T>
+    </Button>
+  );
+}
+
+type AddWorktreeResult = {
+  destPath: string;
+  label: string;
+  openIn: 'current' | 'new' | 'none';
+};
+
+function AddWorktreeModal({
+  returnResultAndDismiss,
+  defaultDest,
+}: {
+  returnResultAndDismiss: (result: AddWorktreeResult) => void;
+  defaultDest: string;
+}) {
+  const [destPath, setDestPath] = useState(defaultDest);
+  const [label, setLabel] = useState('');
+  const [openIn, setOpenIn] = useState<AddWorktreeResult['openIn']>('none');
+
+  return (
+    <div className={css.addWorktreeForm} data-testid="add-worktree-form">
+      <TextField
+        data-testid="add-worktree-path"
+        placeholder={t('Destination path')}
+        value={destPath}
+        onInput={e => setDestPath(e.currentTarget?.value ?? '')}
+      />
+      <TextField
+        data-testid="add-worktree-label"
+        placeholder={t('Label (optional)')}
+        value={label}
+        onInput={e => setLabel(e.currentTarget?.value ?? '')}
+      />
+      <RadioGroup
+        choices={
+          [
+            {title: <T>Don't open</T>, value: 'none'},
+            {title: <T>Open in current window</T>, value: 'current'},
+            {title: <T>Open in new window</T>, value: 'new'},
+          ] as const
+        }
+        current={openIn}
+        onChange={setOpenIn}
+      />
+      <div className={css.addWorktreeFormActions}>
+        <Button
+          primary
+          data-testid="add-worktree-submit"
+          disabled={destPath.trim() === ''}
+          onClick={() =>
+            returnResultAndDismiss({
+              destPath: destPath.trim(),
+              label: label.trim(),
+              openIn,
+            })
+          }>
+          <T>Create</T>
+        </Button>
+      </div>
+    </div>
   );
 }
 

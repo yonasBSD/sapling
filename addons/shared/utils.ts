@@ -71,6 +71,35 @@ export function basename(s: string, delimiter = '/') {
 }
 
 /**
+ * Returns the directory portion of a path (everything before the last delimiter),
+ * handling Windows drive roots correctly.
+ * (default delimiter is '/')
+ *
+ * ```
+ * dirname('/path/to/foo.txt', '/') -> '/path/to'
+ * dirname('foo.txt', '/') -> ''
+ * dirname('/foo', '/') -> ''
+ * dirname('C:\\repo', '\\') -> 'C:\\'
+ * dirname('C:\\Users\\repo', '\\') -> 'C:\\Users'
+ * ```
+ */
+export function dirname(s: string, delimiter = '/'): string {
+  const foundIndex = s.lastIndexOf(delimiter);
+  if (foundIndex === -1) {
+    return '';
+  }
+  // Handle Windows drive roots like "C:\" - keep the trailing backslash
+  if (delimiter === '\\' && foundIndex === 2 && s[1] === ':') {
+    return s.slice(0, 3);
+  }
+  // Handle Unix root
+  if (delimiter === '/' && foundIndex === 0) {
+    return '';
+  }
+  return s.slice(0, foundIndex);
+}
+
+/**
  * Given a multi-line string, return the first line excluding '\n'.
  * If no newlines in the string, return the whole string.
  */
