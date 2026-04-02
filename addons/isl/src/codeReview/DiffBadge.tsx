@@ -106,7 +106,9 @@ export function DiffBadge({
 
   return (
     <Link href={openerUrl} xstyle={styles.diffBadge}>
-      <provider.DiffBadgeContent diff={diff} children={children} syncStatus={syncStatus} />
+      <provider.DiffBadgeContent diff={diff} syncStatus={syncStatus}>
+        {children}
+      </provider.DiffBadgeContent>
     </Link>
   );
 }

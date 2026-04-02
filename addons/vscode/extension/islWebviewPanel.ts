@@ -83,7 +83,7 @@ function expandLineRange(
   }
 
   // If we get here with lines.length !== 2, the input format is unexpected.
-  // This shouldn't happen with proper agent output - log a warning.
+  // eslint-disable-next-line no-console -- intentional warning for unexpected input
   console.warn(
     `expandLineRange received unexpected format with ${lines.length} elements. Expected a range [start, end] or array of ranges.`,
   );

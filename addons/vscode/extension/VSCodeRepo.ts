@@ -8,8 +8,8 @@
 import type {RepositoryReference} from 'isl-server/src/RepositoryCache';
 import type {ServerSideTracker} from 'isl-server/src/analytics/serverSideTracker';
 import type {Logger} from 'isl-server/src/logger';
-import type {RepoRelativePath} from 'isl/src/types';
-import {GeneratedStatus, type ChangedFile} from 'isl/src/types';
+import type {ChangedFile, RepoRelativePath} from 'isl/src/types';
+import {GeneratedStatus} from 'isl/src/types';
 import type {Comparison} from 'shared/Comparison';
 import type {Writable} from 'shared/typeUtils';
 import type {

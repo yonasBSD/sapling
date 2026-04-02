@@ -276,6 +276,7 @@ export function CommandHistoryAndProgress() {
           {label}
           {progress.warnings?.map(warning => (
             <Banner
+              key={warning}
               icon={<Icon icon="warning" color="yellow" />}
               alwaysShowButtons
               kind={BannerKind.warning}>

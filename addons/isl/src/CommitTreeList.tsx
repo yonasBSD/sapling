@@ -132,9 +132,9 @@ function renderCommitExtras(info: DagCommitInfo, row: ExtendedGraphRow) {
 
 function renderGlyph(info: DagCommitInfo): RenderGlyphResult {
   if (info.isYouAreHere) {
-    return ['replace-tile', <YouAreHereGlyphWithProgress info={info} />];
+    return ['replace-tile', <YouAreHereGlyphWithProgress key="glyph" info={info} />];
   } else {
-    return ['inside-tile', <HighlightedGlyph info={info} />];
+    return ['inside-tile', <HighlightedGlyph key="glyph" info={info} />];
   }
 }
 
@@ -254,6 +254,7 @@ function CommitFetchError({error}: {error: Error}) {
         error={error}
         buttons={[
           <Button
+            key="create-initial-commit"
             onClick={() => {
               runOperation(new CreateEmptyInitialCommitOperation());
             }}>

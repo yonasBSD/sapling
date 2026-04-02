@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+/* eslint-disable no-bitwise -- intentional bitwise ops for DAG rendering */
 import type {JSX, ReactNode} from 'react';
 import type {Dag, DagCommitInfo} from './dag/dag';
 import type {ExtendedGraphRow} from './dag/render';
@@ -717,8 +718,8 @@ export function YouAreHereGlyph({info, children}: {info: DagCommitInfo; children
 
 export function defaultRenderGlyph(info: DagCommitInfo): RenderGlyphResult {
   if (info.isYouAreHere) {
-    return ['replace-tile', <YouAreHereGlyph info={info} />];
+    return ['replace-tile', <YouAreHereGlyph key="glyph" info={info} />];
   } else {
-    return ['inside-tile', <RegularGlyph info={info} />];
+    return ['inside-tile', <RegularGlyph key="glyph" info={info} />];
   }
 }

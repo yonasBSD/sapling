@@ -6,13 +6,14 @@
  */
 
 import type {Dag} from './dag/dag';
-import type {ExactRevset, OptimisticRevset} from './types';
 
 import {
   exactRevset,
   optimisticRevset,
   succeedableRevset,
   type CommitInfo,
+  type ExactRevset,
+  type OptimisticRevset,
   type SucceedableRevset,
 } from './types';
 

@@ -76,7 +76,7 @@ async def verify_textmate():
     textmate = addons / "textmate"
     await asyncio.gather(
         run(["yarn", "run", "tsc", "--noEmit"], cwd=textmate),
-        # run(["yarn", "run", "lint"], cwd=textmate), # TODO: reenable after fixing lint errors
+        run(["yarn", "run", "lint"], cwd=textmate),
     )
     timer.report(ok("textmate/"))
 
@@ -121,7 +121,7 @@ async def run_isl_integration_tests():
 
 async def lint_and_test(cwd: Path):
     await asyncio.gather(
-        # run(["yarn", "run", "lint"], cwd=cwd), # TODO: reenable after fixing lint errors
+        run(["yarn", "run", "lint"], cwd=cwd),
         run(["yarn", "run", "tsc", "--noEmit"], cwd=cwd),
         run(["yarn", "test", "--watchAll=false"], cwd=cwd),
     )

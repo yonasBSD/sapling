@@ -750,7 +750,7 @@ export class Repository {
         } else {
           break;
         }
-      } catch (err) {
+      } catch (_err) {
         break;
       }
     }
@@ -1316,7 +1316,7 @@ export class Repository {
       .map(rawObject => {
         try {
           return JSON.parse(rawObject) as {hash: Hash; backingup: 'True' | 'False'; date: string};
-        } catch (err) {
+        } catch (_err) {
           return null;
         }
       })
@@ -1597,7 +1597,7 @@ export class Repository {
       const alerts = parseAlerts(configs);
       ctx.logger.info('Found active alerts:', alerts);
       return alerts;
-    } catch (e) {
+    } catch (_e) {
       return [];
     }
   }

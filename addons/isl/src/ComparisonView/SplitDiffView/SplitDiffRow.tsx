@@ -78,7 +78,7 @@ export default function SplitDiffRow({
       column: 0,
       canComment,
     }),
-    <td data-column={unified ? 2 : 1} className={beforeClass}>
+    <td key="before" data-column={unified ? 2 : 1} className={beforeClass}>
       {before}
     </td>,
     LineNumber({
@@ -90,7 +90,7 @@ export default function SplitDiffRow({
       canComment,
       openFileToLine, // opening to a line number only makes sense on the "right" comparison side
     }),
-    <td data-column={unified ? 2 : 3} className={afterClass}>
+    <td key="after" data-column={unified ? 2 : 3} className={afterClass}>
       {after}
     </td>,
   ];

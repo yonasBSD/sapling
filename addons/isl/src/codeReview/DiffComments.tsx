@@ -181,7 +181,7 @@ function Reactions({reactions}: {reactions: Array<DiffCommentReaction>}) {
   groups.sort((a, b) => b[1].length - a[1].length);
   const total = groups.reduce((last, g) => last + g[1].length, 0);
   // Show only the 3 most used reactions as emoji, even if more are used
-  const icons = groups.slice(0, 2).map(g => <span>{emoji[g[0]]}</span>);
+  const icons = groups.slice(0, 2).map((g, i) => <span key={i}>{emoji[g[0]]}</span>);
   const names = reactions.map(r => r.name);
   return (
     <Tooltip title={names.join(', ')}>

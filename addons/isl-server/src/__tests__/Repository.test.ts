@@ -5,12 +5,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {AbsolutePath, RunnableOperation, Submodule} from 'isl/src/types';
-import type {ResolveCommandConflictOutput} from '../commands';
-import type {ServerPlatform} from '../serverPlatform';
-import type {RepositoryContext} from '../serverTypes';
-
-import {CommandRunner, type MergeConflicts, type ValidatedRepoInfo} from 'isl/src/types';
+import {
+  CommandRunner,
+  type AbsolutePath,
+  type MergeConflicts,
+  type RunnableOperation,
+  type Submodule,
+  type ValidatedRepoInfo,
+} from 'isl/src/types';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,7 +21,13 @@ import * as fsUtils from 'shared/fs';
 import {clone, mockLogger, nextTick} from 'shared/testUtils';
 import {absolutePathForFileInRepo, Repository} from '../Repository';
 import {makeServerSideTracker} from '../analytics/serverSideTracker';
-import {extractRepoInfoFromUrl, setConfigOverrideForTests} from '../commands';
+import {
+  extractRepoInfoFromUrl,
+  setConfigOverrideForTests,
+  type ResolveCommandConflictOutput,
+} from '../commands';
+import {type ServerPlatform} from '../serverPlatform';
+import {type RepositoryContext} from '../serverTypes';
 
 /* eslint-disable require-await */
 

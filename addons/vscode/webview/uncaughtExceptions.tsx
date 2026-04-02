@@ -165,6 +165,7 @@ if (import.meta.hot) {
   window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
   // TODO: we should probably call this on hot reload somehow
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- TODO: call on hot reload
   const _dispose = () => {
     window.removeEventListener('error', handleError);
     window.removeEventListener('unhandledrejection', handleUnhandledRejection);

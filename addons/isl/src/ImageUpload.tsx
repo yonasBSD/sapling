@@ -5,14 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {RefObject} from 'react';
-
 import {Button} from 'isl-components/Button';
 import {InlineErrorBadge} from 'isl-components/ErrorNotice';
 import {Icon} from 'isl-components/Icon';
 import {Tooltip} from 'isl-components/Tooltip';
 import {atom, useAtomValue} from 'jotai';
-import {useId, useState, type ReactNode} from 'react';
+import {useId, useState, type ReactNode, type RefObject} from 'react';
 import {randomId} from 'shared/utils';
 import clientToServerAPI from './ClientToServerAPI';
 import {T, t} from './i18n';

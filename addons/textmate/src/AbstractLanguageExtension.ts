@@ -6,7 +6,7 @@
  */
 
 import yaml from 'js-yaml';
-import jsonc from 'jsonc-parser';
+import * as jsonc from 'jsonc-parser';
 
 /* eslint-disable no-console */
 

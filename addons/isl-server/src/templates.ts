@@ -245,7 +245,7 @@ export function parseShelvedCommitsOutput(logger: Logger, output: string): Array
         totalFileCount: files.length,
         description: lines.slice(SHELVE_FIELD_INDEX.description).join('\n'),
       });
-    } catch (err) {
+    } catch (_err) {
       logger.error('failed to parse shelved change');
     }
   }

@@ -6,7 +6,6 @@
  */
 
 import type {Logger} from 'isl-server/src/logger';
-import type {Disposable, Event} from 'vscode';
 import type {SaplingResourceGroup, VSCodeRepo} from './VSCodeRepo';
 
 import {
@@ -14,6 +13,8 @@ import {
   ThemeIcon,
   Uri,
   window,
+  type Disposable,
+  type Event,
   type FileDecoration,
   type FileDecorationProvider,
 } from 'vscode';

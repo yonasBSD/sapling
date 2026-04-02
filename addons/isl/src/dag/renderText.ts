@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+/* eslint-disable no-bitwise -- intentional bitwise ops for DAG rendering */
 import type {Hash} from '../types';
 import type {Ancestor} from './render';
 

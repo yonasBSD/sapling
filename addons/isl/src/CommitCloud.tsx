@@ -324,7 +324,7 @@ function BackupList({commits}: {commits: Array<Hash>}) {
     <div className="commit-cloud-backup-list">
       {infos.map(commit =>
         typeof commit === 'string' ? (
-          <div>{commit}</div>
+          <div key={commit}>{commit}</div>
         ) : (
           <Commit
             commit={commit}

@@ -69,7 +69,7 @@ function ISLVersion() {
 
   return (
     <div className="bug-dropdown-version">
-      <Copyable children={`ISL version ${info.version} (${info.platformName})`} />
+      <Copyable>{`ISL version ${info.version} (${info.platformName})`}</Copyable>
     </div>
   );
 }

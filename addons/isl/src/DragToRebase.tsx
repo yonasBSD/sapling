@@ -24,6 +24,7 @@ function isDraggablePreview(previewType?: CommitPreview): boolean {
     // you probably meant to drag the root.
     case CommitPreview.REBASE_DESCENDANT:
     // old commits are already being dragged
+    // fallthrough
     case CommitPreview.REBASE_OLD:
     case CommitPreview.HIDDEN_ROOT:
     case CommitPreview.HIDDEN_DESCENDANT:
@@ -32,10 +33,12 @@ function isDraggablePreview(previewType?: CommitPreview): boolean {
     // you CAN let go of the preview and drag it again
     case CommitPreview.REBASE_ROOT:
     // optimistic rebase commits act like normal, they can be dragged just fine
+    // fallthrough
     case CommitPreview.REBASE_OPTIMISTIC_DESCENDANT:
     case CommitPreview.REBASE_OPTIMISTIC_ROOT:
     case undefined:
     // other unrelated previews are draggable
+    // fallthrough
     default:
       return true;
   }

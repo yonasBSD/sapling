@@ -987,11 +987,16 @@ export function SplitFile(props: SplitFileProps) {
     <div className="split-file">
       <table ref={mainContentRef}>
         <colgroup>
-          <col width={50}>{/* left arrows */}</col>
-          <col width={50}>{/* before line numbers */}</col>
-          <col width={'100%'}>{/* diff content */}</col>
-          <col width={50}>{/* after line numbers */}</col>
-          <col width={50}>{/* rightarrow  */}</col>
+          <col width={50} />
+          {/* left arrows */}
+          <col width={50} />
+          {/* before line numbers */}
+          <col width={'100%'} />
+          {/* diff content */}
+          <col width={50} />
+          {/* after line numbers */}
+          <col width={50} />
+          {/* rightarrow  */}
         </colgroup>
         <tbody>{rows}</tbody>
       </table>
