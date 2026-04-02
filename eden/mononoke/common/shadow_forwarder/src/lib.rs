@@ -5,12 +5,14 @@
  * GNU General Public License version 2.
  */
 
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 
+use anyhow::Context as _;
 use anyhow::Result;
 use bytes::Bytes;
 use cached_config::ConfigHandle;
@@ -52,12 +54,14 @@ define_stats! {
 pub const SHADOW_HEADER: &str = "x-mononoke-shadow";
 
 /// Headers to forward from the original request to the shadow server
-/// so the shadow can identify and authorize the client.
+/// for identity, authorization, and content handling.
 const FORWARDED_HEADERS: &[&str] = &[
     "x-fb-validated-client-encoded-identity",
     "tfb-orig-client-ip",
     "tfb-orig-client-port",
     "x-client-info",
+    "content-type",
+    "accept",
 ];
 
 /// Stores the request body bytes captured during inbound, so outbound
@@ -74,6 +78,13 @@ enum ForwardDecision {
     },
     Skip,
 }
+
+/// Stores the original request URI captured in inbound before the router
+/// modifies it. The router may strip path prefixes (e.g., `/edenapi/` or
+/// `/repos/git/ro/`), so outbound would see a truncated path. This ensures
+/// we forward the full original path to the shadow server.
+#[derive(Clone, StateData)]
+struct ShadowOriginalUri(String);
 
 pub struct ShadowForwarderMiddleware {
     /// None when config is missing — middleware is disabled but server still starts.
@@ -136,6 +147,7 @@ impl ShadowForwarderMiddleware {
         config_store: &ConfigStore,
         config_path: &str,
         is_shadow_tier: bool,
+        tls_ca_path: Option<&Path>,
     ) -> Result<Self> {
         let config_handle =
             match config_store.get_config_handle::<ShadowTrafficConfig>(config_path.to_string()) {
@@ -150,9 +162,18 @@ impl ShadowForwarderMiddleware {
                 }
             };
 
-        let http_client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()?;
+        let mut client_builder =
+            reqwest::Client::builder().timeout(std::time::Duration::from_secs(30));
+
+        if let Some(ca_path) = tls_ca_path {
+            let ca_cert = std::fs::read(ca_path)
+                .with_context(|| format!("Failed to read TLS CA from {}", ca_path.display()))?;
+            let cert = reqwest::Certificate::from_pem(&ca_cert)
+                .context("Failed to parse TLS CA certificate")?;
+            client_builder = client_builder.add_root_certificate(cert);
+        }
+
+        let http_client = client_builder.build()?;
 
         Ok(Self {
             config_handle,
@@ -228,12 +249,15 @@ impl ShadowForwarderMiddleware {
             return ForwardDecision::Skip;
         }
 
-        let path = match Uri::try_borrow_from(state) {
-            Some(uri) => uri
-                .path_and_query()
-                .map(|pq| pq.as_str().to_string())
-                .unwrap_or_else(|| uri.path().to_string()),
-            None => return ForwardDecision::Skip,
+        let path = match state.try_borrow::<ShadowOriginalUri>() {
+            Some(original) => original.0.clone(),
+            None => match Uri::try_borrow_from(state) {
+                Some(uri) => uri
+                    .path_and_query()
+                    .map(|pq| pq.as_str().to_string())
+                    .unwrap_or_else(|| uri.path().to_string()),
+                None => return ForwardDecision::Skip,
+            },
         };
 
         if !self.path_matches_include(&path, &config.path_include) {
@@ -268,6 +292,17 @@ impl ShadowForwarderMiddleware {
 #[async_trait::async_trait]
 impl Middleware for ShadowForwarderMiddleware {
     async fn inbound(&self, state: &mut State) -> Option<Response<Body>> {
+        // Capture the original URI before the router modifies it.
+        // The router strips path prefixes (e.g., /edenapi/ or /repos/git/ro/),
+        // so outbound would see a truncated path without this.
+        if let Some(uri) = Uri::try_borrow_from(state) {
+            let original_path = uri
+                .path_and_query()
+                .map(|pq| pq.as_str().to_string())
+                .unwrap_or_else(|| uri.path().to_string());
+            state.put(ShadowOriginalUri(original_path));
+        }
+
         // Track shadow requests received on this tier
         if let Some(headers) = HeaderMap::try_borrow_from(state) {
             if headers.contains_key(SHADOW_HEADER) {
@@ -573,7 +608,7 @@ mod tests {
             ModificationTime::UnixTimestamp(0),
         );
         let config_store = ConfigStore::new(Arc::new(test_source), None, None);
-        ShadowForwarderMiddleware::new(&config_store, "test/shadow_traffic", is_shadow_tier)
+        ShadowForwarderMiddleware::new(&config_store, "test/shadow_traffic", is_shadow_tier, None)
             .unwrap()
     }
 
@@ -1098,7 +1133,7 @@ mod tests {
         let test_source = TestSource::new();
         // No config inserted — path doesn't exist
         let config_store = ConfigStore::new(Arc::new(test_source), None, None);
-        let mw = ShadowForwarderMiddleware::new(&config_store, "nonexistent/path", false);
+        let mw = ShadowForwarderMiddleware::new(&config_store, "nonexistent/path", false, None);
         assert!(mw.is_ok());
         assert!(mw.unwrap().config_handle.is_none());
     }
@@ -1107,7 +1142,8 @@ mod tests {
     async fn test_missing_config_inbound_is_noop() {
         let test_source = TestSource::new();
         let config_store = ConfigStore::new(Arc::new(test_source), None, None);
-        let mw = ShadowForwarderMiddleware::new(&config_store, "nonexistent/path", false).unwrap();
+        let mw =
+            ShadowForwarderMiddleware::new(&config_store, "nonexistent/path", false, None).unwrap();
         let mut state = make_state("/edenapi/trees");
         let result = mw.inbound(&mut state).await;
         assert!(result.is_none());
@@ -1120,7 +1156,8 @@ mod tests {
     async fn test_missing_config_outbound_is_noop() {
         let test_source = TestSource::new();
         let config_store = ConfigStore::new(Arc::new(test_source), None, None);
-        let mw = ShadowForwarderMiddleware::new(&config_store, "nonexistent/path", false).unwrap();
+        let mw =
+            ShadowForwarderMiddleware::new(&config_store, "nonexistent/path", false, None).unwrap();
         let mut state = make_state("/edenapi/trees");
         let mut response = make_response();
         // Should not panic or forward anything

@@ -66,6 +66,7 @@ pub fn build<R: Send + Sync + Clone + 'static>(
     mtls_disabled: bool,
     config_store: &ConfigStore,
     is_shadow_tier: bool,
+    tls_ca_path: Option<&Path>,
 ) -> Result<SaplingRemoteApi, Error> {
     let ctx = ServerContext::new(mononoke, will_exit);
 
@@ -107,6 +108,7 @@ pub fn build<R: Send + Sync + Clone + 'static>(
         config_store,
         "scm/mononoke/shadow_traffic/slapi",
         is_shadow_tier,
+        tls_ca_path,
     )?);
 
     let handler = handler

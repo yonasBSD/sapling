@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs/lib:rust_oss.bzl", "rust_oss")
 load(
     "//eden/mononoke/tests/integration/facebook:fb_manifest_deps.bzl",
     "dott_test",
@@ -5,14 +6,40 @@ load(
 
 oncall("scm_server_treehugger")
 
+# shadow_forwarder requires fbcode_build (allow_oss_build = False)
+OSS_EXCLUDED_TESTS = [
+    "test-edenapi-shadow-traffic.t",
+]
+
+# Tests that require network access (e.g., shadow traffic starts two servers that communicate)
+NETWORK_EXCLUDED_TESTS = [
+    "test-edenapi-shadow-traffic.t",
+]
+
 dott_test(
     name = "edenapi",
     # These tests have been vetted to run well without network access. Please investigate any failure thoroughly before disabling.
     disable_all_network_access_target = True,
     dott_files =
-        glob([
-            "*.t",
-        ]),
+        glob(
+            ["*.t"],
+            exclude = OSS_EXCLUDED_TESTS if rust_oss.is_oss_build() else NETWORK_EXCLUDED_TESTS,
+        ),
+    deps = [
+        "//eden/mononoke:mononoke",
+        "//eden/mononoke/git/gitimport:gitimport",
+        "//eden/mononoke/servers/git/git_server:git_server",
+        "//eden/mononoke/tools/admin:admin",
+        "//eden/mononoke/tools/streaming_clone:new_streaming_clone",
+        "//eden/mononoke/tools/testtool:testtool",
+    ],
+)
+
+# Tests that require network access for inter-server communication
+dott_test(
+    name = "edenapi-needs-network",
+    dott_files = NETWORK_EXCLUDED_TESTS,
+    rust_allow_oss_build = False,
     deps = [
         "//eden/mononoke:mononoke",
         "//eden/mononoke/git/gitimport:gitimport",

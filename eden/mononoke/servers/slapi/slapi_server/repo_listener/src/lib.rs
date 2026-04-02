@@ -17,6 +17,7 @@ mod repo_handlers;
 mod request_handler;
 mod wireproto_sink;
 
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -62,6 +63,7 @@ pub async fn create_repo_listeners<'a>(
     readonly: bool,
     mtls_disabled: bool,
     is_shadow_tier: bool,
+    tls_ca_path: Option<&Path>,
 ) -> Result<()> {
     let rate_limiter = {
         let handle = config_store
@@ -95,6 +97,7 @@ pub async fn create_repo_listeners<'a>(
             mtls_disabled,
             config_store,
             is_shadow_tier,
+            tls_ca_path,
         )
         .context("Error instantiating SaplingRemoteAPI")?
     };

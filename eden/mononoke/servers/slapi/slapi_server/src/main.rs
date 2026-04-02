@@ -7,6 +7,7 @@
 
 #![feature(never_type)]
 
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -373,6 +374,7 @@ fn main(fb: FacebookInit) -> Result<()> {
                 args.readonly.readonly,
                 args.tls_args.disable_mtls,
                 args.shadow_tier,
+                Some(Path::new(&args.tls_args.tls_ca)),
             )
             .await
         }
