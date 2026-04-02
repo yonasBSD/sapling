@@ -147,6 +147,16 @@
   padding-top: var(--halfpad);
 }
 
+.worktreeLabelBadge {
+  display: inline-block;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .worktreeSpinner {
   display: flex;
   flex-direction: row;

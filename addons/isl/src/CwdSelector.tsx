@@ -355,7 +355,11 @@ function WorktreeSection({dismiss}: {dismiss: () => unknown}) {
         <code className={css.worktreePath} title={wt.path}>
           {wtBasename}
         </code>
-        {wt.label != null && <Badge>{wt.label}</Badge>}
+        {wt.label != null && (
+          <Tooltip title={wt.label}>
+            <Badge className={css.worktreeLabelBadge}>{wt.label}</Badge>
+          </Tooltip>
+        )}
         {!isCurrent && (
           <div className={css.worktreeActions}>
             <Button
