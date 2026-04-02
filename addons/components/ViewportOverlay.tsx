@@ -5,19 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
 import React, {useEffect, useRef} from 'react';
 import ReactDOM from 'react-dom';
-
-const styles = stylex.create({
-  root: {
-    position: 'absolute',
-    width: '100vw',
-    height: '100vh',
-    pointerEvents: 'none',
-    zIndex: 1000,
-  },
-});
+import css from './ViewportOverlay.module.css';
 
 /**
  * Render `children` as an overlay, in a container that uses absolute positioning.
@@ -58,5 +48,5 @@ export function ViewportOverlayRoot() {
       cachedRoot = undefined;
     };
   }, []);
-  return <div ref={rootRef} {...stylex.props(styles.root)} data-testid="viewport-overlay-root" />;
+  return <div ref={rootRef} className={css.root} data-testid="viewport-overlay-root" />;
 }

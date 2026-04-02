@@ -7,26 +7,10 @@
 
 import type {DragHandler} from './DragHandle';
 
-import * as stylex from '@stylexjs/stylex';
 import {ViewportOverlay} from 'isl-components/ViewportOverlay';
 import {getZoomLevel} from 'isl-components/zoom';
 import React, {useEffect, useRef} from 'react';
-
-const styles = stylex.create({
-  draggingElement: {
-    paddingLeft: 'var(--pad)',
-    backgroundColor: 'var(--background)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--tooltip-border)',
-    boxShadow: '0px 2px 5px rgba(0, 0, 0, 0.2)',
-  },
-  hint: {
-    display: 'flex',
-    justifyContent: 'center',
-    marginTop: 'var(--pad)',
-  },
-});
+import css from './DraggingOverlay.module.css';
 
 type DraggingOverlayProps = React.HTMLProps<HTMLDivElement> & {
   /**
@@ -82,11 +66,11 @@ export function DraggingOverlay(props: DraggingOverlayProps) {
   return (
     <ViewportOverlay key={key}>
       <div style={{width: 'fit-content', opacity: 0}} ref={draggingDivRef}>
-        <div {...stylex.props(styles.draggingElement)} {...rest}>
+        <div className={css.draggingElement} {...rest}>
           {children}
         </div>
         {hint != null && (
-          <div {...stylex.props(styles.hint)}>
+          <div className={css.hint}>
             <span className="tooltip" style={{height: 'fit-content'}}>
               {hint}
             </span>

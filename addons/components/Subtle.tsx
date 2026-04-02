@@ -5,15 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as stylex from '@stylexjs/stylex';
-import {stylexPropsWithClassName} from './utils';
-
-const styles = stylex.create({
-  subtle: {
-    fontSize: '90%',
-    opacity: 0.9,
-  },
-});
+import {cn} from 'shared/cn';
+import css from './Subtle.module.css';
 
 export function Subtle({
   children,
@@ -21,7 +14,7 @@ export function Subtle({
   ...props
 }: React.DetailedHTMLProps<React.HTMLAttributes<HTMLSpanElement>, HTMLSpanElement>) {
   return (
-    <span {...stylexPropsWithClassName(styles.subtle, className)} {...props}>
+    <span className={cn(css.subtle, className)} {...props}>
       {children}
     </span>
   );

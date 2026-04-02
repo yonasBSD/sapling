@@ -7,10 +7,9 @@
 
 import type {ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-import {light} from './theme/tokens.stylex';
+import './theme/light-theme.css';
+import './theme/tokens.css';
 
-type Writable<T> = {-readonly [P in keyof T]: T[P]};
 export function ThemedComponentsRoot({
   theme,
   className,
@@ -20,8 +19,7 @@ export function ThemedComponentsRoot({
   className?: string;
   children: ReactNode;
 }) {
-  const props = stylex.props(theme === 'light' && light);
-  // stylex would overwrite className
-  (props as Writable<typeof props>).className += ` ${className ?? ''} ${theme}-theme`;
-  return <div {...props}>{children}</div>;
+  const themeClass = `${theme}-theme`;
+  const fullClassName = [themeClass, className].filter(Boolean).join(' ');
+  return <div className={fullClassName}>{children}</div>;
 }

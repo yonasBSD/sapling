@@ -9,23 +9,23 @@ import type {CommitInfo} from '../types';
 import type {CommitInfoMode} from './CommitInfoState';
 import type {CommitMessageFields, FieldConfig} from './types';
 
-import * as stylex from '@stylexjs/stylex';
 import {Button} from 'isl-components/Button';
 import {Icon} from 'isl-components/Icon';
 import {LinkButton} from 'isl-components/LinkButton';
 import {DOCUMENTATION_DELAY, Tooltip} from 'isl-components/Tooltip';
 import {useCallback} from 'react';
+import {cn} from 'shared/cn';
 import {useContextMenu} from 'shared/ContextMenu';
-import {font, spacing} from '../../../components/theme/tokens.stylex';
-import {FlexSpacer} from '../ComponentUtils';
-import {Internal} from '../Internal';
+import {layout} from '../../../components/theme/layout';
+import {spacing} from '../../../components/theme/tokens';
 import {tracker} from '../analytics';
+import {FlexSpacer} from '../ComponentUtils';
 import {useFeatureFlagSync} from '../featureFlags';
 import {T, t} from '../i18n';
+import {Internal} from '../Internal';
 import {readAtom, writeAtom} from '../jotaiUtils';
 import platform from '../platform';
 import {dagWithPreviews} from '../previews';
-import {layout} from '../stylexUtils';
 import {useModal} from '../useModal';
 import {
   commitMessageTemplate,
@@ -39,6 +39,7 @@ import {
   mergeOnlyEmptyMessageFields,
   parseCommitMessageFields,
 } from './CommitMessageFields';
+import css from './FillCommitMessage.module.css';
 import {SmallCapsTitle} from './utils';
 
 /**
@@ -212,7 +213,7 @@ export function FillCommitMessage({commit, mode}: {commit: CommitInfo; mode: Com
     </>
   );
   return (
-    <div {...stylex.props(layout.flexRow, styles.container)}>
+    <div className={cn(layout.flexRow, css.container)}>
       <T replace={{$methods: methods}}>Fill commit message from $methods</T>
       <FlexSpacer />
       <Button icon onClick={menu} data-testid="fill-commit-message-more-options">
@@ -250,18 +251,18 @@ function MessageConflictWarning({
           const oldValue = oldMessage[field.key];
           const newValue = newMessage[field.key];
           return (
-            <div key={i} {...stylex.props(layout.paddingBlock)}>
+            <div key={i} className={layout.paddingBlock}>
               <SmallCapsTitle>
                 <Icon icon={field.icon} />
                 {field.key}
               </SmallCapsTitle>
-              <div {...stylex.props(layout.flexRow)}>
+              <div className={layout.flexRow}>
                 <b>
                   <T>Current:</T>
                 </b>
                 <Truncate>{oldValue}</Truncate>
               </div>
-              <div {...stylex.props(layout.flexRow)}>
+              <div className={layout.flexRow}>
                 <b>
                   <T>New:</T>
                 </b>
@@ -280,27 +281,8 @@ function Truncate({children}: {children: string | Array<string>}) {
     ? children.filter(v => v.trim() !== '').join(', ')
     : children;
   return (
-    <span {...stylex.props(styles.truncate)} title={content}>
+    <span className={css.truncate} title={content}>
       {content}
     </span>
   );
 }
-
-const styles = stylex.create({
-  container: {
-    padding: spacing.half,
-    paddingInline: spacing.pad,
-    paddingBottom: 0,
-    gap: spacing.half,
-    alignItems: 'center',
-    fontSize: font.small,
-    marginInline: spacing.pad,
-    marginTop: spacing.half,
-  },
-  truncate: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    maxWidth: 500,
-  },
-});

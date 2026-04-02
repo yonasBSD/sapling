@@ -1,0 +1,24 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.container {
+  padding: var(--spacing-half);
+  padding-inline: var(--spacing-pad);
+  padding-bottom: 0;
+  gap: var(--spacing-half);
+  align-items: center;
+  font-size: var(--font-small);
+  margin-inline: var(--spacing-pad);
+  margin-top: var(--spacing-half);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 500px;
+}
