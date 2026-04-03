@@ -6,12 +6,21 @@
  */
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
 
+use anyhow::Context as _;
+use anyhow::bail;
 use clidispatch::ReqCtx;
 use clidispatch::abort;
+use cmdutil::ConfigExt;
 use cmdutil::Result;
+use encoding::shell_output_bytes_to_path;
 use fs_err as fs;
 use repo::repo::Repo;
+use spawn_ext::CommandExt;
 use uuid::Uuid;
 use worktree::Group;
 use worktree::WorktreeEntry;
@@ -22,11 +31,33 @@ use crate::WorktreeOpts;
 
 pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     let logger = ctx.logger();
-    let dest_str = match ctx.opts.args.get(1) {
-        Some(value) => value,
-        None => abort!("usage: sl worktree add PATH"),
+
+    let require_generated: bool = repo
+        .config()
+        .get_or_default("worktree", "require-generated-path")?;
+
+    // Pre-compute the canonical path for the source repo early since the path generator needs it.
+    let canonical_repo_path = fs::canonicalize(repo.path())
+        .map(util::path::strip_unc_prefix)
+        .unwrap_or_else(|_| repo.path().to_path_buf());
+
+    let dest = match ctx.opts.args.get(1) {
+        Some(value) => {
+            if require_generated {
+                abort!(
+                    "custom worktree paths are not allowed (worktree.require-generated-path is set); \
+                     run without a path argument to use the configured path generator"
+                );
+            }
+            util::path::strip_unc_prefix(util::path::canonical_path_allow_missing(value)?)
+        }
+        None => run_path_generator(
+            repo,
+            &ctx.opts.label,
+            &canonical_repo_path,
+            require_generated,
+        )?,
     };
-    let dest = util::path::strip_unc_prefix(util::path::canonical_path_allow_missing(dest_str)?);
 
     // Fast-fail before locking (re-checked inside lock).
     if dest.exists() {
@@ -61,11 +92,6 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
             Ok(paths)
         })
         .transpose()?;
-
-    // Pre-compute the canonical path for the source repo before acquiring the lock.
-    let canonical_repo_path = fs::canonicalize(repo.path())
-        .map(util::path::strip_unc_prefix)
-        .unwrap_or_else(|_| repo.path().to_path_buf());
 
     let pre_hooks = hook::Hooks::from_config(repo.config(), ctx.io(), "pre-worktree-add");
     pre_hooks.run_hooks(
@@ -154,4 +180,113 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     )?;
 
     Ok(0)
+}
+
+/// Runs the `worktree.path-generator` command and returns the generated path.
+fn run_path_generator(
+    repo: &Repo,
+    label: &str,
+    canonical_source: &Path,
+    require_generated: bool,
+) -> Result<PathBuf> {
+    let generator_cmd = repo
+        .config()
+        .get("worktree", "path-generator")
+        .with_context(|| {
+            if require_generated {
+                "worktree.path-generator is required when \
+                 worktree.require-generated-path=true"
+            } else {
+                "worktree.path-generator is not configured; pass a PATH argument"
+            }
+        })?;
+
+    let current_exe = std::env::current_exe().ok();
+    let exe_str = current_exe
+        .as_ref()
+        .and_then(|p| p.to_str())
+        .unwrap_or_else(|| identity::cli_name());
+
+    let mut cmd = Command::new_shell(generator_cmd.as_ref());
+    cmd.current_dir(repo.path());
+    cmd.env("HG_SOURCE", canonical_source.as_os_str());
+    cmd.env("SL_SOURCE", canonical_source.as_os_str());
+    cmd.env("HG_LABEL", label);
+    cmd.env("SL_LABEL", label);
+    cmd.env("HG", exe_str);
+    cmd.env("SL", exe_str);
+
+    let output = cmd
+        .output()
+        .context("failed to run worktree.path-generator")?;
+
+    if !output.status.success() {
+        let mut msg = format!("worktree.path-generator exited with {}", output.status);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = stderr.trim();
+        if !stderr.is_empty() {
+            msg.push_str(": ");
+            msg.push_str(stderr);
+        }
+        bail!(msg);
+    }
+
+    let path_bytes = parse_generated_path_bytes(&output.stdout)?;
+    let display_path = display_path_bytes(path_bytes);
+    if path_bytes.contains(&b'\0') {
+        bail!(
+            "worktree.path-generator returned invalid path '{}': contains NUL byte",
+            display_path
+        );
+    }
+    let path = shell_output_bytes_to_path(path_bytes)
+        .context("worktree.path-generator output could not be decoded as a path")?
+        .into_owned();
+    if !path.is_absolute() {
+        bail!(
+            "worktree.path-generator must return an absolute path, got '{}'",
+            display_path
+        );
+    }
+
+    let path = util::path::strip_unc_prefix(
+        util::path::canonical_path_allow_missing(&path).with_context(|| {
+            format!(
+                "worktree.path-generator returned invalid path '{}'",
+                display_path
+            )
+        })?,
+    );
+    Ok(path)
+}
+
+fn parse_generated_path_bytes(stdout: &[u8]) -> Result<&[u8]> {
+    let stdout = stdout
+        .strip_suffix(b"\r\n")
+        .or_else(|| stdout.strip_suffix(b"\n"))
+        .unwrap_or(stdout);
+
+    if stdout.is_empty() {
+        bail!("worktree.path-generator returned empty output");
+    }
+
+    if stdout.contains(&b'\r') || stdout.contains(&b'\n') {
+        bail!("worktree.path-generator must write exactly one path to stdout");
+    }
+
+    Ok(stdout)
+}
+
+fn display_path_bytes(bytes: &[u8]) -> String {
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.escape_debug().to_string();
+    }
+
+    let mut escaped = String::new();
+    for &byte in bytes {
+        for ch in std::ascii::escape_default(byte) {
+            let _ = escaped.write_char(ch.into());
+        }
+    }
+    escaped
 }

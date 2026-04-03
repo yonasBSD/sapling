@@ -26,6 +26,7 @@ pub use sys::local_bytes_to_osstring;
 pub use sys::local_bytes_to_path;
 pub use sys::osstring_to_local_bytes;
 pub use sys::path_to_local_bytes;
+pub use sys::shell_output_bytes_to_path;
 use types::RepoPath;
 #[cfg(unix)]
 use unix as sys;
@@ -131,5 +132,20 @@ mod tests {
         let (s, b) = get_encoded_sample();
         let r = local_bytes_to_osstring(&b).unwrap();
         assert_eq!(OsString::from(s), r);
+    }
+
+    #[test]
+    fn test_shell_output_bytes_to_path_utf8() {
+        let utf8 = "管理员/桌面";
+        let path = shell_output_bytes_to_path(utf8.as_bytes()).unwrap();
+        assert_eq!(std::path::Path::new(utf8), path.as_ref());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_shell_output_bytes_to_path_acp() {
+        let (s, b) = get_encoded_sample();
+        let path = shell_output_bytes_to_path(&b).unwrap();
+        assert_eq!(std::path::PathBuf::from(s), path.into_owned());
     }
 }

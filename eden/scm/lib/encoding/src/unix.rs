@@ -40,6 +40,15 @@ pub fn local_bytes_to_path(bytes: &[u8]) -> io::Result<Cow<'_, Path>> {
     Ok(Cow::Borrowed(Path::new(OsStr::from_bytes(bytes))))
 }
 
+/// Convert bytes captured from shell stdout to a `Path`.
+///
+/// On Unix, shell stdout is an arbitrary byte stream, so this is the same
+/// zero-copy conversion as `local_bytes_to_path`.
+#[inline]
+pub fn shell_output_bytes_to_path(bytes: &[u8]) -> io::Result<Cow<'_, Path>> {
+    local_bytes_to_path(bytes)
+}
+
 /// Convert an `OsStr` to bytes in the local encoding.
 ///
 /// On Unix, this is a zero-copy operation and cannot fail.  The encoding of the local bytes

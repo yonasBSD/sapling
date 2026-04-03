@@ -91,6 +91,9 @@ pub fn doc() -> &'static str {
       remove PATH [--all] [--keep] [-y]       Remove linked worktree(s)
       label [PATH] TEXT [--remove]            Set or remove a worktree label
 
+    If PATH is omitted, `worktree.path-generator` is used to choose the
+    destination path.
+
     Currently only EdenFS-backed repositories are supported."#
 }
 

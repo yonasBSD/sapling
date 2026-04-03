@@ -15,10 +15,15 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use winapi::shared::minwindef::DWORD;
+use winapi::shared::minwindef::UINT;
 use winapi::shared::ntdef::LPSTR;
+use winapi::um::consoleapi::GetConsoleOutputCP;
 use winapi::um::stringapiset::MultiByteToWideChar;
 use winapi::um::stringapiset::WideCharToMultiByte;
 use winapi::um::winnls::CP_ACP;
+use winapi::um::winnls::CP_UTF8;
+use winapi::um::winnls::GetACP;
+use winapi::um::winnls::GetOEMCP;
 
 const MB_ERR_INVALID_CHARS: DWORD = 0x00000008;
 const WC_COMPOSITECHECK: DWORD = 0x00000200;
@@ -34,10 +39,13 @@ const WC_COMPOSITECHECK: DWORD = 0x00000200;
 /// "more native" from Windows' perspective and is more performant.
 #[inline]
 pub fn local_bytes_to_osstring(bytes: &[u8]) -> io::Result<Cow<OsStr>> {
+    bytes_to_osstring_with_codepage(bytes, CP_ACP)
+}
+
+fn bytes_to_osstring_with_codepage(bytes: &[u8], codepage: UINT) -> io::Result<Cow<OsStr>> {
     if bytes.len() == 0 {
         return Ok(Cow::Owned(OsString::new()));
     }
-    let codepage = CP_ACP;
     let len = unsafe {
         MultiByteToWideChar(
             codepage,
@@ -85,6 +93,44 @@ pub fn local_bytes_to_path(bytes: &[u8]) -> io::Result<Cow<Path>> {
     Ok(Cow::Owned(PathBuf::from(
         local_bytes_to_osstring(bytes)?.into_owned(),
     )))
+}
+
+/// Convert bytes captured from shell stdout to a `Path`.
+///
+/// On Windows, shell commands may emit UTF-8, the process ANSI code page, or
+/// the current console code page depending on the program that wrote stdout.
+/// Try those decoders in order until one succeeds.
+#[inline]
+pub fn shell_output_bytes_to_path(bytes: &[u8]) -> io::Result<Cow<'_, Path>> {
+    Ok(Cow::Owned(PathBuf::from(
+        shell_output_bytes_to_osstring(bytes)?.into_owned(),
+    )))
+}
+
+fn shell_output_bytes_to_osstring(bytes: &[u8]) -> io::Result<Cow<OsStr>> {
+    let mut last_err = None;
+    let mut tried = Vec::new();
+    for codepage in [
+        CP_UTF8,
+        unsafe { GetACP() },
+        unsafe { GetConsoleOutputCP() },
+        unsafe { GetOEMCP() },
+    ] {
+        if codepage == 0 || tried.contains(&codepage) {
+            continue;
+        }
+        tried.push(codepage);
+        match bytes_to_osstring_with_codepage(bytes, codepage) {
+            Ok(decoded) => return Ok(decoded),
+            Err(err) => last_err = Some(err),
+        }
+    }
+    Err(last_err.unwrap_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "failed to decode shell output using UTF-8 or the current Windows code pages",
+        )
+    }))
 }
 
 /// Convert an `OsStr` to bytes in the local encoding.
