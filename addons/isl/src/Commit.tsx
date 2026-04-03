@@ -210,14 +210,36 @@ export const Commit = memo(
       const syncStatus = readAtom(syncStatusAtom)?.get(commit.hash);
 
       const copyHashFormat = readAtom(copyCommitHashFormatAtom);
-      const hashToCopy = copyHashFormat === 'short' ? short(commit.hash) : commit.hash;
-      const items: Array<ContextMenuItem & {loggingLabel?: string}> = [
-        {
+      const items: Array<ContextMenuItem & {loggingLabel?: string}> = [];
+
+      const selectedCommitHashes = readAtom(selectedCommitInfos)
+        .map(info => (copyHashFormat === 'short' ? short(info.hash) : info.hash))
+        .filter(notEmpty);
+      if (selectedCommitHashes.length > 1) {
+        items.push({
+          label: (
+            <T
+              replace={{
+                $count: selectedCommitHashes.length < 10 ? selectedCommitHashes.length : '9+',
+              }}>
+              Copy $count Selected Commit Hashes
+            </T>
+          ),
+          onClick: () => {
+            const text = selectedCommitHashes.join(' ');
+            clipboardCopy(text);
+          },
+          loggingLabel: 'Copy Selected Commit Hashes',
+        });
+      } else {
+        const hashToCopy = copyHashFormat === 'short' ? short(commit.hash) : commit.hash;
+        items.push({
           label: <T replace={{$hash: short(commit?.hash)}}>Copy Commit Hash "$hash"</T>,
           onClick: () => clipboardCopy(hashToCopy),
           loggingLabel: 'Copy Commit Hash',
-        },
-      ];
+        });
+      }
+
       if (isPublic && readAtom(supportsBrowseUrlForHash)) {
         items.push({
           label: (
