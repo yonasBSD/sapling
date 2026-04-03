@@ -86,13 +86,13 @@ pub fn doc() -> &'static str {
 
     Subcommands::
 
-      list [-Tjson]                           List all worktrees in the group
-      add PATH [--label TEXT] [--snapshot]    Create a new linked worktree
-      remove PATH [--all] [--keep] [-y]       Remove linked worktree(s)
-      label [PATH] TEXT [--remove]            Set or remove a worktree label
+      list [-Tjson]                            List all worktrees in the group
+      add [PATH] [--label TEXT] [--snapshot]   Create a new linked worktree
+      remove PATH [--all] [--keep] [-y]        Remove linked worktree(s)
+      label [PATH] TEXT [--remove]             Set or remove a worktree label
 
-    If PATH is omitted, `worktree.path-generator` is used to choose the
-    destination path.
+    If PATH is omitted from `add`, `worktree.path-generator` is used to
+    choose the destination path.
 
     Currently only EdenFS-backed repositories are supported."#
 }
