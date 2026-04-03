@@ -24,7 +24,12 @@
     "prettier-fix": "prettier --write ."
   },
   "resolutions": {
-    "rollup": "3.29.5"
+    "rollup": "3.29.5",
+    "postcss": ">=8.4.31",
+    "serialize-javascript": ">=7.0.5",
+    "semver": ">=7.5.2",
+    "@tootallnate/once": ">=3.0.1",
+    "underscore": ">=1.13.8"
   },
   "dependencies": {}
 }
