@@ -26,7 +26,7 @@ import functools
 import hashlib
 from contextlib import contextmanager
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 from bindings import clientinfo
 
@@ -224,26 +224,121 @@ def automerge_wordmerge(m3, base_lines, a_lines, b_lines) -> Optional[List[bytes
         return None
 
 
+def _group_lines_into_entries(lines, headerfn, contfn):
+    """Group lines into multi-line entries. Each entry starts with a header
+    line (matching headerfn) followed by zero or more continuation lines
+    (matching contfn). Returns a list of tuples, or None if any line matches
+    neither pattern."""
+    entries = []
+    current = []
+    for line in lines:
+        if headerfn(line):
+            if current:
+                entries.append(tuple(current))
+            current = [line]
+        elif contfn(line):
+            if not current:
+                return None  # continuation before any header
+            current.append(line)
+        else:
+            return None  # line matches neither pattern
+    if current:
+        entries.append(tuple(current))
+    return entries
+
+
+def _extract_key(line, key_matchfn):
+    """Extract a deduplication key from a line (or the first line of a
+    multi-line entry) using a matcher. Returns the key bytes or None."""
+    m = key_matchfn(line)
+    if m and m.group(1):
+        return m.group(1)
+    return None
+
+
+def _check_duplicate_keys(items, key_matchfn, first_line_fn):
+    """Check for duplicate keys with different values. Returns None if a
+    conflict is detected or if any item fails key extraction. Otherwise
+    returns items sorted by key."""
+    seen = {}
+    for item in items:
+        k = _extract_key(first_line_fn(item), key_matchfn)
+        if k is None:
+            return None
+        if k in seen and seen[k] != item:
+            return None
+        seen[k] = item
+    return [v for _k, v in sorted(seen.items())]
+
+
 def automerge_sort_inserts(m3, base_lines, a_lines, b_lines) -> Optional[List[bytes]]:
     """This algorithm tries to resolve conflicts caused by insertions
     on both sides (e.g.: import insertions)."""
-    if base_lines or not m3.file_type:
+    if base_lines or not m3.file_types:
         return None
 
-    key = f"import-pattern:{m3.file_type}"
-    pattern = m3.ui.config("automerge", key)
+    for file_type in m3.file_types:
+        result = _try_sort_inserts_for_type(m3, file_type, a_lines, b_lines)
+        if result is not None:
+            return result
+
+    return None
+
+
+def _try_sort_inserts_for_type(m3, file_type, a_lines, b_lines):
+    """Try the sort-inserts algorithm for a single file type."""
+    pattern = m3.ui.config("automerge", f"import-pattern:{file_type}")
     if not pattern:
         return None
     matchfn = util.cachedbytesmatcher(pattern.encode())
+
+    # Check for multi-line continuation pattern
+    cont_pattern = m3.ui.config("automerge", f"import-continuation-pattern:{file_type}")
+
+    if cont_pattern:
+        # Multi-line entry path: group lines into entry tuples
+        contfn = util.cachedbytesmatcher(cont_pattern.encode())
+
+        a_entries = _group_lines_into_entries(a_lines, matchfn, contfn)
+        b_entries = _group_lines_into_entries(b_lines, matchfn, contfn)
+        if a_entries is None or b_entries is None:
+            return None
+
+        merged_entries = sorted(set(a_entries + b_entries))
+
+        key_pattern = m3.ui.config("automerge", f"import-key-pattern:{file_type}")
+        if key_pattern and merged_entries:
+            key_matchfn = util.cachedbytesmatcher(key_pattern.encode())
+            merged_entries = _check_duplicate_keys(
+                merged_entries, key_matchfn, lambda entry: entry[0]
+            )
+            if merged_entries is None:
+                return None
+
+        # Flatten tuples back to lines
+        merged_lines = []
+        for entry in merged_entries:
+            merged_lines.extend(entry)
+        return merged_lines
+
+    # Single-line path
     if all(matchfn(line) for line in a_lines) and all(
         matchfn(line) for line in b_lines
     ):
-        # For buck target files, we use the sorting algorithm from buildifier
-        # aka. [bazelbuild/buildtools](https://github.com/bazelbuild/buildtools)
-        if m3.file_type == "buck":
-            merged_lines = buildifier_sorted(a_lines + b_lines)
-        else:
-            merged_lines = sorted(set(a_lines + b_lines))
+        if file_type == "buck":
+            return buildifier_sorted(a_lines + b_lines)
+
+        merged_lines = sorted(set(a_lines + b_lines))
+
+        key_pattern = m3.ui.config("automerge", f"import-key-pattern:{file_type}")
+        if key_pattern and merged_lines:
+            key_matchfn = util.cachedbytesmatcher(key_pattern.encode())
+            merged_lines = _check_duplicate_keys(
+                merged_lines, key_matchfn, lambda line: line
+            )
+            if merged_lines is None:
+                return None
+
         return merged_lines
 
     return None
@@ -455,14 +550,18 @@ class Merge3Text:
             automerge_fns[name] = AUTOMERGE_ALGORITHMS[name]
 
     @util.propertycache
-    def file_type(self) -> Optional[str]:
+    def file_types(self) -> Set[str]:
+        """Return all matching file types. Order does not matter — each type
+        covers a different kind of conflict (e.g. hack for imports, hackdict
+        for dict entries) so only one will match any given conflict region."""
         if not self.file_path:
-            return None
+            return set()
+        result = set()
         for pat, typ in self.ui.configitems("filetype-patterns"):
             mf = match.match("", "", [pat])
             if mf(self.file_path):
-                return typ
-        return None
+                result.add(typ)
+        return result
 
     def merge_groups(self):
         """Yield sequence of line groups.
