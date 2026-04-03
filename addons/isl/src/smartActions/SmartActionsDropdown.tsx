@@ -34,6 +34,9 @@ const smartActionsConfig = [
   // TODO: Add public actions here
 ] satisfies SmartActionConfig[];
 
+// Additional feature flags needed by actions at runtime (not tied to a specific config's visibility)
+const additionalFlagKeys: Array<string> = ['AICodeReviewAndFix'];
+
 const smartActionFeatureFlagsAtom = atom<Promise<Record<string, boolean>>>(async () => {
   const flags: Record<string, boolean> = {};
 
@@ -41,6 +44,15 @@ const smartActionFeatureFlagsAtom = atom<Promise<Record<string, boolean>>>(async
   for (const config of smartActionsConfig) {
     if (config.featureFlag && Internal.featureFlags?.[config.featureFlag]) {
       flagNames.push(Internal.featureFlags[config.featureFlag]);
+    }
+  }
+
+  // Also fetch additional flags needed by actions at runtime
+  for (const key of additionalFlagKeys) {
+    const flagName =
+      Internal.featureFlags?.[key as keyof NonNullable<typeof Internal.featureFlags>];
+    if (flagName && !flagNames.includes(flagName)) {
+      flagNames.push(flagName);
     }
   }
 
@@ -55,6 +67,14 @@ const smartActionFeatureFlagsAtom = atom<Promise<Record<string, boolean>>>(async
     if (config.featureFlag && Internal.featureFlags?.[config.featureFlag]) {
       const flagName = Internal.featureFlags[config.featureFlag];
       flags[config.featureFlag as string] = results[flagName] ?? false;
+    }
+  }
+  // Map additional flags
+  for (const key of additionalFlagKeys) {
+    const flagName =
+      Internal.featureFlags?.[key as keyof NonNullable<typeof Internal.featureFlags>];
+    if (flagName) {
+      flags[key] = results[flagName] ?? false;
     }
   }
 
@@ -72,18 +92,22 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
   const isMenuOpen = useAtomValue(contextMenuState) != null;
   const wasMenuOpenOnPointerDown = useRef(false);
 
+  const featureFlags = useMemo(
+    () => (featureFlagsLoadable.state === 'hasData' ? featureFlagsLoadable.data : {}),
+    [featureFlagsLoadable],
+  );
+
   const context: ActionContext = useMemo(
     () => ({
       commit,
       repoPath: repo?.repoRoot,
       conflicts,
+      featureFlags,
     }),
-    [commit, repo?.repoRoot, conflicts],
+    [commit, repo?.repoRoot, conflicts, featureFlags],
   );
 
   const availableActionItems = useMemo(() => {
-    const featureFlagResults =
-      featureFlagsLoadable.state === 'hasData' ? featureFlagsLoadable.data : {};
     const items: ActionMenuItem[] = [];
 
     if (featureFlagsLoadable.state === 'hasData') {
@@ -92,7 +116,7 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
           shouldShowSmartAction(
             config,
             context,
-            config.featureFlag ? featureFlagResults[config.featureFlag as string] : true,
+            config.featureFlag ? featureFlags[config.featureFlag as string] : true,
           )
         ) {
           items.push({
@@ -105,7 +129,7 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
     }
 
     return items;
-  }, [featureFlagsLoadable, context]);
+  }, [featureFlagsLoadable, context, featureFlags]);
 
   const sortedActionItems = useSortedActions(availableActionItems);
 
@@ -140,10 +164,12 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
         runSmartAction(actionItem.config, context);
         bumpSmartAction(actionItem.id);
       },
-      tooltip: actionItem.config.description
-        ? (Internal.smartActions?.renderModifierContextTooltip?.(actionItem.config.description) ??
-          t(actionItem.config.description))
-        : undefined,
+      tooltip: (() => {
+        const desc = resolveDescription(actionItem.config, context);
+        return desc
+          ? (Internal.smartActions?.renderModifierContextTooltip?.(desc) ?? t(desc))
+          : undefined;
+      })(),
     })),
   );
 
@@ -162,9 +188,8 @@ export function SmartActionsDropdown({commit}: {commit?: CommitInfo}) {
 
   let buttonComponent;
 
-  const description = selectedAction.config.description
-    ? t(selectedAction.config.description)
-    : undefined;
+  const resolvedDesc = resolveDescription(selectedAction.config, context);
+  const description = resolvedDesc ? t(resolvedDesc) : undefined;
   const tooltip = description
     ? (Internal.smartActions?.renderModifierContextTooltip?.(description) ?? description)
     : undefined;
@@ -309,6 +334,15 @@ function shouldShowSmartAction(
   }
 
   return config.shouldShow?.(context) ?? true;
+}
+
+function resolveDescription(config: SmartActionConfig, context: ActionContext): string | undefined {
+  if (config.description == null) {
+    return undefined;
+  }
+  return typeof config.description === 'function'
+    ? config.description(context)
+    : config.description;
 }
 
 function runSmartAction(config: SmartActionConfig, context: ActionContext): void {

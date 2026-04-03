@@ -849,6 +849,7 @@ export type PlatformSpecificClientToServerMessages =
       reviewScope: CodeReviewScope;
       userContext?: string;
       agentBackend?: 'devmate' | 'claude';
+      reviewAndFix?: boolean;
     }
   | {
       type: 'platform/subscribeToAIReviewComments';

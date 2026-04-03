@@ -368,6 +368,7 @@ function ReviewCodeButton({
   disabled?: boolean;
   disabledReason?: string;
 }) {
+  const reviewAndFixEnabled = useFeatureFlagAsync(Internal.featureFlags?.AICodeReviewAndFix);
   const button = (
     <Button
       data-testid="review-commit-button"
@@ -377,6 +378,7 @@ function ReviewCodeButton({
           type: 'platform/runAICodeReviewChat',
           source: 'smartAction',
           reviewScope: commit ? 'current commit' : 'uncommitted changes',
+          reviewAndFix: reviewAndFixEnabled ?? false,
         });
         dismiss();
         e.stopPropagation();
