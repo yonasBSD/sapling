@@ -17,7 +17,13 @@
     "ts-node": "10.9.2",
     "tsx": "^4.19.2"
   },
-  "resolutions": {},
+  "resolutions": {
+    "handlebars": ">=4.7.9",
+    "picomatch": ">=4.0.4",
+    "yaml": ">=2.8.3",
+    "tmp": ">=0.2.4",
+    "@babel/helpers": ">=7.26.10"
+  },
   "scripts": {
     "lint": "oxlint -c .oxlintrc.json --react-plugin --import-plugin isl/src isl-server/src shared components vscode/extension vscode/webview textmate/src",
     "dev": "tsx ./scripts/dev.ts",
