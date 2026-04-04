@@ -20,7 +20,7 @@ rust_library(
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:quickcheck",
         "fbsource//third-party/rust:rand_chacha_03",
-        "fbsource//third-party/rust:rand_core",
+        "fbsource//third-party/rust:rand_core_06",
         "fbsource//third-party/rust:tempfile",
     ],
     deps = [
