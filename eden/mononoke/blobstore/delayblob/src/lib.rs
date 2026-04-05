@@ -136,7 +136,7 @@ where
     D: Distribution<f64>,
 {
     if let Some(distribution) = distribution {
-        let seconds = rand::thread_rng().sample(distribution).abs();
+        let seconds = rand::rng().sample(distribution).abs();
         tokio::time::sleep(Duration::new(
             seconds.trunc() as u64,
             (seconds.fract() * 1e+9) as u32,

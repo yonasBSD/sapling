@@ -29,7 +29,7 @@ use mononoke_types::GitLfs;
 use mononoke_types::MPathElement;
 use mononoke_types::NonRootMPath;
 use rand::Rng;
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom as _;
 use rand_distr::Binomial;
 use rand_distr::Uniform;
 use repo_blobstore::RepoBlobstoreRef;
@@ -185,8 +185,8 @@ impl GenManifest {
         settings: &GenSettings,
         mut prefix: Vec<MPathElement>,
     ) -> (NonRootMPath, Option<String>) {
-        if rng.gen_bool(settings.p_dir_descend) {
-            let dirname = if rng.gen_bool(settings.p_dir_create) {
+        if rng.random_bool(settings.p_dir_descend) {
+            let dirname = if rng.random_bool(settings.p_dir_create) {
                 gen_filename(rng)
             } else {
                 let dirs = self.dirs.keys().collect::<Vec<_>>();
@@ -199,7 +199,7 @@ impl GenManifest {
                 .or_insert_with(Self::new)
                 .gen_change(rng, settings, prefix)
         } else {
-            let (filename, new) = if rng.gen_bool(settings.p_file_create) {
+            let (filename, new) = if rng.random_bool(settings.p_file_create) {
                 (gen_filename(rng), true)
             } else {
                 let files = self.files.keys().collect::<Vec<_>>();
@@ -208,7 +208,7 @@ impl GenManifest {
                     .map_or_else(|| (gen_filename(rng), true), |&k| (k.clone(), false))
             };
             prefix.push(filename.clone());
-            let data = if !new && rng.gen_bool(settings.p_file_delete) {
+            let data = if !new && rng.random_bool(settings.p_file_delete) {
                 self.files.remove(&filename);
                 None
             } else {
@@ -227,7 +227,7 @@ impl GenManifest {
 fn gen_ascii(len: usize, rng: &mut impl Rng) -> String {
     let chars = b"_abcdefghijklmnopqrstuvwxyz";
     let bytes = rng
-        .sample_iter(&Uniform::from(0..chars.len()))
+        .sample_iter(&Uniform::new(0, chars.len()).unwrap())
         .take(len)
         .map(|i| chars[i])
         .collect();

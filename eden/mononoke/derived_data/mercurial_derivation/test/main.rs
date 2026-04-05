@@ -1076,7 +1076,7 @@ async fn save_reproducibility_under_load(fb: FacebookInit) -> Result<(), Error> 
     }
 
     async fn delay(distribution: impl Distribution<f64>) {
-        let seconds = rand::thread_rng().sample(distribution).abs();
+        let seconds = rand::rng().sample(distribution).abs();
         let duration = Duration::from_secs_f64(seconds);
         tokio::time::sleep(duration).await;
     }
@@ -1122,7 +1122,7 @@ async fn save_reproducibility_under_load(fb: FacebookInit) -> Result<(), Error> 
     .await?;
     let hgcsid = repo.derive_hg_changeset(&ctx, csid).await?;
 
-    assert_eq!(hgcsid, "e9b73f926c993c5232139d4eefa6f77fa8c41279".parse()?);
+    assert_eq!(hgcsid, "6f69ac6c8f05006aa712601a74257fadfead1691".parse()?);
 
     Ok(())
 }

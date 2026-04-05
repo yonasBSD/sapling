@@ -16,8 +16,6 @@ use blobstore::OverwriteStatus;
 use blobstore::PutBehaviour;
 use context::CoreContext;
 use mononoke_types::BlobstoreBytes;
-use rand::Rng;
-use rand::thread_rng;
 
 mod errors;
 pub use crate::errors::ErrorKind;
@@ -97,7 +95,7 @@ impl<T: Blobstore> Blobstore for ChaosBlobstore<T> {
         ctx: &'a CoreContext,
         key: &'a str,
     ) -> Result<Option<BlobstoreGetData>> {
-        let should_error = thread_rng().r#gen::<f32>() > self.sample_threshold_read;
+        let should_error = rand::random::<f32>() > self.sample_threshold_read;
         let get = self.blobstore.get(ctx, key);
         if should_error {
             Err(ErrorKind::InjectedChaosGet(key.to_owned()).into())
@@ -133,7 +131,7 @@ impl<T: Blobstore> Blobstore for ChaosBlobstore<T> {
         ctx: &'a CoreContext,
         key: &'a str,
     ) -> Result<BlobstoreIsPresent> {
-        let should_error = thread_rng().r#gen::<f32>() > self.sample_threshold_read;
+        let should_error = rand::random::<f32>() > self.sample_threshold_read;
         let is_present = self.blobstore.is_present(ctx, key);
         if should_error {
             Err(ErrorKind::InjectedChaosIsPresent(key.to_owned()).into())
@@ -144,7 +142,7 @@ impl<T: Blobstore> Blobstore for ChaosBlobstore<T> {
 
     #[inline]
     async fn unlink<'a>(&'a self, ctx: &'a CoreContext, key: &'a str) -> Result<()> {
-        let should_error = thread_rng().r#gen::<f32>() > self.sample_threshold_read;
+        let should_error = rand::random::<f32>() > self.sample_threshold_read;
         let unlink = self.blobstore.unlink(ctx, key);
         if should_error {
             Err(ErrorKind::InjectedChaosUnlink(key.to_owned()).into())
@@ -162,7 +160,7 @@ impl<T: Blobstore> ChaosBlobstore<T> {
         value: BlobstoreBytes,
         put_behaviour: Option<PutBehaviour>,
     ) -> Result<OverwriteStatus> {
-        let should_error = thread_rng().r#gen::<f32>() > self.sample_threshold_write;
+        let should_error = rand::random::<f32>() > self.sample_threshold_write;
         let put = if should_error {
             None
         } else {

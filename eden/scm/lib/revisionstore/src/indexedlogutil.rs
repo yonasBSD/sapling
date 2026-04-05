@@ -34,7 +34,6 @@ use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockUpgradableReadGuard;
 use parking_lot::RwLockWriteGuard;
 use rand::Rng;
-use rand::rng;
 use tracing::debug;
 
 /// Simple wrapper around either an `IndexedLog` or a `RotateLog`. This abstracts whether a store
