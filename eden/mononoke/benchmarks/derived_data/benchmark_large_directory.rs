@@ -38,9 +38,8 @@ use mercurial_derivation::MappedHgChangesetId;
 use mercurial_derivation::RootHgAugmentedManifestId;
 use mononoke_types::ChangesetId;
 use rand::Rng;
-use rand::distributions::Alphanumeric;
-use rand::distributions::Uniform;
-use rand::thread_rng;
+use rand::distr::Alphanumeric;
+use rand::distr::Uniform;
 use repo_blobstore::RepoBlobstore;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedData;
@@ -92,8 +91,8 @@ async fn make_initial_large_directory(
     count: usize,
 ) -> Result<(ChangesetId, BTreeSet<String>)> {
     let mut filenames = BTreeSet::new();
-    let mut rng = thread_rng();
-    let len_distr = Uniform::new(5, 50);
+    let mut rng = rand::rng();
+    let len_distr = Uniform::new(5, 50).unwrap();
     while filenames.len() < count {
         let len = rng.sample(len_distr);
         let filename = gen_filename(&mut rng, len);
@@ -123,8 +122,8 @@ async fn modify_large_directory(
     delete_count: usize,
 ) -> Result<ChangesetId> {
     let mut create = CreateCommitContext::new(ctx, repo, vec![csid]);
-    let mut rng = thread_rng();
-    let len_distr = Uniform::new(5, 50);
+    let mut rng = rand::rng();
+    let len_distr = Uniform::new(5, 50).unwrap();
 
     let mut add_filenames = BTreeSet::new();
     while add_filenames.len() < add_count {
@@ -138,7 +137,7 @@ async fn modify_large_directory(
     let delete_count = delete_count.min(filenames.len());
     let modify_count = modify_count.min(filenames.len() - delete_count);
     let mut modify_filename_indexes = BTreeSet::new();
-    let index_distr = Uniform::new(0, filenames.len());
+    let index_distr = Uniform::new(0, filenames.len()).unwrap();
     while modify_filename_indexes.len() < modify_count {
         let index = rng.sample(index_distr);
         modify_filename_indexes.insert(index);

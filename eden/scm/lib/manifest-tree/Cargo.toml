@@ -42,7 +42,7 @@ tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 [dev-dependencies]
 quickcheck = "1.0"
 rand = { version = "0.9", features = ["small_rng"] }
-rand_chacha = "0.3"
+rand_chacha = "0.9"
 sapling-dev-logger = { version = "0.1.0", path = "../dev-logger" }
 sapling-manifest = { version = "0.1.0", path = "../manifest", features = ["for-tests"], default-features = false }
 sapling-minibench = { version = "0.1.0", path = "../minibench" }

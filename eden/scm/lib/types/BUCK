@@ -26,7 +26,7 @@ rust_library(
     features = ["for-tests"],
     test_deps = [
         "fbsource//third-party/rust:quickcheck",
-        "fbsource//third-party/rust:rand_08",
+        "fbsource//third-party/rust:rand_09",
         "fbsource//third-party/rust:serde_cbor",
         "fbsource//third-party/rust:serde_json",
         "//common/rust/shed/quickcheck_arbitrary_derive:quickcheck_arbitrary_derive",
@@ -42,7 +42,7 @@ rust_library(
         "fbsource//third-party/rust:bytecount",
         "fbsource//third-party/rust:byteorder",
         "fbsource//third-party/rust:quickcheck",
-        "fbsource//third-party/rust:rand_08",
+        "fbsource//third-party/rust:rand_09",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_bytes",

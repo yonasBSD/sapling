@@ -16,4 +16,4 @@ name = "linelog"
 im = { version = "15.1", default-features = false }
 
 [dev-dependencies]
-rand_chacha = "0.3"
+rand_chacha = "0.9"

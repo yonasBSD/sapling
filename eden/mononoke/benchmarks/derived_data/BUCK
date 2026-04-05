@@ -8,7 +8,7 @@ rust_library(
     srcs = ["benchmark_utils.rs"],
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:rand_08",
+        "fbsource//third-party/rust:rand_09",
         "//common/rust/shed/facet:facet",
         "//common/rust/shed/fbinit:fbinit",
         "//eden/mononoke/blobstore:blobstore",
@@ -32,7 +32,7 @@ rust_binary(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:rand_08",
+        "fbsource//third-party/rust:rand_09",
         "//common/rust/shed/facet:facet",
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/fbinit:fbinit-tokio",
@@ -83,7 +83,7 @@ rust_binary(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:rand_08",
+        "fbsource//third-party/rust:rand_09",
         ":benchmark_utils",
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/fbinit:fbinit-tokio",
@@ -107,7 +107,7 @@ rust_binary(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:rand_08",
+        "fbsource//third-party/rust:rand_09",
         ":benchmark_utils",
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/fbinit:fbinit-tokio",

@@ -472,10 +472,9 @@ mod test {
     use futures::stream;
     use quickcheck::quickcheck;
     use rand::Rng;
-    use rand::distributions::Alphanumeric;
-    use rand::distributions::Distribution;
-    use rand::distributions::Standard;
-    use rand::thread_rng;
+    use rand::distr::Alphanumeric;
+    use rand::distr::Distribution;
+    use rand::distr::StandardUniform;
 
     use super::*;
 
@@ -533,7 +532,7 @@ mod test {
 
     #[tokio::test]
     async fn arbitrary_is_ascii_test() {
-        let bytes = thread_rng()
+        let bytes = rand::rng()
             .sample_iter(&Alphanumeric)
             .take(1024)
             .collect::<Bytes>();
@@ -543,9 +542,9 @@ mod test {
 
     #[tokio::test]
     async fn arbitrary_stream_is_ascii_test() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let bytes_stream = stream::iter((0..50).map(|_| {
-            let chunk_size: usize = rng.gen_range(20..50);
+            let chunk_size: usize = rng.random_range(20..50);
             Alphanumeric
                 .sample_iter(&mut rng)
                 .take(chunk_size)
@@ -556,7 +555,7 @@ mod test {
 
     #[tokio::test]
     async fn single_string_single_stream_is_ascii_test() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let bytes = Alphanumeric
             .sample_iter(&mut rng)
             .take(4096)
@@ -567,7 +566,7 @@ mod test {
 
     #[tokio::test]
     async fn single_string_multiple_stream_is_ascii_test() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let bytes = Alphanumeric
             .sample_iter(&mut rng)
             .take(4096)
@@ -601,8 +600,8 @@ mod test {
     #[tokio::test]
     async fn arbitrary_is_utf8_test() {
         let bytes = Bytes::from(
-            thread_rng()
-                .sample_iter::<char, _>(&Standard)
+            rand::rng()
+                .sample_iter::<char, _>(&StandardUniform)
                 .take(1024)
                 .collect::<String>(),
         );
@@ -612,8 +611,8 @@ mod test {
 
     #[tokio::test]
     async fn arbitrary_negative_is_utf8_test() {
-        let bytes = thread_rng()
-            .sample_iter(&Standard)
+        let bytes = rand::rng()
+            .sample_iter(&StandardUniform)
             .take(1024)
             .collect::<Bytes>();
         let bytes_stream = stream::once(future::ready(bytes));
@@ -626,10 +625,10 @@ mod test {
     #[tokio::test]
     async fn arbitrary_stream_is_utf8_test() {
         let bytes_stream = stream::iter((0..50).map(|_| {
-            let chunk_size: usize = thread_rng().gen_range(20..50);
+            let chunk_size: usize = rand::random_range(20..50);
             Bytes::from(
-                thread_rng()
-                    .sample_iter::<char, _>(&Standard)
+                rand::rng()
+                    .sample_iter::<char, _>(&StandardUniform)
                     .take(chunk_size)
                     .collect::<String>(),
             )
@@ -640,8 +639,8 @@ mod test {
     #[tokio::test]
     async fn single_string_single_stream_is_utf8_test() {
         let bytes = Bytes::from(
-            thread_rng()
-                .sample_iter::<char, _>(&Standard)
+            rand::rng()
+                .sample_iter::<char, _>(&StandardUniform)
                 .take(4096)
                 .collect::<String>(),
         );
@@ -652,8 +651,8 @@ mod test {
     #[tokio::test]
     async fn single_string_multiple_stream_is_utf8_test() {
         let bytes = Bytes::from(
-            thread_rng()
-                .sample_iter::<char, _>(&Standard)
+            rand::rng()
+                .sample_iter::<char, _>(&StandardUniform)
                 .take(4096)
                 .collect::<String>(),
         );

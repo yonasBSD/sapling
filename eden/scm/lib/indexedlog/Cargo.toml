@@ -45,7 +45,7 @@ twox-hash = "1.6.1"
 
 [dev-dependencies]
 quickcheck = "1.0"
-rand_chacha = "0.3"
+rand_chacha = "0.9"
 sapling-dev-logger = { version = "0.1.0", path = "../dev-logger" }
 sapling-fsinfo = { version = "0.1.0", path = "../fsinfo" }
 sapling-minibench = { version = "0.1.0", path = "../minibench" }

@@ -42,7 +42,6 @@ use futures_stats::TimedFutureExt;
 use mercurial_derivation::RootHgAugmentedManifestId;
 use mononoke_types::ChangesetId;
 use rand::Rng;
-use rand::thread_rng;
 use repo_derived_data::RepoDerivedDataRef;
 use tests_utils::CreateCommitContext;
 
@@ -66,19 +65,19 @@ fn gen_realistic_path(rng: &mut impl Rng) -> String {
     const PREFIXES: &[&str] = &["src", "lib", "tests", "bin", "common", "features"];
     const EXTENSIONS: &[&str] = &["rs", "py", "js", "cpp", "h", "java", "go", "ts"];
 
-    let depth = rng.gen_range(2..=6);
+    let depth = rng.random_range(2..=6);
     let mut components = Vec::with_capacity(depth);
 
-    components.push(PREFIXES[rng.gen_range(0..PREFIXES.len())].to_string());
+    components.push(PREFIXES[rng.random_range(0..PREFIXES.len())].to_string());
 
     for _ in 1..depth - 1 {
-        let len = rng.gen_range(3..=12);
+        let len = rng.random_range(3..=12);
         components.push(gen_filename(rng, len));
     }
 
-    let filename_len = rng.gen_range(5..=20);
+    let filename_len = rng.random_range(5..=20);
     let filename = gen_filename(rng, filename_len);
-    let ext = EXTENSIONS[rng.gen_range(0..EXTENSIONS.len())];
+    let ext = EXTENSIONS[rng.random_range(0..EXTENSIONS.len())];
     components.push(format!("{}.{}", filename, ext));
 
     components.join("/")
@@ -90,7 +89,7 @@ async fn create_test_commit(
     file_count: usize,
 ) -> Result<(ChangesetId, BTreeSet<String>)> {
     let mut paths = BTreeSet::new();
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     while paths.len() < file_count {
         paths.insert(gen_realistic_path(&mut rng));

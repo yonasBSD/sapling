@@ -210,11 +210,6 @@ impl<'a> rand::RngCore for GenRngWrapper<'a> {
             *b = u8::arbitrary(self.r#gen);
         }
     }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-        self.fill_bytes(dest);
-        Ok(())
-    }
 }
 
 fn arbitrary_frag_content(g: &mut Gen) -> Vec<u8> {

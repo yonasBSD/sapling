@@ -24,7 +24,7 @@ rust_library(
         # Cargo bench deps.
         "extra_buck_dependencies": {
             "dev-dependencies": [
-                "fbsource//third-party/rust:rand_chacha_03",
+                "fbsource//third-party/rust:rand_chacha_09",
                 "//eden/scm/lib/minibench:minibench",
             ],
         },

@@ -22,8 +22,8 @@ sapling-types = { version = "0.1.0", path = "../types" }
 sapling-vlqencoding = { version = "0.1.0", path = "../vlqencoding" }
 
 [dev-dependencies]
-rand = { version = "0.8", features = ["small_rng"] }
-rand_chacha = "0.3"
+rand = { version = "0.9", features = ["small_rng"] }
+rand_chacha = "0.9"
 sapling-drawdag = { version = "0.1.0", path = "../drawdag" }
 sapling-types = { version = "0.1.0", path = "../types", features = ["for-tests"], default-features = false }
 tempfile = "3.27.0"
