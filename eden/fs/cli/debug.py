@@ -11,6 +11,7 @@ import argparse
 import binascii
 import collections
 import datetime
+import inspect
 import json
 import os
 import re
@@ -38,9 +39,7 @@ from typing import (
 )
 
 import eden.dirstate
-import facebook.eden.constants as eden_constants
-import facebook.eden.ttypes as eden_ttypes
-import thrift.util.inspect
+import eden.fs.service.eden.thrift_types as eden_thrift_types
 from eden.fs.cli.cmd_util import get_eden_instance
 from eden.fs.service.eden.thrift_clients import EdenService as ModernEdenService
 from eden.fs.service.eden.thrift_enums import AttributesRequestScope
@@ -84,12 +83,9 @@ from eden.fs.service.eden.thrift_types import (
     TimeSpec,
     TreeInodeDebugInfo,
 )
-from eden.thrift.legacy import EdenClient
-from facebook.eden import EdenService
-from fb303_core import BaseService
-from thrift.protocol.TSimpleJSONProtocol import TSimpleJSONProtocolFactory
-from thrift.Thrift import TApplicationException
-from thrift.util import Serializer
+from thrift.python.exceptions import ApplicationError, ApplicationErrorType
+from thrift.python.serializer import Protocol, serialize as thrift_serialize
+from thrift.python.types import Struct as ThriftStruct
 
 try:
     from tqdm import tqdm
@@ -460,36 +456,36 @@ def add_get_object_options(parser: argparse.ArgumentParser, objectType: str) -> 
 
 
 def get_origin_flags(args: argparse.Namespace) -> int:
-    origin_flags = eden_ttypes.DataFetchOrigin.ANYWHERE
+    origin_flags = DataFetchOrigin.ANYWHERE
     if args.object_cache_only:
-        origin_flags = eden_ttypes.DataFetchOrigin.MEMORY_CACHE
+        origin_flags = DataFetchOrigin.MEMORY_CACHE
     elif args.local_store_only:
-        origin_flags = eden_ttypes.DataFetchOrigin.DISK_CACHE
+        origin_flags = DataFetchOrigin.DISK_CACHE
     elif args.hgcache_only:
-        origin_flags = eden_ttypes.DataFetchOrigin.LOCAL_BACKING_STORE
+        origin_flags = DataFetchOrigin.LOCAL_BACKING_STORE
     elif args.remote_only:
-        origin_flags = eden_ttypes.DataFetchOrigin.REMOTE_BACKING_STORE
+        origin_flags = DataFetchOrigin.REMOTE_BACKING_STORE
     elif args.all:
         origin_flags = (
-            eden_ttypes.DataFetchOrigin.MEMORY_CACHE
-            | eden_ttypes.DataFetchOrigin.DISK_CACHE
-            | eden_ttypes.DataFetchOrigin.LOCAL_BACKING_STORE
-            | eden_ttypes.DataFetchOrigin.REMOTE_BACKING_STORE
-            | eden_ttypes.DataFetchOrigin.ANYWHERE
+            DataFetchOrigin.MEMORY_CACHE
+            | DataFetchOrigin.DISK_CACHE
+            | DataFetchOrigin.LOCAL_BACKING_STORE
+            | DataFetchOrigin.REMOTE_BACKING_STORE
+            | DataFetchOrigin.ANYWHERE
         )
     return origin_flags
 
 
-def origin_to_text(origin: eden_ttypes.DataFetchOrigin) -> str:
-    if origin == eden_ttypes.DataFetchOrigin.MEMORY_CACHE:
+def origin_to_text(origin: DataFetchOrigin) -> str:
+    if origin == DataFetchOrigin.MEMORY_CACHE:
         return "object cache"
-    elif origin == eden_ttypes.DataFetchOrigin.DISK_CACHE:
+    elif origin == DataFetchOrigin.DISK_CACHE:
         return "local store"
-    elif origin == eden_ttypes.DataFetchOrigin.LOCAL_BACKING_STORE:
+    elif origin == DataFetchOrigin.LOCAL_BACKING_STORE:
         return "hgcache"
-    elif origin == eden_ttypes.DataFetchOrigin.REMOTE_BACKING_STORE:
+    elif origin == DataFetchOrigin.REMOTE_BACKING_STORE:
         return "servers"
-    elif origin == eden_ttypes.DataFetchOrigin.ANYWHERE:
+    elif origin == DataFetchOrigin.ANYWHERE:
         return "EdenFS complete data fetching behavior"
     return "<unknown>"
 
@@ -687,7 +683,7 @@ def check_blob_and_size_match(
             DebugGetScmBlobRequest(
                 mountId=MountId(mountPoint=bytes(checkout)),
                 id=identifying_hash,
-                origins=eden_ttypes.DataFetchOrigin.LOCAL_BACKING_STORE,  # We don't want to cause any network fetches.
+                origins=DataFetchOrigin.LOCAL_BACKING_STORE,  # We don't want to cause any network fetches.
             )
         )
         blob = None
@@ -705,7 +701,7 @@ def check_blob_and_size_match(
                     DebugGetBlobMetadataRequest(
                         mountId=MountId(mountPoint=bytes(checkout)),
                         id=identifying_hash,
-                        origins=eden_ttypes.DataFetchOrigin.DISK_CACHE,
+                        origins=DataFetchOrigin.DISK_CACHE,
                     )
                 )
                 .metadatas[0]
@@ -719,17 +715,17 @@ def check_blob_and_size_match(
             return MismatchedBlobSize(
                 actual_blobsize=len(blob), cached_blobsize=blobmeta.size
             )
-    except eden_ttypes.EdenError:
+    except EdenError:
         # we don't care if debugGetScmBlobV2 returns an EdenError because
         # we only care about data that has been read by the user and thus is
         # present locally being incorrect.
         # We don't care if debugGetScmBlobMetadata returns an EdenError because
         # we only care about cached data being incorrect.
         return None
-    except TApplicationException as ex:
+    except ApplicationError as ex:
         # we don't care about older versions of eden being incompatible, we will
         # just run the check when we can.
-        if ex.type == TApplicationException.UNKNOWN_METHOD:
+        if ex.type == ApplicationErrorType.UNKNOWN_METHOD:
             return None
 
 
@@ -974,14 +970,11 @@ class InodeCmd(Subcmd):
         out = sys.stdout.buffer
         instance, checkout, rel_path = cmd_util.require_checkout(args, args.path)
         with instance.get_thrift_client() as client:
-            flags = (
-                eden_constants.DIS_REQUIRE_LOADED
-                | eden_constants.DIS_COMPUTE_BLOB_SIZES
-            )
+            flags = DIS_REQUIRE_LOADED | DIS_COMPUTE_BLOB_SIZES
             if not args.recursive:
-                flags |= eden_constants.DIS_NOT_RECURSIVE
+                flags |= DIS_NOT_RECURSIVE
             if args.show_permission:
-                flags |= eden_constants.DIS_COMPUTE_ACCURATE_MODE
+                flags |= DIS_COMPUTE_ACCURATE_MODE
 
             results = client.debugInodeStatus(
                 bytes(checkout.path),
@@ -1019,7 +1012,7 @@ class MaterializedCmd(Subcmd):
             results = client.debugInodeStatus(
                 bytes(checkout.path),
                 bytes(rel_path),
-                eden_constants.DIS_REQUIRE_MATERIALIZED,
+                DIS_REQUIRE_MATERIALIZED,
                 sync=SyncBehavior(),
             )
 
@@ -1567,7 +1560,7 @@ class DebugJournalSetMemoryLimitCmd(Subcmd):
         with instance.get_thrift_client() as client:
             try:
                 client.setJournalMemoryLimit(bytes(checkout.path), args.limit)
-            except eden_ttypes.EdenError as err:
+            except EdenError as err:
                 print(err, file=sys.stderr)
                 return 1
             return 0
@@ -1588,7 +1581,7 @@ class DebugJournalGetMemoryLimitCmd(Subcmd):
         with instance.get_thrift_client() as client:
             try:
                 mem = client.getJournalMemoryLimit(bytes(checkout.path))
-            except eden_ttypes.EdenError as err:
+            except EdenError as err:
                 print(err, file=sys.stderr)
                 return 1
             print("Journal memory limit is " + stats_print.format_size(mem))
@@ -1613,7 +1606,7 @@ class DebugFlushJournalCmd(Subcmd):
         with instance.get_thrift_client() as client:
             try:
                 client.flushJournal(bytes(checkout.path))
-            except eden_ttypes.EdenError as err:
+            except EdenError as err:
                 print(err, file=sys.stderr)
                 return 1
             return 0
@@ -1683,18 +1676,18 @@ class DebugJournalCmd(Subcmd):
             return seq_num
 
         try:
-            params = eden_ttypes.DebugGetRawJournalParams(
+            params = DebugGetRawJournalParams(
                 mountPoint=mount, fromSequenceNumber=1, limit=args.limit
             )
             seq_num = refresh(params)
             while args.follow:
                 REFRESH_SEC = 2
                 time.sleep(REFRESH_SEC)
-                params = eden_ttypes.DebugGetRawJournalParams(
+                params = DebugGetRawJournalParams(
                     mountPoint=mount, fromSequenceNumber=seq_num
                 )
                 seq_num = refresh(params)
-        except eden_ttypes.EdenError as err:
+        except EdenError as err:
             print(err, file=sys.stderr)
             return 1
         except KeyboardInterrupt:
@@ -1707,7 +1700,7 @@ class DebugJournalCmd(Subcmd):
 
 
 def _print_raw_journal_deltas(
-    deltas: Iterator[eden_ttypes.DebugJournalDelta], pattern: Optional[Pattern[bytes]]
+    deltas: Iterator[DebugJournalDelta], pattern: Optional[Pattern[bytes]]
 ) -> None:
     matcher: Callable[[bytes], bool] = (
         (lambda x: True) if pattern is None else cast(Any, pattern.match)
@@ -1739,9 +1732,7 @@ def _print_raw_journal_deltas(
             _print_journal_entry(delta, entries)
 
 
-def _print_journal_entry(
-    delta: eden_ttypes.DebugJournalDelta, entries: List[str]
-) -> None:
+def _print_journal_entry(delta: DebugJournalDelta, entries: List[str]) -> None:
     if delta.fromPosition.snapshotHash != delta.toPosition.snapshotHash:
         from_commit = hash_str(delta.fromPosition.snapshotHash)
         to_commit = hash_str(delta.toPosition.snapshotHash)
@@ -1764,9 +1755,6 @@ def _print_journal_entry(
 
 @debug_cmd("thrift", "Invoke a thrift function")
 class DebugThriftCmd(Subcmd):
-    args_suffix = "_args"
-    result_suffix = "_result"
-
     def setup_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "-l",
@@ -1808,69 +1796,41 @@ class DebugThriftCmd(Subcmd):
             return 1
 
         # Look up the function information
-        try:
-            fn_info = thrift.util.inspect.get_function_info(
-                EdenService, args.function_name
-            )
-        except thrift.util.inspect.NoSuchFunctionError:
+        if not hasattr(ModernEdenService.Sync, args.function_name):
             print(f"Error: unknown function {args.function_name!r}", file=sys.stderr)
             print(
                 'Run "eden debug thrift --list" to see a list of available functions',
                 file=sys.stderr,
             )
             return 1
+        fn = getattr(ModernEdenService.Sync, args.function_name)
+        fn_sig = inspect.signature(fn)
+        fn_params = [
+            p
+            for p in fn_sig.parameters.values()
+            if p.name not in ("self", "rpc_options")
+        ]
 
-        if len(args.args) != len(fn_info.arg_specs):
+        if len(args.args) != len(fn_params):
             print(
-                f"Error: {args.function_name} requires {len(fn_info.arg_specs)} "
+                f"Error: {args.function_name} requires {len(fn_params)} "
                 f"arguments, but {len(args.args)} were supplied>",
                 file=sys.stderr,
             )
             return 1
 
         python_args = self._eval_args(
-            args.args, fn_info, eval_strings=args.eval_all_args
+            args.args, fn_params, eval_strings=args.eval_all_args
         )
-
-        # pyre-fixme[3]: Return type must be annotated.
-        # pyre-fixme[2]: Parameter must be annotated.
-        def lookup_module_member(modules, name):
-            for module in modules:
-                try:
-                    return getattr(module, name)
-                except AttributeError:
-                    continue
-            raise AttributeError(f"Failed to find {name} in {modules}")
 
         instance = cmd_util.get_eden_instance(args)
         with instance.get_thrift_client() as client:
             fn = getattr(client, args.function_name)
             result = fn(**python_args)
             if args.json:
-                # The following back-and-forth is required to reliably
-                # convert a Python Thrift client result into its JSON
-                # form. The Python Thrift client returns native Python
-                # lists and dicts for lists and maps, but they cannot
-                # be passed directly to TSimpleJSONProtocol. Instead,
-                # map the result back into a Thrift message, and then
-                # serialize that as JSON. Finally, strip the message
-                # container.
-                #
-                # NOTE: Stripping the root object means the output may
-                # not have a root dict or array, which is required by
-                # most JSON specs. But Python's json module and jq are
-                # both fine with this deviation.
-                result_type = lookup_module_member(
-                    [EdenService, BaseService], args.function_name + "_result"
-                )
-                json_data = Serializer.serialize(
-                    TSimpleJSONProtocolFactory(), result_type(result)
-                )
+                json_result = self._thrift_result_to_json(result)
                 json.dump(
-                    # If the method returns void, json_data will not
-                    # have a "success" field. Print `null` in that
-                    # case.
-                    json.loads(json_data).get("success"),
+                    json_result,
                     sys.stdout,
                     sort_keys=True,
                     indent=2,
@@ -1881,43 +1841,73 @@ class DebugThriftCmd(Subcmd):
 
         return 0
 
-    def _eval_args(
-        self, args: List[str], fn_info: thrift.util.inspect.Function, eval_strings: bool
-    ) -> Dict[str, Any]:
-        from thrift.Thrift import TType
+    @staticmethod
+    def _thrift_result_to_json(result: Any) -> Any:
+        """Convert a thrift result to a JSON-serializable value."""
+        if result is None:
+            return None
+        elif isinstance(result, ThriftStruct):
+            return json.loads(thrift_serialize(result, protocol=Protocol.JSON))
+        elif isinstance(result, (list, tuple)):
+            return [DebugThriftCmd._thrift_result_to_json(item) for item in result]
+        elif isinstance(result, collections.abc.Mapping):
+            return {
+                str(k): DebugThriftCmd._thrift_result_to_json(v)
+                for k, v in result.items()
+            }
+        elif isinstance(result, bytes):
+            return result.decode("utf-8", errors="replace")
+        else:
+            return result
 
-        code_globals = {key: getattr(eden_ttypes, key) for key in dir(eden_ttypes)}
+    def _eval_args(
+        self,
+        args: List[str],
+        fn_params: List[inspect.Parameter],
+        eval_strings: bool,
+    ) -> Dict[str, Any]:
+        code_globals = {
+            key: getattr(eden_thrift_types, key) for key in dir(eden_thrift_types)
+        }
         parsed_args = {}
-        for arg, arg_spec in zip(args, fn_info.arg_specs):
-            (
-                _field_id,
-                thrift_type,
-                arg_name,
-                _extra_spec,
-                _default,
-                _required,
-            ) = arg_spec
+        for arg, param in zip(args, fn_params):
             # If the argument is a string type, don't pass it through eval.
             # This is purely to make it easier for humans to input strings.
-            if not eval_strings and thrift_type == TType.STRING:
+            if not eval_strings and param.annotation in (str, bytes):
                 parsed_arg = arg
             else:
-                # pyre-fixme[6]: For 5th argument expected `bool` but got `int`.
-                code = compile(arg, "<command_line>", "eval", 0, 1)
+                code = compile(arg, "<command_line>", "eval", 0, True)
                 parsed_arg = eval(code, code_globals.copy())
-            parsed_args[arg_name] = parsed_arg
+            parsed_args[param.name] = parsed_arg
 
         return parsed_args
 
     def _list_functions(self) -> None:
-        # Report functions by module, from parent service downwards
-        modules = thrift.util.inspect.get_service_module_hierarchy(EdenService)
-        for module in reversed(modules):
-            module_functions = thrift.util.inspect.list_service_functions(module)
-            print(f"From {module.__name__}:")
-
-            for _fn_name, fn_info in sorted(module_functions.items()):
-                print(f"  {fn_info}")
+        for name in sorted(dir(ModernEdenService.Sync)):
+            if name.startswith("_"):
+                continue
+            method = getattr(ModernEdenService.Sync, name, None)
+            if method is None or not callable(method):
+                continue
+            try:
+                sig = inspect.signature(method)
+            except (ValueError, TypeError):
+                continue
+            params = [
+                p
+                for p in sig.parameters.values()
+                if p.name not in ("self", "rpc_options")
+            ]
+            param_strs = []
+            for p in params:
+                ann = p.annotation
+                if ann is inspect.Parameter.empty:
+                    param_strs.append(p.name)
+                elif hasattr(ann, "__name__"):
+                    param_strs.append(f"{p.name}: {ann.__name__}")
+                else:
+                    param_strs.append(f"{p.name}: {ann}")
+            print(f"  {name}({', '.join(param_strs)})")
 
 
 @debug_cmd("drop-fetch-requests", "Drop all pending source control object fetches")
@@ -1986,7 +1976,7 @@ class GCInodesCmd(Subcmd):
                         f"Invalidated {result.numInvalidated} inodes under {checkout.path}/{args.path}"
                     )
                 return 0
-            except eden_ttypes.EdenError as err:
+            except EdenError as err:
                 print(err, file=sys.stderr)
                 return 1
 
@@ -2235,23 +2225,23 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         self, attr_data: FileAttributeDataV2, requested_attributes: int
     ) -> None:
         """Print requested file attributes from attr_data."""
-        if requested_attributes & eden_ttypes.FileAttributes.SHA1_HASH:
+        if requested_attributes & FileAttributes.SHA1_HASH:
             self._print_sha1_hash(attr_data.sha1)
-        if requested_attributes & eden_ttypes.FileAttributes.BLAKE3_HASH:
+        if requested_attributes & FileAttributes.BLAKE3_HASH:
             self._print_blake3_hash(attr_data.blake3)
-        if requested_attributes & eden_ttypes.FileAttributes.OBJECT_ID:
+        if requested_attributes & FileAttributes.OBJECT_ID:
             self._print_object_id(attr_data.objectId)
-        if requested_attributes & eden_ttypes.FileAttributes.FILE_SIZE:
+        if requested_attributes & FileAttributes.FILE_SIZE:
             self._print_file_size(attr_data.size)
-        if requested_attributes & eden_ttypes.FileAttributes.MODE:
+        if requested_attributes & FileAttributes.MODE:
             self._print_file_mode(attr_data.mode)
-        if requested_attributes & eden_ttypes.FileAttributes.SOURCE_CONTROL_TYPE:
+        if requested_attributes & FileAttributes.SOURCE_CONTROL_TYPE:
             self._print_source_control_type(attr_data.sourceControlType)
-        if requested_attributes & eden_ttypes.FileAttributes.DIGEST_SIZE:
+        if requested_attributes & FileAttributes.DIGEST_SIZE:
             self._print_digest_size(attr_data.digestSize)
-        if requested_attributes & eden_ttypes.FileAttributes.DIGEST_HASH:
+        if requested_attributes & FileAttributes.DIGEST_HASH:
             self._print_digest_hash(attr_data.digestHash)
-        if requested_attributes & eden_ttypes.FileAttributes.MTIME:
+        if requested_attributes & FileAttributes.MTIME:
             self._print_mtime(attr_data.mtime)
 
     def _print_path_result(
@@ -2279,46 +2269,46 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         if args.all_attributes:
             # Request all available attributes
             return (
-                eden_ttypes.FileAttributes.SHA1_HASH
-                | eden_ttypes.FileAttributes.BLAKE3_HASH
-                | eden_ttypes.FileAttributes.OBJECT_ID
-                | eden_ttypes.FileAttributes.FILE_SIZE
-                | eden_ttypes.FileAttributes.MODE
-                | eden_ttypes.FileAttributes.SOURCE_CONTROL_TYPE
-                | eden_ttypes.FileAttributes.DIGEST_SIZE
-                | eden_ttypes.FileAttributes.DIGEST_HASH
-                | eden_ttypes.FileAttributes.MTIME
+                FileAttributes.SHA1_HASH
+                | FileAttributes.BLAKE3_HASH
+                | FileAttributes.OBJECT_ID
+                | FileAttributes.FILE_SIZE
+                | FileAttributes.MODE
+                | FileAttributes.SOURCE_CONTROL_TYPE
+                | FileAttributes.DIGEST_SIZE
+                | FileAttributes.DIGEST_HASH
+                | FileAttributes.MTIME
             )
 
         # Check if any specific attributes were requested
         requested_attrs = 0
         if args.sha1_hash:
-            requested_attrs |= eden_ttypes.FileAttributes.SHA1_HASH
+            requested_attrs |= FileAttributes.SHA1_HASH
         if args.blake3_hash:
-            requested_attrs |= eden_ttypes.FileAttributes.BLAKE3_HASH
+            requested_attrs |= FileAttributes.BLAKE3_HASH
         if args.object_id:
-            requested_attrs |= eden_ttypes.FileAttributes.OBJECT_ID
+            requested_attrs |= FileAttributes.OBJECT_ID
         if args.file_size:
-            requested_attrs |= eden_ttypes.FileAttributes.FILE_SIZE
+            requested_attrs |= FileAttributes.FILE_SIZE
         if args.mode:
-            requested_attrs |= eden_ttypes.FileAttributes.MODE
+            requested_attrs |= FileAttributes.MODE
         if args.source_control_type:
-            requested_attrs |= eden_ttypes.FileAttributes.SOURCE_CONTROL_TYPE
+            requested_attrs |= FileAttributes.SOURCE_CONTROL_TYPE
         if args.digest_size:
-            requested_attrs |= eden_ttypes.FileAttributes.DIGEST_SIZE
+            requested_attrs |= FileAttributes.DIGEST_SIZE
         if args.digest_hash:
-            requested_attrs |= eden_ttypes.FileAttributes.DIGEST_HASH
+            requested_attrs |= FileAttributes.DIGEST_HASH
         if args.mtime:
-            requested_attrs |= eden_ttypes.FileAttributes.MTIME
+            requested_attrs |= FileAttributes.MTIME
 
         # If no attributes were explicitly requested, use defaults
         if requested_attrs == 0:
             requested_attrs = (
-                eden_ttypes.FileAttributes.OBJECT_ID
-                | eden_ttypes.FileAttributes.MODE
-                | eden_ttypes.FileAttributes.FILE_SIZE
-                | eden_ttypes.FileAttributes.SOURCE_CONTROL_TYPE
-                | eden_ttypes.FileAttributes.MTIME
+                FileAttributes.OBJECT_ID
+                | FileAttributes.MODE
+                | FileAttributes.FILE_SIZE
+                | FileAttributes.SOURCE_CONTROL_TYPE
+                | FileAttributes.MTIME
             )
 
         return requested_attrs
@@ -2365,7 +2355,7 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
                     self._print_path_result(path, attr_result, requested_attributes)
 
             return 0
-        except eden_ttypes.EdenError as err:
+        except EdenError as err:
             print(f"EdenFS error: {err.message}", file=sys.stderr)
             return 1
 
