@@ -58,7 +58,6 @@ thrift_library(
     languages = [
         "cpp2",
         "java-swift",
-        "py-deprecated",
         "python",
         "rust",
     ],

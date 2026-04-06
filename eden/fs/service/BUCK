@@ -471,7 +471,6 @@ thrift_library(
         "java-swift",
         "python",
         "rust",
-        "py-deprecated",
     ],
     py3_namespace = "eden.fs.service",
     py_base_module = "facebook",
