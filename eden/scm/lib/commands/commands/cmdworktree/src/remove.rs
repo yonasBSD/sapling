@@ -24,10 +24,15 @@ use crate::require_group;
 
 pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     let logger = ctx.logger();
-    let (shared_store_path, group_id) = require_group(repo)?;
+    let current_group = require_group(repo)?;
 
     if ctx.opts.all {
-        return run_remove_all(ctx, repo, &shared_store_path, &group_id);
+        return run_remove_all(
+            ctx,
+            repo,
+            &current_group.shared_store_path,
+            &current_group.group_id,
+        );
     }
 
     let target_str = match ctx.opts.args.get(1) {
@@ -37,10 +42,10 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     let target =
         util::path::strip_unc_prefix(util::path::canonical_path_allow_missing(target_str)?);
 
-    let registry = load_registry(&shared_store_path)?;
-    let grp = match registry.groups.get(&group_id) {
+    let registry = load_registry(&current_group.shared_store_path)?;
+    let grp = match registry.groups.get(&current_group.group_id) {
         Some(group) => group,
-        None => abort!("group '{}' not found in registry", group_id),
+        None => abort!("group '{}' not found in registry", current_group.group_id),
     };
     if !grp.worktrees.contains_key(&target) {
         if let Some(parent_wt) = grp.worktrees.keys().find(|wt| target.starts_with(wt)) {
@@ -60,7 +65,7 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     }
     let group_main = grp.main.clone();
 
-    with_worktree_path_op_lock(&shared_store_path, &target, || {
+    with_worktree_path_op_lock(&current_group.shared_store_path, &target, || {
         confirm_remove(ctx, &[&target])?;
 
         let pre_hooks = hook::Hooks::from_config(repo.config(), ctx.io(), "pre-worktree-remove");
@@ -87,7 +92,7 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         Ok(())
     })?;
 
-    with_registry_lock(&shared_store_path, |registry| {
+    with_registry_lock(&current_group.shared_store_path, |registry| {
         let Some(group_id) = registry.find_group_for_path(&group_main) else {
             return Ok(());
         };

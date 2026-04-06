@@ -19,13 +19,13 @@ use crate::require_group;
 
 pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     let logger = ctx.logger();
-    let (shared_store_path, group_id) = require_group(repo)?;
+    let current_group = require_group(repo)?;
     let (target, new_label) = parse_label_args(ctx, repo)?;
 
-    with_registry_lock(&shared_store_path, |registry| {
-        let grp = match registry.groups.get_mut(&group_id) {
+    with_registry_lock(&current_group.shared_store_path, |registry| {
+        let grp = match registry.groups.get_mut(&current_group.group_id) {
             Some(group) => group,
-            None => abort!("group '{}' not found in registry", group_id),
+            None => abort!("group '{}' not found in registry", current_group.group_id),
         };
         let entry = match grp.worktrees.get_mut(&target) {
             Some(entry) => entry,

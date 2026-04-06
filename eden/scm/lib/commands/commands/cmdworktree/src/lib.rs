@@ -62,12 +62,20 @@ pub fn run(ctx: ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     }
 }
 
-pub(crate) fn require_group(repo: &Repo) -> Result<(PathBuf, String)> {
+pub(crate) struct CurrentGroup {
+    pub(crate) shared_store_path: PathBuf,
+    pub(crate) group_id: String,
+}
+
+pub(crate) fn require_group(repo: &Repo) -> Result<CurrentGroup> {
     let shared_store_path = repo.store_path();
     let registry = worktree::load_registry(shared_store_path)?;
     let current = util::path::strip_unc_prefix(fs::canonicalize(repo.path())?);
     match registry.find_group_for_path(&current) {
-        Some(id) => Ok((shared_store_path.to_path_buf(), id)),
+        Some(group_id) => Ok(CurrentGroup {
+            shared_store_path: shared_store_path.to_path_buf(),
+            group_id,
+        }),
         None => abort!("this worktree is not part of a group"),
     }
 }
