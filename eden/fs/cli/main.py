@@ -112,7 +112,6 @@ class ForegroundColor(Enum):
     RESET = "\033[0m"
 
 
-import thrift.transport
 from eden.fs.cli.version import VersionInfo
 
 try:
@@ -166,7 +165,11 @@ from eden.thrift.client import EdenNotRunningError
 from eden.thrift.legacy import EdenNotRunningError as LegacyEdenNotRunningError
 from facebook.eden import EdenService as LegacyEdenService
 from fb303_core.thrift_types import fb303_status
-from thrift.python.exceptions import TransportError
+from thrift.python.exceptions import (
+    ApplicationError,
+    ApplicationErrorType,
+    TransportError,
+)
 
 from . import (
     config as config_mod,
@@ -1203,11 +1206,8 @@ class HealthReportCmd(Subcmd):
                         )
                         # pyre-ignore[6]: Legacy client expects py-deprecated types
                         client.sendNotification(request._to_py_deprecated())
-                except thrift.transport.TTransport.TTransportException as e:
-                    # Ignore TTransportException if it is a UNKNOWN_METHOD error, this can
-                    # happen if the running version predates this endpoint
-                    if e.type != thrift.Thrift.TApplicationException.UNKNOWN_METHOD:
-                        print_stderr(f"warning: edenfs daemon is not responding: {e}")
+                except TransportError as e:
+                    print_stderr(f"warning: edenfs daemon is not responding: {e}")
                 except EdenNotRunningError:
                     print_stderr("error: edenfs is not running")
                 except Exception as e:
@@ -1544,8 +1544,8 @@ class ChownCmd(Subcmd):
                     mountPoint=os.fsencode(args.path), uid=uid, gid=gid
                 )
                 client.changeOwnership(request)
-            except thrift.Thrift.TApplicationException as exc:
-                if exc.type == thrift.Thrift.TApplicationException.UNKNOWN_METHOD:
+            except ApplicationError as exc:
+                if exc.type == ApplicationErrorType.UNKNOWN_METHOD:
                     client.chown(args.path, uid, gid)
                 else:
                     raise exc
@@ -2428,7 +2428,7 @@ class StartCmd(Subcmd):
                 # pyre-ignore[6]: Legacy client expects py-deprecated types
                 client.sendNotification(request._to_py_deprecated())
         except (
-            thrift.transport.TTransport.TTransportException,
+            TransportError,
             EdenNotRunningError,
         ) as e:
             print_stderr(f"EdenFS not running: {e}")
