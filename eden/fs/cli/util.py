@@ -40,15 +40,10 @@ from typing import (
     TypeVar,
 )
 
-import thrift.transport
 from eden.fs.service.eden.thrift_types import TreeInodeDebugInfo
 from eden.thrift.client import EdenNotRunningError
-from eden.thrift.legacy import (
-    EdenClient,
-    EdenNotRunningError as LegacyEdenNotRunningError,
-)
 from fb303_core.thrift_types import fb303_status
-from thrift import Thrift
+from thrift.python.exceptions import Error, TransportError
 
 if TYPE_CHECKING:
     from .config import EdenCheckout, EdenInstance
@@ -296,8 +291,7 @@ def check_health(
             uptime = info.uptime
     except (
         EdenNotRunningError,
-        LegacyEdenNotRunningError,
-        thrift.transport.TTransport.TTransportException,
+        TransportError,
     ):
         # It is possible that the edenfs process is running, but the Thrift
         # server is not running. This could be during the startup, shutdown,
@@ -305,7 +299,7 @@ def check_health(
         # PID from the Thrift server, we read it from the lockfile and try
         # to deduce the current status of EdenFS.
         return check_health_using_lockfile(config_dir)
-    except Thrift.TException as ex:
+    except Error as ex:
         detail = "error talking to edenfs: " + str(ex)
         return HealthStatus(status, pid, uptime, detail)
 
@@ -315,10 +309,9 @@ def check_health(
 
 
 def wait_for_daemon_healthy(
-    # pyre-fixme[24]: Generic type `subprocess.Popen` expects 1 type parameter.
-    proc: subprocess.Popen,
+    proc: subprocess.Popen[bytes],
     config_dir: Path,
-    get_client: Callable[..., EdenClient],
+    get_client: Callable[..., Any],
     timeout: float,
     exclude_pid: Optional[int] = None,
 ) -> HealthStatus:
