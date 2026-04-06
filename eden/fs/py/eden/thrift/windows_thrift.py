@@ -14,8 +14,6 @@ import errno
 import sys
 from typing import Union
 
-from thrift.transport.TSocket import TSocket
-from thrift.transport.TTransport import TTransportException
 
 # Using explicit type union as a workaround until Pyrefly is available
 # pyre-fixme[24]: Generic type `memoryview` expects 1 type parameter.
@@ -350,32 +348,3 @@ class WindowsSocketHandle:
         retcode = ioctlsocket(self.fd, FIONBIO, ctypes.pointer(mode))
         self._checkReturnCode(retcode)
         return retcode
-
-
-class WinTSocket(TSocket):
-    @property
-    def _shouldUseWinsocket(self) -> bool:
-        return sys.platform == "win32" and self._unix_socket
-
-    def open(self) -> None:
-        # if we are not on Windows or the socktype is not unix socket, return
-        # the parent TSocket
-        if not self._shouldUseWinsocket:
-            return super(WinTSocket, self).open()
-
-        handle = WindowsSocketHandle()
-        self.setHandle(handle)
-        handle.settimeout(self._timeout)
-        try:
-            handle.connect(self._unix_socket)
-        except OSError as e:
-            self.close()
-            if e.errno == errno.ECONNREFUSED:
-                # This error will be returned when Edenfs is not running
-                raise TTransportException(
-                    type=TTransportException.NOT_OPEN, message="eden not running"
-                )
-            raise e
-        except Exception:
-            self.close()
-            raise

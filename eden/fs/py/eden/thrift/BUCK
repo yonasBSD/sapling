@@ -15,9 +15,6 @@ python_library(
     name = "windows_thrift",
     srcs = ["windows_thrift.py"],
     base_module = "eden.thrift",
-    deps = [
-        "//thrift/lib/py:server_base",
-    ],
 )
 
 python_library(
