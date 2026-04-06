@@ -20,7 +20,7 @@ import typing
 from pathlib import Path
 from typing import Dict, Iterable, List, NamedTuple, Optional, Tuple
 
-import eden.thrift.legacy
+from eden.thrift.client import create_thrift_client
 
 
 log: logging.Logger = logging.getLogger("eden.fs.cli.proc_utils")
@@ -56,7 +56,7 @@ class EdenFSProcess(NamedTuple):
         # Get the counters about number of thrift calls
         counter_regex = r"^thrift\.EdenService\..*\.num_calls\.sum\.600$"
         try:
-            with eden.thrift.legacy.create_thrift_client(
+            with create_thrift_client(
                 eden_dir=str(self.eden_dir), timeout=0.5
             ) as client:
                 counters = client.getRegexCounters(counter_regex)
@@ -142,9 +142,7 @@ except ImportError:
             return None
 
         try:
-            with eden.thrift.legacy.create_thrift_client(
-                eden_dir=str(eden_dir), timeout=0.5
-            ) as client:
+            with create_thrift_client(eden_dir=str(eden_dir), timeout=0.5) as client:
                 exported_values = client.getExportedValues()
         except Exception as ex:
             log.warning(f"Failed to query build info from EdenFS process {pid}: {ex}")

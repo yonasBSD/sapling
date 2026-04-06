@@ -214,7 +214,7 @@ python_library(
         "proc_utils_win.py",
     ],
     deps = [
-        "//eden/fs/py/eden/thrift:legacy",
+        "//eden/fs/py/eden/thrift:client",
     ] + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [
