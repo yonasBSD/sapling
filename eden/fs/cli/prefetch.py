@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import List, NamedTuple, Optional
 
-from facebook.eden.ttypes import GlobParams, PrefetchParams
+from eden.fs.service.eden.thrift_types import GlobParams, PrefetchParams
 
 from .cmd_util import require_checkout
 from .config import EdenCheckout, EdenInstance
@@ -182,7 +182,7 @@ class GlobCmd(Subcmd):
     def run(self, args: argparse.Namespace) -> int:
         checkout_and_patterns = _find_checkout_and_patterns(args)
 
-        with checkout_and_patterns.instance.get_thrift_client_legacy() as client:
+        with checkout_and_patterns.instance.get_thrift_client() as client:
             result = client.globFiles(
                 GlobParams(
                     mountPoint=bytes(checkout_and_patterns.checkout.path),
@@ -193,7 +193,7 @@ class GlobCmd(Subcmd):
                     wantDtype=args.dtype,
                     searchRoot=os.fsencode(checkout_and_patterns.rel_path),
                     listOnlyFiles=args.list_only_files,
-                    revisions=args.revision,
+                    revisions=[rev.encode() for rev in args.revision],
                 )
             )
             if args.json:
@@ -302,7 +302,7 @@ class PrefetchCmd(Subcmd):
             if args.relative:
                 search_root = os.fsencode(checkout_and_patterns.rel_path)
 
-            with checkout_and_patterns.instance.get_thrift_client_legacy() as client:
+            with checkout_and_patterns.instance.get_thrift_client() as client:
                 prefetchResult = client.prefetchFilesV2(
                     PrefetchParams(
                         mountPoint=bytes(checkout_and_patterns.checkout.path),
