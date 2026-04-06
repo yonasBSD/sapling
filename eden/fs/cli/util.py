@@ -47,7 +47,7 @@ from eden.thrift.legacy import (
     EdenClient,
     EdenNotRunningError as LegacyEdenNotRunningError,
 )
-from fb303_core.ttypes import fb303_status
+from fb303_core.thrift_types import fb303_status
 from thrift import Thrift
 
 if TYPE_CHECKING:
@@ -133,7 +133,9 @@ class HealthStatus:
 
     def __str__(self) -> str:
         return "(%s, pid=%s, uptime=%s, detail=%r)" % (
-            fb303_status._VALUES_TO_NAMES.get(self.status, str(self.status)),
+            self.status.name
+            if isinstance(self.status, fb303_status)
+            else str(self.status),
             self.pid,
             self.uptime,
             self.detail,
@@ -307,7 +309,7 @@ def check_health(
         detail = "error talking to edenfs: " + str(ex)
         return HealthStatus(status, pid, uptime, detail)
 
-    status_name = fb303_status._VALUES_TO_NAMES.get(status)
+    status_name = status.name
     detail = "edenfs running (pid {}); status is {}".format(pid, status_name)
     return HealthStatus(status, pid, uptime, detail)
 

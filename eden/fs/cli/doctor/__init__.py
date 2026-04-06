@@ -34,7 +34,7 @@ from eden.fs.cli.doctor.util import (
     hg_doctor_in_backing_repo,
 )
 from eden.fs.service.eden.thrift_types import MountState
-from fb303_core.ttypes import fb303_status
+from fb303_core.thrift_types import fb303_status
 from filelock import FileLock, Timeout
 
 from . import (

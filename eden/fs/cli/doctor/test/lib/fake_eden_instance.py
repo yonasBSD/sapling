@@ -278,9 +278,7 @@ class FakeEdenInstance(AbstractEdenInstance):
         return 0
 
     def check_health(self) -> HealthStatus:
-        return HealthStatus(
-            self._status._to_py_deprecated(), pid=None, uptime=None, detail=""
-        )
+        return HealthStatus(self._status, pid=None, uptime=None, detail="")
 
     def check_privhelper_connection(self) -> bool:
         return True
