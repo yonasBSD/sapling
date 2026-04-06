@@ -21,8 +21,7 @@ from eden.fs.service.eden.thrift_types import (
     STATS_MOUNTS_STATS,
     STATS_RSS_BYTES,
 )
-from thrift.protocol.TSimpleJSONProtocol import TSimpleJSONProtocolFactory
-from thrift.util import Serializer as ThriftSerializer
+from thrift.python.serializer import Protocol, serialize
 
 from . import cmd_util, stats_print, subcmd as subcmd_mod, util as util_mod
 from .config import EdenInstance
@@ -58,8 +57,7 @@ def do_stats_general(instance: EdenInstance, options: StatsGeneralOptions) -> No
         stat_info = client.getStatInfo(GetStatInfoParams(statsMask=statsMask))
 
     if json:
-        json_factory = TSimpleJSONProtocolFactory()
-        out.write(ThriftSerializer.serialize(json_factory, stat_info).decode("utf-8"))
+        out.write(serialize(stat_info, protocol=Protocol.JSON).decode("utf-8"))
     else:
         print_stats(stat_info, out)
 
