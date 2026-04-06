@@ -422,8 +422,10 @@ function DiffSignalSummary({
       );
       break;
     case 'land-cancelled':
-      icon = <CircleExclamationIcon />;
-      tooltip = t('Land is cancelled for this Diff. See Diff for more details.');
+      icon = 'circle-slash';
+      tooltip = t(
+        `Land was cancelled for this Diff. ${signalDetailsEnabled ? 'Click' : 'See Diff'} for more details.`,
+      );
       break;
     case 'land-on-hold':
       icon = 'debug-pause';
