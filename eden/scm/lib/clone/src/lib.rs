@@ -197,27 +197,19 @@ pub fn eden_clone(
     run_eden_clone_command(&mut clone_command).context("error performing eden clone")
 }
 
-/// Copy user-specific EdenFS config from a source checkout to a new one.
+/// Snapshot the user-specific EdenFS config that should be copied to another checkout.
 ///
-/// Copies the following sections from the source's config.toml into the
-/// destination's config.toml:
-///   - [redirections]: user-specific redirections.
-///     Repo-level redirections from .eden-redirections are already
-///     applied by the clone and don't need copying.
-///   - [profiles]: active prefetch profiles (e.g. "edenfs").
-///   - [predictive-prefetch]: predictive prefetch settings.
+/// This reads the source checkout's `config.toml` and returns its raw contents only
+/// when it contains user-managed settings that need to be preserved across
+/// `worktree add`:
+///   - `[redirections]`: user-specific redirections
+///   - `[profiles]`: active prefetch profiles such as `"edenfs"`
+///   - `[predictive-prefetch]`: predictive prefetch settings
 ///
-/// After writing, runs `eden redirect fixup` to apply redirections.
-///
-/// NOTE: If `eden redirect fixup` proves unreliable, an alternative approach
-/// would be to call `eden redirect add` for each redirection individually
-/// instead of writing config.toml and running `eden redirect fixup`.
+/// Returning the raw TOML lets callers read source state under a short-lived lock and
+/// apply it later after the destination checkout has been created.
 #[cfg(feature = "eden")]
-pub fn copy_eden_user_config(
-    config: &dyn Config,
-    source_client_dir: &Path,
-    dest_mount: &Path,
-) -> Result<()> {
+pub fn snapshot_eden_user_config(source_client_dir: &Path) -> Result<Option<String>> {
     let source_config_path = source_client_dir.join("config.toml");
     let source_content = fs::read_to_string(&source_config_path)
         .with_context(|| format!("failed to read {}", source_config_path.display()))?;
@@ -225,6 +217,58 @@ pub fn copy_eden_user_config(
         .parse()
         .with_context(|| format!("failed to parse {}", source_config_path.display()))?;
 
+    if !has_copyable_eden_user_config(&source_table) {
+        return Ok(None);
+    }
+
+    Ok(Some(source_content))
+}
+
+/// Apply a previously snapped EdenFS user config to a destination checkout.
+///
+/// The snapshot is the raw `config.toml` content returned by
+/// [`snapshot_eden_user_config`]. This writes the copyable user-specific sections
+/// into the destination checkout's Eden client config, then runs
+/// `eden redirect fixup` if redirections were copied.
+///
+/// NOTE: If `eden redirect fixup` proves unreliable, an alternative approach
+/// would be to call `eden redirect add` for each redirection individually
+/// instead of writing config.toml and running `eden redirect fixup`.
+#[cfg(feature = "eden")]
+pub fn apply_eden_user_config_snapshot(
+    config: &dyn Config,
+    source_content: &str,
+    dest_mount: &Path,
+) -> Result<()> {
+    let source_table: toml::Table = source_content
+        .parse()
+        .context("failed to parse snapped source config.toml")?;
+    apply_eden_user_config_table(config, &source_table, dest_mount)
+}
+
+/// Return whether the parsed Eden client config contains any user-specific state we
+/// should carry over to a new checkout.
+#[cfg(feature = "eden")]
+fn has_copyable_eden_user_config(source_table: &toml::Table) -> bool {
+    let source_redirections = source_table.get("redirections").and_then(|v| v.as_table());
+    let source_profiles = source_table.get("profiles").and_then(|v| v.as_table());
+    let source_predictive = source_table
+        .get("predictive-prefetch")
+        .and_then(|v| v.as_table());
+
+    source_redirections.is_some_and(|t| !t.is_empty())
+        || source_profiles.is_some_and(|t| !t.is_empty())
+        || source_predictive.is_some_and(|t| !t.is_empty())
+}
+
+/// Apply the copyable user-specific portions of a parsed Eden client config to the
+/// destination checkout.
+#[cfg(feature = "eden")]
+fn apply_eden_user_config_table(
+    config: &dyn Config,
+    source_table: &toml::Table,
+    dest_mount: &Path,
+) -> Result<()> {
     let source_redirections = source_table.get("redirections").and_then(|v| v.as_table());
     let source_profiles = source_table.get("profiles").and_then(|v| v.as_table());
     let source_predictive = source_table
@@ -295,16 +339,53 @@ pub fn copy_eden_user_config(
     Ok(())
 }
 
+#[cfg(feature = "eden")]
+pub fn copy_eden_user_config(
+    config: &dyn Config,
+    source_client_dir: &Path,
+    dest_mount: &Path,
+) -> Result<()> {
+    if let Some(source_content) = snapshot_eden_user_config(source_client_dir)? {
+        apply_eden_user_config_snapshot(config, &source_content, dest_mount)?;
+    }
+    Ok(())
+}
+
 /// Copy the sparse/filter config from a source checkout to a new one.
 ///
 /// If the source checkout has a `sparse` file in its dot directory,
 /// copies it to the destination so the new checkout has the same
 /// active filters.
 pub fn copy_sparse_config(source_dot_dir: &Path, dest_dot_dir: &Path) -> Result<()> {
+    if let Some(source_content) = snapshot_sparse_config(source_dot_dir)? {
+        write_sparse_config(&source_content, dest_dot_dir)?;
+    }
+    Ok(())
+}
+
+/// Snapshot the source checkout's sparse config for later application.
+///
+/// Returning the file contents lets callers read the source config before starting
+/// slower destination work, then write the same config into the new checkout later.
+pub fn snapshot_sparse_config(source_dot_dir: &Path) -> Result<Option<Vec<u8>>> {
     let sparse_path = source_dot_dir.join("sparse");
     if sparse_path.exists() {
+        Ok(Some(fs::read(&sparse_path).with_context(|| {
+            format!("failed to read sparse config {}", sparse_path.display())
+        })?))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Write a previously snapped sparse config into the destination checkout.
+///
+/// An empty snapshot is treated as a no-op so callers can forward the result of
+/// [`snapshot_sparse_config`] directly.
+pub fn write_sparse_config(source_content: &[u8], dest_dot_dir: &Path) -> Result<()> {
+    if !source_content.is_empty() {
         let dest_sparse = dest_dot_dir.join("sparse");
-        fs::copy(&sparse_path, &dest_sparse).with_context(|| {
+        atomic_write(&dest_sparse, |f| f.write_all(source_content)).with_context(|| {
             format!("failed to copy sparse config to {}", dest_sparse.display())
         })?;
     }
