@@ -58,10 +58,9 @@ thrift_library(
     languages = [
         "cpp2",
         "java-swift",
-        "py3-deprecated",
+        "py-deprecated",
         "python",
         "rust",
-        "py-deprecated",
     ],
     py_base_module = "facebook.eden",
     thrift_rust_options = ["deprecated_default_enum_min_i32"],

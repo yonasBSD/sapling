@@ -8,7 +8,6 @@ thrift_library(
     languages = [
         "cpp2",
         "rust",
-        "py-deprecated",
         "python",
     ],
     py3_namespace = "facebook.eden",
