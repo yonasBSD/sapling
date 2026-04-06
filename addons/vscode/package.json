@@ -2,7 +2,7 @@
   "name": "sapling-scm",
   "displayName": "Sapling SCM",
   "description": "Sapling: A Scalable, User-Friendly Source Control System",
-  "version": "0.1.70",
+  "version": "100.0.0-dev",
   "publisher": "meta",
   "license": "MIT",
   "engines": {
@@ -102,12 +102,12 @@
         {
           "id": "sapling",
           "title": "%sapling.command-category%",
-          "icon": "resources/Sapling_viewContainer.svg"
+          "icon": "resources/Sapling.svg"
         },
         {
           "id": "fbRunCommand__sapling_DOT_open-isl",
           "title": "%sapling.command-category%",
-          "icon": "resources/Sapling_viewContainer.svg"
+          "icon": "resources/Sapling.svg"
         }
       ]
     },
@@ -147,7 +147,10 @@
         "command": "sapling.open-isl",
         "title": "%sapling.open-isl-command%",
         "category": "%sapling.command-category%",
-        "icon": "resources/Sapling_favicon-light-green-transparent.svg",
+        "icon": {
+          "light": "resources/Sapling-light.svg",
+          "dark": "resources/Sapling-dark.svg"
+        },
         "when": "!isl.openInteractiveSmartlogShortcutEnabled"
       },
       {

@@ -451,11 +451,10 @@ function populateAndSetISLWebview<W extends vscode.WebviewPanel | vscode.Webview
     islPanelOrViewResult = {panel: panelOrView, readySignal};
   }
   if (isPanel(panelOrView)) {
-    panelOrView.iconPath = vscode.Uri.joinPath(
-      context.extensionUri,
-      'resources',
-      'Sapling_favicon-light-green-transparent.svg',
-    );
+    panelOrView.iconPath = {
+      light: vscode.Uri.joinPath(context.extensionUri, 'resources', 'Sapling-light.svg'),
+      dark: vscode.Uri.joinPath(context.extensionUri, 'resources', 'Sapling-dark.svg'),
+    };
   }
   assignWebviewHtml({
     context,
