@@ -156,14 +156,12 @@ from eden.fs.cli.util import (
 )
 from eden.fs.service.eden.thrift_types import (
     ChangeOwnershipRequest,
-    EdenError as ModernEdenError,
+    EdenError,
     MountInfo,
     MountState,
     SendNotificationRequest,
 )
 from eden.thrift.client import EdenNotRunningError
-from eden.thrift.legacy import EdenNotRunningError as LegacyEdenNotRunningError
-from facebook.eden import EdenService as LegacyEdenService
 from fb303_core.thrift_types import fb303_status
 from thrift.python.exceptions import (
     ApplicationError,
@@ -545,7 +543,7 @@ class CloneCmd(Subcmd):
         parser.add_argument(
             "--enable-windows-symlinks",
             action="store_true",
-            help="Symlink is enabled on all Windows mounts. This argument is a no-op that is kept for lagacy compatibility",
+            help="Symlink is enabled on all Windows mounts. This argument is a no-op that is kept for legacy compatibility",
         )
 
         parser.add_argument(
@@ -813,7 +811,7 @@ is case-sensitive. This is not recommended and is intended only for testing."""
             # process here to prefetch files that we think the user is likely
             # to want to access soon.
             return 0
-        except (LegacyEdenService.EdenError, ModernEdenError) as ex:
+        except EdenError as ex:
             print_stderr(
                 f"{ForegroundColor.RED.value}Failed to clone.{ForegroundColor.RESET.value} Error from EdenFS: {ex}"
             )
@@ -1636,7 +1634,7 @@ class MountCmd(Subcmd):
                 exitcode = instance.mount(path, args.read_only)
                 if exitcode:
                     return exitcode
-            except (LegacyEdenService.EdenError, EdenNotRunningError) as ex:
+            except (EdenError, EdenNotRunningError) as ex:
                 print_stderr("error: {}", ex)
                 return 1
 
@@ -1734,10 +1732,8 @@ def remove_legacyephemeral_checkouts(
     mount_info: Sequence[MountInfo] = []
     try:
         with instance.get_thrift_client() as client:
-            # Convert legacy MountInfo to modern MountInfo
-            legacy_mount_info = client.listMounts()
-            mount_info = [m._to_python() for m in legacy_mount_info]
-    except (EdenNotRunningError, LegacyEdenNotRunningError):
+            mount_info = list(client.listMounts())
+    except EdenNotRunningError:
         # Daemon not running, no mounts active
         pass
 
@@ -2220,7 +2216,7 @@ class UnmountCmd(Subcmd):
                 )
                 if args.destroy:
                     instance.destroy_mount(path)
-            except (LegacyEdenService.EdenError, EdenNotRunningError) as ex:
+            except (EdenError, EdenNotRunningError) as ex:
                 print_stderr(f"error: {ex}")
                 return 1
         return 0
@@ -3146,7 +3142,7 @@ class StopCmd(Subcmd):
                     pid = check_health_using_lockfile(instance.state_dir).pid
                     if pid is None:
                         raise EdenNotRunningError(str(instance.state_dir)) from e
-        except (EdenNotRunningError, LegacyEdenNotRunningError):
+        except EdenNotRunningError:
             print_stderr("error: edenfs is not running")
             return SHUTDOWN_EXIT_CODE_NOT_RUNNING_ERROR
 

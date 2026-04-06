@@ -52,7 +52,7 @@ from eden.fs.service.eden.thrift_types import (
     MountState,
     UnmountArgument,
 )
-from eden.thrift import client, legacy
+from eden.thrift import client
 from eden.thrift.client import EdenNotRunningError
 from filelock import BaseFileLock, FileLock
 from thrift.python.exceptions import ApplicationError, ApplicationErrorType
@@ -505,7 +505,7 @@ class EdenInstance(AbstractEdenInstance):
     def get_current_and_running_versions(self) -> Tuple[str, Optional[str]]:
         try:
             running = self.get_running_version()
-        except (legacy.EdenNotRunningError, EdenNotRunningError):
+        except EdenNotRunningError:
             # return None if EdenFS does not currently appear to be running
             running = None
         return version.get_current_version(), running
@@ -545,14 +545,6 @@ class EdenInstance(AbstractEdenInstance):
     def get_mount_paths(self) -> List[str]:
         """Return the paths of the set mount points stored in config.json"""
         return [str(path) for path in self._get_directory_map().keys()]
-
-    def get_thrift_client_legacy(
-        self, timeout: Optional[float] = None
-    ) -> legacy.EdenClient:
-        return legacy.create_thrift_client(
-            eden_dir=str(self._config_dir),
-            timeout=timeout,
-        )
 
     @contextmanager
     def get_thrift_client(
@@ -1323,13 +1315,6 @@ Do you want to run `eden mount %s` instead?"""
         with self.get_thrift_client(timeout=3) as client:
             return dict(client.getRegexExportedValues("^build_.*"))
 
-    def get_uptime_legacy(self) -> datetime.timedelta:
-        now = datetime.datetime.now()
-        with self.get_thrift_client_legacy(timeout=3) as client:
-            since_in_seconds = client.aliveSince()
-        since = datetime.datetime.fromtimestamp(since_in_seconds)
-        return now - since
-
     def get_uptime(self) -> datetime.timedelta:
         now = datetime.datetime.now()
         with self.get_thrift_client(timeout=3) as client:
@@ -1994,7 +1979,7 @@ def detect_checkout_path_problem(
         # However, we prefer to get the list from the current eden process (if one's running)
         instance.get_running_version()
         checkout_list = instance.get_mounts().items()
-    except (EdenNotRunningError, legacy.EdenNotRunningError):
+    except EdenNotRunningError:
         # If EdenFS isn't running, we should fail
         return None, None
 
