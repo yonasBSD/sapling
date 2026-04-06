@@ -38,23 +38,13 @@ from typing import (
 import eden.config
 from eden.fs.cli import util
 from eden.fs.service.eden.thrift_clients import EdenService
-from eden.test_support.testcase import EdenTestCaseBase
-from eden.thrift import legacy
-
-if sys.platform == "win32":
-    from eden.thrift.windows_thrift import WindowsSocketException
-else:
-
-    class WindowsSocketException(Exception):
-        pass
-
-
 from eden.fs.service.eden.thrift_types import (
     FaultDefinition,
     GetBlockedFaultsRequest,
     RemoveFaultArg,
     UnblockFaultArg,
 )
+from eden.test_support.testcase import EdenTestCaseBase
 
 from . import edenclient, gitrepo, hgrepo, repobase, skip
 from .find_executables import FindExe
@@ -138,7 +128,6 @@ class EdenTestCase(EdenTestCaseBase):
                 )
                 break
             except (
-                WindowsSocketException,
                 edenclient.EdenCommandError,
                 util.EdenStartError,
             ) as e:
@@ -260,12 +249,6 @@ class EdenTestCase(EdenTestCaseBase):
 
     def make_temporary_directory(self, prefix: Optional[str] = None) -> str:
         return str(self.temp_mgr.make_temp_dir(prefix=prefix))
-
-    def get_thrift_client_legacy(self) -> legacy.EdenClient:
-        """
-        Get a thrift client to the edenfs daemon.
-        """
-        return self.eden.get_thrift_client_legacy()
 
     @contextmanager
     def get_thrift_client(

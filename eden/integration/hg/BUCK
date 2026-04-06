@@ -360,7 +360,6 @@ python_unittest(
         "//eden/fs/cli:lib",
         "//eden/integration/hg/lib:testutil",
         "//eden/integration/lib:lib",
-        "//thrift/lib/py:server_base",
         "//thrift/lib/python:types",
     ] + select({
         "DEFAULT": [],

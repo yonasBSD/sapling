@@ -26,7 +26,7 @@ from typing import Any, cast, Dict, Generator, List, Optional, TextIO, Tuple, Un
 from eden.fs.cli import util
 from eden.fs.service.eden.thrift_clients import EdenService
 from eden.fs.service.eden.thrift_types import MountState
-from eden.thrift import client, legacy
+from eden.thrift import client
 from fb303_core.thrift_types import fb303_status
 
 from .find_executables import FindExe
@@ -198,11 +198,6 @@ class EdenFS:
         else:
             process.kill()
         process.wait(timeout=10)
-
-    def get_thrift_client_legacy(
-        self, timeout: Optional[float] = None
-    ) -> legacy.EdenClient:
-        return legacy.create_thrift_client(str(self._eden_dir), timeout=timeout)
 
     @contextmanager
     def get_thrift_client(

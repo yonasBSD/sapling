@@ -13,7 +13,7 @@ import signal
 import subprocess
 import typing
 
-from eden.thrift.legacy import create_thrift_client
+from eden.thrift.client import create_thrift_client
 
 from .find_executables import FindExe
 
@@ -91,7 +91,7 @@ class FakeEdenFS(typing.ContextManager[int]):
 
 def get_fake_edenfs_argv(eden_dir: pathlib.Path) -> typing.List[str]:
     with create_thrift_client(str(eden_dir)) as client:
-        argv = client.getDaemonInfo().commandLine
+        argv = list(client.getDaemonInfo().commandLine)
         # StartupLogger may add `--startupLoggerFd 5` as a parameter.
         # The 5 is a file descriptor number and has no guarantees as
         # to which number is selected by the kernel.

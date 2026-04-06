@@ -88,7 +88,6 @@ python_library(
         "//eden/fs/cli/facebook:hostcaps",
         "//eden/fs/cli/facebook:util",
         "//eden/fs/py/eden/thrift:client",
-        "//eden/fs/py/eden/thrift:legacy",
         "//eden/fs/service:thrift-python-clients",
         "//fb303/thrift:fb303_core-python-types",
         "//thrift/lib/python:types",

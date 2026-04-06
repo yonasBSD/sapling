@@ -19,6 +19,7 @@ from .lib.find_executables import FindExe
 
 if sys.platform == "win32":
     import ctypes
+    import ctypes.wintypes
 
     win_kernel = ctypes.windll.kernel32
 
