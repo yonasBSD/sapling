@@ -14,11 +14,20 @@
 //! worktree group information without pulling in command-layer dependencies.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt as _;
+#[cfg(target_os = "macos")]
+use std::os::unix::fs::MetadataExt as _;
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context;
 use anyhow::Result;
+use blake2::Blake2s256;
+use blake2::Digest;
 use fs_err as fs;
 use serde::Deserialize;
 use serde::Serialize;
@@ -78,6 +87,159 @@ impl Group {
     }
 }
 
+const GROUP_ID_NAMESPACE: &[u8] = b"group-id";
+const WORKTREE_OP_LOCK_NAMESPACE: &[u8] = b"worktree-op-lock";
+
+// These derived names must be stable outside a single process: group IDs are
+// written to the registry, and lock names are used for on-disk coordination.
+// Callers are expected to pass the same canonical path spelling they use when
+// reading or writing the registry; this helper only does lexical cleanup
+// (`.`, `..`, duplicate separators, `\\?\` stripping), not symlink resolution.
+// The ids intentionally model destination-path identity before the checkout
+// exists, so they follow host path semantics rather than the checkout's future
+// case-sensitive/case-insensitive mount setting.
+//
+// `OsStr::as_encoded_bytes()` is only documented for round-tripping within the
+// same Rust version and target platform:
+// https://doc.rust-lang.org/std/ffi/struct.OsStr.html#method.as_encoded_bytes
+// Convert to a stable platform representation before hashing.
+#[cfg(all(unix, not(target_os = "macos")))]
+fn update_stable_path_bytes(hasher: &mut Blake2s256, path: &Path) {
+    hasher.update(path.as_os_str().as_bytes());
+}
+
+#[cfg(windows)]
+fn update_stable_path_bytes(hasher: &mut Blake2s256, path: &Path) {
+    // EdenFS clone/config path handling on Windows follows the platform's
+    // usual case-insensitive path identity, so case-only spelling differences
+    // should coordinate on the same derived id.
+    let normalized = path.to_string_lossy().to_lowercase();
+    for unit in normalized.encode_utf16() {
+        hasher.update(unit.to_le_bytes());
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn update_case_folded_unix_path_bytes(hasher: &mut Blake2s256, path: &Path) {
+    for chunk in path.as_os_str().as_bytes().utf8_chunks() {
+        if !chunk.valid().is_empty() {
+            let normalized = chunk.valid().to_lowercase();
+            hasher.update(normalized.as_bytes());
+        }
+        if !chunk.invalid().is_empty() {
+            hasher.update(chunk.invalid());
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn detect_case_sensitive_existing_ancestor(path: &Path) -> Result<bool> {
+    let mut probe = util::path::absolute(path)?;
+    while !probe.exists() {
+        if !probe.pop() {
+            return Ok(true);
+        }
+    }
+    detect_case_sensitive(&probe)
+}
+
+#[cfg(target_os = "macos")]
+fn detect_case_sensitive(path: &Path) -> Result<bool> {
+    let original = path.symlink_metadata()?;
+    let Some(path_str) = path.to_str() else {
+        return Ok(true);
+    };
+    let lowercase = path_str.to_lowercase();
+    let case_variant = if lowercase != path_str {
+        lowercase
+    } else {
+        let uppercase = path_str.to_uppercase();
+        if uppercase == path_str {
+            return Ok(true);
+        }
+        uppercase
+    };
+    let variant = match Path::new(&case_variant).symlink_metadata() {
+        Ok(metadata) => metadata,
+        Err(_) => return Ok(true),
+    };
+    Ok(original.dev() != variant.dev() || original.ino() != variant.ino())
+}
+
+#[cfg(target_os = "macos")]
+fn update_stable_path_bytes(hasher: &mut Blake2s256, path: &Path) {
+    if detect_case_sensitive_existing_ancestor(path).unwrap_or(true) {
+        hasher.update(path.as_os_str().as_bytes());
+    } else {
+        update_case_folded_unix_path_bytes(hasher, path);
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn update_stable_path_bytes(hasher: &mut Blake2s256, path: &Path) {
+    let normalized = path.to_string_lossy();
+    hasher.update(normalized.as_bytes());
+}
+
+// Build an opaque deterministic identifier from a path. The identifier is
+// process-independent so multiple racing commands can derive the same group id
+// or per-path lock file name before touching the registry.
+fn stable_path_id(domain: &[u8], path: &Path) -> String {
+    let normalized_path = util::path::strip_unc_prefix(util::path::normalize(path));
+    let mut hasher = Blake2s256::new();
+    hasher.update(domain);
+    hasher.update([0]);
+    // Hash a path representation we control rather than Rust's opaque
+    // OsStr encoding, since these ids are persisted and used cross-process.
+    update_stable_path_bytes(&mut hasher, &normalized_path);
+
+    // Truncate to 128 bits to keep ids compact while preserving opaque, deterministic names.
+    let digest = hasher.finalize();
+    let mut id = String::with_capacity(32);
+    for byte in &digest[..16] {
+        write!(&mut id, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    id
+}
+
+/// Derive the registry group id from the canonical main worktree path.
+///
+/// The first `worktree add` that creates a group and any concurrent racers must
+/// independently pick the same id without first consulting shared state.
+pub fn group_id_for_main_path(main_path: &Path) -> String {
+    stable_path_id(GROUP_ID_NAMESPACE, main_path)
+}
+
+fn worktree_path_lockfile_name(worktree_path: &Path) -> String {
+    // Keep the lock name under the shared store so callers can coordinate on a
+    // target path before the worktree itself exists on disk.
+    format!(
+        "worktree-op-{}.lock",
+        stable_path_id(WORKTREE_OP_LOCK_NAMESPACE, worktree_path)
+    )
+}
+
+pub fn lock_worktree_path_op(shared_store_path: &Path, worktree_path: &Path) -> Result<PathLock> {
+    let lock_path = shared_store_path.join(worktree_path_lockfile_name(worktree_path));
+    Ok(PathLock::exclusive(lock_path)?)
+}
+
+/// Hold the per-worktree operation lock for `worktree_path` while running `f`.
+///
+/// Intended composition:
+/// 1. Take this lock around the long-running filesystem / EdenFS operation for
+///    a specific worktree path.
+/// 2. Enter `with_registry_lock()` only for the short read-modify-write of
+///    `worktrees.json`.
+pub fn with_worktree_path_op_lock<T>(
+    shared_store_path: &Path,
+    worktree_path: &Path,
+    f: impl FnOnce() -> Result<T>,
+) -> Result<T> {
+    let _lock = lock_worktree_path_op(shared_store_path, worktree_path)?;
+    f()
+}
+
 // --- Validation ---
 
 /// Verify that `dest` is not inside an existing source control checkout.
@@ -131,6 +293,13 @@ pub fn dissolve_group(registry: &mut Registry, group_id: &str) {
     registry.groups.remove(group_id);
 }
 
+/// Lock the registry file, load it, run `f`, and write back the result.
+///
+/// This lock is intentionally coarse and should stay scoped to the
+/// `worktrees.json` read-modify-write sequence. Callers that need to serialize
+/// longer operations for a specific worktree path should do that with
+/// `with_worktree_path_op_lock()` and then use this helper only for the final
+/// registry update.
 pub fn with_registry_lock<T>(
     shared_store_path: &Path,
     f: impl FnOnce(&mut Registry) -> Result<T>,
@@ -145,6 +314,9 @@ pub fn with_registry_lock<T>(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    use std::ffi::OsStr;
+
     use super::*;
 
     #[test]
@@ -321,6 +493,163 @@ mod tests {
         assert_eq!(
             reg.find_group_for_path(&main_b),
             Some("group-b".to_string())
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_group_id_for_main_path_is_stable() {
+        let path = Path::new("/tmp/main");
+        let id1 = group_id_for_main_path(path);
+        let id2 = group_id_for_main_path(path);
+        let other = group_id_for_main_path(Path::new("/tmp/other"));
+
+        assert_eq!(id1, "a1931b83ce3c37d2c69e776d3436433f");
+        assert_eq!(id1, id2);
+        assert_ne!(id1, other);
+    }
+
+    #[test]
+    fn test_group_id_for_main_path_normalizes_equivalent_spellings() {
+        assert_eq!(
+            group_id_for_main_path(Path::new("/tmp/repo/./main")),
+            group_id_for_main_path(Path::new("/tmp/repo/main"))
+        );
+        assert_eq!(
+            group_id_for_main_path(Path::new(r"\\?\C:\src\repo\main")),
+            group_id_for_main_path(Path::new(r"C:\src\repo\main"))
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_group_id_for_main_path_preserves_non_utf8_bytes() {
+        let path1 = Path::new(OsStr::from_bytes(b"/tmp/nonutf8-\x80"));
+        let path2 = Path::new(OsStr::from_bytes(b"/tmp/nonutf8-\x81"));
+
+        assert_ne!(group_id_for_main_path(path1), group_id_for_main_path(path2));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_group_id_for_main_path_windows_drive_path_is_stable() {
+        let path = Path::new(r"C:\src\repo\main");
+        let id1 = group_id_for_main_path(path);
+        let id2 = group_id_for_main_path(path);
+
+        assert_eq!(id1, "0c365461676d023bda366cb242059c49");
+        assert_eq!(id1, id2);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_group_id_for_main_path_windows_paths_are_distinct() {
+        let drive_path = Path::new(r"C:\src\repo\main");
+        let other_drive_path = Path::new(r"D:\src\repo\main");
+        let unc_path = Path::new(r"\\server\share\repo\main");
+
+        assert_eq!(
+            group_id_for_main_path(unc_path),
+            "d6e031f169842e78da167212078603de"
+        );
+        assert_ne!(
+            group_id_for_main_path(drive_path),
+            group_id_for_main_path(other_drive_path)
+        );
+        assert_ne!(
+            group_id_for_main_path(drive_path),
+            group_id_for_main_path(unc_path)
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_group_id_for_main_path_windows_case_is_folded() {
+        assert_eq!(
+            group_id_for_main_path(Path::new(r"C:\Src\Repo\Main")),
+            group_id_for_main_path(Path::new(r"c:\src\repo\main"))
+        );
+    }
+
+    #[test]
+    fn test_lock_worktree_path_op_creates_lock_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = PathBuf::from("/tmp/some_worktree");
+        let _lock = lock_worktree_path_op(dir.path(), &path).unwrap();
+
+        assert!(dir.path().join(worktree_path_lockfile_name(&path)).exists());
+    }
+
+    #[test]
+    fn test_lock_worktree_path_op_different_paths_concurrent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path1 = PathBuf::from("/tmp/worktree1");
+        let path2 = PathBuf::from("/tmp/worktree2");
+
+        let _lock1 = lock_worktree_path_op(dir.path(), &path1).unwrap();
+        let _lock2 = lock_worktree_path_op(dir.path(), &path2).unwrap();
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_worktree_path_lockfile_name_is_stable() {
+        let path = Path::new("/tmp/consistent_path");
+        let name1 = worktree_path_lockfile_name(path);
+        let name2 = worktree_path_lockfile_name(path);
+        let other = worktree_path_lockfile_name(Path::new("/tmp/other_path"));
+
+        assert_eq!(name1, "worktree-op-418ede8060a3d4aa0723dc1ea9046340.lock");
+        assert_eq!(name1, name2);
+        assert_ne!(name1, other);
+    }
+
+    #[test]
+    fn test_worktree_path_lockfile_name_normalizes_equivalent_spellings() {
+        assert_eq!(
+            worktree_path_lockfile_name(Path::new("/tmp/repo/linked/../linked")),
+            worktree_path_lockfile_name(Path::new("/tmp/repo/linked"))
+        );
+        assert_eq!(
+            worktree_path_lockfile_name(Path::new(r"\\?\C:\src\repo\linked")),
+            worktree_path_lockfile_name(Path::new(r"C:\src\repo\linked"))
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_worktree_path_lockfile_name_windows_path_is_stable() {
+        let path = Path::new(r"C:\src\repo\linked");
+        let name1 = worktree_path_lockfile_name(path);
+        let name2 = worktree_path_lockfile_name(path);
+
+        assert_eq!(name1, "worktree-op-7cfc9b010bb34f6dfe81f449cbe366e8.lock");
+        assert_eq!(name1, name2);
+        assert!(name1.starts_with("worktree-op-"));
+        assert!(name1.ends_with(".lock"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_worktree_path_lockfile_name_windows_paths_are_distinct() {
+        let drive_path = Path::new(r"C:\src\repo\linked");
+        let unc_path = Path::new(r"\\server\share\repo\linked");
+
+        assert_eq!(
+            worktree_path_lockfile_name(unc_path),
+            "worktree-op-e35b48634bbcac02385a23320201f492.lock"
+        );
+        assert_ne!(
+            worktree_path_lockfile_name(drive_path),
+            worktree_path_lockfile_name(unc_path)
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_worktree_path_lockfile_name_windows_case_is_folded() {
+        assert_eq!(
+            worktree_path_lockfile_name(Path::new(r"C:\Src\Repo\Linked")),
+            worktree_path_lockfile_name(Path::new(r"c:\src\repo\linked"))
         );
     }
 
