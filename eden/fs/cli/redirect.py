@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Set
 
-from thrift.Thrift import TApplicationException
+from thrift.python.exceptions import ApplicationError, ApplicationErrorType
 
 from . import cmd_util, configutil, mtab, subcmd as subcmd_mod, tabulate
 from .buck import stop_buckd_for_repo
@@ -428,8 +428,8 @@ class Redirection:
                     client.removeBindMount(
                         os.fsencode(checkout_path), os.fsencode(self.repo_path)
                     )
-                except TApplicationException as exc:
-                    if exc.type == TApplicationException.UNKNOWN_METHOD:
+                except ApplicationError as exc:
+                    if exc.type == ApplicationErrorType.UNKNOWN_METHOD:
                         print(PLEASE_RESTART, file=sys.stderr)
                     log.debug("removeBindMount failed; ignoring error", exc_info=True)
 
@@ -444,8 +444,8 @@ class Redirection:
                     os.fsencode(self.repo_path),
                     os.fsencode(target),
                 )
-            except TApplicationException as exc:
-                if exc.type == TApplicationException.UNKNOWN_METHOD:
+            except ApplicationError as exc:
+                if exc.type == ApplicationErrorType.UNKNOWN_METHOD:
                     raise Exception(PLEASE_RESTART)
                 raise
 
@@ -455,8 +455,8 @@ class Redirection:
                 client.removeBindMount(
                     os.fsencode(checkout.path), os.fsencode(self.repo_path)
                 )
-            except TApplicationException as exc:
-                if exc.type == TApplicationException.UNKNOWN_METHOD:
+            except ApplicationError as exc:
+                if exc.type == ApplicationErrorType.UNKNOWN_METHOD:
                     raise Exception(PLEASE_RESTART)
                 raise
 
