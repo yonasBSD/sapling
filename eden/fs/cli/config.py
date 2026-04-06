@@ -55,7 +55,7 @@ from eden.fs.service.eden.thrift_types import (
 from eden.thrift import client, legacy
 from eden.thrift.client import EdenNotRunningError
 from filelock import BaseFileLock, FileLock
-from thrift.Thrift import TApplicationException
+from thrift.python.exceptions import ApplicationError, ApplicationErrorType
 
 from . import configinterpolator, configutil, telemetry, util, version
 
@@ -972,11 +972,11 @@ Do you want to run `eden mount %s` instead?"""
         with self.get_thrift_client(timeout=UNMOUNT_TIMEOUT_SECONDS) as client:
             try:
                 client.unmountV2(unmount_arg)
-            except TApplicationException as e:
+            except ApplicationError as e:
                 # Fallback to old unmount in the case that this is running
                 # against an older version of EdenFS in which unmountV2 is
                 # not known
-                if e.type == TApplicationException.UNKNOWN_METHOD:
+                if e.type == ApplicationErrorType.UNKNOWN_METHOD:
                     client.unmount(mount_point)
                 else:
                     raise e
