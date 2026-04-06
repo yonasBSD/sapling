@@ -15,7 +15,9 @@ use clidispatch::abort;
 use cmdutil::Result;
 use repo::repo::Repo;
 use worktree::dissolve_group;
+use worktree::load_registry;
 use worktree::with_registry_lock;
+use worktree::with_worktree_path_op_lock;
 
 use crate::WorktreeOpts;
 use crate::require_group;
@@ -35,28 +37,30 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     let target =
         util::path::strip_unc_prefix(util::path::canonical_path_allow_missing(target_str)?);
 
-    with_registry_lock(&shared_store_path, |registry| {
-        let grp = match registry.groups.get_mut(&group_id) {
-            Some(group) => group,
-            None => abort!("group '{}' not found in registry", group_id),
-        };
-        if !grp.worktrees.contains_key(&target) {
-            if let Some(parent_wt) = grp.worktrees.keys().find(|wt| target.starts_with(wt)) {
-                abort!(
-                    "{} is not the root of checkout {}, not removing",
-                    target.display(),
-                    parent_wt.display()
-                );
-            }
+    let registry = load_registry(&shared_store_path)?;
+    let grp = match registry.groups.get(&group_id) {
+        Some(group) => group,
+        None => abort!("group '{}' not found in registry", group_id),
+    };
+    if !grp.worktrees.contains_key(&target) {
+        if let Some(parent_wt) = grp.worktrees.keys().find(|wt| target.starts_with(wt)) {
             abort!(
-                "{} is not in this worktree group, use `eden rm` instead",
-                target.display()
+                "{} is not the root of checkout {}, not removing",
+                target.display(),
+                parent_wt.display()
             );
         }
-        if target == grp.main {
-            abort!("cannot remove a main worktree with linked worktrees");
-        }
+        abort!(
+            "{} is not in this worktree group, use `eden rm` instead",
+            target.display()
+        );
+    }
+    if target == grp.main {
+        abort!("cannot remove a main worktree with linked worktrees");
+    }
+    let group_main = grp.main.clone();
 
+    with_worktree_path_op_lock(&shared_store_path, &target, || {
         confirm_remove(ctx, &[&target])?;
 
         let pre_hooks = hook::Hooks::from_config(repo.config(), ctx.io(), "pre-worktree-remove");
@@ -79,6 +83,18 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         if !ctx.opts.keep {
             edenfs_client::run_eden_remove(repo.config().as_ref(), &target)?;
         }
+
+        Ok(())
+    })?;
+
+    with_registry_lock(&shared_store_path, |registry| {
+        let Some(group_id) = registry.find_group_for_path(&group_main) else {
+            return Ok(());
+        };
+        let grp = registry
+            .groups
+            .get_mut(&group_id)
+            .expect("group must exist after find_group_for_path");
         grp.worktrees.remove(&target);
         let linked_count = grp.worktrees.keys().filter(|p| **p != grp.main).count();
         if linked_count == 0 {
