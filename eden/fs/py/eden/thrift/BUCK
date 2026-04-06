@@ -7,13 +7,8 @@ python_library(
     srcs = ["legacy.py"],
     base_module = "eden.thrift",
     deps = [
-        "//eden/fs/service:thrift-py-deprecated",
-        "//thrift/lib/py:base",
-        "//thrift/lib/py:server_base",
-    ] + select({
-        "DEFAULT": [],
-        "ovr_config//os:windows": [":windows_thrift"],
-    }),
+        "//eden/fs/py/eden/thrift:client",
+    ],
 )
 
 python_library(

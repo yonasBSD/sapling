@@ -9,69 +9,52 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-import sys
-from typing import Any, cast, Optional  # noqa: F401
+from typing import Any, Optional
 
-from facebook.eden import EdenService
-from facebook.eden.ttypes import DaemonInfo
-from thrift.protocol.THeaderProtocol import THeaderProtocol
-from thrift.Thrift import TApplicationException
-from thrift.transport.THeaderTransport import THeaderTransport
-from thrift.transport.TTransport import TTransportException
-
-if sys.platform == "win32":
-    from eden.thrift.windows_thrift import WindowsSocketException, WinTSocket  # @manual
-else:
-    from thrift.transport.TSocket import TSocket
-
-    class WindowsSocketException(Exception):
-        pass
+from eden.thrift.client import (
+    create_thrift_client as _create_modern_client,
+    EdenNotRunningError,  # noqa: F401 - re-exported for backwards compatibility
+)
 
 
 SOCKET_PATH = "socket"
 
 
-class EdenNotRunningError(Exception):
-    def __init__(self, eden_dir: str) -> None:
-        msg = "edenfs daemon does not appear to be running: tried %s" % eden_dir
-        super(EdenNotRunningError, self).__init__(msg)
-        self.eden_dir = eden_dir
-
-
-# Monkey-patch EdenService.EdenError's __str__() behavior to just return the
-# error message.  By default it returns the same data as __repr__(), which is
-# ugly to show to users.
-def _eden_thrift_error_str(ex: "EdenService.EdenError") -> str:
-    return ex.message
-
-
-# TODO: https://github.com/python/mypy/issues/2427
-cast(Any, EdenService.EdenError).__str__ = _eden_thrift_error_str
-
-
-class EdenClient(EdenService.Client):
+class EdenClient:
     """
-    EdenClient is a subclass of EdenService.Client that provides
-    a few additional conveniences:
+    Backwards-compatible wrapper around the modern thrift-python client.
 
-    - Smarter constructor
-    - Implement the context manager __enter__ and __exit__ methods, so it can
-      be used in with statements.
+    Delegates all thrift method calls to the underlying EdenService.Sync
+    client obtained from eden.thrift.client.create_thrift_client().
     """
 
     def __init__(
         self,
-        socket_path: str,
-        transport: "THeaderTransport",
-        protocol: "THeaderProtocol",
+        eden_dir: Optional[str],
+        socket_path: Optional[str],
+        timeout: Optional[float],
     ) -> None:
+        self._eden_dir = eden_dir
         self._socket_path = socket_path
-        self._transport: "Optional[THeaderTransport]" = transport
-
-        super(EdenClient, self).__init__(protocol)
+        self._timeout = timeout
+        # pyre-fixme[4]: Attribute must be annotated.
+        self._client = None
+        # pyre-fixme[4]: Attribute must be annotated.
+        self._ctx = None
 
     def __enter__(self) -> "EdenClient":
-        self.open()
+        if self._client is not None:
+            raise RuntimeError("EdenClient is already connected")
+        self._ctx = _create_modern_client(
+            eden_dir=self._eden_dir,
+            socket_path=self._socket_path,
+            timeout=self._timeout if self._timeout is not None else 0,
+        )
+        try:
+            self._client = self._ctx.__enter__()
+        except BaseException:
+            self._ctx = None
+            raise
         return self
 
     def __exit__(
@@ -83,27 +66,20 @@ class EdenClient(EdenService.Client):
         # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         exc_traceback: "Any",
     ) -> "Optional[bool]":
-        self.close()
+        if self._ctx is not None:
+            try:
+                self._ctx.__exit__(exc_type, exc_value, exc_traceback)
+            finally:
+                self._client = None
+                self._ctx = None
         return False
 
-    def open(self) -> None:
-        transport = self._transport
-        assert transport is not None
-        try:
-            transport.open()
-        except TTransportException as ex:
-            self.close()
-            if ex.type == TTransportException.NOT_OPEN:
-                raise EdenNotRunningError(self._socket_path)
-            raise
-        except WindowsSocketException:
-            self.close()
-            raise EdenNotRunningError(self._socket_path)
-
-    def close(self) -> None:
-        if self._transport is not None:
-            self._transport.close()
-            self._transport = None
+    # pyre-fixme[3]: Return type must be annotated.
+    def __getattr__(self, name: str) -> Any:
+        """Delegate all thrift method calls to the underlying modern client."""
+        if self._client is None:
+            raise RuntimeError("EdenClient is not connected; use as a context manager")
+        return getattr(self._client, name)
 
     def getPid(self) -> int:
         return self.getDaemonInfo().pid
@@ -118,29 +94,11 @@ def create_thrift_client(
     Construct a thrift client to speak to the running eden server
     instance associated with the specified mount point.
 
-    @return Returns a context manager for EdenService.Client.
+    @return Returns a context manager for EdenClient.
     """
-
-    if socket_path is not None:
-        pass
-    elif eden_dir is not None:
+    if socket_path is None and eden_dir is not None:
         socket_path = os.path.join(eden_dir, SOCKET_PATH)
-    else:
+    elif socket_path is None:
         raise TypeError("one of eden_dir or socket_path is required")
-    if sys.platform == "win32":
-        socket = WinTSocket(unix_socket=socket_path)
-    else:
-        socket = TSocket(unix_socket=socket_path)
 
-    # We used to set a default timeout here, but picking the right duration is hard,
-    # and safely retrying an arbitrary thrift call may not be safe.  So we
-    # just leave the client with no timeout, unless one is given.
-    if timeout is None:
-        timeout_ms = None
-    else:
-        timeout_ms = timeout * 1000
-    socket.setTimeout(timeout_ms)
-
-    transport = THeaderTransport(socket)
-    protocol = THeaderProtocol(transport)
-    return EdenClient(socket_path, transport, protocol)
+    return EdenClient(eden_dir=eden_dir, socket_path=socket_path, timeout=timeout)
