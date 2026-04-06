@@ -187,6 +187,7 @@ python_library(
         "//eden/fs/cli/facebook:hostcaps",
         "//eden/fs/cli/facebook:rage",
         "//eden/fs/inodes/overlay:serialization-py-deprecated",
+        "//eden/fs/inodes/overlay:serialization-python-types",
         "//eden/fs/py/eden:dirstate",
         "//eden/fs/py/eden/thrift:client",
         "//eden/fs/py/eden/thrift:legacy",
@@ -197,6 +198,7 @@ python_library(
         "//thrift/lib/py:server_base",
         "//thrift/lib/py/util:inspect",
         "//thrift/lib/py/util:py_util",
+        "//thrift/lib/python:types",
     ] + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [

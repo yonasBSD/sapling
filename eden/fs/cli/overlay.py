@@ -20,7 +20,7 @@ import typing
 from pathlib import Path
 from typing import BinaryIO, Iterator, Optional, Tuple
 
-from facebook.eden.overlay.ttypes import OverlayDir, OverlayEntry
+from facebook.eden.overlay.thrift_types import OverlayDir, OverlayEntry
 
 from .util import fdatasync
 
@@ -225,16 +225,12 @@ class Overlay:
         return (header, self.parse_dir_inode_data(data))
 
     def parse_dir_inode_data(self, data: bytes) -> OverlayDir:
-        from thrift.protocol import TCompactProtocol
-        from thrift.util import Serializer
+        from thrift.python.serializer import deserialize, Protocol
 
-        # Initialize entries to the empty dictionary.
-        # This value will be used if the serialized data does not have any value
-        # for this field.
-        tree_data = OverlayDir(entries={})
-        protocol_factory = TCompactProtocol.TCompactProtocolFactory()
-        Serializer.deserialize(protocol_factory, data, tree_data)
-        return tree_data
+        result = deserialize(OverlayDir, data, protocol=Protocol.COMPACT)
+        if result.entries is None:
+            result = result(entries={})
+        return result
 
     def open_file_inode(self, inode_number: int) -> BinaryIO:
         return self.open_file_inode_tuple(inode_number)[1]
@@ -395,14 +391,10 @@ class Overlay:
         self._write_inode(inode_number, OverlayHeader.TYPE_FILE, b"")
 
     def write_empty_dir(self, inode_number: int) -> None:
-        from thrift.protocol import TCompactProtocol
-        from thrift.util import Serializer
+        from thrift.python.serializer import Protocol, serialize
 
         empty_tree = OverlayDir()
-        protocol_factory = TCompactProtocol.TCompactProtocolFactory()
-        contents = typing.cast(
-            bytes, Serializer.serialize(protocol_factory, empty_tree)
-        )
+        contents = serialize(empty_tree, protocol=Protocol.COMPACT)
 
         self._write_inode(inode_number, OverlayHeader.TYPE_DIR, contents)
 

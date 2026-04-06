@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from typing import BinaryIO, Optional
 
-from facebook.eden.overlay.ttypes import OverlayDir
+from facebook.eden.overlay.thrift_types import OverlayDir
 
 from . import cmd_util, debug as debug_mod, overlay as overlay_mod, subcmd as subcmd_mod
 
