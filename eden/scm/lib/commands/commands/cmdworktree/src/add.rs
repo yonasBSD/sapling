@@ -21,11 +21,13 @@ use encoding::shell_output_bytes_to_path;
 use fs_err as fs;
 use repo::repo::Repo;
 use spawn_ext::CommandExt;
-use uuid::Uuid;
 use worktree::Group;
 use worktree::WorktreeEntry;
 use worktree::check_dest_not_in_repo;
+use worktree::group_id_for_main_path;
+use worktree::load_registry;
 use worktree::with_registry_lock;
+use worktree::with_worktree_path_op_lock;
 
 use crate::WorktreeOpts;
 
@@ -71,12 +73,14 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     check_dest_not_in_repo(&dest)?;
 
     let shared_store_path = repo.store_path().to_path_buf();
-
-    let source_client_dir = edenfs_client::get_client_dir(repo.path())?;
-
-    // Get the source repo's current commit so the new worktree starts at the same revision.
-    let parents = workingcopy::fast_path_wdir_parents(repo.path(), repo.ident())?;
-    let target = parents.p1().copied();
+    let registry = load_registry(&shared_store_path)?;
+    if registry.find_group_for_path(&dest).is_some() {
+        abort!(
+            "destination path '{}' is already registered as a worktree",
+            dest.display()
+        );
+    }
+    let group_main_path = resolve_group_for_main_path(&registry, &canonical_repo_path);
 
     // Replicate the source repo's scm type and active filters.
     // When edensparse is in requirements, the backing store should be filteredhg
@@ -106,48 +110,56 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         ])),
     )?;
 
-    // Hold the registry lock across the clone and registry update so that
-    // concurrent `worktree add` calls are serialized. The dest.exists()
-    // check is repeated here while holding the lock to guard against races
-    // in parallel `worktree add` calls, allowing us to cleanly exit rather
-    // than letting clone fail.
-    with_registry_lock(&shared_store_path, |registry| {
+    // Lock the source checkout path only while snapshotting the source state that
+    // needs to be copied into the new worktree.
+    let (target, source_sparse_config, source_user_config) =
+        with_worktree_path_op_lock(&shared_store_path, &canonical_repo_path, || {
+            let source_client_dir = edenfs_client::get_client_dir(repo.path())?;
+            let parents = workingcopy::fast_path_wdir_parents(repo.path(), repo.ident())?;
+            let target = parents.p1().copied();
+            let source_sparse_config = clone::snapshot_sparse_config(repo.dot_hg_path())?;
+            let source_user_config = clone::snapshot_eden_user_config(&source_client_dir)?;
+            Ok((target, source_sparse_config, source_user_config))
+        })?;
+
+    // Lock the destination path while creating and initializing that checkout.
+    with_worktree_path_op_lock(&shared_store_path, &dest, || {
         if dest.exists() {
             abort!("destination path '{}' already exists", dest.display());
         }
+        check_dest_not_in_repo(&dest)?;
 
-        let existing_group_id = registry.find_group_for_path(&canonical_repo_path);
-        let group_id = existing_group_id.unwrap_or_else(|| format!("{:x}", Uuid::new_v4()));
-
-        // Create new EdenFS working copy.
-        //
-        // NOTE: If eden_clone fails after partially creating the checkout, EdenFS may have already
-        // registered the mount. The registry won't be updated (we return early on error),
-        // leaving an orphan checkout.
-        //
-        // If holding the registry lock for the duration of the clone is too
-        // expensive, consider reserving the path in the registry (or a per-path
-        // lock) before cloning, then finalizing the entry afterward.
-        if let Err(err) = clone::eden_clone(repo, &dest, target, clone_filters) {
+        clone::eden_clone(repo, &dest, target, clone_filters).inspect_err(|_| {
             ctx.logger().warn(format!(
                 "worktree add may have left a partial checkout; try running `eden rm {}` to recover",
                 dest.display()
             ));
-            return Err(err);
+        })?;
+
+        source_sparse_config.as_deref().map_or(Ok(()), |config| {
+            clone::write_sparse_config(config, &dest.join(repo.ident().dot_dir()))
+        })?;
+
+        source_user_config.as_deref().map_or(Ok(()), |config| {
+            clone::apply_eden_user_config_snapshot(repo.config().as_ref(), config, &dest)
+        })?;
+
+        Ok(())
+    })?;
+
+    with_registry_lock(&shared_store_path, |registry| {
+        if registry.find_group_for_path(&dest).is_some() {
+            abort!(
+                "destination path '{}' is already registered as a worktree",
+                dest.display()
+            );
         }
 
-        // Copy the sparse/filter config so the new worktree has the same active filters.
-        clone::copy_sparse_config(repo.dot_hg_path(), &dest.join(repo.ident().dot_dir()))?;
-
-        // Copy user-specific EdenFS config (redirections, prefetch profiles) from
-        // the source worktree to the new one. Repo-level redirections from
-        // .eden-redirections are applied automatically by the clone.
-        clone::copy_eden_user_config(repo.config().as_ref(), &source_client_dir, &dest)?;
-
+        let group_id = resolve_group_id_for_main_path(registry, &group_main_path);
         let grp = registry
             .groups
             .entry(group_id.clone())
-            .or_insert_with(|| Group::new(canonical_repo_path.clone()));
+            .or_insert_with(|| Group::new(group_main_path.clone()));
 
         grp.worktrees.insert(
             dest.clone(),
@@ -180,6 +192,27 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     )?;
 
     Ok(0)
+}
+
+fn resolve_group_for_main_path(
+    registry: &worktree::Registry,
+    canonical_repo_path: &Path,
+) -> PathBuf {
+    registry
+        .find_group_for_path(canonical_repo_path)
+        .and_then(|group_id| {
+            registry
+                .groups
+                .get(&group_id)
+                .map(|group| group.main.clone())
+        })
+        .unwrap_or_else(|| canonical_repo_path.to_path_buf())
+}
+
+fn resolve_group_id_for_main_path(registry: &worktree::Registry, group_main_path: &Path) -> String {
+    registry
+        .find_group_for_path(group_main_path)
+        .unwrap_or_else(|| group_id_for_main_path(group_main_path))
 }
 
 /// Runs the `worktree.path-generator` command and returns the generated path.
@@ -289,4 +322,35 @@ fn display_path_bytes(bytes: &[u8]) -> String {
         }
     }
     escaped
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_group_id_for_main_path_reuses_legacy_group_id() {
+        let mut registry = worktree::Registry::new();
+        let main = PathBuf::from("/tmp/main");
+        let linked = PathBuf::from("/tmp/linked");
+        let legacy_group_id = "legacy-random-group-id".to_string();
+
+        let mut group = Group::new(main.clone());
+        group.worktrees.insert(
+            linked.clone(),
+            WorktreeEntry {
+                added: "2025-01-01T00:00:00Z".to_string(),
+                label: None,
+            },
+        );
+        registry.groups.insert(legacy_group_id.clone(), group);
+
+        let group_main = resolve_group_for_main_path(&registry, &linked);
+
+        assert_eq!(group_main, main);
+        assert_eq!(
+            resolve_group_id_for_main_path(&registry, &group_main),
+            legacy_group_id
+        );
+    }
 }
