@@ -18,6 +18,7 @@ use megarepo_config::SyncConfigVersion;
 use megarepo_config::Target;
 use metaconfig_types::RepoConfig;
 use mononoke_app::MononokeApp;
+use mononoke_app::args::RepoArgs;
 use mononoke_types::RepositoryId;
 
 #[derive(Args)]
@@ -25,6 +26,9 @@ use mononoke_types::RepositoryId;
 /// Use this to inspect what sources and settings are defined for
 /// a particular config version string (as shown in async_requests show).
 pub struct AsyncRequestsShowMegarepoSyncTargetConfigArgs {
+    /// The repository name or ID
+    #[clap(flatten)]
+    pub repo: RepoArgs,
     /// The bookmark name of the target.
     #[clap(long)]
     bookmark: String,

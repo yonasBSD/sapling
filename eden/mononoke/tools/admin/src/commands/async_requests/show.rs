@@ -22,6 +22,7 @@ use clap::Args;
 use context::CoreContext;
 use mononoke_api::Mononoke;
 use mononoke_api::MononokeRepo;
+use mononoke_app::args::RepoArgs;
 use mononoke_types::ChangesetId;
 use mononoke_types::RepositoryId;
 use source_control as thrift;
@@ -30,6 +31,9 @@ use source_control as thrift;
 /// Subcommand responsible for showing the request
 /// details.
 pub struct AsyncRequestsShowArgs {
+    /// The repository name or ID
+    #[clap(flatten)]
+    pub repo: RepoArgs,
     /// ID of the request.
     #[clap(long)]
     request_id: u64,
@@ -149,7 +153,7 @@ pub async fn show_request<R: MononokeRepo>(
                     .unwrap_or_else(|| format!("--repo-id {}", repo_id));
                 println!(
                     "\nHint: To see the full config for new_version, run:\n  \
-                     mononoke_admin async-requests -R {} show-megarepo-sync-target-config \
+                     mononoke_admin async-requests show-megarepo-sync-target-config -R {} \
                      --bookmark \"{}\" --version \"{}\"",
                     repo_name, target.bookmark, p.new_version
                 );

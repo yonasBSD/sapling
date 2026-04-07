@@ -19,6 +19,7 @@ use context::CoreContext;
 use mononoke_api::MononokeRepo;
 use mononoke_api::Repo;
 use mononoke_api::RepositoryId;
+use mononoke_app::args::RepoArgs;
 use repo_identity::RepoIdentityRef;
 use source_control as thrift;
 
@@ -26,6 +27,9 @@ use source_control as thrift;
 /// Changes the request status to ready and put error as result.
 /// (this won't stop any currently running workers immediately)
 pub struct AsyncRequestsSubmitArgs {
+    /// The repository name or ID
+    #[clap(flatten)]
+    pub repo: RepoArgs,
     /// The method name for the request.
     #[clap(long, short)]
     method: String,

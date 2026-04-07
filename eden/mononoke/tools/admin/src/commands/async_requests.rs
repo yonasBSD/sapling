@@ -22,7 +22,7 @@ use context::SessionContainer;
 use metaconfig_types::RepoConfigArc;
 use mononoke_api::Repo;
 use mononoke_app::MononokeApp;
-use mononoke_app::args::RepoArgs;
+use mononoke_app::args::AsRepoArg;
 use submit::AsyncRequestsSubmitArgs;
 
 use crate::commands::async_requests::abort::AsyncRequestsAbortArgs;
@@ -34,9 +34,6 @@ use crate::commands::async_requests::show_megarepo_sync_target_config::AsyncRequ
 /// View and manage the SCS async requests
 #[derive(Parser)]
 pub struct CommandArgs {
-    /// The repository name or ID
-    #[clap(flatten)]
-    repo: RepoArgs,
     /// The subcommand for async requests
     #[clap(subcommand)]
     subcommand: AsyncRequestsSubcommand,
@@ -62,21 +59,28 @@ pub enum AsyncRequestsSubcommand {
 }
 
 pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
-    let ctx = app.new_basic_context();
-    let queue = async_requests_client::build(ctx.fb, &app, None)
-        .await
-        .context("acquiring the async requests queue")?;
-
-    let session = SessionContainer::new_with_defaults(app.environment().fb);
+    let fb = app.environment().fb;
+    let session = SessionContainer::new_with_defaults(fb);
     let ctx = session.new_context(app.environment().scuba_sample_builder.clone());
 
     match args.subcommand {
         AsyncRequestsSubcommand::List(list_args) => {
+            let repo_ids = match list_args.repo.as_repo_arg() {
+                Some(repo_arg) => Some(vec![app.repo_id(repo_arg)?]),
+                None => None,
+            };
+            let queue = async_requests_client::build(fb, &app, repo_ids)
+                .await
+                .context("acquiring the async requests queue")?;
             list::list_requests(list_args, ctx, queue).await?
         }
         AsyncRequestsSubcommand::Show(show_args) => {
+            let repo_id = app.repo_id(show_args.repo.as_repo_arg())?;
+            let queue = async_requests_client::build(fb, &app, Some(vec![repo_id]))
+                .await
+                .context("acquiring the async requests queue")?;
             let mononoke = Arc::new(
-                app.open_managed_repo_arg::<Repo>(&args.repo)
+                app.open_managed_repo_arg::<Repo>(&show_args.repo)
                     .await
                     .context("Failed to initialize Mononoke API")?
                     .make_mononoke_api()?,
@@ -84,17 +88,27 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
             show::show_request(show_args, ctx, queue, mononoke).await?
         }
         AsyncRequestsSubcommand::Requeue(requeue_args) => {
+            let queue = async_requests_client::build(fb, &app, None)
+                .await
+                .context("acquiring the async requests queue")?;
             requeue::requeue_request(requeue_args, ctx, queue).await?
         }
         AsyncRequestsSubcommand::Abort(abort_args) => {
+            let queue = async_requests_client::build(fb, &app, None)
+                .await
+                .context("acquiring the async requests queue")?;
             abort::abort_request(abort_args, ctx, queue).await?
         }
-        AsyncRequestsSubcommand::Submit(abort_args) => {
-            let repo = app.open_repo(&args.repo).await?;
-            submit::submit_request(abort_args, ctx, queue, repo).await?
+        AsyncRequestsSubcommand::Submit(submit_args) => {
+            let repo_id = app.repo_id(submit_args.repo.as_repo_arg())?;
+            let queue = async_requests_client::build(fb, &app, Some(vec![repo_id]))
+                .await
+                .context("acquiring the async requests queue")?;
+            let repo = app.open_repo(&submit_args.repo).await?;
+            submit::submit_request(submit_args, ctx, queue, repo).await?
         }
         AsyncRequestsSubcommand::ShowMegarepoSyncTargetConfig(config_args) => {
-            let repo: Repo = app.open_repo(&args.repo).await?;
+            let repo: Repo = app.open_repo(&config_args.repo).await?;
             let repo_id = repo.repo_identity.id();
             let repo_config = repo.repo_config_arc();
             show_megarepo_sync_target_config::show_megarepo_sync_target_config(

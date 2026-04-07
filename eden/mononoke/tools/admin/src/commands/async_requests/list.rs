@@ -13,6 +13,7 @@ use async_requests::types::ThriftAsynchronousRequestParams;
 use clap::Args;
 use context::CoreContext;
 use mononoke_api::MononokeRepo;
+use mononoke_app::args::OptRepoArgs;
 use mononoke_types::ChangesetId;
 use mononoke_types::DateTime;
 use mononoke_types::Timestamp;
@@ -24,6 +25,9 @@ use prettytable::row;
 /// Lists asynchronous requests (by default the ones active
 /// now or updated within last 5 mins).
 pub struct AsyncRequestsListArgs {
+    /// The repository name or ID to filter by
+    #[clap(flatten)]
+    pub repo: OptRepoArgs,
     /// Limits the results to the requests updated
     /// in the last N seconds.
     #[clap(long, default_value = "3600")]
