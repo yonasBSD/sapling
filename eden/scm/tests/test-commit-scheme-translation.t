@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig 'commit-scheme.bonsai.re=^[a-f0-9]{64}$'
 
   $ newclientrepo

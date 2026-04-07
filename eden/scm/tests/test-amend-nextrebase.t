@@ -2,7 +2,6 @@
 (debugruntest fails under buck for some reason)
 #chg-compatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
 Set up test environment.

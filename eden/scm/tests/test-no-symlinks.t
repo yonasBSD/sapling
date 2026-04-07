@@ -5,7 +5,6 @@
 TODO(debugruntest): this test fails on Mac
 #chg-compatible
 
-  $ export HGIDENTITY=sl
 
 # The following (test) script was used to create the bundle:
 #

@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure modern
 
   $ setconfig paths.default=test:e1

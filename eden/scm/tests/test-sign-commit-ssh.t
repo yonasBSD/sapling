@@ -2,7 +2,6 @@
 #require git ssh-keygen no-windows
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
   $ setconfig diff.git=true ui.allowemptycommit=true
 

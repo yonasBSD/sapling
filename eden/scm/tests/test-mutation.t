@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure dummyssh
   $ enable amend rebase histedit fbhistedit fbcodereview absorb

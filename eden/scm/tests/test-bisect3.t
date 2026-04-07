@@ -11,7 +11,6 @@
 #        4--5--6--7--8
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init repo
   $ cd repo

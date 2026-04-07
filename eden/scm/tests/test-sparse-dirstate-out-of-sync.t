@@ -3,7 +3,6 @@
 
 
 
-  $ export HGIDENTITY=sl
   $ enable sparse
   $ newclientrepo myrepo
   $ touch a

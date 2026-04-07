@@ -4,7 +4,6 @@
 
 Testing diff --change
 
-  $ export HGIDENTITY=sl
   $ newclientrepo a
 
   $ echo "first" > file.txt

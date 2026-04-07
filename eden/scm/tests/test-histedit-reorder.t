@@ -1,6 +1,5 @@
 #require fsmonitor no-eden
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/histedit-helpers.sh"
   $ enable histedit fsmonitor rebase hgevents sparse
   $ newclientrepo repo

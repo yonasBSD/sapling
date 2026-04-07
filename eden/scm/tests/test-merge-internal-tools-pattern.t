@@ -3,7 +3,6 @@
 
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Make sure that the internal merge tools (internal:fail, internal:local,
 internal:union and internal:other) are used when matched by a

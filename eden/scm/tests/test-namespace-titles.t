@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig ui.allowemptycommit=1 \
   > remotenames.selectivepulldefault=main \
   > remotenames.hoist=remote \

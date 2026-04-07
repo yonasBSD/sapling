@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init rep; cd rep
 

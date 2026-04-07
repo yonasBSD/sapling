@@ -1,7 +1,6 @@
 
 #require eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable edensparse
   $ setconfig clone.use-rust=true

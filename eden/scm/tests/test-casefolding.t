@@ -1,6 +1,5 @@
 #require icasefs no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig checkout.use-rust=true
   $ sl debugfsinfo | grep 'case-sensitive:'
   case-sensitive: no

@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ cat <<EOF > merge

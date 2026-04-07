@@ -1,5 +1,4 @@
 Output is normally only printed once
-  $ export HGIDENTITY=sl
   $ sl dbsh -c 'ui.pushbuffer(error=True); ui.warn(_("testing!\n")); buffer = ui.popbuffer(); ui.warn(_(f"{buffer}"))'
   testing!
 

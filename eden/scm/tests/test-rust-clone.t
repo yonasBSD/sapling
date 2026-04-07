@@ -2,7 +2,6 @@
 
 test rust clone
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig clone.use-rust=True
   $ setconfig remotefilelog.reponame=test-repo

@@ -2,7 +2,6 @@
 #require no-eden
 
 #chg-compatible
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord dummyssh
   $ enable rebase

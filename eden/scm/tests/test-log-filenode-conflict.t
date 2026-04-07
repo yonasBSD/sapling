@@ -4,7 +4,6 @@
 
 Test log FILE history handling with renames / file node collisions.
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/library.sh
 
 Create a repo with two files X and Y. Create 3 branches (B+E, C, D) where X and

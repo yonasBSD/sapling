@@ -3,7 +3,6 @@
 
 test command parsing and dispatch
 
-  $ export HGIDENTITY=sl
   $ sl init a
   $ cd a
 

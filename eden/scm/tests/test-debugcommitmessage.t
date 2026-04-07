@@ -8,7 +8,6 @@
 
 # Set up extension
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]

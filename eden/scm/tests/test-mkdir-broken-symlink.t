@@ -5,7 +5,6 @@
 
 #require symlink no-windows no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ mkdir -p a
   $ ln -s a/b a/c

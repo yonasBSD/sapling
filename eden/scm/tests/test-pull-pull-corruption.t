@@ -4,7 +4,6 @@
 
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
 Corrupt an sl repo with two pulls.

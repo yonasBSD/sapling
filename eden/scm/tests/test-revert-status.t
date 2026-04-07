@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Quote from test-revert.t but this version is stronger - mtime was changed
 manually.

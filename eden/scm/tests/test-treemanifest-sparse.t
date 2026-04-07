@@ -8,7 +8,6 @@
 
 # test interaction between sparse and treemanifest (sparse file listing)
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << EOF
   > [extensions]

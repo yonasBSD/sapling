@@ -1,5 +1,4 @@
 configs unrelated to subtree
-  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig drawdag.defaultfiles=false
 

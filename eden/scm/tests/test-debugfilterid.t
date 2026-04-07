@@ -11,7 +11,6 @@
 
 # plain
 
-  $ export HGIDENTITY=sl
   $ setconfig experimental.use-filter-storage=true
   $ sl init
 

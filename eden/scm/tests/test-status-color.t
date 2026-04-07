@@ -1,7 +1,6 @@
 
 #require diff no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig ui.color=always color.mode=ansi
 Terminfo codes compatibility fix
   $ setconfig color.color.none=0

@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh
   $ enable commitcloud
   $ disable infinitepush

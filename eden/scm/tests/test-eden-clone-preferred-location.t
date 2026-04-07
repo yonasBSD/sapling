@@ -1,6 +1,5 @@
 #require eden
 
-  $ export HGIDENTITY=sl
   $ setconfig clone.eden-preferred-destination-regex=.*good-name
 
   $ sl clone test:server bad-name

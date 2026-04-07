@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ hginit master

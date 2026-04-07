@@ -15,7 +15,6 @@
 # 3) test that repo.lookup() works
 # 1 and 2 are preconditions for the bug; 3 is the bug.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat > commitwrapper.py << 'EOF'
   > from sapling import extensions, node, revlog

@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newext adddrop <<EOF
   > from sapling import registrar

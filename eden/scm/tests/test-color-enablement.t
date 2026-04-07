@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig alias.testcolor="debugtemplate '{label(\"green\", \"output\n\")}'"
 

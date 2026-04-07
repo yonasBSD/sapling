@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ sl init repo
   $ cd repo

@@ -10,7 +10,6 @@ b5605d88dc27: Make ui.prompt repeat on "unrecognized response" again
  (issue556)
 
 Make sure HGMERGE doesn't interfere with the test
-  $ export HGIDENTITY=sl
   $ unset HGMERGE
 
   $ status() {

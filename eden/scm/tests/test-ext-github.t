@@ -3,7 +3,6 @@
 
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable github
   $ enable ghstack

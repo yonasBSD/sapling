@@ -8,7 +8,6 @@
 
 # Copyright (c) Mercurial Contributors.
 
-  $ export HGIDENTITY=sl
   $ setconfig hint.ack-match-full-traversal=true
   $ sl init repo
   $ cd repo

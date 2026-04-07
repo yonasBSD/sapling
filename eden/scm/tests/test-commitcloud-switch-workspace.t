@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ showgraph() {
   >    sl log -G -T "{desc}: {phase} {bookmarks} {remotenames}" -r "all()"
   > }

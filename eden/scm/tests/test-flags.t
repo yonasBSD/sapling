@@ -3,7 +3,6 @@
 
 #require execbit
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
 
   $ umask 027

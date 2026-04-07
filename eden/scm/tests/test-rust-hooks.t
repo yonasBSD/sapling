@@ -6,7 +6,6 @@ Note that Rust hook execution escapes the debugruntest execution environment.
 For now that is desirable since I also want to test the platform specific Rust spawn logic.
 
 
-  $ export HGIDENTITY=sl
   $ sl debugtestcommand
 
 Make sure alias marked "legacy:" works.

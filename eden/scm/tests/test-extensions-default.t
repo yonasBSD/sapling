@@ -3,7 +3,6 @@
 
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
 Tests the behavior of the DEFAULT_EXTENSIONS constant in extensions.py

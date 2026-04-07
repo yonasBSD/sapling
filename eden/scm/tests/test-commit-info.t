@@ -1,6 +1,5 @@
 Make sure various ways to mutate commits emit commit_info events.
 
-  $ export HGIDENTITY=sl
   $ setconfig sampling.key.commit_info=commit-info
   $ setconfig sampling.filepath=$TESTTMP/samples
   $ setconfig sampling.debug=true

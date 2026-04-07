@@ -3,7 +3,6 @@
 
 #chg-compatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Testing templating for rebase command
 

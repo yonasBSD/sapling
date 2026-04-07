@@ -1,7 +1,6 @@
 #chg-compatible
 #require bash no-eden
 
-  $ export HGIDENTITY=sl
   $ enable amend rebase histedit fbhistedit
   $ setconfig experimental.evolution=obsolete
   $ setconfig visibility.enabled=true

@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ configure modernclient mutation
   $ enable rebase amend undo
   $ setconfig rebase.reproducible-commits=true

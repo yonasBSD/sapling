@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
 Path conflict checking is currently disabled by default because of issue5716.

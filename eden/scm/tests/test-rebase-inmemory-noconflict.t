@@ -3,7 +3,6 @@
 #testcases single-transaction multi-transaction
 
 #if single-transaction
-  $ export HGIDENTITY=sl
   $ setconfig rebase.singletransaction=true
 #else
   $ setconfig rebase.singletransaction=false

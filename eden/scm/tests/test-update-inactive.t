@@ -12,7 +12,6 @@
 # (eg: "activating bookmarks")
 # Set up the repository.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init repo
   $ cd repo

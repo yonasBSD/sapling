@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ newremoterepo repo1
   $ setconfig paths.default=test:e1

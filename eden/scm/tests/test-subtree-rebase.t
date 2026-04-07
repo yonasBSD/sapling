@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig subtree.allow-any-source-commit=True
   $ enable rebase

@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ enable smartlog
   $ readconfig <<EOF
   > [experimental]

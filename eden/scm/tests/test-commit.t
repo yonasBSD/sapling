@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 This is needed to avoid filelog() revset in "log", which isn't compatible w/ eagerepo.
   $ setconfig experimental.pathhistory=true

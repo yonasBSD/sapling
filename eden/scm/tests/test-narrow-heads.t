@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 'narrow-heads' requires remotenames and visibility
 

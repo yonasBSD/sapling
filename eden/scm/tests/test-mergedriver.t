@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable mergedriver
   $ setconfig commands.update.check=none devel.collapse-traceback=true

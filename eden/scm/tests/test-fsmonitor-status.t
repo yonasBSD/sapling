@@ -1,6 +1,5 @@
 #require fsmonitor no-eden
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ echo >> file1
   $ echo >> file2

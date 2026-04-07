@@ -15,9 +15,9 @@ Test mirroring a simple add
 
   $ mkdir dir1/
   $ echo a > dir1/a
-  $ hg add dir1/a
+  $ sl add dir1/a
   adding dir1/a
-  $ hg commit --traceback -m "add in dir1"
+  $ sl commit --traceback -m "add in dir1"
   mirrored adding 'dir1/a' to 'dir2/subdir/a'
   committing files:
   dir1/a
@@ -25,7 +25,7 @@ Test mirroring a simple add
   committing manifest
   committing changelog
   committed * (glob)
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/dir1/a b/dir1/a
   new file mode 100644
   --- /dev/null
@@ -41,7 +41,7 @@ Test mirroring a simple add
 
 Test mirroring a simple modification
   $ echo a >> dir2/subdir/a
-  $ hg commit -m "modify in dir2"
+  $ sl commit -m "modify in dir2"
   mirrored changes in 'dir2/subdir/a' to 'dir1/a'
   committing files:
   dir1/a
@@ -49,7 +49,7 @@ Test mirroring a simple modification
   committing manifest
   committing changelog
   committed * (glob)
-  $ hg diff --git -r ".^" -r .
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/a
   --- a/dir1/a
   +++ b/dir1/a
@@ -64,15 +64,15 @@ Test mirroring a simple modification
   +a
 
 Test mirroring a simple delete
-  $ hg rm dir1/a
+  $ sl rm dir1/a
   removing dir1/a
-  $ hg commit -m "remove in dir1"
+  $ sl commit -m "remove in dir1"
   mirrored remove of 'dir1/a' to 'dir2/subdir/a'
   committing files:
   committing manifest
   committing changelog
   committed * (glob)
-  $ hg diff --git -r ".^" -r .
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/a
   deleted file mode 100644
   --- a/dir1/a
@@ -93,7 +93,7 @@ Test conflicting edits
   $ mkdir -p dir2/subdir/
   $ echo a > dir1/a
   $ echo b > dir2/subdir/a
-  $ hg commit -Am "add conflicting changes"
+  $ sl commit -Am "add conflicting changes"
   adding dir1/a
   adding dir2/subdir/a
   abort: path 'dir1/a' needs to be mirrored to 'dir2/subdir/a', but the target already has pending changes
@@ -102,7 +102,7 @@ Test conflicting edits
 
 Test non-conflicting edits
   $ echo a > dir2/subdir/a
-  $ hg commit -Am "add non-conflicting changes"
+  $ sl commit -Am "add non-conflicting changes"
   adding dir1/a
   adding dir2/subdir/a
   not mirroring 'dir1/a' to 'dir2/subdir/a'; it already matches
@@ -113,7 +113,7 @@ Test non-conflicting edits
   committing manifest
   committing changelog
   committed * (glob)
-  $ hg diff --git -r ".^" -r .
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/a
   new file mode 100644
   --- /dev/null
@@ -128,17 +128,17 @@ Test non-conflicting edits
   +a
 
 Test non-conflicting deletes
-  $ hg rm dir1/a dir2/subdir/a
+  $ sl rm dir1/a dir2/subdir/a
   removing dir1/a
   removing dir2/subdir/a
-  $ hg commit -Am "non-conflicting removes"
+  $ sl commit -Am "non-conflicting removes"
   not mirroring remove of 'dir1/a' to 'dir2/subdir/a'; it is already removed
   not mirroring remove of 'dir2/subdir/a' to 'dir1/a'; it is already removed
   committing files:
   committing manifest
   committing changelog
   committed * (glob)
-  $ hg diff --git -r ".^" -r .
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/a
   deleted file mode 100644
   --- a/dir1/a
@@ -155,7 +155,7 @@ Test non-conflicting deletes
 - Add it back for the next test
   $ mkdir dir1
   $ echo a > dir1/a
-  $ hg commit -Am "add a back"
+  $ sl commit -Am "add a back"
   adding dir1/a
   mirrored adding 'dir1/a' to 'dir2/subdir/a'
   committing files:
@@ -167,9 +167,9 @@ Test non-conflicting deletes
 
 Test syncing a edit + rename
   $ echo b > dir1/a
-  $ hg mv dir1/a dir1/b
+  $ sl mv dir1/a dir1/b
   moving dir1/a to dir1/b
-  $ hg commit -m "edit and move a to b in dir1"
+  $ sl commit -m "edit and move a to b in dir1"
   mirrored copy 'dir1/a -> dir1/b' to 'dir2/subdir/a -> dir2/subdir/b'
   mirrored remove of 'dir1/a' to 'dir2/subdir/a'
   committing files:
@@ -178,7 +178,7 @@ Test syncing a edit + rename
   committing manifest
   committing changelog
   committed * (glob)
-  $ hg diff --git -r ".^" -r .
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/b
   rename from dir1/a
   rename to dir1/b
@@ -198,7 +198,7 @@ Test syncing a edit + rename
 
 Test amending a change where there has already been a sync before
   $ echo c > dir1/b
-  $ hg commit --amend -m "amend b in dir1"
+  $ sl commit --amend -m "amend b in dir1"
   amending changeset * (glob)
   mirrored copy 'dir1/a -> dir1/b' to 'dir2/subdir/a -> dir2/subdir/b'
   committing files:
@@ -206,7 +206,7 @@ Test amending a change where there has already been a sync before
   dir2/subdir/b
   committing manifest
   committing changelog
-  $ hg diff --git -r ".^" -r .
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/b
   rename from dir1/a
   rename to dir1/b
@@ -237,13 +237,13 @@ Test syncing multiple mirror groups across more than 2 directories
   $ mkdir -p dir1 foo/dir1
   $ echo a > dir1/a
   $ echo b > foo/dir1/a
-  $ hg commit -Am "add stuff to two mirror groups"
+  $ sl commit -Am "add stuff to two mirror groups"
   adding dir1/a
   adding foo/dir1/a
   mirrored adding 'dir1/a' to 'dir2/a'
   mirrored adding 'dir1/a' to 'other/dir3/a'
   mirrored adding 'foo/dir1/a' to 'foo/dir2/a'
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/dir1/a b/dir1/a
   new file mode 100644
   --- /dev/null
@@ -284,20 +284,20 @@ Test that rebasing applies the same change to both
   > EOF
   $ mkdir dir1 dir2
   $ echo a > dir1/a
-  $ hg commit -Am "add dir1/a"
+  $ sl commit -Am "add dir1/a"
   adding dir1/a
   mirrored adding 'dir1/a' to 'dir2/a'
   $ echo x > unrelated
-  $ hg commit -Am "add unrelated"
+  $ sl commit -Am "add unrelated"
   adding unrelated
-  $ hg up .^
+  $ sl up .^
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ echo b > dir1/a
-  $ hg commit --config extensions.dirsync=! -m "edit dir1/a with sync on"
-  $ hg rebase --config extensions.rebase= -d 'max(desc(add))'
+  $ sl commit --config extensions.dirsync=! -m "edit dir1/a with sync on"
+  $ sl rebase --config extensions.rebase= -d 'max(desc(add))'
   rebasing * "edit dir1/a with sync on" (glob)
   mirrored changes in 'dir1/a' to 'dir2/a'
-  $ hg diff --git -r ".^" -r .
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/a
   --- a/dir1/a
   +++ b/dir1/a
@@ -312,12 +312,12 @@ Test that rebasing applies the same change to both
   +b
 
 The same test as the above. But uses in-memory rebase
-  $ hg undo -q
+  $ sl undo -q
   $ setconfig rebase.experimental.inmemory=True
-  $ hg rebase --config extensions.rebase= -d 'max(desc(add))'
+  $ sl rebase --config extensions.rebase= -d 'max(desc(add))'
   rebasing * "edit dir1/a with sync on" (glob)
   mirrored changes in 'dir1/a' to 'dir2/a'
-  $ hg diff --git -r ".^" -r .
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/a
   --- a/dir1/a
   +++ b/dir1/a
@@ -341,14 +341,14 @@ Test committing part of the working copy
   $ mkdir dir1 dir2
   $ echo a > dir1/a
   $ echo b > dir1/b
-  $ hg add dir1
+  $ sl add dir1
   adding dir1/a
   adding dir1/b
-  $ hg commit -Am "add dir1/a" "re:dir1/a"
+  $ sl commit -Am "add dir1/a" "re:dir1/a"
   mirrored adding 'dir1/a' to 'dir2/a'
-  $ hg status
+  $ sl status
   A dir1/b
-  $ hg log -r . --stat
+  $ sl log -r . --stat
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -360,11 +360,11 @@ Test committing part of the working copy
   
 
   $ echo a >> dir2/a
-  $ hg commit --amend -m "add dir1/a" dir2/a
+  $ sl commit --amend -m "add dir1/a" dir2/a
   mirrored adding 'dir2/a' to 'dir1/a'
-  $ hg status
+  $ sl status
   A dir1/b
-  $ hg log -r . --stat
+  $ sl log -r . --stat
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -376,15 +376,15 @@ Test committing part of the working copy
   
 
   $ echo a >> dir1/a
-  $ hg commit --amend -m "add dir1/a" dir2/a
+  $ sl commit --amend -m "add dir1/a" dir2/a
   nothing changed
   [1]
 
-  $ hg commit --amend -m "add dir1/a"
+  $ sl commit --amend -m "add dir1/a"
   mirrored adding 'dir1/a' to 'dir2/a'
   mirrored adding 'dir1/b' to 'dir2/b'
-  $ hg status
-  $ hg log -r . --stat
+  $ sl status
+  $ sl log -r . --stat
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -399,13 +399,13 @@ Test committing part of the working copy
 
 - Add it back for the next test
   $ echo a > dir1/a
-  $ hg commit -m "add a back" --config ui.verbose=False
+  $ sl commit -m "add a back" --config ui.verbose=False
   mirrored changes in 'dir1/a' to 'dir2/a'
 
 Test quiet non-conflicting edits
   $ echo aa > dir1/a
   $ echo aa > dir2/a
-  $ hg commit -m "add non-conflicting changes" --config ui.verbose=True
+  $ sl commit -m "add non-conflicting changes" --config ui.verbose=True
   not mirroring 'dir1/a' to 'dir2/a'; it already matches
   not mirroring 'dir2/a' to 'dir1/a'; it already matches
   committing files:
@@ -416,8 +416,8 @@ Test quiet non-conflicting edits
   committed * (glob)
   $ echo aaa > dir1/a
   $ echo aaa > dir2/a
-  $ hg commit -m "add non-conflicting changes" --config ui.verbose=False
-  $ hg diff --git -r ".^" -r .
+  $ sl commit -m "add non-conflicting changes" --config ui.verbose=False
+  $ sl diff --git -r ".^" -r .
   diff --git a/dir1/a b/dir1/a
   --- a/dir1/a
   +++ b/dir1/a
@@ -435,20 +435,20 @@ Test deleting file with missing mirror
   $ newclientrepo
   $ mkdir dir1
   $ echo a > dir1/a
-  $ hg add dir1
+  $ sl add dir1
   adding dir1/a
-  $ hg commit -m 'add dir1/a'
+  $ sl commit -m 'add dir1/a'
   $ readconfig <<EOF
   > [dirsync]
   > group1.dir1 = dir1/
   > group1.dir2 = dir2/
   > EOF
-  $ hg rm dir1/a
-  $ hg status
+  $ sl rm dir1/a
+  $ sl status
   R dir1/a
-  $ hg commit -m 'rm dir1/a'
+  $ sl commit -m 'rm dir1/a'
   mirrored remove of 'dir1/a' to 'dir2/a'
-  $ hg diff --git -r '.^' -r .
+  $ sl diff --git -r '.^' -r .
   diff --git a/dir1/a b/dir1/a
   deleted file mode 100644
   --- a/dir1/a
@@ -460,22 +460,22 @@ Test modifying file with missing mirror
   $ newclientrepo
   $ mkdir dir1
   $ echo a > dir1/a
-  $ hg add dir1
+  $ sl add dir1
   adding dir1/a
-  $ hg commit -m 'add dir1/a'
+  $ sl commit -m 'add dir1/a'
   $ readconfig <<EOF
   > [dirsync]
   > group1.dir1 = dir1/
   > group1.dir2 = dir2/
   > EOF
   $ echo a2 > dir1/a
-  $ hg status
+  $ sl status
   M dir1/a
-  $ hg commit -m 'modify dir1/a'
+  $ sl commit -m 'modify dir1/a'
   mirrored changes in 'dir1/a' to 'dir2/a'
   $ cat dir2/a
   a2
-  $ hg diff --git -r '.^' -r .
+  $ sl diff --git -r '.^' -r .
   diff --git a/dir1/a b/dir1/a
   --- a/dir1/a
   +++ b/dir1/a
@@ -493,9 +493,9 @@ Test updating missing mirror
   $ newclientrepo
   $ mkdir dir1
   $ echo a > dir1/a
-  $ hg add dir1
+  $ sl add dir1
   adding dir1/a
-  $ hg commit -m 'add dir1/a'
+  $ sl commit -m 'add dir1/a'
   $ readconfig <<EOF
   > [dirsync]
   > group1.dir1 = dir1/
@@ -503,13 +503,13 @@ Test updating missing mirror
   > EOF
   $ mkdir dir2
   $ echo a2 > dir2/a
-  $ hg add dir2
+  $ sl add dir2
   adding dir2/a
-  $ hg status
+  $ sl status
   A dir2/a
-  $ hg commit -m 'add dir2/a'
+  $ sl commit -m 'add dir2/a'
   mirrored adding 'dir2/a' to 'dir1/a'
-  $ hg diff --git -r '.^' -r .
+  $ sl diff --git -r '.^' -r .
   diff --git a/dir1/a b/dir1/a
   --- a/dir1/a
   +++ b/dir1/a
@@ -533,18 +533,18 @@ Dont mirror during shelve
   > EOF
   $ mkdir dir1
   $ echo a > dir1/a
-  $ hg add dir1
+  $ sl add dir1
   adding dir1/a
-  $ hg commit -m 'add dir1/a'
+  $ sl commit -m 'add dir1/a'
   mirrored adding 'dir1/a' to 'dir2/a'
   $ echo a >> dir1/a
-  $ hg shelve
+  $ sl shelve
   shelved as default
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  $ hg status
-  $ hg unshelve
+  $ sl status
+  $ sl unshelve
   unshelving change 'default'
-  $ hg status
+  $ sl status
   M dir1/a
 
 Test .hgdirsync in the working copy
@@ -563,11 +563,11 @@ Test .hgdirsync in the working copy
   $ mkdir dir2 dir5
   $ echo a > dir2/a
   $ echo b > dir5/b
-  $ hg commit -m init -A dir2/a dir5/b
+  $ sl commit -m init -A dir2/a dir5/b
   mirrored adding 'dir2/a' to 'dir1/a'
   mirrored adding 'dir2/a' to 'dir3/a'
   mirrored adding 'dir5/b' to 'dir4/b'
-  $ hg log -p -r .
+  $ sl log -p -r .
   commit:      * (glob)
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -606,7 +606,7 @@ Change .hgdirsync in the working copy affects what will be synced
 
   $ echo c > dir2/c
   $ echo d > dir4/d
-  $ hg commit -m subdir -A dir2/c dir4/d
+  $ sl commit -m subdir -A dir2/c dir4/d
   mirrored adding 'dir2/c' to 'dir1/c'
 
   $ cat >> .hgdirsync <<EOF
@@ -615,7 +615,7 @@ Change .hgdirsync in the working copy affects what will be synced
   > EOF
 
   $ echo c >> dir2/c
-  $ hg commit -m 'modify group1'
+  $ sl commit -m 'modify group1'
   mirrored changes in 'dir2/c' to 'dir1/c'
   mirrored changes in 'dir2/c' to 'dir6/c'
   mirrored changes in 'dir2/c' to 'dir7/c'
@@ -628,7 +628,7 @@ Only the ".hgdirsync" at the top of the repo is effective
   > group1.dir9 = dir9/
   > EOF
   $ echo c >> c
-  $ hg commit -m 'modify group1 again'
+  $ sl commit -m 'modify group1 again'
   mirrored changes in 'dir1/c' to 'dir2/c'
   mirrored changes in 'dir1/c' to 'dir6/c'
   mirrored changes in 'dir1/c' to 'dir7/c'
@@ -644,7 +644,7 @@ Rule order matters. Only the first one gets executed.
   > EOF
   $ mkdir -p a/c
   $ echo 1 > a/c/1
-  $ hg commit -m 'order test' -A a
+  $ sl commit -m 'order test' -A a
   adding a/c/1
   mirrored adding 'a/c/1' to 'b/c/1'
 
@@ -657,7 +657,7 @@ Rule order matters. Only the first one gets executed.
   > EOF
   $ mkdir -p a/c
   $ echo 1 > a/c/1
-  $ hg commit -m 'order test' -A a
+  $ sl commit -m 'order test' -A a
   adding a/c/1
   mirrored adding 'a/c/1' to 'c/1'
 
@@ -673,7 +673,7 @@ Test excluding a subdirectory from dirsync
   $ mkdir -p a/excl
   $ echo 1 > a/c/1
   $ echo 2 > a/excl/2
-  $ hg commit -m 'exclusion test' -A a
+  $ sl commit -m 'exclusion test' -A a
   adding a/c/1
   adding a/excl/2
   mirrored adding 'a/c/1' to 'b/c/1'
@@ -694,7 +694,7 @@ Test that excludes override all other rules
   $ mkdir -p a/excl/foo
   $ echo 1 > a/c/1
   $ echo 2 > a/excl/foo/2
-  $ hg commit -m 'exclusion test' -A a
+  $ sl commit -m 'exclusion test' -A a
   adding a/c/1
   adding a/excl/foo/2
   mirrored adding 'a/c/1' to 'b/c/1'
@@ -710,7 +710,7 @@ Test that excludes only work when specified for every destination
   $ mkdir -p a/excl
   $ echo 1 > a/c/1
   $ echo 2 > a/excl/2
-  $ hg commit -m 'exclusion test' -A a
+  $ sl commit -m 'exclusion test' -A a
   adding a/c/1
   adding a/excl/2
   mirrored adding 'a/c/1' to 'b/c/1'
@@ -739,17 +739,17 @@ Match and exclude rules can match individual files
   $ echo e > a/root.txt
   $ echo f > toplevel.txt
   $ echo g > other.txt
-  $ hg add somedir a other.txt toplevel.txt
+  $ sl add somedir a other.txt toplevel.txt
   adding a/myfile.txt
   adding a/root.txt
   adding somedir/a
   adding somedir/readme.txt
-  $ hg commit -m 'test commit' --traceback
+  $ sl commit -m 'test commit' --traceback
   mirrored adding 'a/myfile.txt' to 'b/foo.txt'
   mirrored adding 'a/root.txt' to 'root.txt'
   mirrored adding 'somedir/a' to 'elsewhere/a'
   mirrored adding 'toplevel.txt' to 'x/y/z/foo.txt'
-  $ hg diff --git -r null -r .
+  $ sl diff --git -r null -r .
   diff --git a/a/myfile.txt b/a/myfile.txt
   new file mode 100644
   --- /dev/null

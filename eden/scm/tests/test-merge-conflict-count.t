@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ enable amend rebase
   $ setconfig merge.printcandidatecommmits=True
 

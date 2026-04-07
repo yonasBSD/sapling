@@ -2,7 +2,6 @@
 #require chg no-eden
 
 Use any random Python command - make sure we see tracing events.
-  $ export HGIDENTITY=sl
   $ LOG=commands=info sl hint
   * commands::run: enter (glob)
   * commands::hgpython: enter (glob)

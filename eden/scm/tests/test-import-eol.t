@@ -2,7 +2,6 @@
 #debugruntest-incompatible
 
 
-  $ export HGIDENTITY=sl
   $ cat > makepatch.py <<'EOF'
   > f = open('eol.diff', 'wb')
   > w = f.write

@@ -3,7 +3,6 @@
 
 #require unix-permissions no-root no-windows no-eden
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ setconfig experimental.run-python-hooks-via-pyhook=true
 

@@ -4,7 +4,6 @@
 
 init
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init t
   $ cd t

@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ sl init repo
   $ cd repo
   $ touch a

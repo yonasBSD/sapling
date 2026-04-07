@@ -3,7 +3,6 @@
 
 setup backing repo
 
-  $ export HGIDENTITY=sl
   $ cat > $TESTTMP/.edenrc <<EOF
   > [glob]
   > use-edenapi-suffix-query = true

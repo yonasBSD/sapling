@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig ui.allowemptycommit=1
 

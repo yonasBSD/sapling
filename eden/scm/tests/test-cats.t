@@ -3,7 +3,6 @@
 
 #require linux serve bucktest
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh
 
   $ sl init test

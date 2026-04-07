@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ setconfig format.usegeneraldelta=yes
 We're bundling local clones here
   $ setconfig exchange.httpcommitlookup=False

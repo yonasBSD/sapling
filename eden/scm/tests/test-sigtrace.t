@@ -1,6 +1,5 @@
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newext signal <<EOF
   > from sapling import registrar

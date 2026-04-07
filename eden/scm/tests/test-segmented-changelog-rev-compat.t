@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ log_fixture() {
   >   newrepo '' "$@"
   >   drawdag "$@" << 'EOS'

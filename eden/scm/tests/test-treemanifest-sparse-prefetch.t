@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig remotefilelog.debug=True
 

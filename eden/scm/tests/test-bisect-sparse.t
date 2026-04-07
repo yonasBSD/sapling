@@ -20,7 +20,6 @@
 #  |                  |
 #  0 <- known good - -
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable sparse amend
   $ setconfig clone.use-rust=true

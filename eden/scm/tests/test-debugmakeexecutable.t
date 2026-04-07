@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig diff.git=true
 
   $ newclientrepo

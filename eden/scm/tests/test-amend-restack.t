@@ -9,7 +9,6 @@
 
 # Set up test environment.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ mkcommit() {
   >   echo $1 > $1

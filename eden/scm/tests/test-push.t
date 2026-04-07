@@ -11,7 +11,6 @@ Basic testing for the push command
 Testing of the '--rev' flag
 ===========================
 
-  $ export HGIDENTITY=sl
   $ sl init test-revflag
   $ sl -R test-revflag unbundle "$TESTDIR/bundles/remote.hg"
   adding changesets

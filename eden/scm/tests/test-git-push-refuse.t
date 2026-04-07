@@ -1,6 +1,5 @@
 #require git execbit no-eden
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Server repo

@@ -3,7 +3,6 @@
 
 Use hgrc within $TESTTMP
 
-  $ export HGIDENTITY=sl
   $ cp $HGRCPATH orig.hgrc
   $ HGRCPATH=`pwd`/config
   $ SL_CONFIG_PATH=`pwd`/config

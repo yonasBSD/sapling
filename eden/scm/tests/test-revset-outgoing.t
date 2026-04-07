@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ readconfig <<EOF
   > [alias]
   > tlog = log --template "{node|short}: '{desc}'\n"

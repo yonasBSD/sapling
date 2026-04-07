@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
 Test mergedriver invalidation with IMM.

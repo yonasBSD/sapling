@@ -1,6 +1,5 @@
 #chg-compatible
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ configure modernclient
 
   $ export HG_TEST_INTERNALCONFIG="$TESTTMP/test_hgrc"

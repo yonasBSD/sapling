@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ enable amend rebase
   $ setconfig experimental.evolution=obsolete
   $ setconfig visibility.enabled=true

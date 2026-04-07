@@ -4,7 +4,6 @@
 
 This runs with TZ="GMT"
 
-  $ export HGIDENTITY=sl
   $ sl init repo
   $ cd repo
   $ echo "test-parse-date" > a

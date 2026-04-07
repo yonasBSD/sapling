@@ -1,7 +1,6 @@
 #require rmcwd normal-layout
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Note: With buck build the sl script can be a wrapper that runs shell commands.
 That can print extra noisy outputs like " shell-init: error retrieving current

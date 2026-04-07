@@ -6,7 +6,7 @@
 
 Test the norepo endpoint (health):
 
-  $ hg debugapi --config paths.default=test:e1
+  $ sl debugapi --config paths.default=test:e1
   {"server": "EagerRepo",
    "status": 200,
    "version": "HTTP/1.1",
@@ -28,30 +28,30 @@ Prepare Repo:
   > A
   > EOS
 
-  $ hg push -r $B --to master --create -q
+  $ sl push -r $B --to master --create -q
 
 Test APIs:
 
-  $ hg debugapi -e capabilities
+  $ sl debugapi -e capabilities
   ["segmented-changelog",
    "commit-graph-segments",
    "sha1-only",
    "sapling-common"]
 
-  $ hg debugapi -e bookmarks -i '["master", "foo"]'
+  $ sl debugapi -e bookmarks -i '["master", "foo"]'
   {"foo": None,
    "master": "112478962961147124edd43549aedd1a335e44bf"}
 
   $ echo '["master", "foo"]' > names
-  $ hg debugapi -e bookmarks -f names
+  $ sl debugapi -e bookmarks -f names
   {"foo": None,
    "master": "112478962961147124edd43549aedd1a335e44bf"}
 
-  $ hg debugapi -e commitdata -i "[b'$A']"
+  $ sl debugapi -e commitdata -i "[b'$A']"
   [{"hgid": bin("426bada5c67598ca65036d57d9e4b64b0c1ce7a0"),
     "revlog_data": b"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\041b34f08c1356f6ad068e9ab9b43d984245111aa\ntest\n0 0\nA\n\nA"}]
 
-  $ hg debugapi -e hashlookup -i '["11247", "33333"]'
+  $ sl debugapi -e hashlookup -i '["11247", "33333"]'
   [{"hgids": [bin("112478962961147124edd43549aedd1a335e44bf")],
     "request": {"InclusiveRange": [bin("1124700000000000000000000000000000000000"),
                                    bin("11247fffffffffffffffffffffffffffffffffff")]}},
@@ -59,18 +59,18 @@ Test APIs:
     "request": {"InclusiveRange": [bin("3333300000000000000000000000000000000000"),
                                    bin("33333fffffffffffffffffffffffffffffffffff")]}}]
 
-  $ hg debugapi -e commitlocationtohash -i "[(b'$B',1,1)]"
+  $ sl debugapi -e commitlocationtohash -i "[(b'$B',1,1)]"
   [{"count": 1,
     "hgids": [bin("426bada5c67598ca65036d57d9e4b64b0c1ce7a0")],
     "location": {"distance": 1,
                  "descendant": bin("112478962961147124edd43549aedd1a335e44bf")}}]
 
-  $ hg debugapi -e commithashtolocation -i "[b'$B']" -i "[b'$A']"
+  $ sl debugapi -e commithashtolocation -i "[b'$B']" -i "[b'$A']"
   [{"hgid": bin("426bada5c67598ca65036d57d9e4b64b0c1ce7a0"),
     "result": {"Ok": {"distance": 1,
                       "descendant": bin("112478962961147124edd43549aedd1a335e44bf")}}}]
 
-  $ hg debugapi -e commitknown -i "[b'$B', b'$A', b'11111111111111111111']"
+  $ sl debugapi -e commitknown -i "[b'$B', b'$A', b'11111111111111111111']"
   [{"hgid": bin("112478962961147124edd43549aedd1a335e44bf"),
     "known": {"Ok": True}},
    {"hgid": bin("426bada5c67598ca65036d57d9e4b64b0c1ce7a0"),
@@ -78,7 +78,7 @@ Test APIs:
    {"hgid": bin("3131313131313131313131313131313131313131"),
     "known": {"Ok": False}}]
 
-  $ hg debugapi -e commitknown -i "[b'$B', b'$A', b'11111111111111111111']" --sort
+  $ sl debugapi -e commitknown -i "[b'$B', b'$A', b'11111111111111111111']" --sort
   [{"hgid": bin("3131313131313131313131313131313131313131"),
     "known": {"Ok": False}},
    {"hgid": bin("426bada5c67598ca65036d57d9e4b64b0c1ce7a0"),
@@ -86,7 +86,7 @@ Test APIs:
    {"hgid": bin("112478962961147124edd43549aedd1a335e44bf"),
     "known": {"Ok": True}}]
 
-  $ hg debugapi -e trees  -i '[("", "41b34f08c1356f6ad068e9ab9b43d984245111aa")]' -i '{"manifest_blob": True, "parents": True, "child_metadata": True, "augmented_trees":True }'
+  $ sl debugapi -e trees  -i '[("", "41b34f08c1356f6ad068e9ab9b43d984245111aa")]' -i '{"manifest_blob": True, "parents": True, "child_metadata": True, "augmented_trees":True }'
   [{"key": {"node": bin("41b34f08c1356f6ad068e9ab9b43d984245111aa"),
             "path": ""},
     "data": b"A\0005d992c5dcf32993668f7cede29d296c494a5d9\n",
@@ -103,7 +103,7 @@ Test APIs:
     "tree_aux_data": {"augmented_manifest_id": bin("f0aef0c3978f2947b763a1f87ff5c68611125192cca9d0e95cb18787740eae3b"),
                       "augmented_manifest_size": 204}}]
 
-  $ hg debugapi -e trees  -i '[("", "41b34f08c1356f6ad068e9ab9b43d984245111aa")]' -i '{"manifest_blob": True, "parents": True, "child_metadata": True}'
+  $ sl debugapi -e trees  -i '[("", "41b34f08c1356f6ad068e9ab9b43d984245111aa")]' -i '{"manifest_blob": True, "parents": True, "child_metadata": True}'
   [{"key": {"node": bin("41b34f08c1356f6ad068e9ab9b43d984245111aa"),
             "path": ""},
     "data": b"A\0005d992c5dcf32993668f7cede29d296c494a5d9\n",
@@ -120,7 +120,7 @@ Test APIs:
     "tree_aux_data": None}]
 
 Works outside repo
-  $ hg --cwd .. debugapi test:e1 -e capabilities
+  $ sl --cwd .. debugapi test:e1 -e capabilities
   ["segmented-changelog",
    "commit-graph-segments",
    "sha1-only",

@@ -1,5 +1,4 @@
 #require no-windows no-eden
-  $ export HGIDENTITY=sl
   $ enable smartlog
   $ disable commitcloud
   $ newclientrepo

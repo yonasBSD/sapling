@@ -2,7 +2,6 @@
 
 does not crash the whole program with bad reposetup:
 
-  $ export HGIDENTITY=sl
   $ newrepo
   $ cat >> a.py << EOF
   > def reposetup(ui, repo):

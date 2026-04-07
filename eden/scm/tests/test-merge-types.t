@@ -1,6 +1,5 @@
 #require symlink execbit no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig commands.update.check=none
   $ tellmeabout() {

@@ -4,7 +4,6 @@
 #chg-compatible
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ setconfig commitcloud.enablestatus=false
 
   $ enable smartlog

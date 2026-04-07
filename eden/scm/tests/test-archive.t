@@ -1,7 +1,6 @@
 
 #require serve tar unzip no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ enable share
   $ sl init test

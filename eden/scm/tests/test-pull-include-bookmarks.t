@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig remotenames.rename.default=
   $ setconfig remotenames.hoist=default

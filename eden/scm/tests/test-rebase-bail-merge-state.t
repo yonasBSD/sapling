@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ enable rebase undo
   $ setconfig rebase.experimental.inmemory=true
   $ newclientrepo

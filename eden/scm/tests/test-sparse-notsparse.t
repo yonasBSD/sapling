@@ -10,7 +10,6 @@
 # loaded in a non-sparse repository.
 # First create a base repository with sparse enabled.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init base
   $ cd base

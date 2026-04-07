@@ -8,7 +8,6 @@ end of process.
 
 Attach an object with `__del__` to learn whether repo, ui are dropped on not.
 
-  $ export HGIDENTITY=sl
   $ newext printondel <<EOF
   > class printondel(object):
   >     def __del__(self):

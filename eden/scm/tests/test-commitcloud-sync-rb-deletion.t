@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig infinitepush.branchpattern=re:scratch/.+
 
 Eagerepo server isn't compatible with infinitepush (but is compatible with

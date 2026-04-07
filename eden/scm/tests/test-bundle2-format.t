@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ configure dummyssh
 This test is dedicated to test the bundle2 container format

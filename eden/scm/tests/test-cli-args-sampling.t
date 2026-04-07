@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo
   $ setconfig sampling.filepath=$TESTTMP/sample sampling.key.command_info=my_cat

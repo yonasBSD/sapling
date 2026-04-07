@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ enable commitcloud rebase
   $ setconfig infinitepush.branchpattern="re:scratch/.+"
 

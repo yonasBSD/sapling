@@ -5,7 +5,6 @@
 #chg-compatible
 
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
 

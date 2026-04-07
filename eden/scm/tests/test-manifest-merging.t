@@ -8,7 +8,6 @@
 # GNU General Public License version 2 or any later version.
 
 
-  $ export HGIDENTITY=sl
   $ newclientrepo base
 
   $ echo alpha > alpha

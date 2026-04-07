@@ -23,7 +23,6 @@ o  1
 |
 o  0
 
-  $ export HGIDENTITY=sl
   $ mkrev()
   > {
   >     revno=$1

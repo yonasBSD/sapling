@@ -2,7 +2,6 @@
 
 #require test-repo normal-layout no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ . "$TESTDIR/helpers-testrepo.sh"
   $ enable amend undo

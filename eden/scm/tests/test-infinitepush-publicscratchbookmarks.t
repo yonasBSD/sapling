@@ -1,7 +1,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ enable commitcloud
   $ disable infinitepush
   $ setconfig remotenames.autopullhoistpattern='re:.*'

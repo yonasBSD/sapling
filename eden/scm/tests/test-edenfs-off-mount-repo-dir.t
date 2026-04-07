@@ -2,7 +2,6 @@
 
 Basic test demonstrating that ".sl" dir is now a symlink in eden mounts.
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ ls -l .sl
   lrwx* .sl -> */eden/clients/repo/sl-repo-dir (glob)

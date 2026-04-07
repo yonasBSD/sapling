@@ -3,7 +3,6 @@
 #require no-fsmonitor no-eden
 
 
-  $ export HGIDENTITY=sl
   $ disable copytrace
   $ sl debugextensions --excludedefault
   remotenames (untested!)

@@ -11,7 +11,6 @@ case.
 Initialization
 ---------------
 
-  $ export HGIDENTITY=sl
   $ setconfig experimental.run-python-hooks-via-pyhook=true
 
   $ eagerepo

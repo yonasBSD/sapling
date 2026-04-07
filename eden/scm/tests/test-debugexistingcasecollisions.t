@@ -5,7 +5,6 @@
 
 #require no-icasefs no-eden
 
-  $ export HGIDENTITY=sl
   $ newrepo
   $ mkdir -p dirA/SUBDIRA dirA/subdirA dirB dirA/mixed DIRB
   $ touch dirA/SUBDIRA/file1 dirA/subdirA/file2 dirA/mixed/file3 dirA/Mixed dirA/MIXED dirB/file4 dirB/FILE4 DIRB/File4

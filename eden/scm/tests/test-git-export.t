@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ sl init repo
   $ cd repo

@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig remotefilelog.reponame=reponame-default
   $ newrepo

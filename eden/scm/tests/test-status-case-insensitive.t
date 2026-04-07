@@ -2,7 +2,6 @@
 #require no-windows
 
 Status is clean when file changes case
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ touch file
   $ sl commit -Aqm foo

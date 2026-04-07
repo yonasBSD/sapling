@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable amend
   $ setconfig experimental.evolution=obsolete

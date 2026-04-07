@@ -4,7 +4,6 @@
 
 test clone with lazy pull
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig paths.default=test:e1
   $ setconfig clone.nativepull=True

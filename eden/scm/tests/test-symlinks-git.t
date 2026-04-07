@@ -1,6 +1,5 @@
 #require git symlink no-eden
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Test cloning git repos

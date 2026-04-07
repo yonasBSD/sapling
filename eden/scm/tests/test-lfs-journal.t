@@ -8,7 +8,6 @@
 
 # Test that journal and lfs wrap the share extension properly
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]

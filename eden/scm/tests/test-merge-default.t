@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ sl init repo

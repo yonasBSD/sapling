@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig drawdag.defaultfiles=false
   $ setconfig diff.git=true
 

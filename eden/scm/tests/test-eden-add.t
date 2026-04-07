@@ -2,7 +2,6 @@
 #require eden
 
 setup backing repo
-  $ export HGIDENTITY=sl
   $ newclientrepo
 
   $ touch rootfile.txt

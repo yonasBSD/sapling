@@ -1,7 +1,6 @@
 #inprocess-hg-incompatible
 #require symlink no-eden
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig format.use-symlink-atomic-write=1
 

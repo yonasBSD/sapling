@@ -9,7 +9,6 @@
     lexical_var_for_both = "hello"
 
 #if case1
-  $ export HGIDENTITY=sl
   $ echo in case1
   in case1
 

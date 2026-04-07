@@ -10,7 +10,6 @@ This test checks the pull works when:
 And the client does not limit itself to only be able to resolve ancestors of
 the old master in that case.
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig paths.default=test:e1 ui.ssh=false
   $ shorttraceback

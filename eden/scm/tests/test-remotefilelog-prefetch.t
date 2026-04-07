@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig scmstore.tree-metadata-mode=always
 

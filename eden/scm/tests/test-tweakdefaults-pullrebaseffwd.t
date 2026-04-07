@@ -9,7 +9,6 @@
 
 # Set up without remotenames
 
-  $ export HGIDENTITY=sl
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
   > rebase=

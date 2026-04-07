@@ -1,7 +1,6 @@
 #testcases rustcheckout pythoncheckout pythonrustcheckout
 
 #if rustcheckout
-  $ export HGIDENTITY=sl
   $ setconfig checkout.use-rust=true
 #endif
 

@@ -13,7 +13,6 @@
 
 # This test file aims at test topological iteration and the various configuration it can has.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [ui]

@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ configure mutation-norecord
   $ enable rebase shelve
   $ setconfig copytrace.dagcopytrace=False

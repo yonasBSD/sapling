@@ -5,7 +5,6 @@
 Path conflict checking is currently disabled by default because of issue5716.
 Turn it on for this test.
 
-  $ export HGIDENTITY=sl
   $ setconfig checkout.use-rust=true
   $ setconfig experimental.merge.checkpathconflicts=True
 

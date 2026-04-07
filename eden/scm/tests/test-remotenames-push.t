@@ -3,7 +3,6 @@
 #require no-eden
 
 #inprocess-hg-incompatible
-  $ export HGIDENTITY=sl
   $ mkcommit()
   > {
   >    echo $1 > $1

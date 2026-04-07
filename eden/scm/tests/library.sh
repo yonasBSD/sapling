@@ -37,7 +37,7 @@ hgcloneshallow() {
   shift
   dest=$1
   shift
-  hg clone --config remotefilelog.reponame=master $orig $dest $@
+  sl clone --config remotefilelog.reponame=master $orig $dest $@
   cat >> "$dest/$(_dotdir_configfile "$dest")" <<EOF
 [remotefilelog]
 reponame=master
@@ -50,7 +50,7 @@ hginit() {
   local name
   name=$1
   shift
-  hg init $name $@ --config remotefilelog.reponame=master
+  sl init $name $@ --config remotefilelog.reponame=master
 }
 
 clearcache() {
@@ -59,8 +59,8 @@ clearcache() {
 
 mkcommit() {
   echo "$1" > "$1"
-  hg add "$1"
-  hg ci -m "$1"
+  sl add "$1"
+  sl ci -m "$1"
 }
 
 ls_l() {

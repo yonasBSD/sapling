@@ -1,6 +1,5 @@
 #require git no-windows
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig diff.git=True
   $ setconfig subtree.min-path-depth=1

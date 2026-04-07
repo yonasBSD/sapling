@@ -2,7 +2,6 @@
 #debugruntest-incompatible
 
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ enable lfs pushrebase

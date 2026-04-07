@@ -1,6 +1,5 @@
 #require tic no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Revert interactive tests with the Curses interface
 

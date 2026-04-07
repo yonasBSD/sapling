@@ -10,7 +10,6 @@
 # test that we don't interrupt the merge session if
 # a file-level merge failed
 
-  $ export HGIDENTITY=sl
   $ setconfig commands.update.check=none
 
   $ eagerepo

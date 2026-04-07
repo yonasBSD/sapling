@@ -1,6 +1,5 @@
 #require symlink execbit no-eden
 
-  $ export HGIDENTITY=sl
   $ enable amend morestatus rebase
   $ setconfig morestatus.show=True
   $ setconfig diff.git=True

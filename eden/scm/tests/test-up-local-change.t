@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig commands.update.check=none
 
   $ HGMERGE=true; export HGMERGE

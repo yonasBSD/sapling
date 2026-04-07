@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ setconfig commands.update.check=none
 
 Criss cross merging

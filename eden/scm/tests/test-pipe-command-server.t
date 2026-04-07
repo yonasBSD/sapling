@@ -1,6 +1,5 @@
 #require no-windows no-eden
 
-  $ export HGIDENTITY=sl
   $ cat > make-request.py <<'EOF'
   > import sys, struct
   > cmd = "\0".join(sys.argv[1:]).encode()

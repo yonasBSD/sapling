@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ enable dirsync amend
   $ newrepo

@@ -1,6 +1,5 @@
 #require bash no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat > a.py << EOF
   > import os

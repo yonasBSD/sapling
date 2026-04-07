@@ -6,7 +6,6 @@ changelog executable files added by the second parent of a merge. Test
 that that doesn't happen anymore
 
 
-  $ export HGIDENTITY=sl
   $ sl init repo
   $ cd repo
   $ echo foo > foo

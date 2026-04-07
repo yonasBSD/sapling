@@ -1,7 +1,6 @@
 #chg-compatible
 #require bash no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Initialize scm prompt compatibility layer
   $ . $TESTDIR/../contrib/scm-prompt.sh

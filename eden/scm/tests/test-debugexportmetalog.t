@@ -1,6 +1,5 @@
 #require git no-eden
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig metalog.track-config=0
   $ newrepo

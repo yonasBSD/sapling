@@ -1,5 +1,4 @@
 setup
-  $ export HGIDENTITY=sl
   $ enable rebase morestatus smartlog
   $ setconfig morestatus.show=True
   $ newclientrepo

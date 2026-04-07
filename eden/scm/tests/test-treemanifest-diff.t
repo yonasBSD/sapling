@@ -8,7 +8,6 @@
 
 # Setup the repository
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init myrepo
   $ cd myrepo

@@ -1,5 +1,6 @@
-#require mononoke
-#require eden
+#require mononoke eden
+
+  $ export SL_REPO_IDENTITY=hg
 
   $ setconfig checkout.use-rust=true
   $ setconfig clone.use-rust=true

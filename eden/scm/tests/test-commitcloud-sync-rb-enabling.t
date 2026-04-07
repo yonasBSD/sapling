@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ enable amend commitcloud
   $ configure dummyssh
   $ setconfig commitcloud.hostname=testhost

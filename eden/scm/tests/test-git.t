@@ -2,7 +2,6 @@
 #require git no-windows
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ . $TESTDIR/git.sh
   $ setconfig diff.git=true ui.allowemptycommit=true

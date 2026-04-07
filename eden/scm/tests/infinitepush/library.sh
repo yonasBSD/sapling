@@ -7,13 +7,13 @@
 INFINITEPUSH_TESTDIR="${RUN_TESTS_LIBRARY:-"$TESTDIR"}"
 
 scratchnodes() {
-  for node in `find ../repo/.hg/scratchbranches/index/nodemap -type f | LC_ALL=C sort`; do
+  for node in `find ../repo/.sl/scratchbranches/index/nodemap -type f | LC_ALL=C sort`; do
      echo ${node##*/} `cat $node`
   done
 }
 
 scratchbookmarks() {
-  for bookmark in `find ../repo/.hg/scratchbranches/index/bookmarkmap -type f | LC_ALL=C sort`; do
+  for bookmark in `find ../repo/.sl/scratchbranches/index/bookmarkmap -type f | LC_ALL=C sort`; do
      echo "${bookmark##*/bookmarkmap/} `cat $bookmark`"
   done
 }
@@ -43,13 +43,13 @@ EOF
 
 waitbgbackup() {
   sleep 1
-  hg debugwaitbackup
+  sl debugwaitbackup
 }
 
 mkcommitautobackup() {
     echo $1 > $1
-    hg add $1
-    hg ci -m $1 --config infinitepushbackup.autobackup=True
+    sl add $1
+    sl ci -m $1 --config infinitepushbackup.autobackup=True
 }
 
 setuplogdir() {

@@ -10,7 +10,6 @@
 
 # Create an empty repo:
 
-  $ export HGIDENTITY=sl
   $ newclientrepo a
 
 # Try some commands:

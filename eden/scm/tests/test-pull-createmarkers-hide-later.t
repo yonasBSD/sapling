@@ -3,7 +3,6 @@
 
 Setup
 
-  $ export HGIDENTITY=sl
   $ configure mutation-norecord dummyssh
   $ enable amend fbcodereview pushrebase rebase
   $ setconfig ui.username="nobody <no.reply@fb.com>" experimental.rebaseskipobsolete=true

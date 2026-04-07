@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
 This test makes sure that we don't mark a file as merged with its ancestor

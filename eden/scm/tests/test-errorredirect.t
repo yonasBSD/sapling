@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newext crash <<EOF
   > from sapling import registrar

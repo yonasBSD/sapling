@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ setconfig remotenames.rename.default=remote remotenames.disallowedto="^remote/"
 
 Init the original "remote" repo

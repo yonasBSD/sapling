@@ -1,6 +1,5 @@
 #require symlink no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable sparse
 

@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig remotefilelog.lfs=True
   $ setconfig lfs.threshold=5
   $ setconfig lfs.url=file:$TESTTMP/lfs-server

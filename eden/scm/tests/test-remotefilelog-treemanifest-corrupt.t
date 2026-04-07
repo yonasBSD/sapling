@@ -2,7 +2,6 @@
 #require no-eden
 
 #chg-compatible
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ hginit master

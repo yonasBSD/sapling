@@ -6,7 +6,6 @@ Test that biggrep integration works correctly and that Python and Rust
 implementations pass the same arguments and produce the same output.
 
 #if python
-  $ export HGIDENTITY=sl
   $ setconfig grep.use-rust=false
 #else
   $ setconfig grep.use-rust=true

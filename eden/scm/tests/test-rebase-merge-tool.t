@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ enable rebase
   $ setconfig rebase.experimental.inmemory=True
 

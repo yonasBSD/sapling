@@ -6,7 +6,6 @@
 #inprocess-hg-incompatible
 
 
-  $ export HGIDENTITY=sl
   $ cat >>$TESTTMP/ccdelay.py <<EOF
   > 
   > import os

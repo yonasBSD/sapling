@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ disable amend
   $ configure mutation-norecord
   $ setconfig commands.update.check=none

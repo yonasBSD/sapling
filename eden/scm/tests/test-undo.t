@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ enable undo
   $ echo >> file

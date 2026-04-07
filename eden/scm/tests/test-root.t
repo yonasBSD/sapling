@@ -8,7 +8,6 @@
 
 # make shared repo
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable share
   $ newrepo repo1

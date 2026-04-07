@@ -1,6 +1,5 @@
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ newext crash <<EOF
   > from sapling import registrar
   > cmdtable = {}

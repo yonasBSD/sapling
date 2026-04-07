@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ enable rebase mergedriver undo
 
   $ setconfig drawdag.defaultfiles=false

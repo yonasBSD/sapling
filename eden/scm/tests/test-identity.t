@@ -1,12 +1,10 @@
 #require no-eden
 
-"mv .hg .sl" below fails on Windows (open file?)
 #inprocess-hg-incompatible
 
   $ setconfig clone.use-rust=true
 
   $ newrepo
-  $ mv .hg .sl
 
 "root" works in a .sl repo.
   $ hg root

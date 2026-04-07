@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ cat > ex1.py <<EOS
   > from sapling import commands, extensions
   > def uisetup(ui):

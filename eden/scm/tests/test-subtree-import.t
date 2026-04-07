@@ -1,6 +1,5 @@
 #require git no-windows
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig diff.git=True
   $ setconfig subtree.allow-any-source-commit=True

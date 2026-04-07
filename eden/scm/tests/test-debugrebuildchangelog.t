@@ -12,12 +12,12 @@
   > |
   > A
   > EOS
-  $ hg bookmark -r $C master
+  $ sl bookmark -r $C master
 
 Clone:
 
   $ cd $TESTTMP
-  $ hg clone -q ssh://user@dummy/server client
+  $ sl clone -q ssh://user@dummy/server client
 
 Add drafts:
 
@@ -47,29 +47,29 @@ Prepare another test case backed by a server repo that speaks SaplingRemoteAPI
   > A
   > EOS
 
-  $ hg bookmark -r $D book-D
-  $ hg push -r $C --to master --create
+  $ sl bookmark -r $D book-D
+  $ sl push -r $C --to master --create
   pushing rev 26805aba1e60 to destination test:e bookmark master
   searching for changes
   exporting bookmark master
 
 Prepare to test shelve:
 
-  $ hg up -q 'desc(F)'
+  $ sl up -q 'desc(F)'
   $ echo 2 >> F
-  $ hg shelve
+  $ sl shelve
   shelved as default
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 Rebuild using segmented changelog
 
-  $ hg debugrebuildchangelog
+  $ sl debugrebuildchangelog
   backed up 4 commits to commits-4-0000.bak
   imported public commit graph with master: 26805aba1e600a82e93661149f2313866a221a7b
   recreating 4 local commits
   changelog rebuilt
 
-  $ hg log -r 'all()' --git -T '{desc} {remotenames} {bookmarks}' -G
+  $ sl log -r 'all()' --git -T '{desc} {remotenames} {bookmarks}' -G
   @  F
   │
   │ o  E
@@ -84,7 +84,7 @@ Rebuild using segmented changelog
   
 Unshelve works:
 
-  $ hg unshelve
+  $ sl unshelve
   unshelving change 'default'
 
   $ cat F
@@ -92,14 +92,14 @@ Unshelve works:
 
 Test pull error does not end up with a broken repo:
 
-  $ FAILPOINTS=debugrebuildchangelog-add-draft=return hg debugrebuildchangelog
+  $ FAILPOINTS=debugrebuildchangelog-add-draft=return sl debugrebuildchangelog
   backed up 3 commits to commits-3-0000.bak
   imported public commit graph with master: 26805aba1e600a82e93661149f2313866a221a7b
   restoring changelog from previous state
   abort: failpoint 'debugrebuildchangelog-add-draft' set by FAILPOINTS
   [255]
 
-  $ hg log -r 'all()' --git -T '{desc} {remotenames} {bookmarks}' -G
+  $ sl log -r 'all()' --git -T '{desc} {remotenames} {bookmarks}' -G
   @  F
   │
   │ o  E

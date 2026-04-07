@@ -1,7 +1,6 @@
 
 #require eden
 
-  $ export HGIDENTITY=sl
   $ setconfig worktree.enabled=true
 
 # ============================================================

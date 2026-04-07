@@ -5,7 +5,6 @@
 #inprocess-hg-incompatible
 
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh
   $ enable rebase
 

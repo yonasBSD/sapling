@@ -3,7 +3,6 @@
 
 (Run this test using HGFSMONITOR_TESTS=1)
 
-  $ export HGIDENTITY=sl
   $ newrepo
 
   $ sl debugdrawdag << EOS

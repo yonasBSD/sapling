@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ configure mutation-norecord
 #require rmcwd no-eden
 

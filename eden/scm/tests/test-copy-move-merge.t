@@ -5,7 +5,6 @@
 Test for the full copytracing algorithm
 =======================================
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable rebase
   $ setconfig copytrace.skipduplicatecopies=True

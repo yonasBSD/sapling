@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ configure mutation-norecord
   $ enable conflictinfo rebase
   $ setconfig experimental.rebase-long-labels=True

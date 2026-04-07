@@ -4,7 +4,6 @@
 
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ mkcommit() {

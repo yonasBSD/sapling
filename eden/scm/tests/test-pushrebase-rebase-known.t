@@ -5,7 +5,6 @@
 
 Pushrebase still needs filepeer.
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ enable pushrebase
 

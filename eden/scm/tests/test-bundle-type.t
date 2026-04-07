@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ setconfig format.allowbundle1=true format.usegeneraldelta=yes
 
 bundle w/o type option

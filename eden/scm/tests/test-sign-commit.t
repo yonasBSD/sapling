@@ -2,7 +2,6 @@
 #require git gpg2 no-windows
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
   $ setconfig diff.git=true ui.allowemptycommit=true
 

@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Tests rebasing with part of the rebase set already in the
 destination (issue5422)

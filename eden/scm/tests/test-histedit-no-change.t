@@ -4,7 +4,6 @@
 test for old histedit issue #6:
 editing a changeset without any actual change would corrupt the repository
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/histedit-helpers.sh"
 
   $ enable histedit

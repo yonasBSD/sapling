@@ -3,7 +3,6 @@
 
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable absorb
 

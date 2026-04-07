@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ . $RUNTESTDIR/library.sh
 
 Setup

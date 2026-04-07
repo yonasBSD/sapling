@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Fsmonitor makes the size numbers less predicatable.
 

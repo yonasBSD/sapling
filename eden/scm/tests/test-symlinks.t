@@ -4,7 +4,6 @@
 
 #if no-fscap
 Test util.checklink non-fscap backup code.
-  $ export HGIDENTITY=sl
   $ cat > no-fscap.py <<EOF
   > def uisetup(ui):
   >   def _noop(*args):

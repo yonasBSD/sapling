@@ -6,7 +6,6 @@ code 0xC0000135.
 #inprocess-hg-incompatible
 #require fsmonitor no-eden
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ sl st
   $ sl debugtreestate list

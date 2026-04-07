@@ -1,6 +1,5 @@
 Classic .t test:
 
-  $ export HGIDENTITY=sl
   $ cat > test-sh.t << 'EOF'
   > Check shell output:
   >   $ echo 1

@@ -3,7 +3,6 @@
 
 Test namespace registration using registrar
 
-  $ export HGIDENTITY=sl
   $ shorttraceback
 
   $ newrepo

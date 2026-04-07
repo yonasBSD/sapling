@@ -1,7 +1,6 @@
 #require eden
 
 Defeat shared cache. Fetching non-local repo data will always perform a remote fetch.
-  $ export HGIDENTITY=sl
   $ setconfig remotefilelog.cachepath=
 
 Create server/remote repo.

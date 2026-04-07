@@ -5,7 +5,6 @@
 
 Prepare repo
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo1
   $ cat > a << EOF
   > 1

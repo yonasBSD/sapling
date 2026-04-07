@@ -1,6 +1,5 @@
 #require eden
 
-  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig subtree.min-path-depth=1
   $ setconfig subtree.allow-any-source-commit=True

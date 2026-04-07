@@ -3,7 +3,6 @@
 
 test sparse
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
 
   $ enable sparse rebase

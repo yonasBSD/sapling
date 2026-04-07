@@ -1,6 +1,5 @@
 #require git no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ . $TESTDIR/git.sh
 

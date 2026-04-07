@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
   $ . "$TESTDIR/infinitepush/library.sh"
   $ setconfig extensions.commitcloud=

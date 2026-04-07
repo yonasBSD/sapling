@@ -1,6 +1,5 @@
 #require xargs env python3 no-eden
 
-  $ export HGIDENTITY=sl
   $ enable rebase
 
 Set up the repository with some simple files.

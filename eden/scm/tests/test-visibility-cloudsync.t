@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh
   $ enable amend directaccess commitcloud rebase undo
   $ setconfig infinitepush.branchpattern="re:scratch/.*"

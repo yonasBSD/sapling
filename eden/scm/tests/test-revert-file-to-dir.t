@@ -5,7 +5,6 @@
 
 File to dir:
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ echo A | drawdag
   $ sl up -q $A

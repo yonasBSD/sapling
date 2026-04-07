@@ -3,7 +3,6 @@
 
 #testcases pulllazy-python pulllazy-rust commitgraphsegments
 
-  $ export HGIDENTITY=sl
   $ configure modern
 
   $ setconfig paths.default=test:e1

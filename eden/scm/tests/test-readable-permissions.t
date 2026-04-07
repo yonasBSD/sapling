@@ -3,7 +3,6 @@
 
 
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ echo a > a
   $ sl ci -Amq a

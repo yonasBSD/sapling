@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ fileset() {
   >   sl debugfileset "$@"

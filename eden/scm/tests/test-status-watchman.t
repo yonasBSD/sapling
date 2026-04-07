@@ -1,7 +1,6 @@
 
 #require fsmonitor
 
-  $ export HGIDENTITY=sl
   $ enable sparse
 
   $ newclientrepo client server

@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig tweakdefaults.showupdated=true
 

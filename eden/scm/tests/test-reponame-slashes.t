@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig remotefilelog.reponame=dont/mess/up
   $ setconfig clone.use-rust=true

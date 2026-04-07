@@ -3,7 +3,6 @@
 
 Set up extension and repos
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig phases.publish=false
 For convenience. The test was written without selectivepull and uses the "@" bookmark.

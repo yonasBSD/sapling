@@ -4,7 +4,6 @@
 
 #require fsmonitor
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ setconfig checkout.use-rust=true
 

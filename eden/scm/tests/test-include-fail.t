@@ -1,7 +1,6 @@
 
 #require execbit no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH <<EOF
   > [ui]

@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
 
   $ setconfig merge.followcopies=1

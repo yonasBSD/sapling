@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ mkcommit()
   > {
   >    echo $1 > $1

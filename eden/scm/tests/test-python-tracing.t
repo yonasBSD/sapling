@@ -3,7 +3,6 @@
 
 
 Message is optional
-  $ export HGIDENTITY=sl
   $ SL_LOG=foo=debug sl dbsh -c 'sapling.tracing.debug(target="foo", hello="there"); sapling.tracing.debug("message", target="foo", hello="there")'
   DEBUG foo: hello="there"
   DEBUG foo: message hello="there"

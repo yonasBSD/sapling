@@ -1,5 +1,4 @@
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ eagerepo
 sl debuginstall
   $ sl debuginstall 2>&1 | grep -v 'checking Python version ' | grep -v 'checking Python lib '

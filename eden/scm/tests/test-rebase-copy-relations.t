@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable rebase
   $ setconfig experimental.evolution.allowdivergence=1

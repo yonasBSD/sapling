@@ -2,7 +2,6 @@
 #require no-eden
 
 #chg-compatible
-  $ export HGIDENTITY=sl
   $ configure modern
   $ enable smartlog
   $ disable commitcloud

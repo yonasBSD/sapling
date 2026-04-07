@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig clone.use-rust=true
   $ sl config -q --system -d remotefilelog.reponame
 

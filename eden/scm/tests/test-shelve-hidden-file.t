@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ enable shelve
 
 Use wrong formatted '._*' files to mimic the binary files created by MacOS:

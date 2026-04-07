@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ newrepo
   $ setconfig 'committemplate.changeset={foo}\n'
   $ setconfig 'committemplate.foo=foo'

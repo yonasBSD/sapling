@@ -4,7 +4,6 @@
 
 Set up a repo
 
-  $ export HGIDENTITY=sl
   $ setconfig ui.interactive=true
   $ eagerepo
 

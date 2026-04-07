@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ newserver server
   $ cd $TESTTMP/server
   $ echo base > base

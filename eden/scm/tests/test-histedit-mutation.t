@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation
   $ . "$TESTDIR/histedit-helpers.sh"

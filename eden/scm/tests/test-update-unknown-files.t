@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig experimental.nativecheckout=true
   $ setconfig commands.update.check=noconflict
 

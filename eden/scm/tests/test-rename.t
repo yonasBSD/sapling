@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo repo
   $ mkdir d1 d1/d11 d2

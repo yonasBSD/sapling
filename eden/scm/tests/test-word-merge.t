@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ enable rebase
   $ setconfig automerge.mode=accept

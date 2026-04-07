@@ -8,7 +8,6 @@
 
 # test sparse
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init myrepo
   $ cd myrepo

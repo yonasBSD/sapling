@@ -4,7 +4,6 @@
 
 https://bz.mercurial-scm.org/1175
 
-  $ export HGIDENTITY=sl
   $ setconfig commands.update.check=none
 
   $ newrepo repo

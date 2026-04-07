@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ mkdir dir
   $ cd dir

@@ -1,7 +1,6 @@
 
 #require symlink no-eden
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ setconfig workingcopy.rust-checkout=true
 

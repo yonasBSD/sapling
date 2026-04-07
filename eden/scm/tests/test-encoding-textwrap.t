@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Test text wrapping for multibyte characters
 

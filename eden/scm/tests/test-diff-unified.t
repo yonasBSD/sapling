@@ -3,7 +3,6 @@
 
 
 
-  $ export HGIDENTITY=sl
   $ sl init repo
   $ cd repo
   $ cat > a <<EOF

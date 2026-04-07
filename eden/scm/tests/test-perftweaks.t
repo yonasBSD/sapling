@@ -4,7 +4,6 @@
 
 Test avoiding calculating head changes during commit
 
-  $ export HGIDENTITY=sl
   $ sl init branchatcommit
   $ cd branchatcommit
   $ sl debugdrawdag<<'EOS'

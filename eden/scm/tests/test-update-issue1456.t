@@ -1,7 +1,6 @@
 #modern-config-incompatible
 
 #require execbit no-eden
-  $ export HGIDENTITY=sl
   $ setconfig experimental.nativecheckout=true
   $ setconfig commands.update.check=none
 

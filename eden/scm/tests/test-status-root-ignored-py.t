@@ -1,6 +1,5 @@
 #require fsmonitor no-eden
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
 
 Ensure that, when files in the root are ignored and there is an exclusion, that sl status returns the correct value

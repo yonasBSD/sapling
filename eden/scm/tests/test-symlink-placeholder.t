@@ -1,6 +1,5 @@
 #require symlink no-eden windows
 
-  $ export HGIDENTITY=sl
   $ sl init unix-repo
   $ cd unix-repo
   $ echo foo > a

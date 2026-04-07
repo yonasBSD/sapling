@@ -9,7 +9,6 @@
 
 # Empty update fails with a helpful error:
 
-  $ export HGIDENTITY=sl
   $ setconfig 'ui.disallowemptyupdate=True'
   $ newclientrepo
   $ sl debugdrawdag << 'EOS'

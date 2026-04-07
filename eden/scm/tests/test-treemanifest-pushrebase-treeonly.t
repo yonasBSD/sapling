@@ -5,7 +5,6 @@
 
 Push treeonly commits from a treeonly shallow repo to a treeonly server
 
-  $ export HGIDENTITY=sl
   $ setconfig remotefilelog.reponame=x remotefilelog.cachepath=$TESTTMP/cache
   $ configure dummyssh
 

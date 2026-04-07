@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ newrepo server

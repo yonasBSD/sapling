@@ -3,7 +3,6 @@
 
 #require killdaemons
 
-  $ export HGIDENTITY=sl
   $ enable share
 
   $ configure modernclient

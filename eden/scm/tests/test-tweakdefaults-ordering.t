@@ -8,7 +8,6 @@
 
 # TODO: Make this test compatible with obsstore enabled.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig 'experimental.evolution='
 

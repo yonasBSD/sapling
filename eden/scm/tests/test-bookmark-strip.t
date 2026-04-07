@@ -9,7 +9,6 @@
 
 # Test bookmark -D
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init book-D
   $ cd book-D

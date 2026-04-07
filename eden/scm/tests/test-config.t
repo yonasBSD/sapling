@@ -2,7 +2,6 @@
 #require no-eden
 
 hide outer repo
-  $ export HGIDENTITY=sl
   $ sl init
 
 Invalid syntax: no value

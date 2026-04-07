@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ newclientrepo <<EOS
   > B # B/A = (removed)
   > |

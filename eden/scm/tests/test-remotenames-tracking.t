@@ -1,6 +1,5 @@
 #chg-compatible
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ setconfig ui.ignorerevnum=true
 

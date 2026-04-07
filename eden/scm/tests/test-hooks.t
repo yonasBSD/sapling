@@ -1,7 +1,6 @@
 #chg-compatible
 #require no-windows
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo
 

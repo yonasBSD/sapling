@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/histedit-helpers.sh"
 
   $ enable histedit

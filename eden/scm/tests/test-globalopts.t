@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.collapse-traceback=true
 
   $ newclientrepo server

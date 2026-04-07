@@ -8,7 +8,6 @@
 
 # Test whereami
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init repo1
   $ cd repo1

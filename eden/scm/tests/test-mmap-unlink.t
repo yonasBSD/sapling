@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat <<EOF > mmap-unlink.py
   > import mmap

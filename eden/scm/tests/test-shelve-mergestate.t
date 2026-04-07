@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ enable morestatus shelve
   $ setconfig morestatus.show=true
   $ setconfig ui.interactive=true

@@ -3,7 +3,6 @@
 TODO: something with "while ! grep"
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ setconfig experimental.fsmonitor.transaction_notify=true
 
   $ newclientrepo

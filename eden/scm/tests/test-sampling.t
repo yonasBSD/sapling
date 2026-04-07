@@ -5,7 +5,6 @@
 Setup. SCM_SAMPLING_FILEPATH needs to be cleared as some environments may
 have it set.
 
-  $ export HGIDENTITY=sl
   $ unset SCM_SAMPLING_FILEPATH
 
   $ mkcommit() {

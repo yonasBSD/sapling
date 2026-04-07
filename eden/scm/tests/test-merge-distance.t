@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ drawdag << 'EOS'
   >   A01..A20

@@ -1,7 +1,6 @@
 #require no-eden
 
 First test uncommited changes that should not conflict
-  $ export HGIDENTITY=sl
   $ newclientrepo <<EOF
   > C
   > |

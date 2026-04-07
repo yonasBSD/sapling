@@ -2,7 +2,6 @@
 #inprocess-hg-incompatible
 
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh
 #require serve no-eden
 

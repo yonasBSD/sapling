@@ -11,7 +11,6 @@
 
 # plain
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ sl init
   $ sl debugbuilddag '+2:f +3:p2 <f+4 /p2 +2' --config 'extensions.progress=' --config 'progress.debug=true'

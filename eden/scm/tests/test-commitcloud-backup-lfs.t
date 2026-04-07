@@ -3,7 +3,6 @@
 Some Windows dummy ssh issue
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ setconfig push.edenapi=true

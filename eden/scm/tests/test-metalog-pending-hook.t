@@ -10,7 +10,6 @@ The test works as follows:
 - The `showpending` command running in subprocess checks the pending changes in
 metalog.
 
-  $ export HGIDENTITY=sl
   $ configure modern
 
   $ cat > ext.py << 'EOF'

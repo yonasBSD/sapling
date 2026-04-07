@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ enable rebase undo
 
   $ setconfig commit.file-size-limit=5

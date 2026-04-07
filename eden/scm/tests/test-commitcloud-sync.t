@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.collapse-traceback=true
 
   $ configure dummyssh mutation-norecord

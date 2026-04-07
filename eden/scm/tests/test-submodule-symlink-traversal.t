@@ -4,7 +4,6 @@ Test that submodule checkout audits paths for symlink traversal. If a symlink
 exists in the working directory and a submodule shares its name, makedirs()
 would follow the symlink without the audit check. This validates Fix 2.
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Create a payload submodule repo:

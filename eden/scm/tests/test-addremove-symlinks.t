@@ -1,6 +1,5 @@
 #require symlink no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init repo
   $ cd repo

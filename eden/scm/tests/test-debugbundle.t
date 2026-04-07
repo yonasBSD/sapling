@@ -4,7 +4,6 @@
 
 Create a test repository:
 
-  $ export HGIDENTITY=sl
   $ sl init repo
   $ cd repo
   $ touch a ; sl add a ; sl ci -ma

@@ -1,6 +1,5 @@
 #require ipython no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> foo.py << EOF
   > def f1(x): return x + 1

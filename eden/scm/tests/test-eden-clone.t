@@ -3,7 +3,6 @@
 
 setup backing repo
 
-  $ export HGIDENTITY=sl
   $ setconfig clone.use-rust=True
   $ setconfig checkout.use-rust=True
   $ setconfig experimental.rust-clone-updaterev=True
@@ -31,7 +30,7 @@ test eden clone
   $ cd $TESTTMP/e2
   $ ls -a
   .eden
-  .sl
+  .hg
   A
   B
   C
@@ -44,7 +43,7 @@ test eden clone
 # Make sure dynamic config doesn't get loaded
   $ [ -f $TESTTMP/e1/.sl/config.dynamic ]
   [1]
-  $ [ -f $TESTTMP/e2/.sl/config.dynamic ]
+  $ [ -f $TESTTMP/e2/.hg/config.dynamic ]
   [1]
 
 test rust clone

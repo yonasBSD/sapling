@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ . "$TESTDIR/library.sh"
 
   $ cat >> $HGRCPATH <<EOF

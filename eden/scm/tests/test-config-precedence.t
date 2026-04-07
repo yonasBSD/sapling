@@ -3,7 +3,6 @@
 
 
 
-  $ export HGIDENTITY=sl
   $ newclientrepo test1
 
 Sample config item that has been moved from configitems.py to Rust HG_PY_CORE_CONFIG

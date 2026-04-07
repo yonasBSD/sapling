@@ -4,7 +4,6 @@
 
 Create extension that can disable exec checks:
 
-  $ export HGIDENTITY=sl
   $ cat > noexec.py <<EOF
   > from sapling import extensions, util
   > def setflags(orig, f, l, x):

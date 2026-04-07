@@ -4,7 +4,6 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
 
   $ echo file1version1 > file1

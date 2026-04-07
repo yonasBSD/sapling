@@ -2,7 +2,6 @@
 #require no-fsmonitor
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ setconfig alias.ssl:doc="show a graph of your commits and associated Diff information"
 Short help:
 

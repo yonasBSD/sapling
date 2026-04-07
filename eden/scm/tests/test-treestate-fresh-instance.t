@@ -1,6 +1,5 @@
 #require fsmonitor no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig format.dirstate=2
   $ newclientrepo repo
   $ touch x

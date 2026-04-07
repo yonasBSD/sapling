@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh
   $ enable commitcloud
   $ enable amend

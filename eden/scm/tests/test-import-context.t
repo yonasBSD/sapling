@@ -4,7 +4,6 @@
 
 Test applying context diffs
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ cat > writepatterns.py <<EOF

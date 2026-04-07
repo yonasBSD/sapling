@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ remove() {
   >     sl rm $@
   >     echo "exit code: $?"

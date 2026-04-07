@@ -3,7 +3,6 @@
 
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Using 'ext.' prefix triggers the warning.
 

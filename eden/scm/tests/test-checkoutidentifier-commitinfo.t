@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable amend absorb rebase
   $ setconfig extensions.extralog=$TESTDIR/extralog.py

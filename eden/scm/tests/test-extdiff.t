@@ -2,7 +2,6 @@
 
 #require diff echo no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ enable extdiff
 

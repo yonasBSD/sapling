@@ -2,7 +2,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig remotenames.selectivepulldefault=master,releasebranch
 
   $ configure mutation-norecord dummyssh

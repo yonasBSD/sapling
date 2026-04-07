@@ -7,7 +7,6 @@
 BUG: this shouldn't be necessary, but currently "sl add -s ..." or "sl sparse
 include ..." doesn't work for untracked files not previously in the sparse
 profile.
-  $ export HGIDENTITY=sl
   $ setconfig fsmonitor.track-ignore-files=true
 
 test sparse

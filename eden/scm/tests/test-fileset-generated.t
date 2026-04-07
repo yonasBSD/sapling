@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
 
 Set up history and working copy

@@ -8,7 +8,6 @@
 
 # https://bz.mercurial-scm.org/1438
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init repo
   $ cd repo

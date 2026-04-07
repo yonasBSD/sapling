@@ -8,7 +8,6 @@
 # GNU General Public License version 2.
 
 
-  $ export HGIDENTITY=sl
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]
   > smartlog=

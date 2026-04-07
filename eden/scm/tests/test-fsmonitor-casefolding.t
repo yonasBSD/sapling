@@ -4,7 +4,6 @@
 
 Updating across a rename
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
 
   $ echo >> a

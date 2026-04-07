@@ -1,6 +1,5 @@
 #require fsmonitor no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig fsmonitor.warn-fresh-instance=true
 
 A warning is printed for the first use

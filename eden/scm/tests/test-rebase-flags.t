@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
 #require execbit no-eden

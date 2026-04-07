@@ -3,7 +3,6 @@
 
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ enable amend rebase

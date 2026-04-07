@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig drawdag.defaultfiles=false
 
 Test repoless "cat" command using eagerepo.

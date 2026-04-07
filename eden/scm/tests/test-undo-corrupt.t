@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ configure modern
   $ enable undo
   $ setconfig hint.ack-hint-ack=1

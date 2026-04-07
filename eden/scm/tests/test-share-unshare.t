@@ -8,7 +8,6 @@
 
 # Share works with blackbox enabled:
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]

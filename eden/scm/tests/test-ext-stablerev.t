@@ -1,5 +1,4 @@
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo
   $ enable stablerev

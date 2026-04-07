@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig experimental.nativecheckout=true
 
 test sparse

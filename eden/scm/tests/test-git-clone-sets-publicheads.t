@@ -1,6 +1,5 @@
 #require git no-eden no-windows
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Prepare a git repo:

@@ -1,5 +1,4 @@
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ setconfig templatealias.summary='"{pathsummary(file_mods, 3) % \"M {path}\n\"}{pathsummary(file_adds, 3) % \"A {path}\n\"}{pathsummary(file_dels, 3) % \"R {path}\"}"'

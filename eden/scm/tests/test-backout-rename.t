@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ setconfig copytrace.dagcopytrace=True
   $ setconfig diff.git=true
 

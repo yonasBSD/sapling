@@ -5,7 +5,6 @@ Tests for the journal extension integration with remotenames.
 
 Skip if journal is not available in mercurial
 
-  $ export HGIDENTITY=sl
   $ sl help -e journal &>/dev/null || exit 80
 
   $ eagerepo

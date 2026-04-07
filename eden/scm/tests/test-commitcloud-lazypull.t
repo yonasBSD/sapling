@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh mutation-norecord
   $ enable amend commitcloud rebase share
   $ setconfig infinitepush.branchpattern="re:scratch/.*" commitcloud.hostname=testhost

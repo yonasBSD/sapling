@@ -5,7 +5,6 @@
 
 Setup
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh
   $ setconfig ui.username="nobody <no.reply@fb.com>"
 

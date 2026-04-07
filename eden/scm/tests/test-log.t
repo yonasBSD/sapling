@@ -12,7 +12,6 @@
 
 # Log on empty repository: checking consistency
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
   $ sl init empty

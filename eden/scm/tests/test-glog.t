@@ -78,7 +78,6 @@
 # |/
 # o  (0) root
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ commit() {
   >   rev=$1

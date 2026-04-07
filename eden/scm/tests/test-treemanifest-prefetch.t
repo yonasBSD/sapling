@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ CACHEDIR=`pwd`/hgcache
 
   $ . "$TESTDIR/library.sh"

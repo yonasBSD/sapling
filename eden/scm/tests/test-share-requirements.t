@@ -5,7 +5,6 @@
 
 #require killdaemons no-eden
 
-  $ export HGIDENTITY=sl
   $ enable share
 
 # prepare repo1

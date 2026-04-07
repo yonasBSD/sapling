@@ -2,7 +2,6 @@
 Tests of 'sl status --rev <rev>' to make sure status between <rev> and '.' get
 combined correctly with the dirstate status.
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
 
 First commit

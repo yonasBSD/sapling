@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig copytrace.fallback-to-content-similarity=True
 
 test fold skipping content similarity check for large files

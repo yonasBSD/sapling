@@ -7,7 +7,6 @@
 # GNU General Public License version 2.
 
 
-  $ export HGIDENTITY=sl
   $ disable amend
   $ cat >> $HGRCPATH << 'EOF'
   > [extensions]

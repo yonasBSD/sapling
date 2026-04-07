@@ -1,7 +1,6 @@
 #require fsmonitor linux
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ newclientrepo repo
 

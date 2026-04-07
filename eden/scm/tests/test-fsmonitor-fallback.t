@@ -1,6 +1,5 @@
 #require fsmonitor no-eden
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ echo foo > foo
   $ sl commit -Aqm foo

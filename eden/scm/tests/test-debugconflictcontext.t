@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ enable rebase
 
   $ newclientrepo

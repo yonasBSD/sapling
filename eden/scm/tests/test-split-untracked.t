@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ enable amend
   $ setconfig ui.interactive=true
 

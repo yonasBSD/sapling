@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ configure mutation-norecord
   $ . "$TESTDIR/library.sh"
 

@@ -1,6 +1,8 @@
 
 #require eden mononoke
 
+  $ export SL_REPO_IDENTITY=hg
+
 setup backing repo
 
   $ cat > $TESTTMP/.edenrc <<EOF

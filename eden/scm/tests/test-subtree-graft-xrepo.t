@@ -1,7 +1,6 @@
 #require git no-windows
 
 #testcases sparse non-sparse
-  $ export HGIDENTITY=sl
 #if sparse
   $ enable sparse
 #endif

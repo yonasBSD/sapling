@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ setconfig experimental.rebase-long-labels=True
 
   $ eagerepo

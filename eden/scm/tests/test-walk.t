@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ newclientrepo t
   $ mkdir -p beans
   $ for b in kidney navy turtle borlotti black pinto; do

@@ -6,7 +6,6 @@
 
 
 #if python
-  $ export HGIDENTITY=sl
   $ setconfig checkout.use-rust=false
 #endif
 

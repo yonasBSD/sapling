@@ -1,7 +1,6 @@
 #require no-windows no-eden
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ enable morestatus rebase
   $ setconfig morestatus.show=true
   $ setconfig rebase.experimental.inmemory=true

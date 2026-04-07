@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ newrepo
 
   $ sl debugdrawdag <<'EOS'

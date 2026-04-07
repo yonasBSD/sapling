@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ setconfig ui.allowemptycommit=1

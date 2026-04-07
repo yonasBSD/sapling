@@ -1,7 +1,6 @@
 #chg-compatible
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation
   $ setconfig extensions.bruterebase="$TESTDIR/bruterebase.py"

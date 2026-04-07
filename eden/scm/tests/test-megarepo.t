@@ -3,7 +3,6 @@
 
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ enable rebase commitextras megarepo
   $ setconfig megarepo.lossy-commit-action=abort
 

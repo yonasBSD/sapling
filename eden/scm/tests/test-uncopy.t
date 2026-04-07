@@ -4,7 +4,6 @@
 set up test repo
 
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ echo testcontents > testfile.txt
   $ mkdir testdir

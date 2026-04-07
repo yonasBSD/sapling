@@ -1,7 +1,6 @@
 
 #require symlink tar unzip no-eden
 
-  $ export HGIDENTITY=sl
   $ newrepo repo
   $ ln -s nothing dangling
 

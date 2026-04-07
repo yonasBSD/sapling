@@ -1,7 +1,6 @@
 #chg-compatible
 #require bash no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable progress
   $ setconfig extensions.progresstest="$TESTDIR/progresstest.py"

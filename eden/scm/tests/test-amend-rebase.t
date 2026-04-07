@@ -9,7 +9,6 @@
 
 # Set up test environment.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig workingcopy.rust-checkout=true
   $ cat >> $HGRCPATH << 'EOF'

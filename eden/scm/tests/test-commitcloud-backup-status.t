@@ -3,7 +3,6 @@
 #require symlink no-eden
 
 
-  $ export HGIDENTITY=sl
   $ enable amend smartlog
   $ . "$TESTDIR/library.sh"
   $ . "$TESTDIR/infinitepush/library.sh"

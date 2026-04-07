@@ -8,7 +8,6 @@
 
 # Simulate an environment that disables allowfullrepogrep:
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ setconfig 'histgrep.allowfullrepogrep=False'
 

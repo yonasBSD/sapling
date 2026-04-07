@@ -10,7 +10,6 @@
 
 # Verify ancestry data is readable by mergedrivers by looking at mergestate:
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ enable rebase

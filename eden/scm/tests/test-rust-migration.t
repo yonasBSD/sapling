@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig edenapi.url=https://test_fail/foo
   $ sl init testrepo

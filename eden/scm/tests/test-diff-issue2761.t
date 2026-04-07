@@ -9,7 +9,6 @@
 
 # Test issue2761
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init repo
   $ cd repo

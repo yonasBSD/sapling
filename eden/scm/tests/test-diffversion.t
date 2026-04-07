@@ -8,7 +8,6 @@
 
 # Setup
 
-  $ export HGIDENTITY=sl
   $ enable fbcodereview smartlog amend
   $ sl init repo
   $ cd repo

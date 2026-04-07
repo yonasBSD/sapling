@@ -14,7 +14,6 @@ Revert interactive tests
 9 make workdir match 7
 10 run the same test than 8 from within folder1 and check same expectations
 
-  $ export HGIDENTITY=sl
   $ setconfig ui.interactive=true
   $ eagerepo
 

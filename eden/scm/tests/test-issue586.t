@@ -5,7 +5,6 @@
 Issue586: removing remote files after merge appears to corrupt the
 dirstate
 
-  $ export HGIDENTITY=sl
   $ newserver a
   $ echo a > a
   $ sl ci -Ama

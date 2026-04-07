@@ -1,7 +1,6 @@
 #require no-fsmonitor no-eden
 
 setup
-  $ export HGIDENTITY=sl
   $ readconfig <<EOF
   > [alias]
   > blackbox = blackbox --no-timestamp --no-sid

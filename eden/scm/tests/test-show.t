@@ -8,7 +8,6 @@ of show that might break even if log works.
 
 Show on empty repository: checking consistency
 
-  $ export HGIDENTITY=sl
   $ sl init empty
   $ cd empty
   $ sl show

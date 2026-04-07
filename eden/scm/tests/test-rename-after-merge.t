@@ -3,7 +3,6 @@
 
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ enable amend
 
 Issue746: renaming files brought by the second parent of a merge was

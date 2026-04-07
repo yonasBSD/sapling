@@ -1,7 +1,6 @@
 #debugruntest-incompatible
 #require fsmonitor no-windows
 
-  $ export HGIDENTITY=sl
   $ enable fsmonitor hgevents
   $ setconfig experimental.fsmonitor.transaction_notify=true
 

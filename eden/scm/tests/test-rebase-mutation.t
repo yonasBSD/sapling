@@ -2,7 +2,6 @@
 #require no-eden
 
 #chg-compatible
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
   $ eagerepo

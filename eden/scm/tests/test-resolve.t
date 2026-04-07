@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig commands.update.check=none
 test that a commit clears the merge state.

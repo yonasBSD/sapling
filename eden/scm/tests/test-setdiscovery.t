@@ -5,7 +5,6 @@
 
 Stabilize test
 
-  $ export HGIDENTITY=sl
   $ PYTHONHASHSEED=0
 
 Function to test discovery between two repos in both directions, using both the local shortcut

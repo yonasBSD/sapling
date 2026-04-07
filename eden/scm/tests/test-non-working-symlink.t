@@ -1,6 +1,5 @@
 #require windows no-eden
 
-  $ export HGIDENTITY=sl
 Make sure Windows symlink support respects absence of windowssymlinks requirement
   $ newrepo
   $ grep -v windowssymlinks .sl/requires > .sl/requires.new

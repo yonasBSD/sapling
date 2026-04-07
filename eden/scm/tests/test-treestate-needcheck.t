@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
 Emulate situations where NEED_CHECK was added to normal files and there should

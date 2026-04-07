@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat >> foo.py << EOF
   > ui.write('argv = %r\n' % (sys.argv,))

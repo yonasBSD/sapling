@@ -5,7 +5,6 @@
 #inprocess-hg-incompatible
 
 
-  $ export HGIDENTITY=sl
   $ sl init a
   $ cd a
   $ echo 123 > a

@@ -1,6 +1,5 @@
 #require git no-eden
 
-  $ export HGIDENTITY=sl
   $ unset RUST_BACKTRACE
   $ eagerepo
   $ . $TESTDIR/git.sh

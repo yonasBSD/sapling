@@ -3,7 +3,6 @@
 
 test sparse
 
-  $ export HGIDENTITY=sl
   $ export LOG=sparse=warn
 
   $ configure modernclient

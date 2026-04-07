@@ -8,7 +8,6 @@
 
 # Build up a repo
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init repo
   $ cd repo

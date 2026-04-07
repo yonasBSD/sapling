@@ -5,7 +5,6 @@
 
 
 Show all commands except debug commands
-  $ export HGIDENTITY=sl
   $ sl debugcomplete | grep 'commit|diff|status|debugapi'
   commit
   diff

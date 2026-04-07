@@ -5,7 +5,6 @@
 Test argument handling and various data parsing
 ==================================================
 
-  $ export HGIDENTITY=sl
   $ enable histedit
 
 Repo setup.

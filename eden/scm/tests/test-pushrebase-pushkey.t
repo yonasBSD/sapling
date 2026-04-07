@@ -1,5 +1,4 @@
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ setconfig devel.legacy.exchange=bookmarks
 
 Setup

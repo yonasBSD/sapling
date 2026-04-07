@@ -8,7 +8,6 @@
 
 # Command line flag is effective:
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl add a --config 'ui.exitcodemask=63'
   abort: '$TESTTMP' is not inside a repository, but this command requires a repository!

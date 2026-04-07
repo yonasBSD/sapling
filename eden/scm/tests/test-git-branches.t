@@ -2,7 +2,6 @@
 #require git
 #debugruntest-incompatible
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ . $TESTDIR/git.sh
   $ enable smartlog amend

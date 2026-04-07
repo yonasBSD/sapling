@@ -2,7 +2,6 @@
 #require no-eden
 
 #chg-compatible
-  $ export HGIDENTITY=sl
   $ eagerepo
 
 Require a destination

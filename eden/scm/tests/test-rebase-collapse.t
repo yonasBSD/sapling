@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure mutation
   $ enable rebase strip
   $ setconfig phases.publish=0

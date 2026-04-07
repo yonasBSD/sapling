@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ enable rebase
   $ setconfig rebase.experimental.inmemory=true
   $ setconfig drawdag.defaultfiles=false

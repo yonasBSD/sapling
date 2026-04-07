@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ echo foo > .gitignore
 Avoid dirstate race condition where added files end up as NEED_CHECK.

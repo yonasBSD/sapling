@@ -2,7 +2,6 @@
 #require no-eden
 
 #inprocess-hg-incompatible
-  $ export HGIDENTITY=sl
   $ setconfig clone.use-rust=1 commands.force-rust=clone
 
 test sparse

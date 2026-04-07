@@ -1,6 +1,5 @@
 #require diff
 
-  $ export HGIDENTITY=sl
   $ setconfig drawdag.defaultfiles=false
   $ enable extdiff
 

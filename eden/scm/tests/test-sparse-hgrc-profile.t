@@ -1,7 +1,6 @@
 #testcases normalcheckout nativecheckout
 #chg-compatible
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ enable sparse
   $ setconfig commands.update.check=none

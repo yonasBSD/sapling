@@ -1,7 +1,6 @@
 #chg-compatible
 #require chg linux no-eden
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ drawdag <<'EOS'
   > B

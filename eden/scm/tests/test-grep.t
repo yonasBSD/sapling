@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig drawdag.defaultfiles=false
 
   $ setconfig grep.use-rust=true

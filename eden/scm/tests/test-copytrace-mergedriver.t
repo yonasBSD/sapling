@@ -8,7 +8,6 @@
 
 # With copied file using the heuristics copytracing:
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ enable mergedriver

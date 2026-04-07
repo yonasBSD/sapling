@@ -1,7 +1,6 @@
 
 #require no-icasefs no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 test file addition with colliding case
 

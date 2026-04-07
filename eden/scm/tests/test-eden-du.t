@@ -3,7 +3,6 @@
 
 setup backing repo
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo backingrepo
   $ eden clone --allow-empty-repo $TESTTMP/backingrepo $TESTTMP/wcrepo

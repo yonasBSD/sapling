@@ -10,7 +10,6 @@
 
 # Test that sl debugstrip -B stops at remotenames
 
-  $ export HGIDENTITY=sl
   $ sl init server
   $ sl clone -q server client
   $ cd client

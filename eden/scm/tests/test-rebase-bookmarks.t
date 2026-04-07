@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ enable rebase
 
 Create a repo with several bookmarks

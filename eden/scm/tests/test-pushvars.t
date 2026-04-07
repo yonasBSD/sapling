@@ -10,7 +10,6 @@
 
 # Setup
 
-  $ export HGIDENTITY=sl
   $ setconfig experimental.run-python-hooks-via-pyhook=true
 
   $ cat > $TESTTMP/pretxnchangegroup.sh << 'EOF'

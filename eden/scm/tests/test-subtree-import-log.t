@@ -1,6 +1,5 @@
 #require git no-windows
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable tweakdefaults
   $ setconfig diff.git=True

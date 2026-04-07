@@ -1,7 +1,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ echo a > a
   $ sl ci -Am0

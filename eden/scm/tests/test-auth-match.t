@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ newclientrepo repo
   $ export EDENSCM_LOG=auth=debug
 

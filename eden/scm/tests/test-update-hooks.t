@@ -1,5 +1,4 @@
 #debugruntest-incompatible
-  $ export HGIDENTITY=sl
   $ configure modernclient
 
 Make sure "goto" and "update" hooks support each other:

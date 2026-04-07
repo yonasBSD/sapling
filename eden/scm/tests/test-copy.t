@@ -3,7 +3,6 @@
 
 
 # enable bundle2 in advance
-  $ export HGIDENTITY=sl
   $ setconfig format.usegeneraldelta=yes
 
   $ mkdir part1

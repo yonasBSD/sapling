@@ -1,6 +1,5 @@
 #require git no-eden
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Initialize the server repos.

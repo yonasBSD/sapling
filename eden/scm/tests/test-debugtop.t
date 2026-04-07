@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable progress
   $ setconfig extensions.rustprogresstest="$TESTDIR/runlogtest.py" runlog.enable=True runlog.progress_refresh=0

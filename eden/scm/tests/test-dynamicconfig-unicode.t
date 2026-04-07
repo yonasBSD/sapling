@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure modern
 
   $ export HG_TEST_INTERNALCONFIG="$TESTTMP/test_hgrc"

@@ -4,7 +4,6 @@
 
 #if no-windows no-osx
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig config.use-rust=true
   $ mkdir -p xdgconf/sapling

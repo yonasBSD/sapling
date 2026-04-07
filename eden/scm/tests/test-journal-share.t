@@ -9,7 +9,6 @@
 
 # Journal extension test: tests the share extension support
 
-  $ export HGIDENTITY=sl
   $ configure modern
 
   $ cat >> testmocks.py << 'EOF'

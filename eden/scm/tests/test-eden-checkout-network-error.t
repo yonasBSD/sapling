@@ -3,7 +3,6 @@
 #testcases filtered unfiltered
 
 #if filtered
-  $ export HGIDENTITY=sl
   $ enable edensparse
   $ setconfig clone.eden-sparse-filter=
   $ setconfig remotefilelog.cachepath=$TESTTMP/filtered-cache

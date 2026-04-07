@@ -1,7 +1,6 @@
 #require git no-eden
 #modern-config-incompatible
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
 
 Server repo

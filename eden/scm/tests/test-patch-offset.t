@@ -2,7 +2,6 @@
 #debugruntest-incompatible
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ cat > writepatterns.py <<EOF
   > import sys

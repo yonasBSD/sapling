@@ -9,7 +9,6 @@
 
 # Setup repo
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ newrepo

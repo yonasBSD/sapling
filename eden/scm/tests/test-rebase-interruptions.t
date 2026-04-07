@@ -5,7 +5,6 @@
 #chg-compatible
 
 
-  $ export HGIDENTITY=sl
   $ enable rebase
 
   $ sl init a

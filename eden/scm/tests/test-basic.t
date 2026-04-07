@@ -4,7 +4,6 @@
 
 Create a repository:
 
-  $ export HGIDENTITY=sl
   $ newclientrepo t
 
 Prepare a changeset:

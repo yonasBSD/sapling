@@ -6,7 +6,6 @@
 # GNU General Public License version 2.
 
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ setconfig 'experimental.evolution='
   $ enable absorb

@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ setconfig push.edenapi=true
   $ setconfig scmstore.tree-metadata-mode=always
 

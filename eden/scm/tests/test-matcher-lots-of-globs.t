@@ -5,7 +5,6 @@
 
 Don't crash with lots of glob rules.
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ touch foo_0 foo_9999 foo_10000
   >>> open("pats", "w").write("".join(f"glob:**/foo_{i}\n" for i in range(10_000))) and None

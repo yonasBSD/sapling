@@ -4,7 +4,6 @@
 
 Test uncommit - set up the config
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ enable amend

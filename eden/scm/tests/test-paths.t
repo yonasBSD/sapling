@@ -1,7 +1,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ sl init a
   $ sl clone a b
   updating to tip

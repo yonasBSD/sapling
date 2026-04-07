@@ -1,7 +1,6 @@
 #testcases ruststatus pythonstatus
 
 #if pythonstatus
-  $ export HGIDENTITY=sl
   $ setconfig status.use-rust=false
 #endif
 

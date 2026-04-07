@@ -8,7 +8,6 @@
 
 # debug-args
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl --cwd . debug-args a b
   ["a", "b"]

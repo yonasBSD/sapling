@@ -22,7 +22,7 @@ D: in both commits, partially absorbed
   $ echo A > dir1/A
   $ echo C1 > dir1/C
   $ echo D1 >> dir1/D
-  $ hg commit -m A -A dir1/A dir1/C dir1/D
+  $ sl commit -m A -A dir1/A dir1/C dir1/D
   mirrored adding 'dir1/A' to 'dir2/A'
   mirrored adding 'dir1/C' to 'dir2/C'
   mirrored adding 'dir1/D' to 'dir2/D'
@@ -30,7 +30,7 @@ D: in both commits, partially absorbed
   $ echo B > dir2/B
   $ echo C2 >> dir1/C
   $ echo D2 >> dir1/D
-  $ hg commit -m B -A dir2/B dir1/C dir1/D
+  $ sl commit -m B -A dir2/B dir1/C dir1/D
   mirrored adding 'dir2/B' to 'dir1/B'
   mirrored changes in 'dir1/C' to 'dir2/C'
   mirrored changes in 'dir1/D' to 'dir2/D'
@@ -52,7 +52,7 @@ Absorb triggers mirroring
   > D3
   > EOF
 
-  $ LOG=sapling::ext::dirsync=debug hg absorb -a
+  $ LOG=sapling::ext::dirsync=debug sl absorb -a
   showing changes for dir1/B
           @@ -0,1 +0,1 @@
   * -B (glob)
@@ -94,10 +94,10 @@ Absorb triggers mirroring
 Working copy does not have "M" mirrored files
 D has a line not absorbed
 
-  $ hg status
+  $ sl status
   M dir1/D
 
-  $ hg diff --git
+  $ sl diff --git
   diff --git a/dir1/D b/dir1/D
   --- a/dir1/D
   +++ b/dir1/D
@@ -110,7 +110,7 @@ D has a line not absorbed
 
 Changes are applied
 
-  $ hg log -p -T '{desc}\n' --config diff.git=1
+  $ sl log -p -T '{desc}\n' --config diff.git=1
   B
   diff --git a/dir1/B b/dir1/B
   new file mode 100644
@@ -195,9 +195,9 @@ Changes are applied
   
 Only changes the 1st commit:
 
-  $ hg revert --config ui.origbackuppath=.hg/origbackups dir1/D
+  $ sl revert --config ui.origbackuppath=.hg/origbackups dir1/D
   $ echo A2 > dir1/A
-  $ LOG=sapling::ext::dirsync=debug hg absorb
+  $ LOG=sapling::ext::dirsync=debug sl absorb
   showing changes for dir1/A
           @@ -0,1 +0,1 @@
   * -A1 (glob)
@@ -211,8 +211,8 @@ Only changes the 1st commit:
   DEBUG sapling::ext::dirsync: rewrite mirrored dir2/A
   1 of 1 chunk applied
 
-  $ hg status
-  $ hg log -p -T '{desc}\n' --config diff.git=1 dir2/A dir1/A
+  $ sl status
+  $ sl log -p -T '{desc}\n' --config diff.git=1 dir2/A dir1/A
   warning: file log can be slow on large repos - use -f to speed it up
   A
   diff --git a/dir1/A b/dir1/A
@@ -228,7 +228,7 @@ Only changes the 1st commit:
   @@ -0,0 +1,1 @@
   +A2
 
-  $ hg debugmutation -r .
+  $ sl debugmutation -r .
    *  * absorb by test at 1970-01-01T00:00:00 from: (glob)
       * absorb by test at 1970-01-01T00:00:00 from: (glob)
       * (glob)
@@ -244,26 +244,26 @@ Changes the 1st commit but restores at the top:
 
   $ mkdir dir1
   $ echo 1 > dir1/A
-  $ hg commit -m A1 -A dir1/A
+  $ sl commit -m A1 -A dir1/A
   mirrored adding 'dir1/A' to 'dir2/A'
 
   $ echo 2 > dir1/A
-  $ hg commit -m A2 dir1/A
+  $ sl commit -m A2 dir1/A
   mirrored changes in 'dir1/A' to 'dir2/A'
 
   $ echo 3 > dir1/A
-  $ hg commit -m A3 dir1/A
+  $ sl commit -m A3 dir1/A
   mirrored changes in 'dir1/A' to 'dir2/A'
 
-  $ HGEDITOR=cat hg absorb -e dir1/A
+  $ HGEDITOR=cat sl absorb -e dir1/A
   apply changes (yn)?  y
-  HG: editing dir1/A
-  HG: "y" means the line to the right exists in the changeset to the top
-  HG:
-  HG: /---- * A1 (glob)
-  HG: |/--- * A2 (glob)
-  HG: ||/-- * A3 (glob)
-  HG: |||
+  SL: editing dir1/A
+  SL: "y" means the line to the right exists in the changeset to the top
+  SL:
+  SL: /---- * A1 (glob)
+  SL: |/--- * A2 (glob)
+  SL: ||/-- * A3 (glob)
+  SL: |||
         y : 3
        y  : 2
       y   : 1
@@ -273,12 +273,12 @@ Changes the 1st commit but restores at the top:
 There is no "rewrite mirrored dir2/A" message:
 
   $ cat > editortext << EOF
-  > HG: |||
+  > SL: |||
   >       y : 3
   >      y  : 2
   >     y   : 3
   > EOF
-  $ LOG='sapling::ext::dirsync=debug' HGEDITOR='cat editortext >' hg absorb --edit-lines -a dir1/A
+  $ LOG='sapling::ext::dirsync=debug' HGEDITOR='cat editortext >' sl absorb --edit-lines -a dir1/A
   mirrored adding 'dir1/A' to 'dir2/A'
   DEBUG sapling::ext::dirsync: dirsync: no files are mirrored
   DEBUG sapling::ext::dirsync: dirsync: no files are mirrored
@@ -286,9 +286,9 @@ There is no "rewrite mirrored dir2/A" message:
 
 and status is clean
 
-  $ hg status
+  $ sl status
   ? editortext
-  $ hg log -p -T '{desc}\n' --config diff.git=1 dir2/A
+  $ sl log -p -T '{desc}\n' --config diff.git=1 dir2/A
   warning: file log can be slow on large repos - use -f to speed it up
   A3
   diff --git a/dir2/A b/dir2/A

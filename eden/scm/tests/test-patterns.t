@@ -1,6 +1,5 @@
 #require no-windows no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Explore the semi-mysterious matchmod.match API
 

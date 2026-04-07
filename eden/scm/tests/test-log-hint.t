@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ setconfig tweakdefaults.logdefaultfollow=true
 
   $ newclientrepo

@@ -8,7 +8,6 @@
 
 # Test various flags to turn off bad sl features.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ drawdag << 'EOS'

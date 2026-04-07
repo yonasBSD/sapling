@@ -5,7 +5,6 @@
 
 Create an extension to test bundle2 with multiple changegroups
 
-  $ export HGIDENTITY=sl
   $ cat > bundle2.py <<EOF
   > """
   > """

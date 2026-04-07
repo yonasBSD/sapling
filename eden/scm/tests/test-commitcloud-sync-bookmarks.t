@@ -2,7 +2,6 @@
 
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ enable amend commitcloud rebase fbcodereview
   $ configure dummyssh
   $ setconfig commitcloud.hostname=testhost

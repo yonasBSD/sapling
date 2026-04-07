@@ -5,7 +5,6 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
-  $ export HGIDENTITY=sl
   $ newclientrepo folder
   $ mkdir x x/l x/m x/n x/l/u x/l/u/a
   $ touch a b x/aa.o x/bb.o

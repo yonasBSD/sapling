@@ -1,6 +1,5 @@
 #require git no-windows
 
-  $ export HGIDENTITY=sl
   $ setconfig diff.git=True
   $ setconfig subtree.allow-any-source-commit=True
   $ setconfig subtree.min-path-depth=1

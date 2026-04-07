@@ -2,7 +2,6 @@
 #require git no-eden
 
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ sl log -r . -T '{nodescheme}\n'
   hg

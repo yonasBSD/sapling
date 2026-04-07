@@ -3,7 +3,6 @@
 
 
 initial
-  $ export HGIDENTITY=sl
   $ newclientrepo test-a
   $ cat >test.txt <<"EOF"
   > 1

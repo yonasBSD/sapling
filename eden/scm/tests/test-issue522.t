@@ -10,7 +10,6 @@ the version in p1 is an ancestor of the version in p2. This test makes
 sure that we'll use the version from p2 in the manifest of the merge
 revision.
 
-  $ export HGIDENTITY=sl
   $ sl init repo
   $ cd repo
 

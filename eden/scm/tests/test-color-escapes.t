@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig ui.color=always color.mode=ansi
   $ setconfig color.color.none=0

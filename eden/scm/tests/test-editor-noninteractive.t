@@ -1,4 +1,3 @@
-  $ export HGIDENTITY=sl
   $ eagerepo
 
 interactive editor should abort in non-interactive mode

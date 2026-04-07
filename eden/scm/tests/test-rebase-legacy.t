@@ -11,7 +11,6 @@
 
 # TODO: Make this test compatibile with obsstore enabled.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ setconfig 'experimental.evolution='

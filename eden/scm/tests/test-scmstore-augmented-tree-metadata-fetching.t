@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ setconfig scmstore.fetch-tree-aux-data=true
   $ setconfig scmstore.store-tree-aux-data=true

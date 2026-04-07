@@ -4,7 +4,6 @@
 
 Test new conflict switching:
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ configure mutation-norecord
   $ newrepo

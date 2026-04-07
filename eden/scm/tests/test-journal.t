@@ -1,7 +1,6 @@
 #require no-windows no-eden
 #inprocess-hg-incompatible
 
-  $ export HGIDENTITY=sl
   $ enable rebase
   $ setconfig workingcopy.rust-checkout=true
 

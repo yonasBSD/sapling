@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ sl init test
   $ cd test
   $ echo foo>foo

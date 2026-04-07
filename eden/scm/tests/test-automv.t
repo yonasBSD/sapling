@@ -8,7 +8,6 @@
 
 # Tests for the automv extension; detect moved files at commit time.
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
   $ cat >> $HGRCPATH << 'EOF'

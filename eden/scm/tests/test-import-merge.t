@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ configure modernclient
   $ setconfig workingcopy.rust-checkout=true
 

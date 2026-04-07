@@ -2,7 +2,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ setconfig diff.git=1 diff.hashbinary=1

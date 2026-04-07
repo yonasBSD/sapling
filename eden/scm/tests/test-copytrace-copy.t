@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable rebase
 

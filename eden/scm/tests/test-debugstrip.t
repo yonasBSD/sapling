@@ -3,7 +3,6 @@
 #require no-eden
 
 #inprocess-hg-incompatible
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ configure mutation-norecord
 

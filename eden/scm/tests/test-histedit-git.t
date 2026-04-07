@@ -1,6 +1,5 @@
 #require no-eden no-windows git
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
   $ . "$TESTDIR/histedit-helpers.sh"
   $ enable histedit

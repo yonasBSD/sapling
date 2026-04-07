@@ -8,7 +8,6 @@
 
 # test sparse with --verbose and -T json
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ enable sparse
   $ sl init myrepo

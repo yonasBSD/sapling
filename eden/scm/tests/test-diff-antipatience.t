@@ -8,7 +8,6 @@
 
 # Test case that makes use of the weakness of patience diff algorithm
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ sl init repo
   $ cd repo

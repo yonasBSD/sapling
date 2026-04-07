@@ -3,7 +3,6 @@
 
 
 Setup
-  $ export HGIDENTITY=sl
   $ configure modern
   $ enable fbcodereview
   $ setconfig pullcreatemarkers.check-local-versions=True

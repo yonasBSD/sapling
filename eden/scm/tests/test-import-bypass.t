@@ -3,7 +3,6 @@
 
 
 
-  $ export HGIDENTITY=sl
   $ shortlog() {
   >     sl log -G --template '{node|short} {author} {date|hgdate} - {desc|firstline}\n'
   > }

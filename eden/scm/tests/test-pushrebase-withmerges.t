@@ -4,7 +4,6 @@ Dummy SSH issues on Windows
 #inprocess-hg-incompatible
 
 Eagerepo doesn't support pushrebase yet.
-  $ export HGIDENTITY=sl
   $ rm $TESTTMP/.eagerepo
 
 Setup

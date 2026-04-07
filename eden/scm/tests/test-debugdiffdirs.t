@@ -1,6 +1,5 @@
 #require no-eden
 
-  $ export HGIDENTITY=sl
   $ newclientrepo
   $ touch file
   $ sl commit -Aqm initial

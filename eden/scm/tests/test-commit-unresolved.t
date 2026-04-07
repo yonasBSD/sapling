@@ -1,5 +1,4 @@
 
-  $ export HGIDENTITY=sl
   $ addcommit () {
   >     echo $1 > $1
   >     sl add $1

@@ -29,7 +29,7 @@ Setup dirsync
 
 Test metaedit
 
-  $ hg metaedit $A -v -m 'A1'
+  $ sl metaedit $A -v -m 'A1'
   dirsync: skipped for metaedit
   committing changelog
   dirsync: skipped for metaedit

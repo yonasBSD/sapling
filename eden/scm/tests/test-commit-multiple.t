@@ -4,7 +4,6 @@
 
 # reproduce issue2264, issue2516
 
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
   $ eagerepo
 create test repo

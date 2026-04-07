@@ -1,6 +1,5 @@
 #require no-windows no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 
 test merging things outside of the sparse checkout

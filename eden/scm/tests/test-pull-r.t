@@ -3,7 +3,6 @@
 #require no-eden
 
 
-  $ export HGIDENTITY=sl
   $ configure dummyssh
   $ sl init repo
   $ cd repo

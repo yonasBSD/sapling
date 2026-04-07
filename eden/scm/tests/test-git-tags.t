@@ -1,7 +1,6 @@
 #require git no-eden no-windows
 #modern-config-incompatible
 
-  $ export HGIDENTITY=sl
   $ . $TESTDIR/git.sh
   $ setconfig diff.git=true ui.allowemptycommit=true
 

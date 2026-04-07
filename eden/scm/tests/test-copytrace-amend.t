@@ -2,7 +2,6 @@
 (debugruntest fails under buck for some reason)
 #chg-compatible
 
-  $ export HGIDENTITY=sl
   $ configure mutation-norecord
   $ enable amend rebase shelve
 

@@ -1,6 +1,5 @@
 #require git no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
 Test that rebasing in a git repo with conflicts work.
 

@@ -1,7 +1,6 @@
 
 #require no-windows no-eden
 
-  $ export HGIDENTITY=sl
   $ eagerepo
   $ newrepo
   $ mkdir -p a/b c/d/e c/f/g c/g
