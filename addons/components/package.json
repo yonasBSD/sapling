@@ -8,7 +8,6 @@
     "@testing-library/dom": "^10.0.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^13.2.1",
-    "@stylexjs/unplugin": "^0.18.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
@@ -20,7 +19,6 @@
     "vite-tsconfig-paths": "^6.1.1"
   },
   "dependencies": {
-    "@stylexjs/stylex": "^0.18.1",
     "@vscode/codicons": "^0.0.45",
     "react": "^19.0.0"
   },

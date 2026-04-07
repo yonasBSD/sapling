@@ -14,8 +14,6 @@ import '@testing-library/jest-dom';
 /* eslint-disable no-console */
 global.console = require('console');
 
-jest.mock('@stylexjs/stylex');
-
 // reduce flakiness by retrying
 jest.retryTimes(1);
 

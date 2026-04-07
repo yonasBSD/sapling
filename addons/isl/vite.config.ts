@@ -6,7 +6,6 @@
  */
 
 // import babel from '@rolldown/plugin-babel';
-import stylex from '@stylexjs/unplugin';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path, {resolve} from 'node:path';
@@ -39,7 +38,6 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [
-    stylex.vite({useCSSLayers: true, styleResolution: 'application-order'}),
     react(),
     // babel({
     //   plugins: [

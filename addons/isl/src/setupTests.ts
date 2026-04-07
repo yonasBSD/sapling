@@ -15,9 +15,6 @@ import '@testing-library/jest-dom';
 // console.log still works for debugging tests.
 jest.mock('./logger');
 
-// jest doesn't have the stylex compilation step, let's just mock it
-jest.mock('@stylexjs/stylex');
-
 // Mock MessageBus via LocalWebSocketEventBus before other logic which might have effects on it.
 jest.mock('./LocalWebSocketEventBus', () => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/consistent-type-imports

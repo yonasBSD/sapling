@@ -141,7 +141,7 @@ export function Typeahead({
         />
         {tokens.length >= (maxTokens ?? Infinity) ? null : (
           <div className="commit-info-field-with-typeahead">
-            <TextField ref={ref} value={remaining} onInput={onInput} {...rest} />
+            <TextField {...rest} ref={ref} value={remaining} onInput={onInput} />
             {typeaheadSuggestions?.type === 'loading' ||
             (typeaheadSuggestions?.values?.length ?? 0) > 0 ? (
               <div className="typeahead-suggestions tooltip tooltip-bottom">

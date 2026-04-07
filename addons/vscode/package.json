@@ -316,8 +316,6 @@
     "vscode:prepublish": "node ./buildForPublish.js"
   },
   "devDependencies": {
-    "@stylexjs/stylex": "^0.18.1",
-    "@stylexjs/unplugin": "^0.18.1",
     "@types/jest": "29.5.12",
     "@types/node": "^16.11.7",
     "@types/react-dom": "^19",

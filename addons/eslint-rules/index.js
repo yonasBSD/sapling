@@ -6,14 +6,12 @@
  */
 
 const jotaiMaybeUseFamily = require('./jotai-maybe-use-family');
-const stylexImport = require('./stylex-import');
 const internalPromiseCallbackTypes = require('./internal-promise-callback-types');
 const noFacebookImports = require('./no-facebook-imports');
 
 module.exports = {
   rules: {
     'jotai-maybe-use-family': jotaiMaybeUseFamily,
-    'stylex-import': stylexImport,
     'internal-promise-callback-types': internalPromiseCallbackTypes,
     'no-facebook-imports': noFacebookImports,
   },

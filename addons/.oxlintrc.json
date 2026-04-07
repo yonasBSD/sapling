@@ -83,7 +83,6 @@
     "import/no-duplicates": "error",
 
     "custom/jotai-maybe-use-family": "error",
-    "custom/stylex-import": "error",
     "custom/internal-promise-callback-types": "error",
     "custom/no-facebook-imports": "error",
 

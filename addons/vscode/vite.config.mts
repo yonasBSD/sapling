@@ -5,12 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {Plugin, PluginOption} from 'vite';
+import type {PluginOption} from 'vite';
 
 // import babel from '@rolldown/plugin-babel';
-import stylex from '@stylexjs/unplugin';
 import react from '@vitejs/plugin-react';
-import fs, {existsSync} from 'node:fs';
+import {existsSync} from 'node:fs';
 import path from 'node:path';
 import {defineConfig} from 'vite';
 
@@ -36,44 +35,6 @@ if (isInternal) {
 }
 
 console.log(isInternal ? 'Building internal version' : 'Building OSS version');
-
-// vite-plugin-stylex doesn't support renaming the output CSS file, so we have to do that ourselves.
-// Newer versions of @stylexjs/stylex (>=0.9) may merge CSS into the main bundle instead of
-// emitting a separate asset. In that case, create an empty placeholder so the webview doesn't 404.
-function moveStylexFilenamePlugin(): Plugin {
-  return {
-    name: 'move-stylex-filename',
-    writeBundle(options, bundle) {
-      if (options.dir == null) {
-        this.error('Could not replace StyleX output, dir must be set');
-      }
-      const dir = options.dir as string;
-      const newName = 'res/stylex.css';
-      const newPath = path.resolve(dir, newName);
-      let found = false;
-      for (const name in bundle) {
-        const chunk = bundle[name];
-        // Check if this is the stylex output css file
-        if (chunk.type === 'asset' && /assets[/\\]stylex\.[a-f0-9]+\.css/.test(chunk.fileName)) {
-          // Rename the file, move it from "assets" to "res" where the rest of our assets are
-          const oldPath = path.resolve(dir, chunk.fileName);
-          this.info(`Replacing StyleX output file ${chunk.fileName} with ${newName}`);
-          fs.renameSync(oldPath, newPath);
-          // Update the bundle object
-          chunk.fileName = newName;
-          bundle[newName] = chunk;
-          delete bundle[name];
-          found = true;
-        }
-      }
-      if (!found && !existsSync(newPath)) {
-        this.info('StyleX did not emit a separate CSS asset; creating empty res/stylex.css');
-        fs.mkdirSync(path.dirname(newPath), {recursive: true});
-        fs.writeFileSync(newPath, '/* stylex: no separate asset emitted */\n');
-      }
-    },
-  };
-}
 
 const replaceFiles = (
   replacements?: Array<{
@@ -123,7 +84,6 @@ export default defineConfig(({mode}) => ({
       },
     ]),
 
-    stylex.vite({useCSSLayers: true, styleResolution: 'application-order'}),
     react(),
     // babel({
     //   plugins: [
@@ -144,7 +104,6 @@ export default defineConfig(({mode}) => ({
     //     ],
     //   ],
     // }),
-    moveStylexFilenamePlugin(),
   ],
   build: {
     outDir: 'dist/webview',
