@@ -1,6 +1,4 @@
 #modern-config-incompatible
-#inprocess-hg-incompatible
-  $ export HGIDENTITY=sl
   $ setconfig devel.segmented-changelog-rev-compat=true
 
 #require jq no-eden
@@ -52,7 +50,7 @@ Utility function to run HG with a fake date
   $ hgfakedate() {
   >   fakedate="$1"
   >   shift
-  >   hg --config extensions.fakedate="$TESTDIR/fakedate.py" --config fakedate.date="$fakedate" "$@"
+  >   sl --config extensions.fakedate="$TESTDIR/fakedate.py" --config fakedate.date="$fakedate" "$@"
   > }
 
 Make a clone of the server

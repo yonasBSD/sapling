@@ -1,8 +1,4 @@
-
 #require no-eden
-
-#chg-compatible
-#inprocess-hg-incompatible
 
   $ setconfig commitcloud.enablestatus=false
 

@@ -1,19 +1,10 @@
-#modern-config-incompatible
-
 #require no-eden
-
-#chg-compatible
-
 
   $ . "$TESTDIR/library.sh"
 
-
   $ hginit master
   $ cd master
-  $ cat >> .sl/config <<EOF
-  > [remotefilelog]
-  > server=True
-  > EOF
+  $ setconfig remotefilelog.server=true
   $ echo x > x
   $ sl commit -qAm 'add x'
   $ sl book master
@@ -23,10 +14,7 @@
   $ cd client
 
 Test autocreatetrees
-  $ cat >> .sl/config <<EOF
-  > [treemanifest]
-  > autocreatetrees=True
-  > EOF
+  $ setconfig treemanifest.autocreatetrees=true
   $ cd ../master
   $ mkdir subdir
   $ echo z >> subdir/z
@@ -66,11 +54,7 @@ Test rebasing a stack of commits results in a pack with all the trees
 TODO(meyer): Fix debugindexedlogdatastore and debugindexedloghistorystore and add back output here.
 
 Test treemanifest with sparse enabled
-  $ cat >> .sl/config <<EOF
-  > [extensions]
-  > sparse=
-  > reset=
-  > EOF
+  $ enable sparse reset
   $ sl sparse -I subdir
   $ sl reset '.^'
   1 changeset hidden

@@ -5,7 +5,8 @@ import bindings
 from sapling import util
 
 
-def extsetup(ui):
+# reposetup is more compatible with debugruntest since it runs for every invocation.
+def reposetup(ui, _repo):
     fakedate = ui.config("fakedate", "date", "1996-03-07 14:00:01Z")
     bindings.hgtime.setnowfortesting(fakedate)
     fakedate = util.parsedate(fakedate)[0]

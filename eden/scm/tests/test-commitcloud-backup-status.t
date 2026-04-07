@@ -2,17 +2,10 @@
 
 #require symlink no-eden
 
-
   $ enable amend smartlog
   $ . "$TESTDIR/library.sh"
   $ . "$TESTDIR/infinitepush/library.sh"
   $ setupcommon
-
-  $ hgfakedate() {
-  >   fakedate="$1"
-  >   shift
-  >   hg --config extensions.fakedate="$TESTDIR/fakedate.py" --config fakedate.date="$fakedate" "$@"
-  > }
 
 Setup server
   $ newserver repo
