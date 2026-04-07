@@ -65,6 +65,25 @@ fn sapling_snapshot_create(sl_bin: &OsString, repo_path: PathBuf) -> anyhow::Res
     Ok(id)
 }
 
+/// Restore a snapshot into the worktree at `dest`.
+#[allow(dead_code)]
+fn sapling_snapshot_checkout(sl_bin: &OsString, dest: &PathBuf, id: &str) -> anyhow::Result<()> {
+    Command::new(sl_bin)
+        .args([
+            "--config",
+            "extensions.snapshot=",
+            "snapshot",
+            "checkout",
+            id,
+            "--clean",
+            "-y",
+        ])
+        .current_dir(dest)
+        .checked_run()
+        .with_context(|| format!("failed to restore snapshot {} into {}", id, dest.display()))?;
+    Ok(())
+}
+
 pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     let logger = ctx.logger();
 
