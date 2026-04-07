@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
@@ -30,6 +31,14 @@ use worktree::with_registry_lock;
 use worktree::with_worktree_path_op_lock;
 
 use crate::WorktreeOpts;
+
+#[allow(dead_code)]
+fn current_sl_binary() -> OsString {
+    std::env::current_exe()
+        .ok()
+        .map(Into::into)
+        .unwrap_or_else(|| OsString::from(identity::cli_name()))
+}
 
 pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     let logger = ctx.logger();
