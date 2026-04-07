@@ -12,6 +12,7 @@ use anyhow::Error;
 use anyhow::Result;
 use anyhow::format_err;
 use cmdlib_cross_repo::create_commit_syncers_from_app;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use cross_repo_sync::CommitSyncData;
 use derivation_queue_thrift::DerivationPriority;
@@ -29,9 +30,11 @@ use mononoke_app::args::SourceAndTargetRepoArgs;
 use mononoke_types::ChangesetId;
 use mononoke_types::FileChange;
 use mononoke_types::MPath;
+use mononoke_types::content_manifest::compat;
 use movers::Mover;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedDataRef;
+use repo_identity::RepoIdentityRef;
 use tracing::info;
 
 use super::common::LightResultingChangesetArgs;
@@ -82,12 +85,28 @@ pub async fn run(
         .await?;
 
     // Find all files under a given path
-    let root_fsnode_id = large_repo
-        .repo_derived_data()
-        .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
-        .await?;
-    let entries = root_fsnode_id
-        .fsnode_id()
+    let use_content_manifests = justknobs::eval(
+        "scm/mononoke:derived_data_use_content_manifests",
+        None,
+        Some(large_repo.repo_identity().name()),
+    )?;
+
+    let root: compat::ContentManifestId = if use_content_manifests {
+        large_repo
+            .repo_derived_data()
+            .derive::<RootContentManifestId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?
+            .into_content_manifest_id()
+            .into()
+    } else {
+        large_repo
+            .repo_derived_data()
+            .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?
+            .into_fsnode_id()
+            .into()
+    };
+    let entries = root
         .find_entries(
             ctx.clone(),
             large_repo.repo_blobstore().clone(),
