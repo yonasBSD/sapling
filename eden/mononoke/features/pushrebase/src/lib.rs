@@ -910,6 +910,19 @@ async fn rebase_in_loop(
         // guards against future logic changes that might break that property.
         if any_attempt_resolved_conflicts && merge_resolved_paths.is_none() {
             STATS::merge_resolution_lost_on_retry.add_value(1, repo_args.clone());
+
+            // Log to Scuba for oncall visibility. The ODS counter alone
+            // doesn't carry enough context to investigate.
+            ctx.scuba().clone()
+                .add("log_tag", "MergeResolutionLostOnRetry")
+                .add("repo_name", repo.repo_identity().name())
+                .add("retry_num", retry_num.0 as i64)
+                .add(
+                    "merge_resolution_invariant_violation",
+                    "any_attempt_resolved_conflicts=true but final attempt has no merge_resolved_paths",
+                )
+                .log();
+
             return Err(PushrebaseInternalError::MergeResolutionLostOnRetry.into());
         }
 
