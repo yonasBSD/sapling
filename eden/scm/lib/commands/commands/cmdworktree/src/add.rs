@@ -33,7 +33,6 @@ use worktree::with_worktree_path_op_lock;
 
 use crate::WorktreeOpts;
 
-#[allow(dead_code)]
 fn current_sl_binary() -> OsString {
     std::env::current_exe()
         .ok()
@@ -42,7 +41,6 @@ fn current_sl_binary() -> OsString {
 }
 
 /// Create a snapshot of the working copy at `repo_path`, returning the snapshot ID.
-#[allow(dead_code)]
 fn sapling_snapshot_create(sl_bin: &OsString, repo_path: PathBuf) -> anyhow::Result<String> {
     let output = Command::new(sl_bin)
         .args([
@@ -66,7 +64,6 @@ fn sapling_snapshot_create(sl_bin: &OsString, repo_path: PathBuf) -> anyhow::Res
 }
 
 /// Restore a snapshot into the worktree at `dest`.
-#[allow(dead_code)]
 fn sapling_snapshot_checkout(sl_bin: &OsString, dest: &PathBuf, id: &str) -> anyhow::Result<()> {
     Command::new(sl_bin)
         .args([
@@ -117,10 +114,6 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     // Fast-fail before locking (re-checked inside lock).
     if dest.exists() {
         abort!("destination path '{}' already exists", dest.display());
-    }
-
-    if ctx.opts.snapshot {
-        abort!("--snapshot is not yet implemented");
     }
 
     check_dest_not_in_repo(&dest)?;
@@ -229,7 +222,40 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         Ok(())
     })?;
 
+    let sl_bin = current_sl_binary();
+    let mut exit_code: u8 = 0;
+
+    // If --snapshot, create a snapshot of the current working copy.
+    let snapshot_id = if ctx.opts.snapshot {
+        logger.info("creating snapshot of current working copy...");
+        match sapling_snapshot_create(&sl_bin, repo.path().to_path_buf()) {
+            Ok(id) => {
+                logger.info(format!("created snapshot {}", id));
+                Some(id)
+            }
+            Err(e) => {
+                logger.warn(format!("snapshot create failed, skipping: {}", e));
+                exit_code = 1;
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     logger.info(format!("created linked worktree at {}", dest.display()));
+
+    // If we took a snapshot, restore it in the new worktree.
+    if let Some(ref id) = snapshot_id {
+        logger.info(format!("restoring snapshot {} into worktree...", id));
+        if let Err(e) = sapling_snapshot_checkout(&sl_bin, &dest, id) {
+            logger.warn(format!(
+                "snapshot checkout failed (worktree created but snapshot not applied): {}",
+                e
+            ));
+            exit_code = 1;
+        }
+    }
 
     let post_hooks = hook::Hooks::from_config(repo.config(), ctx.io(), "post-worktree-add");
     post_hooks.run_hooks(
@@ -244,7 +270,7 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         ])),
     )?;
 
-    Ok(0)
+    Ok(exit_code)
 }
 
 fn resolve_group_for_main_path(
