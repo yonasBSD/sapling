@@ -28,6 +28,12 @@ import time
 
 from libfb.py.employee import uid_to_unixname
 from libfb.py.thrift_clients.oncall_thrift_client import OncallThriftClient
+from phabricator.new_phabricator_graphql_helpers import (
+    get_phabricator_diffs_with_custom_return_fields,
+    PhabricatorDiffStatus,
+)
+from phabricator.phabricator_auth_strategy_factory import PhabricatorAuthStrategyFactory
+from phabricator.phabricator_graphql_client import PhabricatorGraphQLClientBase
 from rfe.py.lib.sql import query_sql_as_dict, ResultType
 from rfe.scubadata.scubadata_py3 import ScubaData
 
@@ -42,10 +48,19 @@ MERGE_RESOLUTION_LOOKBACK_SECS: int = 1200
 # Trunk CI may take hours to detect breakage, so use a wider window.
 BLAME_LOOKBACK_SECS: int = 14400  # 4 hours
 
+# How far back to look for merge-resolved diffs for revert detection (seconds).
+# Reverts can take hours (CI runs -> Autopilot evaluates -> revert lands),
+# so use a wider lookback than the breakage blame check.
+REVERT_LOOKBACK_SECS: int = 14400  # 4 hours
+
 SCUBA_SOURCE: str = "merge_resolution_blame_checker"
 
+ALERT_TYPE_BLAMED: str = "merge_resolved_then_blamed"
+ALERT_TYPE_REVERTED: str = "merge_resolved_then_reverted"
+_VALID_ALERT_TYPES: set[str] = {ALERT_TYPE_BLAMED, ALERT_TYPE_REVERTED}
 
-def _get_merge_resolved_diffs_sql() -> str:
+
+def _get_merge_resolved_diffs_sql(lookback_secs: int) -> str:
     """SQL JOIN to find merge-resolved pushrebases and their diff IDs."""
     return f"""
         SELECT
@@ -59,10 +74,10 @@ def _get_merge_resolved_diffs_sql() -> str:
             ON mononoke_land_service.`changeset_id`
                 = mononoke_new_commit.`changeset_id`
         WHERE
-            NOW() - {MERGE_RESOLUTION_LOOKBACK_SECS}
+            NOW() - {lookback_secs}
                 <= mononoke_land_service.`time`
             AND mononoke_land_service.`time` <= NOW()
-            AND NOW() - {MERGE_RESOLUTION_LOOKBACK_SECS}
+            AND NOW() - {lookback_secs}
                 <= mononoke_new_commit.`time`
             AND mononoke_new_commit.`time` <= NOW()
             AND mononoke_land_service.`merge_resolved_count` > 0
@@ -95,6 +110,37 @@ def _get_blame_check_sql(diff_ids: list[str]) -> str:
     """
 
 
+def _check_diffs_reverted(diff_ids: list[str]) -> list[str]:
+    """Check which diffs have been reverted via Phabricator GraphQL.
+
+    Uses the batch API to query all diffs in a single GraphQL request.
+    Uses diff_reader_bot() for service auth (works in Chronos cron jobs
+    where there is no interactive user session or .arcrc file).
+
+    Returns diff IDs that have REVERTED status.
+    """
+    auth = PhabricatorAuthStrategyFactory.diff_reader_bot()
+    client = PhabricatorGraphQLClientBase(auth, SCUBA_SOURCE)
+
+    reverted: list[str] = []
+    try:
+        results = get_phabricator_diffs_with_custom_return_fields(
+            client,
+            phabricator_diff_numbers=diff_ids,
+            return_fields="phabricator_diff_status_enum",
+        )
+        for diff_id, result in zip(diff_ids, results):
+            status = result.get("phabricator_diff_status_enum", "")
+            if status == PhabricatorDiffStatus.REVERTED.name:
+                reverted.append(diff_id)
+                logger.info("Diff D%s has REVERTED status", diff_id)
+    except Exception:
+        logger.exception(
+            "Failed to batch-query Phabricator for %d diffs", len(diff_ids)
+        )
+    return reverted
+
+
 async def _query_scuba(
     sql: str, table: str, user_name: str, user_id: int
 ) -> list[dict[str, ResultType]]:
@@ -108,28 +154,21 @@ async def _query_scuba(
     )
 
 
-async def check_merge_resolution_blames(dry_run: bool = False) -> int:
+async def check_merge_resolution_blames(
+    user_name: str, uid: int, dry_run: bool = False
+) -> int:
     """
     Check if any merge-resolved diffs were blamed for trunk breakages.
 
     Returns the number of matches found.
     """
-    # Use the current scm_server_infra oncall's identity for Scuba auth.
-    # This works in Chronos/cron where there's no interactive user session.
-    with OncallThriftClient() as client:
-        oncall_result = client.getCurrentOncallForRotationByShortName(
-            "scm_server_infra"
-        )
-    uid = oncall_result.uid
-    user_name = uid_to_unixname(uid)
-
     # Step 1: Find merge-resolved diffs
     logger.info(
         "Querying merge-resolved pushrebases (last %ds)...",
         MERGE_RESOLUTION_LOOKBACK_SECS,
     )
     merge_resolved = await _query_scuba(
-        _get_merge_resolved_diffs_sql(),
+        _get_merge_resolved_diffs_sql(MERGE_RESOLUTION_LOOKBACK_SECS),
         "mononoke_land_service",
         user_name,
         uid,
@@ -209,7 +248,7 @@ async def check_merge_resolution_blames(dry_run: bool = False) -> int:
             len(matches),
         )
         if not dry_run:
-            _log_matches_to_scuba(matches)
+            _log_matches_to_scuba(matches, ALERT_TYPE_BLAMED)
     else:
         logger.info("No merge-resolved diffs found in trunk breakage blame lists.")
 
@@ -219,8 +258,8 @@ async def check_merge_resolution_blames(dry_run: bool = False) -> int:
 SCUBA_OUTPUT_TABLE: str = "mononoke_merge_resolution_alerts"
 
 
-def _log_matches_to_scuba(matches: list[dict[str, str]]) -> None:
-    """Write match events to a dedicated Scuba table for OneDetection alerting.
+def _log_matches_to_scuba(matches: list[dict[str, str]], alert_type: str) -> None:
+    """Write alert events to a dedicated Scuba table for OneDetection alerting.
 
     Scuba write failures are logged but not re-raised because the primary
     alerting mechanism is the non-zero exit code for Chronos. Failing to
@@ -234,28 +273,147 @@ def _log_matches_to_scuba(matches: list[dict[str, str]]) -> None:
                 sample.add_normal("changeset_id", match["changeset_id"])
                 sample.add_normal("repo", match["repo"])
                 sample.add_normal("merge_resolved_paths", match["merge_resolved_paths"])
-                sample.add_normal("breakage_id", match["breakage_id"])
-                sample.add_normal("alert_type", "merge_resolved_then_blamed")
+                sample.add_normal("alert_type", alert_type)
+                if "breakage_id" in match:
+                    sample.add_normal("breakage_id", match["breakage_id"])
                 sample.add_int(
                     "merge_resolved_count",
                     int(match.get("merge_resolved_count", "0")),
                 )
                 scuba.addSample(sample)
         logger.info(
-            "Logged %d matches to Scuba table %s", len(matches), SCUBA_OUTPUT_TABLE
+            "Logged %d %s matches to Scuba table %s",
+            len(matches),
+            alert_type,
+            SCUBA_OUTPUT_TABLE,
         )
     except Exception:
         logger.exception("Failed to log to Scuba")
 
 
+async def _get_already_alerted_diffs(
+    user_name: str, uid: int, alert_type: str, lookback_secs: int
+) -> set[str]:
+    """Query mononoke_merge_resolution_alerts for diffs we already alerted on.
+
+    Prevents duplicate alerts when the same diff appears in multiple
+    pipeline runs within the lookback window.
+    """
+    if alert_type not in _VALID_ALERT_TYPES:
+        raise ValueError(f"Invalid alert_type: {alert_type!r}")
+    sql = f"""
+        SELECT `diff_id` AS the_diff_id
+        FROM {SCUBA_OUTPUT_TABLE}
+        WHERE
+            `time` >= NOW() - {lookback_secs}
+            AND `time` <= NOW()
+            AND `alert_type` = '{alert_type}'
+    """
+    try:
+        results = await _query_scuba(sql, SCUBA_OUTPUT_TABLE, user_name, uid)
+        return {str(r.get("the_diff_id", "")) for r in results if r.get("the_diff_id")}
+    except Exception:
+        logger.exception(
+            "Failed to query already-alerted diffs, proceeding without dedup"
+        )
+        return set()
+
+
+async def check_merge_resolution_reverts(
+    user_name: str, uid: int, dry_run: bool = False
+) -> int:
+    """Check if any merge-resolved diffs were reverted.
+
+    Uses a wider lookback (4h) because reverts take time after initial land.
+    Queries Phabricator GraphQL for diff status.
+
+    Returns the number of reverted merge-resolved diffs found.
+    """
+    logger.info(
+        "Querying merge-resolved pushrebases (last %ds) for revert check...",
+        REVERT_LOOKBACK_SECS,
+    )
+    merge_resolved = await _query_scuba(
+        _get_merge_resolved_diffs_sql(REVERT_LOOKBACK_SECS),
+        "mononoke_land_service",
+        user_name,
+        uid,
+    )
+
+    if not merge_resolved:
+        logger.info("No merge-resolved pushrebases found for revert check.")
+        return 0
+
+    # Build diff_id -> entry map, deduplicating by diff_id
+    diff_id_to_entry: dict[str, dict[str, ResultType]] = {}
+    for entry in merge_resolved:
+        diff_id = str(entry.get("the_diff_id", ""))
+        if diff_id:
+            diff_id_to_entry[diff_id] = entry
+
+    if not diff_id_to_entry:
+        return 0
+
+    # Deduplicate: skip diffs we already alerted on
+    already_alerted = await _get_already_alerted_diffs(
+        user_name, uid, ALERT_TYPE_REVERTED, REVERT_LOOKBACK_SECS
+    )
+    unchecked = {k: v for k, v in diff_id_to_entry.items() if k not in already_alerted}
+
+    if not unchecked:
+        logger.info(
+            "All %d merge-resolved diffs already alerted, skipping.",
+            len(diff_id_to_entry),
+        )
+        return 0
+
+    logger.info(
+        "Checking %d diff IDs for revert status (%d already alerted, skipping)...",
+        len(unchecked),
+        len(already_alerted),
+    )
+
+    reverted_ids = _check_diffs_reverted(list(unchecked.keys()))
+
+    matches: list[dict[str, str]] = []
+    for diff_id in reverted_ids:
+        entry = unchecked[diff_id]
+        match_info = {
+            "diff_id": diff_id,
+            "changeset_id": str(entry.get("cs_id", "")),
+            "repo": str(entry.get("repo", "")),
+            "merge_resolved_count": str(entry.get("merge_count", "")),
+            "merge_resolved_paths": str(entry.get("merge_paths", "")),
+        }
+        matches.append(match_info)
+        logger.warning(
+            "REVERT DETECTED: Merge-resolved diff D%s (repo=%s, paths=%s) was reverted",
+            diff_id,
+            match_info["repo"],
+            match_info["merge_resolved_paths"],
+        )
+
+    if matches:
+        logger.warning("Found %d reverted merge-resolved diffs!", len(matches))
+        if not dry_run:
+            _log_matches_to_scuba(matches, ALERT_TYPE_REVERTED)
+    else:
+        logger.info("No reverted merge-resolved diffs found.")
+
+    return len(matches)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Check if merge-resolved pushrebase diffs were blamed for trunk breakages",
+        description=(
+            "Check if merge-resolved pushrebase diffs were blamed "
+            "for trunk breakages or reverted"
+        ),
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run checks but don't emit ODS counters",
+        help="Run checks but don't emit alerts",
     )
     parser.add_argument(
         "--verbose",
@@ -270,19 +428,34 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
 
+    # Resolve oncall identity once for both checks (Scuba auth)
+    with OncallThriftClient() as client:
+        oncall_result = client.getCurrentOncallForRotationByShortName(
+            "scm_server_infra"
+        )
+    uid = oncall_result.uid
+    user_name = uid_to_unixname(uid)
+
     start = time.monotonic()
-    match_count = asyncio.run(check_merge_resolution_blames(dry_run=args.dry_run))
+
+    blame_count = asyncio.run(
+        check_merge_resolution_blames(user_name, uid, dry_run=args.dry_run)
+    )
+    revert_count = asyncio.run(
+        check_merge_resolution_reverts(user_name, uid, dry_run=args.dry_run)
+    )
+
     elapsed = time.monotonic() - start
 
     logger.info(
-        "Completed in %.1fs. Matches: %d",
+        "Completed in %.1fs. Blame matches: %d, Revert matches: %d",
         elapsed,
-        match_count,
+        blame_count,
+        revert_count,
     )
 
-    # Exit with non-zero code when matches are found so Chronos
-    # job failure alerting can trigger oncall notification.
-    if match_count > 0 and not args.dry_run:
+    total = blame_count + revert_count
+    if total > 0 and not args.dry_run:
         sys.exit(1)
 
 

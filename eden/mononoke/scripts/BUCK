@@ -10,6 +10,9 @@ python_binary(
     deps = [
         "//libfb/py:employee",
         "//libfb/py/thrift_clients:oncall_thrift_client",
+        "//phabricator:new_phabricator_graphql_helpers",
+        "//phabricator:phabricator_authentication",
+        "//phabricator:phabricator_graphql_client",
         "//rfe/py/lib:sql",
         "//rfe/scubadata:scubadata_py3",
     ],
