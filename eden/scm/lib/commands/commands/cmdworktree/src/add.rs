@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::Context as _;
+use anyhow::Context;
 use anyhow::bail;
 use clidispatch::ReqCtx;
 use clidispatch::abort;
@@ -38,6 +39,30 @@ fn current_sl_binary() -> OsString {
         .ok()
         .map(Into::into)
         .unwrap_or_else(|| OsString::from(identity::cli_name()))
+}
+
+/// Create a snapshot of the working copy at `repo_path`, returning the snapshot ID.
+#[allow(dead_code)]
+fn sapling_snapshot_create(sl_bin: &OsString, repo_path: PathBuf) -> anyhow::Result<String> {
+    let output = Command::new(sl_bin)
+        .args([
+            "--config",
+            "extensions.snapshot=",
+            "snapshot",
+            "create",
+            "--template",
+            "{id}",
+            "-y",
+        ])
+        .current_dir(&repo_path)
+        .checked_output()
+        .context("failed to run sl snapshot create")?;
+
+    let id = Command::stdout_str(&output);
+    if id.is_empty() {
+        bail!("snapshot create returned empty snapshot id");
+    }
+    Ok(id)
 }
 
 pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
