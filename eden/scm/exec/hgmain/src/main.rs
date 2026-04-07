@@ -23,7 +23,6 @@ use windows::disable_standard_handle_inheritability;
 #[cfg(windows)]
 use windows::is_edenfs_stopped;
 
-#[cfg_attr(fbcode_build, fbinit::main)]
 fn main() {
     // Meta's Python 3.12 version has the built-in lazy_imports feature,
     // which can be enabled with `PYTHONLAZYIMPORTSALL=1` env variable.
@@ -122,10 +121,6 @@ fn main() {
 
     #[cfg(windows)]
     windows::enable_vt_processing().unwrap();
-
-    // Disable potentially noisy C++ logs.
-    #[cfg(fbcode_build)]
-    cpp_log_spew::disable(fbinit::expect_init());
 
     configloader::hg::IS_SAPLING_BINARY.store(true, Ordering::Relaxed);
 
