@@ -82,10 +82,7 @@ rust_library(
         "fbsource//third-party/rust:serde_urlencoded",
         "fbsource//third-party/rust:url",
         "//common/rust/fbwhoami:fbwhoami",
-        "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/hostcaps:hostcaps",
-        "//configerator/structs/infrasec/if:acl-rust",
-        "//eden/scm/lib/async-runtime:async-runtime",
         "//eden/scm/lib/metrics:metrics",
         "//eden/scm/lib/config/remote-loader:remote-loader",
         "//eden/scm/lib/hgtime:hgtime",
@@ -94,8 +91,6 @@ rust_library(
         "//eden/scm/lib/types:types",
         "//eden/scm/lib/util:util",
         "//eden/scm/lib/version:rust_version",
-        "//infrasec/authorization/if:if-aclchecker-rust-clients",
-        "//infrasec/authorization/if:if-aclchecker-rust-x2pclients",
     ]) + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [
