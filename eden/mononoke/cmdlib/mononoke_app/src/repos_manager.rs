@@ -42,6 +42,7 @@ use repo_factory::RepoFactory;
 use repo_factory::RepoFactoryBuilder;
 use stats::prelude::*;
 use tracing::info;
+use tracing::warn;
 
 fn repos_manager_concurrency() -> Result<usize> {
     justknobs::get_as::<usize>("scm/mononoke:repos_manager_concurrency", None)
@@ -242,19 +243,16 @@ impl<Repo> MononokeReposManager<Repo> {
 
 impl<R: MononokeRepo> MononokeReposManager<R> {
     pub fn make_mononoke_api(&self) -> Result<Mononoke<R>> {
+        let configs = self.configs.load_all_repo_configs()?;
+
         let repo_names_in_tier =
-            HashMap::from_iter(self.configs.repo_configs().repos.iter().filter_map(
-                |(name, config)| {
-                    if config.enabled {
-                        Some((
-                            name.to_string(),
-                            config.default_commit_identity_scheme.clone(),
-                        ))
-                    } else {
-                        None
-                    }
-                },
-            ));
+            HashMap::from_iter(configs.into_iter().filter_map(|(name, config)| {
+                if config.enabled {
+                    Some((name, config.default_commit_identity_scheme.clone()))
+                } else {
+                    None
+                }
+            }));
         Mononoke::new(self.repos.clone(), repo_names_in_tier)
     }
 }
@@ -337,7 +335,44 @@ impl<Repo> MononokeConfigUpdateReceiver<Repo> {
 
     /// Method for determining the set of repos to be reloaded with the new config
     fn reloadable_repo(&self, repo_configs: Arc<RepoConfigs>) -> Vec<(String, RepoConfig)> {
-        compute_reloadable_repos(&repo_configs, self.service_name.as_ref(), |name| {
+        // Check if manifest has repos not yet in repo_configs
+        let manifest = self.mononoke_configs.manifest();
+        let has_new_manifest_repos = manifest.as_ref().is_some_and(|m| {
+            m.repos
+                .iter()
+                .any(|e| !repo_configs.repos.contains_key(&e.repo_name))
+        });
+
+        if !has_new_manifest_repos {
+            // Common case: no new manifest repos, avoid cloning
+            return compute_reloadable_repos(&repo_configs, self.service_name.as_ref(), |name| {
+                self.repos.get_by_name(name).is_some()
+            });
+        }
+
+        // Clone and enrich with manifest repos
+        let mut enriched = (*repo_configs).clone();
+        if let Some(manifest) = manifest {
+            for entry in &manifest.repos {
+                if !enriched.repos.contains_key(&entry.repo_name) {
+                    match self
+                        .mononoke_configs
+                        .get_or_load_repo_config(&entry.repo_name)
+                    {
+                        Ok(config) => {
+                            enriched.insert_repo(entry.repo_name.clone(), config);
+                        }
+                        Err(e) => {
+                            warn!(
+                                "reloadable_repo: failed to load manifest repo {}: {:#}",
+                                entry.repo_name, e
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        compute_reloadable_repos(&enriched, self.service_name.as_ref(), |name| {
             self.repos.get_by_name(name).is_some()
         })
     }

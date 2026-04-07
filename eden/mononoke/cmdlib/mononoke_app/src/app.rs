@@ -708,30 +708,28 @@ impl MononokeApp {
     {
         let repo_filter = self.environment().filter_repos.clone();
         let service_name = service.clone();
-        let repo_names =
-            self.repo_configs()
-                .repos
-                .clone()
-                .into_iter()
-                .filter_map(|(name, config)| {
-                    let is_matching_filter =
-                        repo_filter.as_ref().is_none_or(|filter| filter(&name));
-                    let is_deep_sharded = service
-                        .as_ref()
-                        .and_then(|service| {
-                            config
-                                .deep_sharding_config
-                                .and_then(|c| c.status.get(service).copied())
-                        })
-                        .unwrap_or(false);
-                    // Initialize repos that are enabled and not deep-sharded (i.e. need to exist
-                    // at service startup)
-                    if config.enabled && !is_deep_sharded && is_matching_filter {
-                        Some(name)
-                    } else {
-                        None
-                    }
-                });
+
+        // Load configs from both legacy blob and manifest
+        let configs = self.configs.load_all_repo_configs()?;
+
+        let repo_names = configs.into_iter().filter_map(|(name, config)| {
+            let is_matching_filter = repo_filter.as_ref().is_none_or(|filter| filter(&name));
+            let is_deep_sharded = service
+                .as_ref()
+                .and_then(|service| {
+                    config
+                        .deep_sharding_config
+                        .and_then(|c| c.status.get(service).copied())
+                })
+                .unwrap_or(false);
+            // Initialize repos that are enabled and not deep-sharded (i.e. need to exist
+            // at service startup)
+            if config.enabled && !is_deep_sharded && is_matching_filter {
+                Some(name)
+            } else {
+                None
+            }
+        });
         self.open_named_managed_repos_with_redaction_disabled(
             repo_names,
             service_name,

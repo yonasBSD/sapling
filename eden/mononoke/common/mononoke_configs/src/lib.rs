@@ -445,6 +445,25 @@ impl MononokeConfigs {
         Ok(results)
     }
 
+    /// Load configs for all repos discovered from both the legacy blob and
+    /// the manifest. Uses batch loading (single lock, single clone).
+    pub fn load_all_repo_configs(&self) -> Result<Vec<(String, RepoConfig)>> {
+        let mut all_names: HashSet<String> = self
+            .repo_configs
+            .load_full()
+            .repos
+            .keys()
+            .cloned()
+            .collect();
+        if let Some(manifest) = self.manifest() {
+            for entry in &manifest.repos {
+                all_names.insert(entry.repo_name.clone());
+            }
+        }
+        let names: Vec<String> = all_names.into_iter().collect();
+        self.batch_load_repo_configs(&names)
+    }
+
     /// Load a repo config by repository ID. O(1) cache lookup via repos_by_id
     /// index, falls back to searching the manifest by repo_id.
     pub fn get_or_load_repo_config_by_id(&self, repo_id: i32) -> Result<(String, RepoConfig)> {
