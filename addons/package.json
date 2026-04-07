@@ -18,11 +18,15 @@
     "tsx": "^4.19.2"
   },
   "resolutions": {
+    "@babel/helpers": ">=7.26.10",
+    "ajv": ">=6.14.0",
+    "flatted": ">=3.4.2",
     "handlebars": ">=4.7.9",
+    "immutable": ">=4.3.8 <5.0.0",
     "picomatch": ">=4.0.4",
-    "yaml": ">=2.8.3",
+    "rollup": ">=4.59.0",
     "tmp": ">=0.2.4",
-    "@babel/helpers": ">=7.26.10"
+    "yaml": ">=2.8.3"
   },
   "scripts": {
     "lint": "oxlint -c .oxlintrc.json --react-plugin --import-plugin isl/src isl-server/src shared components vscode/extension vscode/webview textmate/src",

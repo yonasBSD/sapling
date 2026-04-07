@@ -13,5 +13,8 @@
     "build": "yarn run tsc",
     "postinstall": "yarn run tsc",
     "watch": "tsc --watch"
+  },
+  "resolutions": {
+    "minimatch": ">=3.1.5"
   }
 }
