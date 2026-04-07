@@ -260,6 +260,9 @@ pub struct PushrebaseRequest {
     pub root: ChangesetId,
     /// Last bookmark value checked for conflicts. Updated on CAS-failure re-queue.
     pub conflict_check_base: ChangesetId,
+    /// Carried merge resolution info from previous CAS-failure attempts.
+    /// On retry, reconciled with new delta info to preserve O(delta) scans.
+    pub carried_merge_file_info: Vec<MergedFileInfo>,
     /// Number of times this request has been retried due to CAS failures.
     pub retry_num: PushrebaseRetryNum,
     /// Pre-computed pushrebase hooks.
@@ -343,6 +346,15 @@ pub async fn index_pushrebase_request(
     })
 }
 
+/// A successfully rebased request pending the CAS bookmark update.
+struct PendingRebase {
+    request: PushrebaseRequest,
+    new_head: ChangesetId,
+    pushrebase_distance: usize,
+    old_bookmark_value: Option<ChangesetId>,
+    merge_resolved_paths: Option<Vec<NonRootMPath>>,
+}
+
 /// Lands multiple indexed stacks in a single critical section pass.
 ///
 /// All requests must have equivalent hooks (only the first request's hooks
@@ -399,32 +411,54 @@ pub async fn do_batched_pushrebase(
     };
 
     // Per-stack conflict detection and rebase.
-    let mut pending: Vec<(PushrebaseRequest, ChangesetId, usize, Option<ChangesetId>)> = vec![];
+    let mut pending: Vec<PendingRebase> = vec![];
     let mut running_head = old_bookmark_value;
     let mut all_rebased_changesets: RebasedChangesets = Default::default();
     let mut all_rebased_bonsais: Vec<BonsaiChangeset> = Vec::new();
 
     let mut requests_iter = requests.into_iter();
-    while let Some(request) = requests_iter.next() {
+    while let Some(mut request) = requests_iter.next() {
         let bookmark_val = old_bookmark_value.unwrap_or(request.root);
-        let merged_file_overrides = match check_pushrebase_conflicts(
+        // Narrow-range scan: use conflict_check_base as ancestor so retries
+        // only scan the delta since the last attempt. On first attempt,
+        // conflict_check_base == root, so the full range is scanned.
+        let conflict_result = match check_pushrebase_conflicts(
             ctx,
             repo,
             config,
             request.root,
-            request.root, // ancestor = root: batch pushrebase does not retry with CAS
+            request.conflict_check_base,
             bookmark_val,
             &request.changesets,
             &request.changed_files,
         )
         .await
         {
-            Ok(result) => result.merged_file_overrides,
+            Ok(result) => result,
             Err(e) => {
                 let _ = request.response_tx.send(Err(SharedError::from(e)));
                 continue;
             }
         };
+
+        // Reconcile carried merge info with delta info from this attempt
+        let reconciled_overrides = match conflict_result.merged_file_overrides {
+            Some(delta_info) => Some(reconcile_merge_file_info(
+                &request.carried_merge_file_info,
+                &delta_info,
+            )),
+            None if !request.carried_merge_file_info.is_empty() => {
+                Some(request.carried_merge_file_info.clone())
+            }
+            None => None,
+        };
+
+        let merge_resolved_paths = reconciled_overrides
+            .as_ref()
+            .map(|overrides| overrides.iter().map(|info| info.path.clone()).collect());
+
+        // Store reconciled overrides on the request for carry-forward on re-queue
+        request.carried_merge_file_info = reconciled_overrides.clone().unwrap_or_default();
 
         let pushrebase_distance = match try_join(
             repo.commit_graph()
@@ -458,7 +492,7 @@ pub async fn do_batched_pushrebase(
             request.head,
             onto,
             &mut commit_hooks,
-            merged_file_overrides,
+            reconciled_overrides,
         )
         .await;
 
@@ -467,12 +501,13 @@ pub async fn do_batched_pushrebase(
                 all_rebased_changesets.extend(rebased);
                 all_rebased_bonsais.extend(rebased_bonsais);
                 running_head = Some(new_head);
-                pending.push((
+                pending.push(PendingRebase {
                     request,
                     new_head,
                     pushrebase_distance,
-                    request_old_bookmark_value,
-                ));
+                    old_bookmark_value: request_old_bookmark_value,
+                    merge_resolved_paths,
+                });
             }
             Err(e) => {
                 // Fail only the broken request.
@@ -485,7 +520,7 @@ pub async fn do_batched_pushrebase(
                 // fresh hooks on their next pass through the batcher.
                 return pending
                     .into_iter()
-                    .map(|(req, _, _, _)| req)
+                    .map(|p| p.request)
                     .chain(requests_iter)
                     .map(|mut req| {
                         req.conflict_check_base =
@@ -501,8 +536,8 @@ pub async fn do_batched_pushrebase(
     // Save all rebased changesets from all stacks in one batch.
     if let Err(e) = changesets_creation::save_changesets(ctx, repo, all_rebased_bonsais).await {
         let shared = SharedError::from(PushrebaseError::from(e));
-        for (req, _, _, _) in pending {
-            let _ = req.response_tx.send(Err(shared.clone()));
+        for p in pending {
+            let _ = p.request.response_tx.send(Err(shared.clone()));
         }
         return vec![];
     }
@@ -524,8 +559,8 @@ pub async fn do_batched_pushrebase(
         Ok(h) => h,
         Err(e) => {
             let shared = SharedError::from(PushrebaseError::from(e));
-            for (req, _, _, _) in pending {
-                let _ = req.response_tx.send(Err(shared.clone()));
+            for p in pending {
+                let _ = p.request.response_tx.send(Err(shared.clone()));
             }
             return vec![];
         }
@@ -558,25 +593,26 @@ pub async fn do_batched_pushrebase(
                 STATS::commits_rebased.add_value(all_rebased_pairs.len() as i64, repo_args);
             }
 
-            for (req, new_head, distance, req_old_bookmark_value) in pending {
+            for p in pending {
                 let stack_pairs: Vec<PushrebaseChangesetPair> = all_rebased_pairs
                     .iter()
                     .filter(|pair| {
-                        req.changesets
+                        p.request
+                            .changesets
                             .iter()
                             .any(|cs| cs.get_changeset_id() == pair.id_old)
                     })
                     .cloned()
                     .collect();
 
-                let _ = req.response_tx.send(Ok(PushrebaseOutcome {
-                    old_bookmark_value: Some(req_old_bookmark_value.unwrap_or(req.root)),
-                    head: new_head,
-                    retry_num: req.retry_num,
+                let _ = p.request.response_tx.send(Ok(PushrebaseOutcome {
+                    old_bookmark_value: Some(p.old_bookmark_value.unwrap_or(p.request.root)),
+                    head: p.new_head,
+                    retry_num: p.request.retry_num,
                     rebased_changesets: stack_pairs,
-                    pushrebase_distance: PushrebaseDistance(distance),
+                    pushrebase_distance: PushrebaseDistance(p.pushrebase_distance),
                     log_id,
-                    merge_resolved_paths: None,
+                    merge_resolved_paths: p.merge_resolved_paths,
                 }));
             }
             vec![]
@@ -589,17 +625,19 @@ pub async fn do_batched_pushrebase(
             }
             pending
                 .into_iter()
-                .map(|(mut req, _, _, _)| {
-                    req.conflict_check_base = old_bookmark_value.unwrap_or(req.conflict_check_base);
-                    req.retry_num = PushrebaseRetryNum(req.retry_num.0 + 1);
-                    req
+                .map(|mut p| {
+                    p.request.conflict_check_base =
+                        old_bookmark_value.unwrap_or(p.request.conflict_check_base);
+                    p.request.retry_num = PushrebaseRetryNum(p.request.retry_num.0 + 1);
+                    // carried_merge_file_info is already updated on the request
+                    p.request
                 })
                 .collect()
         }
         Err(e) => {
             let shared = SharedError::from(e);
-            for (req, _, _, _) in pending {
-                let _ = req.response_tx.send(Err(shared.clone()));
+            for p in pending {
+                let _ = p.request.response_tx.send(Err(shared.clone()));
             }
             vec![]
         }
@@ -639,12 +677,15 @@ async fn check_filenodes_backfilled(
     }
 }
 
-/// Result of conflict checking in pushrebase.
 /// Info about a single file that was successfully merged during conflict
 /// resolution. Carries the base/server content IDs so the cascading merge
 /// in `create_rebased_changesets` can reuse them without re-fetching fsnodes.
+///
+/// Public for use in `PushrebaseRequest::carried_merge_file_info`.
+/// Fields are private — external callers should only initialize with
+/// `vec![]`; the pushrebase internals populate this on carry-forward.
 #[derive(Clone, Debug, PartialEq)]
-struct MergedFileInfo {
+pub struct MergedFileInfo {
     path: NonRootMPath,
     base_content_id: ContentId,
     server_content_id: ContentId,
@@ -680,6 +721,9 @@ async fn check_pushrebase_conflicts(
         return Err(PushrebaseError::ForceFailPushrebase(bcs.get_changeset_id()));
     }
 
+    // Safe with narrow ranges: if attempt 1 passed case-folding for
+    // root→S1, no case conflict exists in that range. Retry only needs
+    // to check S1→S2 for new case conflicts with client changesets.
     if config.casefolding_check {
         let conflict = check_case_conflicts(
             server_bcs.iter().chain(client_bcs.iter()),
@@ -4502,6 +4546,7 @@ mod tests {
             head: head_a,
             root: root_a,
             conflict_check_base: root_a,
+            carried_merge_file_info: vec![],
             retry_num: PushrebaseRetryNum(0),
             hooks: vec![hook_a],
             response_tx: tx_a,
@@ -4513,6 +4558,7 @@ mod tests {
             head: head_b,
             root: root_b,
             conflict_check_base: root_b,
+            carried_merge_file_info: vec![],
             retry_num: PushrebaseRetryNum(0),
             hooks: vec![hook_b],
             response_tx: tx_b,
@@ -4605,6 +4651,7 @@ mod tests {
             head: head_a,
             root: root_a,
             conflict_check_base: root_a,
+            carried_merge_file_info: vec![],
             retry_num: PushrebaseRetryNum(0),
             hooks: vec![],
             response_tx: tx_a,
@@ -4616,6 +4663,7 @@ mod tests {
             head: head_b,
             root: root_b,
             conflict_check_base: root_b,
+            carried_merge_file_info: vec![],
             retry_num: PushrebaseRetryNum(0),
             hooks: vec![],
             response_tx: tx_b,
@@ -4781,6 +4829,7 @@ mod tests {
                 head: idx.head,
                 root: idx.root,
                 conflict_check_base: idx.root,
+                carried_merge_file_info: vec![],
                 retry_num: PushrebaseRetryNum(0),
                 hooks: vec![Box::new(TrackingHook(repo.repo_identity().id()))],
                 response_tx: tx,
@@ -5754,6 +5803,227 @@ line 5.1
         assert!(
             file_content.contains("modified_line1"),
             "should have server's change"
+        );
+        assert!(
+            file_content.contains("modified_line5"),
+            "should have client's change"
+        );
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn batched_pushrebase_merge_resolution(fb: FacebookInit) -> Result<(), Error> {
+        // Test: batched pushrebase resolves merge conflicts when server and
+        // client modify different parts of the same file.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        init_just_knobs_for_merge_test();
+
+        let base_content = "line1\nline2\nline3\nline4\nline5\n";
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", base_content)
+            .commit()
+            .await?;
+
+        // Server commit: modify first line
+        let server_content = "modified_line1\nline2\nline3\nline4\nline5\n";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", server_content)
+            .commit()
+            .await?;
+
+        // Set bookmark to server commit
+        let bookmark = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &bookmark, &format!("{}", hg_server)).await?;
+
+        // Client: modify last line (based on base)
+        let client_content = "line1\nline2\nline3\nline4\nmodified_line5\n";
+        let client_cs_id = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", client_content)
+            .commit()
+            .await?;
+
+        let client_bcs = client_cs_id.load(&ctx, repo.repo_blobstore()).await?;
+        let config = PushrebaseFlags::default();
+        let idx = index_pushrebase_request(&ctx, &repo, &config, &bookmark, &hashset![client_bcs])
+            .await?;
+
+        let (tx, rx) = oneshot::channel();
+        let request = PushrebaseRequest {
+            changed_files: idx.changed_files,
+            changesets: idx.changesets,
+            head: idx.head,
+            root: idx.root,
+            conflict_check_base: idx.root,
+            carried_merge_file_info: vec![],
+            retry_num: PushrebaseRetryNum(0),
+            hooks: vec![],
+            response_tx: tx,
+        };
+
+        let requeued = do_batched_pushrebase(&ctx, &repo, &config, &bookmark, vec![request]).await;
+        assert!(requeued.is_empty(), "Should not be requeued");
+
+        let outcome = rx.await.unwrap().unwrap();
+        assert!(
+            outcome.merge_resolved_paths.is_some(),
+            "Should report merge resolved paths"
+        );
+        let resolved_paths = outcome.merge_resolved_paths.unwrap();
+        assert_eq!(resolved_paths.len(), 1);
+        assert_eq!(resolved_paths[0], NonRootMPath::new("file.txt")?);
+
+        // Verify merged content
+        let result_hg = repo.derive_hg_changeset(&ctx, outcome.head).await?;
+        let result_cs = result_hg.load(&ctx, repo.repo_blobstore()).await?;
+        let manifest = result_cs.manifestid();
+        let file_path = NonRootMPath::new("file.txt")?;
+        let file_entry = manifest
+            .find_entry(ctx.clone(), repo.repo_blobstore().clone(), file_path.into())
+            .await?
+            .expect("file.txt should exist");
+
+        let file_content = match file_entry {
+            Entry::Leaf((_, filenode_id)) => {
+                let content_id = filenode_id
+                    .load(&ctx, repo.repo_blobstore())
+                    .await?
+                    .content_id();
+                let bytes =
+                    filestore::fetch_concat(repo.repo_blobstore(), &ctx, content_id).await?;
+                String::from_utf8(bytes.to_vec())?
+            }
+            _ => panic!("file.txt should be a file"),
+        };
+
+        assert!(
+            file_content.contains("modified_line1"),
+            "should have server's change"
+        );
+        assert!(
+            file_content.contains("modified_line5"),
+            "should have client's change"
+        );
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn batched_pushrebase_merge_resolution_carry_forward(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // Test: when batched pushrebase is re-queued after CAS failure,
+        // carried_merge_file_info is preserved and reconciled on retry.
+        // We simulate this by setting conflict_check_base to S1 and
+        // providing carried MergedFileInfo from a prior attempt.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        init_just_knobs_for_merge_test();
+
+        let base_content = "line1\nline2\nline3\nline4\nline5\n";
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", base_content)
+            .commit()
+            .await?;
+
+        // S1: modify first line (conflict with client)
+        let s1_content = "modified_line1\nline2\nline3\nline4\nline5\n";
+        let s1 = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", s1_content)
+            .commit()
+            .await?;
+
+        // S2: unrelated change (no conflict in delta S1→S2)
+        let s2 = CreateCommitContext::new(&ctx, &repo, vec![s1])
+            .add_file("other.txt", "unrelated\n")
+            .commit()
+            .await?;
+
+        let bookmark = BookmarkKey::new("master")?;
+        let hg_s2 = repo.derive_hg_changeset(&ctx, s2).await?;
+        set_bookmark(ctx.clone(), &repo, &bookmark, &format!("{}", hg_s2)).await?;
+
+        // Client: modify last line
+        let client_content = "line1\nline2\nline3\nline4\nmodified_line5\n";
+        let client_cs_id = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", client_content)
+            .commit()
+            .await?;
+
+        let client_bcs = client_cs_id.load(&ctx, repo.repo_blobstore()).await?;
+        let config = PushrebaseFlags::default();
+        let idx = index_pushrebase_request(&ctx, &repo, &config, &bookmark, &hashset![client_bcs])
+            .await?;
+
+        // First, get MergedFileInfo from a base→S1 check (simulating attempt 1)
+        let result1 = check_pushrebase_conflicts(
+            &ctx,
+            &repo,
+            &Default::default(),
+            base,
+            base,
+            s1,
+            std::slice::from_ref(idx.changesets.first().unwrap()),
+            &idx.changed_files,
+        )
+        .await?;
+        let carried = result1
+            .merged_file_overrides
+            .expect("Should have overrides from attempt 1");
+
+        // Now simulate a retry: conflict_check_base = S1, carried info from attempt 1
+        let (tx, rx) = oneshot::channel();
+        let request = PushrebaseRequest {
+            changed_files: idx.changed_files,
+            changesets: idx.changesets,
+            head: idx.head,
+            root: idx.root,
+            conflict_check_base: s1,
+            carried_merge_file_info: carried,
+            retry_num: PushrebaseRetryNum(1),
+            hooks: vec![],
+            response_tx: tx,
+        };
+
+        let requeued = do_batched_pushrebase(&ctx, &repo, &config, &bookmark, vec![request]).await;
+        assert!(requeued.is_empty(), "Should not be requeued");
+
+        let outcome = rx.await.unwrap().unwrap();
+        assert!(
+            outcome.merge_resolved_paths.is_some(),
+            "Should report merge resolved paths via carry-forward"
+        );
+
+        // Verify merged content
+        let result_hg = repo.derive_hg_changeset(&ctx, outcome.head).await?;
+        let result_cs = result_hg.load(&ctx, repo.repo_blobstore()).await?;
+        let manifest = result_cs.manifestid();
+        let file_path = NonRootMPath::new("file.txt")?;
+        let file_entry = manifest
+            .find_entry(ctx.clone(), repo.repo_blobstore().clone(), file_path.into())
+            .await?
+            .expect("file.txt should exist");
+
+        let file_content = match file_entry {
+            Entry::Leaf((_, filenode_id)) => {
+                let content_id = filenode_id
+                    .load(&ctx, repo.repo_blobstore())
+                    .await?
+                    .content_id();
+                let bytes =
+                    filestore::fetch_concat(repo.repo_blobstore(), &ctx, content_id).await?;
+                String::from_utf8(bytes.to_vec())?
+            }
+            _ => panic!("file.txt should be a file"),
+        };
+
+        assert!(
+            file_content.contains("modified_line1"),
+            "should have server's change via carry-forward"
         );
         assert!(
             file_content.contains("modified_line5"),
