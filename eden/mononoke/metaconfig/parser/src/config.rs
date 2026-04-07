@@ -62,6 +62,8 @@ pub fn load_common_config(
 pub struct RepoConfigs {
     /// Configs for all repositories
     pub repos: HashMap<String, RepoConfig>,
+    /// Index from RepositoryId to repo name for O(1) lookup by id
+    pub repos_by_id: HashMap<RepositoryId, String>,
     /// Common configs for all repos
     pub common: CommonConfig,
 }
@@ -117,10 +119,7 @@ pub fn load_repo_configs(
 
 /// Empty repo configs useful for testing purposes
 pub fn load_empty_repo_configs() -> RepoConfigs {
-    RepoConfigs {
-        repos: HashMap::new(),
-        common: CommonConfig::default(),
-    }
+    RepoConfigs::new(HashMap::new(), CommonConfig::default())
 }
 
 /// Load configuration based on the provided raw configs.
@@ -163,10 +162,7 @@ pub fn load_configs_from_raw(
         .map(|(k, v)| Ok((k, v.convert()?)))
         .collect::<Result<_>>()?;
     Ok((
-        RepoConfigs {
-            repos: resolved_repo_configs,
-            common,
-        },
+        RepoConfigs::new(resolved_repo_configs, common),
         StorageConfigs { storage },
     ))
 }
@@ -700,11 +696,41 @@ fn parse_common_config(
 }
 
 impl RepoConfigs {
-    /// Get individual `RepoConfig`, given a repo_id
-    pub fn get_repo_config(&self, repo_id: RepositoryId) -> Option<(&String, &RepoConfig)> {
-        self.repos
+    /// Create RepoConfigs with auto-built ID index.
+    pub fn new(repos: HashMap<String, RepoConfig>, common: CommonConfig) -> Self {
+        let repos_by_id = repos
             .iter()
-            .find(|(_, repo_config)| repo_config.repoid == repo_id)
+            .map(|(name, config)| (config.repoid, name.clone()))
+            .collect();
+        Self {
+            repos,
+            repos_by_id,
+            common,
+        }
+    }
+
+    /// Get individual `RepoConfig`, given a repo_id. O(1) via index.
+    pub fn get_repo_config(&self, repo_id: RepositoryId) -> Option<(&String, &RepoConfig)> {
+        let name = self.repos_by_id.get(&repo_id)?;
+        self.repos.get(name).map(|config| (name, config))
+    }
+
+    /// O(1) lookup by raw repo id (i32). Constructs RepositoryId internally
+    /// so callers don't need the mononoke_types dependency.
+    pub fn get_repo_config_by_raw_id(&self, repo_id: i32) -> Option<(&String, &RepoConfig)> {
+        self.get_repo_config(RepositoryId::new(repo_id))
+    }
+
+    /// Insert a repo and update the ID index.
+    /// Cleans up stale index entries if the repo's ID changed.
+    pub fn insert_repo(&mut self, name: String, config: RepoConfig) {
+        if let Some(old_config) = self.repos.get(&name) {
+            if old_config.repoid != config.repoid {
+                self.repos_by_id.remove(&old_config.repoid);
+            }
+        }
+        self.repos_by_id.insert(config.repoid, name.clone());
+        self.repos.insert(name, config);
     }
 }
 

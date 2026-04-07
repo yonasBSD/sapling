@@ -41,7 +41,6 @@ use mononoke_repos::MononokeRepos;
 use repo_factory::RepoFactory;
 use repo_factory::RepoFactoryBuilder;
 use stats::prelude::*;
-use tracing::debug;
 use tracing::info;
 
 fn repos_manager_concurrency() -> Result<usize> {
@@ -139,13 +138,7 @@ impl<Repo> MononokeReposManager<Repo> {
     /// Return a repo config for a named repo.  This reads from the main
     /// configuration, so doesn't need to be a currently managed repo.
     pub fn repo_config(&self, repo_name: &str) -> Result<RepoConfig> {
-        let mut repo_config = self
-            .configs
-            .repo_configs()
-            .repos
-            .get(repo_name)
-            .cloned()
-            .ok_or_else(|| anyhow!("unknown reponame: {:?}", repo_name))?;
+        let mut repo_config = self.configs.get_or_load_repo_config(repo_name)?;
         if self.redaction_disabled {
             repo_config.redaction = Redaction::Disabled;
         }
@@ -157,15 +150,9 @@ impl<Repo> MononokeReposManager<Repo> {
     where
         Repo: for<'builder> AsyncBuildable<'builder, RepoFactoryBuilder<'builder>>,
     {
-        // Load per-repo config handle for split-loading (deep-sharded repos).
-        // Non-fatal: if split-loading is disabled or repo not in manifest,
-        // the legacy config path still works.
-        if let Err(e) = self.configs.load_repo_config_handle(repo_name) {
-            debug!(
-                "Split-loading: config handle not loaded for {} (expected during migration): {:#}",
-                repo_name, e
-            );
-        }
+        // get_or_load_repo_config (called via repo_config) handles
+        // ConfigHandle subscription internally — no separate
+        // load_repo_config_handle call needed.
         let repo_config = self.repo_config(repo_name)?;
         let repo_id = repo_config.repoid.id();
         let common_config = self.configs.repo_configs().common.clone();
@@ -483,10 +470,7 @@ mod test {
 
     /// Helper to create RepoConfigs from a list of (name, config) pairs
     fn make_repo_configs(repos: Vec<(String, RepoConfig)>) -> RepoConfigs {
-        RepoConfigs {
-            repos: repos.into_iter().collect(),
-            common: CommonConfig::default(),
-        }
+        RepoConfigs::new(repos.into_iter().collect(), CommonConfig::default())
     }
 
     /// Helper to get repo names from result

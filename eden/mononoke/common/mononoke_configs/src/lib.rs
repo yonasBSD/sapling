@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::RwLock;
 use std::time::SystemTime;
 
@@ -61,6 +62,9 @@ define_stats! {
 /// and jobs. The configurations provided by this struct are always up-to-date
 /// with its source.
 pub struct MononokeConfigs {
+    /// Serializes write operations (clone-insert-store) on repo_configs ArcSwap.
+    /// Must NOT be held across async operations.
+    config_update_lock: Arc<Mutex<()>>,
     repo_configs: Swappable<RepoConfigs>,
     storage_configs: Swappable<StorageConfigs>,
     update_receivers: Swappable<Vec<Arc<dyn ConfigUpdateReceiver>>>,
@@ -75,7 +79,6 @@ pub struct MononokeConfigs {
     config_store: Option<ConfigStore>,
     /// Tier name derived from the configerator config path.
     /// Used for resolving tier_overrides in RepoSpec configs during split-loading.
-    #[allow(dead_code)] // Stored for potential future use in load_repo_config_handle
     tier_name: Option<String>,
 }
 
@@ -221,6 +224,7 @@ impl MononokeConfigs {
         };
 
         Ok(Self {
+            config_update_lock: Arc::new(Mutex::new(())),
             repo_configs,
             storage_configs,
             update_receivers,
@@ -256,6 +260,11 @@ impl MononokeConfigs {
     /// Returns the ConfigStore, if available (configerator-backed configs only).
     pub fn config_store(&self) -> Option<&ConfigStore> {
         self.config_store.as_ref()
+    }
+
+    /// Returns the current TierManifest, if split-loading is enabled.
+    pub fn manifest(&self) -> Option<Arc<TierManifest>> {
+        self.maybe_manifest_handle.as_ref().map(|h| h.get())
     }
 
     /// Is automatic update of the underlying configuration enabled?
@@ -319,6 +328,146 @@ impl MononokeConfigs {
             .map_err(|e| anyhow!("repo_handles lock poisoned: {}", e))?
             .insert(repo_name.to_owned(), handle);
         Ok(())
+    }
+
+    /// Load a repo config on-demand. Checks the repo_configs cache first,
+    /// falls back to loading from the TierManifest via ConfigHandle.
+    ///
+    /// Thread-safe: uses config_update_lock for write serialization.
+    /// The lock only guards the synchronous clone-insert-store; expensive
+    /// work (ConfigHandle subscription, RepoSpec parsing) happens outside it.
+    pub fn get_or_load_repo_config(&self, repo_name: &str) -> Result<RepoConfig> {
+        // Fast path: lock-free read from cache (covers both legacy blob
+        // and previously loaded split-config repos)
+        if let Some(config) = self.repo_configs.load_full().repos.get(repo_name) {
+            return Ok(config.clone());
+        }
+
+        // Slow path: try loading from manifest. If split-loading infrastructure
+        // is unavailable (no manifest, no config store), this will fail and
+        // we return the error — the fast path above already checked the legacy blob.
+        let repo_config = self.load_and_parse_repo_config(repo_name)?;
+
+        // Insert into cache (INSIDE the lock, sync only)
+        {
+            let _guard = self
+                .config_update_lock
+                .lock()
+                .map_err(|e| anyhow!("config_update_lock poisoned: {}", e))?;
+
+            // Double-check: another thread may have loaded it while we were parsing
+            let current = self.repo_configs.load_full();
+            if let Some(config) = current.repos.get(repo_name) {
+                return Ok(config.clone());
+            }
+
+            let mut new_configs = (*current).clone();
+            new_configs.insert_repo(repo_name.to_owned(), repo_config.clone());
+            self.repo_configs.store(Arc::new(new_configs));
+        }
+
+        Ok(repo_config)
+    }
+
+    /// Subscribe to a repo's ConfigHandle and parse its RepoSpec into a RepoConfig.
+    /// This is the shared helper for get_or_load_repo_config and batch_load_repo_configs.
+    fn load_and_parse_repo_config(&self, repo_name: &str) -> Result<RepoConfig> {
+        self.load_repo_config_handle(repo_name)?;
+        let handle = self
+            .repo_handles
+            .read()
+            .map_err(|e| anyhow!("repo_handles lock poisoned: {}", e))?
+            .get(repo_name)
+            .context("handle not found after load")?
+            .clone();
+        let repo_spec = handle.get();
+        let tier = self
+            .tier_name
+            .as_deref()
+            .context("tier_name required for split-loading")?;
+        let manifest = self
+            .maybe_manifest_handle
+            .as_ref()
+            .context("manifest handle required for split-loading")?
+            .get();
+        parse_repo_spec(Arc::unwrap_or_clone(repo_spec), tier, &manifest.storage)
+    }
+
+    /// Batch-load repo configs. Single lock acquisition, single HashMap clone,
+    /// single ArcSwap store regardless of how many repos are loaded.
+    /// This is the default path for startup (`open_managed_repos`).
+    pub fn batch_load_repo_configs(
+        &self,
+        repo_names: &[String],
+    ) -> Result<Vec<(String, RepoConfig)>> {
+        // Step 1: Separate cached from missing (no lock)
+        let current = self.repo_configs.load_full();
+        let mut results: Vec<(String, RepoConfig)> = Vec::new();
+        let mut missing: Vec<String> = Vec::new();
+
+        for name in repo_names {
+            if let Some(config) = current.repos.get(name.as_str()) {
+                results.push((name.clone(), config.clone()));
+            } else {
+                missing.push(name.clone());
+            }
+        }
+
+        if missing.is_empty() {
+            return Ok(results);
+        }
+
+        // Step 2: Subscribe to ConfigHandles + parse OUTSIDE the lock
+        let mut loaded: Vec<(String, RepoConfig)> = Vec::new();
+        for name in &missing {
+            match self.load_and_parse_repo_config(name) {
+                Ok(config) => loaded.push((name.clone(), config)),
+                Err(e) => {
+                    warn!("batch_load: failed to load config for {}: {:#}", name, e);
+                }
+            }
+        }
+
+        // Step 3: Single lock, single clone, bulk insert, single store
+        if !loaded.is_empty() {
+            let _guard = self
+                .config_update_lock
+                .lock()
+                .map_err(|e| anyhow!("config_update_lock poisoned: {}", e))?;
+            let mut new = (*self.repo_configs.load_full()).clone();
+            for (name, config) in &loaded {
+                new.insert_repo(name.clone(), config.clone());
+            }
+            self.repo_configs.store(Arc::new(new));
+        }
+
+        results.extend(loaded);
+        Ok(results)
+    }
+
+    /// Load a repo config by repository ID. O(1) cache lookup via repos_by_id
+    /// index, falls back to searching the manifest by repo_id.
+    pub fn get_or_load_repo_config_by_id(&self, repo_id: i32) -> Result<(String, RepoConfig)> {
+        // Fast path: O(1) lookup via repos_by_id index
+        let current = self.repo_configs.load_full();
+        if let Some((name, config)) = current.get_repo_config_by_raw_id(repo_id) {
+            return Ok((name.clone(), config.clone()));
+        }
+
+        // Slow path: search manifest for repo_id.
+        // If no manifest is available (e.g. integration tests, file-backed configs),
+        // fall back to the original "unknown repoid" error.
+        let manifest = match self.maybe_manifest_handle.as_ref() {
+            Some(handle) => handle.get(),
+            None => anyhow::bail!("unknown repoid: RepositoryId({})", repo_id),
+        };
+        let entry = manifest
+            .repos
+            .iter()
+            .find(|e| e.repo_id == repo_id)
+            .ok_or_else(|| anyhow!("unknown repoid: RepositoryId({})", repo_id))?;
+        let config = self.get_or_load_repo_config(&entry.repo_name)?;
+        Ok((entry.repo_name.clone(), config))
     }
 }
 
@@ -529,10 +678,10 @@ fn parse_and_merge_repo_configs(
         merged_repos.remove(repo_name);
     }
 
-    Ok(RepoConfigs {
-        repos: merged_repos,
-        common: current_configs.common.clone(),
-    })
+    Ok(RepoConfigs::new(
+        merged_repos,
+        current_configs.common.clone(),
+    ))
 }
 
 /// Watches the TierManifest for structural changes (repos added/removed) and

@@ -391,23 +391,13 @@ impl MononokeApp {
     }
 
     pub fn repo_config_by_name(&self, repo_name: &str) -> Result<RepoConfig> {
-        self.repo_configs()
-            .repos
-            .get(repo_name)
-            .cloned()
-            .ok_or_else(|| anyhow!("unknown reponame: {:?}", repo_name))
+        self.configs.get_or_load_repo_config(repo_name)
     }
 
     /// Get repo config based on user-provided arguments.
     pub fn repo_config(&self, repo_arg: &RepoArg) -> Result<(String, RepoConfig)> {
         match repo_arg {
-            RepoArg::Id(repo_id) => {
-                let repo_configs = self.repo_configs();
-                let (repo_name, repo_config) = repo_configs
-                    .get_repo_config(*repo_id)
-                    .ok_or_else(|| anyhow!("unknown repoid: {:?}", repo_id))?;
-                Ok((repo_name.clone(), repo_config.clone()))
-            }
+            RepoArg::Id(repo_id) => self.configs.get_or_load_repo_config_by_id(repo_id.id()),
             RepoArg::Name(repo_name) => {
                 let repo_config = self.repo_config_by_name(repo_name)?;
                 Ok((repo_name.to_string(), repo_config))
