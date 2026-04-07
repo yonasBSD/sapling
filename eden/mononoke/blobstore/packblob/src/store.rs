@@ -243,7 +243,7 @@ mod tests {
     use fbinit::FacebookInit;
     use memblob::Memblob;
     use mononoke_macros::mononoke;
-    use rand::RngCore;
+    use rand::Rng as _;
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
 

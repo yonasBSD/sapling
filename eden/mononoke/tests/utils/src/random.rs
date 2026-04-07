@@ -29,6 +29,7 @@ use mononoke_types::GitLfs;
 use mononoke_types::MPathElement;
 use mononoke_types::NonRootMPath;
 use rand::Rng;
+use rand::RngExt as _;
 use rand::seq::IndexedRandom as _;
 use rand_distr::Binomial;
 use rand_distr::Uniform;

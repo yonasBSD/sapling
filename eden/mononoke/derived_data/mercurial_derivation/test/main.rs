@@ -1054,7 +1054,7 @@ async fn test_hg_commit_generation_uneven_branch(fb: FacebookInit) {
 #[mononoke::fbinit_test]
 async fn save_reproducibility_under_load(fb: FacebookInit) -> Result<(), Error> {
     use delayblob::DelayedBlobstore;
-    use rand::Rng;
+    use rand::RngExt as _;
     use rand::SeedableRng;
     use rand_distr::Distribution;
     use rand_distr::Normal;

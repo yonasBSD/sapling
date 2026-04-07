@@ -381,8 +381,8 @@ fn split_key_prefix(key: &str) -> (&str, &str) {
 mod tests {
     use bytes::Bytes;
     use mononoke_macros::mononoke;
-    use rand::Rng;
-    use rand::RngCore;
+    use rand::Rng as _;
+    use rand::RngExt as _;
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
 

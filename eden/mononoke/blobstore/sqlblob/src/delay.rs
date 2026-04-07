@@ -12,7 +12,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use futures::stream::StreamExt;
-use rand::Rng;
+use rand::RngExt as _;
 use stats::prelude::*;
 use tokio::sync::watch;
 

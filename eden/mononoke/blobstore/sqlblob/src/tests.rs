@@ -12,8 +12,8 @@ use borrowed::borrowed;
 use bytes::Bytes;
 use fbinit::FacebookInit;
 use mononoke_macros::mononoke;
-use rand::Rng;
-use rand::RngCore;
+use rand::Rng as _;
+use rand::RngExt as _;
 use rand::distr::Alphanumeric;
 use strum::IntoEnumIterator;
 

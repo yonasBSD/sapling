@@ -18,7 +18,7 @@ use blobstore::OverwriteStatus;
 use blobstore::PutBehaviour;
 use context::CoreContext;
 use mononoke_types::BlobstoreBytes;
-use rand::Rng;
+use rand::RngExt as _;
 use rand_distr::Distribution;
 
 pub type Normal = rand_distr::Normal<f64>;
