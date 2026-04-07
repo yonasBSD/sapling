@@ -14,7 +14,6 @@ import css from './Radio.module.css';
 import {Tooltip} from './Tooltip';
 import {layout} from './theme/layout';
 
-// stylex doesn't support :checked and :before simultaneously very well
 import './Radio.css';
 
 export function RadioGroup<T extends string>({

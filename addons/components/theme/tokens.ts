@@ -10,7 +10,6 @@
  * Use these in CSS module `composes`, inline styles, or anywhere a CSS value is needed.
  *
  * These mirror the custom properties defined in tokens.css.
- * The keys match the original StyleX `defineVars()` API from tokens.stylex.ts.
  */
 
 export const colors = {

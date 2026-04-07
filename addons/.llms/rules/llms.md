@@ -10,7 +10,7 @@ ISL is a web-based UI for the [Sapling](https://sapling-scm.com/) source control
 
 ```
 eden/addons/
-├── isl/             # React client (Vite + TypeScript + Jotai + StyleX)
+├── isl/             # React client (Vite + TypeScript + Jotai)
 ├── isl-server/      # Node.js server (Rollup + TypeScript)
 ├── shared/          # Utilities shared between client and server
 ├── components/      # Reusable UI component library
@@ -139,26 +139,20 @@ Operations run one at a time via a queue managed in `operationsState.ts`.
 
 ---
 
-## Styling (StyleX)
+## Styling
 
-ISL uses **StyleX** for component styling.
+ISL uses **CSS Modules** for component styling.
 
 ```typescript
-import * as stylex from '@stylexjs/stylex';
+import * as styles from './MyComponent.module.css';
 
-const styles = stylex.create({
-  container: {
-    padding: 'var(--pad)',
-    display: 'flex',
-  },
-});
-
-// Usage:
-<div {...stylex.props(styles.container)} />
+<div className={styles.container} />
 ```
 
-- Theme tokens are defined in `components/theme/tokens.stylex.ts`.
-- Use CSS custom properties (e.g., `var(--foreground)`) for theming.
+- Use `cn` to join multiple classNames
+- CSS layers are used to manage specificity for the component library. e.g. `components/` should use `@layer components`.
+- Theme tokens are defined in `components/theme/tokens.css`.
+- Use CSS custom properties (e.g., `var(--foreground)`, `var(--pad)`) for theming.
 - The `components/` package provides reusable UI primitives (`Button`, `Tooltip`, `TextField`, `Dropdown`, etc.)—use them instead of raw HTML elements.
 
 ---
@@ -187,12 +181,14 @@ const styles = stylex.create({
 ### Server Test Patterns
 
 - Mock shell execution with `mockEjeca` to simulate `sl` CLI responses:
+
   ```typescript
   mockEjeca([
     [/^sl root/, {stdout: '/repo'}],
     [/^sl log/, {stdout: '...'}],
   ]);
   ```
+
 - Mock `WatchForChanges` to avoid filesystem/watchman dependencies.
 
 ### Shared Test Utilities (`shared/testUtils.ts`)
@@ -237,7 +233,6 @@ When reviewing ISL changes, flag these issues:
 - **Platform-specific code** outside the `Platform` interface
 - **Missing test helpers** — using raw message simulation instead of `testUtils.tsx` helpers
 - **Synchronous I/O** in server code — all file and process operations should be async
-- **Inline styles or raw CSS** instead of StyleX
 - **Raw HTML elements** instead of `components/` primitives (Button, Tooltip, etc.)
 
 ---

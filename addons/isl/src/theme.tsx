@@ -46,7 +46,6 @@ export const themeState = atom<ThemeColor, [ThemeColor], void>(
 /**
  * The specific theme name, like "Default Light Modern".
  * Typically, you'd rather use `themeState` to get simply "light" / "dark".
- * Theme name is useful for dynamically updating stylex styles for specific themes.
  */
 export const themeNameState = atom<string | undefined>(theme?.getThemeName?.());
 

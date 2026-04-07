@@ -158,7 +158,7 @@ to the filesystem or repository. The client can make normal web requests, but do
 to make authenticated requests to GitHub.
 
 The client uses React (for rendering the UI) and [Jotai](https://jotai.org/) (for state management).
-We use a combination of regular CSS and [StyleX](https://stylexjs.com/) for styling.
+We use CSS Modules for styling.
 
 ### Server
 

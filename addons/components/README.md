@@ -15,7 +15,7 @@ Alternatively, search ../isl/ for usage examples.
 
 ## Differences from vscode-webivew-ui-toolkit
 
-- requires react & stylex
+- requires react
 - does not use HTML Custom Elements / Shadow root
 - includes default light and dark theme variable definitions as an optional import. But still uses vscode theme variables when used inside of vscode.
 - component APIs are changed to fit react usage a bit more directly
