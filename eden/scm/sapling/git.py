@@ -765,6 +765,9 @@ def pullrefspecs(repo, url, refspecs):
         # Nothing to pull
         return 0
     args = ["fetch", "--no-tags", "--prune"]
+    depth = repo.ui.configint("git", "depth")
+    if depth:
+        args.append(f"--depth={depth}")
     if repo.ui.configbool("git", "shallow"):
         filter_config = repo.ui.config("git", "filter")
         if filter_config:

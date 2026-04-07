@@ -3,8 +3,11 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
+import contextlib
 import json
 import os
+import shutil
+import tempfile
 from collections import defaultdict
 from typing import List
 
@@ -158,6 +161,12 @@ def subtree_copy(ui, repo, *args, **opts):
             _("REV"),
         ),
         ("f", "force", None, _("overwrite existing path")),
+        (
+            "",
+            "git-shallow-clone",
+            None,
+            _("use git shallow clone (--depth=1) (EXPERIMENTAL)"),
+        ),
     ]
     + subtree_path_opts
     + commitopts
@@ -176,6 +185,11 @@ def subtree_import(ui, repo, *args, **opts):
 
     Optionally, a source path within the external repository can be specified to
     import only a subdirectory.
+
+    Use ``--git-shallow-clone`` to fetch only the requested commit without
+    full history (``git fetch --depth=1``). This is faster for large
+    repositories but future blame or log on the imported path may be slower
+    because they need to download the commit history.
 
     Examples:
 
@@ -825,6 +839,26 @@ def _do_normal_copy(
     cmdutil.commit(ui, repo, commitfunc, [], opts)
 
 
+@contextlib.contextmanager
+def _shallow_clone_git_repo(ui, url, from_rev):
+    """Clone a git repo with --depth=1 into a temp directory.
+
+    The cloned repo is not cached and is deleted after the context exits,
+    because a shallow clone does not support blame or log operations.
+    """
+    from .. import git
+
+    git_repo_dir = tempfile.mkdtemp(prefix="sl-subtree-")
+    # disable partial clone when shallow clone is enabled
+    overrides = {("git", "depth"): 1, ("git", "filter"): None}
+    ui.status(_("creating git repo at %s\n") % git_repo_dir)
+    try:
+        with ui.configoverride(overrides, "subtree-import"):
+            yield git.clone(ui, url, git_repo_dir, update=from_rev)
+    finally:
+        shutil.rmtree(git_repo_dir, ignore_errors=True)
+
+
 def _do_import(ui, repo, *args, **opts):
     cmdutil.bailifchanged(repo)
 
@@ -850,13 +884,18 @@ def _do_import(ui, repo, *args, **opts):
 
     abort_or_remove_paths(ui, repo, to_paths, "import", opts)
 
-    git_repo = get_or_clone_git_repo(ui, giturl, from_rev)
-    from_ctx = git_repo[from_rev]
-    subtreeutil.validate_path_exist(ui, from_ctx, from_paths, abort_on_missing=True)
+    if opts.get("git_shallow_clone"):
+        repo_ctx_manager = _shallow_clone_git_repo(ui, giturl, from_rev)
+    else:
+        repo_ctx_manager = contextlib.nullcontext(
+            get_or_clone_git_repo(ui, giturl, from_rev)
+        )
 
-    copy_files(ui, git_repo, repo, from_ctx, from_paths, to_paths, "import")
-
-    from_commit = from_ctx.hex()
+    with repo_ctx_manager as git_repo:
+        from_ctx = git_repo[from_rev]
+        from_commit = from_ctx.hex()
+        subtreeutil.validate_path_exist(ui, from_ctx, from_paths, abort_on_missing=True)
+        copy_files(ui, git_repo, repo, from_ctx, from_paths, to_paths, "import")
     # use the original `url` in the metadata, as the `giturl` may lost information
     # e.g.: "git+" prefix
     extra = subtreeutil.gen_import_info(ui, url, from_commit, from_paths, to_paths)

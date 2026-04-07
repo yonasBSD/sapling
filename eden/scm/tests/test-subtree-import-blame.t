@@ -60,3 +60,10 @@ Test blame support phabricator diff number
            : 1
    D1234567: 2
            : 3
+
+Test subtree import with --git-shallow-clone, blame should work
+
+  $ sl subtree import -q --url $GIT_URL --rev main --to-path bar2 -m "import gitrepo to bar2" --git-shallow-clone
+  $ sl blame bar2/alpha
+  b6c31add3e60~: 1
+  6a5b13188f04~: 2
