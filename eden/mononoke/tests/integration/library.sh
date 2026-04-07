@@ -63,7 +63,9 @@ function termandwait {
 }
 
 function get_free_socket {
-  "$GET_FREE_SOCKET"
+  # Redirect PAR unpacking to /tmp to avoid Permission denied errors on
+  # SandCastle workers where /dev/shm may be mounted noexec (T262741687).
+  PAR_TEMP_DIR="${PAR_TEMP_DIR:-/tmp}" "$GET_FREE_SOCKET"
 }
 
 ZELOS_PORT=$(get_free_socket)
