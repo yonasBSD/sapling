@@ -67,6 +67,8 @@ pub struct TestStoreInner {
     entries: HashMap<HgId, Bytes>,
     // Calls to get_content_iter().
     fetched: Vec<Vec<Key>>,
+    // FetchContexts passed to get_content_iter().
+    fetch_contexts: Vec<FetchContext>,
     // Parents recorded via insert_data with InsertOpts.parents.
     parents: HashMap<(RepoPathBuf, HgId), Vec<HgId>>,
     format: SerializationFormat,
@@ -89,6 +91,11 @@ impl TestStore {
         self.inner.read().fetched.clone()
     }
 
+    #[allow(unused)]
+    pub fn fetch_contexts(&self) -> Vec<FetchContext> {
+        self.inner.read().fetch_contexts.clone()
+    }
+
     pub fn key_fetch_count(&self) -> u64 {
         self.inner.read().key_fetch_count.load(Ordering::Relaxed)
     }
@@ -109,7 +116,7 @@ impl TestStore {
 impl KeyStore for TestStore {
     fn get_content_iter(
         &self,
-        _fctx: FetchContext,
+        fctx: FetchContext,
         keys: Vec<Key>,
     ) -> anyhow::Result<BoxIterator<anyhow::Result<(Key, Blob)>>> {
         let mut inner = self.inner.write();
@@ -117,6 +124,7 @@ impl KeyStore for TestStore {
             .key_fetch_count
             .fetch_add(keys.len() as u64, Ordering::Relaxed);
         inner.fetched.push(keys.clone());
+        inner.fetch_contexts.push(fctx);
         let entries = inner.entries.clone();
         drop(inner);
         let iter = keys

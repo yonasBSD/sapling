@@ -51,6 +51,7 @@ pub(crate) struct Config {
     pub(crate) max_initial_lag: u64,
     pub(crate) min_ratio: f64,
     pub(crate) min_interval: Duration,
+    pub(crate) skip_lfs: bool,
 }
 
 impl Default for Config {
@@ -59,6 +60,7 @@ impl Default for Config {
             max_initial_lag: 1000,
             min_ratio: 0.1,
             min_interval: Duration::from_millis(10),
+            skip_lfs: true,
         }
     }
 }
@@ -484,7 +486,8 @@ fn prefetch(
             let fctx = FetchContext::new_with_mode_and_cause(
                 FetchMode::AllowRemote | FetchMode::IGNORE_RESULT,
                 FetchCause::EdenWalkPrefetch,
-            );
+            )
+            .with_skip_lfs(config.skip_lfs);
 
             // An important implementation detail for us: the scmstore FileStore spawns a thread
             // when you fetch more than 1_000 keys (i.e. this method will operate asynchronously if
@@ -1248,11 +1251,50 @@ mod test {
     }
 
     #[test]
+    fn test_config_skip_lfs_defaults_true() {
+        let config = Config::default();
+        assert!(config.skip_lfs);
+    }
+
+    #[test]
+    fn test_prefetch_passes_skip_lfs() -> anyhow::Result<()> {
+        let tree_store = Arc::new(TestStore::new());
+        let file_store = Arc::new(TestStore::new());
+
+        let path: RepoPathBuf = "file.txt".to_string().try_into()?;
+        let hgid = file_store.insert_data(Default::default(), &path, b"content".into())?;
+
+        let mut mf = TreeManifest::ephemeral(tree_store);
+        mf.insert(path, FileMetadata::new(hgid, types::FileType::Regular))?;
+
+        let detector = walkdetector::Detector::new();
+        let handle = prefetch(
+            Config::default(),
+            mf,
+            file_store.clone(),
+            detector,
+            PrefetchWork::FileContent("".to_string().try_into()?, 0, None),
+            None,
+        );
+
+        while !handle.is_done() {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+
+        let contexts = file_store.fetch_contexts();
+        assert_eq!(contexts.len(), 1);
+        assert!(contexts[0].skip_lfs());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_should_pause_prefetch() -> anyhow::Result<()> {
         let config = Config {
             min_ratio: 0.1,
             max_initial_lag: 20,
             min_interval: Duration::from_millis(1),
+            ..Default::default()
         };
 
         let mut detector = walkdetector::Detector::new();

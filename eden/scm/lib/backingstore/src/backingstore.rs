@@ -254,6 +254,7 @@ impl BackingStore {
                     "walk-prefetch-min-interval",
                     || Duration::from_millis(10),
                 )?,
+                skip_lfs: config.get_or("backingstore", "walk-prefetch-skip-lfs", || true)?,
             };
 
             prefetch_manager(
