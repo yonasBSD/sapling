@@ -31,6 +31,8 @@ pub enum InternalError {
     ItemDeleted(String),
     #[error("Attepmt to create Derivation Item with dependency on itself {0:#?}")]
     CircularDependency(DagItemId),
+    #[error("Transient Zeus connection error: {0}")]
+    TransientZeusError(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -55,6 +57,10 @@ impl From<zeus_client::ZeusError> for InternalError {
                 message: msg,
                 exception_type: ZelosExceptionType::ZNONODE,
             } => InternalError::ItemDeleted(msg),
+            zeus_client::ZeusError::RuntimeError {
+                message: msg,
+                exception_type: ZelosExceptionType::ZCONNECTIONLOSS,
+            } => InternalError::TransientZeusError(msg),
             _ => InternalError::Other(e.into()),
         }
     }
