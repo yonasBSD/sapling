@@ -425,6 +425,12 @@ impl AddScubaParams for thrift::CommitRunHooksParams {
     }
 }
 
+impl AddScubaParams for thrift::CommitRateLimitCheckParams {
+    fn add_scuba_params(&self, scuba: &mut MononokeScubaSampleBuilder) {
+        scuba.add("bookmark_name", self.bookmark.as_str());
+    }
+}
+
 impl AddScubaParams for thrift::CommitSubtreeChangesParams {
     fn add_scuba_params(&self, scuba: &mut MononokeScubaSampleBuilder) {
         self.identity_schemes.add_scuba_params(scuba);

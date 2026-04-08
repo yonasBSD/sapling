@@ -390,6 +390,7 @@ impl_into_thrift_error!(service::CommitChangedPathsApproxExn);
 impl_into_thrift_error!(service::CommitLinearHistoryExn);
 impl_into_thrift_error!(service::CommitListDescendantBookmarksExn);
 impl_into_thrift_error!(service::CommitRunHooksExn);
+impl_into_thrift_error!(service::CommitRateLimitCheckExn);
 impl_into_thrift_error!(service::CommitSubtreeChangesExn);
 impl_into_thrift_error!(service::CommitPathExistsExn);
 impl_into_thrift_error!(service::CommitPathInfoExn);

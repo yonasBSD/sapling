@@ -1536,6 +1536,11 @@ impl SourceControlService for SourceControlServiceThriftImpl {
             params: thrift::CommitRunHooksParams,
         ) -> Result<thrift::CommitRunHooksResponse, service::CommitRunHooksExn>;
 
+        async fn commit_rate_limit_check(
+            commit: thrift::CommitSpecifier,
+            params: thrift::CommitRateLimitCheckParams,
+        ) -> Result<thrift::CommitRateLimitCheckResponse, service::CommitRateLimitCheckExn>;
+
         async fn commit_subtree_changes(
             commit: thrift::CommitSpecifier,
             params: thrift::CommitSubtreeChangesParams,

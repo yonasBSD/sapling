@@ -27,6 +27,7 @@ use hooks::HookOutcome;
 use itertools::Either;
 use itertools::Itertools;
 use maplit::btreeset;
+use mononoke_api::BookmarkKey;
 use mononoke_api::CandidateSelectionHintArgs;
 use mononoke_api::ChangesetContext;
 use mononoke_api::ChangesetDiffItem;
@@ -41,6 +42,7 @@ use mononoke_api::CopyInfo;
 use mononoke_api::MetadataDiff;
 use mononoke_api::MononokeError;
 use mononoke_api::MononokeRepo;
+use mononoke_api::RateLimitOutcome;
 use mononoke_api::Repo;
 use mononoke_api::RepoContext;
 use mononoke_api::UnifiedDiff;
@@ -1563,6 +1565,56 @@ impl SourceControlServiceImpl {
 
         Ok(thrift::CommitRunHooksResponse {
             outcomes: outcomes_map,
+            ..Default::default()
+        })
+    }
+
+    pub(crate) async fn commit_rate_limit_check(
+        &self,
+        ctx: CoreContext,
+        commit: thrift::CommitSpecifier,
+        params: thrift::CommitRateLimitCheckParams,
+    ) -> Result<thrift::CommitRateLimitCheckResponse, scs_errors::ServiceError> {
+        let (_repo, changeset) = self.repo_changeset(ctx, &commit).await?;
+        let bookmark = BookmarkKey::new(&params.bookmark)
+            .map_err(|e| scs_errors::invalid_request(format!("Invalid bookmark: {}", e)))?;
+
+        let result = changeset.commit_rate_limit_check(&bookmark).await?;
+
+        let rule_results = result
+            .rule_results
+            .into_iter()
+            .map(|r| {
+                let outcome = match r.outcome {
+                    RateLimitOutcome::Allowed => thrift::CommitRateLimitRuleOutcome::allowed(
+                        thrift::CommitRateLimitAllowed {
+                            ..Default::default()
+                        },
+                    ),
+                    RateLimitOutcome::Exceeded {
+                        total,
+                        window_secs,
+                        max_commits,
+                    } => thrift::CommitRateLimitRuleOutcome::exceeded(
+                        thrift::CommitRateLimitExceeded {
+                            current_count: total as i64,
+                            max_commits: max_commits as i64,
+                            window_secs: window_secs as i64,
+                            ..Default::default()
+                        },
+                    ),
+                };
+                thrift::CommitRateLimitRuleResult {
+                    rule_name: r.rule_name,
+                    outcome,
+                    ..Default::default()
+                }
+            })
+            .collect();
+
+        Ok(thrift::CommitRateLimitCheckResponse {
+            passed: result.passed,
+            rule_results,
             ..Default::default()
         })
     }

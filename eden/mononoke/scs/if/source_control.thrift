@@ -1607,6 +1607,47 @@ struct CommitRunHooksParams {
   2: optional map<string, binary> pushvars;
 }
 
+/// Parameters for checking commit rate limits.
+struct CommitRateLimitCheckParams {
+  /// The bookmark to check rate limits against.
+  1: string bookmark;
+}
+
+/// A rate limit rule was not exceeded.
+struct CommitRateLimitAllowed {}
+
+/// A rate limit rule was exceeded.
+struct CommitRateLimitExceeded {
+  /// Current number of commits in the window.
+  1: i64 current_count;
+  /// Maximum allowed commits in the window.
+  2: i64 max_commits;
+  /// Length of the rate limit window in seconds.
+  3: i64 window_secs;
+}
+
+/// Outcome of checking a single rate limit rule.
+union CommitRateLimitRuleOutcome {
+  1: CommitRateLimitAllowed allowed;
+  2: CommitRateLimitExceeded exceeded;
+}
+
+/// Result of checking a single rate limit rule.
+struct CommitRateLimitRuleResult {
+  /// Name of the rate limit rule.
+  1: string rule_name;
+  /// Whether the rule was exceeded or not.
+  2: CommitRateLimitRuleOutcome outcome;
+}
+
+/// Response for a commit rate limit check.
+struct CommitRateLimitCheckResponse {
+  /// Whether all rate limit rules passed.
+  1: bool passed;
+  /// Per-rule results.
+  2: list<CommitRateLimitRuleResult> rule_results;
+}
+
 struct CommitSubtreeChangesParams {
   /// Commit identity schemes to return.
   1: set<CommitIdentityScheme> identity_schemes;
@@ -3495,6 +3536,17 @@ service SourceControlService extends fb303_core.BaseService {
   CommitSubtreeChangesResponse commit_subtree_changes(
     1: CommitSpecifier commit,
     2: CommitSubtreeChangesParams params,
+  ) throws (
+    1: RequestError request_error,
+    2: InternalError internal_error,
+    3: OverloadError overload_error,
+  );
+
+  /// Check commit rate limits for a commit without landing it.
+  /// Returns whether all rate limit rules pass, along with per-rule details.
+  CommitRateLimitCheckResponse commit_rate_limit_check(
+    1: CommitSpecifier commit,
+    2: CommitRateLimitCheckParams params,
   ) throws (
     1: RequestError request_error,
     2: InternalError internal_error,
