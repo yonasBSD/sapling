@@ -558,6 +558,17 @@ class CloneCmd(Subcmd):
             ),
         )
 
+        parser.add_argument(
+            "--skip-commit-resolve",
+            action="store_true",
+            default=False,
+            help=(
+                "Skip resolving the commit hash via hg/git. Use when --rev is "
+                "already a full 40-character hex commit hash. This avoids a "
+                "subprocess call that potentially returns the same hash."
+            ),
+        )
+
         case_group = parser.add_mutually_exclusive_group()
         case_group.add_argument(
             "--case-sensitive",
@@ -718,13 +729,16 @@ is case-sensitive. This is not recommended and is intended only for testing."""
         if not args.backing_store or args.backing_store in HG_REPO_TYPES:
             # Find the commit to check out
             if args.rev is not None:
-                try:
-                    commit = repo.get_commit_hash(args.rev)
-                except Exception as ex:
-                    print_stderr(
-                        f"error: unable to find hash for commit {args.rev!r}: {ex}"
-                    )
-                    return 1
+                if args.skip_commit_resolve:
+                    commit = args.rev
+                else:
+                    try:
+                        commit = repo.get_commit_hash(args.rev)
+                    except Exception as ex:
+                        print_stderr(
+                            f"error: unable to find hash for commit {args.rev!r}: {ex}"
+                        )
+                        return 1
             else:
                 try:
                     commit = repo.get_commit_hash(repo_config.default_revision)
