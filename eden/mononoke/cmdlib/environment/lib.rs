@@ -167,4 +167,5 @@ pub struct MononokeEnvironment {
     pub commit_graph_options: CommitGraphOptions,
     pub client_entry_point_for_service: ClientEntryPoint,
     pub derivation_queue_namespace: String,
+    pub redaction_disabled: bool,
 }

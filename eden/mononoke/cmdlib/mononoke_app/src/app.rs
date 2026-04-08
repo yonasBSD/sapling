@@ -670,7 +670,7 @@ impl MononokeApp {
             + Sync
             + 'static,
     {
-        let redaction_disabled = false;
+        let redaction_disabled = self.env.redaction_disabled;
         self.open_managed_repos_with_redaction_disabled(service, redaction_disabled)
             .await
     }
@@ -752,7 +752,7 @@ impl MononokeApp {
             + Sync
             + 'static,
     {
-        let redaction_disabled = false;
+        let redaction_disabled = self.env.redaction_disabled;
         self.open_named_managed_repos_with_redaction_disabled(
             repo_names,
             service,

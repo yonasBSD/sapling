@@ -133,6 +133,11 @@ pub struct EnvironmentArgs {
 
     #[clap(flatten, next_help_heading = "DERIVATION QUEUE OPTIONS")]
     derivation_queue_args: DerivationQueueArgs,
+
+    /// Disable content redaction. Intended for Cogwheel tests where the
+    /// redaction keylist blobs are not available in the ephemeral blobstore.
+    #[clap(long)]
+    disable_redaction: bool,
 }
 
 impl MononokeAppBuilder {
@@ -323,6 +328,7 @@ impl MononokeAppBuilder {
             gflags_args,
             commit_graph_args,
             derivation_queue_args,
+            disable_redaction,
         } = env_args;
 
         gflags_args.propagate(self.fb)?;
@@ -415,6 +421,7 @@ impl MononokeAppBuilder {
             commit_graph_options,
             client_entry_point_for_service: self.client_entry_point_for_service,
             derivation_queue_namespace: derivation_queue_args.derivation_queue_namespace,
+            redaction_disabled: disable_redaction,
         })
     }
 }
