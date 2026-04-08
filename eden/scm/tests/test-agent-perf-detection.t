@@ -1,6 +1,6 @@
   $ enable rebase
   $ setconfig agent.max-commit-fetch-count=6
-  $ setconfig agent.commit-fetch-batch-size=2
+  $ setconfig experimental.commit-fetch-batch-size=2
   $ export CODING_AGENT_METADATA=id=test_agent
 
 Repo setup

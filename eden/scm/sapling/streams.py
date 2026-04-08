@@ -26,7 +26,7 @@ def prefetchtextstream(
 def _prefetchtextstream(repo, ctxstream):
     is_agent = agentdetect.is_agent()
     max_count = repo.ui.configint("agent", "max-commit-fetch-count", 100_000)
-    batch_size = repo.ui.configint("agent", "commit-fetch-batch-size", 10_000)
+    batch_size = repo.ui.configint("experimental", "commit-fetch-batch-size", 10_000)
     count = 0
 
     for ctxbatch in util.eachslice(ctxstream, batch_size, maxtime=2):
