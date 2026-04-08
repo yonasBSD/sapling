@@ -25,6 +25,11 @@ pub struct FetchContext {
     remote_fetch_count: Arc<AtomicU64>,
 
     fetch_from_cas_attempted: Arc<AtomicBool>,
+
+    /// When true, LFS files should be skipped during fetch (not resolved).
+    /// This is useful for prefetch operations where we don't want to waste
+    /// bandwidth fetching large LFS blobs.
+    skip_lfs: bool,
 }
 
 impl FetchContext {
@@ -54,6 +59,7 @@ impl FetchContext {
             local_fetch_count: Default::default(),
             remote_fetch_count: Default::default(),
             fetch_from_cas_attempted: Default::default(),
+            skip_lfs: false,
         }
     }
 
@@ -89,10 +95,50 @@ impl FetchContext {
     pub fn fetch_from_cas_attempted(&self) -> bool {
         self.fetch_from_cas_attempted.load(Ordering::Relaxed)
     }
+
+    pub fn with_skip_lfs(mut self, skip_lfs: bool) -> Self {
+        self.skip_lfs = skip_lfs;
+        self
+    }
+
+    pub fn skip_lfs(&self) -> bool {
+        self.skip_lfs
+    }
 }
 
 impl Default for FetchContext {
     fn default() -> Self {
         Self::sapling_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_skip_lfs_default_false() {
+        let fctx = FetchContext::default();
+        assert!(!fctx.skip_lfs());
+    }
+
+    #[test]
+    fn test_skip_lfs_with_builder() {
+        let fctx = FetchContext::new_with_mode_and_cause(
+            FetchMode::AllowRemote | FetchMode::IGNORE_RESULT,
+            FetchCause::EdenWalkPrefetch,
+        )
+        .with_skip_lfs(true);
+
+        assert!(fctx.skip_lfs());
+        assert!(fctx.mode().ignore_result());
+        assert_eq!(fctx.cause(), FetchCause::EdenWalkPrefetch);
+    }
+
+    #[test]
+    fn test_skip_lfs_preserved_through_clone() {
+        let fctx = FetchContext::default().with_skip_lfs(true);
+        let cloned = fctx.clone();
+        assert!(cloned.skip_lfs());
     }
 }
