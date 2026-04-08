@@ -1721,6 +1721,7 @@ impl RepoFactory {
         repo_derived_data: &ArcRepoDerivedData,
         repo_event_publisher: &ArcRepoEventPublisher,
         phases: &ArcPhases,
+        repo_config: &ArcRepoConfig,
     ) -> Result<ArcBookmarksCache> {
         let cache = self
             .build_bookmarks_cache_impl(
@@ -1730,6 +1731,7 @@ impl RepoFactory {
                 repo_derived_data,
                 repo_event_publisher,
                 phases,
+                repo_config,
             )
             .await?;
         Ok(cache as ArcBookmarksCache)
@@ -1743,6 +1745,7 @@ impl RepoFactory {
         repo_derived_data: &ArcRepoDerivedData,
         repo_event_publisher: &ArcRepoEventPublisher,
         phases: &ArcPhases,
+        _repo_config: &ArcRepoConfig,
     ) -> Result<Arc<dyn CombinedBookmarksCache + Send + Sync>> {
         let warmer_requirement: WarmerRequirement =
             (&self.env.bookmark_cache_options.derived_data).into();
@@ -1845,6 +1848,7 @@ impl RepoFactory {
         repo_derived_data: &ArcRepoDerivedData,
         repo_event_publisher: &ArcRepoEventPublisher,
         phases: &ArcPhases,
+        repo_config: &ArcRepoConfig,
     ) -> Result<ArcScopedBookmarksCache> {
         let cache = self
             .build_bookmarks_cache_impl(
@@ -1854,6 +1858,7 @@ impl RepoFactory {
                 repo_derived_data,
                 repo_event_publisher,
                 phases,
+                repo_config,
             )
             .await?;
         Ok(cache as ArcScopedBookmarksCache)
