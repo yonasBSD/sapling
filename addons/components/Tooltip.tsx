@@ -220,7 +220,13 @@ export function Tooltip({
           if ((e as KeyboardEvent).key === 'Escape') {
             setVisible(false);
           }
-        } else if (e.type === 'resize' || !eventIsFromInsideTooltip(e as unknown as MouseEvent)) {
+        } else if (e.type === 'resize') {
+          setVisible(false);
+        } else if (
+          e.target !== document &&
+          e.target !== document.documentElement &&
+          !eventIsFromInsideTooltip(e as unknown as MouseEvent)
+        ) {
           setVisible(false);
         }
       };
@@ -367,30 +373,20 @@ function RenderTooltipOnto({
 
   const pad = 10;
 
-  if (position.left > viewportDimensions.width / 2) {
-    // All our position computations use top+left.
-    // If we position using `left`, but the tooltip is near the right edge,
-    // it will squish itself to fit rather than push itself further left.
-    // Instead, we need to position with `right`, computed from left. based on the viewport dimension.
-    style.right =
-      viewportDimensions.width - (position.left + viewportAdjust.left + renderedDimensions.width);
-  } else {
-    style.left = position.left + viewportAdjust.left;
+  // Always use style.left/top for positioning. width: max-content prevents the
+  // browser from squishing the tooltip when positioned near the right edge,
+  // which previously required switching between style.left and style.right
+  // and caused dimension oscillation with ResizeObserver.
+  style.left = position.left + viewportAdjust.left;
+  style.top = position.top + viewportAdjust.top;
+  style.width = 'max-content';
+  style.maxWidth = viewportDimensions.width - 2 * pad;
+  style.boxSizing = 'border-box';
+  const availableHeight = viewportDimensions.height - (position.top + viewportAdjust.top) - 3 * pad;
+  if (availableHeight > 0) {
+    style.maxHeight = availableHeight;
+    style.overflowY = 'auto';
   }
-  // Note: The same could technically apply for top/bottom, but only for left/right positioned tooltips which are less common,
-  // so in practice it matters less.
-  if (position.top > viewportDimensions.height / 2) {
-    style.bottom =
-      viewportDimensions.height - (position.top + viewportAdjust.top + renderedDimensions.height);
-    style.maxHeight = viewportDimensions.height - style.bottom - 3 * pad;
-  } else {
-    style.top = position.top + viewportAdjust.top;
-    style.maxHeight = viewportDimensions.height - style.top - 3 * pad;
-  }
-  style.height =
-    renderedDimensions.height > style.maxHeight
-      ? '100%' // allow scrolling
-      : 'unset';
 
   // Use a portal so the tooltip element is rendered into the global list of tooltips,
   // rather than as a descendant of the tooltip creator.
