@@ -273,14 +273,14 @@ export class Dag extends SelfUpdate<CommitDagRecord> {
       if (set === undefined) {
         return [...sorted];
       }
-      const hashes = arrayFromHashes(set === undefined ? this.all() : set);
+      const hashes = arrayFromHashes(set);
+      if (hashes.some(h => !index.has(h))) {
+        // Fall back to full topological sort when set contains commits not in
+        // the cached index (e.g. optimistic rebase preview commits).
+        return this.commitDag.sortAsc(set, {compare: sortAscCompare});
+      }
       return hashes.sort((a, b) => {
-        const aIdx = index.get(a);
-        const bIdx = index.get(b);
-        if (aIdx == null || bIdx == null) {
-          throw new Error(`Commit ${a} or ${b} is not in the dag.`);
-        }
-        return aIdx - bIdx;
+        return (index.get(a) as number) - (index.get(b) as number);
       });
     }
     // Otherwise, fallback to sortAsc.
