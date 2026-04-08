@@ -2633,13 +2633,12 @@ impl Index {
             {
                 let mut offset_map = OffsetMap::empty_for_index(self);
                 let estimated_dirty_bytes = self.dirty_links.len() * 50;
-                let path = self.path.clone(); // for error messages; and make the borrowck happy.
                 let mut lock = ScopedFileLock::new(self.file.as_mut().unwrap(), true)
-                    .context(&path, "cannot lock")?;
+                    .context(&self.path, "cannot lock")?;
                 let len = lock
                     .as_mut()
                     .seek(SeekFrom::End(0))
-                    .context(&path, "cannot seek to end")?;
+                    .context(&self.path, "cannot seek to end")?;
 
                 test_only_fail_point!(self.fail_on_flush == 1);
                 if len < old_len {
@@ -2651,7 +2650,7 @@ impl Index {
                     // file, potentially recreating it. We haven't checked the
                     // new content, so it's not considered as "data corruption".
                     // TODO: Review this decision.
-                    let err = crate::Error::path(&path, message);
+                    let err = crate::Error::path(&self.path, message);
                     return Err(err);
                 }
 
@@ -2739,7 +2738,7 @@ impl Index {
                 let checksum_len = if self.checksum_enabled {
                     new_checksum
                         .update(&self.buf, lock.as_mut(), len, &buf)
-                        .context(&path, "cannot read and update checksum")?;
+                        .context(&self.path, "cannot read and update checksum")?;
                     // Optionally merge the checksum entry for optimization.
                     if self.checksum_max_chain_len > 0
                         && new_checksum.chain_len >= self.checksum_max_chain_len
@@ -2759,28 +2758,26 @@ impl Index {
                 let start = Instant::now();
                 lock.as_mut()
                     .seek(SeekFrom::Start(len))
-                    .context(&path, "cannot seek")?;
+                    .context(&self.path, "cannot seek")?;
 
                 test_only_fail_point!(self.fail_on_flush == 4);
                 lock.as_mut()
                     .write_all(&buf)
-                    .context(&path, "cannot write new data to index")?;
+                    .context(&self.path, "cannot write new data to index")?;
 
                 test_only_fail_point!(self.fail_on_flush == 5);
                 if self.fsync || config::get_global_fsync() {
-                    lock.as_mut().sync_all().context(&path, "cannot sync")?;
+                    lock.as_mut()
+                        .sync_all()
+                        .context(&self.path, "cannot sync")?;
                 }
                 INDEX_WRITE_MS.add(start.elapsed().as_millis() as usize);
 
                 // Remap and update root since length has changed
                 test_only_fail_point!(self.fail_on_flush == 6);
-                let bytes = mmap_bytes(lock.as_ref(), None).context(&path, "cannot mmap")?;
+                let bytes = mmap_bytes(lock.as_ref(), None).context(&self.path, "cannot mmap")?;
 
-                // 'path' should not have changed.
-                debug_assert_eq!(&self.path, &path);
-
-                // This is to workaround the borrow checker.
-                let this = SimpleIndexBuf(&bytes, &path);
+                let this = SimpleIndexBuf(&bytes, &self.path);
 
                 // Sanity check - the length should be expected. Otherwise, the lock
                 // is somehow ineffective.
@@ -2791,7 +2788,8 @@ impl Index {
 
                 // Reload root and checksum.
                 test_only_fail_point!(self.fail_on_flush == 8);
-                let (root, checksum) = read_root_checksum_at_end(&path, &bytes, new_len as usize)?;
+                let (root, checksum) =
+                    read_root_checksum_at_end(&self.path, &bytes, new_len as usize)?;
 
                 // Only mutate `self` when everything is ready, without possible IO errors
                 // in remaining operations. This avoids "partial updated, inconsistent"
