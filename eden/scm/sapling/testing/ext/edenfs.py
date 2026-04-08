@@ -34,6 +34,7 @@ def testsetup(t: TestTmp):
         sl_config.write(f"""
 [edenfs]
 command={edenfsctl_path}
+legacy_command={edenfsctl_path}
 backing-repos-dir=$TESTTMP/.eden-backing-repos
 
 [clone]

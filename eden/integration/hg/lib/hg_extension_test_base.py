@@ -202,6 +202,8 @@ class EdenHgTestCase(testcase.EdenTestCase, metaclass=abc.ABCMeta):
             "--config",
             f"edenfs.command={cmd}",
             "--config",
+            f"edenfs.legacy_command={cmd}",
+            "--config",
             f"edenfs.basepath={self.eden._base_dir}",
             *clone_args,
             cwd=self.mounts_dir,

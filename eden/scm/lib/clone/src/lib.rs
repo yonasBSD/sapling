@@ -157,7 +157,11 @@ pub fn eden_clone(
 ) -> Result<()> {
     let config = repo.config();
 
-    let mut clone_command = edenfs_client::build_eden_command(config)?;
+    // We don't have `clone` supported in rust edenfs cli for now. Specifying
+    // python cli to avoid the overhead of falling back.
+    // We should remove this hack once `clone` is supported in rust.
+    let mut clone_command =
+        edenfs_client::build_eden_command_type(config, edenfs_client::EdenCmdType::Python)?;
 
     clone_command.args([
         OsStr::new("clone"),
