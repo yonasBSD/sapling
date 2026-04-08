@@ -30,6 +30,8 @@ use commit_graph::AncestorsStreamBuilder;
 use commit_graph::CommitGraphArc;
 use commit_graph::CommitGraphRef;
 use commit_graph::LinearAncestorsStreamBuilder;
+use commit_rate_limit::CommitRateLimitCheckResult;
+use commit_rate_limit::check_all_commit_rate_limits;
 use context::CoreContext;
 use deleted_manifest::DeletedManifestOps;
 use deleted_manifest::RootDeletedManifestIdCommon;
@@ -1751,6 +1753,24 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                 PushAuthoredBy::User,
             )
             .await?)
+    }
+
+    /// Check commit rate limits for a changeset against a bookmark.
+    pub async fn commit_rate_limit_check(
+        &self,
+        bookmark: &BookmarkKey,
+    ) -> Result<CommitRateLimitCheckResult, MononokeError> {
+        let bonsai = self.bonsai_changeset().await?;
+        let result = check_all_commit_rate_limits(
+            self.ctx(),
+            self.repo_ctx().repo(),
+            &bonsai,
+            self.id(),
+            bookmark,
+        )
+        .await
+        .map_err(MononokeError::from)?;
+        Ok(result)
     }
 
     pub async fn directory_branch_clusters(

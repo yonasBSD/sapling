@@ -39,6 +39,9 @@ mod xrepo;
 mod test;
 
 // Re-export types that are useful for clients.
+pub use commit_rate_limit::CommitRateLimitCheckResult;
+pub use commit_rate_limit::RateLimitOutcome;
+pub use commit_rate_limit::RuleCheckResult;
 pub use context::CoreContext;
 pub use context::LoggingContainer;
 pub use context::SessionContainer;

@@ -35,6 +35,7 @@ cloned = { version = "0.1.0", git = "https://github.com/facebookexperimental/rus
 commit_cloud = { version = "0.1.0", path = "../features/commit_cloud" }
 commit_cloud_types = { version = "0.1.0", path = "../features/commit_cloud/types" }
 commit_graph = { version = "0.1.0", path = "../repo_attributes/commit_graph/commit_graph" }
+commit_rate_limit = { version = "0.1.0", path = "../features/commit_rate_limit" }
 commit_rate_limit_config = { version = "0.1.0", path = "../repo_attributes/commit_rate_limit" }
 context = { version = "0.1.0", path = "../servers/slapi/slapi_server/context" }
 cross_repo_sync = { version = "0.1.0", path = "../features/cross_repo_sync" }
