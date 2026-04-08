@@ -276,6 +276,14 @@ def pull(orig, ui, repo, *args, **opts):
         # Not using main bookmark for non-rebase pull. See D38066104 and D38066103.
         dest = bookmarks.mainbookmark(repo)
         if dest not in repo:
+            # mainbookmark() returns the first selectivepulldefault entry, which
+            # may not exist (e.g. config lists "main,master" but only "master"
+            # exists). Try each configured name before giving up.
+            for name in repo.ui.configlist("remotenames", "selectivepulldefault"):
+                if name in repo:
+                    dest = name
+                    break
+        if dest not in repo:
             raise error.Abort(_("missing rebase destination - supply --dest / -d"))
 
     if isrebase and update:
