@@ -167,6 +167,12 @@ pub fn eden_clone(
 
     if let Some(rev) = target {
         clone_command.args(["-r", &rev.to_hex()]);
+        if config
+            .get_or_default::<bool>("clone", "use-skip-commit-resolve")
+            .unwrap_or(false)
+        {
+            clone_command.arg("--skip-commit-resolve");
+        }
     } else {
         clone_command.arg("--allow-empty-repo");
     }
