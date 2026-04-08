@@ -11,6 +11,8 @@
 
 #include <folly/Demangle.h>
 
+#include "eden/fs/telemetry/ThrowTraceCapture.h"
+
 namespace facebook::eden {
 
 ErrorArg::ErrorArg(const std::exception& ex) : message(ex.what()) {
@@ -19,6 +21,7 @@ ErrorArg::ErrorArg(const std::exception& ex) : message(ex.what()) {
     errorCode = sysErr->code().value();
     errorName = sysErr->code().message();
   }
+  stackTrace = getThrowSiteStackTrace();
 }
 
 ErrorArg::ErrorArg(std::string message) : message(std::move(message)) {}
