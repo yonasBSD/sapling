@@ -206,18 +206,56 @@ async def update_commits_in_stack(
                 raise error.Abort(_("could not find gitdir"))
         return gitdir
 
-    if refs_to_update:
-        gitdir = get_gitdir()
-        git_push_args = ["push", "--force", origin] + refs_to_update
-        ui.status_err(_("pushing %d to %s\n") % (len(refs_to_update), origin))
-        run_git_command(git_push_args, gitdir)
-    else:
+    if not refs_to_update:
         ui.status_err(_("no pull requests to update\n"))
         return 0
 
     repository = params.repository
+
+    # For the SINGLE workflow, we must update the base branch on existing PRs
+    # BEFORE pushing the new branch contents. Otherwise, when commits are
+    # reordered in the stack, GitHub may see that a PR's commits already exist
+    # in its (old) base branch and auto-close the PR as "merged".
+    #
+    # See https://github.com/facebook/sapling/issues/1275
+    if workflow == SubmitWorkflow.SINGLE:
+        existing_prs = [
+            p for p in partitions if p[0].pr and p[0].pr.state == PullRequestState.OPEN
+        ]
+        if existing_prs:
+            if not repository:
+                repository = await get_repository_for_origin(
+                    origin, github_repo.hostname
+                )
+            # Update base branches on existing PRs before pushing.
+            # Process from bottom of stack to top so bases are set correctly.
+            for index in range(len(partitions)):
+                partition = partitions[index]
+                pr = partition[0].pr
+                if not pr or pr.state != PullRequestState.OPEN:
+                    continue
+                base = repository.get_base_branch()
+                if index < len(partitions) - 1:
+                    base = none_throws(partitions[index + 1][0].head_branch_name)
+                result = await gh_submit.update_pull_request(
+                    repository.hostname, pr.node_id, pr.title, pr.body, base
+                )
+                if result.is_err():
+                    ui.status_err(
+                        _("warning, updating base for #%d may not have succeeded: %s\n")
+                        % (pr.number, result.unwrap_err())
+                    )
+                else:
+                    ui.status_err(_("updated base for %s\n") % pr.url)
+
+    gitdir = get_gitdir()
+    git_push_args = ["push", "--force", origin] + refs_to_update
+    ui.status_err(_("pushing %d to %s\n") % (len(refs_to_update), origin))
+    run_git_command(git_push_args, gitdir)
+
     if params.pull_requests_to_create:
-        assert repository is not None
+        if not repository:
+            repository = await get_repository_for_origin(origin, github_repo.hostname)
         if use_placeholder_strategy:
             assert isinstance(params, PlaceholderStrategyParams)
             await create_pull_requests_from_placeholder_issues(
