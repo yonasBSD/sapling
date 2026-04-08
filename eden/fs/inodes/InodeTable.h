@@ -99,7 +99,7 @@ class InodeTable {
       EdenStatsPtr stats) {
     return std::unique_ptr<InodeTable>{new InodeTable{
         MappedDiskVector<Entry>::template open<
-            detail::InodeTableEntry<OldRecords>...>(path, true),
+            detail::InodeTableEntry<OldRecords>...>(path),
         std::move(stats)}};
   }
 
