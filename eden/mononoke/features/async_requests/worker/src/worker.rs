@@ -42,8 +42,8 @@ use futures_stats::TimedFutureExt;
 use hostname::get_hostname;
 use megarepo_api::MegarepoApi;
 use mononoke_api::Mononoke;
-use mononoke_api::MononokeRepo;
 use mononoke_api::Repo;
+use mononoke_api::RepositoryId;
 use mononoke_macros::mononoke;
 use mononoke_types::Timestamp;
 use stats::define_stats;
@@ -86,6 +86,8 @@ pub struct AsyncMethodRequestWorker {
     will_exit: Arc<AtomicBool>,
     limit: Option<usize>,
     concurrency_limit: usize,
+    /// The repo this shard is responsible for. `None` for non-sharded workers.
+    repo_id: Option<RepositoryId>,
 }
 
 impl AsyncMethodRequestWorker {
@@ -96,6 +98,7 @@ impl AsyncMethodRequestWorker {
         mononoke: Arc<Mononoke<Repo>>,
         megarepo: Arc<MegarepoApi<Repo>>,
         will_exit: Arc<AtomicBool>,
+        repo_id: Option<RepositoryId>,
     ) -> Result<Self, Error> {
         let name = {
             let tw_job_cluster = std::env::var("TW_JOB_CLUSTER");
@@ -121,6 +124,7 @@ impl AsyncMethodRequestWorker {
             will_exit,
             limit: args.request_limit,
             concurrency_limit: args.jobs,
+            repo_id,
         })
     }
 }
@@ -133,11 +137,13 @@ impl RepoShardedProcessExecutor for AsyncMethodRequestWorker {
     /// will_exit atomic bool is a flag to prevent the worker from grabbing new
     /// items from the queue and gracefully terminate.
     async fn execute(&self) -> Result<()> {
-        // Start the stats logger loop
+        // Start the stats logger loop.
+        // Each shard reports metrics only for its own repo to avoid
+        // cross-shard counter races and stale values on shard reassignment.
         let (stats, stats_abort_handle) = abortable({
             cloned!(self.ctx, self.queue);
-            let repo_ids = self.mononoke.known_repo_ids().clone();
-            async move { stats_loop(&ctx, repo_ids, &queue).await }
+            let repo_id = self.repo_id;
+            async move { stats_loop(&ctx, repo_id, &queue).await }
         });
         let _stats = mononoke::spawn_task(stats);
 

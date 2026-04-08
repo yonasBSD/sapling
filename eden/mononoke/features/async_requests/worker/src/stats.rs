@@ -5,7 +5,6 @@
  * GNU General Public License version 2.
  */
 
-use std::collections::HashMap;
 use std::time::Duration;
 
 use async_requests::AsyncMethodRequestQueue;
@@ -13,7 +12,6 @@ use async_requests::types::RequestStatus;
 use context::CoreContext;
 use mononoke_api::RepositoryId;
 use mononoke_types::Timestamp;
-use requests_table::QueueStatsEntry;
 use stats::define_stats;
 use stats::prelude::*;
 use tracing::warn;
@@ -37,9 +35,19 @@ define_stats! {
     queue_age_by_repo_and_status: dynamic_singleton_counter("queue.{}.age_s.{}", (repo_id: String, status: String)),
 }
 
+/// Report queue stats for this shard's repo only.
+///
+/// Each shard reports metrics only for its own repo_id. This avoids
+/// cross-shard racing on shared counters and prevents stale values
+/// when a shard is reassigned: the counter simply goes absent (no
+/// data) rather than being stuck at a stale non-zero value. A dead
+/// shard detector should alert on absence of data.
+///
+/// For the non-sharded code path, `repo_id` is `None` and only the
+/// global (non-per-repo) counters are reported.
 pub(crate) async fn stats_loop(
     ctx: &CoreContext,
-    repo_ids: Vec<RepositoryId>,
+    repo_id: Option<RepositoryId>,
     queue: &AsyncMethodRequestQueue,
 ) {
     loop {
@@ -49,8 +57,10 @@ pub(crate) async fn stats_loop(
             Ok(res) => {
                 process_queue_length_by_status(ctx, &res);
                 process_queue_age_by_status(ctx, now, &res);
-                process_queue_length_by_repo_and_status(ctx, &repo_ids, &res);
-                process_queue_age_by_repo_and_status(ctx, &repo_ids, now, &res);
+                if let Some(repo_id) = &repo_id {
+                    process_queue_length_by_repo(ctx, repo_id, &res);
+                    process_queue_age_by_repo(ctx, repo_id, now, &res);
+                }
             }
             Err(err) => {
                 STATS::stats_error.add_value(1);
@@ -62,51 +72,22 @@ pub(crate) async fn stats_loop(
     }
 }
 
-// Keep track of the stats we have already logged. Any missing ones, we will log a 0.
-struct Seen {
-    inner: HashMap<QueueStatsEntry, bool>,
-}
-
-impl Seen {
-    fn new(repo_ids: &Vec<RepositoryId>) -> Self {
-        let mut seen = HashMap::new();
-        for status in STATUSES {
-            for repo_id in repo_ids {
-                seen.insert(
-                    QueueStatsEntry {
-                        repo_id: Some(repo_id.clone()),
-                        status,
-                    },
-                    false,
-                );
-            }
-        }
-        Self { inner: seen }
-    }
-
-    fn mark(&mut self, repo_id: Option<RepositoryId>, status: RequestStatus) {
-        self.inner.insert(QueueStatsEntry { repo_id, status }, true);
-    }
-
-    fn get_missing(&self) -> Vec<QueueStatsEntry> {
-        self.inner
-            .iter()
-            .filter_map(|(entry, seen)| if !*seen { Some(entry) } else { None })
-            .cloned()
-            .collect()
-    }
-}
-
 fn process_queue_length_by_status(ctx: &CoreContext, res: &requests_table::QueueStats) {
-    let mut seen = Seen::new(&vec![]);
+    // Report whatever the DB returns for global stats, then zero out
+    // any of the 4 statuses that were absent from the result.
+    let mut seen = [false; 4];
     let stats = &res.queue_length_by_status;
     for (status, count) in stats {
-        seen.mark(None, *status);
+        if let Some(idx) = status_index(status) {
+            seen[idx] = true;
+        }
         STATS::queue_length_by_status.set_value(ctx.fb, *count as i64, (status.to_string(),));
     }
 
-    for entry in seen.get_missing() {
-        STATS::queue_length_by_status.set_value(ctx.fb, 0, (entry.status.to_string(),));
+    for (idx, was_seen) in seen.iter().enumerate() {
+        if !was_seen {
+            STATS::queue_length_by_status.set_value(ctx.fb, 0, (STATUSES[idx].to_string(),));
+        }
     }
 }
 
@@ -115,79 +96,93 @@ fn process_queue_age_by_status(
     now: Timestamp,
     res: &requests_table::QueueStats,
 ) {
-    let mut seen = Seen::new(&vec![]);
+    let mut seen = [false; 4];
     let stats = &res.queue_age_by_status;
     for (status, ts) in stats {
-        seen.mark(None, *status);
+        if let Some(idx) = status_index(status) {
+            seen[idx] = true;
+        }
         let diff = std::cmp::max(now.timestamp_seconds() - ts.timestamp_seconds(), 0);
         STATS::queue_age_by_status.set_value(ctx.fb, diff, (status.to_string(),));
     }
 
-    for entry in seen.get_missing() {
-        STATS::queue_age_by_status.set_value(ctx.fb, 0, (entry.status.to_string(),));
+    for (idx, was_seen) in seen.iter().enumerate() {
+        if !was_seen {
+            STATS::queue_age_by_status.set_value(ctx.fb, 0, (STATUSES[idx].to_string(),));
+        }
     }
 }
 
-fn process_queue_length_by_repo_and_status(
+/// Report per-repo queue length for this shard's repo only.
+/// If the DB returns no data for a status, we report 0.
+fn process_queue_length_by_repo(
     ctx: &CoreContext,
-    repo_ids: &Vec<RepositoryId>,
+    repo_id: &RepositoryId,
     res: &requests_table::QueueStats,
 ) {
-    let mut seen = Seen::new(repo_ids);
+    let mut seen = [false; 4];
+    let repo_id_str = repo_id.to_string();
     let stats = &res.queue_length_by_repo_and_status;
     for (entry, count) in stats {
-        seen.mark(entry.repo_id, entry.status);
-        STATS::queue_length_by_repo_and_status.set_value(
-            ctx.fb,
-            *count as i64,
-            (
-                entry.repo_id.unwrap_or(RepositoryId::new(0)).to_string(),
-                entry.status.to_string(),
-            ),
-        );
+        if entry.repo_id.as_ref() == Some(repo_id) {
+            if let Some(idx) = status_index(&entry.status) {
+                seen[idx] = true;
+            }
+            STATS::queue_length_by_repo_and_status.set_value(
+                ctx.fb,
+                *count as i64,
+                (repo_id_str.clone(), entry.status.to_string()),
+            );
+        }
     }
 
-    for entry in seen.get_missing() {
-        STATS::queue_length_by_repo_and_status.set_value(
-            ctx.fb,
-            0,
-            (
-                entry.repo_id.unwrap_or(RepositoryId::new(0)).to_string(),
-                entry.status.to_string(),
-            ),
-        );
+    for (idx, was_seen) in seen.iter().enumerate() {
+        if !was_seen {
+            STATS::queue_length_by_repo_and_status.set_value(
+                ctx.fb,
+                0,
+                (repo_id_str.clone(), STATUSES[idx].to_string()),
+            );
+        }
     }
 }
 
-fn process_queue_age_by_repo_and_status(
+/// Report per-repo queue age for this shard's repo only.
+/// If the DB returns no data for a status, we report 0.
+fn process_queue_age_by_repo(
     ctx: &CoreContext,
-    repo_ids: &Vec<RepositoryId>,
+    repo_id: &RepositoryId,
     now: Timestamp,
     res: &requests_table::QueueStats,
 ) {
-    let mut seen = Seen::new(repo_ids);
+    let mut seen = [false; 4];
+    let repo_id_str = repo_id.to_string();
     let stats = &res.queue_age_by_repo_and_status;
     for (entry, ts) in stats {
-        seen.mark(entry.repo_id, entry.status);
-        let diff = std::cmp::max(now.timestamp_seconds() - ts.timestamp_seconds(), 0);
-        STATS::queue_age_by_repo_and_status.set_value(
-            ctx.fb,
-            diff,
-            (
-                entry.repo_id.unwrap_or(RepositoryId::new(0)).to_string(),
-                entry.status.to_string(),
-            ),
-        );
+        if entry.repo_id.as_ref() == Some(repo_id) {
+            if let Some(idx) = status_index(&entry.status) {
+                seen[idx] = true;
+            }
+            let diff = std::cmp::max(now.timestamp_seconds() - ts.timestamp_seconds(), 0);
+            STATS::queue_age_by_repo_and_status.set_value(
+                ctx.fb,
+                diff,
+                (repo_id_str.clone(), entry.status.to_string()),
+            );
+        }
     }
 
-    for entry in seen.get_missing() {
-        STATS::queue_age_by_repo_and_status.set_value(
-            ctx.fb,
-            0,
-            (
-                entry.repo_id.unwrap_or(RepositoryId::new(0)).to_string(),
-                entry.status.to_string(),
-            ),
-        );
+    for (idx, was_seen) in seen.iter().enumerate() {
+        if !was_seen {
+            STATS::queue_age_by_repo_and_status.set_value(
+                ctx.fb,
+                0,
+                (repo_id_str.clone(), STATUSES[idx].to_string()),
+            );
+        }
     }
+}
+
+fn status_index(status: &RequestStatus) -> Option<usize> {
+    STATUSES.iter().position(|s| s == status)
 }

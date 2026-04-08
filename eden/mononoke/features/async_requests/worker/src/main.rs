@@ -122,7 +122,8 @@ impl RepoShardedProcess for WorkerProcess {
             .add_repo(repo_name)
             .await
             .with_context(|| format!("Failure in setting up repo {}", repo_name))?;
-        let repos = vec![repo.repo_identity.id()];
+        let repo_id = repo.repo_identity.id();
+        let repos = vec![repo_id];
         info!("Completed setup for repos {:?}", repos);
 
         let queue = Arc::new(AsyncMethodRequestQueue::new(
@@ -138,6 +139,7 @@ impl RepoShardedProcess for WorkerProcess {
             self.mononoke.clone(),
             self.megarepo.clone(),
             self.will_exit.clone(),
+            Some(repo_id),
         )
         .await?;
         Ok(Arc::new(executor))
@@ -311,6 +313,7 @@ fn run_worker_queue(
             mononoke.clone(),
             megarepo.clone(),
             will_exit.clone(),
+            None, // non-sharded: no specific repo_id
         ))?
     };
     runtime.spawn(async move { executor.execute().await });
