@@ -300,20 +300,22 @@ impl FileStore {
 
                 fctx.inc_local(fetched_since_last_time(&state));
 
-                if let Some(lfs_cache) = lfs_client.as_ref().map(|c| c.shared.as_ref()) {
-                    assert!(
-                        format == SerializationFormat::Hg,
-                        "LFS cannot be used with non-Hg serialization format"
-                    );
-                    state.fetch_lfs(lfs_cache, StoreLocation::Cache);
-                }
+                if !fctx.skip_lfs() {
+                    if let Some(lfs_cache) = lfs_client.as_ref().map(|c| c.shared.as_ref()) {
+                        assert!(
+                            format == SerializationFormat::Hg,
+                            "LFS cannot be used with non-Hg serialization format"
+                        );
+                        state.fetch_lfs(lfs_cache, StoreLocation::Cache);
+                    }
 
-                if let Some(lfs_local) = lfs_client.as_ref().and_then(|c| c.local.as_ref()) {
-                    assert!(
-                        format == SerializationFormat::Hg,
-                        "LFS cannot be used with non-Hg serialization format"
-                    );
-                    state.fetch_lfs(lfs_local, StoreLocation::Local);
+                    if let Some(lfs_local) = lfs_client.as_ref().and_then(|c| c.local.as_ref()) {
+                        assert!(
+                            format == SerializationFormat::Hg,
+                            "LFS cannot be used with non-Hg serialization format"
+                        );
+                        state.fetch_lfs(lfs_local, StoreLocation::Local);
+                    }
                 }
 
                 fctx.inc_local(fetched_since_last_time(&state));
@@ -329,12 +331,14 @@ impl FileStore {
                     );
                 }
 
-                if let Some(ref lfs_client) = lfs_client {
-                    assert!(
-                        format == SerializationFormat::Hg,
-                        "LFS cannot be used with non-Hg serialization format"
-                    );
-                    state.fetch_lfs_remote(lfs_client, lfs_buffer_in_memory);
+                if !fctx.skip_lfs() {
+                    if let Some(ref lfs_client) = lfs_client {
+                        assert!(
+                            format == SerializationFormat::Hg,
+                            "LFS cannot be used with non-Hg serialization format"
+                        );
+                        state.fetch_lfs_remote(lfs_client, lfs_buffer_in_memory);
+                    }
                 }
 
                 fctx.inc_remote(fetched_since_last_time(&state));
@@ -706,5 +710,107 @@ impl HgIdMutableDeltaStore for FileStore {
         self.metrics.write().api.hg_flush.call(0);
         self.flush()?;
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use ::types::RepoPathBuf;
+    use ::types::fetch_cause::FetchCause;
+    use ::types::fetch_mode::FetchMode;
+    use tempfile::TempDir;
+
+    use super::*;
+    use crate::StoreType;
+    use crate::indexedlogdatastore::IndexedLogHgIdDataStoreConfig;
+
+    fn make_indexedlog(tempdir: &TempDir) -> Arc<IndexedLogHgIdDataStore> {
+        let config = IndexedLogHgIdDataStoreConfig {
+            max_log_count: None,
+            max_bytes_per_log: None,
+            max_bytes: None,
+            btrfs_compression: false,
+        };
+        Arc::new(
+            IndexedLogHgIdDataStore::new(
+                &BTreeMap::<&str, &str>::new(),
+                tempdir,
+                &config,
+                StoreType::Rotated,
+                SerializationFormat::Hg,
+            )
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn test_skip_lfs_skips_lfs_fetch() {
+        let il_dir = TempDir::new().unwrap();
+        let indexedlog = make_indexedlog(&il_dir);
+
+        let lfs_key = Key::new(
+            RepoPathBuf::from_string("large.bin".to_string()).unwrap(),
+            HgId::from_hex(b"2222222222222222222222222222222222222222").unwrap(),
+        );
+        let content = Bytes::from_static(b"large file content here");
+
+        // Write file content to indexedlog with LFS flag set.
+        let lfs_meta = Metadata {
+            flags: Some(Metadata::LFS_FLAG),
+            size: None,
+        };
+        indexedlog
+            .put_entry(Entry::new(lfs_key.hgid, content.clone(), lfs_meta))
+            .unwrap();
+
+        // Set up LFS store with the actual blob.
+        let lfs_dir = TempDir::new().unwrap();
+        let server = mockito::Server::new();
+        let lfs_config = crate::testutil::make_lfs_config(&server, &lfs_dir, "skip_lfs");
+        let lfs_store = Arc::new(crate::lfs::LfsStore::rotated(&lfs_dir, &lfs_config).unwrap());
+        lfs_store
+            .add_blob_and_pointer(lfs_key.clone(), content)
+            .unwrap();
+        lfs_store.flush().unwrap();
+        let lfs_client = crate::lfs::LfsClient::new(lfs_store, None, &lfs_config).unwrap();
+
+        let make_store = || {
+            let mut store = FileStore::empty();
+            store.indexedlog_local = Some(indexedlog.clone());
+            store.lfs_client = Some(lfs_client.clone());
+            store.lfs_threshold_bytes = Some(1);
+            store
+        };
+
+        // Without skip_lfs, the LFS key resolves successfully.
+        let fctx = FetchContext::new_with_mode_and_cause(
+            FetchMode::LocalOnly,
+            FetchCause::EdenWalkPrefetch,
+        );
+        let results: Vec<_> = make_store()
+            .fetch(fctx, vec![lfs_key.clone()], FileAttributes::CONTENT)
+            .into_iter()
+            .collect();
+        assert!(
+            results[0].is_ok(),
+            "LFS key should resolve without skip_lfs"
+        );
+
+        // With skip_lfs, the LFS fetch is skipped so the key is not found.
+        let fctx = FetchContext::new_with_mode_and_cause(
+            FetchMode::LocalOnly,
+            FetchCause::EdenWalkPrefetch,
+        )
+        .with_skip_lfs(true);
+        let results: Vec<_> = make_store()
+            .fetch(fctx, vec![lfs_key.clone()], FileAttributes::CONTENT)
+            .into_iter()
+            .collect();
+        assert!(
+            results[0].is_err(),
+            "LFS key should not be found when skip_lfs=true"
+        );
     }
 }
