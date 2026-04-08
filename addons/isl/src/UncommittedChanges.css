@@ -237,6 +237,11 @@
   opacity: 0.4 !important;
 }
 
+.commit-tree-narrow .show-on-hover,
+.commit-tree-narrow .quick-commit-inputs input[type='text'] {
+  opacity: 1;
+}
+
 .changed-file-list .button-rows,
 .uncommitted-changes .button-rows {
   display: flex;

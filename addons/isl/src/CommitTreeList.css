@@ -131,13 +131,66 @@
   min-width: 450px;
 }
 
+.commit-tree-narrow.commit-tree-root {
+  min-width: 0;
+}
+
 .commit-tree-narrow .commit-rows {
   flex-direction: column;
   align-items: initial;
 }
 
+.commit-tree-narrow .commit-details {
+  flex-wrap: wrap;
+  margin-right: 0;
+  padding-right: 60px;
+  z-index: 0;
+}
+
+.commit-narrow-right-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--halfpad);
+  position: absolute;
+  right: var(--pad);
+  top: 0;
+  z-index: 1;
+  transition: opacity 0.1s;
+}
+
+.commit:hover .commit-narrow-right-actions {
+  background: var(--background);
+}
+
+.commit-tree-narrow .commit-wide-drag-target {
+  display: none;
+}
+
 .commit-tree-narrow .commit-group {
   gap: 0;
+}
+
+.commit-tree-narrow .commit-second-row {
+  padding-right: var(--pad);
+}
+
+.commit-tree-narrow .diff-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--halfpad);
+  align-items: center;
+}
+
+.commit-tree-narrow .diff-info > * {
+  flex-shrink: 0;
+}
+
+.commit-tree-narrow .commit-tree-stack-actions {
+  flex-wrap: wrap;
+}
+
+.commit-tree-narrow .pre-node-line {
+  flex-grow: 0;
 }
 
 .commit-details {
@@ -160,6 +213,8 @@
 
 .commit-title {
   min-width: 180px;
+  display: inline-flex;
+  gap: var(--halfpad);
 }
 
 .commit-details:focus-visible {

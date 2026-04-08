@@ -514,10 +514,11 @@ export const Commit = memo(
       });
     });
 
-    const commitActions = [];
+    const inlineCommitActions = [];
+    const floatingCommitActions = [];
 
     if (previewType === CommitPreview.REBASE_ROOT) {
-      commitActions.push(
+      inlineCommitActions.push(
         <React.Fragment key="rebase">
           <Button onClick={() => handlePreviewedOperation(/* cancel */ true)}>
             <T>Cancel</T>
@@ -532,7 +533,7 @@ export const Commit = memo(
         </React.Fragment>,
       );
     } else if (previewType === CommitPreview.HIDDEN_ROOT) {
-      commitActions.push(
+      inlineCommitActions.push(
         <React.Fragment key="hide">
           <Button onClick={() => handlePreviewedOperation(/* cancel */ true)}>
             <T>Cancel</T>
@@ -541,18 +542,18 @@ export const Commit = memo(
         </React.Fragment>,
       );
     } else if (previewType === CommitPreview.FOLD_PREVIEW) {
-      commitActions.push(<ConfirmCombineButtons key="fold" />);
+      inlineCommitActions.push(<ConfirmCombineButtons key="fold" />);
     }
 
     if (!isPublic && !actionsPrevented && isSelected) {
-      commitActions.push(
+      inlineCommitActions.push(
         <SubmitSelectionButton key="submit-selection-btn" commit={commit} />,
         <FoldButton key="fold-button" commit={commit} />,
       );
     }
 
     if (!actionsPrevented && !commit.isDot) {
-      commitActions.push(
+      floatingCommitActions.push(
         <span className="goto-button" key="goto-button">
           <Tooltip
             title={t(
@@ -575,12 +576,12 @@ export const Commit = memo(
     }
 
     if (!isPublic && !actionsPrevented && commit.isDot && !inConflicts) {
-      commitActions.push(<SubmitSingleCommitButton key="submit" />);
-      commitActions.push(<UncommitButton key="uncommit" />);
+      inlineCommitActions.push(<SubmitSingleCommitButton key="submit" />);
+      inlineCommitActions.push(<UncommitButton key="uncommit" />);
     }
 
     if (!isPublic && !actionsPrevented && commit.isDot && !isObsoleted && !inConflicts) {
-      commitActions.push(
+      inlineCommitActions.push(
         <SplitButton icon key="split" trackerEventName="SplitOpenFromHeadCommit" commit={commit} />,
       );
     }
@@ -589,15 +590,15 @@ export const Commit = memo(
     if (!isPublic && !actionsPrevented) {
       if (useV2SmartActions) {
         if (commit.isDot && !hasUncommittedChanges && !inConflicts) {
-          commitActions.push(<SmartActionsDropdown key="smartActions" commit={commit} />);
+          inlineCommitActions.push(<SmartActionsDropdown key="smartActions" commit={commit} />);
         }
       } else {
-        commitActions.push(<SmartActionsMenu key="smartActions" commit={commit} />);
+        inlineCommitActions.push(<SmartActionsMenu key="smartActions" commit={commit} />);
       }
     }
 
     if (!isPublic && !actionsPrevented) {
-      commitActions.push(
+      floatingCommitActions.push(
         <OpenCommitInfoButton
           key="open-sidebar"
           revealCommit={onDoubleClickToShowDrawer}
@@ -605,6 +606,8 @@ export const Commit = memo(
         />,
       );
     }
+
+    const commitActions = [...inlineCommitActions, ...floatingCommitActions];
 
     if ((commit as DagCommitInfo).isYouAreHere) {
       return (
@@ -636,23 +639,23 @@ export const Commit = memo(
             }
             commit={commit}
             previewType={previewType}>
-            {!isPublic && isIrrelevantToCwd && (
-              <Tooltip
-                title={
-                  <T
-                    replace={{
-                      $prefix: <pre>{commit.maxCommonPathPrefix}</pre>,
-                      $cwd: <pre>{readAtom(repoRelativeCwd)}</pre>,
-                    }}>
-                    This commit only contains files within: $prefix These are irrelevant to your
-                    current working directory: $cwd
-                  </T>
-                }>
-                <IrrelevantCwdIcon />
-              </Tooltip>
-            )}
             {isPublic ? null : (
               <span className="commit-title">
+                {isIrrelevantToCwd && (
+                  <Tooltip
+                    title={
+                      <T
+                        replace={{
+                          $prefix: <pre>{commit.maxCommonPathPrefix}</pre>,
+                          $cwd: <pre>{readAtom(repoRelativeCwd)}</pre>,
+                        }}>
+                        This commit only contains files within: $prefix These are irrelevant to your
+                        current working directory: $cwd
+                      </T>
+                    }>
+                    <IrrelevantCwdIcon />
+                  </Tooltip>
+                )}
                 {commitLabel && <CommitLabel>{commitLabel}</CommitLabel>}
                 <span>{title}</span>
                 <CommitDate date={commit.date} />
@@ -671,7 +674,12 @@ export const Commit = memo(
               fullRepoBranch={commit.fullRepoBranch}
             />
             {isPublic ? <CommitDate date={commit.date} /> : null}
-            {isNarrow ? commitActions : null}
+            {isNarrow ? (
+              <>
+                {inlineCommitActions}
+                <div className="commit-narrow-right-actions">{floatingCommitActions}</div>
+              </>
+            ) : null}
           </DragToRebase>
           <DivIfChildren className="commit-second-row">
             {commit.diffId && !isPublic ? (
