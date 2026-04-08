@@ -76,11 +76,11 @@ fn recent_date() -> DateTime {
     DateTime::now()
 }
 
-fn make_config(directories: &[&str], per_user: bool, max_commits: u64) -> CommitRateLimitConfig {
+fn make_config(directories: &[&str], per_user: bool, max_commits: u64) -> CommitRateLimitRule {
     let dirs = directories.iter().map(|d| d.to_string()).collect();
-    CommitRateLimitConfig {
+    CommitRateLimitRule {
         repo_name: "test_repo".to_string(),
-        rate_limit_name: "test_hook".to_string(),
+        name: "test_hook".to_string(),
         eligibility_checks: vec![
             EligibilityCheck::CommitMessageTag {
                 tag: ELIGIBLE_TAG.to_string(),

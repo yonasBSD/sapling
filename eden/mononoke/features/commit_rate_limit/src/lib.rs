@@ -37,7 +37,7 @@ define_stats! {
     eligibility_cache_draft_miss: dynamic_timeseries("{}.{}.draft_miss", (repo_name: String, rate_limit_name: String); Rate, Sum),
 }
 
-// --- Repo trait ---
+// --- Repo traits ---
 
 /// Trait alias for repository types that provide the facets needed by
 /// commit rate limiting: bookmarks, blobstore, commit graph, and derived data.
@@ -106,13 +106,13 @@ impl CommitRateLimitCacheConfig {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct CommitRateLimitConfig {
+pub struct CommitRateLimitRule {
     /// Repository name, set by the hook adapter for ODS tagging.
     #[serde(skip)]
     repo_name: String,
     /// Rate limit name (typically the hook name), for ODS tagging.
     #[serde(skip)]
-    rate_limit_name: String,
+    name: String,
     /// Checks that determine if a commit is eligible for rate limiting (OR semantics).
     eligibility_checks: Vec<EligibilityCheck>,
     /// Rate limit windows -- all must pass for the commit to be allowed.
@@ -131,12 +131,12 @@ pub struct CommitRateLimitConfig {
     cache_config: Option<CommitRateLimitCacheConfig>,
 }
 
-impl CommitRateLimitConfig {
+impl CommitRateLimitRule {
     /// Set repo and rate-limit names after deserialization. These are used
     /// for ODS tagging and are not part of the JSON config.
-    pub fn with_names(mut self, repo_name: String, rate_limit_name: String) -> Self {
+    pub fn with_names(mut self, repo_name: String, name: String) -> Self {
         self.repo_name = repo_name;
-        self.rate_limit_name = rate_limit_name;
+        self.name = name;
         self
     }
 
@@ -148,8 +148,8 @@ impl CommitRateLimitConfig {
         &self.repo_name
     }
 
-    pub fn rate_limit_name(&self) -> &str {
-        &self.rate_limit_name
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     pub fn per_user(&self) -> bool {
@@ -268,7 +268,7 @@ pub async fn check_commit_rate_limit(
     repo: &impl Repo,
     bookmark: &BookmarkKey,
     changeset: &BonsaiChangeset,
-    config: &CommitRateLimitConfig,
+    config: &CommitRateLimitRule,
     user_filter: Option<&str>,
     cache: Option<cache::ChangesetEligibilityCache>,
 ) -> Result<RateLimitOutcome> {
@@ -324,7 +324,7 @@ async fn count_eligible_public_ancestors(
     repo: &impl Repo,
     bookmark: &BookmarkKey,
     window: Duration,
-    config: &CommitRateLimitConfig,
+    config: &CommitRateLimitRule,
     user_filter: Option<&str>,
     cache: Option<cache::ChangesetEligibilityCache>,
 ) -> Result<u64> {
@@ -346,7 +346,7 @@ async fn count_eligible_public_ancestors(
         user_filter,
         cache,
         &config.repo_name,
-        &config.rate_limit_name,
+        &config.name,
     );
 
     let opts = AncestorFilterOptions {
@@ -366,7 +366,7 @@ async fn count_eligible_draft_ancestors(
     repo: &impl Repo,
     bookmark: &BookmarkKey,
     changeset: &BonsaiChangeset,
-    config: &CommitRateLimitConfig,
+    config: &CommitRateLimitRule,
     user_filter: Option<&str>,
     cache: Option<cache::ChangesetEligibilityCache>,
 ) -> Result<u64> {
@@ -393,7 +393,7 @@ async fn count_eligible_draft_ancestors(
     let directories = config.directories.clone();
     let user_filter = user_filter.map(|u| u.to_owned());
     let stats_repo = config.repo_name.clone();
-    let stats_rl = config.rate_limit_name.clone();
+    let stats_rl = config.name.clone();
 
     stream
         .try_filter_map(move |cs_id| {
@@ -505,7 +505,7 @@ fn build_cached_ancestor_predicate(
     user_filter: Option<&str>,
     cache: Option<cache::ChangesetEligibilityCache>,
     repo_name: &str,
-    rate_limit_name: &str,
+    name: &str,
 ) -> Arc<dyn Fn(&BonsaiChangeset) -> bool + Send + Sync> {
     match cache {
         Some(cache) => {
@@ -513,7 +513,7 @@ fn build_cached_ancestor_predicate(
             let directories = directories.to_vec();
             let user_filter = user_filter.map(|u| u.to_owned());
             let stats_repo = repo_name.to_owned();
-            let stats_rl = rate_limit_name.to_owned();
+            let stats_rl = name.to_owned();
             Arc::new(move |changeset: &BonsaiChangeset| {
                 let cs_id = changeset.get_changeset_id();
                 let info = cache.get_or_insert_with(
