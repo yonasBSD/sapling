@@ -5,9 +5,11 @@ oncall("scm_server_infra")
 thrift_library(
     name = "mononoke_types_serialization",
     languages = [
-        "rust",
         "cpp2",
+        "python",
+        "rust",
     ],
+    py3_namespace = "eden.mononoke.mononoke_types.serialization",
     rust_deps = [
         "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:smallvec",

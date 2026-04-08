@@ -24,6 +24,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 // TestManifest is a manifest type intended only to be used in tests. It contains
 // only the file names and the maximum basename length of all files in each directory.
 @rust.Exhaustive

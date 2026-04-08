@@ -22,6 +22,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 // Structure that holds a commit graph, usually a history of a file
 // or a directory hence the name. Semantically it stores list of
 // (commit hash, [parent commit hashes]), however it's stored in compressed form

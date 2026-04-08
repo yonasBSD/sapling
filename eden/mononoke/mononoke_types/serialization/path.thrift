@@ -21,6 +21,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 /// A single path element.
 @rust.NewType
 @rust.Type{name = "smallvec::SmallVec<[u8; 24]>"}

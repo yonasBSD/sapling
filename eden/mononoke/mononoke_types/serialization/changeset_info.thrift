@@ -14,6 +14,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 // Derived data structure that represents a Bonsai changeset's metadata.
 // It contains the same data as Bonsai itself except of the file changes,
 // which can be a pretty high number of and take a long time to deserialize.

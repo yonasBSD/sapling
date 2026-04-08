@@ -23,6 +23,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 /// Maximum size of a terminal node.
 const i32 MAP_SHARD_SIZE = 2000;
 

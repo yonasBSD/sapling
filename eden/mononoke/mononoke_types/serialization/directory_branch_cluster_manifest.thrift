@@ -19,6 +19,8 @@ include "eden/mononoke/mononoke_types/serialization/path.thrift"
 include "eden/mononoke/mononoke_types/serialization/sharded_map.thrift"
 include "thrift/annotation/rust.thrift"
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 package "facebook.com/eden/mononoke/mononoke_types/serialization"
 
 // Directory Branch Cluster Manifest tracks "directory branch clusters" - sets of directories

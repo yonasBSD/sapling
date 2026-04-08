@@ -28,6 +28,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 @rust.Exhaustive
 struct DateTime {
   1: i64 timestamp_secs;

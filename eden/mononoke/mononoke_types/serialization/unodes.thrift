@@ -24,6 +24,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 @rust.Exhaustive
 struct FileUnode {
   1: list<id.FileUnodeId> parents;

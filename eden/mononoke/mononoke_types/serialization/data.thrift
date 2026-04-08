@@ -17,6 +17,8 @@
 
 include "thrift/annotation/rust.thrift"
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 /// Binary data that may be large, stored in `Bytes`.
 @rust.Type{name = "Bytes"}
 typedef binary LargeBinary

@@ -23,6 +23,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 /// Whether a directory itself is restricted
 union AclManifestDirectoryRestriction {
   /// Directory is not restricted (waypoint to reach restriction roots)

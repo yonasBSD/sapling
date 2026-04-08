@@ -23,6 +23,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 @rust.Exhaustive
 struct ContentChunkPointer {
   1: id.ContentChunkId chunk_id;

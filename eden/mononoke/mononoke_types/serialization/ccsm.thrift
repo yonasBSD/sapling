@@ -22,6 +22,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 // Case conflict skeleton manifest stores a version of the file tree that's transformed in a way
 // that allows quickly finding case conflicts. The transformation works on file paths by adding
 // before each path element its lowercase form:

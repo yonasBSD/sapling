@@ -22,6 +22,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 // Basename suffix manifest stores file trees in a way that allows fast filtering
 // based on suffix of basenames as well as directory prefix of root.
 // See docs/basename_suffix_skeleton_manifest.md for more documentation on this.

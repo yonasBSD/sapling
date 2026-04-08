@@ -25,6 +25,8 @@ include "thrift/annotation/thrift.thrift"
 @thrift.AllowLegacyMissingUris
 package;
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 // Bonsai Changeset is the fundamental commit object of Mononoke's internal
 // representation.
 //
