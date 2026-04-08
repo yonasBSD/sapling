@@ -25,8 +25,9 @@ use crate::get_edenfs_instance;
 
 pub fn remove_client_config_dir(context: &RemoveContext) -> Result<()> {
     let instance = get_edenfs_instance();
+    let client_dir = instance.client_dir_for_mount_point(&context.canonical_path)?;
 
-    match fs::remove_dir_all(instance.client_dir_for_mount_point(&context.canonical_path)?) {
+    match forcefully_remove_dir_all(&client_dir) {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
         Err(e) => Err(anyhow!(
