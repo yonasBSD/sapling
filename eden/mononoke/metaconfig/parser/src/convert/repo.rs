@@ -22,6 +22,11 @@ use metaconfig_types::CacheWarmupParams;
 use metaconfig_types::CommitCloudConfig;
 use metaconfig_types::CommitGraphConfig;
 use metaconfig_types::CommitIdentityScheme;
+use metaconfig_types::CommitRateLimitCacheConfig;
+use metaconfig_types::CommitRateLimitConfig;
+use metaconfig_types::CommitRateLimitEligibilityCheck;
+use metaconfig_types::CommitRateLimitRuleConfig;
+use metaconfig_types::CommitRateLimitWindow;
 use metaconfig_types::ComparableRegex;
 use metaconfig_types::CrossRepoCommitValidation;
 use metaconfig_types::DerivationPipelineStageConfig;
@@ -93,6 +98,7 @@ use repos::RawCasSyncConfig;
 use repos::RawCommitCloudConfig;
 use repos::RawCommitGraphConfig;
 use repos::RawCommitIdentityScheme;
+use repos::RawCommitRateLimitConfig;
 use repos::RawCrossRepoCommitValidationConfig;
 use repos::RawDerivationPipelineStageConfig;
 use repos::RawDerivationPipelineStageTypeConfig;
@@ -104,6 +110,7 @@ use repos::RawDerivedDataTypesConfig;
 use repos::RawDirectoryBranchClusterConfig;
 use repos::RawDirectoryBranchClusterFixedCluster;
 use repos::RawDirectoryBranchClusterFixedConfig;
+use repos::RawEligibilityCheck;
 use repos::RawGitBundleURIConfig;
 use repos::RawGitConcurrencyParams;
 use repos::RawGitConfigs;
@@ -736,6 +743,79 @@ impl Convert for RawRemoteDiffConfig {
                 anyhow::bail!("Unknown variant of RawRemoteDiffConfig: {}", e)
             }
         }
+    }
+}
+
+impl Convert for RawCommitRateLimitConfig {
+    type Output = CommitRateLimitConfig;
+
+    fn convert(self) -> Result<Self::Output> {
+        let cache_config = self
+            .cache_config
+            .map(|cc| -> Result<CommitRateLimitCacheConfig> {
+                Ok(CommitRateLimitCacheConfig {
+                    max_entries: cc
+                        .max_entries
+                        .try_into()
+                        .context("cache max_entries must be non-negative")?,
+                    ttl_secs: cc
+                        .ttl_secs
+                        .try_into()
+                        .context("cache ttl_secs must be non-negative")?,
+                })
+            })
+            .transpose()?;
+        let rules = self
+            .rules
+            .into_iter()
+            .map(|rule| {
+                let eligibility_checks = rule
+                    .eligibility_checks
+                    .into_iter()
+                    .map(|check| match check {
+                        RawEligibilityCheck::commit_message_tag(tag) => {
+                            Ok(CommitRateLimitEligibilityCheck::CommitMessageTag(tag))
+                        }
+                        RawEligibilityCheck::hg_extra_key(key) => {
+                            Ok(CommitRateLimitEligibilityCheck::HgExtra(key))
+                        }
+                        RawEligibilityCheck::always_pass(_) => {
+                            Ok(CommitRateLimitEligibilityCheck::AlwaysPass)
+                        }
+                        RawEligibilityCheck::UnknownField(id) => {
+                            bail!("Unknown variant of RawEligibilityCheck: {}", id)
+                        }
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let limits = rule
+                    .limits
+                    .into_iter()
+                    .map(|limit| -> Result<CommitRateLimitWindow> {
+                        Ok(CommitRateLimitWindow {
+                            window_secs: limit
+                                .window_secs
+                                .try_into()
+                                .context("window_secs must be non-negative")?,
+                            max_commits: limit
+                                .max_commits
+                                .try_into()
+                                .context("max_commits must be non-negative")?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(CommitRateLimitRuleConfig {
+                    name: rule.name,
+                    eligibility_checks,
+                    limits,
+                    directories: rule.directories,
+                    per_user: rule.per_user,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(CommitRateLimitConfig {
+            rules,
+            cache_config,
+        })
     }
 }
 

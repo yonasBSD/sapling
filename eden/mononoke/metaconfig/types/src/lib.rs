@@ -300,6 +300,8 @@ pub struct RepoConfig {
     pub restricted_paths_config: RestrictedPathsConfig,
     /// Configuration for remote diff service
     pub remote_diff_config: Option<RemoteDiffConfig>,
+    /// Configuration for commit rate limiting.
+    pub commit_rate_limit_config: Option<CommitRateLimitConfig>,
 }
 
 /// Config determining if the repo is deep sharded in the context of a service.
@@ -717,6 +719,59 @@ pub enum RemoteDiffConfig {
     SmcTier(String),
     /// host:port string for remote diff service
     HostPort(String),
+}
+
+/// Configuration for commit rate limiting.
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct CommitRateLimitConfig {
+    /// Rate limit rules.
+    pub rules: Vec<CommitRateLimitRuleConfig>,
+    /// Optional cache configuration shared across all rules.
+    pub cache_config: Option<CommitRateLimitCacheConfig>,
+}
+
+/// A single commit rate limit rule.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CommitRateLimitRuleConfig {
+    /// Rule name.
+    pub name: String,
+    /// Eligibility checks (OR semantics).
+    pub eligibility_checks: Vec<CommitRateLimitEligibilityCheck>,
+    /// Rate limit windows (AND semantics).
+    pub limits: Vec<CommitRateLimitWindow>,
+    /// Directory prefixes to scope the rule.
+    pub directories: Vec<String>,
+    /// Whether to enforce per-author.
+    pub per_user: bool,
+}
+
+/// Eligibility check for commit rate limiting.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum CommitRateLimitEligibilityCheck {
+    /// Matches commits whose message contains the given tag string (case-sensitive).
+    CommitMessageTag(String),
+    /// Matches commits with the given key in hg_extra.
+    HgExtra(String),
+    /// Always passes.
+    AlwaysPass,
+}
+
+/// A rate limit window.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CommitRateLimitWindow {
+    /// Window duration in seconds.
+    pub window_secs: u64,
+    /// Maximum commits allowed in the window.
+    pub max_commits: u64,
+}
+
+/// Cache configuration for commit rate limiting.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CommitRateLimitCacheConfig {
+    /// Maximum entries in the cache.
+    pub max_entries: u64,
+    /// TTL for cache entries in seconds.
+    pub ttl_secs: u64,
 }
 
 impl RepoConfig {

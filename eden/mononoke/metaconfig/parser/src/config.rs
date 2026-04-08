@@ -425,6 +425,7 @@ fn build_repo_config(
         directory_branch_cluster_config,
         restricted_paths_config,
         remote_diff_config,
+        commit_rate_limit_config,
         ..
     } = raw_repo_config;
 
@@ -538,6 +539,9 @@ fn build_repo_config(
     let remote_diff_config = remote_diff_config
         .map(|config| config.convert())
         .transpose()?;
+    let commit_rate_limit_config = commit_rate_limit_config
+        .map(|config| config.convert())
+        .transpose()?;
 
     Ok(RepoConfig {
         enabled: metadata.enabled,
@@ -594,6 +598,7 @@ fn build_repo_config(
         directory_branch_cluster_config,
         restricted_paths_config,
         remote_diff_config,
+        commit_rate_limit_config,
     })
 }
 
@@ -1655,6 +1660,7 @@ mod test {
                 }),
                 restricted_paths_config: RestrictedPathsConfig::default(),
                 remote_diff_config: None,
+                commit_rate_limit_config: None,
             },
         );
 
@@ -1742,6 +1748,7 @@ mod test {
                 metadata_cache_config: None,
                 restricted_paths_config: RestrictedPathsConfig::default(),
                 remote_diff_config: None,
+                commit_rate_limit_config: None,
             },
         );
         assert_eq!(
