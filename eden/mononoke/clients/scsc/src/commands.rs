@@ -12,6 +12,7 @@ base_app::subcommands! {
     mod async_requests_ping if "SCSC_ADMIN_ENABLED";
     mod cat;
     mod blame;
+    mod commit_rate_limit_check;
     mod common_base;
     mod create_git_bundle;
     mod create_repos if "SCSC_ADMIN_ENABLED";

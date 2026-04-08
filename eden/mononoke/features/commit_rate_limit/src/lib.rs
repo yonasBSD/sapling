@@ -208,8 +208,10 @@ pub async fn check_commit_rate_limit(
         )
         .await?;
 
-        let total = public_count + draft_count;
-        if total >= limit.max_commits() {
+        // +1 for the eligible changeset itself (if it weren't eligible,
+        // we would have returned Allowed early above).
+        let total = public_count + draft_count + 1;
+        if total > limit.max_commits() {
             return Ok(RateLimitOutcome::Exceeded {
                 total,
                 window_secs: limit.window_secs(),
