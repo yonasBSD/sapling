@@ -129,6 +129,9 @@ pub struct CommitRateLimitRule {
     /// blobstore loads.
     #[serde(default)]
     cache_config: Option<CommitRateLimitCacheConfig>,
+    /// Pre-built cache instance, derived from `cache_config`.
+    #[serde(skip)]
+    cache: Option<cache::ChangesetEligibilityCache>,
 }
 
 impl CommitRateLimitRule {
@@ -162,6 +165,20 @@ impl CommitRateLimitRule {
 
     pub fn cache_config(&self) -> Option<&CommitRateLimitCacheConfig> {
         self.cache_config.as_ref()
+    }
+
+    pub fn limits(&self) -> &[RateLimit] {
+        &self.limits
+    }
+
+    pub fn cache(&self) -> Option<&cache::ChangesetEligibilityCache> {
+        self.cache.as_ref()
+    }
+
+    /// Build the cache from `cache_config` and store it in `self.cache`.
+    /// Call this once after deserialization (in the hook constructor).
+    pub fn build_and_set_cache(&mut self) {
+        self.cache = self.cache_config.as_ref().and_then(|cc| cc.build_cache());
     }
 }
 
@@ -270,7 +287,6 @@ pub async fn check_commit_rate_limit(
     changeset: &BonsaiChangeset,
     config: &CommitRateLimitRule,
     user_filter: Option<&str>,
-    cache: Option<cache::ChangesetEligibilityCache>,
 ) -> Result<RateLimitOutcome> {
     if !touches_directories(changeset, &config.directories) {
         return Ok(RateLimitOutcome::Allowed);
@@ -278,6 +294,8 @@ pub async fn check_commit_rate_limit(
     if !is_eligible_for_rate_limit(&config.eligibility_checks, changeset) {
         return Ok(RateLimitOutcome::Allowed);
     }
+
+    let cache = config.cache.clone();
 
     // Draft count is independent of the time window, so compute once.
     let draft_count = count_eligible_draft_ancestors(

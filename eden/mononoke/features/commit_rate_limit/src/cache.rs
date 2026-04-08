@@ -24,6 +24,13 @@ pub struct ChangesetEligibilityCache {
     entries: Cache<ChangesetId, Option<EligibleChangesetInfo>>,
 }
 
+impl std::fmt::Debug for ChangesetEligibilityCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ChangesetEligibilityCache")
+            .finish_non_exhaustive()
+    }
+}
+
 impl ChangesetEligibilityCache {
     pub fn new(max_entries: u64, ttl: Duration) -> Self {
         Self {
