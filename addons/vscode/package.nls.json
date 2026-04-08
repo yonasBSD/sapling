@@ -23,6 +23,11 @@
   "isl.confirmModalOK": "OK",
   "isl.title": "Interactive Smartlog",
   "isl.loading-text": "Loading...",
+  "settings.isl.showInlineSignals.description": "Controls which inline diff signals are shown in the editor. Signals are CI results such as lint errors, test failures, and other diagnostics.",
+  "settings.isl.showInlineSignals.enumDescriptions.all": "Show all inline signals regardless of severity.",
+  "settings.isl.showInlineSignals.enumDescriptions.errorsAndWarnings": "Only show signals with error or warning severity.",
+  "settings.isl.showInlineSignals.enumDescriptions.errors": "Only show signals with error severity.",
+  "settings.isl.showInlineSignals.enumDescriptions.none": "Hide all inline signals.",
   "sapling.open-comments-command": "Open Code Review Comments Panel",
   "sapling.toggle-inline-comments-command": "Toggle Show/Hide Inline Code Review Comments"
 }

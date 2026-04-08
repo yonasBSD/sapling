@@ -94,6 +94,23 @@
           "type": "boolean",
           "default": true,
           "description": "%settings.isl.showOpenOrFocusButtonOnEditorTitle.description%"
+        },
+        "sapling.isl.showInlineSignals": {
+          "type": "string",
+          "enum": [
+            "all",
+            "errors & warnings",
+            "errors",
+            "none"
+          ],
+          "enumDescriptions": [
+            "%settings.isl.showInlineSignals.enumDescriptions.all%",
+            "%settings.isl.showInlineSignals.enumDescriptions.errorsAndWarnings%",
+            "%settings.isl.showInlineSignals.enumDescriptions.errors%",
+            "%settings.isl.showInlineSignals.enumDescriptions.none%"
+          ],
+          "description": "%settings.isl.showInlineSignals.description%",
+          "default": "all"
         }
       }
     },
