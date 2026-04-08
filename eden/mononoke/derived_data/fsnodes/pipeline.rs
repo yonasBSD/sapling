@@ -34,6 +34,7 @@ use mononoke_types::thrift::fsnodes as fsnodes_thrift;
 
 use crate::derive::derive_fsnode_entry;
 use crate::mapping::RootFsnodeId;
+use crate::mapping::format_key;
 use crate::mapping::get_file_changes;
 
 #[async_trait]
@@ -141,10 +142,33 @@ impl PipelineDerivable for RootFsnodeId {
         stage_id: &str,
         outputs: HashMap<ChangesetId, Self::StageOutput>,
     ) -> Result<()> {
+        let use_normal_mapping = justknobs::eval(
+            "scm/mononoke:derived_data_pipeline_terminal_stage_prod_mapping",
+            None,
+            Some("fsnodes"),
+        )? && derivation
+            .derivation_pipeline_config()
+            .get(&DerivableType::Fsnodes)
+            .and_then(|cfg| cfg.stages.get(stage_id))
+            .map_or(false, |stage| stage.terminal);
+
         let key_prefix = derivation.mapping_key_prefix::<RootFsnodeId>();
-        stream::iter(outputs.into_iter().map(|(cs_id, output)| {
-            let key = format!("derived_fsnode_stage.{}.{}{}", stage_id, key_prefix, cs_id);
-            async move {
+        stream::iter(outputs.into_iter().map(|(cs_id, output)| async move {
+            if use_normal_mapping {
+                let Some(Entry::Tree(fsnode_id)) = output else {
+                    return Err(anyhow!(
+                        "terminal stage output for {} should be Some(Entry::Tree), got {:?}",
+                        cs_id,
+                        output,
+                    ));
+                };
+                let key = format_key(derivation, cs_id);
+                derivation
+                    .blobstore()
+                    .put(ctx, key, RootFsnodeId(fsnode_id).into())
+                    .await
+            } else {
+                let key = format!("derived_fsnode_stage.{}.{}{}", stage_id, key_prefix, cs_id);
                 let thrift_output = match output {
                     Some(Entry::Tree(fsnode_id)) => {
                         fsnodes_thrift::FsnodeStageOutput::fsnode_id(fsnode_id.into_thrift())
@@ -177,10 +201,27 @@ impl PipelineDerivable for RootFsnodeId {
         stage_id: &str,
         cs_ids: Vec<ChangesetId>,
     ) -> Result<HashMap<ChangesetId, Self::StageOutput>> {
+        let use_normal_mapping = justknobs::eval(
+            "scm/mononoke:derived_data_pipeline_terminal_stage_prod_mapping",
+            None,
+            Some("fsnodes"),
+        )? && derivation
+            .derivation_pipeline_config()
+            .get(&DerivableType::Fsnodes)
+            .and_then(|cfg| cfg.stages.get(stage_id))
+            .map_or(false, |stage| stage.terminal);
+
         let key_prefix = derivation.mapping_key_prefix::<RootFsnodeId>();
-        let results = stream::iter(cs_ids.into_iter().map(|cs_id| {
-            let key = format!("derived_fsnode_stage.{}.{}{}", stage_id, key_prefix, cs_id);
-            async move {
+        let results = stream::iter(cs_ids.into_iter().map(|cs_id| async move {
+            if use_normal_mapping {
+                let key = format_key(derivation, cs_id);
+                let Some(blob_data) = derivation.blobstore().get(ctx, &key).await? else {
+                    return Ok::<_, Error>(None);
+                };
+                let root: RootFsnodeId = blob_data.try_into()?;
+                Ok(Some((cs_id, Some(Entry::Tree(root.into_fsnode_id())))))
+            } else {
+                let key = format!("derived_fsnode_stage.{}.{}{}", stage_id, key_prefix, cs_id);
                 let maybe_bytes = derivation.blobstore().get(ctx, &key).await?;
                 match maybe_bytes {
                     None => Ok::<_, Error>(None),
