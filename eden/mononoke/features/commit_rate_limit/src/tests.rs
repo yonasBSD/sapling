@@ -5,11 +5,25 @@
  * GNU General Public License version 2.
  */
 
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
+
 use blobstore::Loadable;
 use bonsai_hg_mapping::BonsaiHgMapping;
 use borrowed::borrowed;
 use commit_graph::CommitGraph;
 use commit_graph::CommitGraphWriter;
+use commit_rate_limit_config::CommitRateLimitCacheConfig;
+use commit_rate_limit_config::CommitRateLimitRule;
+use commit_rate_limit_config::EligibilityCheck;
+use commit_rate_limit_config::EligibleChangesetInfo;
+use commit_rate_limit_config::RateLimit;
+use commit_rate_limit_config::cache::ChangesetEligibilityCache;
+use commit_rate_limit_config::inspect_changeset_eligibility;
+use commit_rate_limit_config::is_eligible_for_rate_limit;
+use commit_rate_limit_config::matches_user_filter;
+use commit_rate_limit_config::touches_directories;
 use fbinit::FacebookInit;
 use filestore::FilestoreConfig;
 use mononoke_macros::mononoke;
@@ -78,10 +92,10 @@ fn recent_date() -> DateTime {
 
 fn make_config(directories: &[&str], per_user: bool, max_commits: u64) -> CommitRateLimitRule {
     let dirs = directories.iter().map(|d| d.to_string()).collect();
-    CommitRateLimitRule {
-        repo_name: "test_repo".to_string(),
-        name: "test_hook".to_string(),
-        eligibility_checks: vec![
+    CommitRateLimitRule::new(
+        "test_hook".to_string(),
+        "test_repo".to_string(),
+        vec![
             EligibilityCheck::CommitMessageTag {
                 tag: ELIGIBLE_TAG.to_string(),
             },
@@ -89,15 +103,11 @@ fn make_config(directories: &[&str], per_user: bool, max_commits: u64) -> Commit
                 key: ELIGIBLE_EXTRA.to_string(),
             },
         ],
-        limits: vec![RateLimit {
-            window_secs: 3600,
-            max_commits,
-        }],
-        directories: dirs,
+        vec![RateLimit::new(3600, max_commits).expect("valid rate limit")],
+        dirs,
         per_user,
-        cache_config: None,
-        cache: None,
-    }
+        None,
+    )
 }
 
 fn make_changeset(extras: Vec<(&str, &[u8])>, files: Vec<&str>, message: &str) -> BonsaiChangeset {
@@ -961,41 +971,33 @@ async fn test_per_rule_cache_isolation(fb: FacebookInit) -> Result<()> {
 
     // Global rule (all directories): limit 6. There are 7 eligible
     // ancestors, so this must EXCEED.
-    let mut global_cached = CommitRateLimitRule {
-        repo_name: "test_repo".to_string(),
-        name: "global_cached".to_string(),
-        eligibility_checks: vec![EligibilityCheck::HgExtra {
+    let global_cache = cache_config.as_ref().and_then(|cc| cc.build_cache());
+    let global_cached = CommitRateLimitRule::new(
+        "global_cached".to_string(),
+        "test_repo".to_string(),
+        vec![EligibilityCheck::HgExtra {
             key: ELIGIBLE_EXTRA.to_string(),
         }],
-        limits: vec![RateLimit {
-            window_secs: 3600,
-            max_commits: 6,
-        }],
-        directories: vec![],
-        per_user: false,
-        cache_config: cache_config.clone(),
-        cache: None,
-    };
-    global_cached.build_and_set_cache();
+        vec![RateLimit::new(3600, 6).expect("valid rate limit")],
+        vec![],
+        false,
+        global_cache,
+    );
 
     // users/-scoped rule: limit 6. There are only 5 eligible ancestors
     // touching users/, so this must ALLOW.
-    let mut users_cached = CommitRateLimitRule {
-        repo_name: "test_repo".to_string(),
-        name: "users_cached".to_string(),
-        eligibility_checks: vec![EligibilityCheck::HgExtra {
+    let users_cache = cache_config.as_ref().and_then(|cc| cc.build_cache());
+    let users_cached = CommitRateLimitRule::new(
+        "users_cached".to_string(),
+        "test_repo".to_string(),
+        vec![EligibilityCheck::HgExtra {
             key: ELIGIBLE_EXTRA.to_string(),
         }],
-        limits: vec![RateLimit {
-            window_secs: 3600,
-            max_commits: 6,
-        }],
-        directories: vec!["users/".to_string()],
-        per_user: false,
-        cache_config: cache_config.clone(),
-        cache: None,
-    };
-    users_cached.build_and_set_cache();
+        vec![RateLimit::new(3600, 6).expect("valid rate limit")],
+        vec!["users/".to_string()],
+        false,
+        users_cache,
+    );
 
     // An eligible draft commit touching users/
     let draft = CreateCommitContext::new(ctx, repo, vec![tip])
@@ -1033,12 +1035,6 @@ async fn test_per_rule_cache_isolation(fb: FacebookInit) -> Result<()> {
 // =========================================================================
 // Cache tests
 // =========================================================================
-
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
-use std::time::Duration;
-
-use crate::cache::ChangesetEligibilityCache;
 
 /// Cache miss returns None from lookup.
 #[mononoke::test]

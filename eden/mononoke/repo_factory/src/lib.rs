@@ -84,6 +84,9 @@ use commit_graph::BaseCommitGraphWriter;
 use commit_graph::CommitGraph;
 use commit_graph::LoggingCommitGraphWriter;
 use commit_graph_types::storage::CommitGraphStorage;
+use commit_rate_limit_config::ArcCommitRateLimit;
+use commit_rate_limit_config::CommitRateLimit;
+use commit_rate_limit_config::build_commit_rate_limit;
 use context::CoreContext;
 use context::SessionContainer;
 use cross_repo_sync::create_commit_syncer_lease;
@@ -1449,6 +1452,19 @@ impl RepoFactory {
         Ok(Arc::new(restricted_paths))
     }
 
+    /// Commit rate limit configuration facet.
+    pub fn commit_rate_limit(
+        &self,
+        repo_identity: &ArcRepoIdentity,
+        repo_config: &ArcRepoConfig,
+    ) -> Result<ArcCommitRateLimit> {
+        let commit_rate_limit = match &repo_config.commit_rate_limit_config {
+            Some(config) => build_commit_rate_limit(config, repo_identity.name())?,
+            None => CommitRateLimit::empty(),
+        };
+        Ok(Arc::new(commit_rate_limit))
+    }
+
     /// Restricted paths root ids store
     pub async fn restricted_paths_manifest_id_store(
         &self,
@@ -1567,6 +1583,7 @@ impl RepoFactory {
         repo_cross_repo: &ArcRepoCrossRepo,
         commit_graph: &ArcCommitGraph,
         restricted_paths: &ArcRestrictedPaths,
+        commit_rate_limit: &ArcCommitRateLimit,
     ) -> Result<ArcHookManager> {
         let name = repo_identity.name();
 
@@ -1602,6 +1619,7 @@ impl RepoFactory {
                 repo_cross_repo: repo_cross_repo.clone(),
                 commit_graph: commit_graph.clone(),
                 restricted_paths: restricted_paths.clone(),
+                commit_rate_limit: commit_rate_limit.clone(),
             };
 
             let mut hook_manager = HookManager::new(

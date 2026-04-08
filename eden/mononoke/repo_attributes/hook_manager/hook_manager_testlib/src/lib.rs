@@ -11,6 +11,7 @@ use bonsai_tag_mapping::BonsaiTagMapping;
 use bookmarks::Bookmarks;
 use commit_graph::CommitGraph;
 use commit_graph::CommitGraphWriter;
+use commit_rate_limit_config::CommitRateLimit;
 use filestore::FilestoreConfig;
 use metaconfig_types::RepoConfig;
 use repo_blobstore::RepoBlobstore;
@@ -60,4 +61,7 @@ pub struct HookTestRepo {
 
     #[facet]
     pub restricted_paths: RestrictedPaths,
+
+    #[facet]
+    pub commit_rate_limit: CommitRateLimit,
 }

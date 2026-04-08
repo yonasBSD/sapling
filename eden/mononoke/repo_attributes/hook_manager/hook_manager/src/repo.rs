@@ -26,6 +26,7 @@ use bookmarks::Bookmarks;
 use bytes::Bytes;
 use changeset_info::ChangesetInfo;
 use commit_graph::CommitGraph;
+use commit_rate_limit_config::CommitRateLimit;
 use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
@@ -91,6 +92,9 @@ pub struct HookRepo {
 
     #[facet]
     pub restricted_paths: RestrictedPaths,
+
+    #[facet]
+    pub commit_rate_limit: CommitRateLimit,
 }
 
 impl HookRepo {

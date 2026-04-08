@@ -61,6 +61,7 @@ use bulk_derivation::BulkDerivation;
 use bundle_uri::GitBundleUri;
 use bytes::Bytes;
 use changeset_info::ChangesetInfo;
+use commit_rate_limit_config::CommitRateLimit;
 use context::CoreContext;
 use cross_repo_sync::CandidateSelectionHint;
 use cross_repo_sync::CommitSyncContext;
@@ -342,6 +343,9 @@ pub struct Repo {
 
     #[facet]
     restricted_paths: RestrictedPaths,
+
+    #[facet]
+    pub commit_rate_limit: CommitRateLimit,
 
     #[facet]
     pub cgdm_changeset_divider: dyn CgdmChangesetDivider,
