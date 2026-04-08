@@ -254,13 +254,17 @@ export function StackEditCommit({
       data-reorder-id={onDrag ? commit.key : ''}
       data-rev={rev}
       className={`commit${isReorderPreview ? ' commit-reorder-preview' : ''}`}>
-      <DragHandle onDrag={onDrag}>
-        <Icon icon="grabber" />
-      </DragHandle>
-      {buttons}
-      {title}
-      <StackEditDiffBadge commit={commit} />
-      {rightSideButtons}
+      <div className="stack-edit-controls">
+        <DragHandle onDrag={onDrag}>
+          <Icon icon="grabber" />
+        </DragHandle>
+        {buttons}
+        {rightSideButtons}
+      </div>
+      <div className="stack-edit-content">
+        {title}
+        <StackEditDiffBadge commit={commit} />
+      </div>
     </Row>
   );
 }

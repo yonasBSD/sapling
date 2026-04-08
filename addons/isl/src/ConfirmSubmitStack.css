@@ -19,5 +19,32 @@
 }
 
 .confirm-submit-stack-content .commit-list .commit {
-  margin-left: calc(3 * var(--pad));
+  margin-left: 0;
+}
+
+/* Allow content to wrap in narrow viewports.
+   .commit-tree-narrow CSS doesn't apply here (portal). */
+.confirm-submit-stack-content .commit-rows {
+  flex-wrap: wrap;
+}
+
+.confirm-submit-stack-content .commit-details {
+  flex-wrap: wrap;
+  margin-right: 0;
+  padding-right: 0;
+}
+
+.confirm-submit-stack-content .commit-wide-drag-target {
+  display: none;
+}
+
+.confirm-submit-stack-content .commit-second-row {
+  flex-wrap: wrap;
+}
+
+.confirm-submit-stack-content .diff-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--halfpad);
+  align-items: center;
 }

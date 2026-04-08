@@ -7,10 +7,11 @@
 
 .stack-edit-button-group {
   display: flex;
+  gap: var(--halfpad);
 }
 
 .stack-edit-right-side-buttons {
-  opacity: 0;
+  display: flex;
 }
 
 .stack-edit-subtree {
@@ -21,14 +22,30 @@
   background: var(--background);
   margin-bottom: var(--pad);
   cursor: default;
+  flex-wrap: wrap;
+}
+
+.stack-edit-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--halfpad);
+}
+
+.stack-edit-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  gap: var(--halfpad);
+}
+
+.stack-edit-content .commit-title {
+  min-width: 0;
 }
 
 .commit-reorder-preview {
   opacity: 0.5;
-}
-
-.stack-edit-subtree .commit:hover .stack-edit-right-side-buttons {
-  opacity: 1;
 }
 
 .drag-handle {

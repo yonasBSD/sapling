@@ -6,7 +6,7 @@
  */
 
 .shelved-changes-dropdown {
-  min-width: 400px;
+  min-width: min(400px, 100%);
 }
 
 .shelved-changes-list {
@@ -39,6 +39,7 @@
 .shelved-changes-item-row {
   width: 100%;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--pad);
   align-items: center;
 }

@@ -24,7 +24,7 @@
   gap: var(--pad);
   justify-content: space-between;
   --useModalWidth: 500px;
-  min-width: var(--useModalWidth);
+  min-width: min(var(--useModalWidth), calc(100vw / var(--zoom, 1) - 4 * var(--pad)));
 }
 
 #use-modal-title {
