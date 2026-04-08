@@ -19,14 +19,11 @@ use context::CoreContext;
 use futures::join;
 #[cfg(fbcode_build)]
 use git_ref_rust_logger::GitRefLogger;
-use git_source_of_truth::GitSourceOfTruth;
-use git_source_of_truth::GitSourceOfTruthConfigRef;
-use git_source_of_truth::RepositoryName;
-use git_source_of_truth::Staleness;
 use gix_hash::Kind;
 use gix_hash::ObjectId;
 use hostname::get_hostname;
 use logger_ext::Loggable;
+use metaconfig_types::CommitIdentityScheme;
 use metaconfig_types::RepoConfigRef;
 #[cfg(fbcode_build)]
 use mononoke_bookmark_rust_logger::MononokeBookmarkLogger;
@@ -293,7 +290,7 @@ impl Loggable for PlainBookmarkInfo {
 
 pub async fn log_bookmark_operation(
     ctx: &CoreContext,
-    repo: &(impl RepoIdentityRef + RepoConfigRef + BonsaiGitMappingRef + GitSourceOfTruthConfigRef),
+    repo: &(impl RepoIdentityRef + RepoConfigRef + BonsaiGitMappingRef),
     info: &BookmarkInfo,
 ) {
     if let Some(bookmark_logging_destination) = &repo
@@ -307,20 +304,10 @@ pub async fn log_bookmark_operation(
                 .await;
         };
         let git_logger_future = async move {
-            let mononoke_source_of_truth = repo
-                .git_source_of_truth_config()
-                .get_by_repo_name(
-                    ctx,
-                    &RepositoryName(repo.repo_identity().name().to_string()),
-                    Staleness::MaybeStale,
-                )
-                .await
-                .map(|entry| {
-                    entry.is_some_and(|entry| entry.source_of_truth == GitSourceOfTruth::Mononoke)
-                })
-                .unwrap_or(false);
-            // Only log Git bookmarks if the Git repo is SoT'd in Mononoke
-            if mononoke_source_of_truth {
+            let is_git_repo =
+                repo.repo_config().default_commit_identity_scheme == CommitIdentityScheme::GIT;
+            // Only log Git bookmarks if the repo uses Git as its commit identity scheme
+            if is_git_repo {
                 GitBookmarkInfo::new(ctx, repo, info)
                     .await
                     .log(ctx, bookmark_logging_destination)

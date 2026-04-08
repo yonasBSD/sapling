@@ -10,6 +10,7 @@
   $ export MONONOKE_TEST_SCRIBE_LOGGING_DIRECTORY=$TESTTMP/scribe_logs/
   $ . "${TEST_FIXTURES}/library.sh"
   $ export ENABLE_BOOKMARK_CACHE=1
+  $ export COMMIT_IDENTITY_SCHEME=3
   $ REPOTYPE="blob_files"
   $ setup_common_config $REPOTYPE
   $ GIT_REPO_ORIGIN="${TESTTMP}/origin/repo-git"
@@ -148,8 +149,22 @@
   {
     "repo_name": "repo.git",
     "bookmark_name": "refs/heads/branch_to_be_deleted",
+    "old_bookmark_value": "0000000000000000000000000000000000000000",
+    "new_bookmark_value": "2e70fb91397e9861fa3afd7c981c10f903fc352b",
+    "operation": null
+  }
+  {
+    "repo_name": "repo.git",
+    "bookmark_name": "refs/heads/branch_to_be_deleted",
     "old_bookmark_value": "2e70fb91397e9861fa3afd7c981c10f903fc352b",
     "new_bookmark_value": "0000000000000000000000000000000000000000",
+    "operation": null
+  }
+  {
+    "repo_name": "repo.git",
+    "bookmark_name": "refs/heads/master_bookmark",
+    "old_bookmark_value": "0000000000000000000000000000000000000000",
+    "new_bookmark_value": "e8615d6f149b876be0a2f30a1c5bf0c42bf8e136",
     "operation": null
   }
   {
@@ -164,5 +179,19 @@
     "bookmark_name": "refs/heads/new_branch",
     "old_bookmark_value": "0000000000000000000000000000000000000000",
     "new_bookmark_value": "f03735df9cbce16686a56086146037ef0c54d8a7",
+    "operation": null
+  }
+  {
+    "repo_name": "repo.git",
+    "bookmark_name": "refs/tags/empty_tag",
+    "old_bookmark_value": "0000000000000000000000000000000000000000",
+    "new_bookmark_value": "e8615d6f149b876be0a2f30a1c5bf0c42bf8e136",
+    "operation": null
+  }
+  {
+    "repo_name": "repo.git",
+    "bookmark_name": "refs/tags/first_tag",
+    "old_bookmark_value": "0000000000000000000000000000000000000000",
+    "new_bookmark_value": "8ce3eae44760b500bf3f2c3922a95dcd3c908e9e",
     "operation": null
   }
