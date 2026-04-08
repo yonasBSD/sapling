@@ -25,6 +25,7 @@ use bookmarks::BookmarksRef;
 use bulk_derivation::BulkDerivation;
 use commit_graph::CommitGraphRef;
 use commit_transformation::SubmoduleDeps;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
 use fbinit::FacebookInit;
@@ -58,6 +59,7 @@ use mononoke_types::FileChange;
 use mononoke_types::FileType;
 use mononoke_types::NonRootMPath;
 use mononoke_types::RepositoryId;
+use mononoke_types::content_manifest::compat;
 use mononoke_types::hash::GitSha1;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedDataRef;
@@ -714,24 +716,42 @@ pub(crate) async fn check_submodule_metadata_file_in_large_repo<'a>(
     metadata_file_path: NonRootMPath,
     expected_git_hash: &'a GitSha1,
 ) -> Result<()> {
-    let fsnode_id = large_repo
-        .repo_derived_data()
-        .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
-        .await?
-        .into_fsnode_id();
+    let use_content_manifests = justknobs::eval(
+        "scm/mononoke:derived_data_use_content_manifests",
+        None,
+        Some(large_repo.repo_identity().name()),
+    )?;
+
+    let root: compat::ContentManifestId = if use_content_manifests {
+        large_repo
+            .repo_derived_data()
+            .derive::<RootContentManifestId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?
+            .into_content_manifest_id()
+            .into()
+    } else {
+        large_repo
+            .repo_derived_data()
+            .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?
+            .into_fsnode_id()
+            .into()
+    };
 
     let blobstore = large_repo.repo_blobstore().clone();
-    let content_id = fsnode_id
+    let manifest_file: compat::ContentManifestFile = root
         .find_entry(ctx.clone(), blobstore, metadata_file_path.clone().into())
         .await?
         .ok_or(anyhow!(
-            "No fsnode entry for x-repo submodule metadata file in path {}",
+            "No manifest entry for x-repo submodule metadata file in path {}",
             &metadata_file_path
         ))?
         .into_leaf()
-        .ok_or(anyhow!("Expected metadata file fsnode entry to be a leaf"))?
-        .content_id()
-        .clone();
+        .ok_or(anyhow!(
+            "Expected metadata file manifest entry to be a leaf"
+        ))?
+        .into();
+    let content_id = manifest_file.content_id();
     let file_bytes = filestore::fetch_concat(large_repo.repo_blobstore(), ctx, content_id).await?;
     let file_string = std::str::from_utf8(file_bytes.as_ref())?;
 
@@ -783,16 +803,30 @@ pub(crate) async fn assert_working_copy_matches_expected(
     expected_files: Vec<&str>,
 ) -> Result<()> {
     println!("Asserting working copy matches expectation");
-    let root_fsnode_id = repo
-        .repo_derived_data()
-        .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
-        .await?
-        .into_fsnode_id();
+    let use_content_manifests = justknobs::eval(
+        "scm/mononoke:derived_data_use_content_manifests",
+        None,
+        Some(repo.repo_identity().name()),
+    )?;
+
+    let root: compat::ContentManifestId = if use_content_manifests {
+        repo.repo_derived_data()
+            .derive::<RootContentManifestId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?
+            .into_content_manifest_id()
+            .into()
+    } else {
+        repo.repo_derived_data()
+            .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?
+            .into_fsnode_id()
+            .into()
+    };
 
     let blobstore = repo.repo_blobstore();
-    let all_files: Vec<String> = root_fsnode_id
+    let all_files: Vec<String> = root
         .list_leaf_entries(ctx.clone(), blobstore.clone())
-        .map_ok(|(path, _fsnode_file)| path.to_string())
+        .map_ok(|(path, _manifest_file)| path.to_string())
         .try_collect()
         .await?;
 
