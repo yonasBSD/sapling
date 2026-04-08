@@ -116,6 +116,22 @@ cpp_library(
 )
 
 cpp_library(
+    name = "throw_trace_capture",
+    srcs = [
+        "ThrowTraceCapture.cpp",
+    ],
+    headers = [
+        "ThrowTraceCapture.h",
+    ],
+    deps = [
+        "//folly/debugging/exception_tracer:exception_tracer_base",
+    ],
+    exported_deps = [
+        "//folly/debugging/exception_tracer:exception_tracer",  # @manual
+    ],
+)
+
+cpp_library(
     name = "error_info",
     srcs = [
         "EdenComponent.cpp",

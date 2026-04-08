@@ -63,6 +63,19 @@ cpp_benchmark(
 )
 
 cpp_unittest(
+    name = "throw_trace_capture_test",
+    srcs = [
+        "ThrowTraceCaptureTest.cpp",
+    ],
+    supports_static_listing = False,
+    deps = [
+        "fbsource//third-party/googletest:gtest",
+        "//eden/fs/telemetry:throw_trace_capture",
+        "//folly:c_portability",
+    ],
+)
+
+cpp_unittest(
     name = "error_info_builder_test",
     srcs = [
         "EdenErrorInfoBuilderTest.cpp",
