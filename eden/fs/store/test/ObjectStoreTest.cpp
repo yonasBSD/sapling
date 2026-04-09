@@ -8,7 +8,7 @@
 #include <folly/test/TestUtils.h>
 #include <gtest/gtest.h>
 
-#include <folly/experimental/coro/GtestHelpers.h>
+#include <folly/coro/GtestHelpers.h>
 
 #include "eden/common/telemetry/NullStructuredLogger.h"
 #include "eden/common/utils/ImmediateFuture.h"
