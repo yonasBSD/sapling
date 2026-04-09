@@ -46,6 +46,7 @@ use termcolor::Ansi;
 use termcolor::NoColor;
 use termcolor::WriteColor;
 use types::RepoPathBuf;
+use types::hgid::WDIR_ID;
 use types::path::RepoPathRelativizer;
 
 /// A grep match entry for JSON output.
@@ -317,6 +318,9 @@ define_flags! {
         /// use external search indexes when available (ADVANCED)
         external: bool = true,
 
+        /// include unknown (untracked) files in the search (wdir only) (EXPERIMENTAL)
+        unknown: bool,
+
         /// search the repository as it is at REV (ADVANCED)
         #[short('r')]
         #[argtype("REV")]
@@ -341,6 +345,7 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
     }
 
     let pattern = &ctx.opts.grep_pattern;
+    let include_unknown = ctx.opts.unknown;
 
     let (repo_root, case_sensitive, cwd, sl_patterns, relativizer, rev) = match repo {
         CoreRepo::Disk(repo) => {
@@ -361,22 +366,33 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
                 ctx.opts.rev.as_deref().unwrap_or("wdir"),
             )
         }
-        CoreRepo::Slapi(_slapi_repo) => (
-            None,
-            true,
-            PathBuf::new(),
-            if ctx.opts.sl_patterns.is_empty() {
-                abort!("FILE pattern(s) required in repoless mode");
-            } else {
-                ctx.opts.sl_patterns.as_slice()
-            },
-            RepoPathRelativizer::noop(),
-            match ctx.opts.rev.as_deref() {
-                Some(rev) => rev,
-                None => abort!("--rev is required for repoless grep"),
-            },
-        ),
+        CoreRepo::Slapi(_slapi_repo) => {
+            abort_if!(
+                include_unknown,
+                "--unknown is not supported for repoless grep"
+            );
+            (
+                None,
+                true,
+                PathBuf::new(),
+                if ctx.opts.sl_patterns.is_empty() {
+                    abort!("FILE pattern(s) required in repoless mode");
+                } else {
+                    ctx.opts.sl_patterns.as_slice()
+                },
+                RepoPathRelativizer::noop(),
+                match ctx.opts.rev.as_deref() {
+                    Some(rev) => rev,
+                    None => abort!("--rev is required for repoless grep"),
+                },
+            )
+        }
     };
+
+    abort_if!(
+        include_unknown && rev != "wdir",
+        "--unknown is only supported for the working directory (wdir)"
+    );
 
     // For cli_matcher, use empty path if repo_root is None
     let cli_matcher_root = repo_root.as_deref().unwrap_or(Path::new(""));
@@ -392,7 +408,19 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
     )?;
     let matcher: DynMatcher = Arc::new(hinted_matcher.clone());
 
-    let (_, manifest) = repo.resolve_manifest(&ctx.core, rev, matcher.clone())?;
+    let (_, manifest) = if include_unknown {
+        match repo {
+            CoreRepo::Disk(repo) => {
+                let wc = repo.working_copy()?;
+                let wc = wc.read();
+                let manifest = wc.working_manifest(&ctx.core, matcher.clone(), true)?;
+                (WDIR_ID, manifest)
+            }
+            _ => unreachable!(),
+        }
+    } else {
+        repo.resolve_manifest(&ctx.core, rev, matcher.clone())?
+    };
 
     // Check for sparse profile and intersect with existing matcher if set.
     let matcher = if let Some(sparse_matcher) = repo.sparse_matcher(&manifest)? {
@@ -806,6 +834,9 @@ pub fn doc() -> &'static str {
     Use ``-r/--rev REV`` to search files at a specific revision instead of the
     working directory. ``--rev`` defaults to "wdir", which includes uncommitted
     changes to tracked files.
+
+    Use ``--unknown`` to also search unknown (untracked) files. This is only
+    supported for the working directory (wdir).
 
     To operate without a local repo, specify ``-R/--repository`` as a Sapling
     Remote API capable URL. The local on-disk cache will still be used to avoid

@@ -290,6 +290,39 @@ Can grep unpulled revisions from on-disk repo:
   foo:foo content
 
 
+Test --unknown searches untracked files:
+  $ newclientrepo unknown-test
+  $ echo 'tracked content' > tracked
+  $ sl commit -Aqm 'initial'
+
+Without --unknown, untracked files are not searched:
+  $ echo 'findme in untracked' > untracked_file
+  $ sl grep findme
+  [1]
+
+With --unknown, untracked files are searched:
+  $ sl grep --unknown findme
+  untracked_file:findme in untracked
+
+--unknown also searches tracked files:
+  $ sl grep --unknown -w content path:tracked
+  tracked:tracked content
+
+--unknown with -l (files with matches):
+  $ echo 'findme too' > another_untracked
+  $ sl grep --unknown -l findme | sort
+  another_untracked
+  untracked_file
+
+--unknown with --rev is an error:
+  $ sl grep --unknown -r . findme
+  abort: --unknown is only supported for the working directory (wdir)
+  [255]
+
+--unknown with -X excludes untracked files:
+  $ sl grep --unknown findme -X untracked_file
+  another_untracked:findme too
+
 Test grep skips binary files:
   $ newclientrepo binary-test
   $ printf 'text match\n' > text_file
