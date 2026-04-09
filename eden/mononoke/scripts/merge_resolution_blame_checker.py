@@ -144,14 +144,23 @@ def _check_diffs_reverted(diff_ids: list[str]) -> list[str]:
 async def _query_scuba(
     sql: str, table: str, user_name: str, user_id: int
 ) -> list[dict[str, ResultType]]:
-    """Execute a Scuba SQL query and return results."""
-    return await query_sql_as_dict(
-        table=table,
-        sql=sql,
-        source=SCUBA_SOURCE,
-        user_name=user_name,
-        user_id=user_id,
-    )
+    """Execute a Scuba SQL query and return results.
+
+    Returns an empty list when the query returns no rows (e.g. empty table).
+    query_sql_as_dict raises ValueError when the underlying SQLQueryResult
+    is not valid, which happens when the Scuba table has no matching data.
+    """
+    try:
+        return await query_sql_as_dict(
+            table=table,
+            sql=sql,
+            source=SCUBA_SOURCE,
+            user_name=user_name,
+            user_id=user_id,
+        )
+    except ValueError:
+        logger.debug("Scuba query returned no results for table %s", table)
+        return []
 
 
 async def check_merge_resolution_blames(
