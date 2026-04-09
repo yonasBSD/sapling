@@ -65,7 +65,9 @@ function termandwait {
 function get_free_socket {
   # Redirect PAR unpacking to /tmp to avoid Permission denied errors on
   # SandCastle workers where /dev/shm may be mounted noexec (T262741687).
-  PAR_TEMP_DIR="${PAR_TEMP_DIR:-/tmp}" "$GET_FREE_SOCKET"
+  # FB_PAR_UNPACK_BASEDIR controls where the PAR runtime binary is extracted;
+  # PAR_TEMP_DIR alone is insufficient for newer PAR formats.
+  FB_PAR_UNPACK_BASEDIR="${FB_PAR_UNPACK_BASEDIR:-/tmp}" PAR_TEMP_DIR="${PAR_TEMP_DIR:-/tmp}" "$GET_FREE_SOCKET"
 }
 
 ZELOS_PORT=$(get_free_socket)
