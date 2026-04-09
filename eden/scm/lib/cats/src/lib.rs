@@ -5,15 +5,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#![allow(unexpected_cfgs)]
-
 // [cats]
 // entry_name.priority=20
 // entry_name.path=/var/boo/cat
 // entry_name.type=forwarded  # If not present, "forwarded" is the default.
 // different_entry_name.priority=5
-// different_entry_name.more_custom_data=/some/other
+// different_entry_name.path=/some/other
 // different_entry_name.type=auth
+//
+// Forwarded and auth types are completely orthogonal. Each type is
+// resolved independently to the highest-priority group of that type.
+// The same token file can appear in groups of both types, causing it
+// to be sent in both x-forwarded-cats and x-auth-cats headers.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -21,7 +24,6 @@ use std::str;
 
 use anyhow::Result;
 use configmodel::Config;
-use configmodel::ConfigExt;
 use configmodel::Text;
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -103,14 +105,12 @@ impl CatGroup {
 }
 
 #[derive(Clone)]
-pub struct CatsSection<'a> {
+pub struct CatsSection {
     groups: Vec<CatGroup>,
-    #[allow(dead_code)]
-    config: &'a dyn Config,
 }
 
-impl<'a> CatsSection<'a> {
-    pub fn from_config(config: &'a dyn Config, section_name: &str) -> Self {
+impl CatsSection {
+    pub fn from_config(config: &dyn Config, section_name: &str) -> Self {
         // Use an IndexMap to preserve ordering; needed to correctly handle precedence.
         let mut groups = IndexMap::new();
 
@@ -135,7 +135,7 @@ impl<'a> CatsSection<'a> {
             .filter_map(|(group, settings)| CatGroup::new(group, settings).ok())
             .collect();
 
-        Self { groups, config }
+        Self { groups }
     }
 
     /// Find existing cats with highest priority, filtered by token type.
@@ -183,95 +183,15 @@ impl<'a> CatsSection<'a> {
     }
 
     pub fn get_cats_by_type(&self, token_type: CatTokenType) -> Result<Option<String>> {
-        match self.find_cats_by_type(token_type) {
-            Ok(Some(cats_group)) => {
-                // The "preminted" config group (Dev Docker Images) uses a
-                // multi-token file format. Use the preminted library to get
-                // merged tokens (verify_integrity + interngraph) instead of
-                // just the crypto_auth_tokens key from the JSON blob.
-                #[cfg(all(fbcode_build, target_os = "linux"))]
-                if cats_group.name == "preminted" {
-                    tracing::debug!("config group 'preminted'; using preminted CATs library");
-                    return self.try_preminted_cats();
-                }
-
-                if let Some(path) = cats_group.path {
-                    let f = std::fs::File::open(&path)?;
-                    let reader = std::io::BufReader::new(f);
-                    let cats: Cats = serde_json::from_reader(reader)?;
-                    return Ok(Some(cats.crypto_auth_tokens));
-                }
-            }
-            Ok(None) => {}
-            Err(e) => {
-                // If all configured groups are "preminted" (Dev Docker Images),
-                // a missing file is expected during container lease provisioning.
-                // For other groups (e.g. sandcastle), propagate the error.
-                if self.groups.iter().all(|g| g.name == "preminted") {
-                    tracing::debug!("pre-minted CATs file not yet available: {e}");
-                } else {
-                    return Err(e.into());
-                }
+        if let Some(cats_group) = self.find_cats_by_type(token_type)? {
+            if let Some(path) = cats_group.path {
+                let f = std::fs::File::open(&path)?;
+                let reader = std::io::BufReader::new(f);
+                let cats: Cats = serde_json::from_reader(reader)?;
+                return Ok(Some(cats.crypto_auth_tokens));
             }
         }
 
-        // Config-based CATs not available; try pre-minted as fallback.
-        self.try_preminted_cats()
-    }
-
-    #[cfg(all(fbcode_build, target_os = "linux"))]
-    fn preminted_wanted_keys(&self) -> Vec<String> {
-        let default = || {
-            vec![
-                platform_cats_reader::CAT_KEY_VERIFY_INTEGRITY.to_string(),
-                platform_cats_reader::CAT_KEY_INTERNGRAPH.to_string(),
-                platform_cats_reader::CAT_KEY_SCM_SERVICE_IDENTITY.to_string(),
-            ]
-        };
-        self.config
-            .get_or("cats", "preminted-wanted-keys", default)
-            .unwrap_or_else(|_| default())
-    }
-
-    #[cfg(all(fbcode_build, target_os = "linux"))]
-    fn try_preminted_cats(&self) -> Result<Option<String>> {
-        let wanted_keys = self.preminted_wanted_keys();
-
-        // Check if any pre-minted CATs exist on this machine.
-        let all_cats = platform_cats_reader::read_all_preminted_cats();
-        if all_cats.is_empty() {
-            return Ok(None);
-        }
-
-        // Pre-minted CATs exist — check if our required keys are present.
-        let missing: Vec<&str> = wanted_keys
-            .iter()
-            .filter(|k| !all_cats.contains_key(k.as_str()))
-            .map(|k| k.as_str())
-            .collect();
-
-        if !missing.is_empty() {
-            tracing::debug!(
-                ?missing,
-                "pre-minted CATs missing required keys; not using pre-minted CATs"
-            );
-            return Ok(None);
-        }
-
-        // Read the already-merged "crypto_auth_tokens" key directly,
-        // avoiding the heavyweight cryptocat dependency that
-        // read_merged_preminted_cats_for() would pull in.
-        match all_cats.get(platform_cats_reader::CAT_KEY_MERGED) {
-            Some(cats) => {
-                tracing::debug!("using pre-minted CATs for authentication");
-                Ok(Some(cats.clone()))
-            }
-            None => Ok(None),
-        }
-    }
-
-    #[cfg(not(all(fbcode_build, target_os = "linux")))]
-    fn try_preminted_cats(&self) -> Result<Option<String>> {
         Ok(None)
     }
 }

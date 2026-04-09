@@ -26,10 +26,5 @@ rust_library(
         "//eden/scm/lib/cats/constants:cats_constants",
         "//eden/scm/lib/config/model:configmodel",
         "//eden/scm/lib/util:util",
-    ] + select({
-        "DEFAULT": [],
-        "ovr_config//os:linux": [
-            "//devinfra/lib/rust/platform_cats_reader:platform_cats_reader",
-        ],
-    }),
+    ],
 )
