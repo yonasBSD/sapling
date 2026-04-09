@@ -12,7 +12,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-use anyhow::Context as _;
 use anyhow::Context;
 use anyhow::bail;
 use clidispatch::ReqCtx;
@@ -156,6 +155,23 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         ])),
     )?;
 
+    let sl_bin = current_sl_binary();
+
+    // Spawn snapshot creation on a background thread so it runs concurrently
+    // with eden clone below. Snapshot create uploads dirty state from the
+    // source repo (network I/O) while eden clone sets up the new mount
+    // (daemon I/O). Neither depends on the other.
+    let snapshot_handle = if ctx.opts.snapshot {
+        let repo_path = repo.path().to_path_buf();
+        let sl_bin = sl_bin.clone();
+        logger.info("creating snapshot of current working copy...");
+        Some(std::thread::spawn(move || {
+            sapling_snapshot_create(&sl_bin, repo_path)
+        }))
+    } else {
+        None
+    };
+
     // Lock the source checkout path only while snapshotting the source state that
     // needs to be copied into the new worktree.
     let (target, source_sparse_config, source_user_config) =
@@ -222,13 +238,15 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         Ok(())
     })?;
 
-    let sl_bin = current_sl_binary();
     let mut exit_code: u8 = 0;
 
-    // If --snapshot, create a snapshot of the current working copy.
-    let snapshot_id = if ctx.opts.snapshot {
-        logger.info("creating snapshot of current working copy...");
-        match sapling_snapshot_create(&sl_bin, repo.path().to_path_buf()) {
+    // Wait for snapshot creation to finish.
+    let snapshot_id = snapshot_handle.and_then(|h| {
+        match h
+            .join()
+            .map_err(|_| anyhow::anyhow!("snapshot create thread panicked"))
+            .and_then(|r| r)
+        {
             Ok(id) => {
                 logger.info(format!("created snapshot {}", id));
                 Some(id)
@@ -239,9 +257,7 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
                 None
             }
         }
-    } else {
-        None
-    };
+    });
 
     logger.info(format!("created linked worktree at {}", dest.display()));
 
