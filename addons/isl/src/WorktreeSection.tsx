@@ -64,7 +64,6 @@ function WorktreeDropdown({dismiss}: {dismiss: () => unknown}) {
   const repoRoot = info?.repoRoot ?? '';
   const runOperation = useRunOperation();
   const showModal = useModal();
-  const [removingPath, setRemovingPath] = useState<string | null>(null);
 
   const allWorktrees = worktreeInfo?.worktrees ?? [];
   const sortedWorktrees = [...allWorktrees].sort((a, b) => {
@@ -92,8 +91,6 @@ function WorktreeDropdown({dismiss}: {dismiss: () => unknown}) {
         wt={wt}
         wtBasename={wtBasename}
         hasLabel={hasLabel}
-        removingPath={removingPath}
-        setRemovingPath={setRemovingPath}
         runOperation={runOperation}
         showModal={showModal}
         dismiss={dismiss}
@@ -119,8 +116,6 @@ function WorktreeRowWithHover({
   wt,
   wtBasename,
   hasLabel,
-  removingPath,
-  setRemovingPath,
   runOperation,
   showModal,
   dismiss,
@@ -130,8 +125,6 @@ function WorktreeRowWithHover({
   wt: WorktreeEntry;
   wtBasename: string;
   hasLabel: boolean;
-  removingPath: string | null;
-  setRemovingPath: (path: string | null) => void;
   runOperation: ReturnType<typeof useRunOperation>;
   showModal: ReturnType<typeof useModal>;
   dismiss: () => unknown;
@@ -234,16 +227,26 @@ function WorktreeRowWithHover({
               <Button
                 icon
                 data-testid="worktree-remove-button"
-                disabled={removingPath === wt.path}
                 onClick={async () => {
-                  setRemovingPath(wt.path);
-                  try {
+                  dismiss();
+                  const confirmed = await showModal({
+                    type: 'confirm',
+                    title: <T>Remove Worktree</T>,
+                    icon: 'worktree',
+                    message: (
+                      <span>
+                        <T replace={{$path: <code>{hasLabel ? wt.label : wtBasename}</code>}}>
+                          Are you sure you want to remove the worktree $path?
+                        </T>
+                      </span>
+                    ),
+                    buttons: [{label: t('Cancel')}, {label: t('Remove'), primary: true}],
+                  });
+                  if (confirmed?.label === t('Remove')) {
                     await runOperation(new RemoveWorktreeOperation(wt.path), true);
-                  } finally {
-                    setRemovingPath(null);
                   }
                 }}>
-                <Icon icon={removingPath === wt.path ? 'loading' : 'trash'} />
+                <Icon icon="trash" />
               </Button>
             </Tooltip>
           )}
