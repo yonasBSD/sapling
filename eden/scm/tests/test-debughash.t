@@ -122,3 +122,37 @@ Revert the uncommitted change and verify hash returns to committed:
   $ sl revert foo/bar/file1
   $ HASH_REVERTED=$(sl debughash .)
   $ test "$HASH_REVERTED" = "$HASH_COMMITTED"
+
+Test --unknown includes unknown (untracked) files:
+  $ newclientrepo unknown_test
+  $ mkdir -p dir
+  $ echo tracked > dir/tracked
+  $ sl commit -Aqm 'initial'
+  $ HASH_NO_UNKNOWN=$(sl debughash .)
+
+Without --unknown, adding an untracked file does not change the hash:
+  $ echo untracked > dir/untracked
+  $ test "$HASH_NO_UNKNOWN" = "$(sl debughash .)"
+
+With --unknown, the untracked file changes the hash:
+  $ HASH_WITH_UNKNOWN=$(sl debughash . --unknown)
+  $ test "$HASH_WITH_UNKNOWN" != "$HASH_NO_UNKNOWN"
+
+--unknown hash is deterministic:
+  $ test "$HASH_WITH_UNKNOWN" = "$(sl debughash . --unknown)"
+
+--unknown without untracked files gives same hash as without --unknown:
+  $ rm dir/untracked
+  $ test "$(sl debughash . --unknown)" = "$HASH_NO_UNKNOWN"
+
+--unknown with --rev is an error:
+  $ sl debughash . --unknown -r .
+  abort: --unknown is only supported for the working directory (wdir)
+  [255]
+
+--unknown can be combined with -X to exclude unknown files:
+  $ echo untracked1 > dir/untracked1
+  $ echo untracked2 > dir/untracked2
+  $ HASH_BOTH=$(sl debughash . --unknown)
+  $ HASH_EXCLUDE_ONE=$(sl debughash . --unknown -X dir/untracked1)
+  $ test "$HASH_BOTH" != "$HASH_EXCLUDE_ONE"

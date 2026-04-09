@@ -31,6 +31,7 @@ use sha1::Sha1;
 use types::HgId;
 use types::RepoPathBuf;
 use types::hgid::NULL_ID;
+use types::hgid::WDIR_ID;
 
 define_flags! {
     pub struct DebugHashOpts {
@@ -41,6 +42,9 @@ define_flags! {
         #[argtype("REV")]
         rev: Option<String>,
 
+        /// include unknown (untracked) files in the hash (wdir only)
+        unknown: bool,
+
         #[args]
         args: Vec<String>,
     }
@@ -48,6 +52,8 @@ define_flags! {
 
 pub fn run(ctx: ReqCtx<DebugHashOpts>, repo: &CoreRepo) -> CmdResult<u8> {
     abort_if!(ctx.opts.args.is_empty(), "PATTERN required");
+
+    let include_unknown = ctx.opts.unknown;
 
     let (repo_root, case_sensitive, cwd, patterns, rev) = match repo {
         CoreRepo::Disk(repo) => {
@@ -62,17 +68,28 @@ pub fn run(ctx: ReqCtx<DebugHashOpts>, repo: &CoreRepo) -> CmdResult<u8> {
                 ctx.opts.rev.as_deref().unwrap_or("wdir"),
             )
         }
-        CoreRepo::Slapi(_slapi_repo) => (
-            None,
-            true,
-            PathBuf::new(),
-            ctx.opts.args.clone(),
-            match ctx.opts.rev.as_deref() {
-                Some(rev) => rev,
-                None => abort!("--rev is required for repoless debughash"),
-            },
-        ),
+        CoreRepo::Slapi(_slapi_repo) => {
+            abort_if!(
+                include_unknown,
+                "--unknown is not supported for repoless debughash"
+            );
+            (
+                None,
+                true,
+                PathBuf::new(),
+                ctx.opts.args.clone(),
+                match ctx.opts.rev.as_deref() {
+                    Some(rev) => rev,
+                    None => abort!("--rev is required for repoless debughash"),
+                },
+            )
+        }
     };
+
+    abort_if!(
+        include_unknown && rev != "wdir",
+        "--unknown is only supported for the working directory (wdir)"
+    );
 
     let cli_matcher_root = repo_root.as_deref().unwrap_or(Path::new(""));
     let hinted_matcher = pathmatcher::cli_matcher(
@@ -87,7 +104,20 @@ pub fn run(ctx: ReqCtx<DebugHashOpts>, repo: &CoreRepo) -> CmdResult<u8> {
     )?;
     let matcher: DynMatcher = Arc::new(hinted_matcher);
 
-    let (_, manifest) = repo.resolve_manifest(&ctx.core, rev, matcher.clone())?;
+    let (_, manifest) = if include_unknown {
+        // --unknown requires direct access to working_manifest with include_unknown=true.
+        match repo {
+            CoreRepo::Disk(repo) => {
+                let wc = repo.working_copy()?;
+                let wc = wc.read();
+                let manifest = wc.working_manifest(&ctx.core, matcher.clone(), true)?;
+                (WDIR_ID, manifest)
+            }
+            _ => unreachable!(),
+        }
+    } else {
+        repo.resolve_manifest(&ctx.core, rev, matcher.clone())?
+    };
 
     let matcher = if let Some(sparse_matcher) = repo.sparse_matcher(&manifest)? {
         Arc::new(IntersectMatcher::new(vec![matcher, sparse_matcher])) as DynMatcher
@@ -201,9 +231,12 @@ pub fn doc() -> &'static str {
     Use ``-X`` to exclude paths from the hash. This allows computing a
     hash that is not sensitive to changes in excluded files.
 
+    Use ``--unknown`` to include unknown (untracked) files in the hash.
+    This is only supported for the working directory (wdir).
+
     Returns 0 on success."#
 }
 
 pub fn synopsis() -> Option<&'static str> {
-    Some("[-r REV] PATTERN...")
+    Some("[--unknown] [-r REV] PATTERN...")
 }
