@@ -19,7 +19,7 @@ import {useAtomValue} from 'jotai';
 import {useCallback, useState} from 'react';
 import {basename, dirname} from 'shared/utils';
 import serverAPI from './ClientToServerAPI';
-import {Row} from './ComponentUtils';
+import {Column, Row} from './ComponentUtils';
 import css from './CwdSelector.module.css';
 import {DropdownField} from './DropdownFields';
 import {Internal} from './Internal';
@@ -184,21 +184,18 @@ function WorktreeRowWithHover({
                   title: <T>Switch Worktree</T>,
                   icon: 'worktree',
                   message: (
-                    <span>
+                    <Column alignStart style={{gap: 'var(--pad)'}}>
                       <Row>
                         <T replace={{$path: <code>{wtBasename}</code>}}>
                           Switch to worktree $path?
                         </T>
                       </Row>
-                      <Row style={{marginTop: 'var(--pad)'}}>
+                      <Row>
                         <Subtle>
-                          <T>
-                            Opening in current window will reload the editor. Unsaved changes will
-                            be prompted to save.
-                          </T>
+                          <T>Opening in current window will reload the editor.</T>
                         </Subtle>
                       </Row>
-                    </span>
+                    </Column>
                   ),
                   buttons: [
                     {label: t('Open in Current Window')},
@@ -235,9 +232,19 @@ function WorktreeRowWithHover({
                     icon: 'worktree',
                     message: (
                       <span>
-                        <T replace={{$path: <code>{hasLabel ? wt.label : wtBasename}</code>}}>
-                          Are you sure you want to remove the worktree $path?
-                        </T>
+                        <Row>
+                          <T replace={{$path: <code>{hasLabel ? wt.label : wtBasename}</code>}}>
+                            Are you sure you want to remove the worktree $path?
+                          </T>
+                        </Row>
+                        <Row style={{marginTop: 'var(--pad)'}}>
+                          <Subtle>
+                            <T>
+                              Any uncommitted changes and shelves in this worktree will be lost
+                              forever.
+                            </T>
+                          </Subtle>
+                        </Row>
                       </span>
                     ),
                     buttons: [{label: t('Cancel')}, {label: t('Remove'), primary: true}],
@@ -481,7 +488,7 @@ function RenameWorktreeModal({
           primary
           data-testid="rename-worktree-submit"
           onClick={() => returnResultAndDismiss(newLabel.trim())}>
-          <T>Save</T>
+          {newLabel.trim() === '' ? t('Remove label') : t('Save')}
         </Button>
       </div>
     </div>
