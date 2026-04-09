@@ -164,11 +164,46 @@
   margin-top: var(--pad);
 }
 
+.worktreeLocationSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--halfpad);
+}
+
+.worktreeLocationLabel {
+  font-size: 0.85em;
+}
+
 .worktreePathDisplay {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: var(--halfpad);
+  padding: var(--halfpad);
+  border-radius: var(--halfpad);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.worktreePathDisplay:hover {
+  background-color: var(--hover-darken);
+  border-color: var(--focus-border);
+}
+
+.worktreePathText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktreePathEditIcon {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.worktreePathDisplay:hover .worktreePathEditIcon {
+  opacity: 1;
 }
 
 .activeBadge {

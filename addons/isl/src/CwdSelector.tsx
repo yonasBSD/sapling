@@ -610,7 +610,7 @@ function AddWorktreeModal({
   const isVSCode = platform.platformName === 'vscode';
   const [openIn, setOpenIn] = useState<AddWorktreeResult['openIn']>(isVSCode ? 'new' : 'none');
   const [activate, setActivate] = useState(false);
-  const [showPathEditor, setShowPathEditor] = useState(false);
+  const [isEditingPath, setIsEditingPath] = useState(false);
 
   return (
     <div className={css.addWorktreeForm} data-testid="add-worktree-form">
@@ -620,23 +620,30 @@ function AddWorktreeModal({
         value={label}
         onInput={e => setLabel(e.currentTarget?.value ?? '')}
       />
-      <div className={css.worktreePathDisplay}>
-        <Subtle>{destPath}</Subtle>
-        <Button
-          icon
-          onClick={() => setShowPathEditor(prev => !prev)}
-          data-testid="add-worktree-edit-path">
-          <Icon icon="edit" />
-        </Button>
+      <div className={css.worktreeLocationSection}>
+        <Subtle className={css.worktreeLocationLabel}>
+          <Tooltip title={<T>Location on disk where the worktree files will be created</T>}>
+            <T>Worktree root path</T>
+          </Tooltip>
+        </Subtle>
+        {isEditingPath ? (
+          <TextField
+            data-testid="add-worktree-path"
+            value={destPath}
+            onInput={e => setDestPath(e.currentTarget?.value ?? '')}
+            onBlur={() => setIsEditingPath(false)}
+            autoFocus
+          />
+        ) : (
+          <div
+            className={css.worktreePathDisplay}
+            onClick={() => setIsEditingPath(true)}
+            data-testid="add-worktree-edit-path">
+            <code className={css.worktreePathText}>{destPath}</code>
+            <Icon icon="edit" className={css.worktreePathEditIcon} />
+          </div>
+        )}
       </div>
-      {showPathEditor && (
-        <TextField
-          data-testid="add-worktree-path"
-          placeholder={t('Destination path')}
-          value={destPath}
-          onInput={e => setDestPath(e.currentTarget?.value ?? '')}
-        />
-      )}
       {isVSCode ? (
         <RadioGroup
           choices={
