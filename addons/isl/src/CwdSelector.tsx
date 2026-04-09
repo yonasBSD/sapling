@@ -446,22 +446,25 @@ function WorktreeRowWithHover({
                   title: <T>Switch Worktree</T>,
                   icon: 'worktree',
                   message: (
-                    <Row>
-                      <span>
+                    <span>
+                      <Row>
                         <T replace={{$path: <code>{wtBasename}</code>}}>
                           Switch to worktree $path?
                         </T>
-                      </span>
-                      <Subtle>
-                        <T>
-                          This will reload the editor. Unsaved changes will be prompted to save.
-                        </T>
-                      </Subtle>
-                    </Row>
+                      </Row>
+                      <Row style={{marginTop: 'var(--pad)'}}>
+                        <Subtle>
+                          <T>
+                            Opening in current window will reload the editor. Unsaved changes will
+                            be prompted to save.
+                          </T>
+                        </Subtle>
+                      </Row>
+                    </span>
                   ),
                   buttons: [
-                    {label: t('Open in Current Window'), primary: true},
-                    {label: t('Open in New Window')},
+                    {label: t('Open in Current Window')},
+                    {label: t('Open in New Window'), primary: true},
                   ],
                 });
                 if (choice != null) {
