@@ -42,6 +42,25 @@ impl ShardedExecutorArgs {
         shard_healing: bool,
         cleanup_timeout_secs: u64,
     ) -> Result<Option<ShardedProcessExecutor>> {
+        self.build_executor_with_health_check(
+            fb,
+            runtime,
+            process_fn,
+            shard_healing,
+            cleanup_timeout_secs,
+            None,
+        )
+    }
+
+    pub fn build_executor_with_health_check(
+        self,
+        fb: FacebookInit,
+        runtime: Handle,
+        process_fn: impl FnOnce() -> Arc<dyn RepoShardedProcess>,
+        shard_healing: bool,
+        cleanup_timeout_secs: u64,
+        health_check_fn: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
+    ) -> Result<Option<ShardedProcessExecutor>> {
         if let Some((sharded_service_name, sharded_scope_name)) =
             self.sharded_service_name.zip(self.sharded_scope_name)
         {
@@ -55,6 +74,7 @@ impl ShardedExecutorArgs {
                 cleanup_timeout_secs,
                 process,
                 shard_healing,
+                health_check_fn,
             )?))
         } else {
             Ok(None)

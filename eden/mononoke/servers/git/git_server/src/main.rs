@@ -69,6 +69,7 @@ use ods_counters::OdsCounterManager;
 use rate_limiting::RateLimitEnvironment;
 #[cfg(fbcode_build)]
 use shadow_forwarder::ShadowForwarderMiddleware;
+use stats::prelude::*;
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -92,6 +93,13 @@ mod service;
 mod sharding;
 mod util;
 mod write;
+
+define_stats! {
+    // Reads TW container fb303 counters for memory-based health check.
+    // Same counter pattern used by rate_limiting for load shedding.
+    prefix = "mononoke.git.server";
+    container_memory: dynamic_singleton_counter("{}", (counter_name: String)),
+}
 
 const SERVICE_NAME: &str = "mononoke_git_server";
 const SM_CLEANUP_TIMEOUT_SECS: u64 = 60;
@@ -179,6 +187,59 @@ impl GitRepos {
     pub(crate) fn repo_configs(&self) -> Arc<RepoConfigs> {
         self.repo_mgr.configs().repo_configs()
     }
+}
+
+/// Construct a memory-based health check for ShardManager.
+/// Reports unhealthy when container memory exceeds 70% (avg.60), healthy again below 50%.
+/// This triggers SM to drain shards BEFORE load shedding kicks in (80%/90% on avg.10).
+/// The avg.60 counter lags behind avg.10 during spikes, so 70% on avg.60 gives SM
+/// lead time before the 10-second average hits load shed thresholds.
+/// Layered defense: 70% SM drain (avg.60) → 80% shed top client (avg.10) → 90% shed all (avg.10).
+/// Gated behind JustKnob scm/mononoke:git_server_enable_memory_health_check.
+// TODO(prashantpal): Move thresholds (70%/50%) to configerator so they can be
+// tuned without redeploying the git server.
+fn construct_memory_health_check(fb: FacebookInit) -> Option<Arc<dyn Fn() -> bool + Send + Sync>> {
+    let was_unhealthy = AtomicBool::new(false);
+    Some(Arc::new(move || -> bool {
+        let enabled = justknobs::eval(
+            "scm/mononoke:git_server_enable_memory_health_check",
+            None,
+            None,
+        )
+        .expect("JustKnob scm/mononoke:git_server_enable_memory_health_check not found");
+        if !enabled {
+            return true;
+        }
+        let util_pct = match STATS::container_memory
+            .get_value(fb, (String::from("container_memory_usage_percent.avg.60"),))
+        {
+            Some(val) => val as f64,
+            // Can't read the counter — report whatever state we were in before
+            None => return !was_unhealthy.load(Ordering::SeqCst),
+        };
+        let unhealthy = was_unhealthy.load(Ordering::SeqCst);
+        if unhealthy {
+            if util_pct < 50.0 {
+                info!(
+                    "SM health check: recovering — memory {:.1}% below 50% threshold, marking healthy",
+                    util_pct
+                );
+                was_unhealthy.store(false, Ordering::SeqCst);
+                true
+            } else {
+                false
+            }
+        } else if util_pct > 70.0 {
+            info!(
+                "SM health check: memory {:.1}% exceeds 70% threshold, marking unhealthy",
+                util_pct
+            );
+            was_unhealthy.store(true, Ordering::SeqCst);
+            false
+        } else {
+            true
+        }
+    }))
 }
 
 #[fbinit::main]
@@ -367,13 +428,19 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
                 writer.write_all(b"\n")?;
             }
 
-            if let Some(executor) = args.sharded_executor_args.build_executor(
-                app.fb,
-                runtime.clone(),
-                || Arc::new(MononokeGitServerProcess::new(app.fb, repos_mgr)),
-                false, // disable shard (repo) level healing
-                SM_CLEANUP_TIMEOUT_SECS,
-            )? {
+            let health_check_fn = construct_memory_health_check(app.fb);
+
+            if let Some(executor) = args
+                .sharded_executor_args
+                .build_executor_with_health_check(
+                    app.fb,
+                    runtime.clone(),
+                    || Arc::new(MononokeGitServerProcess::new(app.fb, repos_mgr)),
+                    false, // disable shard (repo) level healing
+                    SM_CLEANUP_TIMEOUT_SECS,
+                    health_check_fn,
+                )?
+            {
                 // The Sharded Process Executor needs to branch off and execute
                 // on its own dedicated task spawned off the common tokio runtime.
                 runtime.spawn(executor.block_and_execute(sm_shutdown_receiver));

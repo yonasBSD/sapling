@@ -226,6 +226,7 @@ async fn run_sharded(app: MononokeApp, sharded_service_name: String) -> Result<(
         SM_CLEANUP_TIMEOUT_SECS,
         Arc::new(process),
         true, // enable shard (repo) level healing
+        None,
     )?;
     let (sender, receiver) = tokio::sync::oneshot::channel::<bool>();
     executor.block_and_execute(receiver).await?;

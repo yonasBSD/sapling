@@ -215,6 +215,7 @@ pub async fn run_sharded(
         SM_CLEANUP_TIMEOUT_SECS,
         Arc::new(corpus_process),
         true, // enable shard (repo) level healing
+        None,
     )?;
     let (sender, receiver) = tokio::sync::oneshot::channel::<bool>();
     executor.block_and_execute(receiver).await?;

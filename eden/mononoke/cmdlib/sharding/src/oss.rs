@@ -25,6 +25,7 @@ impl ShardedProcessExecutor {
         _timeout_secs: u64,
         _bp_handle: Arc<dyn RepoShardedProcess>,
         _shard_healing: bool,
+        _health_check_fn: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
     ) -> Result<Self> {
         unimplemented!("ShardedProcessExecutor is supported only for fbcode build")
     }

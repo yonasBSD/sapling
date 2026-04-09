@@ -397,6 +397,9 @@ pub struct ShardedProcessHandler {
     runtime_handle: Handle,
     /// Health tracker for the current process when talking to ShardManager.
     healthy: AtomicBool,
+    /// Optional custom health check function. When set, health_check() returns
+    /// the AND of `healthy` and this function's result.
+    health_check_fn: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
     /// Thread-safe map between the repository currently being
     /// setup / executed / cleaned-up for the underlying process and the
     /// corresponding tokio handle for that execution.
@@ -417,6 +420,7 @@ impl ShardedProcessHandler {
         timeout_secs: u64,
         setup_job: Arc<dyn RepoShardedProcess>,
         shard_healing: bool,
+        health_check_fn: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
     ) -> Self {
         Self {
             fb,
@@ -426,6 +430,7 @@ impl ShardedProcessHandler {
             timeout_secs,
             shard_healing,
             healthy: AtomicBool::new(true),
+            health_check_fn,
             repo_map: RwLock::new(HashMap::new()),
         }
     }
@@ -883,7 +888,9 @@ impl sm::ShardManagerHandler for ShardedProcessHandler {
     }
 
     fn health_check(&self) -> sm::Result<bool> {
-        Ok(self.healthy.load(Ordering::SeqCst))
+        let base_healthy = self.healthy.load(Ordering::SeqCst);
+        let custom_healthy = self.health_check_fn.as_ref().is_none_or(|f| f());
+        Ok(base_healthy && custom_healthy)
     }
 
     fn prepare_add_shard(
@@ -1097,6 +1104,7 @@ impl ShardedProcessExecutor {
         timeout_secs: u64,
         process_handle: Arc<dyn RepoShardedProcess>,
         shard_healing: bool,
+        health_check_fn: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
     ) -> Result<Self> {
         // Disable ShardManager log spam
         folly_logging::update_logging_config(fb, "CRITICAL");
@@ -1135,6 +1143,7 @@ impl ShardedProcessExecutor {
             timeout_secs,
             process_handle,
             shard_healing,
+            health_check_fn,
         ));
         Ok(Self {
             client: sm::client::ShardManagerClient::with_handler(fb, config, handler.clone())?,
