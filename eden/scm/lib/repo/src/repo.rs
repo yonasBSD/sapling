@@ -578,7 +578,7 @@ impl Repo {
             {
                 let wc = self.working_copy()?;
                 let wc = wc.read();
-                return Ok((WDIR_ID, wc.working_manifest(ctx, matcher)?));
+                return Ok((WDIR_ID, wc.working_manifest(ctx, matcher, false)?));
             }
             #[cfg(not(feature = "wdir"))]
             anyhow::bail!("not compiled with 'wdir' support");

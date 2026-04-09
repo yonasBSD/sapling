@@ -429,7 +429,13 @@ impl WorkingCopy {
     /// # Arguments
     /// * `ctx` - The core context for the operation
     /// * `matcher` - Matcher for filtering which files to include in status
-    pub fn working_manifest(&self, ctx: &CoreContext, matcher: DynMatcher) -> Result<TreeManifest> {
+    /// * `include_unknown` - If true, untracked files are included in the manifest
+    pub fn working_manifest(
+        &self,
+        ctx: &CoreContext,
+        matcher: DynMatcher,
+        include_unknown: bool,
+    ) -> Result<TreeManifest> {
         // Get the current parent manifests.
         let manifests =
             WorkingCopy::current_manifests(&self.treestate.lock(), &self.tree_resolver)?;
@@ -456,6 +462,7 @@ impl WorkingCopy {
             &self.filestore,
             &parent_refs,
             copymap,
+            include_unknown,
         )?;
 
         Ok(manifest)

@@ -46,6 +46,7 @@ pub fn apply_status<M: Manifest, P: Manifest + Sync>(
     file_store: &Arc<dyn FileStore>,
     parent_manifests: &[&P],
     mut copymap: HashMap<RepoPathBuf, RepoPathBuf>,
+    include_unknown: bool,
 ) -> Result<()> {
     // Read file size limits from config.
     let soft_limit: ByteCount = ctx.config.must_get("commit", "file-size-limit")?;
@@ -62,10 +63,16 @@ pub fn apply_status<M: Manifest, P: Manifest + Sync>(
         manifest.remove(path)?;
     }
 
-    // Process added and modified files in parallel, then apply to manifest sequentially.
+    // Process added, modified, and optionally unknown files in parallel, then apply to manifest sequentially.
     let paths_to_insert: Vec<_> = status
         .added()
         .chain(status.modified())
+        .chain(
+            include_unknown
+                .then(|| status.unknown())
+                .into_iter()
+                .flatten(),
+        )
         .map(|p| (p, copymap.remove(p)))
         .collect();
 
@@ -274,6 +281,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -309,6 +317,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -358,6 +367,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -404,6 +414,7 @@ mod tests {
             &file_store,
             &[&parent1_manifest, &parent2_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -446,6 +457,7 @@ mod tests {
             &file_store,
             &[&parent1_manifest, &parent2_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -484,6 +496,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -562,6 +575,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -600,6 +614,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -636,6 +651,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -671,6 +687,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         )
         .unwrap();
 
@@ -714,6 +731,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             copymap,
+            false,
         )
         .unwrap();
 
@@ -765,6 +783,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             copymap,
+            false,
         )
         .unwrap();
 
@@ -805,6 +824,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         );
 
         assert!(result.is_err());
@@ -842,6 +862,7 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         );
 
         assert!(result.is_ok());
@@ -878,11 +899,69 @@ mod tests {
             &file_store,
             &[&parent_manifest],
             HashMap::new(),
+            false,
         );
 
         // File is 1KB which exceeds hard limit of 512 bytes, so should fail
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
         assert!(err_msg.contains("exceeds maximum size"));
+    }
+
+    #[test]
+    fn test_apply_status_with_unknown_files() {
+        use std::fs;
+
+        let tree_store = Arc::new(TestStore::new());
+        let mut manifest = make_tree_manifest(tree_store.clone(), &[("tracked", "10")]);
+        let parent_manifest = make_tree_manifest(tree_store, &[("tracked", "10")]);
+        let file_store: Arc<dyn FileStore> = Arc::new(TestStore::new());
+
+        let tmp = tempfile::tempdir().unwrap();
+        let vfs = VFS::new_destructive(tmp.path().to_path_buf()).unwrap();
+
+        fs::write(tmp.path().join("unknown_file"), b"unknown content").unwrap();
+
+        let status = StatusBuilder::new()
+            .unknown(vec![repo_path_buf("unknown_file")])
+            .build();
+
+        // With include_unknown=false, unknown files are not added.
+        let mut manifest_without = manifest.clone();
+        apply_status(
+            &test_context(),
+            &mut manifest_without,
+            &status,
+            &vfs,
+            &file_store,
+            &[&parent_manifest],
+            HashMap::new(),
+            false,
+        )
+        .unwrap();
+        assert_eq!(list_files(&manifest_without), vec!["tracked"]);
+
+        // With include_unknown=true, unknown files are added.
+        apply_status(
+            &test_context(),
+            &mut manifest,
+            &status,
+            &vfs,
+            &file_store,
+            &[&parent_manifest],
+            HashMap::new(),
+            true,
+        )
+        .unwrap();
+        assert_eq!(list_files(&manifest), vec!["tracked", "unknown_file"]);
+
+        // Unknown files get NULL_ID parents (not in any parent manifest).
+        let unknown_meta = manifest
+            .get_file(repo_path("unknown_file"))
+            .unwrap()
+            .unwrap();
+        let expected_hgid =
+            format_util::hg_sha1_digest(b"unknown content", HgId::null_id(), HgId::null_id());
+        assert_eq!(unknown_meta.hgid, expected_hgid);
     }
 }
