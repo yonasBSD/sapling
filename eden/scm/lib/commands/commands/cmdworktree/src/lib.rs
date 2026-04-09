@@ -52,14 +52,20 @@ pub fn run(ctx: ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     }
 
     let subcmd = ctx.opts.args.first().map(|s| s.as_str()).unwrap_or("");
-    match subcmd {
-        "list" | "ls" => list::run(&ctx, repo),
-        "add" => add::run(&ctx, repo),
-        "remove" | "rm" => remove::run(&ctx, repo),
-        "label" => label::run(&ctx, repo),
+    let runner: fn(&ReqCtx<WorktreeOpts>, &Repo) -> Result<u8> = match subcmd {
+        "list" | "ls" => list::run,
+        "add" => add::run,
+        "remove" | "rm" => remove::run,
+        "label" => label::run,
         "" => abort!("you need to specify a subcommand (run with --help to see a list)"),
         other => abort!("unknown worktree subcommand '{}'", other),
+    };
+
+    if !repo.requirements.contains("eden") {
+        abort!("worktree commands require an EdenFS-backed repository");
     }
+
+    runner(&ctx, repo)
 }
 
 pub(crate) struct CurrentGroup {
