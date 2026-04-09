@@ -67,6 +67,7 @@ use mononoke_app::monitoring::AliveService;
 use mononoke_app::monitoring::MonitoringAppExtension;
 use ods_counters::OdsCounterManager;
 use rate_limiting::RateLimitEnvironment;
+use scuba_ext::MononokeScubaSampleBuilder;
 #[cfg(fbcode_build)]
 use shadow_forwarder::ShadowForwarderMiddleware;
 use stats::prelude::*;
@@ -190,55 +191,48 @@ impl GitRepos {
 }
 
 /// Construct a memory-based health check for ShardManager.
-/// Reports unhealthy when container memory exceeds 70% (avg.60), healthy again below 50%.
-/// This triggers SM to drain shards BEFORE load shedding kicks in (80%/90% on avg.10).
-/// The avg.60 counter lags behind avg.10 during spikes, so 70% on avg.60 gives SM
-/// lead time before the 10-second average hits load shed thresholds.
-/// Layered defense: 70% SM drain (avg.60) → 80% shed top client (avg.10) → 90% shed all (avg.10).
-/// Gated behind JustKnob scm/mononoke:git_server_enable_memory_health_check.
-// TODO(prashantpal): Move thresholds (70%/50%) to configerator so they can be
-// tuned without redeploying the git server.
-fn construct_memory_health_check(fb: FacebookInit) -> Option<Arc<dyn Fn() -> bool + Send + Sync>> {
+/// Reports unhealthy at 70% container memory (avg.60), recovers below 50%.
+/// Triggers SM to drain shards before load shedding (80%/90% on avg.10).
+// TODO(prashantpal): Move thresholds to configerator.
+fn construct_memory_health_check(
+    fb: FacebookInit,
+    scuba: MononokeScubaSampleBuilder,
+) -> Option<Arc<dyn Fn() -> bool + Send + Sync>> {
     let was_unhealthy = AtomicBool::new(false);
     Some(Arc::new(move || -> bool {
-        let enabled = justknobs::eval(
+        if !justknobs::eval(
             "scm/mononoke:git_server_enable_memory_health_check",
             None,
             None,
         )
-        .expect("JustKnob scm/mononoke:git_server_enable_memory_health_check not found");
-        if !enabled {
+        .expect("JustKnob scm/mononoke:git_server_enable_memory_health_check not found")
+        {
             return true;
         }
         let util_pct = match STATS::container_memory
             .get_value(fb, (String::from("container_memory_usage_percent.avg.60"),))
         {
             Some(val) => val as f64,
-            // Can't read the counter — report whatever state we were in before
             None => return !was_unhealthy.load(Ordering::SeqCst),
         };
-        let unhealthy = was_unhealthy.load(Ordering::SeqCst);
-        if unhealthy {
-            if util_pct < 50.0 {
-                info!(
-                    "SM health check: recovering — memory {:.1}% below 50% threshold, marking healthy",
-                    util_pct
-                );
-                was_unhealthy.store(false, Ordering::SeqCst);
-                true
-            } else {
-                false
-            }
-        } else if util_pct > 70.0 {
-            info!(
-                "SM health check: memory {:.1}% exceeds 70% threshold, marking unhealthy",
-                util_pct
-            );
-            was_unhealthy.store(true, Ordering::SeqCst);
-            false
-        } else {
-            true
+        // No state transition — return current state
+        let previously_unhealthy = was_unhealthy.load(Ordering::SeqCst);
+        if previously_unhealthy && util_pct >= 50.0 {
+            return false;
         }
+        if !previously_unhealthy && util_pct <= 70.0 {
+            return true;
+        }
+        // State transition — log to scuba
+        let healthy = previously_unhealthy; // was unhealthy → now healthy, and vice versa
+        was_unhealthy.store(!healthy, Ordering::SeqCst);
+        let state = if healthy { "recovered" } else { "unhealthy" };
+        info!("SM health check: {} — memory {:.1}%", state, util_pct);
+        let mut s = scuba.clone();
+        s.add("sm_health_check_state", state);
+        s.add("container_memory_pct", util_pct as i64);
+        s.log_with_msg("SM Health Check State Change", None);
+        healthy
     }))
 }
 
@@ -411,6 +405,8 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
                 args.tls_params.as_ref().map(|t| Path::new(&t.tls_ca)),
             )?);
 
+            let health_check_fn = construct_memory_health_check(app.fb, scuba.clone());
+
             let handler = handler
                 .add(LoadMiddleware::new_with_requests_counter(requests_counter))
                 .add(log_middleware)
@@ -427,8 +423,6 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
                 writer.write_all(bound_addr.as_bytes())?;
                 writer.write_all(b"\n")?;
             }
-
-            let health_check_fn = construct_memory_health_check(app.fb);
 
             if let Some(executor) = args
                 .sharded_executor_args
