@@ -332,7 +332,8 @@ function WorktreeSection({dismiss}: {dismiss: () => unknown}) {
   const showModal = useModal();
   const [removingPath, setRemovingPath] = useState<string | null>(null);
 
-  if (!worktreesEnabled) {
+  // Only show worktrees for EdenFS repos that are not git-based
+  if (!worktreesEnabled || info?.isEdenFs !== true || info?.codeReviewSystem.type === 'github') {
     return null;
   }
 
