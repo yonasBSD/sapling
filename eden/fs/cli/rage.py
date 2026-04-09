@@ -250,11 +250,19 @@ def print_host_dashboard(out: IOWithRedaction, host: str) -> None:
 
 
 def get_rotated_edenfs_log_path(instance: EdenInstance) -> Optional[Path]:
-    all_rotated_logs = [
-        (f)
-        for f in instance.get_log_dir().iterdir()
-        if f.name.endswith(".gz") and f.name.startswith("edenfs.log")
-    ]
+    try:
+        all_rotated_logs = [
+            (f)
+            for f in instance.get_log_dir().iterdir()
+            if f.name.endswith(".gz") and f.name.startswith("edenfs.log")
+        ]
+    except FileNotFoundError:
+        print(
+            f"Warning: EdenFS log directory {instance.get_log_dir()} does not "
+            "exist. The EdenFS daemon may be using a non-default --logPath.",
+            file=sys.stderr,
+        )
+        return None
     all_rotated_logs.sort(key=lambda x: x.stat().st_ctime, reverse=True)
     if len(all_rotated_logs) == 0:
         return None
