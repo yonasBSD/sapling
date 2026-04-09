@@ -156,3 +156,19 @@ With --unknown, the untracked file changes the hash:
   $ HASH_BOTH=$(sl debughash . --unknown)
   $ HASH_EXCLUDE_ONE=$(sl debughash . --unknown -X dir/untracked1)
   $ test "$HASH_BOTH" != "$HASH_EXCLUDE_ONE"
+
+Test that --unknown writes to cache store, not local store:
+  $ newclientrepo store_test
+  $ setconfig remotefilelog.cachepath=$TESTTMP/store_test_cache
+  $ drawdag <<EOS
+  > A  # A/tracked = tracked content\n
+  > EOS
+  $ sl go -q $A
+  $ CACHE_LOG=$TESTTMP/store_test_cache/store_test_server/indexedlogdatastore/0/log
+  $ CACHE_BEFORE=$(wc -c < $CACHE_LOG)
+  $ echo unknown_content > unknown_file
+  $ sl debughash . --unknown > /dev/null
+  $ CACHE_AFTER=$(wc -c < $CACHE_LOG)
+  $ test "$CACHE_AFTER" -gt "$CACHE_BEFORE"
+  $ test -d .hg/store/indexedlogdatastore
+  [1]

@@ -177,8 +177,10 @@ fn insert_file<P: Manifest>(
     // Insert the file into the store to compute its hgid.
     let opts = InsertOpts {
         parents,
-        // We don't remember the trees anywhere yet, so avoid repeatedly inserting the same file to the local store.
+        // We don't remember the trees anywhere yet, so avoid repeatedly inserting the same file to the store.
         read_before_write: true,
+        // Use non-permanent storage (i.e. hgcache) if available. We don't want to bloat the repo store.
+        permanent: false,
         ..Default::default()
     };
     let hgid = file_store.insert_file(opts, path, content.into())?;
