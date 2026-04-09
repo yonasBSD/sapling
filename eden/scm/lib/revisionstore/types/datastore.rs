@@ -17,6 +17,7 @@ use byteorder::WriteBytesExt;
 use quickcheck_arbitrary_derive::Arbitrary;
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
+use vlqencoding::VLQDecode;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "for-tests"), derive(Arbitrary))]
@@ -99,6 +100,14 @@ impl InternalMetadata {
                 continue;
             }
 
+            if key == b'a' {
+                // ACL children indices — skip over VLQ-length-prefixed data.
+                let value_len: u64 = cur.read_vlq()?;
+                let cur_pos = cur.position();
+                cur.set_position(cur_pos + value_len);
+                continue;
+            }
+
             let value_len = cur.read_u16::<BigEndian>()? as usize;
             match key {
                 b'f' => {
@@ -168,6 +177,7 @@ fn bin_to_u64(buf: &[u8]) -> u64 {
 #[cfg(test)]
 mod tests {
     use quickcheck::quickcheck;
+    use vlqencoding::VLQEncode;
 
     use super::*;
     quickcheck! {
@@ -189,5 +199,37 @@ mod tests {
 
             meta.api.size == read_meta.api.size && (meta.api.flags == read_meta.api.flags || (meta.api.flags == Some(0)))
         }
+    }
+
+    #[test]
+    fn test_acl_tag_skipped() {
+        // Build metadata bytes containing an 'a' tag between 'f' and 'u'.
+        let mut inner = vec![];
+
+        // flags = 1
+        inner.push(b'f');
+        inner.extend_from_slice(&1u16.to_be_bytes()); // value_len = 1
+        inner.push(1u8); // flags value
+
+        // 'a' tag with VLQ length prefix and some VLQ-encoded indices
+        inner.push(b'a');
+        let mut vlq_payload = vec![];
+        vlq_payload.write_vlq(0u32).unwrap();
+        vlq_payload.write_vlq(3u32).unwrap();
+        vlq_payload.write_vlq(128u32).unwrap();
+        inner.write_vlq(vlq_payload.len() as u64).unwrap();
+        inner.extend_from_slice(&vlq_payload);
+
+        // uncompressed flag
+        inner.push(b'u');
+
+        // Wrap with u32 outer length
+        let mut buf = vec![];
+        buf.extend_from_slice(&(inner.len() as u32).to_be_bytes());
+        buf.extend_from_slice(&inner);
+
+        let meta = InternalMetadata::read(&mut Cursor::new(buf.as_slice())).unwrap();
+        assert_eq!(meta.api.flags, Some(1));
+        assert!(meta.uncompressed);
     }
 }

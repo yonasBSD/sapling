@@ -128,5 +128,6 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_derive",
         "//common/rust/shed/quickcheck_arbitrary_derive:quickcheck_arbitrary_derive",
+        "//eden/scm/lib/vlqencoding:vlqencoding",
     ],
 )
