@@ -83,7 +83,7 @@ function parseArgs(): Args {
       usage();
       process.exit(1);
     }
-    launchDir = args[launchArgIndex + 1];
+    launchDir = path.resolve(args[launchArgIndex + 1]);
   }
 
   return {

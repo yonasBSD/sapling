@@ -384,7 +384,7 @@ export async function runProxyMain(args: Args) {
     errorAndExit(HELP_MESSAGE, 0);
   }
 
-  const cwd = args.cwd ?? process.cwd();
+  const cwd = args.cwd ? path.resolve(args.cwd) : process.cwd();
 
   function info(...args: Parameters<typeof console.log>): void {
     if (json) {

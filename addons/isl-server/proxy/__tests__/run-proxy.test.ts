@@ -136,7 +136,7 @@ describe('run-proxy', () => {
 
     expect(JSON.parse(allConsoleStdout())).toEqual(
       expect.objectContaining({
-        cwd: 'foobar',
+        cwd: expect.stringContaining('foobar'),
       }),
     );
   });
