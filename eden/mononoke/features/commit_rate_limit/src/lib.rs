@@ -283,7 +283,9 @@ async fn count_eligible_draft_ancestors(
 
     let common = match bookmark_cs_id {
         Some(id) => vec![id],
-        None => vec![],
+        // Bookmark doesn't exist yet — there are no draft ancestors relative
+        // to a non-existent bookmark, so nothing to count.
+        None => return Ok(0),
     };
 
     let current_cs_id = changeset.get_changeset_id();

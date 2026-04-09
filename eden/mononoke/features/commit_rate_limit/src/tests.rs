@@ -874,6 +874,36 @@ async fn test_new_bookmark_no_ancestors(fb: FacebookInit) -> Result<()> {
     Ok(())
 }
 
+/// When creating a new bookmark (one that doesn't exist yet), draft ancestor
+/// counting should treat the draft count as 0 — there is no existing bookmark
+/// position to diff against. With max_commits=1, only the commit itself is
+/// counted (total = 0 public + 0 draft + 1 self = 1), so it must be Allowed.
+/// If ancestors were incorrectly walked (because the bookmark lookup returns
+/// None and an empty exclusion set is passed to ancestors_difference_stream),
+/// the 7 eligible ancestors in the test DAG would be counted as draft, giving
+/// total = 8 > 1, which would produce Exceeded.
+#[mononoke::fbinit_test]
+async fn test_new_bookmark_does_not_count_draft_ancestors(fb: FacebookInit) -> Result<()> {
+    let (ctx, repo, _existing_bm, tip) = setup_test_repo(fb).await?;
+    borrowed!(ctx, repo);
+
+    let draft = CreateCommitContext::new(ctx, repo, vec![tip])
+        .add_file("users/alice/new.txt", "new")
+        .set_message(format!("new commit {}", ELIGIBLE_TAG))
+        .set_author(ALICE)
+        .set_author_date(recent_date())
+        .commit()
+        .await?;
+    let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
+
+    let new_bm = BookmarkKey::new("brand_new_bookmark")?;
+    let config = make_config(&[], false, 1);
+
+    let outcome = check_commit_rate_limit(ctx, repo, &new_bm, &bcs, &config, None).await?;
+    assert_eq!(outcome, RateLimitOutcome::Allowed);
+    Ok(())
+}
+
 /// Draft stack bypass prevention: draft ancestors are counted so a user
 /// can't bypass limits by batching commits into one push. Also verifies
 /// that a non-eligible commit on top of a rejected stack still passes.
