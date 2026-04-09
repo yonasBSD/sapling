@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use anyhow::anyhow;
 use blob::Blob;
 use edenapi_types::FileAuxData;
 use format_util::git_sha1_digest;
@@ -27,6 +28,7 @@ use types::RepoPath;
 use types::hgid::NULL_ID;
 
 use crate::Metadata;
+use crate::indexedlogdatastore::Entry;
 use crate::scmstore::FileAttributes;
 use crate::scmstore::FileStore;
 
@@ -85,6 +87,17 @@ impl storemodel::KeyStore for ArcFileStore {
             .is_some_and(|threshold| data_bytes.len() as u64 > threshold);
         let is_lfs = (is_lfs_flag && self.0.lfs_threshold_bytes.is_some()) || exceeds_threshold;
 
+        // For non-permanent inserts, prefer the cache store over local.
+        // Fall back to local if cache is not available.
+        let target_store = if opts.permanent {
+            self.0.indexedlog_local.as_deref()
+        } else {
+            self.0
+                .indexedlog_cache
+                .as_deref()
+                .or(self.0.indexedlog_local.as_deref())
+        };
+
         // Check if data already exists (read_before_write optimization)
         if opts.read_before_write {
             if is_lfs {
@@ -96,7 +109,7 @@ impl storemodel::KeyStore for ArcFileStore {
                         }
                     }
                 }
-            } else if let Some(l) = &self.0.indexedlog_local {
+            } else if let Some(l) = target_store {
                 // For non-LFS, check indexedlog
                 if l.contains(&id)? {
                     return Ok(id);
@@ -113,8 +126,10 @@ impl storemodel::KeyStore for ArcFileStore {
             // Data exceeds LFS threshold, write as LFS blob
             self.0.write_lfs(key, data_bytes)?;
         } else {
-            // Regular non-LFS write
-            self.0.write_nonlfs(key, data_bytes, Default::default())?;
+            // Regular non-LFS write to the target store.
+            let store =
+                target_store.ok_or_else(|| anyhow!("no IndexedLog available for file insert"))?;
+            store.put_entry(Entry::new(key.hgid, data_bytes, Default::default()))?;
         }
         Ok(id)
     }
@@ -207,6 +222,60 @@ mod tests {
     use crate::scmstore::FileStore;
     use crate::scmstore::file::FileStoreMetrics;
     use crate::testutil::make_lfs_config;
+
+    fn make_data_store(dir: &TempDir) -> Arc<IndexedLogHgIdDataStore> {
+        let config = IndexedLogHgIdDataStoreConfig {
+            max_log_count: None,
+            max_bytes_per_log: None,
+            max_bytes: None,
+            btrfs_compression: false,
+        };
+        Arc::new(
+            IndexedLogHgIdDataStore::new(
+                &BTreeMap::<&str, &str>::new(),
+                dir,
+                &config,
+                StoreType::Rotated,
+                SerializationFormat::Hg,
+            )
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn test_insert_data_permanent_routing() {
+        let local_dir = TempDir::new().unwrap();
+        let cache_dir = TempDir::new().unwrap();
+
+        let local = make_data_store(&local_dir);
+        let cache = make_data_store(&cache_dir);
+
+        let mut file_store = FileStore::empty();
+        file_store.indexedlog_local = Some(local.clone());
+        file_store.indexedlog_cache = Some(cache.clone());
+        let arc_store = ArcFileStore(Arc::new(file_store));
+
+        let path = RepoPathBuf::from_string("foo".to_string()).unwrap();
+
+        // Non-permanent insert goes to cache.
+        let opts = InsertOpts {
+            permanent: false,
+            ..Default::default()
+        };
+        arc_store
+            .insert_data(opts, &path, b"data1"[..].into())
+            .unwrap();
+        assert_eq!(cache.to_keys().len(), 1);
+        assert_eq!(local.to_keys().len(), 0);
+
+        // Permanent (default) insert goes to local.
+        let opts = InsertOpts::default();
+        arc_store
+            .insert_data(opts, &path, b"data2"[..].into())
+            .unwrap();
+        assert_eq!(cache.to_keys().len(), 1);
+        assert_eq!(local.to_keys().len(), 1);
+    }
 
     #[test]
     fn test_insert_data_read_before_write() {

@@ -878,9 +878,19 @@ impl storemodel::KeyStore for TreeStore {
         let data = data.to_bytes();
         let id = sha1_digest(&opts, &data, self.format());
 
+        // For non-permanent inserts, prefer the cache store over local.
+        // Fall back to local if cache is not available.
+        let target_store = if opts.permanent {
+            self.indexedlog_local.as_deref()
+        } else {
+            self.indexedlog_cache
+                .as_deref()
+                .or(self.indexedlog_local.as_deref())
+        };
+
         if opts.read_before_write {
-            if let Some(ref indexedlog_local) = self.indexedlog_local {
-                if IndexedLogHgIdDataStore::contains(indexedlog_local, &id)? {
+            if let Some(store) = target_store {
+                if IndexedLogHgIdDataStore::contains(store, &id)? {
                     return Ok(id);
                 }
             }
@@ -889,8 +899,16 @@ impl storemodel::KeyStore for TreeStore {
         // PERF: Ideally there is no need to clone path or data.
         let key = Key::new(path.to_owned(), id);
 
-        // Write parent info to the local history store
-        if let Some(ref historystore_local) = self.historystore_local {
+        // Write parent info to the history store.
+        // Fall back to local if cache is not available.
+        let historystore = if opts.permanent {
+            self.historystore_local.as_deref()
+        } else {
+            self.historystore_cache
+                .as_deref()
+                .or(self.historystore_local.as_deref())
+        };
+        if let Some(historystore) = historystore {
             let p1 = opts.parents.first().copied().unwrap_or(NULL_ID);
             let p2 = opts.parents.get(1).copied().unwrap_or(NULL_ID);
             let info = NodeInfo {
@@ -900,10 +918,13 @@ impl storemodel::KeyStore for TreeStore {
                 ],
                 linknode: NULL_ID,
             };
-            historystore_local.add(&key, &info)?;
+            historystore.add(&key, &info)?;
         }
 
-        self.write_batch(std::iter::once((key, data, Default::default())))?;
+        match target_store {
+            Some(store) => store.put_entry(Entry::new(key.hgid, data, Default::default()))?,
+            None => bail!("no local or cache store to insert tree data into"),
+        }
 
         Ok(id)
     }
@@ -1137,6 +1158,40 @@ mod tests {
 
         assert_eq!(id1, id3);
         assert_eq!(indexedlog.to_keys().len(), 2);
+    }
+
+    #[test]
+    fn test_insert_data_permanent_routing() {
+        let local_dir = TempDir::new().unwrap();
+        let cache_dir = TempDir::new().unwrap();
+
+        let local = make_data_store(&local_dir);
+        let cache = make_data_store(&cache_dir);
+
+        let mut store = TreeStore::empty();
+        store.indexedlog_local = Some(local.clone());
+        store.indexedlog_cache = Some(cache.clone());
+
+        let path = RepoPathBuf::from_string("foo".to_string()).unwrap();
+
+        // Non-permanent insert goes to cache.
+        let opts = InsertOpts {
+            kind: Kind::Tree,
+            permanent: false,
+            ..Default::default()
+        };
+        store.insert_data(opts, &path, b"data1"[..].into()).unwrap();
+        assert_eq!(cache.to_keys().len(), 1);
+        assert_eq!(local.to_keys().len(), 0);
+
+        // Permanent (default) insert goes to local.
+        let opts = InsertOpts {
+            kind: Kind::Tree,
+            ..Default::default()
+        };
+        store.insert_data(opts, &path, b"data2"[..].into()).unwrap();
+        assert_eq!(cache.to_keys().len(), 1);
+        assert_eq!(local.to_keys().len(), 1);
     }
 
     #[test]
