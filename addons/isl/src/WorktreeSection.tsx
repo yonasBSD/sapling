@@ -299,29 +299,34 @@ function AddWorktreeButton({
       ),
     });
     if (result != null) {
-      const spinnerDismiss = await new Promise<() => void>(resolve => {
-        showModal({
-          type: 'custom',
-          title: <T>Creating Worktree</T>,
-          icon: 'worktree',
-          component: ({returnResultAndDismiss}) => {
-            resolve(() => returnResultAndDismiss(undefined));
-            return (
-              <div className={css.worktreeSpinner}>
-                <Icon icon="loading" />
-                <T>Creating worktree at</T> <code>{result.destPath}</code>
-              </div>
-            );
-          },
+      // Only show the creating dialog if we're going to open the worktree after creation
+      const showSpinner = result.openIn !== 'none';
+      let spinnerDismiss: (() => void) | undefined;
+      if (showSpinner) {
+        spinnerDismiss = await new Promise<() => void>(resolve => {
+          showModal({
+            type: 'custom',
+            title: <T>Creating Worktree</T>,
+            icon: 'worktree',
+            component: ({returnResultAndDismiss}) => {
+              resolve(() => returnResultAndDismiss(undefined));
+              return (
+                <div className={css.worktreeSpinner}>
+                  <Icon icon="loading" />
+                  <T>Creating worktree at</T> <code>{result.destPath}</code>
+                </div>
+              );
+            },
+          });
         });
-      });
+      }
       try {
         await runOperation(
           new AddWorktreeOperation(result.destPath, result.label || undefined),
           true,
         );
       } finally {
-        spinnerDismiss();
+        spinnerDismiss?.();
       }
       if (result.openIn === 'current') {
         changeCwd(result.destPath);
