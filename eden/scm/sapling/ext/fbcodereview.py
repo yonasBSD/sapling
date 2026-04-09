@@ -366,6 +366,9 @@ def showphabstatus(repo, ctx, templ, **args):
                     return "Needs CRS Review"
                 else:
                     return "Needs Extra Review"
+            badge_label = result.get("automated_review_badge_label")
+            if badge_label:
+                return badge_label
             return result.get("status")
     else:
         return "Error"

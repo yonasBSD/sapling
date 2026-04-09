@@ -272,6 +272,63 @@ If required_reviewers_info is null, show the base status
   $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{phabstatus}\n' -r .
   Accepted
 
+If the diff has an automated review badge label, show it instead of the base status
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Needs Review",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "automated_review_info": {"deferred_review_badge_label": "AI Approved"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{phabstatus}\n' -r .
+  AI Approved
+
+If the diff is AI approved but landing, landing status takes precedence
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Needs Review",
+  >    "created_time": 0, "updated_time": 2, "is_landing": true,
+  >    "land_job_status": "LAND_JOB_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "automated_review_info": {"deferred_review_badge_label": "AI Approved"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{phabstatus}\n' -r .
+  Landing
+
+If the diff is AI approved but awaiting required reviewer, required reviewer takes precedence
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Needs Review",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "required_reviewers_info": {"overall_status": "AWAITING", "type": "STEWARD_REVIEW"},
+  >    "automated_review_info": {"deferred_review_badge_label": "AI Approved"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{phabstatus}\n' -r .
+  Needs Steward Review
+
+If automated_review_info is null, fall through to the base status
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Needs Review",
+  >    "created_time": 0, "updated_time": 2, "is_landing": false,
+  >    "land_job_status": "NO_LAND_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "automated_review_info": null}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{phabstatus}\n' -r .
+  Needs Review
+
 And finally, the success case
 
   $ cat > $TESTTMP/mockduit << EOF

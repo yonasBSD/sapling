@@ -85,6 +85,7 @@ ssl.landscheduled=green
 ssl.landonhold=yellow
 ssl.landcancelled=red
 ssl.finalreview=#8036cc:color92:magenta
+ssl.aiapproved=#2b9e8f:color36:cyan bold
 ssl.unsync=brightred bold
 ssl.syncdraft = #8d949e:color248:none
 ssl.signal_okay=green
@@ -349,6 +350,7 @@ phab_sl_difflabel="{case(phabstatus,
  'Needs ACL Review', 'ssl.review',
  'Needs DRS Review', 'ssl.review',
  'Needs CRS Review', 'ssl.review',
+ 'AI Approved', 'ssl.aiapproved',
  'sl.diff'
  )}"
 

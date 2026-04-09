@@ -453,6 +453,9 @@ class Client:
                   overall_status
                   type
                 }
+                automated_review_info {
+                  deferred_review_badge_label
+                }
                 unpublished_phabricator_versions {
                   phabricator_version_migration {
                     ordinal_label {
@@ -511,6 +514,14 @@ class Client:
                 info["land_job_status"] = node["land_job_status"]
                 info["needs_final_review_status"] = node["needs_final_review_status"]
                 info["required_reviewers_info"] = node.get("required_reviewers_info")
+
+                automated_review_info = node.get("automated_review_info")
+                if automated_review_info:
+                    info["automated_review_badge_label"] = automated_review_info.get(
+                        "deferred_review_badge_label"
+                    )
+                else:
+                    info["automated_review_badge_label"] = None
 
                 info["signal_status"] = None
                 if (
