@@ -67,3 +67,17 @@ export const isNarrowCommitTree = atom(
     get(mainContentWidthState) <
     (get(renderCompactAtom) ? NARROW_COMMIT_TREE_WIDTH_WHEN_COMPACT : NARROW_COMMIT_TREE_WIDTH),
 );
+
+/**
+ * Tracks the window/viewport width. Unlike mainContentWidthState, this is
+ * stable regardless of drawer position changes, making it safe for layout
+ * decisions that affect drawer placement (avoids oscillation).
+ */
+export const windowWidthState = atom(window.innerWidth);
+windowWidthState.onMount = set => {
+  const listener = () => set(window.innerWidth);
+  window.addEventListener('resize', listener);
+  return () => window.removeEventListener('resize', listener);
+};
+
+export const isNarrowWindow = atom(get => get(windowWidthState) < NARROW_COMMIT_TREE_WIDTH);

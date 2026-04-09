@@ -27,7 +27,7 @@ import {TopBar} from './TopBar';
 import {TopLevelAlerts} from './TopLevelAlert';
 import {TopLevelErrors} from './TopLevelErrors';
 import {tracker} from './analytics';
-import {commitInfoLocationAtom, islDrawerState} from './drawerState';
+import {effectiveCommitInfoLocationAtom, islDrawerState} from './drawerState';
 import {t, T} from './i18n';
 import platform from './platform';
 import {useMainContentWidth} from './responsive';
@@ -89,7 +89,7 @@ function NullStateOrDrawers() {
 
 function ISLDrawers() {
   const setDrawerState = useSetAtom(islDrawerState);
-  const location = useAtomValue(commitInfoLocationAtom);
+  const location = useAtomValue(effectiveCommitInfoLocationAtom);
   useCommand('ToggleSidebar', () => {
     setDrawerState(state => ({
       ...state,

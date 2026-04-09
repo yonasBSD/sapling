@@ -7,22 +7,39 @@
 
 import type {AllDrawersState, DrawerState} from './Drawers';
 
+import {atom} from 'jotai';
 import {localStorageBackedAtom, readAtom, writeAtom} from './jotaiUtils';
+import {isNarrowWindow} from './responsive';
 import {getWindowWidthInPixels, registerCleanup} from './utils';
 
 const AUTO_CLOSE_MAX_SIZE = 700;
 const DEFAULT_RIGHT_DRAWER_WIDTH = 500;
 
 export type CommitInfoLocation = 'right' | 'bottom' | 'left' | 'top';
+export type CommitInfoLocationWithAuto = CommitInfoLocation | 'auto';
 
-export const commitInfoLocationAtom = localStorageBackedAtom<CommitInfoLocation>(
+export const commitInfoLocationAtom = localStorageBackedAtom<CommitInfoLocationWithAuto>(
   'isl.commit-info-location',
-  'right',
+  'auto',
 );
+
+/**
+ * Resolves 'auto' to a concrete location based on window width.
+ * When 'auto', uses 'bottom' in narrow windows and 'right' otherwise.
+ * Uses window width (not main content width) to avoid oscillation —
+ * changing drawer position affects main content width but not window width.
+ */
+export const effectiveCommitInfoLocationAtom = atom<CommitInfoLocation>(get => {
+  const preference = get(commitInfoLocationAtom);
+  if (preference === 'auto') {
+    return get(isNarrowWindow) ? 'bottom' : 'right';
+  }
+  return preference;
+});
 
 /** Expand the commit info drawer at the current configured location. */
 export function expandCommitInfoView() {
-  const loc = readAtom(commitInfoLocationAtom);
+  const loc = readAtom(effectiveCommitInfoLocationAtom);
   writeAtom(islDrawerState, val => ({...val, [loc]: {...val[loc], collapsed: false}}));
 }
 
@@ -45,7 +62,7 @@ function autoCloseBasedOnWindowWidth() {
     return;
   }
 
-  const location = readAtom(commitInfoLocationAtom);
+  const location = readAtom(effectiveCommitInfoLocationAtom);
   const isVertical = location === 'top' || location === 'bottom';
   if (isVertical) {
     // Only auto-close for horizontal (left/right) drawers based on window width.

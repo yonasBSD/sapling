@@ -364,11 +364,13 @@ export function registerISLCommands(
           if (islPanelOrViewResult && isPanel(islPanelOrViewResult.panel)) {
             islPanelOrViewResult.panel.dispose();
           }
+          executeVSCodeCommand('sapling.isl.focus');
         } else {
           // Switching to panel mode: clear the view reference so a new panel can be created
           if (islPanelOrViewResult && !isPanel(islPanelOrViewResult.panel)) {
             islPanelOrViewResult = undefined;
           }
+          createOrFocusISLWebview(context, platform, logger);
         }
       }
     }),

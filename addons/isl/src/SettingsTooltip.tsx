@@ -46,7 +46,7 @@ import {
   overrideDisabledSubmitModes,
 } from './codeReview/github/branchPrState';
 import {debugToolsEnabledState} from './debug/DebugToolsState';
-import {commitInfoLocationAtom, type CommitInfoLocation} from './drawerState';
+import {commitInfoLocationAtom, type CommitInfoLocationWithAuto} from './drawerState';
 import {externalMergeToolAtom} from './externalMergeTool';
 import {t, T} from './i18n';
 import {configBackedAtom, readAtom} from './jotaiUtils';
@@ -290,19 +290,24 @@ function RenderCompactSetting() {
 function CommitInfoLocationSetting() {
   const [location, setLocation] = useAtom(commitInfoLocationAtom);
   return (
-    <Tooltip title={t('Position of the Commit Info panel relative to the commit graph')}>
+    <Tooltip
+      title={t(
+        'Position of the Commit Info panel relative to the commit graph. ' +
+          '"Auto" uses bottom in narrow mode (e.g. sidebar) and right otherwise.',
+      )}>
       <div className="dropdown-container setting-inline-dropdown">
         <T>Commit Info Panel</T>
-        <Dropdown<{value: CommitInfoLocation; name: string}>
+        <Dropdown<{value: CommitInfoLocationWithAuto; name: string}>
           data-testid="commit-info-location-setting"
           value={location}
           options={[
+            {value: 'auto', name: t('Auto')},
             {value: 'right', name: t('Right')},
             {value: 'bottom', name: t('Bottom')},
             {value: 'left', name: t('Left')},
             {value: 'top', name: t('Top')},
           ]}
-          onChange={event => setLocation(event.currentTarget.value as CommitInfoLocation)}
+          onChange={event => setLocation(event.currentTarget.value as CommitInfoLocationWithAuto)}
         />
       </div>
     </Tooltip>

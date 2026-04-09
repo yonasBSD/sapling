@@ -29,7 +29,7 @@ export function MinHeightTextField(
   const {onInput, keepNewlines, className, ref, ...rest} = props;
 
   // ref could also be a callback ref; don't bother supporting that right now.
-  assert(typeof ref === 'object', 'MinHeightTextArea requires ref object');
+  assert(ref == null || typeof ref === 'object', 'MinHeightTextArea requires ref object');
 
   // whenever the value is changed, recompute & apply the minimum height
   useEffect(() => {
