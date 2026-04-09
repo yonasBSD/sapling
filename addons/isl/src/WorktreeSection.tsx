@@ -27,6 +27,7 @@ import {useFeatureFlagSync} from './featureFlags';
 import {T, t} from './i18n';
 import {AddWorktreeOperation} from './operations/AddWorktreeOperation';
 import {RemoveWorktreeOperation} from './operations/RemoveWorktreeOperation';
+import {RenameWorktreeOperation} from './operations/RenameWorktreeOperation';
 import {useRunOperation} from './operationsState';
 import platform from './platform';
 import {repositoryInfo, worktreeInfoData} from './serverAPIState';
@@ -147,6 +148,34 @@ function WorktreeRowWithHover({
         <Badge className={css.activeBadge}>Active</Badge>
       ) : (
         <div className={css.worktreeActions}>
+          <Tooltip title={t('Rename this worktree')}>
+            <Button
+              icon
+              data-testid="worktree-rename-button"
+              onClick={async () => {
+                dismiss();
+                const result = await showModal<string | undefined>({
+                  type: 'custom',
+                  title: <T>Rename Worktree</T>,
+                  icon: 'worktree',
+                  component: ({returnResultAndDismiss}) => (
+                    <RenameWorktreeModal
+                      returnResultAndDismiss={returnResultAndDismiss}
+                      currentLabel={wt.label ?? ''}
+                      wtBasename={wtBasename}
+                    />
+                  ),
+                });
+                if (result !== undefined) {
+                  await runOperation(
+                    new RenameWorktreeOperation(wt.path, result || undefined),
+                    true,
+                  );
+                }
+              }}>
+              <Icon icon="edit" />
+            </Button>
+          </Tooltip>
           <Tooltip title={t('Switch to this worktree')}>
             <Button
               icon
@@ -410,6 +439,41 @@ function AddWorktreeModal({
             })
           }>
           <T>Create</T>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function RenameWorktreeModal({
+  returnResultAndDismiss,
+  currentLabel,
+  wtBasename,
+}: {
+  returnResultAndDismiss: (result: string | undefined) => void;
+  currentLabel: string;
+  wtBasename: string;
+}) {
+  const [newLabel, setNewLabel] = useState(currentLabel);
+
+  return (
+    <div className={css.addWorktreeForm} data-testid="rename-worktree-form">
+      <Subtle>
+        <T replace={{$path: <code>{wtBasename}</code>}}>Set a display label for worktree $path</T>
+      </Subtle>
+      <TextField
+        data-testid="rename-worktree-label"
+        placeholder={t('Label (leave empty to remove)')}
+        value={newLabel}
+        onInput={e => setNewLabel(e.currentTarget?.value ?? '')}
+        autoFocus
+      />
+      <div className={css.addWorktreeFormActions}>
+        <Button
+          primary
+          data-testid="rename-worktree-submit"
+          onClick={() => returnResultAndDismiss(newLabel.trim())}>
+          <T>Save</T>
         </Button>
       </div>
     </div>
