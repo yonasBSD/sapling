@@ -477,7 +477,7 @@ pub trait TreeStore: KeyStore {
 }
 
 /// Options used by `insert_data`
-#[derive(Deserialize, Default)]
+#[derive(Deserialize)]
 pub struct InsertOpts {
     /// Parent hashes.
     /// For Hg it's required and affects SHA1.
@@ -501,6 +501,29 @@ pub struct InsertOpts {
     /// Avoid insert if data is already in store.
     #[serde(default)]
     pub read_before_write: bool,
+
+    /// Require durable storage that won't rotate out. When false, the store
+    /// may use non-permanent storage (e.g. a shared cache) that can be
+    /// reclaimed. Defaults to true.
+    #[serde(default = "default_true")]
+    pub permanent: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for InsertOpts {
+    fn default() -> Self {
+        Self {
+            parents: Vec::new(),
+            kind: Kind::default(),
+            forced_id: None,
+            hg_flags: 0,
+            read_before_write: false,
+            permanent: true,
+        }
+    }
 }
 
 /// Distinguish between a file and a tree.
