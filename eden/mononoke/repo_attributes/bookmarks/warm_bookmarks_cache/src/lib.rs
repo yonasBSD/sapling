@@ -56,6 +56,7 @@ use context::CoreContext;
 use context::SessionClass;
 use deleted_manifest::RootDeletedManifestV2Id;
 use derived_data_manager::BonsaiDerivable as NewBonsaiDerivable;
+use directory_branch_cluster_manifest::RootDirectoryBranchClusterManifestId;
 use enum_map::EnumMap;
 use fastlog::RootFastlog;
 use filenodes_derivation::FilenodesOnlyPublic;
@@ -488,7 +489,13 @@ impl WarmBookmarksCacheBuilder {
                     vec![WarmerTag::Hg, WarmerTag::Git],
                 ))
             }
-            DerivableType::DirectoryBranchClusterManifest => None,
+            DerivableType::DirectoryBranchClusterManifest => {
+                Some(create_derived_data_warmer::<
+                    RootDirectoryBranchClusterManifestId,
+                >(
+                    &self.ctx, repo_derived_data.clone(), vec![WarmerTag::Hg]
+                ))
+            }
             DerivableType::AclManifests => None,
             DerivableType::TestManifests => None,
             DerivableType::TestShardedManifests => None,
