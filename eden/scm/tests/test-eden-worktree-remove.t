@@ -51,21 +51,6 @@ test worktree remove - list after remove shows fewer entries
     linked  $TESTTMP/linked2   feature-x
   * main    $TESTTMP/myrepo
 
-test worktree remove - with --keep
-
-  $ sl worktree add $TESTTMP/keep_me
-  created linked worktree at $TESTTMP/keep_me
-  $ sl worktree remove $TESTTMP/keep_me --keep -y
-  unlinked $TESTTMP/keep_me
-  $ test -d $TESTTMP/keep_me
-  $ sl worktree list
-    linked  $TESTTMP/linked1
-    linked  $TESTTMP/linked2   feature-x
-  * main    $TESTTMP/myrepo
-
-clean up kept checkout
-  $ EDENFSCTL_ONLY_RUST=true eden rm -y $TESTTMP/keep_me > /dev/null 2>&1
-
 test worktree remove --all
 
   $ sl worktree remove --all -y
@@ -87,14 +72,14 @@ test worktree remove - pre-worktree-remove hook fires with correct env vars
   $ sl worktree add $TESTTMP/pre_hook_rm1
   created linked worktree at $TESTTMP/pre_hook_rm1
 #if windows
-  $ setconfig hooks.pre-worktree-remove="echo PATH:%HG_PATH% KEEP:%HG_KEEP%"
+  $ setconfig hooks.pre-worktree-remove="echo PATH:%HG_PATH%"
   $ sl worktree remove $TESTTMP/pre_hook_rm1 -y
-  PATH:$TESTTMP?pre_hook_rm1 KEEP:\r (esc) (glob)
+  PATH:$TESTTMP?pre_hook_rm1\r (esc) (glob)
   removed $TESTTMP/pre_hook_rm1
 #else
-  $ setconfig hooks.pre-worktree-remove="echo PATH:\$HG_PATH KEEP:\$HG_KEEP"
+  $ setconfig hooks.pre-worktree-remove="echo PATH:\$HG_PATH"
   $ sl worktree remove $TESTTMP/pre_hook_rm1 -y
-  PATH:$TESTTMP/pre_hook_rm1 KEEP:
+  PATH:$TESTTMP/pre_hook_rm1
   removed $TESTTMP/pre_hook_rm1
 #endif
 

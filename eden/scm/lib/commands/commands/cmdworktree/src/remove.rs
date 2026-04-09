@@ -72,22 +72,13 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         pre_hooks.run_hooks(
             Some(repo),
             true,
-            Some(&HashMap::from([
-                ("path".to_string(), target.display().to_string()),
-                (
-                    "keep".to_string(),
-                    if ctx.opts.keep {
-                        "true".to_string()
-                    } else {
-                        String::new()
-                    },
-                ),
-            ])),
+            Some(&HashMap::from([(
+                "path".to_string(),
+                target.display().to_string(),
+            )])),
         )?;
 
-        if !ctx.opts.keep {
-            edenfs_client::run_eden_remove(repo.config().as_ref(), &target)?;
-        }
+        edenfs_client::run_eden_remove(repo.config().as_ref(), &target)?;
 
         Ok(())
     })?;
@@ -108,8 +99,7 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         Ok(())
     })?;
 
-    let action = if ctx.opts.keep { "unlinked" } else { "removed" };
-    logger.info(format!("{} {}", action, target.display()));
+    logger.info(format!("removed {}", target.display()));
 
     // NOTE: Add post-worktree-remove hook if the need arises. Note that the
     // hook's cwd (repo.path()) may not exist if the user removed the worktree
@@ -149,24 +139,15 @@ fn run_remove_all(
             pre_hooks.run_hooks(
                 Some(repo),
                 true,
-                Some(&HashMap::from([
-                    ("path".to_string(), path.display().to_string()),
-                    (
-                        "keep".to_string(),
-                        if ctx.opts.keep {
-                            "true".to_string()
-                        } else {
-                            String::new()
-                        },
-                    ),
-                ])),
+                Some(&HashMap::from([(
+                    "path".to_string(),
+                    path.display().to_string(),
+                )])),
             )?;
         }
 
         for path in &linked_paths {
-            if !ctx.opts.keep {
-                edenfs_client::run_eden_remove(repo.config().as_ref(), path)?;
-            }
+            edenfs_client::run_eden_remove(repo.config().as_ref(), path)?;
             grp.worktrees.remove(path);
         }
 
@@ -177,9 +158,8 @@ fn run_remove_all(
         logger.info("no linked worktrees to remove");
         return Ok(0);
     }
-    let action = if ctx.opts.keep { "unlinked" } else { "removed" };
     for path in &removed_paths {
-        logger.info(format!("{} {}", action, path.display()));
+        logger.info(format!("removed {}", path.display()));
     }
 
     // NOTE: Add post-worktree-remove hook if the need arises. See single-remove
@@ -198,13 +178,12 @@ fn confirm_remove(ctx: &ReqCtx<WorktreeOpts>, paths: &[&Path]) -> Result<()> {
         abort!("running non-interactively, use -y instead");
     }
 
-    let action = if ctx.opts.keep { "unlink" } else { "remove" };
     if paths.len() == 1 {
         ctx.io()
-            .write(format!("will {} {}\n", action, paths[0].display()))?;
+            .write(format!("will remove {}\n", paths[0].display()))?;
     } else {
         ctx.io()
-            .write(format!("will {} {} worktrees:\n", action, paths.len()))?;
+            .write(format!("will remove {} worktrees:\n", paths.len()))?;
         for p in paths {
             ctx.io().write(format!("  {}\n", p.display()))?;
         }

@@ -30,9 +30,6 @@ define_flags! {
         /// create a snapshot of the current working copy, then restore it in the new worktree (for 'add')
         snapshot: bool,
 
-        /// only unlink from group, keep the checkout on disk (for 'remove')
-        keep: bool,
-
         /// remove all linked worktrees (for 'remove')
         all: bool,
 
@@ -102,7 +99,7 @@ pub fn doc() -> &'static str {
 
       list [-Tjson]                            List all worktrees in the group
       add [PATH] [--label TEXT] [--snapshot]   Create a new linked worktree
-      remove PATH [--all] [--keep] [-y]        Remove linked worktree(s)
+      remove PATH [--all] [-y]                 Remove linked worktree(s)
       label [PATH] TEXT [--remove]             Set or remove a worktree label
 
     If PATH is omitted from `add`, `worktree.path-generator` is used to
