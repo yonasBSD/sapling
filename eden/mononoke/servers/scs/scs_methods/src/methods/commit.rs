@@ -1761,11 +1761,64 @@ impl SourceControlServiceImpl {
     /// predecessor/predecessor-op extra headers on the commit object.
     pub(crate) async fn commit_git_mutation_history(
         &self,
-        _ctx: CoreContext,
-        _commit: thrift::CommitSpecifier,
-        _params: thrift::CommitGitMutationHistoryParams,
+        ctx: CoreContext,
+        commit: thrift::CommitSpecifier,
+        params: thrift::CommitGitMutationHistoryParams,
     ) -> Result<thrift::CommitGitMutationHistoryResponse, scs_errors::ServiceError> {
-        Err(scs_errors::internal_error("commit_git_mutation_history not yet implemented").into())
+        let (_repo, changeset) = self.repo_changeset(ctx, &commit).await?;
+
+        let git_extra_headers = changeset.git_extra_headers().await?;
+        let (predecessors, op) = extract_git_predecessors(&git_extra_headers);
+
+        let git_mutation_history = match params.format {
+            thrift::MutationHistoryFormat::COMMIT_ID => {
+                let commit_ids = predecessors
+                    .into_iter()
+                    .map(|sha1_bytes| thrift::CommitId::git(sha1_bytes))
+                    .collect();
+                thrift::GitMutationHistory::commit_ids(commit_ids)
+            }
+            thrift::MutationHistoryFormat::GIT_MUTATION => {
+                if predecessors.is_empty() {
+                    thrift::GitMutationHistory::git_mutations(vec![])
+                } else {
+                    // Get the successor (current commit) git identity
+                    let successor_id = changeset
+                        .git_sha1()
+                        .await?
+                        .map(|sha1| thrift::CommitId::git(sha1.as_ref().to_vec()))
+                        .unwrap_or_else(|| {
+                            // Fall back to bonsai if no git identity
+                            thrift::CommitId::bonsai(changeset.id().as_ref().to_vec())
+                        });
+
+                    let predecessor_ids: Vec<thrift::CommitId> = predecessors
+                        .into_iter()
+                        .map(|sha1_bytes| thrift::CommitId::git(sha1_bytes))
+                        .collect();
+
+                    let mutation = thrift::GitMutation {
+                        successor: successor_id,
+                        predecessors: predecessor_ids,
+                        op,
+                        ..Default::default()
+                    };
+                    thrift::GitMutationHistory::git_mutations(vec![mutation])
+                }
+            }
+            unknown => {
+                return Err(scs_errors::invalid_request(format!(
+                    "invalid mutation history format: {:?}",
+                    unknown
+                ))
+                .into());
+            }
+        };
+
+        Ok(thrift::CommitGitMutationHistoryResponse {
+            git_mutation_history,
+            ..Default::default()
+        })
     }
 
     /// Returns the directory branch clusters for a commit
@@ -1939,5 +1992,145 @@ impl SourceControlServiceImpl {
             changed_paths: changed_paths.into_iter().collect(),
             ..Default::default()
         })
+    }
+}
+
+/// Extract predecessor SHA1s and operation from git extra headers.
+/// Returns (predecessor_hex_bytes, operation_string).
+fn extract_git_predecessors<K: AsRef<[u8]>, V: AsRef<[u8]>>(
+    headers: &Option<Vec<(K, V)>>,
+) -> (Vec<Vec<u8>>, String) {
+    let mut predecessors: Vec<Vec<u8>> = Vec::new();
+    let mut op = String::new();
+
+    if let Some(headers) = headers {
+        for (key, value) in headers {
+            if key.as_ref() == b"predecessor" {
+                if let Ok(value_str) = std::str::from_utf8(value.as_ref()) {
+                    for hex_sha1 in value_str.split(',') {
+                        let hex_sha1 = hex_sha1.trim();
+                        if !hex_sha1.is_empty() {
+                            predecessors.push(hex_sha1.as_bytes().to_vec());
+                        }
+                    }
+                }
+            } else if key.as_ref() == b"predecessor-op" {
+                if let Ok(value_str) = std::str::from_utf8(value.as_ref()) {
+                    op = value_str.to_string();
+                }
+            }
+        }
+    }
+
+    (predecessors, op)
+}
+
+#[cfg(test)]
+mod test_git_mutation {
+    use super::*;
+
+    #[test]
+    fn test_extract_no_headers() {
+        let headers: Option<Vec<(Vec<u8>, Vec<u8>)>> = None;
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert!(preds.is_empty());
+        assert!(op.is_empty());
+    }
+
+    #[test]
+    fn test_extract_empty_headers() {
+        let headers: Option<Vec<(Vec<u8>, Vec<u8>)>> = Some(vec![]);
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert!(preds.is_empty());
+        assert!(op.is_empty());
+    }
+
+    #[test]
+    fn test_extract_no_predecessor_headers() {
+        let headers = Some(vec![
+            (b"mergetag".to_vec(), b"some-tag-data".to_vec()),
+            (b"gpgsig".to_vec(), b"signature-data".to_vec()),
+        ]);
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert!(preds.is_empty());
+        assert!(op.is_empty());
+    }
+
+    #[test]
+    fn test_extract_single_predecessor() {
+        let sha1 = "da39a3ee5e6b4b0d3255bfef95601890afd80709";
+        let headers = Some(vec![
+            (b"predecessor".to_vec(), sha1.as_bytes().to_vec()),
+            (b"predecessor-op".to_vec(), b"amend".to_vec()),
+        ]);
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert_eq!(preds.len(), 1);
+        assert_eq!(preds[0], sha1.as_bytes());
+        assert_eq!(op, "amend");
+    }
+
+    #[test]
+    fn test_extract_multiple_predecessors_comma_separated() {
+        let sha1_a = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let sha1_b = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        let value = format!("{},{}", sha1_a, sha1_b);
+        let headers = Some(vec![
+            (b"predecessor".to_vec(), value.as_bytes().to_vec()),
+            (b"predecessor-op".to_vec(), b"fold".to_vec()),
+        ]);
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert_eq!(preds.len(), 2);
+        assert_eq!(preds[0], sha1_a.as_bytes());
+        assert_eq!(preds[1], sha1_b.as_bytes());
+        assert_eq!(op, "fold");
+    }
+
+    #[test]
+    fn test_extract_rebase_op() {
+        let sha1 = "1234567890abcdef1234567890abcdef12345678";
+        let headers = Some(vec![
+            (b"predecessor".to_vec(), sha1.as_bytes().to_vec()),
+            (b"predecessor-op".to_vec(), b"rebase".to_vec()),
+        ]);
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert_eq!(preds.len(), 1);
+        assert_eq!(op, "rebase");
+    }
+
+    #[test]
+    fn test_extract_cherry_pick_op() {
+        let sha1 = "abcdef1234567890abcdef1234567890abcdef12";
+        let headers = Some(vec![
+            (b"predecessor".to_vec(), sha1.as_bytes().to_vec()),
+            (b"predecessor-op".to_vec(), b"cherry-pick".to_vec()),
+        ]);
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert_eq!(preds.len(), 1);
+        assert_eq!(op, "cherry-pick");
+    }
+
+    #[test]
+    fn test_extract_predecessor_without_op() {
+        let sha1 = "da39a3ee5e6b4b0d3255bfef95601890afd80709";
+        let headers = Some(vec![(b"predecessor".to_vec(), sha1.as_bytes().to_vec())]);
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert_eq!(preds.len(), 1);
+        assert_eq!(preds[0], sha1.as_bytes());
+        assert!(op.is_empty());
+    }
+
+    #[test]
+    fn test_extract_with_other_headers_intermixed() {
+        let sha1 = "da39a3ee5e6b4b0d3255bfef95601890afd80709";
+        let headers = Some(vec![
+            (b"mergetag".to_vec(), b"tag-data".to_vec()),
+            (b"predecessor".to_vec(), sha1.as_bytes().to_vec()),
+            (b"gpgsig".to_vec(), b"sig-data".to_vec()),
+            (b"predecessor-op".to_vec(), b"amend".to_vec()),
+        ]);
+        let (preds, op) = extract_git_predecessors(&headers);
+        assert_eq!(preds.len(), 1);
+        assert_eq!(preds[0], sha1.as_bytes());
+        assert_eq!(op, "amend");
     }
 }
