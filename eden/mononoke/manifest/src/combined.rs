@@ -21,6 +21,8 @@ use mononoke_types::TrieMap;
 
 use crate::types::Entry;
 use crate::types::Manifest;
+use crate::types::OrderedManifest;
+use crate::types::Weight;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CombinedId<M, N>(pub M, pub N);
@@ -299,6 +301,73 @@ impl<M: Manifest<Store> + Send + Sync, N: Manifest<Store> + Send + Sync, Store: 
         match self {
             Either::Left(m) => Ok(Either::Left(m.into_trie_map(ctx, blobstore).await?)),
             Either::Right(n) => Ok(Either::Right(n.into_trie_map(ctx, blobstore).await?)),
+        }
+    }
+}
+
+#[async_trait]
+impl<
+    M: Manifest<Store> + OrderedManifest<Store> + Send + Sync,
+    N: Manifest<Store> + OrderedManifest<Store> + Send + Sync,
+    Store: Send + Sync,
+> OrderedManifest<Store> for Either<M, N>
+{
+    async fn lookup_weighted(
+        &self,
+        ctx: &CoreContext,
+        blobstore: &Store,
+        name: &MPathElement,
+    ) -> Result<Option<Entry<(Weight, Self::TreeId), Self::Leaf>>> {
+        match self {
+            Either::Left(m) => {
+                Ok(m.lookup_weighted(ctx, blobstore, name)
+                    .await?
+                    .map(|entry| match entry {
+                        Entry::Tree((weight, id)) => Entry::Tree((weight, Either::Left(id))),
+                        Entry::Leaf(leaf) => Entry::Leaf(Either::Left(leaf)),
+                    }))
+            }
+            Either::Right(n) => {
+                Ok(n.lookup_weighted(ctx, blobstore, name)
+                    .await?
+                    .map(|entry| match entry {
+                        Entry::Tree((weight, id)) => Entry::Tree((weight, Either::Right(id))),
+                        Entry::Leaf(leaf) => Entry::Leaf(Either::Right(leaf)),
+                    }))
+            }
+        }
+    }
+
+    async fn list_weighted(
+        &self,
+        ctx: &CoreContext,
+        blobstore: &Store,
+    ) -> Result<
+        BoxStream<'async_trait, Result<(MPathElement, Entry<(Weight, Self::TreeId), Self::Leaf>)>>,
+    > {
+        match self {
+            Either::Left(m) => Ok(m
+                .list_weighted(ctx, blobstore)
+                .await?
+                .map_ok(|(path, entry)| {
+                    let entry = match entry {
+                        Entry::Tree((weight, id)) => Entry::Tree((weight, Either::Left(id))),
+                        Entry::Leaf(leaf) => Entry::Leaf(Either::Left(leaf)),
+                    };
+                    (path, entry)
+                })
+                .boxed()),
+            Either::Right(n) => Ok(n
+                .list_weighted(ctx, blobstore)
+                .await?
+                .map_ok(|(path, entry)| {
+                    let entry = match entry {
+                        Entry::Tree((weight, id)) => Entry::Tree((weight, Either::Right(id))),
+                        Entry::Leaf(leaf) => Entry::Leaf(Either::Right(leaf)),
+                    };
+                    (path, entry)
+                })
+                .boxed()),
         }
     }
 }

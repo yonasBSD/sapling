@@ -50,12 +50,11 @@ pub use mononoke_types::ContentMetadataV2 as FileMetadata;
 use mononoke_types::FileChange;
 use mononoke_types::FileType;
 use mononoke_types::FileUnodeId;
-use mononoke_types::FsnodeId;
 use mononoke_types::ManifestUnodeId;
 use mononoke_types::NonRootMPath;
 use mononoke_types::blame_v2::BlameV2;
+use mononoke_types::content_manifest::compat;
 use mononoke_types::deleted_manifest_common::DeletedManifestCommon;
-use mononoke_types::fsnode::FsnodeFile;
 use mononoke_types::path::MPath;
 use permission_checker::MononokeIdentity;
 use repo_blobstore::RepoBlobstoreRef;
@@ -93,7 +92,8 @@ pub enum PathEntry<R> {
 }
 
 type UnodeResult = Result<Option<Entry<ManifestUnodeId, FileUnodeId>>, MononokeError>;
-type FsnodeResult = Result<Option<Entry<FsnodeId, FsnodeFile>>, MononokeError>;
+type ContentManifestResult =
+    Result<Option<Entry<compat::ContentManifestId, compat::ContentManifestFile>>, MononokeError>;
 type LinknodeResult = Result<Option<ChangesetId>, MononokeError>;
 
 /// Context that makes it cheap to fetch content info about a path within a changeset.
@@ -104,7 +104,7 @@ type LinknodeResult = Result<Option<ChangesetId>, MononokeError>;
 pub struct ChangesetPathContentContext<R> {
     changeset: ChangesetContext<R>,
     path: MPath,
-    fsnode_id: LazyShared<FsnodeResult>,
+    manifest_entry: LazyShared<ContentManifestResult>,
 }
 
 impl<R: RepoIdentityRef> fmt::Debug for ChangesetPathContentContext<R> {
@@ -208,14 +208,14 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
         Ok(Self {
             changeset,
             path,
-            fsnode_id: LazyShared::new_empty(),
+            manifest_entry: LazyShared::new_empty(),
         })
     }
 
-    pub(crate) async fn new_with_fsnode_entry(
+    pub(crate) async fn new_with_manifest_entry(
         changeset: ChangesetContext<R>,
         path: impl Into<MPath>,
-        fsnode_entry: Entry<FsnodeId, FsnodeFile>,
+        manifest_entry: Entry<compat::ContentManifestId, compat::ContentManifestFile>,
     ) -> Result<Self, MononokeError> {
         let path = path.into();
         let id_type = changeset
@@ -245,26 +245,30 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
         Ok(Self {
             changeset,
             path,
-            fsnode_id: LazyShared::new_ready(Ok(Some(fsnode_entry))),
+            manifest_entry: LazyShared::new_ready(Ok(Some(manifest_entry))),
         })
     }
 
-    async fn fsnode_id(&self) -> Result<Option<Entry<FsnodeId, FsnodeFile>>, MononokeError> {
-        self.fsnode_id
+    async fn manifest_entry(
+        &self,
+    ) -> Result<Option<Entry<compat::ContentManifestId, compat::ContentManifestFile>>, MononokeError>
+    {
+        self.manifest_entry
             .get_or_init(|| {
                 cloned!(self.changeset, self.path);
                 async move {
                     let ctx = changeset.ctx().clone();
                     let blobstore = changeset.repo_ctx().repo().repo_blobstore().clone();
-                    let root_fsnode_id = changeset.root_fsnode_id().await?;
+                    let root_id = changeset.root_content_manifest_id().await?;
+
                     if let Some(mpath) = path.into_optional_non_root_path() {
-                        root_fsnode_id
-                            .fsnode_id()
+                        root_id
                             .find_entry(ctx, blobstore, MPath::from(mpath))
                             .await
                             .map_err(MononokeError::from)
+                            .map(|opt| opt.map(|e| e.map_leaf(Into::into)))
                     } else {
-                        Ok(Some(Entry::Tree(root_fsnode_id.fsnode_id().clone())))
+                        Ok(Some(Entry::Tree(root_id)))
                     }
                 }
             })
@@ -273,12 +277,11 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
 
     /// Returns `true` if the path exists (as a file or directory) in this commit.
     pub async fn exists(&self) -> Result<bool, MononokeError> {
-        // The path exists if there is any kind of fsnode.
-        Ok(self.fsnode_id().await?.is_some())
+        Ok(self.manifest_entry().await?.is_some())
     }
 
     pub async fn is_file(&self) -> Result<bool, MononokeError> {
-        let is_file = match self.fsnode_id().await? {
+        let is_file = match self.manifest_entry().await? {
             Some(Entry::Leaf(_)) => true,
             _ => false,
         };
@@ -286,7 +289,7 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
     }
 
     pub async fn is_tree(&self) -> Result<bool, MononokeError> {
-        let is_tree = match self.fsnode_id().await? {
+        let is_tree = match self.manifest_entry().await? {
             Some(Entry::Tree(_)) => true,
             _ => false,
         };
@@ -294,8 +297,8 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
     }
 
     pub async fn file_type(&self) -> Result<Option<FileType>, MononokeError> {
-        let file_type = match self.fsnode_id().await? {
-            Some(Entry::Leaf(file)) => Some(*file.file_type()),
+        let file_type = match self.manifest_entry().await? {
+            Some(Entry::Leaf(file)) => Some(file.file_type()),
             _ => None,
         };
         Ok(file_type)
@@ -304,10 +307,10 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
     /// Returns a `TreeContext` for the tree at this path.  Returns `None` if the path
     /// is not a directory in this commit.
     pub async fn tree(&self) -> Result<Option<TreeContext<R>>, MononokeError> {
-        let tree = match self.fsnode_id().await? {
-            Some(Entry::Tree(fsnode_id)) => Some(TreeContext::new_authorized(
+        let tree = match self.manifest_entry().await? {
+            Some(Entry::Tree(manifest_id)) => Some(TreeContext::new_authorized(
                 self.repo_ctx().clone(),
-                fsnode_id.into(),
+                manifest_id,
             )),
             _ => None,
         };
@@ -317,10 +320,10 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
     /// Returns a `FileContext` for the file at this path.  Returns `None` if the path
     /// is not a file in this commit.
     pub async fn file(&self) -> Result<Option<FileContext<R>>, MononokeError> {
-        let file = match self.fsnode_id().await? {
+        let file = match self.manifest_entry().await? {
             Some(Entry::Leaf(file)) => Some(FileContext::new_authorized(
                 self.repo_ctx().clone(),
-                FetchKey::Canonical(*file.content_id()),
+                FetchKey::Canonical(file.content_id()),
             )),
             _ => None,
         };
@@ -356,17 +359,17 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
     /// or file at this path. Returns `NotPresent` if the path is not a file
     /// or directory in this commit.
     pub async fn entry(&self) -> Result<PathEntry<R>, MononokeError> {
-        let entry = match self.fsnode_id().await? {
-            Some(Entry::Tree(fsnode_id)) => PathEntry::Tree(TreeContext::new_authorized(
+        let entry = match self.manifest_entry().await? {
+            Some(Entry::Tree(manifest_id)) => PathEntry::Tree(TreeContext::new_authorized(
                 self.repo_ctx().clone(),
-                fsnode_id.into(),
+                manifest_id,
             )),
             Some(Entry::Leaf(file)) => PathEntry::File(
                 FileContext::new_authorized(
                     self.repo_ctx().clone(),
-                    FetchKey::Canonical(*file.content_id()),
+                    FetchKey::Canonical(file.content_id()),
                 ),
-                *file.file_type(),
+                file.file_type(),
             ),
             _ => PathEntry::NotPresent,
         };

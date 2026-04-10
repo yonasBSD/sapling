@@ -21,6 +21,8 @@ use mononoke_types::sharded_map_v2::LoadableShardedMapV2Node;
 
 use super::Entry;
 use super::Manifest;
+use super::OrderedManifest;
+use super::Weight;
 
 #[async_trait]
 impl<Store: KeyedBlobstore> Manifest<Store> for ContentManifest {
@@ -115,5 +117,47 @@ pub(crate) fn convert_content_manifest(
     match content_manifest_entry {
         ContentManifestEntry::File(file) => Entry::Leaf(file),
         ContentManifestEntry::Directory(dir) => Entry::Tree(dir.id),
+    }
+}
+
+#[async_trait]
+impl<Store: KeyedBlobstore> OrderedManifest<Store> for ContentManifest {
+    async fn lookup_weighted(
+        &self,
+        ctx: &CoreContext,
+        blobstore: &Store,
+        name: &MPathElement,
+    ) -> Result<Option<Entry<(Weight, Self::TreeId), Self::Leaf>>> {
+        Ok(self
+            .lookup(ctx, blobstore, name)
+            .await?
+            .map(convert_content_manifest_weighted))
+    }
+
+    async fn list_weighted(
+        &self,
+        ctx: &CoreContext,
+        blobstore: &Store,
+    ) -> Result<
+        BoxStream<'async_trait, Result<(MPathElement, Entry<(Weight, Self::TreeId), Self::Leaf>)>>,
+    > {
+        Ok(self
+            .clone()
+            .into_subentries(ctx, blobstore)
+            .map_ok(|(path, entry)| (path, convert_content_manifest_weighted(entry)))
+            .boxed())
+    }
+}
+
+fn convert_content_manifest_weighted(
+    entry: ContentManifestEntry,
+) -> Entry<(Weight, ContentManifestId), ContentManifestFile> {
+    match entry {
+        ContentManifestEntry::File(file) => Entry::Leaf(file),
+        ContentManifestEntry::Directory(dir) => {
+            let counts = &dir.rollup_data.descendant_counts;
+            let weight = counts.files_count + counts.dirs_count;
+            Entry::Tree((weight as Weight, dir.id))
+        }
     }
 }

@@ -32,6 +32,7 @@ use futures::try_join;
 use futures_stats::TimedFutureExt;
 use futures_stats::TimedTryFutureExt;
 use itertools::Itertools;
+use manifest::Manifest;
 use manifest::PathTree;
 use metaconfig_types::RepoConfigRef;
 use mononoke_types::BonsaiChangeset;
@@ -42,7 +43,6 @@ use mononoke_types::FileChange;
 use mononoke_types::GitLfs;
 use mononoke_types::MPathElement;
 use mononoke_types::NonRootMPath;
-use mononoke_types::fsnode::FsnodeEntry;
 use mononoke_types::path::MPath;
 use repo_authorization::RepoWriteOperation;
 use repo_blobstore::RepoBlobstore;
@@ -861,9 +861,11 @@ async fn check_addless_union_conflicts<R: MononokeRepo>(
         return Ok(());
     }
 
-    let root_fsnodes: Vec<_> = stream::iter(changesets.iter().map(|cs_ctx| async move {
-        Ok::<_, MononokeError>(cs_ctx.root_fsnode_id().await?.into_fsnode_id())
-    }))
+    let root_manifest_ids: Vec<_> = stream::iter(
+        changesets
+            .iter()
+            .map(|cs_ctx| async move { cs_ctx.root_content_manifest_id().await }),
+    )
     .boxed()
     .buffered(10)
     .try_collect()
@@ -873,24 +875,24 @@ async fn check_addless_union_conflicts<R: MononokeRepo>(
 
     let conflict_paths = bounded_traversal::bounded_traversal_stream(
         256,
-        Some((root_fsnodes, MPath::ROOT)),
-        move |(fsnodes_to_check, current_path)| {
+        Some((root_manifest_ids, MPath::ROOT)),
+        move |(manifest_ids_to_check, current_path)| {
             Box::pin(async move {
                 let mut leaf_content: BTreeMap<MPathElement, HashSet<_>> = BTreeMap::new();
                 let mut trees: BTreeMap<MPathElement, BTreeSet<_>> = BTreeMap::new();
 
-                for fsnode in fsnodes_to_check {
-                    let fsnode = fsnode.load(ctx, store).await?;
-                    for (path_element, entry) in fsnode.list() {
+                for manifest_id in manifest_ids_to_check {
+                    let manifest = manifest_id.load(ctx, store).await?;
+                    let entries: Vec<_> = manifest.list(ctx, store).await?.try_collect().await?;
+                    for (path_element, entry) in entries {
                         match entry {
-                            FsnodeEntry::Directory(directory) => trees
+                            manifest::Entry::Tree(id) => {
+                                trees.entry(path_element.clone()).or_default().insert(id)
+                            }
+                            manifest::Entry::Leaf(file) => leaf_content
                                 .entry(path_element.clone())
                                 .or_default()
-                                .insert(*directory.id()),
-                            FsnodeEntry::File(file) => leaf_content
-                                .entry(path_element.clone())
-                                .or_default()
-                                .insert(*file),
+                                .insert(file),
                         };
                     }
                 }
@@ -920,14 +922,14 @@ async fn check_addless_union_conflicts<R: MononokeRepo>(
                 // If we already have new content for a path, then we don't recurse into it
                 let recurse: Vec<_> = trees
                     .into_iter()
-                    .filter_map(|(path_element, fsnodes)| {
+                    .filter_map(|(path_element, manifest_ids)| {
                         let path = current_path.join_element(Some(&path_element));
                         let fix_exists = fix_paths
                             .get(&path)
                             .is_some_and(CreateChangeType::is_modification);
 
-                        if !fix_exists && fsnodes.len() > 1 {
-                            Some((fsnodes.into_iter().collect(), path))
+                        if !fix_exists && manifest_ids.len() > 1 {
+                            Some((manifest_ids.into_iter().collect(), path))
                         } else {
                             None
                         }

@@ -32,6 +32,7 @@ use commit_graph::CommitGraphRef;
 use commit_graph::LinearAncestorsStreamBuilder;
 use commit_rate_limit::CommitRateLimitCheckResult;
 use commit_rate_limit::check_all_commit_rate_limits;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use deleted_manifest::DeletedManifestOps;
 use deleted_manifest::RootDeletedManifestIdCommon;
@@ -69,6 +70,7 @@ use mononoke_types::NonRootMPath;
 use mononoke_types::SkeletonManifestId;
 use mononoke_types::SubtreeChange;
 use mononoke_types::Svnrev;
+use mononoke_types::content_manifest::compat;
 use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
 use mononoke_types::path::MPath;
 use mononoke_types::skeleton_manifest_v2::SkeletonManifestV2;
@@ -208,7 +210,7 @@ pub struct ChangesetContext<R> {
     bonsai_changeset: LazyShared<Result<BonsaiChangeset, MononokeError>>,
     changeset_info: LazyShared<Result<ChangesetInfo, MononokeError>>,
     root_unode_manifest_id: LazyShared<Result<RootUnodeManifestId, MononokeError>>,
-    root_fsnode_id: LazyShared<Result<RootFsnodeId, MononokeError>>,
+    root_content_manifest_id: LazyShared<Result<compat::ContentManifestId, MononokeError>>,
     root_skeleton_manifest_id: LazyShared<Result<RootSkeletonManifestId, MononokeError>>,
     root_skeleton_manifest_v2_id: LazyShared<Result<RootSkeletonManifestV2Id, MononokeError>>,
     root_deleted_manifest_v2_id: LazyShared<Result<RootDeletedManifestV2Id, MononokeError>>,
@@ -268,7 +270,7 @@ impl<R> ChangesetContext<R> {
         let bonsai_changeset = LazyShared::new_empty();
         let changeset_info = LazyShared::new_empty();
         let root_unode_manifest_id = LazyShared::new_empty();
-        let root_fsnode_id = LazyShared::new_empty();
+        let root_content_manifest_id = LazyShared::new_empty();
         let root_skeleton_manifest_id = LazyShared::new_empty();
         let root_skeleton_manifest_v2_id = LazyShared::new_empty();
         let root_deleted_manifest_v2_id = LazyShared::new_empty();
@@ -280,7 +282,7 @@ impl<R> ChangesetContext<R> {
             changeset_info,
             bonsai_changeset,
             root_unode_manifest_id,
-            root_fsnode_id,
+            root_content_manifest_id,
             root_skeleton_manifest_id,
             root_skeleton_manifest_v2_id,
             root_deleted_manifest_v2_id,
@@ -412,12 +414,6 @@ impl<R: RepoDerivedDataArc> ChangesetContext<R> {
             .await
     }
 
-    pub(crate) async fn root_fsnode_id(&self) -> Result<RootFsnodeId, MononokeError> {
-        self.root_fsnode_id
-            .get_or_init(|| self.derive::<RootFsnodeId>())
-            .await
-    }
-
     pub(crate) async fn root_bssm_v3_directory_id(
         &self,
     ) -> Result<RootBssmV3DirectoryId, MononokeError> {
@@ -455,6 +451,37 @@ impl<R: RepoDerivedDataArc> ChangesetContext<R> {
     ) -> Result<RootDirectoryBranchClusterManifestId, MononokeError> {
         self.root_directory_branch_cluster_manifest_id
             .get_or_init(|| self.derive::<RootDirectoryBranchClusterManifestId>())
+            .await
+    }
+}
+
+impl<R: RepoDerivedDataArc + RepoIdentityRef> ChangesetContext<R> {
+    pub(crate) async fn root_content_manifest_id(
+        &self,
+    ) -> Result<compat::ContentManifestId, MononokeError> {
+        self.root_content_manifest_id
+            .get_or_init(|| {
+                let repo_name = self.repo_ctx().name().to_string();
+                let use_content_manifests = justknobs::eval(
+                    "scm/mononoke:derived_data_use_content_manifests",
+                    None,
+                    Some(&repo_name),
+                )
+                .unwrap_or(false);
+                if use_content_manifests {
+                    let fut = self.derive::<RootContentManifestId>();
+                    either::Either::Left(async move {
+                        let id = fut.await?;
+                        Ok(id.into_content_manifest_id().into())
+                    })
+                } else {
+                    let fut = self.derive::<RootFsnodeId>();
+                    either::Either::Right(async move {
+                        let id = fut.await?;
+                        Ok(id.into_fsnode_id().into())
+                    })
+                }
+            })
             .await
     }
 }
@@ -983,10 +1010,9 @@ impl<R: MononokeRepo> ChangesetContext<R> {
         impl Stream<Item = Result<ChangesetPathContentContext<R>, MononokeError>> + use<R, T>,
         MononokeError,
     > {
-        Ok(self
-            .root_fsnode_id()
-            .await?
-            .fsnode_id()
+        let root_id = self.root_content_manifest_id().await?;
+
+        Ok(root_id
             .find_entries(
                 self.ctx().clone(),
                 self.repo_ctx().repo().repo_blobstore().clone(),
@@ -998,10 +1024,10 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                 move |(mpath, entry)| {
                     cloned!(changeset);
                     async move {
-                        ChangesetPathContentContext::new_with_fsnode_entry(
+                        ChangesetPathContentContext::new_with_manifest_entry(
                             changeset.clone(),
                             mpath,
-                            entry,
+                            entry.map_leaf(Into::into),
                         )
                         .await
                     }
@@ -1235,24 +1261,23 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                 }
             }
 
-            let other_root_fsnode_id = other.root_fsnode_id().await?;
+            let other_root_manifest_id = other.root_content_manifest_id().await?;
 
-            // Prefetch fsnode entries for all "from paths" so that we don't need
-            // to refetch them later.  Use other's blobstore since we're accessing
-            // other's manifest data.
-            let from_path_to_mf_entry = other_root_fsnode_id
-                .fsnode_id()
+            // Prefetch manifest entries for all "from paths" so that we don't
+            // need to refetch them later.  Use other's blobstore since we're
+            // accessing other's manifest data.
+            let from_path_to_mf_entry = other_root_manifest_id
                 .find_entries(
                     self.ctx().clone(),
                     other.repo_ctx().repo().repo_blobstore().clone(),
                     copy_path_map.keys().cloned(),
                 )
+                .map_ok(|(path, entry)| (path, entry.map_leaf(Into::into)))
                 .try_collect::<HashMap<_, _>>();
 
             // At the same time, find out whether the destinations of copies
             // already existed in the parent.
-            let to_path_exists_in_parent = other_root_fsnode_id
-                .fsnode_id()
+            let to_path_exists_in_parent = other_root_manifest_id
                 .find_entries(
                     self.ctx().clone(),
                     other.repo_ctx().repo().repo_blobstore().clone(),
@@ -1313,9 +1338,8 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                 ))
                             })?;
                     let entry = from_cs
-                        .root_fsnode_id()
+                        .root_content_manifest_id()
                         .await?
-                        .into_fsnode_id()
                         .find_entry(
                             ctx,
                             blobstore,
@@ -1344,9 +1368,8 @@ impl<R: MononokeRepo> ChangesetContext<R> {
         // If self does contain a path, then we consider it to be a copy, otherwise
         // it's a move to the first location it was copied to.
         let copied_paths = self
-            .root_fsnode_id()
+            .root_content_manifest_id()
             .await?
-            .fsnode_id()
             .find_entries(
                 self.ctx().clone(),
                 self.repo_ctx().repo().repo_blobstore().clone(),
@@ -1356,11 +1379,14 @@ impl<R: MononokeRepo> ChangesetContext<R> {
             .try_collect::<HashSet<_>>()
             .await?;
 
-        let (self_manifest_root, other_manifest_root) =
-            try_join(self.root_fsnode_id(), other.root_fsnode_id()).await?;
-
         let diff_files = diff_items.contains(&ChangesetDiffItem::FILES);
         let diff_trees = diff_items.contains(&ChangesetDiffItem::TREES);
+
+        let (self_root, other_root) = try_join(
+            self.root_content_manifest_id(),
+            other.root_content_manifest_id(),
+        )
+        .await?;
 
         let recurse_pruner = {
             cloned!(path_restrictions);
@@ -1374,14 +1400,13 @@ impl<R: MononokeRepo> ChangesetContext<R> {
         let diff = match ordering {
             ChangesetFileOrdering::Unordered => {
                 // We start from "other" as manifest.diff() is backwards.
-                // Use other's blobstore for other_manifest_root data,
-                // and self's blobstore for self_manifest_root data.
-                other_manifest_root
-                    .fsnode_id()
+                // Use other's blobstore for other_root data,
+                // and self's blobstore for self_root data.
+                other_root
                     .filtered_diff(
                         self.ctx().clone(),
                         other.repo_ctx().repo().repo_blobstore().clone(),
-                        self_manifest_root.fsnode_id().clone(),
+                        self_root,
                         self.repo_ctx().repo().repo_blobstore().clone(),
                         Some,
                         recurse_pruner,
@@ -1391,20 +1416,29 @@ impl<R: MononokeRepo> ChangesetContext<R> {
             }
             ChangesetFileOrdering::Ordered { after } => {
                 // We must find the weights of manifest replacements.
-                let manifest_replacements = stream::iter(manifest_replacements)
+                let weighted_replacements = stream::iter(manifest_replacements)
                     .map(|(path, entry)| {
                         Ok(async move {
                             match entry {
-                                ManifestEntry::Tree(fsnode_id) => {
-                                    let fsnode = fsnode_id
+                                ManifestEntry::Tree(manifest_id) => {
+                                    let manifest = manifest_id
                                         .load(self.ctx(), self.repo_ctx().repo().repo_blobstore())
                                         .await?;
-                                    let summary = fsnode.summary();
-                                    let weight =
-                                        summary.descendant_files_count + summary.child_dirs_count;
+                                    let weight = match &manifest {
+                                        either::Either::Left(cm) => {
+                                            let counts =
+                                                &cm.subentries.rollup_data().descendant_counts;
+                                            counts.files_count + counts.dirs_count
+                                        }
+                                        either::Either::Right(fsnode) => {
+                                            let summary = fsnode.summary();
+                                            summary.descendant_files_count
+                                                + summary.child_dirs_count
+                                        }
+                                    };
                                     anyhow::Ok((
                                         path,
-                                        ManifestEntry::Tree((weight as usize, fsnode_id)),
+                                        ManifestEntry::Tree((weight as usize, manifest_id)),
                                     ))
                                 }
                                 ManifestEntry::Leaf(leaf) => Ok((path, ManifestEntry::Leaf(leaf))),
@@ -1414,26 +1448,37 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                     .try_buffered(10)
                     .try_collect()
                     .await?;
+
                 // We start from "other" as manifest.diff() is backwards.
-                // Use other's blobstore for other_manifest_root data,
-                // and self's blobstore for self_manifest_root data.
-                other_manifest_root
-                    .fsnode_id()
+                // Use other's blobstore for other_root data,
+                // and self's blobstore for self_root data.
+                other_root
                     .filtered_diff_ordered(
                         self.ctx().clone(),
                         other.repo_ctx().repo().repo_blobstore().clone(),
-                        self_manifest_root.fsnode_id().clone(),
+                        self_root,
                         self.repo_ctx().repo().repo_blobstore().clone(),
                         after,
                         Some,
                         recurse_pruner,
-                        manifest_replacements,
+                        weighted_replacements,
                     )
                     .right_stream()
             }
         };
 
+        let convert_entry = |e: ManifestEntry<compat::ContentManifestId, _>| e.map_leaf(Into::into);
+
         let change_contexts = diff
+            .map_ok(|diff_entry| match diff_entry {
+                ManifestDiff::Added(path, entry) => ManifestDiff::Added(path, convert_entry(entry)),
+                ManifestDiff::Removed(path, entry) => {
+                    ManifestDiff::Removed(path, convert_entry(entry))
+                }
+                ManifestDiff::Changed(path, from, to) => {
+                    ManifestDiff::Changed(path, convert_entry(from), convert_entry(to))
+                }
+            })
             .try_filter_map(|diff_entry| {
                 async {
                     let entry = match diff_entry {
@@ -1446,7 +1491,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                 // There's copy information that we can use.
                                 let copy_info = if copied_paths.contains(from_path)
                                     || copy_path_map
-                                        .get(*from_path)
+                                        .get(from_path)
                                         .and_then(|to_paths| to_paths.first())
                                         != Some(&path)
                                 {
@@ -1460,17 +1505,17 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                     CopyInfo::Move
                                 };
 
-                                let from = ChangesetPathContentContext::new_with_fsnode_entry(
+                                let from = ChangesetPathContentContext::new_with_manifest_entry(
                                     other.clone(),
-                                    (**from_path).clone(),
-                                    *from_entry,
+                                    (*from_path).clone(),
+                                    from_entry.clone(),
                                 )
                                 .await?;
                                 Some(ChangesetPathDiffContext::new_file(
                                     self.clone(),
                                     path.clone(),
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             self.clone(),
                                             path,
                                             entry,
@@ -1486,7 +1531,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                     self.clone(),
                                     path.clone(),
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             self.clone(),
                                             path,
                                             entry,
@@ -1519,7 +1564,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                     path.clone(),
                                     None,
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             source,
                                             source_path,
                                             entry,
@@ -1549,7 +1594,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                     self.clone(),
                                     path.clone(),
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             self.clone(),
                                             path.clone(),
                                             to_entry,
@@ -1557,7 +1602,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                         .await?,
                                     ),
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             source,
                                             source_path,
                                             from_entry,
@@ -1577,7 +1622,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                     self.clone(),
                                     path.clone(),
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             self.clone(),
                                             path,
                                             entry,
@@ -1604,7 +1649,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                     path.clone(),
                                     None,
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             source,
                                             source_path,
                                             entry,
@@ -1633,7 +1678,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                     self.clone(),
                                     path.clone(),
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             self.clone(),
                                             path.clone(),
                                             to_entry,
@@ -1641,7 +1686,7 @@ impl<R: MononokeRepo> ChangesetContext<R> {
                                         .await?,
                                     ),
                                     Some(
-                                        ChangesetPathContentContext::new_with_fsnode_entry(
+                                        ChangesetPathContentContext::new_with_manifest_entry(
                                             source,
                                             source_path,
                                             from_entry,

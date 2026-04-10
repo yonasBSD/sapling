@@ -37,6 +37,7 @@ commit_cloud_types = { version = "0.1.0", path = "../features/commit_cloud/types
 commit_graph = { version = "0.1.0", path = "../repo_attributes/commit_graph/commit_graph" }
 commit_rate_limit = { version = "0.1.0", path = "../features/commit_rate_limit" }
 commit_rate_limit_config = { version = "0.1.0", path = "../repo_attributes/commit_rate_limit" }
+content_manifest_derivation = { version = "0.1.0", path = "../derived_data/content_manifest_derivation" }
 context = { version = "0.1.0", path = "../servers/slapi/slapi_server/context" }
 cross_repo_sync = { version = "0.1.0", path = "../features/cross_repo_sync" }
 deleted_manifest = { version = "0.1.0", path = "../derived_data/deleted_manifest" }
