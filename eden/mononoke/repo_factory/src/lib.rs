@@ -140,6 +140,7 @@ use mercurial_mutation::SqlHgMutationStoreBuilder;
 use metaconfig_types::ArcCommonConfig;
 use metaconfig_types::ArcRepoConfig;
 use metaconfig_types::BlobConfig;
+use metaconfig_types::CommitIdentityScheme;
 use metaconfig_types::CommonConfig;
 use metaconfig_types::MetadataCacheConfig;
 use metaconfig_types::MetadataDatabaseConfig;
@@ -1737,6 +1738,36 @@ impl RepoFactory {
         Ok(cache as ArcBookmarksCache)
     }
 
+    /// Resolve the effective bookmark cache options for a repo.
+    /// For Git repos (when the JustKnob is enabled), use local WBC
+    /// instead of the process-level default (Remote), while preserving
+    /// the configured derived data scope.
+    fn effective_bookmark_cache_options(
+        &self,
+        repo_identity: &ArcRepoIdentity,
+        repo_config: &ArcRepoConfig,
+    ) -> Result<(BookmarkCacheKind, BookmarkCacheDerivedData)> {
+        let use_local_for_git = justknobs::eval(
+            "scm/mononoke:use_local_wbc_for_git_repos",
+            None,
+            Some(repo_identity.name()),
+        )?;
+
+        if use_local_for_git
+            && repo_config.default_commit_identity_scheme == CommitIdentityScheme::GIT
+        {
+            Ok((
+                BookmarkCacheKind::Local,
+                self.env.bookmark_cache_options.derived_data.clone(),
+            ))
+        } else {
+            Ok((
+                self.env.bookmark_cache_options.cache_kind.clone(),
+                self.env.bookmark_cache_options.derived_data.clone(),
+            ))
+        }
+    }
+
     async fn build_bookmarks_cache_impl(
         &self,
         bookmarks: &ArcBookmarks,
@@ -1745,12 +1776,13 @@ impl RepoFactory {
         repo_derived_data: &ArcRepoDerivedData,
         repo_event_publisher: &ArcRepoEventPublisher,
         phases: &ArcPhases,
-        _repo_config: &ArcRepoConfig,
+        repo_config: &ArcRepoConfig,
     ) -> Result<Arc<dyn CombinedBookmarksCache + Send + Sync>> {
-        let warmer_requirement: WarmerRequirement =
-            (&self.env.bookmark_cache_options.derived_data).into();
+        let (effective_cache_kind, effective_derived_data) =
+            self.effective_bookmark_cache_options(repo_identity, repo_config)?;
+        let warmer_requirement: WarmerRequirement = (&effective_derived_data).into();
 
-        match &self.env.bookmark_cache_options.cache_kind {
+        match &effective_cache_kind {
             BookmarkCacheKind::Local => {
                 let scuba_sample_builder =
                     self.env.warm_bookmarks_cache_scuba_sample_builder.clone();
@@ -1767,7 +1799,7 @@ impl RepoFactory {
                     warmer_requirement,
                 );
 
-                match self.env.bookmark_cache_options.derived_data {
+                match effective_derived_data {
                     BookmarkCacheDerivedData::HgOnly => {
                         wbc_builder.add_hg_warmers(repo_derived_data, phases)?;
                     }
@@ -1792,7 +1824,7 @@ impl RepoFactory {
             }
             #[cfg(fbcode_build)]
             BookmarkCacheKind::Remote(address) => {
-                match self.env.bookmark_cache_options.derived_data {
+                match effective_derived_data {
                     BookmarkCacheDerivedData::SpecificTypes(_) => {
                         anyhow::bail!("Remote bookmarks for 'SpecificTypes' is not supported");
                     }
