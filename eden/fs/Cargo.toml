@@ -95,6 +95,7 @@ members = [
   "inodes/overlay/services",
   "rust/edenfs-asserted-states",
   "rust/edenfs-asserted-states-client",
+  "rust/manifold_ffi",
   "rust/redirect_ffi",
   "service",
   "service/clients",

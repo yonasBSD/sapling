@@ -1,0 +1,17 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("scm_client_infra")
+
+rust_library(
+    name = "manifold-ffi",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/lib.rs",
+    cxx_bridge = "src/lib.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:cxx",
+        "//common/rust/shed/fbinit:fbinit",
+        "//eden/scm/lib/edenfs_ffi/cxxerror:cxxerror",
+        "//scm/telemetry/corpmanifold:corpmanifold",
+    ],
+)
