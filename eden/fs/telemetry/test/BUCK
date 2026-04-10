@@ -96,6 +96,8 @@ cpp_unittest(
     deps = [
         "fbsource//third-party/googletest:gtest",
         "//eden/fs/telemetry:error_info",
+        "//eden/fs/telemetry:throw_trace_capture",  # @manual needed for --wrap __cxa_throw linker flag
+        "//folly:c_portability",
     ],
 )
 

@@ -50,8 +50,6 @@ EdenErrorInfo EdenErrorInfoBuilder::create() {
   info.errorCode = errorCode_;
   info.errorName = std::move(errorName_);
   info.exceptionType = std::move(exceptionType_);
-  // Currently stores source location (file:line in func), will be replaced
-  // with a Manifold URL for full stack traces
   info.stackTrace = std::move(sourceLocation_);
   info.clientCommandName = std::move(clientCommandName_);
   info.inode = inode_;
@@ -70,6 +68,17 @@ EdenErrorInfoBuilder::EdenErrorInfoBuilder(
       errorName_(error.errorName),
       exceptionType_(error.exceptionType),
       sourceLocation_(
-          fmt::format("{}:{} in {}", loc.file, loc.line, loc.func)) {}
+          error.stackTrace.has_value()
+              ? fmt::format(
+                    "Source: {}:{} in {}\n\nStack trace:\n{}",
+                    loc.file,
+                    loc.line,
+                    loc.func,
+                    *error.stackTrace)
+              : fmt::format(
+                    "Source: {}:{} in {}",
+                    loc.file,
+                    loc.line,
+                    loc.func)) {}
 
 } // namespace facebook::eden

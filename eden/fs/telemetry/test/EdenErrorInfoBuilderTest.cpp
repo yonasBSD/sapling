@@ -8,27 +8,56 @@
 #include "eden/fs/telemetry/EdenErrorInfoBuilder.h"
 #include <gtest/gtest.h>
 #include <cerrno>
+#include <stdexcept>
 #include <system_error>
+
+#include <folly/CPortability.h>
+
+#include "eden/fs/telemetry/ErrorArg.h"
 
 using namespace facebook::eden;
 
-TEST(EdenErrorInfoTest, InitializeFuseEdenErrorInfoWithException) {
-  std::runtime_error ex("fuse read failed");
-  int line = __LINE__ + 1;
-  auto info = EdenErrorInfo::fuse(ex, 42, "/mnt/repo").create();
+namespace {
+[[noreturn]] FOLLY_NOINLINE void throwRuntimeError() {
+  throw std::runtime_error("fuse read failed");
+}
+} // namespace
 
-  EXPECT_EQ(info.component, EdenComponent::Fuse);
-  EXPECT_EQ(info.errorMessage, "fuse read failed");
-  EXPECT_EQ(info.inode.value(), 42);
-  EXPECT_EQ(info.mountPoint.value(), "/mnt/repo");
-  EXPECT_FALSE(info.errorCode.has_value());
-  EXPECT_NE(
-      info.exceptionType.value().find("runtime_error"), std::string::npos);
-  EXPECT_TRUE(info.stackTrace.has_value());
-  auto& trace = info.stackTrace.value();
-  EXPECT_NE(trace.find("EdenErrorInfoBuilderTest.cpp"), std::string::npos);
-  EXPECT_NE(trace.find(":" + std::to_string(line) + " in "), std::string::npos);
-  EXPECT_NE(trace.find("TestBody"), std::string::npos);
+TEST(EdenErrorInfoTest, InitializeFuseEdenErrorInfoWithException) {
+  try {
+    throwRuntimeError();
+  } catch (const std::exception& ex) {
+    // ErrorArg captures the throw-site stack trace inside a catch block.
+    ErrorArg error(ex);
+#ifdef __linux__
+    ASSERT_TRUE(error.stackTrace.has_value())
+        << "ErrorArg should capture a stack trace from a thrown exception";
+    EXPECT_NE(error.stackTrace->find("throwRuntimeError"), std::string::npos)
+        << "Stack trace should contain the throwing function, got: "
+        << *error.stackTrace;
+#endif
+
+    // create() stores the raw combined trace in info.stackTrace.
+    auto info = EdenErrorInfo::fuse(ex, 42, "/mnt/repo").create();
+
+    EXPECT_EQ(info.component, EdenComponent::Fuse);
+    EXPECT_EQ(info.errorMessage, "fuse read failed");
+    EXPECT_EQ(info.inode.value(), 42);
+    EXPECT_EQ(info.mountPoint.value(), "/mnt/repo");
+    EXPECT_FALSE(info.errorCode.has_value());
+    EXPECT_NE(
+        info.exceptionType.value().find("runtime_error"), std::string::npos);
+    ASSERT_TRUE(info.stackTrace.has_value());
+    EXPECT_NE(
+        info.stackTrace->find("EdenErrorInfoBuilderTest.cpp"),
+        std::string::npos)
+        << "Stack trace should contain source file, got: " << *info.stackTrace;
+#ifdef __linux__
+    EXPECT_NE(info.stackTrace->find("Stack trace:"), std::string::npos)
+        << "Stack trace should contain raw trace section, got: "
+        << *info.stackTrace;
+#endif
+  }
 }
 
 TEST(EdenErrorInfoTest, InitializeFuseEdenErrorInfoWithStringMessage) {
@@ -41,10 +70,10 @@ TEST(EdenErrorInfoTest, InitializeFuseEdenErrorInfoWithStringMessage) {
   EXPECT_FALSE(info.errorCode.has_value());
   EXPECT_FALSE(info.errorName.has_value());
   EXPECT_FALSE(info.exceptionType.has_value());
-  EXPECT_TRUE(info.stackTrace.has_value());
-  auto& loc = info.stackTrace.value();
-  EXPECT_NE(loc.find("EdenErrorInfoBuilderTest.cpp"), std::string::npos)
-      << "Expected source file in location, got: " << loc;
+  ASSERT_TRUE(info.stackTrace.has_value());
+  EXPECT_NE(
+      info.stackTrace->find("EdenErrorInfoBuilderTest.cpp"), std::string::npos)
+      << "Stack trace should contain source file, got: " << *info.stackTrace;
 }
 
 TEST(EdenErrorInfoTest, FuseErrorInfoOverridesErrorCodeAndName) {
