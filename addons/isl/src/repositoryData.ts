@@ -123,3 +123,8 @@ export const repoRootAndCwd = atom<string>(get => `${get(serverCwd)}\n${get(repo
 export function atomResetOnCwdChange<T>(defaultValue: T) {
   return atomResetOnDepChange(defaultValue, repoRootAndCwd);
 }
+
+/** Like `atomResetOnCwdChange`, but only resets when the repo root changes, not subdirectory. */
+export function atomResetOnRepoChange<T>(defaultValue: T) {
+  return atomResetOnDepChange(defaultValue, repoRootAtom);
+}

@@ -43,7 +43,7 @@ import {Dag, DagCommitInfo} from './dag/dag';
 import {readInterestingAtoms, serializeAtomsState} from './debug/getInterestingAtoms';
 import {atomFamilyWeak, configBackedAtom, readAtom, writeAtom} from './jotaiUtils';
 import platform from './platform';
-import {atomResetOnCwdChange, repositoryData} from './repositoryData';
+import {atomResetOnCwdChange, atomResetOnRepoChange, repositoryData} from './repositoryData';
 import {registerCleanup, registerDisposable} from './utils';
 
 export {repositoryData};
@@ -249,7 +249,7 @@ export const uncommittedChangesFetchError = atom(get => {
   return get(latestUncommittedChangesData).error;
 });
 
-export const mergeConflicts = atom<MergeConflicts | undefined>(undefined);
+export const mergeConflicts = atomResetOnRepoChange<MergeConflicts | undefined>(undefined);
 registerCleanup(
   mergeConflicts,
   subscriptionEffect('mergeConflicts', data => {
