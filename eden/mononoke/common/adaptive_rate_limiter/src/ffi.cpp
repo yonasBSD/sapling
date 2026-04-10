@@ -7,10 +7,17 @@
 
 #include "eden/mononoke/common/adaptive_rate_limiter/src/ffi.h"
 
+#include <folly/Singleton.h>
+
 namespace facebook::mononoke::ffi {
 
 std::unique_ptr<CppAdaptiveRateLimiterWrapper> new_adaptive_rate_limiter(
     const CppAdaptiveRateLimiterConfig& config) {
+  // Ensure folly singletons are initialized. Idempotent — no-op if
+  // folly::init was already called (e.g., in production revproxy).
+  // Required for non-folly binaries (Rust tests) where C++ static
+  // destructors may access singletons like JustKnobs.
+  folly::SingletonVault::singleton()->registrationComplete();
   return std::make_unique<CppAdaptiveRateLimiterWrapper>(config);
 }
 

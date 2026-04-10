@@ -12,7 +12,9 @@ cpp_library(
         "src/ffi.h",
     ],
     undefined_symbols = True,
-    deps = [],
+    deps = [
+        "//folly:singleton",
+    ],
     exported_deps = [
         "//eden/mononoke/common/adaptive_rate_limiter/cpp:adaptive_rate_limiter_cpp",
     ],
