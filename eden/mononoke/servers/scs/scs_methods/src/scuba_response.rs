@@ -142,6 +142,8 @@ impl AddScubaResponse for thrift::CommitHistoryResponse {}
 
 impl AddScubaResponse for thrift::CommitHgMutationHistoryResponse {}
 
+impl AddScubaResponse for thrift::CommitGitMutationHistoryResponse {}
+
 impl AddScubaResponse for thrift::CommitDirectoryBranchClustersResponse {
     fn add_scuba_response(&self, scuba: &mut MononokeScubaSampleBuilder) {
         scuba.add("response_clusters_count", self.clusters.len());

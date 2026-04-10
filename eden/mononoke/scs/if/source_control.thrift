@@ -757,6 +757,7 @@ enum HistoryFormat {
 enum MutationHistoryFormat {
   COMMIT_ID = 1,
   HG_MUTATION = 2,
+  GIT_MUTATION = 3,
 }
 
 @hack.MigrationBlockingLegacyJSONSerialization
@@ -1658,6 +1659,11 @@ struct CommitHgMutationHistoryParams {
   1: MutationHistoryFormat format;
 }
 
+struct CommitGitMutationHistoryParams {
+  /// The format of the mutation history to return.
+  1: MutationHistoryFormat format;
+}
+
 const i64 DIRECTORY_BRANCH_CLUSTERS_MAX_LIMIT = 1000;
 
 struct CommitDirectoryBranchClustersParams {
@@ -2457,6 +2463,27 @@ struct HgMutation {
   4: string op;
   5: string user;
   6: DateTime date;
+}
+
+struct CommitGitMutationHistoryResponse {
+  1: GitMutationHistory git_mutation_history;
+}
+
+@hack.MigrationBlockingLegacyJSONSerialization
+union GitMutationHistory {
+  1: list<CommitId> commit_ids;
+  2: list<GitMutation> git_mutations;
+}
+
+/// Git mutation entry extracted from predecessor/predecessor-op
+/// extra headers on git commit objects.
+struct GitMutation {
+  /// The commit that replaced the predecessors.
+  1: CommitId successor;
+  /// The commit(s) that were replaced (comma-separated SHA1s for fold).
+  2: list<CommitId> predecessors;
+  /// The operation that created this mutation (amend, rebase, cherry-pick).
+  3: string op;
 }
 
 struct DirectoryBranchCluster {
@@ -3556,6 +3583,17 @@ service SourceControlService extends fb303_core.BaseService {
   CommitHgMutationHistoryResponse commit_hg_mutation_history(
     1: CommitSpecifier commit,
     2: CommitHgMutationHistoryParams params,
+  ) throws (
+    1: RequestError request_error,
+    2: InternalError internal_error,
+    3: OverloadError overload_error,
+  );
+
+  /// Returns the git mutation history of a commit, extracted from
+  /// predecessor/predecessor-op extra headers on the commit object.
+  CommitGitMutationHistoryResponse commit_git_mutation_history(
+    1: CommitSpecifier commit,
+    2: CommitGitMutationHistoryParams params,
   ) throws (
     1: RequestError request_error,
     2: InternalError internal_error,

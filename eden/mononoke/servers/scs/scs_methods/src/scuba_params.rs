@@ -488,6 +488,8 @@ impl AddScubaParams for thrift::CommitPathHistoryParams {
 
 impl AddScubaParams for thrift::CommitHgMutationHistoryParams {}
 
+impl AddScubaParams for thrift::CommitGitMutationHistoryParams {}
+
 impl AddScubaParams for thrift::CommitDirectoryBranchClustersParams {
     fn add_scuba_params(&self, scuba: &mut MononokeScubaSampleBuilder) {
         if let Some(paths) = &self.paths {

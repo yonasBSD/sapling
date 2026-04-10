@@ -1521,6 +1521,11 @@ impl SourceControlService for SourceControlServiceThriftImpl {
             params: thrift::CommitHgMutationHistoryParams,
         ) -> Result<thrift::CommitHgMutationHistoryResponse, service::CommitHgMutationHistoryExn>;
 
+        async fn commit_git_mutation_history(
+            commit: thrift::CommitSpecifier,
+            params: thrift::CommitGitMutationHistoryParams,
+        ) -> Result<thrift::CommitGitMutationHistoryResponse, service::CommitGitMutationHistoryExn>;
+
         async fn commit_directory_branch_clusters(
             commit: thrift::CommitSpecifier,
             params: thrift::CommitDirectoryBranchClustersParams,

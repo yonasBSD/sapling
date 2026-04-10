@@ -381,6 +381,7 @@ impl_into_thrift_error!(service::CommitFindFilesStreamExn);
 impl_into_thrift_error!(service::CommitFindFilesStreamStreamExn);
 impl_into_thrift_error!(service::CommitHistoryExn);
 impl_into_thrift_error!(service::CommitHgMutationHistoryExn);
+impl_into_thrift_error!(service::CommitGitMutationHistoryExn);
 impl_into_thrift_error!(service::CommitDirectoryBranchClustersExn);
 impl_into_thrift_error!(service::CommitRestrictedPathsAccessExn);
 impl_into_thrift_error!(service::CommitFindRestrictedPathsExn);

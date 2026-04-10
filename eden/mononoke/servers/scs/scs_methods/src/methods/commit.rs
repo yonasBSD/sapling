@@ -1757,6 +1757,17 @@ impl SourceControlServiceImpl {
         })
     }
 
+    /// Returns the git mutation history of a commit, extracted from
+    /// predecessor/predecessor-op extra headers on the commit object.
+    pub(crate) async fn commit_git_mutation_history(
+        &self,
+        _ctx: CoreContext,
+        _commit: thrift::CommitSpecifier,
+        _params: thrift::CommitGitMutationHistoryParams,
+    ) -> Result<thrift::CommitGitMutationHistoryResponse, scs_errors::ServiceError> {
+        Err(scs_errors::internal_error("commit_git_mutation_history not yet implemented").into())
+    }
+
     /// Returns the directory branch clusters for a commit
     pub(crate) async fn commit_directory_branch_clusters(
         &self,
