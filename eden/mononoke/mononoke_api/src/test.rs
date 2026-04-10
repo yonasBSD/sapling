@@ -18,4 +18,5 @@ mod test_repo_create_changeset;
 mod test_repo_create_changeset_stack;
 mod test_repo_land_stack;
 mod test_repo_modify_bookmarks;
+mod test_restricted_paths;
 mod test_sparse_profile;
