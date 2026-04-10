@@ -499,7 +499,9 @@ function populateAndSetISLWebview<W extends vscode.WebviewPanel | vscode.Webview
   panelOrView.onDidDispose(() => {
     if (isPanel(panelOrView)) {
       logger.info('Disposing ISL panel');
-      islPanelOrViewResult = undefined;
+      if (islPanelOrViewResult?.panel === panelOrView) {
+        islPanelOrViewResult = undefined;
+      }
     } else {
       logger.info('Disposing ISL view');
     }
