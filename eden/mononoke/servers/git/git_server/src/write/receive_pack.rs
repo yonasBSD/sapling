@@ -31,7 +31,9 @@ use packetline::encode::write_text_packetline;
 use protocol::pack_processor::parse_pack;
 use repo_blobstore::RepoBlobstoreArc;
 use scuba_ext::FutureStatsScubaExt;
+use sharding_observability::WeightTracker;
 use tracing::info;
+use weight_observer::WeightObserver;
 
 use crate::command::Command;
 use crate::command::PushArgs;
@@ -126,15 +128,45 @@ async fn push(
         }
         let concurrency = request_context.pushvars.concurrency();
 
+        // Create a WeightTracker for push operations so ShardManager can see
+        // push memory pressure via estimated_memory_bytes counter.
+        let weight_observer: Option<Arc<dyn WeightObserver>> = if justknobs::eval(
+            "scm/mononoke:git_server_enable_push_memory_tracking",
+            None,
+            Some(repo_name.as_str()),
+        )
+        .unwrap_or(false)
+        {
+            let main_client_id = request_context
+                .ctx
+                .metadata()
+                .client_info()
+                .and_then(|ci| ci.request_info.as_ref())
+                .and_then(|ri| ri.main_id.clone());
+            Some(WeightTracker::new(
+                request_context.ctx.fb,
+                repo_name.clone(),
+                main_client_id.as_deref(),
+            ))
+        } else {
+            None
+        };
+
         // Parse the packfile provided as part of the push and verify that its valid
-        let parsed_objects = parse_pack(pack_file.split().1, ctx, blobstore.clone(), concurrency)
-            .try_timed()
-            .await?
-            .log_future_stats(
-                scuba.clone(),
-                "Parsed complete Packfile",
-                "Push".to_string(),
-            );
+        let parsed_objects = parse_pack(
+            pack_file.split().1,
+            ctx,
+            blobstore.clone(),
+            concurrency,
+            weight_observer,
+        )
+        .try_timed()
+        .await?
+        .log_future_stats(
+            scuba.clone(),
+            "Parsed complete Packfile",
+            "Push".to_string(),
+        );
         drop(pack_file);
 
         // Generate the GitObjectStore using the parsed objects

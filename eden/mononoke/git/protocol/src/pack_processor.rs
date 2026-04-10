@@ -48,6 +48,7 @@ use scuba_ext::FutureStatsScubaExt;
 use sha1::Digest;
 use sha1::Sha1;
 use tempfile::Builder;
+use weight_observer::WeightObserver;
 
 use crate::PACKFILE_SUFFIX;
 
@@ -200,6 +201,7 @@ pub async fn parse_pack(
     ctx: &CoreContext,
     blobstore: Arc<RepoBlobstore>,
     concurrency: usize,
+    _weight_observer: Option<Arc<dyn WeightObserver>>,
 ) -> Result<FxHashMap<ObjectId, ObjectContent>> {
     // If the packfile is empty, return an empty object map. This can happen when the push only has ref create/update
     // pointing to existing commit or just ref deletes
