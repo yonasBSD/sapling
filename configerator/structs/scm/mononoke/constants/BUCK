@@ -7,7 +7,6 @@ thrift_library(
     languages = [
         "python",
         "rust",
-        "py-deprecated",
     ],
     py3_namespace = "mononoke.constants",
     py_base_module = "configerator.mononoke",
