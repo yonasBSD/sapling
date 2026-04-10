@@ -282,7 +282,7 @@ async fn test_diff_with_dirs(fb: FacebookInit) -> Result<(), Error> {
         .await?
         .expect("other changeset exists");
 
-    let diff: Vec<_> = cs
+    let mut diff: Vec<_> = cs
         .diff_unordered(
             &other_cs,
             false,
@@ -291,6 +291,7 @@ async fn test_diff_with_dirs(fb: FacebookInit) -> Result<(), Error> {
             btreeset! {ChangesetDiffItem::TREES},
         )
         .await?;
+    diff.sort_by(|a, b| a.path().cmp(b.path()));
     assert_eq!(diff.len(), 6);
     match diff.first() {
         Some(diff) => {
@@ -310,7 +311,7 @@ async fn test_diff_with_dirs(fb: FacebookInit) -> Result<(), Error> {
     }
     match diff.get(1) {
         Some(diff) => {
-            assert_eq!(diff.path(), &MPath::try_from("dir2")?);
+            assert_eq!(diff.path(), &MPath::try_from("dir1")?);
         }
         None => {
             panic!("expected a diff");
@@ -327,7 +328,7 @@ async fn test_diff_with_dirs(fb: FacebookInit) -> Result<(), Error> {
         .expect("other changeset exists");
 
     // Added
-    let diff: Vec<_> = cs
+    let mut diff: Vec<_> = cs
         .diff_unordered(
             &other_cs,
             false,
@@ -336,6 +337,7 @@ async fn test_diff_with_dirs(fb: FacebookInit) -> Result<(), Error> {
             btreeset! {ChangesetDiffItem::TREES},
         )
         .await?;
+    diff.sort_by(|a, b| a.path().cmp(b.path()));
     assert_eq!(diff.len(), 5);
     match diff.first() {
         Some(diff) => {
