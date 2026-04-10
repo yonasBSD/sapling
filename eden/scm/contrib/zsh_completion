@@ -191,6 +191,19 @@ _hg_branches() {
   (( $#branches )) && _describe -t branches 'branches' branches
 }
 
+_hg_shelves() {
+  typeset -a shelves
+  local line shelf
+
+  _hg_cmd shelve --list | while IFS= read -r line
+  do
+    shelf=${line%%[[:space:]]##\(*}
+    shelf=${shelf%%[[:space:]]#}
+    [[ -n "$shelf" ]] && shelves+=("$shelf")
+  done
+  (( $#shelves )) && _describe -t hg-shelves 'shelved changes' shelves
+}
+
 # likely merge candidates
 _hg_mergerevs() {
   typeset -a heads
@@ -454,7 +467,7 @@ _hg_subrepos_opts=(
   '(--subrepos -S)'{-S,--subrepos}'[recurse into subrepositories]')
 
 _hg_cmd() {
-  _call_program hg HGPLAIN=1 hg "$_hg_cmd_globals[@]" "$@" 2> /dev/null
+  _call_program hg HGPLAIN=1 "${words[1]:-hg}" "$_hg_cmd_globals[@]" "$@" 2> /dev/null
 }
 
 _hg_cmd_add() {
@@ -956,6 +969,15 @@ _hg_cmd_unhide() {
   '*:revision:_hg_revrange' \
   '*'{-r+,--rev=}'[unhide these revisions]:revision:_hg_revrange' \
   ':revision:_hg_labels'
+}
+
+_hg_cmd_unshelve() {
+  _arguments -s -w : $_hg_global_opts $_hg_mergetool_opts \
+  '(-c --continue -k --keep -n --name)'{-a,--abort}'[abort an incomplete unshelve operation]' \
+  '(-a --abort -k --keep -n --name)'{-c,--continue}'[continue an incomplete unshelve operation]' \
+  '(-a --abort -c --continue)'{-k,--keep}'[keep shelve after unshelving]' \
+  '(-a --abort -c --continue)'{-n+,--name=}'[restore shelved change with given name]:shelved change:_hg_shelves' \
+  '(-a --abort -c --continue -n --name):shelved change:_hg_shelves'
 }
 
 ## extensions ##
