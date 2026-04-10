@@ -6,7 +6,6 @@ thrift_library(
     name = "adaptive_rate_limiter",
     languages = [
         "python",
-        "py-deprecated",
         "rust",
     ],
     py3_namespace = "scm.mononoke.adaptive_rate_limiter",
