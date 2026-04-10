@@ -42,15 +42,14 @@ use crate::tree::Node;
 use crate::tree::NodeEntry;
 use crate::tree::NodeEntryMap;
 
-pub trait Serializable
-where
-    Self: Sized,
-{
+pub trait Serializable {
     /// Serialize the storable data to a `Write` stream.
     fn serialize(&self, w: &mut dyn Write) -> Result<()>;
 
     /// Deserialize a new data item from a `Read` stream.
-    fn deserialize(r: &mut dyn Read) -> Result<Self>;
+    fn deserialize(r: &mut dyn Read) -> Result<Self>
+    where
+        Self: Sized;
 }
 
 impl Serializable for FileState {
