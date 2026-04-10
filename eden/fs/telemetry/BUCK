@@ -132,6 +132,25 @@ cpp_library(
 )
 
 cpp_library(
+    name = "stack_trace_uploader",
+    srcs = [
+        "StackTraceUploader.cpp",
+    ],
+    headers = [
+        "StackTraceUploader.h",
+    ],
+    deps = [
+        "fbsource//third-party/fmt:fmt",
+        "//eden/fs/rust/manifold_ffi:manifold-ffi",
+        "//eden/fs/rust/manifold_ffi:manifold-ffi@header",
+        "//folly:random",
+        "//folly/executors:cpu_thread_pool_executor",
+        "//folly/logging:logging",
+    ],
+    exported_deps = [],
+)
+
+cpp_library(
     name = "error_info",
     srcs = [
         "EdenComponent.cpp",

@@ -76,6 +76,18 @@ cpp_unittest(
 )
 
 cpp_unittest(
+    name = "stack_trace_uploader_test",
+    srcs = [
+        "StackTraceUploaderTest.cpp",
+    ],
+    supports_static_listing = False,
+    deps = [
+        "fbsource//third-party/googletest:gtest",
+        "//eden/fs/telemetry:stack_trace_uploader",
+    ],
+)
+
+cpp_unittest(
     name = "error_info_builder_test",
     srcs = [
         "EdenErrorInfoBuilderTest.cpp",

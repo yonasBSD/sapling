@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 namespace facebook::eden {
@@ -18,7 +19,9 @@ class StackTraceUploader {
  public:
   static constexpr const char* kBucket = "edenfs-errors-stacktraces";
   static constexpr const char* kApiKey = "edenfs-errors-stacktraces-key";
+  static constexpr const char* kClientIdentity = "edenfs_stack_trace_uploader";
   static constexpr int kUploadTimeoutSeconds = 10;
+  static constexpr uint32_t kExpirationSeconds = 30 * 24 * 60 * 60; // 30 days
 
   /**
    * Generate a unique Manifold key for a stack trace.
