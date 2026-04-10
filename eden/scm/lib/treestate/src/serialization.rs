@@ -97,12 +97,18 @@ impl Serializable for AggregatedState {
     }
 }
 
-impl Serializable for Box<[u8]> {
+impl Serializable for [u8] {
     fn serialize(&self, w: &mut dyn Write) -> Result<()> {
         w.write_vlq(self.len())?;
         w.write_all(self)?;
 
         Ok(())
+    }
+}
+
+impl Serializable for Box<[u8]> {
+    fn serialize(&self, w: &mut dyn Write) -> Result<()> {
+        (**self).serialize(w)
     }
 
     fn deserialize(r: &mut dyn Read) -> Result<Self> {

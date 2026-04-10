@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io::Cursor;
 use std::iter::Iterator;
-use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -398,7 +397,7 @@ impl TreeState {
     }
 
     pub fn metadata_bytes(&self) -> &[u8] {
-        self.root.metadata().deref()
+        self.root.metadata()
     }
 
     pub fn metadata(&self) -> Result<BTreeMap<String, String>> {

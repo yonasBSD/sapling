@@ -59,7 +59,7 @@ impl TreeStateRoot {
         self.dirty = true;
     }
 
-    pub fn metadata(&self) -> &Box<[u8]> {
+    pub fn metadata(&self) -> &[u8] {
         &self.metadata
     }
 
