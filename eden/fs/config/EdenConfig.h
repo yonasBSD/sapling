@@ -1325,6 +1325,14 @@ class EdenConfig : private ConfigSettingManager {
       this};
 
   /**
+   * Whether to upload stack traces to Manifold when logging errors.
+   */
+  ConfigSetting<bool> enableStackTraceUpload{
+      "telemetry:enable-stack-trace-upload",
+      false,
+      this};
+
+  /**
    * Controls which paths eden will log data fetches for when this is set.
    * Fetches for any paths that match the regex will be logged.
    */
