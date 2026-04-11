@@ -514,6 +514,63 @@ TEST_F(RpcServerTest, permit_exhausted_still_fast_paths_unimplemented) {
   cleanup(clientFd, server);
 }
 
+class TestTimingProcessor : public RpcServerProcessor {
+ public:
+  bool shouldFastPathRPCs() const override {
+    return false;
+  }
+
+  void onRequestComplete(const RpcRequestTimeline& t) override {
+    lastTimeline_ = t;
+    completedCount_++;
+  }
+
+  std::optional<RpcRequestTimeline> lastTimeline_;
+  int completedCount_{0};
+};
+
+TEST_F(RpcServerTest, phase_timing_records_all_phases) {
+  auto proc = std::make_shared<TestTimingProcessor>();
+  auto server = createTestServerWithManualExecutor(proc);
+  auto clientFd = connectClient(*server);
+
+  // Send a null RPC through the full pipeline (shouldFastPathRPCs=false).
+  sendRequest(clientFd, buildNullRpcRequest(99));
+
+  // Crank the ManualExecutor and EventBase to complete the pipeline.
+  for (int i = 0; i < 20; ++i) {
+    manualExecutor_->run();
+    evb.loopOnce(EVLOOP_NONBLOCK);
+  }
+
+  ASSERT_TRUE(pollForReply(clientFd, 1000))
+      << "Reply should arrive after cranking the thread pool";
+  readReply(clientFd);
+
+  // Drive EventBase once more to ensure the WriteCallback has fired.
+  evb.loopOnce(EVLOOP_NONBLOCK);
+
+  // onRequestComplete should have been called exactly once.
+  ASSERT_EQ(proc->completedCount_, 1);
+
+  auto& t = *proc->lastTimeline_;
+
+  // All five timestamps should be populated.
+  ASSERT_TRUE(t.requestReceived.has_value()) << "requestReceived not set";
+  ASSERT_TRUE(t.dispatched.has_value()) << "dispatched not set";
+  ASSERT_TRUE(t.handlerStart.has_value()) << "handlerStart not set";
+  ASSERT_TRUE(t.handlerDone.has_value()) << "handlerDone not set";
+  ASSERT_TRUE(t.responseSent.has_value()) << "responseSent not set";
+
+  // Timestamps should be in chronological order.
+  EXPECT_LE(*t.requestReceived, *t.dispatched);
+  EXPECT_LE(*t.dispatched, *t.handlerStart);
+  EXPECT_LE(*t.handlerStart, *t.handlerDone);
+  EXPECT_LE(*t.handlerDone, *t.responseSent);
+
+  cleanup(clientFd, server);
+}
+
 #endif // !_WIN32
 
 } // namespace
