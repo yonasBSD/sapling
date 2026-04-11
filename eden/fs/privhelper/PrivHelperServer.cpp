@@ -678,6 +678,8 @@ void PrivHelperServer::nfsMount(
    *   short for files to be fetched, thus make it configurable.
    * Possibly specifies dumbtimer behavior, iff an EdenConfig value is
    *   explicitly set.
+   * Suppresses macOS kernel JUKEBOX retry logging (NFS_MFLAG_MUTEJUKEBOX),
+   *   since EdenFS uses NFS3ERR_JUKEBOX intentionally for backpressure.
    *
    * See `man mount_nfs` for more options.
    */
@@ -685,9 +687,10 @@ void PrivHelperServer::nfsMount(
   nfs_mattr_flags flags{
       NFS_MATTR_BITMAP_LEN,
       NFS_MFLAG_RESVPORT | NFS_MFLAG_RDIRPLUS | NFS_MFLAG_SOFT |
-          NFS_MFLAG_INTR | unmask_dumbtimer,
+          NFS_MFLAG_INTR | NFS_MFLAG_MUTEJUKEBOX | unmask_dumbtimer,
       NFS_MATTR_BITMAP_LEN,
-      NFS_MFLAG_INTR | readdirplus_flag | soft_flag | dumbtimer_flag};
+      NFS_MFLAG_INTR | NFS_MFLAG_MUTEJUKEBOX | readdirplus_flag | soft_flag |
+          dumbtimer_flag};
   XdrTrait<nfs_mattr_flags>::serialize(attrSer, flags);
 
   mattrFlags |= NFS_MATTR_NFS_VERSION;
