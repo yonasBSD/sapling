@@ -1138,10 +1138,12 @@ class EdenConfig : private ConfigSettingManager {
    * available, NFS returns NFS3ERR_JUKEBOX causing the client to retry.
    * This value is also used as the threshold for logging high request counts.
    * When set to 0, no limit is enforced and no logging will occur.
+   * Defaults to 10× CPU count on macOS (~100 on typical Macs), 0 (disabled)
+   * on other platforms.
    */
   ConfigSetting<uint64_t> maxFsChannelInflightRequests{
       "fschannel:max-inflight-requests",
-      0,
+      folly::kIsApple ? folly::available_concurrency() * 10 : 0,
       this};
 
   ConfigSetting<std::chrono::nanoseconds> highFsRequestsLogInterval{
