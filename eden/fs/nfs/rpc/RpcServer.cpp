@@ -18,6 +18,7 @@
 #include "eden/common/utils/Throw.h"
 #include "eden/fs/nfs/rpc/Rpc.h"
 #include "eden/fs/telemetry/LogEvent.h"
+#include "eden/fs/utils/FsChannelTypes.h"
 
 using folly::AsyncServerSocket;
 using folly::AsyncSocket;
@@ -312,6 +313,7 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
     if (!buf) {
       break;
     }
+    auto requestReceived = std::chrono::steady_clock::now();
     XLOG(DBG7, "received a request");
 
     // Pre-parse the RPC header for inline operations on the EventBase thread.
@@ -356,7 +358,9 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
       }
     }
 
-    auto now = std::chrono::steady_clock::now();
+    RpcRequestTimeline timeline;
+    timeline.requestReceived = requestReceived;
+
     auto should_log = false;
     {
       // state isn't actually locked, this scoping is just for show.
@@ -367,9 +371,10 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
 
       if (maximumInFlightRequests_ > 0 &&
           state.pendingRequests == maximumInFlightRequests_ &&
-          now >= state.lastHighNfsRequestsLog_ + highNfsRequestsLogInterval_) {
+          requestReceived >=
+              state.lastHighNfsRequestsLog_ + highNfsRequestsLogInterval_) {
         should_log = true;
-        state.lastHighNfsRequestsLog_ = now;
+        state.lastHighNfsRequestsLog_ = requestReceived;
       }
     }
 
@@ -377,12 +382,16 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
       errorLogger_->logEvent(ManyLiveFsChannelRequests{});
     }
 
+    timeline.dispatched = std::chrono::steady_clock::now();
+
     // Send the work to a thread pool to increase the number of inflight
     // requests that can be handled concurrently.
     threadPool_->add([this,
                       buf = std::move(buf),
                       guard = DestructorGuard(this),
-                      permit = std::move(permit)]() mutable {
+                      permit = std::move(permit),
+                      timeline]() mutable {
+      timeline.handlerStart = std::chrono::steady_clock::now();
       XLOGF(DBG8, "Received:\n{}", displayBuffer(buf.get()));
       // We use a scope so that the cursor is not still around after we
       // delete part of the IOBuf later. Attempting to use this cursor
@@ -412,7 +421,11 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
       bufQueue.append(std::move(buf));
       bufQueue.trimStart(sizeof(uint32_t));
 
-      dispatchAndReply(bufQueue.move(), std::move(guard), std::move(permit));
+      dispatchAndReply(
+          bufQueue.move(),
+          std::move(guard),
+          std::move(permit),
+          std::move(timeline));
     });
   }
 }
@@ -474,7 +487,8 @@ void RpcConnectionHandler::replyServerError(
 void RpcConnectionHandler::dispatchAndReply(
     std::unique_ptr<folly::IOBuf> input,
     DestructorGuard guard,
-    std::unique_ptr<RequestPermit> permit) {
+    std::unique_ptr<RequestPermit> permit,
+    [[maybe_unused]] RpcRequestTimeline timeline) {
   makeImmediateFutureWith(
       [&]() mutable -> ImmediateFuture<std::unique_ptr<folly::IOBuf>> {
         folly::io::Cursor deser(input.get());

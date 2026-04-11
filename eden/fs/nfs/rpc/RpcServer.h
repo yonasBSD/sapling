@@ -265,7 +265,8 @@ class RpcConnectionHandler : public folly::DelayedDestruction,
   void dispatchAndReply(
       std::unique_ptr<folly::IOBuf> input,
       DestructorGuard guard,
-      std::unique_ptr<RequestPermit> permit);
+      std::unique_ptr<RequestPermit> permit,
+      RpcRequestTimeline timeline);
 
   /**
    * Reply to an rpc call with an error.
