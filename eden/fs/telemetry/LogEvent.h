@@ -905,14 +905,44 @@ struct EMenuActionEvent : public EdenFSEvent {
 struct LongRunningFSRequest : public EdenFSEvent {
   double duration = 0.0;
   std::string causeDetail;
+  double acceptedNs = -1.0;
+  double queueWaitNs = -1.0;
+  double processingNs = -1.0;
+  double writeWaitNs = -1.0;
 
   LongRunningFSRequest(double duration, std::string_view detail)
       : duration(duration), causeDetail(detail) {}
+
+  LongRunningFSRequest(
+      double duration,
+      std::string_view detail,
+      double accepted,
+      double queueWait,
+      double processing,
+      double writeWait)
+      : duration(duration),
+        causeDetail(detail),
+        acceptedNs(accepted),
+        queueWaitNs(queueWait),
+        processingNs(processing),
+        writeWaitNs(writeWait) {}
 
   void populate(DynamicEvent& event) const override {
     // Duration in nanoseconds
     event.addDouble("duration", duration);
     event.addString("causeDetail", causeDetail);
+    if (acceptedNs >= 0) {
+      event.addDouble("acceptedNs", acceptedNs);
+    }
+    if (queueWaitNs >= 0) {
+      event.addDouble("queueWaitNs", queueWaitNs);
+    }
+    if (processingNs >= 0) {
+      event.addDouble("processingNs", processingNs);
+    }
+    if (writeWaitNs >= 0) {
+      event.addDouble("writeWaitNs", writeWaitNs);
+    }
   }
 
   const char* getType() const override {

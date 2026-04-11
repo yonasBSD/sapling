@@ -351,6 +351,13 @@ struct NfsStats : StatsGroup<NfsStats> {
   // Backpressure
   Counter nfsBackpressureJukebox{"nfs.backpressure_jukebox"};
 
+  // Phase timing (aggregate across all NFS procedures)
+  Duration nfsPhaseAccept{"nfs.phase_accept_us"};
+  Duration nfsPhaseQueueWait{"nfs.phase_queue_wait_us"};
+  Duration nfsPhaseProcessing{"nfs.phase_processing_us"};
+  Duration nfsPhaseWriteWait{"nfs.phase_write_wait_us"};
+  Duration nfsPhaseTotal{"nfs.phase_total_us"};
+
   // NFS error counters
   Counter nfsErrorPerm{"nfs.error.perm"};
   Counter nfsErrorNoEnt{"nfs.error.noent"};
