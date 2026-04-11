@@ -194,6 +194,11 @@ class RpcConnectionHandler : public folly::DelayedDestruction,
    */
   folly::SemiFuture<folly::Unit> takeoverStop();
 
+  /**
+   * Record per-phase timing metrics from the request timeline.
+   */
+  void recordPhaseTimings(const RpcRequestTimeline& timeline) noexcept;
+
  private:
   RpcConnectionHandler(
       std::shared_ptr<RpcServerProcessor> proc,

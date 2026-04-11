@@ -484,15 +484,56 @@ void RpcConnectionHandler::replyServerError(
   serializeReply(errSer, err, xid);
 }
 
+namespace {
+class RequestWriteCallback : public folly::AsyncWriter::WriteCallback {
+  using DestructorGuard = folly::DelayedDestruction::DestructorGuard;
+
+ public:
+  RequestWriteCallback(
+      RpcRequestTimeline timeline,
+      RpcConnectionHandler* handler,
+      DestructorGuard guard)
+      : timeline_(std::move(timeline)),
+        handler_(handler),
+        guard_(std::move(guard)) {}
+
+  void writeSuccess() noexcept override {
+    timeline_.responseSent = std::chrono::steady_clock::now();
+    handler_->recordPhaseTimings(timeline_);
+    delete this;
+  }
+
+  void writeErr(
+      size_t /*bytesWritten*/,
+      const folly::AsyncSocketException& ex) noexcept override {
+    XLOGF(
+        ERR,
+        "Write error in RequestWriteCallback: {}",
+        folly::exceptionStr(ex));
+    timeline_.responseSent = std::chrono::steady_clock::now();
+    handler_->recordPhaseTimings(timeline_);
+    delete this;
+  }
+
+ private:
+  RpcRequestTimeline timeline_;
+  RpcConnectionHandler* handler_;
+  DestructorGuard guard_;
+};
+} // namespace
+
 void RpcConnectionHandler::dispatchAndReply(
     std::unique_ptr<folly::IOBuf> input,
     DestructorGuard guard,
     std::unique_ptr<RequestPermit> permit,
-    [[maybe_unused]] RpcRequestTimeline timeline) {
+    RpcRequestTimeline timeline) {
   makeImmediateFutureWith(
-      [&]() mutable -> ImmediateFuture<std::unique_ptr<folly::IOBuf>> {
+      [&]() mutable
+          -> ImmediateFuture<
+              std::pair<std::unique_ptr<folly::IOBuf>, RpcRequestTimeline>> {
         folly::io::Cursor deser(input.get());
         rpc_msg_call call = XdrTrait<rpc_msg_call>::deserialize(deser);
+        timeline.procNumber = call.cbody.proc;
 
         auto iobufQueue = std::make_unique<folly::IOBufQueue>(
             folly::IOBufQueue::cacheChainLength());
@@ -502,13 +543,17 @@ void RpcConnectionHandler::dispatchAndReply(
 
         if (call.cbody.rpcvers != kRPCVersion) {
           serializeRpcMismatch(ser, call.xid);
-          return finalizeFragment(std::move(iobufQueue));
+          timeline.handlerDone = std::chrono::steady_clock::now();
+          return std::pair{
+              finalizeFragment(std::move(iobufQueue)), std::move(timeline)};
         }
 
         if (auto auth = proc_->checkAuthentication(call.cbody);
             auth != auth_stat::AUTH_OK) {
           serializeAuthError(ser, auth, call.xid);
-          return finalizeFragment(std::move(iobufQueue));
+          timeline.handlerDone = std::chrono::steady_clock::now();
+          return std::pair{
+              finalizeFragment(std::move(iobufQueue)), std::move(timeline)};
         }
 
         XLOG(DBG7, "dispatching a request");
@@ -526,7 +571,12 @@ void RpcConnectionHandler::dispatchAndReply(
             [this,
              input = std::move(input),
              iobufQueue = std::move(iobufQueue),
-             call = std::move(call)](folly::Try<folly::Unit> result) mutable {
+             call = std::move(call),
+             timeline =
+                 std::move(timeline)](folly::Try<folly::Unit> result) mutable
+                -> std::pair<
+                    std::unique_ptr<folly::IOBuf>,
+                    RpcRequestTimeline> {
               XLOG(DBG7, "Request done, sending response.");
               if (result.hasException()) {
                 if (auto* err =
@@ -547,7 +597,9 @@ void RpcConnectionHandler::dispatchAndReply(
                       accept_stat::SYSTEM_ERR, call.xid, iobufQueue);
                 }
               }
-              return finalizeFragment(std::move(iobufQueue));
+              timeline.handlerDone = std::chrono::steady_clock::now();
+              return {
+                  finalizeFragment(std::move(iobufQueue)), std::move(timeline)};
             });
       })
       .semi()
@@ -559,21 +611,28 @@ void RpcConnectionHandler::dispatchAndReply(
       .via(threadPool_.get())
       // Then move it back to the EventBase to write the result to the socket.
       .via(this->sock_->getEventBase())
-      .then([this](folly::Try<std::unique_ptr<folly::IOBuf>> result) {
-        // This code runs in the EventBase and thus must be as fast as
-        // possible to avoid unnecessary overhead in the EventBase. Always
-        // prefer duplicating work in the future above to adding code here.
+      .then(
+          [this](
+              folly::Try<
+                  std::pair<std::unique_ptr<folly::IOBuf>, RpcRequestTimeline>>
+                  result) {
+            // This code runs in the EventBase and thus must be as fast as
+            // possible to avoid unnecessary overhead in the EventBase. Always
+            // prefer duplicating work in the future above to adding code here.
 
-        if (result.hasException()) {
-          // XXX: This should never happen.
-        } else {
-          auto resultBuffer = std::move(result).value();
-          XLOG(DBG7, "About to write to the socket.");
-          // TODO: Wait until the write completes before considering
-          // the request finished.
-          sock_->writeChain(this, std::move(resultBuffer));
-        }
-      })
+            if (result.hasException()) {
+              XLOGF(
+                  DFATAL,
+                  "Unexpected exception in RPC response pipeline: {}",
+                  folly::exceptionStr(result.exception()));
+            } else {
+              auto [resultBuffer, tl] = std::move(result).value();
+              XLOG(DBG7, "About to write to the socket.");
+              auto* writeCb = new RequestWriteCallback(
+                  std::move(tl), this, DestructorGuard(this));
+              sock_->writeChain(writeCb, std::move(resultBuffer));
+            }
+          })
       .ensure([this, guard = std::move(guard), permit = std::move(permit)]() {
         (void)permit; // held for RAII lifetime, released when request completes
         XLOG(DBG7, "Request complete");
@@ -587,6 +646,11 @@ void RpcConnectionHandler::dispatchAndReply(
           pendingRequestsComplete_.setValue();
         }
       });
+}
+
+void RpcConnectionHandler::recordPhaseTimings(
+    const RpcRequestTimeline& t) noexcept {
+  proc_->onRequestComplete(t);
 }
 
 void RpcServer::connectionAccepted(
