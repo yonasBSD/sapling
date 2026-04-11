@@ -94,6 +94,8 @@ class Nfsd3ServerProcessor final : public RpcServerProcessor {
       uint32_t xid,
       folly::io::QueueAppender& ser) override;
 
+  void onRequestComplete(const RpcRequestTimeline& timeline) override;
+
   void setFsChannel(FsChannel* channel) {
     fsChannel_ = channel;
   }
@@ -2006,6 +2008,60 @@ constexpr auto kNfs3dHandlers = [] {
 bool Nfsd3ServerProcessor::isUnimplementedProc(uint32_t proc) const {
   return proc == folly::to_underlying(nfsv3Procs::commit) ||
       proc >= kNfs3dHandlers.size();
+}
+
+void Nfsd3ServerProcessor::onRequestComplete(const RpcRequestTimeline& t) {
+  auto stats = dispatcher_->getStats().copy();
+
+  if (t.requestReceived && t.dispatched) {
+    stats->addDuration(
+        &NfsStats::nfsPhaseAccept, *t.dispatched - *t.requestReceived);
+  }
+  if (t.dispatched && t.handlerStart) {
+    stats->addDuration(
+        &NfsStats::nfsPhaseQueueWait, *t.handlerStart - *t.dispatched);
+  }
+  if (t.handlerStart && t.handlerDone) {
+    stats->addDuration(
+        &NfsStats::nfsPhaseProcessing, *t.handlerDone - *t.handlerStart);
+  }
+  if (t.handlerDone && t.responseSent) {
+    stats->addDuration(
+        &NfsStats::nfsPhaseWriteWait, *t.responseSent - *t.handlerDone);
+  }
+
+  if (t.requestReceived && t.responseSent) {
+    auto total = *t.responseSent - *t.requestReceived;
+    stats->addDuration(&NfsStats::nfsPhaseTotal, total);
+
+    if (longRunningFSRequestThreshold_.count() > 0 &&
+        total > longRunningFSRequestThreshold_) {
+      using namespace std::chrono;
+      auto durationNs = [](auto d) {
+        return static_cast<double>(duration_cast<nanoseconds>(d).count());
+      };
+      auto procName = t.procNumber < kNfs3dHandlers.size()
+          ? kNfs3dHandlers[t.procNumber].name
+          : "unknown";
+      structuredLogger_->logEvent(
+          LongRunningFSRequest{
+              durationNs(total),
+              procName,
+              t.dispatched && t.requestReceived
+                  ? durationNs(*t.dispatched - *t.requestReceived)
+                  : 0.0,
+              t.handlerStart && t.dispatched
+                  ? durationNs(*t.handlerStart - *t.dispatched)
+                  : 0.0,
+              t.handlerDone && t.handlerStart
+                  ? durationNs(*t.handlerDone - *t.handlerStart)
+                  : 0.0,
+              t.responseSent && t.handlerDone
+                  ? durationNs(*t.responseSent - *t.handlerDone)
+                  : 0.0,
+          });
+    }
+  }
 }
 
 namespace {

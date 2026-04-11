@@ -144,6 +144,13 @@ class RpcServerProcessor {
       uint32_t /*proc*/,
       uint32_t /*xid*/,
       folly::io::QueueAppender& /*ser*/) {}
+
+  /**
+   * Called after a request completes and the response has been written.
+   * Subclasses implement this to record timing metrics and log anomalies.
+   * Called on the EventBase thread from the socket write callback.
+   */
+  virtual void onRequestComplete(const RpcRequestTimeline& /*timeline*/) {}
 };
 
 class RpcServer;
