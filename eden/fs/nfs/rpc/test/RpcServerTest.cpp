@@ -23,6 +23,7 @@
 #include "eden/common/telemetry/NullStructuredLogger.h"
 #include "eden/fs/nfs/NfsdRpc.h"
 #include "eden/fs/nfs/rpc/Rpc.h"
+#include "eden/fs/utils/RequestPermitVendor.h"
 
 namespace {
 
@@ -281,6 +282,234 @@ TEST_F(RpcServerTest, normal_proc_not_fast_pathed) {
 
   EXPECT_TRUE(pollForReply(clientFd, 1000))
       << "Reply should arrive after cranking the thread pool";
+
+  cleanup(clientFd, server);
+}
+
+class TestJukeboxProcessor : public RpcServerProcessor {
+ public:
+  bool shouldFastPathRPCs() const override {
+    return true;
+  }
+
+  InlineRejectResult tryInlineReject() override {
+    if (rejectAll_.load()) {
+      return {true, nullptr};
+    }
+    return {};
+  }
+
+  void serializeInlineReject(
+      uint32_t /*proc*/,
+      uint32_t xid,
+      folly::io::QueueAppender& ser) override {
+    serializeReply(ser, accept_stat::SUCCESS, xid);
+    GETATTR3res res;
+    res.tag = nfsstat3::NFS3ERR_JUKEBOX;
+    XdrTrait<GETATTR3res>::serialize(ser, res);
+  }
+
+  std::atomic<bool> rejectAll_{true};
+};
+
+class TestPermitProcessor : public RpcServerProcessor {
+ public:
+  explicit TestPermitProcessor(size_t capacity) : vendor_(capacity) {}
+
+  bool shouldFastPathRPCs() const override {
+    return true;
+  }
+
+  bool isUnimplementedProc(uint32_t proc) const override {
+    return proc >= 22;
+  }
+
+  InlineRejectResult tryInlineReject() override {
+    auto permit = vendor_.tryAcquirePermit();
+    if (!permit) {
+      return {true, nullptr};
+    }
+    return {false, std::move(permit)};
+  }
+
+  void serializeInlineReject(
+      uint32_t /*proc*/,
+      uint32_t xid,
+      folly::io::QueueAppender& ser) override {
+    serializeReply(ser, accept_stat::SUCCESS, xid);
+    GETATTR3res res;
+    res.tag = nfsstat3::NFS3ERR_JUKEBOX;
+    XdrTrait<GETATTR3res>::serialize(ser, res);
+  }
+
+  RequestPermitVendor& vendor() {
+    return vendor_;
+  }
+
+ private:
+  RequestPermitVendor vendor_;
+};
+
+TEST_F(RpcServerTest, jukebox_rejects_non_exempt_inline) {
+  auto server = createTestServerWithManualExecutor(
+      std::make_shared<TestJukeboxProcessor>());
+  auto clientFd = connectClient(*server);
+
+  auto reply = sendAndReceive(
+      clientFd,
+      buildRpcRequest(100, /*proc=*/1),
+      "JUKEBOX reply should arrive without the thread pool");
+
+  EXPECT_EQ(readBigEndianU32(reply, 4), 100u);
+  EXPECT_EQ(readBigEndianU32(reply, 8), 1u); // msg_type::REPLY
+  EXPECT_EQ(readBigEndianU32(reply, 24), 0u); // accept_stat::SUCCESS
+
+  // Verify the NFS-level JUKEBOX error in the response body.
+  // Skip fragment header (4) + RPC reply envelope (24) = 28 bytes to reach
+  // the NFS response. The first field is the nfsstat3 tag.
+  ASSERT_GE(reply.size(), 32u) << "Reply too short for NFS status";
+  uint32_t nfsStat = readBigEndianU32(reply, 28);
+  EXPECT_EQ(nfsStat, static_cast<uint32_t>(nfsstat3::NFS3ERR_JUKEBOX));
+
+  cleanup(clientFd, server);
+}
+
+TEST_F(RpcServerTest, jukebox_rejects_fsinfo_when_rate_limited) {
+  auto server = createTestServerWithManualExecutor(
+      std::make_shared<TestJukeboxProcessor>());
+  auto clientFd = connectClient(*server);
+
+  // FSINFO (proc=19) is now subject to JUKEBOX backpressure like any
+  // other implemented proc.
+  auto reply = sendAndReceive(
+      clientFd,
+      buildRpcRequest(200, /*proc=*/19),
+      "FSINFO should be JUKEBOX-rejected when rate limited");
+
+  EXPECT_EQ(readBigEndianU32(reply, 4), 200u);
+  EXPECT_EQ(readBigEndianU32(reply, 8), 1u); // msg_type::REPLY
+  EXPECT_EQ(readBigEndianU32(reply, 24), 0u); // accept_stat::SUCCESS
+
+  // Verify the NFS-level JUKEBOX error in the response body.
+  ASSERT_GE(reply.size(), 32u) << "Reply too short for NFS status";
+  uint32_t nfsStat = readBigEndianU32(reply, 28);
+  EXPECT_EQ(nfsStat, static_cast<uint32_t>(nfsstat3::NFS3ERR_JUKEBOX));
+
+  cleanup(clientFd, server);
+}
+
+TEST_F(RpcServerTest, permit_exhausted_rejects_normal_proc) {
+  auto proc = std::make_shared<TestPermitProcessor>(1);
+  auto server = createTestServerWithManualExecutor(proc);
+  auto clientFd = connectClient(*server);
+
+  // Saturate the permit vendor — hold the only permit.
+  auto held = proc->vendor().tryAcquirePermit();
+  ASSERT_NE(held, nullptr);
+
+  // Send a normal proc. With permits exhausted, it should be
+  // JUKEBOX-rejected inline.
+  auto reply = sendAndReceive(
+      clientFd,
+      buildRpcRequest(100, /*proc=*/1),
+      "JUKEBOX reject should arrive inline when permits exhausted");
+
+  EXPECT_EQ(readBigEndianU32(reply, 4), 100u); // xid
+  EXPECT_EQ(readBigEndianU32(reply, 24), 0u); // accept_stat::SUCCESS
+  ASSERT_GE(reply.size(), 32u);
+  EXPECT_EQ(
+      readBigEndianU32(reply, 28),
+      static_cast<uint32_t>(nfsstat3::NFS3ERR_JUKEBOX));
+
+  cleanup(clientFd, server);
+}
+
+TEST_F(RpcServerTest, permit_exhausted_still_fast_paths_null) {
+  auto proc = std::make_shared<TestPermitProcessor>(1);
+  auto server = createTestServerWithManualExecutor(proc);
+  auto clientFd = connectClient(*server);
+
+  // Saturate permits.
+  auto held = proc->vendor().tryAcquirePermit();
+  ASSERT_NE(held, nullptr);
+
+  // Null RPCs bypass rate limiting — fast-pathed before the permit check.
+  auto reply = sendAndReceive(
+      clientFd,
+      buildNullRpcRequest(101),
+      "Null RPC should be fast-pathed even with permits exhausted");
+
+  EXPECT_EQ(readBigEndianU32(reply, 4), 101u); // xid
+  EXPECT_EQ(readBigEndianU32(reply, 8), 1u); // msg_type::REPLY
+  EXPECT_EQ(readBigEndianU32(reply, 24), 0u); // accept_stat::SUCCESS
+  // Reply should be short — just the RPC envelope, no NFS body.
+  // Specifically, it should NOT contain NFS3ERR_JUKEBOX.
+  EXPECT_LT(reply.size(), 32u)
+      << "Null reply should be just the RPC envelope, not a JUKEBOX response";
+
+  cleanup(clientFd, server);
+}
+
+TEST_F(RpcServerTest, permit_held_during_request_processing) {
+  auto proc = std::make_shared<TestPermitProcessor>(1);
+  auto server = createTestServerWithManualExecutor(proc);
+  auto clientFd = connectClient(*server);
+
+  // Send a normal proc. It should acquire the single permit and
+  // dispatch to the ManualExecutor.
+  sendRequest(clientFd, buildRpcRequest(200, /*proc=*/1));
+
+  // The request is in the ManualExecutor queue. The permit should
+  // still be held -- not released until the request completes.
+  EXPECT_EQ(proc->vendor().available(), 0u)
+      << "Permit should be held while request is in-flight";
+
+  // A second request should be JUKEBOX-rejected because the permit
+  // is held by the first request.
+  auto reply = sendAndReceive(
+      clientFd,
+      buildRpcRequest(201, /*proc=*/1),
+      "Second request should be JUKEBOX-rejected");
+
+  EXPECT_EQ(readBigEndianU32(reply, 4), 201u);
+  ASSERT_GE(reply.size(), 32u);
+  EXPECT_EQ(
+      readBigEndianU32(reply, 28),
+      static_cast<uint32_t>(nfsstat3::NFS3ERR_JUKEBOX));
+
+  // Crank the executor to complete the first request.
+  for (int i = 0; i < 20; ++i) {
+    manualExecutor_->run();
+    evb.loopOnce(EVLOOP_NONBLOCK);
+  }
+
+  // Permit should now be released.
+  EXPECT_EQ(proc->vendor().available(), 1u)
+      << "Permit should be released after request completes";
+
+  cleanup(clientFd, server);
+}
+
+TEST_F(RpcServerTest, permit_exhausted_still_fast_paths_unimplemented) {
+  auto proc = std::make_shared<TestPermitProcessor>(1);
+  auto server = createTestServerWithManualExecutor(proc);
+  auto clientFd = connectClient(*server);
+
+  // Saturate permits.
+  auto held = proc->vendor().tryAcquirePermit();
+  ASSERT_NE(held, nullptr);
+
+  // Unimplemented procs bypass rate limiting — fast-pathed as PROC_UNAVAIL
+  // before the permit check.
+  auto reply = sendAndReceive(
+      clientFd,
+      buildRpcRequest(102, /*proc=*/99),
+      "Unimplemented proc should be fast-pathed even with permits exhausted");
+
+  EXPECT_EQ(readBigEndianU32(reply, 4), 102u); // xid
+  EXPECT_EQ(readBigEndianU32(reply, 8), 1u); // msg_type::REPLY
+  // accept_stat::PROC_UNAVAIL = 3
+  EXPECT_EQ(readBigEndianU32(reply, 24), 3u);
 
   cleanup(clientFd, server);
 }

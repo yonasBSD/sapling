@@ -13,6 +13,7 @@ cpp_unittest(
         "//eden/fs/nfs/rpc:rpc",
         "//eden/fs/nfs/rpc:server",
         "//eden/fs/nfs/testharness:xdr_test_utils",
+        "//eden/fs/utils:request_permit_vendor",
         "//folly/executors:manual_executor",
         "//folly/io:iobuf",
     ],
