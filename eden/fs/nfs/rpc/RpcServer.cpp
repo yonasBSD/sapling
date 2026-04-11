@@ -235,6 +235,63 @@ std::string displayBuffer(folly::IOBuf* buf) {
   auto bytes = buf->coalesce();
   return folly::hexDump(bytes.data(), bytes.size());
 }
+
+void serializeRpcMismatch(folly::io::QueueAppender& ser, uint32_t xid) {
+  rpc_msg_reply reply{
+      xid,
+      msg_type::REPLY,
+      reply_body{{
+          reply_stat::MSG_DENIED,
+          rejected_reply{{
+              reject_stat::RPC_MISMATCH,
+              mismatch_info{kRPCVersion, kRPCVersion},
+          }},
+      }},
+  };
+
+  XdrTrait<rpc_msg_reply>::serialize(ser, reply);
+}
+
+void serializeAuthError(
+    folly::io::QueueAppender& ser,
+    auth_stat auth,
+    uint32_t xid) {
+  rpc_msg_reply reply{
+      xid,
+      msg_type::REPLY,
+      reply_body{{
+          reply_stat::MSG_DENIED,
+          rejected_reply{{
+              reject_stat::AUTH_ERROR,
+              auth,
+          }},
+      }},
+  };
+
+  XdrTrait<rpc_msg_reply>::serialize(ser, reply);
+}
+
+/**
+ * Make an RPC fragment by computing the size of the iobufQueue.
+ *
+ * Return an IOBuf chain that can be directly written to a socket.
+ */
+std::unique_ptr<folly::IOBuf> finalizeFragment(
+    std::unique_ptr<folly::IOBufQueue> iobufQueue) {
+  auto chainLength = iobufQueue->chainLength();
+  auto resultBuffer = iobufQueue->move();
+
+  // Fill out the fragment header.
+  auto len = uint32_t(chainLength - sizeof(uint32_t));
+  auto fragment = (uint32_t*)resultBuffer->writableData();
+  *fragment = folly::Endian::big(len | 0x80000000);
+
+  XLOGF(
+      DBG8,
+      "Sending:\n{}",
+      folly::hexDump(resultBuffer->data(), resultBuffer->length()));
+  return resultBuffer;
+}
 } // namespace
 
 void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
@@ -330,65 +387,6 @@ std::unique_ptr<folly::IOBuf> RpcConnectionHandler::readOneRequest() noexcept {
   }
   return readBuf_.split(c.getCurrentPosition());
 }
-
-namespace {
-void serializeRpcMismatch(folly::io::QueueAppender& ser, uint32_t xid) {
-  rpc_msg_reply reply{
-      xid,
-      msg_type::REPLY,
-      reply_body{{
-          reply_stat::MSG_DENIED,
-          rejected_reply{{
-              reject_stat::RPC_MISMATCH,
-              mismatch_info{kRPCVersion, kRPCVersion},
-          }},
-      }},
-  };
-
-  XdrTrait<rpc_msg_reply>::serialize(ser, reply);
-}
-
-void serializeAuthError(
-    folly::io::QueueAppender& ser,
-    auth_stat auth,
-    uint32_t xid) {
-  rpc_msg_reply reply{
-      xid,
-      msg_type::REPLY,
-      reply_body{{
-          reply_stat::MSG_DENIED,
-          rejected_reply{{
-              reject_stat::AUTH_ERROR,
-              auth,
-          }},
-      }},
-  };
-
-  XdrTrait<rpc_msg_reply>::serialize(ser, reply);
-}
-
-/**
- * Make an RPC fragment by computing the size of the iobufQueue.
- *
- * Return an IOBuf chain that can be directly written to a socket.
- */
-std::unique_ptr<folly::IOBuf> finalizeFragment(
-    std::unique_ptr<folly::IOBufQueue> iobufQueue) {
-  auto chainLength = iobufQueue->chainLength();
-  auto resultBuffer = iobufQueue->move();
-
-  // Fill out the fragment header.
-  auto len = uint32_t(chainLength - sizeof(uint32_t));
-  auto fragment = (uint32_t*)resultBuffer->writableData();
-  *fragment = folly::Endian::big(len | 0x80000000);
-
-  XLOGF(
-      DBG8,
-      "Sending:\n{}",
-      folly::hexDump(resultBuffer->data(), resultBuffer->length()));
-  return resultBuffer;
-}
-} // namespace
 
 void RpcConnectionHandler::recordParsingError(
     const RpcParsingError& err,
