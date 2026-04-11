@@ -348,6 +348,9 @@ struct NfsStats : StatsGroup<NfsStats> {
   Counter nfsCommitSuccessful{"nfs.commit_successful"};
   Counter nfsCommitFailure{"nfs.commit_failure"};
 
+  // Backpressure
+  Counter nfsBackpressureJukebox{"nfs.backpressure_jukebox"};
+
   // NFS error counters
   Counter nfsErrorPerm{"nfs.error.perm"};
   Counter nfsErrorNoEnt{"nfs.error.noent"};

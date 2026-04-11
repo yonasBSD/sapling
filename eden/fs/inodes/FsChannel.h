@@ -153,6 +153,24 @@ class FsChannel {
     }
     return nullptr;
   }
+
+  /**
+   * Returns true if request rate limiting is enabled.
+   */
+  bool isRateLimitingEnabled() const {
+    return requestRateLimiter_ != nullptr;
+  }
+
+  /**
+   * Non-blocking variant of acquireFsRequestPermit(). Returns nullptr if
+   * rate limiting is disabled or no capacity is available.
+   */
+  std::unique_ptr<RequestPermit> tryAcquireFsRequestPermit() {
+    if (requestRateLimiter_) {
+      return requestRateLimiter_->tryAcquirePermit();
+    }
+    return nullptr;
+  }
 };
 
 /**

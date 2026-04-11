@@ -96,6 +96,37 @@ class RpcServerProcessor {
   virtual bool isUnimplementedProc(uint32_t /*proc*/) const {
     return false;
   }
+
+  /**
+   * Result of an inline rejection check on the EventBase thread.
+   * Three valid states:
+   *   - rejected=true, permit=nullptr: request was rejected, response
+   * serialized
+   *   - rejected=false, permit!=nullptr: permit acquired, proceed to thread
+   * pool
+   *   - rejected=false, permit=nullptr: rate limiting not configured, proceed
+   */
+  struct InlineRejectResult {
+    bool rejected = false;
+    std::unique_ptr<RequestPermit> permit;
+  };
+
+  /**
+   * Called on the EventBase thread to check whether rate limiting denies
+   * this request. Default: no rejection.
+   */
+  virtual InlineRejectResult tryInlineReject() {
+    return {};
+  }
+
+  /**
+   * Serialize the rejection response into ser. Only called after
+   * tryInlineReject returned rejected=true.
+   */
+  virtual void serializeInlineReject(
+      uint32_t /*proc*/,
+      uint32_t /*xid*/,
+      folly::io::QueueAppender& /*ser*/) {}
 };
 
 class RpcServer;
@@ -209,7 +240,8 @@ class RpcConnectionHandler : public folly::DelayedDestruction,
    */
   void dispatchAndReply(
       std::unique_ptr<folly::IOBuf> input,
-      DestructorGuard guard);
+      DestructorGuard guard,
+      std::unique_ptr<RequestPermit> permit);
 
   /**
    * Reply to an rpc call with an error.

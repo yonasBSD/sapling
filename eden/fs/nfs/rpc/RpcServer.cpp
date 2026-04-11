@@ -314,11 +314,14 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
     }
     XLOG(DBG7, "received a request");
 
-    // Fast-path: handle cheap RPCs inline on the EventBase thread,
-    // bypassing the thread pool entirely.
-    if (proc_->shouldFastPathRPCs()) {
-      auto peek = peekRpcCallHeader(*buf);
-      if (peek) {
+    // Pre-parse the RPC header for inline operations on the EventBase thread.
+    auto peek = peekRpcCallHeader(*buf);
+
+    std::unique_ptr<RequestPermit> permit;
+    if (peek) {
+      // Fast-path and backpressure: handle inline on the EventBase thread
+      // when the fast-path config is enabled.
+      if (proc_->shouldFastPathRPCs()) {
         if (peek->proc == 0) {
           writeInlineReply([&](auto& ser) {
             serializeReply(ser, accept_stat::SUCCESS, peek->xid);
@@ -332,6 +335,23 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
           });
           XLOG(DBG7, "Fast-pathed PROC_UNAVAIL reply");
           continue;
+        }
+
+        // JUKEBOX backpressure: reject inline if the rate limiter denies
+        // a permit. This sheds load on the EventBase thread before
+        // requests queue in the thread pool.
+        {
+          auto result = proc_->tryInlineReject();
+          if (result.rejected) {
+            XDCHECK(!result.permit)
+                << "tryInlineReject returned rejected=true with a non-null permit";
+            writeInlineReply([&](auto& ser) {
+              proc_->serializeInlineReject(peek->proc, peek->xid, ser);
+            });
+            XLOG(DBG7, "JUKEBOX backpressure: rejected inline");
+            continue;
+          }
+          permit = std::move(result.permit);
         }
       }
     }
@@ -359,39 +379,41 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
 
     // Send the work to a thread pool to increase the number of inflight
     // requests that can be handled concurrently.
-    threadPool_->add(
-        [this, buf = std::move(buf), guard = DestructorGuard(this)]() mutable {
-          XLOGF(DBG8, "Received:\n{}", displayBuffer(buf.get()));
-          // We use a scope so that the cursor is not still around after we
-          // delete part of the IOBuf later. Attempting to use this cursor
-          // after mutating the buffer could result in bad memory accesses.
-          {
-            folly::io::Cursor c(buf.get());
-            uint32_t fragmentHeader = c.readBE<uint32_t>();
-            bool isLast = (fragmentHeader & 0x80000000) != 0;
+    threadPool_->add([this,
+                      buf = std::move(buf),
+                      guard = DestructorGuard(this),
+                      permit = std::move(permit)]() mutable {
+      XLOGF(DBG8, "Received:\n{}", displayBuffer(buf.get()));
+      // We use a scope so that the cursor is not still around after we
+      // delete part of the IOBuf later. Attempting to use this cursor
+      // after mutating the buffer could result in bad memory accesses.
+      {
+        folly::io::Cursor c(buf.get());
+        uint32_t fragmentHeader = c.readBE<uint32_t>();
+        bool isLast = (fragmentHeader & 0x80000000) != 0;
 
-            // Supporting multiple fragments is expensive and requires playing
-            // with IOBuf to avoid copying data. Since neither macOS nor Linux
-            // are sending requests spanning multiple segments, let's not
-            // support these.
-            XCHECK(isLast);
-          }
+        // Supporting multiple fragments is expensive and requires playing
+        // with IOBuf to avoid copying data. Since neither macOS nor Linux
+        // are sending requests spanning multiple segments, let's not
+        // support these.
+        XCHECK(isLast);
+      }
 
-          // Trim off the fragment header.
-          // We need to upgrade to an IOBufQueue because the IOBuf here is
-          // actually part of a chain. The first buffer in the chain may not
-          // have the full fragment header. Thus we need to be trimming off the
-          // whole chain and not just from the first buffer.
-          //
-          // For example, this IOBuf might be the head of a chain of two IOBufs,
-          // and the first IOBuf only contains 2 bytes. Trimming the IOBuf
-          // would fail in this case.
-          folly::IOBufQueue bufQueue{};
-          bufQueue.append(std::move(buf));
-          bufQueue.trimStart(sizeof(uint32_t));
+      // Trim off the fragment header.
+      // We need to upgrade to an IOBufQueue because the IOBuf here is
+      // actually part of a chain. The first buffer in the chain may not
+      // have the full fragment header. Thus we need to be trimming off the
+      // whole chain and not just from the first buffer.
+      //
+      // For example, this IOBuf might be the head of a chain of two IOBufs,
+      // and the first IOBuf only contains 2 bytes. Trimming the IOBuf
+      // would fail in this case.
+      folly::IOBufQueue bufQueue{};
+      bufQueue.append(std::move(buf));
+      bufQueue.trimStart(sizeof(uint32_t));
 
-          dispatchAndReply(bufQueue.move(), std::move(guard));
-        });
+      dispatchAndReply(bufQueue.move(), std::move(guard), std::move(permit));
+    });
   }
 }
 
@@ -451,7 +473,8 @@ void RpcConnectionHandler::replyServerError(
 
 void RpcConnectionHandler::dispatchAndReply(
     std::unique_ptr<folly::IOBuf> input,
-    DestructorGuard guard) {
+    DestructorGuard guard,
+    std::unique_ptr<RequestPermit> permit) {
   makeImmediateFutureWith(
       [&]() mutable -> ImmediateFuture<std::unique_ptr<folly::IOBuf>> {
         folly::io::Cursor deser(input.get());
@@ -537,7 +560,8 @@ void RpcConnectionHandler::dispatchAndReply(
           sock_->writeChain(this, std::move(resultBuffer));
         }
       })
-      .ensure([this, guard = std::move(guard)]() {
+      .ensure([this, guard = std::move(guard), permit = std::move(permit)]() {
+        (void)permit; // held for RAII lifetime, released when request completes
         XLOG(DBG7, "Request complete");
         auto& state = this->state_.get();
         state.pendingRequests -= 1;

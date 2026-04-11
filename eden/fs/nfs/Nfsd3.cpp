@@ -8,6 +8,7 @@
 #include "eden/fs/nfs/Nfsd3.h"
 
 #include <memory>
+#include <type_traits>
 
 #include <folly/String.h>
 #include <folly/Utility.h>
@@ -85,6 +86,17 @@ class Nfsd3ServerProcessor final : public RpcServerProcessor {
     return fastPathRPCs_;
   }
   bool isUnimplementedProc(uint32_t proc) const override;
+
+  InlineRejectResult tryInlineReject() override;
+
+  void serializeInlineReject(
+      uint32_t proc,
+      uint32_t xid,
+      folly::io::QueueAppender& ser) override;
+
+  void setFsChannel(FsChannel* channel) {
+    fsChannel_ = channel;
+  }
 
   ImmediateFuture<folly::Unit> null(
       folly::io::Cursor deser,
@@ -204,6 +216,10 @@ class Nfsd3ServerProcessor final : public RpcServerProcessor {
    */
   std::chrono::nanoseconds longRunningFSRequestThreshold_;
   bool fastPathRPCs_;
+  // Used to check rate limiting. Set once in constructor via setFsChannel().
+  // Nulled in onShutdown() before Nfsd3 destruction. The backpressure check
+  // in dispatchRpc tests for nullptr before dereferencing.
+  FsChannel* fsChannel_{nullptr};
 };
 
 /**
@@ -2030,7 +2046,124 @@ SamplingGroup nfsProcSamplingGroup(uint32_t procNumber) {
       << "got invalid NFS procedure: " << procNumber;
   return kNfs3dHandlers[procNumber].samplingGroup;
 }
+
+/**
+ * Serialize a JUKEBOX error response for the given NFS procedure.
+ *
+ * Each NFS procedure has a different response type with its own fail fields
+ * (post_op_attr, wcc_data, etc.). We serialize the correct per-procedure
+ * response with default-constructed fail fields for RFC compliance.
+ */
+template <typename ResType>
+void serializeJukeboxResponse(folly::io::QueueAppender& ser, uint32_t xid) {
+  serializeReply(ser, accept_stat::SUCCESS, xid);
+  ResType res;
+  res.tag = nfsstat3::NFS3ERR_JUKEBOX;
+  if constexpr (!std::is_same_v<typename ResType::Default, std::monostate>) {
+    res.v = typename ResType::Default{};
+  }
+  XdrTrait<ResType>::serialize(ser, res);
+}
+
+void serializeJukeboxError(
+    folly::io::QueueAppender& ser,
+    uint32_t xid,
+    uint32_t procNumber) {
+  switch (procNumber) {
+    // null is fast-pathed as SUCCESS; commit and unknown procs are
+    // fast-pathed as PROC_UNAVAIL. Neither reaches this switch.
+    case folly::to_underlying(nfsv3Procs::getattr):
+      serializeJukeboxResponse<GETATTR3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::setattr):
+      serializeJukeboxResponse<SETATTR3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::lookup):
+      serializeJukeboxResponse<LOOKUP3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::access):
+      serializeJukeboxResponse<ACCESS3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::readlink):
+      serializeJukeboxResponse<READLINK3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::read):
+      serializeJukeboxResponse<READ3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::write):
+      serializeJukeboxResponse<WRITE3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::create):
+      serializeJukeboxResponse<CREATE3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::mkdir):
+      serializeJukeboxResponse<MKDIR3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::symlink):
+      serializeJukeboxResponse<SYMLINK3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::mknod):
+      serializeJukeboxResponse<MKNOD3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::remove):
+      serializeJukeboxResponse<REMOVE3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::rmdir):
+      serializeJukeboxResponse<RMDIR3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::rename):
+      serializeJukeboxResponse<RENAME3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::link):
+      serializeJukeboxResponse<LINK3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::readdir):
+      serializeJukeboxResponse<READDIR3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::readdirplus):
+      serializeJukeboxResponse<READDIRPLUS3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::fsstat):
+      serializeJukeboxResponse<FSSTAT3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::fsinfo):
+      serializeJukeboxResponse<FSINFO3res>(ser, xid);
+      break;
+    case folly::to_underlying(nfsv3Procs::pathconf):
+      serializeJukeboxResponse<PATHCONF3res>(ser, xid);
+      break;
+    default:
+      // null is fast-pathed as SUCCESS, commit and unknown procs are
+      // fast-pathed as PROC_UNAVAIL, so this default should never be
+      // reached for valid NFS procedures.
+      XDCHECK(false) << "Unexpected proc in serializeJukeboxError: "
+                     << procNumber;
+      serializeReply(ser, accept_stat::PROC_UNAVAIL, xid);
+      break;
+  }
+}
+
 } // namespace
+
+RpcServerProcessor::InlineRejectResult Nfsd3ServerProcessor::tryInlineReject() {
+  if (!fsChannel_ || !fsChannel_->isRateLimitingEnabled()) {
+    return {};
+  }
+
+  auto permit = fsChannel_->tryAcquireFsRequestPermit();
+  if (!permit) {
+    dispatcher_->getStats()->increment(&NfsStats::nfsBackpressureJukebox);
+    return {true, nullptr};
+  }
+  return {false, std::move(permit)};
+}
+
+void Nfsd3ServerProcessor::serializeInlineReject(
+    uint32_t proc,
+    uint32_t xid,
+    folly::io::QueueAppender& ser) {
+  serializeJukeboxError(ser, xid, proc);
+}
 
 ImmediateFuture<folly::Unit> Nfsd3ServerProcessor::dispatchRpc(
     folly::io::Cursor deser,
@@ -2117,8 +2250,12 @@ ImmediateFuture<folly::Unit> Nfsd3ServerProcessor::dispatchRpc(
 }
 
 void Nfsd3ServerProcessor::onShutdown(RpcStopData data) {
+  // Clear fsChannel_ before triggering destruction. tryInlineReject checks
+  // for nullptr, so this prevents accessing a dangling FsChannel pointer
+  // during the shutdown window.
+  fsChannel_ = nullptr;
   // Note this triggers the Nfsd3 destruction which will also destroy
-  // Nfsd3ServerProcessor. Don't do anything will the Nfsd3ServerProcessor
+  // Nfsd3ServerProcessor. Don't do anything with the Nfsd3ServerProcessor
   // member variables after this!
   stopPromise_.setValue(std::make_unique<RpcStopData>(std::move(data)));
 }
@@ -2153,25 +2290,28 @@ Nfsd3::Nfsd3(
     bool fastPathRPCs)
     : privHelper_{privHelper},
       mountPath_{std::move(mountPath)},
-      server_(
-          RpcServer::create(
-              std::make_shared<Nfsd3ServerProcessor>(
-                  std::move(dispatcher),
-                  straceLogger,
-                  structuredLogger,
-                  caseSensitive,
-                  iosize,
-                  stopPromise_,
-                  processAccessLog_,
-                  traceDetailedArguments_,
-                  traceBus_,
-                  longRunningFSRequestThreshold,
-                  fastPathRPCs),
-              evb,
-              std::move(threadPool),
-              structuredLogger,
-              maximumInFlightRequests,
-              highNfsRequestsLogInterval)),
+      server_([&]() {
+        auto proc = std::make_shared<Nfsd3ServerProcessor>(
+            std::move(dispatcher),
+            straceLogger,
+            structuredLogger,
+            caseSensitive,
+            iosize,
+            stopPromise_,
+            processAccessLog_,
+            traceDetailedArguments_,
+            traceBus_,
+            longRunningFSRequestThreshold,
+            fastPathRPCs);
+        proc->setFsChannel(this);
+        return RpcServer::create(
+            std::move(proc),
+            evb,
+            std::move(threadPool),
+            structuredLogger,
+            maximumInFlightRequests,
+            highNfsRequestsLogInterval);
+      }()),
       processAccessLog_(std::move(processInfoCache)),
       invalidationExecutor_{
           folly::SerialExecutor::create(folly::getGlobalCPUExecutor())},
@@ -2182,6 +2322,8 @@ Nfsd3::Nfsd3(
       "Creating Nfsd3: mountPath={}, caseSensitive={}",
       mountPath_,
       caseSensitive);
+
+  initializeInflightRequestsRateLimiter(maximumInFlightRequests);
 
   traceSubscriptionHandles_.push_back(traceBus_->subscribeFunction(
       "NFS request tracking",
