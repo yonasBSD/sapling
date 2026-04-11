@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <chrono>
+#include <optional>
 #include <vector>
 
 #include <folly/SocketAddress.h>
@@ -63,6 +65,21 @@ struct RpcStopData final : FsStopData {
    * to use.
    */
   folly::File socketToKernel;
+};
+
+/**
+ * Timeline of an RPC request's journey through the RPC server pipeline.
+ * Each phase boundary is stamped as a time_point for per-phase duration
+ * metrics (accept, queue_wait, processing, write_wait).
+ */
+struct RpcRequestTimeline {
+  using TimePoint = std::optional<std::chrono::steady_clock::time_point>;
+  TimePoint requestReceived;
+  TimePoint dispatched;
+  TimePoint handlerStart;
+  TimePoint handlerDone;
+  TimePoint responseSent;
+  uint32_t procNumber{0};
 };
 
 class RpcServerProcessor {
