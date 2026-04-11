@@ -2299,7 +2299,7 @@ ImmediateFuture<folly::Unit> Nfsd3ServerProcessor::dispatchRpc(
         } else if (dispatcher_->getStats() && handlerEntry.countSuccessful) {
           dispatcher_->getStats()->increment(handlerEntry.countSuccessful);
         }
-        return std::move(res);
+        return res;
       })
       .ensure([liveRequest = std::move(liveRequest),
                context = std::move(context)]() {});
