@@ -88,7 +88,8 @@ class NfsServer {
       std::shared_ptr<Notifier> notifier,
       CaseSensitivity caseSensitive,
       uint32_t iosize,
-      size_t traceBusCapacity);
+      size_t traceBusCapacity,
+      bool fastPathRPCs);
 
   /**
    * Registers an RPC service running a certain protocol version on port.

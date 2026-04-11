@@ -143,7 +143,8 @@ class Nfsd3 final : public FsChannel {
       size_t maximumInFlightRequests,
       std::chrono::nanoseconds highNfsRequestsLogInterval,
       std::chrono::nanoseconds longRunningFSRequestThreshold,
-      size_t traceBusCapacity);
+      size_t traceBusCapacity,
+      bool fastPathRPCs);
 
   void destroy() override;
 

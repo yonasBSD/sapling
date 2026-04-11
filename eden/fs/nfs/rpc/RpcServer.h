@@ -78,6 +78,24 @@ class RpcServerProcessor {
       uint32_t procNumber);
   virtual void clientConnected();
   virtual void onShutdown(RpcStopData stopData);
+
+  /**
+   * Return true to enable fast-path handling of certain RPCs directly on
+   * the EventBase thread, bypassing the thread pool. When enabled:
+   *   - null RPCs (proc=0) get an inline SUCCESS reply
+   *   - unimplemented procs (per isUnimplementedProc) get PROC_UNAVAIL
+   */
+  virtual bool shouldFastPathRPCs() const {
+    return false;
+  }
+
+  /**
+   * Return true for procedures that are unimplemented and should be
+   * fast-pathed as PROC_UNAVAIL directly on the EventBase thread.
+   */
+  virtual bool isUnimplementedProc(uint32_t /*proc*/) const {
+    return false;
+  }
 };
 
 class RpcServer;
@@ -159,6 +177,14 @@ class RpcConnectionHandler : public folly::DelayedDestruction,
    * will be dispatched to the RpcServerProcessor.
    */
   void tryConsumeReadBuffer() noexcept;
+
+  /**
+   * Serialize and send an inline RPC reply on the EventBase thread.
+   * The body serializer is called with a QueueAppender positioned after
+   * the fragment header placeholder.
+   */
+  template <typename F>
+  void writeInlineReply(F&& serializeBody);
 
   /**
    * Delete the reader, called when the socket is closed or on takeover.

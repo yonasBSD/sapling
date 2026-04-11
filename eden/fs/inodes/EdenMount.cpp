@@ -2478,7 +2478,8 @@ folly::Future<NfsServer::NfsMountInfo> makeNfsChannel(
                    mount->getServerState()->getNotifier(),
                    mount->getCheckoutConfig()->getCaseSensitive(),
                    iosize,
-                   edenConfig->nfsTraceBusCapacity.getValue());
+                   edenConfig->nfsTraceBusCapacity.getValue(),
+                   edenConfig->nfsFastPathRPCs.getValue());
              })
       .thenValue([mount,
                   nfsServer,

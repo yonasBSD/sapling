@@ -51,7 +51,8 @@ class Nfsd3ServerProcessor final : public RpcServerProcessor {
       ProcessAccessLog& processAccessLog,
       std::atomic<size_t>& traceDetailedArguments,
       std::shared_ptr<TraceBus<NfsTraceEvent>>& traceBus,
-      std::chrono::nanoseconds longRunningFSRequestThreshold)
+      std::chrono::nanoseconds longRunningFSRequestThreshold,
+      bool fastPathRPCs)
       : dispatcher_(std::move(dispatcher)),
         straceLogger_(straceLogger),
         structuredLogger_(structuredLogger),
@@ -62,7 +63,8 @@ class Nfsd3ServerProcessor final : public RpcServerProcessor {
         traceDetailedArguments_(traceDetailedArguments),
         metadataSizeMismatchLogged_(false),
         traceBus_(traceBus),
-        longRunningFSRequestThreshold_(longRunningFSRequestThreshold) {}
+        longRunningFSRequestThreshold_(longRunningFSRequestThreshold),
+        fastPathRPCs_(fastPathRPCs) {}
 
   Nfsd3ServerProcessor(const Nfsd3ServerProcessor&) = delete;
   Nfsd3ServerProcessor(Nfsd3ServerProcessor&&) = delete;
@@ -79,6 +81,10 @@ class Nfsd3ServerProcessor final : public RpcServerProcessor {
 
   void onShutdown(RpcStopData stopData) override;
   void clientConnected() override;
+  bool shouldFastPathRPCs() const override {
+    return fastPathRPCs_;
+  }
+  bool isUnimplementedProc(uint32_t proc) const override;
 
   ImmediateFuture<folly::Unit> null(
       folly::io::Cursor deser,
@@ -197,6 +203,7 @@ class Nfsd3ServerProcessor final : public RpcServerProcessor {
    * is configured with EdenConfig::longRunningFSRequestThreshold.
    */
   std::chrono::nanoseconds longRunningFSRequestThreshold_;
+  bool fastPathRPCs_;
 };
 
 /**
@@ -1980,6 +1987,11 @@ constexpr auto kNfs3dHandlers = [] {
   return handlers;
 }();
 
+bool Nfsd3ServerProcessor::isUnimplementedProc(uint32_t proc) const {
+  return proc == folly::to_underlying(nfsv3Procs::commit) ||
+      proc >= kNfs3dHandlers.size();
+}
+
 namespace {
 struct LiveRequest {
   LiveRequest(
@@ -2137,7 +2149,8 @@ Nfsd3::Nfsd3(
     size_t maximumInFlightRequests,
     std::chrono::nanoseconds highNfsRequestsLogInterval,
     std::chrono::nanoseconds longRunningFSRequestThreshold,
-    size_t traceBusCapacity)
+    size_t traceBusCapacity,
+    bool fastPathRPCs)
     : privHelper_{privHelper},
       mountPath_{std::move(mountPath)},
       server_(
@@ -2152,7 +2165,8 @@ Nfsd3::Nfsd3(
                   processAccessLog_,
                   traceDetailedArguments_,
                   traceBus_,
-                  longRunningFSRequestThreshold),
+                  longRunningFSRequestThreshold,
+                  fastPathRPCs),
               evb,
               std::move(threadPool),
               structuredLogger,

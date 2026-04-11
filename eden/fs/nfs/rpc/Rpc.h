@@ -9,6 +9,7 @@
 
 // https://datatracker.ietf.org/doc/rfc5531/?include_text=1
 
+#include <optional>
 #include <vector>
 
 #include "eden/fs/nfs/xdr/Xdr.h"
@@ -176,6 +177,34 @@ struct authsys_parms {
   std::vector<uint32_t> gids;
 };
 EDEN_XDR_SERDE_DECL(authsys_parms, stamp, machinename, uid, gid, gids);
+
+/**
+ * Minimum bytes required to peek at an RPC call header:
+ * 4 (fragment header) + 4 (xid) + 4 (msg_type) + 4 (rpcvers)
+ * + 4 (prog) + 4 (vers) + 4 (proc) = 28.
+ */
+constexpr uint32_t kMinRpcCallSize = 28;
+
+/**
+ * Lightweight view of the fixed-size fields at the front of an RPC call.
+ * Used for fast-path decisions on the EventBase thread without
+ * deserializing the full rpc_msg_call.
+ */
+struct RpcCallPeek {
+  uint32_t xid;
+  uint32_t proc;
+};
+
+/**
+ * Peek at the first bytes of a record-fragment IOBuf and extract the
+ * xid and proc fields without consuming the buffer.
+ *
+ * Returns std::nullopt when:
+ *   - the buffer is shorter than kMinRpcCallSize, or
+ *   - the msg_type is not CALL, or
+ *   - the rpcvers is not kRPCVersion (2).
+ */
+std::optional<RpcCallPeek> peekRpcCallHeader(const folly::IOBuf& buf);
 
 class RpcParsingError : public std::exception {
  public:

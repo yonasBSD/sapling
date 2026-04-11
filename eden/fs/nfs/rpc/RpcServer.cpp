@@ -294,6 +294,16 @@ std::unique_ptr<folly::IOBuf> finalizeFragment(
 }
 } // namespace
 
+template <typename F>
+void RpcConnectionHandler::writeInlineReply(F&& serializeBody) {
+  auto iobufQueue = std::make_unique<folly::IOBufQueue>(
+      folly::IOBufQueue::cacheChainLength());
+  folly::io::QueueAppender ser(iobufQueue.get(), 64);
+  XdrTrait<uint32_t>::serialize(ser, 0); // fragment header placeholder
+  serializeBody(ser);
+  sock_->writeChain(this, finalizeFragment(std::move(iobufQueue)));
+}
+
 void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
   // Iterate over all the complete fragments and dispatch these to the
   // threadPool_.
@@ -303,6 +313,28 @@ void RpcConnectionHandler::tryConsumeReadBuffer() noexcept {
       break;
     }
     XLOG(DBG7, "received a request");
+
+    // Fast-path: handle cheap RPCs inline on the EventBase thread,
+    // bypassing the thread pool entirely.
+    if (proc_->shouldFastPathRPCs()) {
+      auto peek = peekRpcCallHeader(*buf);
+      if (peek) {
+        if (peek->proc == 0) {
+          writeInlineReply([&](auto& ser) {
+            serializeReply(ser, accept_stat::SUCCESS, peek->xid);
+          });
+          XLOG(DBG7, "Fast-pathed null RPC reply");
+          continue;
+        }
+        if (proc_->isUnimplementedProc(peek->proc)) {
+          writeInlineReply([&](auto& ser) {
+            serializeReply(ser, accept_stat::PROC_UNAVAIL, peek->xid);
+          });
+          XLOG(DBG7, "Fast-pathed PROC_UNAVAIL reply");
+          continue;
+        }
+      }
+    }
 
     auto now = std::chrono::steady_clock::now();
     auto should_log = false;

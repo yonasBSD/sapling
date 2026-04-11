@@ -1018,6 +1018,13 @@ class EdenConfig : private ConfigSettingManager {
       folly::kIsLinux ? true : false,
       this};
 
+  /**
+   * Whether to fast-path null and unimplemented NFS RPCs directly on the
+   * EventBase thread, bypassing the thread pool. Prevents liveness probes
+   * from blocking behind slow operations.
+   */
+  ConfigSetting<bool> nfsFastPathRPCs{"nfs:fast-path-rpcs", true, this};
+
   // [prjfs]
 
   /**
