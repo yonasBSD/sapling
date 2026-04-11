@@ -182,3 +182,74 @@ TEST(RequestPermitVendorTest, PermitsAreMovable) {
   EXPECT_EQ(vendor->available(), 2);
   EXPECT_EQ(vendor->inflight(), 0);
 };
+
+TEST(RequestPermitVendorTest, TryAcquirePermitSucceeds) {
+  auto vendor = RequestPermitVendor(2);
+  EXPECT_EQ(vendor.capacity(), 2);
+  EXPECT_EQ(vendor.available(), 2);
+  EXPECT_EQ(vendor.inflight(), 0);
+
+  auto p1 = vendor.tryAcquirePermit();
+  EXPECT_NE(p1, nullptr);
+  EXPECT_EQ(vendor.capacity(), 2);
+  EXPECT_EQ(vendor.available(), 1);
+  EXPECT_EQ(vendor.inflight(), 1);
+}
+
+TEST(RequestPermitVendorTest, TryAcquirePermitFailsWhenExhausted) {
+  auto vendor = RequestPermitVendor(1);
+  EXPECT_EQ(vendor.capacity(), 1);
+  EXPECT_EQ(vendor.available(), 1);
+  EXPECT_EQ(vendor.inflight(), 0);
+
+  auto p1 = vendor.acquirePermit();
+  EXPECT_NE(p1, nullptr);
+  EXPECT_EQ(vendor.inflight(), 1);
+
+  auto p2 = vendor.tryAcquirePermit();
+  EXPECT_EQ(p2, nullptr);
+  EXPECT_EQ(vendor.inflight(), 1);
+}
+
+TEST(RequestPermitVendorTest, TryAcquirePermitReleasesOnDestruction) {
+  auto vendor = RequestPermitVendor(1);
+
+  {
+    auto p1 = vendor.tryAcquirePermit();
+    EXPECT_NE(p1, nullptr);
+    EXPECT_EQ(vendor.inflight(), 1);
+  }
+
+  EXPECT_EQ(vendor.inflight(), 0);
+  EXPECT_EQ(vendor.available(), 1);
+}
+
+TEST(RequestPermitVendorTest, TryAcquirePermitMultiple) {
+  auto vendor = RequestPermitVendor(3);
+  EXPECT_EQ(vendor.capacity(), 3);
+  EXPECT_EQ(vendor.available(), 3);
+  EXPECT_EQ(vendor.inflight(), 0);
+
+  auto p1 = vendor.tryAcquirePermit();
+  auto p2 = vendor.tryAcquirePermit();
+  auto p3 = vendor.tryAcquirePermit();
+  EXPECT_NE(p1, nullptr);
+  EXPECT_NE(p2, nullptr);
+  EXPECT_NE(p3, nullptr);
+  EXPECT_EQ(vendor.inflight(), 3);
+  EXPECT_EQ(vendor.available(), 0);
+
+  // 4th should fail
+  auto p4 = vendor.tryAcquirePermit();
+  EXPECT_EQ(p4, nullptr);
+
+  // Release one, try again should succeed
+  p2.reset();
+  EXPECT_EQ(vendor.inflight(), 2);
+  EXPECT_EQ(vendor.available(), 1);
+
+  auto p5 = vendor.tryAcquirePermit();
+  EXPECT_NE(p5, nullptr);
+  EXPECT_EQ(vendor.inflight(), 3);
+  EXPECT_EQ(vendor.available(), 0);
+}

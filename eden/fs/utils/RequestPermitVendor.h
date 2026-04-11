@@ -14,33 +14,21 @@
 namespace facebook::eden {
 
 /**
- * RAII guard for acquiring and releasing a request permit.
+ * RAII guard for a request permit. Releases the permit on destruction.
  *
- * This class automatically acquires a permit when constructed and releases it
- * when destroyed, ensuring that every wait() operation is matched with a
- * signal() operation.
+ * Only RequestPermitVendor can construct instances via acquirePermit()
+ * (blocking) or tryAcquirePermit() (non-blocking). The constructor stores
+ * the semaphore reference; the caller is responsible for having already
+ * acquired a token (via wait() or try_wait()).
  */
 class RequestPermit {
  public:
-  explicit RequestPermit(std::weak_ptr<folly::fibers::Semaphore> sem)
-      : sem_(std::move(sem)) {
-    if (auto semPtr = sem_.lock()) {
-      semPtr->wait();
-    }
-  }
-
   ~RequestPermit() {
     if (auto semPtr = sem_.lock()) {
       semPtr->signal();
     }
-    sem_.reset();
   }
 
-  // Disallow default construction, coping, and moving to avoid accidental
-  // permit creation/deletion. This class should be managed by a smart pointer.
-  // If RequestPermitVendor is extended to support a try_acquirePermit() or
-  // a co_acquirePermit() method, this class will likely need to be extended to
-  // offer alternative construction methods.
   RequestPermit() = delete;
   RequestPermit(const RequestPermit&) = delete;
   RequestPermit& operator=(const RequestPermit&) = delete;
@@ -48,6 +36,9 @@ class RequestPermit {
   RequestPermit& operator=(RequestPermit&&) = delete;
 
  private:
+  explicit RequestPermit(std::weak_ptr<folly::fibers::Semaphore> sem)
+      : sem_(std::move(sem)) {}
+
   std::weak_ptr<folly::fibers::Semaphore> sem_;
 
   friend class RequestPermitVendor;
@@ -58,12 +49,11 @@ class RequestPermit {
  * acquired from a semaphore. RequestPermits release the resource when
  * destructed. RequestPermitVendor has sole ownership over the underlying
  * semaphore. This can be added to any class that wishes to implement rate
- * limiting
+ * limiting.
  *
- * This class currently only offers a blocking acquire method, but it can be
- * extended in the future to add a try_acquirePermit() method which can return
- * immediately if the semaphore is out of capacity. It can also be extended to
- * support a co_acquirePermit() method, see folly::fibers::Semaphore::co_wait()
+ * Offers both a blocking acquirePermit() and a non-blocking
+ * tryAcquirePermit(). It can also be extended to support a
+ * co_acquirePermit() method, see folly::fibers::Semaphore::co_wait()
  * for more information.
  */
 class RequestPermitVendor {
@@ -75,7 +65,19 @@ class RequestPermitVendor {
    * This will block until a permit is available.
    */
   inline std::unique_ptr<RequestPermit> acquirePermit() {
-    return std::make_unique<RequestPermit>(sem_);
+    sem_->wait();
+    return std::unique_ptr<RequestPermit>(new RequestPermit(sem_));
+  }
+
+  /**
+   * Attempt to acquire a permit without blocking. Returns nullptr if no
+   * capacity is available.
+   */
+  inline std::unique_ptr<RequestPermit> tryAcquirePermit() {
+    if (!sem_->try_wait()) {
+      return nullptr;
+    }
+    return std::unique_ptr<RequestPermit>(new RequestPermit(sem_));
   }
 
   /**
