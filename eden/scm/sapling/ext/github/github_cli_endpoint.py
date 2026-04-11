@@ -31,8 +31,7 @@ class GitHubCLIEndpoint(github_endpoint.GitHubEndpoint):
 
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
         params: Dict[str, Union[str, int, bool]] = dict(kwargs)
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(
+        result = asyncio.run(
             make_request(params, hostname=self.hostname, endpoint=path, method=method)
         )
         if result.is_err():
@@ -43,8 +42,7 @@ class GitHubCLIEndpoint(github_endpoint.GitHubEndpoint):
     def graphql_sync(self, query: str, **kwargs: Any) -> Any:
         params: Dict[str, Union[str, int, bool]] = dict(kwargs)
         params["query"] = query
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(make_request(params, hostname=self.hostname))
+        result = asyncio.run(make_request(params, hostname=self.hostname))
         if result.is_err():
             raise RuntimeError(result.unwrap_err())
         else:

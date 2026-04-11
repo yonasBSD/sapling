@@ -57,8 +57,7 @@ query PullRequestQuery($owner: String!, $name: String!, $number: Int!) {
 
 def get_pull_request_data(pr: PullRequestId) -> Optional[GraphQLPullRequest]:
     params = _generate_params(pr)
-    loop = asyncio.get_event_loop()
-    result = loop.run_until_complete(make_request(params, hostname=pr.get_hostname()))
+    result = asyncio.run(make_request(params, hostname=pr.get_hostname()))
     if result.is_err():
         # Log error?
         return None
@@ -67,15 +66,21 @@ def get_pull_request_data(pr: PullRequestId) -> Optional[GraphQLPullRequest]:
     return GraphQLPullRequest(pr)
 
 
+async def _gather_pull_request_data(
+    github: GitHubEndpoint,
+    pr_list: Iterable[PullRequestId],
+) -> List[object]:
+    requests = [
+        github.graphql(PULL_REQUEST_QUERY, **_generate_params(pr)) for pr in pr_list
+    ]
+    return await asyncio.gather(*requests)
+
+
 def get_pull_request_data_list(
     github: GitHubEndpoint,
     pr_list: Iterable[PullRequestId],
 ) -> List[Optional[GraphQLPullRequest]]:
-    requests = [
-        github.graphql(PULL_REQUEST_QUERY, **_generate_params(pr)) for pr in pr_list
-    ]
-    loop = asyncio.get_event_loop()
-    responses = loop.run_until_complete(asyncio.gather(*requests))
+    responses = asyncio.run(_gather_pull_request_data(github, pr_list))
     result = []
     for resp in responses:
         if resp.is_err():
