@@ -218,6 +218,7 @@ class Nfsd3ServerProcessor final : public RpcServerProcessor {
    */
   std::chrono::nanoseconds longRunningFSRequestThreshold_;
   bool fastPathRPCs_;
+  std::atomic<size_t> inflightRequests_{0};
   // Used to check rate limiting. Set once in constructor via setFsChannel().
   // Nulled in onShutdown() before Nfsd3 destruction. The backpressure check
   // in dispatchRpc tests for nullptr before dereferencing.
@@ -2246,6 +2247,10 @@ ImmediateFuture<folly::Unit> Nfsd3ServerProcessor::dispatchRpc(
     return folly::unit;
   }
 
+  auto depth = inflightRequests_.fetch_add(1, std::memory_order_relaxed);
+  dispatcher_->getStats()->increment(
+      &NfsStats::nfsInflightAtRequest, depth + 1);
+
   auto& handlerEntry = kNfs3dHandlers[procNumber];
   FB_LOGF(
       *straceLogger_,
@@ -2301,8 +2306,11 @@ ImmediateFuture<folly::Unit> Nfsd3ServerProcessor::dispatchRpc(
         }
         return res;
       })
-      .ensure([liveRequest = std::move(liveRequest),
-               context = std::move(context)]() {});
+      .ensure([this,
+               liveRequest = std::move(liveRequest),
+               context = std::move(context)]() {
+        inflightRequests_.fetch_sub(1, std::memory_order_relaxed);
+      });
 }
 
 void Nfsd3ServerProcessor::onShutdown(RpcStopData data) {

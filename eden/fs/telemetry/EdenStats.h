@@ -350,6 +350,7 @@ struct NfsStats : StatsGroup<NfsStats> {
 
   // Backpressure
   Counter nfsBackpressureJukebox{"nfs.backpressure_jukebox"};
+  Counter nfsInflightAtRequest{"nfs.inflight_at_request"};
 
   // Phase timing (aggregate across all NFS procedures)
   Duration nfsPhaseAccept{"nfs.phase_accept_us"};
