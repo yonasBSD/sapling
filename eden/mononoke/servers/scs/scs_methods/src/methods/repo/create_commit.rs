@@ -378,13 +378,13 @@ impl SourceControlServiceImpl {
             .identity_schemes
             .contains(&thrift::CommitIdentityScheme::GIT)
         {
-            for created_changeset in stack.iter() {
+            futures::future::try_join_all(stack.iter().map(|created_changeset| {
                 repo.set_git_mapping_from_changeset(
                     &created_changeset.changeset_ctx,
                     &created_changeset.hg_extras,
                 )
-                .await?;
-            }
+            }))
+            .await?;
         }
 
         if let Some(prepare_types) = &params.prepare_derived_data_types {
