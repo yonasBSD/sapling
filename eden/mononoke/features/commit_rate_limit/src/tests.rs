@@ -23,6 +23,7 @@ use commit_rate_limit_config::cache::ChangesetEligibilityCache;
 use commit_rate_limit_config::inspect_changeset_eligibility;
 use commit_rate_limit_config::is_eligible_for_rate_limit;
 use commit_rate_limit_config::matches_user_filter;
+use commit_rate_limit_config::parse_author_username;
 use commit_rate_limit_config::touches_directories;
 use fbinit::FacebookInit;
 use filestore::FilestoreConfig;
@@ -901,6 +902,94 @@ async fn test_new_bookmark_does_not_count_draft_ancestors(fb: FacebookInit) -> R
 
     let outcome = check_commit_rate_limit(ctx, repo, &new_bm, &bcs, &config, None).await?;
     assert_eq!(outcome, RateLimitOutcome::Allowed);
+    Ok(())
+}
+
+/// When the display name differs from the email prefix, per-user rate
+/// limiting groups by the email prefix, not the display name.
+/// e.g. "bob <robert@meta.com>" → groups by "robert", not "bob".
+#[mononoke::fbinit_test]
+async fn test_different_name_vs_email_uses_email(fb: FacebookInit) -> Result<()> {
+    let (ctx, repo, bm, tip) = setup_test_repo(fb).await?;
+    borrowed!(ctx, repo);
+
+    // Per-user hook with limit=6. Alice has 5 eligible ancestors in the DAG.
+    let per_user = make_config(&[], true, 6);
+
+    // Author display name is "bob" but email is robert@meta.com.
+    // parse_author_username extracts "robert" from the email, not "bob".
+    // Since "robert" has 0 prior commits, per-user count is 0 < 6 → Allowed.
+    let draft = CreateCommitContext::new(ctx, repo, vec![tip])
+        .add_file("fbcode/server/new.txt", "data")
+        .set_message(format!("commit by bob/robert {}", ELIGIBLE_TAG))
+        .set_author("bob <robert@meta.com>")
+        .set_author_date(recent_date())
+        .commit()
+        .await?;
+    let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
+
+    // user_filter uses email prefix "robert", not display name "bob"
+    assert_eq!(
+        check_commit_rate_limit(
+            ctx,
+            repo,
+            &bm,
+            &bcs,
+            &per_user,
+            parse_author_username(bcs.author()),
+        )
+        .await?,
+        RateLimitOutcome::Allowed,
+    );
+    Ok(())
+}
+
+/// Commits with non-standard author format (e.g. "twsvcscm@hostname" from
+/// Sandcastle) cause per-user rate limiting to fall back to global counting.
+/// parse_author_username fails on these, causing user_filter to be None,
+/// which makes the per-user hook count ALL commits globally.
+#[mononoke::fbinit_test]
+async fn test_non_standard_author_tracked_per_user(fb: FacebookInit) -> Result<()> {
+    let (ctx, repo, bm, tip) = setup_test_repo(fb).await?;
+    borrowed!(ctx, repo);
+
+    // Global per-user hook with limit=6.
+    // The test DAG has 7 total eligible ancestors (A-G), with 5 by alice
+    // and 2 by bob. A non-standard author has 0 prior commits.
+    let per_user = make_config(&[], true, 6);
+
+    // A commit with non-standard author (bare user@host, no "Name <...>"
+    // wrapper) should only count that author's commits, not all commits.
+    let sandcastle_author = "twsvcscm@ed77-8a84.twshared2276.01.snb3.tw.fbinfra.net";
+    let draft = CreateCommitContext::new(ctx, repo, vec![tip])
+        .add_file("fbcode/server/sandcastle.txt", "data")
+        .set_message(format!("sandcastle commit {}", ELIGIBLE_TAG))
+        .set_author(sandcastle_author)
+        .set_author_date(recent_date())
+        .commit()
+        .await?;
+    let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
+
+    // BUG: user_filter is None because parse_author_username fails on
+    // "twsvcscm@host" (no "Name <...>" wrapper). The hook then counts
+    // ALL 7 eligible ancestors globally and rejects (7 >= 6).
+    // The correct behavior would be to count only this author's commits
+    // (0) and accept.
+    assert!(
+        matches!(
+            check_commit_rate_limit(
+                ctx,
+                repo,
+                &bm,
+                &bcs,
+                &per_user,
+                parse_author_username(bcs.author()),
+            )
+            .await?,
+            RateLimitOutcome::Exceeded { .. },
+        ),
+        "BUG: non-standard author is rejected because per-user acts as global"
+    );
     Ok(())
 }
 
