@@ -19,7 +19,6 @@
     "scm/mononoke:disable_hooks_on_plain_push": false,
     "scm/mononoke:disable_git_symbolic_refs_caching": false,
     "scm/mononoke:ignore_change_xrepo_mapping_extra": false,
-    "scm/mononoke:lfs_k_consistent_hash_routing": false,
     "scm/mononoke:megarepo_override_author_check": false,
     "scm/mononoke:megarepo_serialize_target_config_into_working_copy": true,
     "scm/mononoke:mononoke_server_skip_blobstore_warmup": false,
