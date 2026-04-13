@@ -25,6 +25,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
+use aosp_service_clients::errors::AsInvalidRequestException;
 use aosp_service_clients::make_AospService;
 use aosp_service_services::types::DiffChange;
 use aosp_service_services::types::DirectPushRequest;
@@ -329,13 +330,40 @@ pub async fn divert_to_rl_land_service(
 
     // Submit the land request.
     let service = client.get_service_client(None, Some(ctx))?;
-    let submit_response = service.submitLand(&request).await.map_err(|e| {
-        anyhow::anyhow!(
-            "RL Land Service submitLand failed for repo {}: {}",
-            repo_name,
-            e
-        )
-    })?;
+    let submit_response = match service.submitLand(&request).await {
+        Ok(resp) => resp,
+        Err(e) => {
+            // BRANCH_NOT_ENABLED means the RL Land Service doesn't manage
+            // this project/branch — fall back to the normal push path.
+            if let Some(invalid_req) = e.as_invalid_request_exception() {
+                if invalid_req.error_code == "BRANCH_NOT_ENABLED" {
+                    info!(
+                        "RL Land Service returned BRANCH_NOT_ENABLED for repo {}: {} — falling back to normal push path",
+                        repo_name, invalid_req.message,
+                    );
+
+                    let mut scuba = request_context.ctx.scuba().clone();
+                    scuba.add("log_tag", "rl_land_branch_not_enabled_fallback");
+                    scuba.add("repo", repo_name.as_str());
+                    scuba.add("ref_count", diverted_refs.len());
+                    scuba.add("rl_error_message", invalid_req.message.as_str());
+                    scuba.unsampled();
+                    scuba.log();
+
+                    let all_refs = diverted_refs.into_iter().chain(remaining_refs).collect();
+                    return Ok(DiversionResult {
+                        diverted: vec![],
+                        remaining: all_refs,
+                    });
+                }
+            }
+            anyhow::bail!(
+                "RL Land Service submitLand failed for repo {}: {}",
+                repo_name,
+                e
+            );
+        }
+    };
 
     let request_id = submit_response.request_id;
     info!(
