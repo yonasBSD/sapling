@@ -118,12 +118,21 @@ pub async fn check_all_commit_rate_limits(
     _cs_id: ChangesetId,
     bookmark: &BookmarkKey,
 ) -> Result<CommitRateLimitCheckResult> {
+    let allow_bare_unixname = justknobs::eval(
+        "scm/mononoke:allow_bare_author_unixname",
+        None,
+        Some("commit_rate_limit"),
+    )
+    .unwrap_or(false);
     let rules = repo.commit_rate_limit().rules();
     let futures: Vec<_> = rules
         .iter()
         .map(|rule| {
             let user_filter = if rule.per_user() {
-                parse_author_username(bonsai.author()).map(|s| s.to_string())
+                parse_author_username(bonsai.author(), allow_bare_unixname)
+                    .ok()
+                    .flatten()
+                    .map(|s| s.to_string())
             } else {
                 None
             };
@@ -135,6 +144,7 @@ pub async fn check_all_commit_rate_limits(
                     bonsai,
                     rule,
                     user_filter.as_deref(),
+                    allow_bare_unixname,
                 )
                 .await?;
                 anyhow::Ok(RuleCheckResult {
@@ -173,6 +183,7 @@ pub async fn check_commit_rate_limit(
     changeset: &BonsaiChangeset,
     config: &CommitRateLimitRule,
     user_filter: Option<&str>,
+    allow_bare_unixname: bool,
 ) -> Result<RateLimitOutcome> {
     if !touches_directories(changeset, config.directories()) {
         return Ok(RateLimitOutcome::Allowed);
@@ -192,6 +203,7 @@ pub async fn check_commit_rate_limit(
         config,
         user_filter,
         cache.clone(),
+        allow_bare_unixname,
     )
     .await?;
 
@@ -205,6 +217,7 @@ pub async fn check_commit_rate_limit(
             config,
             user_filter,
             cache.clone(),
+            allow_bare_unixname,
         )
         .await?;
 
@@ -233,6 +246,7 @@ async fn count_eligible_public_ancestors(
     config: &CommitRateLimitRule,
     user_filter: Option<&str>,
     cache: Option<ChangesetEligibilityCache>,
+    allow_bare_unixname: bool,
 ) -> Result<u64> {
     let bookmark_cs_id = repo
         .bookmarks()
@@ -253,6 +267,7 @@ async fn count_eligible_public_ancestors(
         cache,
         config.repo_name(),
         config.name(),
+        allow_bare_unixname,
     );
 
     let opts = AncestorFilterOptions {
@@ -275,6 +290,7 @@ async fn count_eligible_draft_ancestors(
     config: &CommitRateLimitRule,
     user_filter: Option<&str>,
     cache: Option<ChangesetEligibilityCache>,
+    allow_bare_unixname: bool,
 ) -> Result<u64> {
     let bookmark_cs_id = repo
         .bookmarks()
@@ -334,7 +350,12 @@ async fn count_eligible_draft_ancestors(
 
                 // Cache miss or no cache: load from blobstore.
                 let bonsai = cs_id.load(&ctx, &repo_blobstore).await?;
-                let info = inspect_changeset_eligibility(&bonsai, &checks, &directories);
+                let info = inspect_changeset_eligibility(
+                    &bonsai,
+                    &checks,
+                    &directories,
+                    allow_bare_unixname,
+                );
 
                 if let Some(ref cache) = cache {
                     cache.insert(cs_id, info.clone());
@@ -361,6 +382,7 @@ fn build_cached_ancestor_predicate(
     cache: Option<ChangesetEligibilityCache>,
     repo_name: &str,
     name: &str,
+    allow_bare_unixname: bool,
 ) -> Arc<dyn Fn(&BonsaiChangeset) -> bool + Send + Sync> {
     match cache {
         Some(cache) => {
@@ -380,7 +402,12 @@ fn build_cached_ancestor_predicate(
                     || {
                         STATS::eligibility_cache_public_miss
                             .add_value(1, (stats_repo.clone(), stats_rl.clone()));
-                        inspect_changeset_eligibility(changeset, &checks, &directories)
+                        inspect_changeset_eligibility(
+                            changeset,
+                            &checks,
+                            &directories,
+                            allow_bare_unixname,
+                        )
                     },
                 );
 
@@ -389,7 +416,7 @@ fn build_cached_ancestor_predicate(
                     .unwrap_or(false)
             })
         }
-        None => build_ancestor_predicate(checks, directories, user_filter),
+        None => build_ancestor_predicate(checks, directories, user_filter, allow_bare_unixname),
     }
 }
 
@@ -397,13 +424,19 @@ fn build_ancestor_predicate(
     checks: &[EligibilityCheck],
     directories: &[String],
     user_filter: Option<&str>,
+    allow_bare_unixname: bool,
 ) -> Arc<dyn Fn(&BonsaiChangeset) -> bool + Send + Sync> {
     let checks = checks.to_vec();
     let directories = directories.to_vec();
     let user_filter = user_filter.map(|u| u.to_owned());
 
     Arc::new(move |changeset: &BonsaiChangeset| {
-        let info = match inspect_changeset_eligibility(changeset, &checks, &directories) {
+        let info = match inspect_changeset_eligibility(
+            changeset,
+            &checks,
+            &directories,
+            allow_bare_unixname,
+        ) {
             Some(info) => info,
             None => return false,
         };

@@ -10,6 +10,7 @@ pub mod cache;
 use std::time::Duration;
 
 use anyhow::Result;
+use anyhow::anyhow;
 use metaconfig_types::CommitRateLimitConfig;
 use mononoke_types::BonsaiChangeset;
 use serde::Deserialize;
@@ -283,22 +284,55 @@ impl RateLimit {
 
 // --- Helper functions ---
 
-/// Extract the username from an author string of the form "Name <user@host>".
+/// Extract the username from an author string.
 ///
-/// Returns `Some(username)` where username is the part before `@` in the email,
-/// or `None` if the author string does not match the expected format.
-pub fn parse_author_username(author: &str) -> Option<&str> {
-    let lt = author.find('<')?;
-    let gt = author.find('>')?;
-    if gt <= lt + 1 {
-        return None;
+/// Tries the standard `Name <user@host>` format first, returning the email
+/// prefix. When `allow_bare_unixname` is true (JK-gated), also accepts bare
+/// unixnames as a fallback for non-standard commit authors (e.g. Sandcastle).
+///
+/// Returns `Ok(Some(username))` on success, `Ok(None)` when the format is
+/// non-standard and bare unixnames are not allowed, or `Err` when bare
+/// unixnames are allowed but the author string is invalid.
+pub fn parse_author_username(author: &str, allow_bare_unixname: bool) -> Result<Option<&str>> {
+    // Try standard format: "Name <user@host>"
+    if let Some(lt) = author.find('<') {
+        if let Some(gt) = author.find('>') {
+            if gt > lt + 1 {
+                let email = &author[lt + 1..gt];
+                if let Some(at) = email.find('@') {
+                    if at > 0 {
+                        return Ok(Some(&email[..at]));
+                    }
+                }
+            }
+        }
     }
-    let email = &author[lt + 1..gt];
-    let at = email.find('@')?;
-    if at == 0 {
-        return None;
+
+    // Non-standard format
+    if !allow_bare_unixname {
+        return Ok(None);
     }
-    Some(&email[..at])
+
+    // Try bare email format: "user@host" (no angle brackets).
+    // Extract the part before '@' and validate it as a unixname.
+    if let Some(at) = author.find('@') {
+        let prefix = &author[..at];
+        if is_valid_bare_unixname(prefix) {
+            return Ok(Some(prefix));
+        }
+    }
+
+    // Try bare unixname (no '@')
+    if is_valid_bare_unixname(author) {
+        return Ok(Some(author));
+    }
+
+    Err(anyhow!(
+        "Could not parse author '{}'. Accepted formats: \
+         'Name <user@host>', 'user@host', or a bare unixname \
+         (lowercase alphanumeric, dots, underscores, hyphens only)",
+        author,
+    ))
 }
 
 pub fn is_eligible_for_rate_limit(
@@ -324,6 +358,10 @@ pub fn touches_directories(changeset: &BonsaiChangeset, directories: &[String]) 
 /// Safe to cache because it depends only on hook config, not on the caller.
 #[derive(Clone, Debug)]
 pub struct EligibleChangesetInfo {
+    /// Parsed username extracted from the changeset author (email prefix
+    /// from "Name <user@host>" format, or bare unixname when JK-enabled).
+    /// `None` when the author format is non-standard and bare unixnames
+    /// are not allowed.
     pub parsed_username: Option<String>,
 }
 
@@ -334,6 +372,7 @@ pub fn inspect_changeset_eligibility(
     changeset: &BonsaiChangeset,
     eligibility_checks: &[EligibilityCheck],
     directories: &[String],
+    allow_bare_unixname: bool,
 ) -> Option<EligibleChangesetInfo> {
     if !is_eligible_for_rate_limit(eligibility_checks, changeset) {
         return None;
@@ -341,7 +380,10 @@ pub fn inspect_changeset_eligibility(
     if !touches_directories(changeset, directories) {
         return None;
     }
-    let parsed_username = parse_author_username(changeset.author()).map(|u| u.to_owned());
+    let parsed_username = parse_author_username(changeset.author(), allow_bare_unixname)
+        .ok()
+        .flatten()
+        .map(|u| u.to_owned());
     Some(EligibleChangesetInfo { parsed_username })
 }
 
@@ -349,11 +391,7 @@ pub fn inspect_changeset_eligibility(
 pub fn matches_user_filter(info: &EligibleChangesetInfo, user_filter: Option<&str>) -> bool {
     match user_filter {
         None => true,
-        Some(username) => info
-            .parsed_username
-            .as_deref()
-            .map(|u| u == username)
-            .unwrap_or(false),
+        Some(username) => info.parsed_username.as_deref() == Some(username),
     }
 }
 
@@ -409,4 +447,140 @@ pub fn build_commit_rate_limit(
         .collect::<Result<Vec<_>>>()?;
 
     Ok(CommitRateLimit::new(rules))
+}
+
+fn is_valid_bare_unixname(s: &str) -> bool {
+    !s.is_empty()
+        && s.bytes()
+            .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'.' | b'_' | b'-'))
+}
+
+#[cfg(test)]
+mod tests {
+    use mononoke_macros::mononoke;
+
+    use super::*;
+
+    #[mononoke::test]
+    fn test_parse_standard_format() {
+        assert_eq!(
+            parse_author_username("Alice <alice@fb.com>", false).unwrap(),
+            Some("alice")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_standard_format_bare_enabled() {
+        assert_eq!(
+            parse_author_username("Alice <alice@fb.com>", true).unwrap(),
+            Some("alice")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_different_name_vs_email() {
+        assert_eq!(
+            parse_author_username("bob <robert@meta.com>", false).unwrap(),
+            Some("robert")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_dotted_email_prefix() {
+        assert_eq!(
+            parse_author_username("Jane <jane.doe@fb.com>", false).unwrap(),
+            Some("jane.doe")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_non_standard_jk_off() {
+        assert_eq!(parse_author_username("twsvcscm", false).unwrap(), None);
+    }
+    #[mononoke::test]
+    fn test_parse_bare_at_sign_jk_off() {
+        assert_eq!(
+            parse_author_username("twsvcscm@hostname", false).unwrap(),
+            None
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_bare_unixname_jk_on() {
+        assert_eq!(
+            parse_author_username("twsvcscm", true).unwrap(),
+            Some("twsvcscm")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_bare_dots_jk_on() {
+        assert_eq!(
+            parse_author_username("jane.doe", true).unwrap(),
+            Some("jane.doe")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_bare_hyphens_jk_on() {
+        assert_eq!(
+            parse_author_username("ci-bot", true).unwrap(),
+            Some("ci-bot")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_bare_underscores_jk_on() {
+        assert_eq!(
+            parse_author_username("svc_user", true).unwrap(),
+            Some("svc_user")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_bare_digits_jk_on() {
+        assert_eq!(
+            parse_author_username("user123", true).unwrap(),
+            Some("user123")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_bare_email_jk_on() {
+        // Bare email "user@host" extracts the part before '@'
+        assert_eq!(
+            parse_author_username("twsvcscm@hostname", true).unwrap(),
+            Some("twsvcscm")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_bare_email_long_hostname_jk_on() {
+        assert_eq!(
+            parse_author_username(
+                "twsvcscm@abb6-05e3-0004-0000.twshared29230.02.rcd1.tw.fbinfra.net",
+                true,
+            )
+            .unwrap(),
+            Some("twsvcscm")
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_bare_email_invalid_prefix_jk_on_rejected() {
+        // Bare email with invalid prefix (uppercase) should be rejected
+        assert!(parse_author_username("BadUser@hostname", true).is_err());
+    }
+    #[mononoke::test]
+    fn test_parse_uppercase_jk_on_rejected() {
+        assert!(parse_author_username("UPPERCASE", true).is_err());
+    }
+    #[mononoke::test]
+    fn test_parse_mixed_case_jk_on_rejected() {
+        assert!(parse_author_username("UserName", true).is_err());
+    }
+    #[mononoke::test]
+    fn test_parse_spaces_jk_on_rejected() {
+        assert!(parse_author_username("has spaces", true).is_err());
+    }
+    #[mononoke::test]
+    fn test_parse_slash_jk_on_rejected() {
+        assert!(parse_author_username("path/user", true).is_err());
+    }
+    #[mononoke::test]
+    fn test_parse_empty_jk_off() {
+        assert_eq!(parse_author_username("", false).unwrap(), None);
+    }
+    #[mononoke::test]
+    fn test_parse_empty_jk_on_rejected() {
+        assert!(parse_author_username("", true).is_err());
+    }
 }

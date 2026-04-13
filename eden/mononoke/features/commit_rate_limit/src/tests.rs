@@ -362,7 +362,7 @@ fn test_build_ancestor_predicate_eligible_and_touches() {
         key: "auto_approved".to_string(),
     }];
     let dirs = vec!["users/".to_string()];
-    let predicate = build_ancestor_predicate(&checks, &dirs, None);
+    let predicate = build_ancestor_predicate(&checks, &dirs, None, true);
     assert!(predicate(&cs));
 }
 
@@ -373,7 +373,7 @@ fn test_build_ancestor_predicate_not_eligible() {
         key: "auto_approved".to_string(),
     }];
     let dirs = vec!["users/".to_string()];
-    let predicate = build_ancestor_predicate(&checks, &dirs, None);
+    let predicate = build_ancestor_predicate(&checks, &dirs, None, true);
     assert!(!predicate(&cs));
 }
 
@@ -384,7 +384,7 @@ fn test_build_ancestor_predicate_wrong_directory() {
         key: "auto_approved".to_string(),
     }];
     let dirs = vec!["users/".to_string()];
-    let predicate = build_ancestor_predicate(&checks, &dirs, None);
+    let predicate = build_ancestor_predicate(&checks, &dirs, None, true);
     assert!(!predicate(&cs));
 }
 
@@ -399,7 +399,7 @@ fn test_build_ancestor_predicate_user_filter_match() {
         key: "auto_approved".to_string(),
     }];
     let dirs = vec!["users/".to_string()];
-    let predicate = build_ancestor_predicate(&checks, &dirs, Some("testuser"));
+    let predicate = build_ancestor_predicate(&checks, &dirs, Some("testuser"), true);
     assert!(predicate(&cs));
 }
 
@@ -414,7 +414,7 @@ fn test_build_ancestor_predicate_user_filter_no_match() {
         key: "auto_approved".to_string(),
     }];
     let dirs = vec!["users/".to_string()];
-    let predicate = build_ancestor_predicate(&checks, &dirs, Some("otheruser"));
+    let predicate = build_ancestor_predicate(&checks, &dirs, Some("otheruser"), true);
     assert!(!predicate(&cs));
 }
 
@@ -433,7 +433,7 @@ fn test_inspect_eligible_changeset() {
         key: "auto_approved".to_string(),
     }];
     let dirs = vec!["users/".to_string()];
-    let info = inspect_changeset_eligibility(&cs, &checks, &dirs);
+    let info = inspect_changeset_eligibility(&cs, &checks, &dirs, true);
     assert!(info.is_some());
     assert_eq!(
         info.as_ref().and_then(|i| i.parsed_username.as_deref()),
@@ -448,7 +448,7 @@ fn test_inspect_ineligible_changeset() {
         key: "auto_approved".to_string(),
     }];
     let dirs = vec!["users/".to_string()];
-    let info = inspect_changeset_eligibility(&cs, &checks, &dirs);
+    let info = inspect_changeset_eligibility(&cs, &checks, &dirs, true);
     assert!(info.is_none());
 }
 
@@ -459,7 +459,7 @@ fn test_inspect_wrong_directory() {
         key: "auto_approved".to_string(),
     }];
     let dirs = vec!["users/".to_string()];
-    let info = inspect_changeset_eligibility(&cs, &checks, &dirs);
+    let info = inspect_changeset_eligibility(&cs, &checks, &dirs, true);
     assert!(info.is_none());
 }
 
@@ -625,19 +625,19 @@ async fn test_non_eligible_commit_never_blocked(fb: FacebookInit) -> Result<()> 
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), true).await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -665,19 +665,19 @@ async fn test_under_all_limits_accepted(fb: FacebookInit) -> Result<()> {
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), true).await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -705,19 +705,19 @@ async fn test_most_restrictive_hook_fails_first(fb: FacebookInit) -> Result<()> 
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), true).await?,
         RateLimitOutcome::Allowed,
     );
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, true).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), true).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     Ok(())
@@ -750,19 +750,19 @@ async fn test_large_stack_all_hooks_reject(fb: FacebookInit) -> Result<()> {
     let bcs = last.load(ctx, repo.repo_blobstore()).await?;
 
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, true).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), true).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, true).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), true).await?,
         RateLimitOutcome::Exceeded { .. },
     ));
     Ok(())
@@ -789,19 +789,19 @@ async fn test_eligible_commit_outside_scoped_directory(fb: FacebookInit) -> Resu
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_global, None, true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &per_user, Some("alice"), true).await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -824,8 +824,16 @@ async fn test_different_user_not_blocked_by_per_user_limit(fb: FacebookInit) -> 
         .await?;
     let alice_bcs = alice_draft.load(ctx, repo.repo_blobstore()).await?;
     assert!(matches!(
-        check_commit_rate_limit(ctx, repo, &bm, &alice_bcs, &strict_per_user, Some("alice"),)
-            .await?,
+        check_commit_rate_limit(
+            ctx,
+            repo,
+            &bm,
+            &alice_bcs,
+            &strict_per_user,
+            Some("alice"),
+            true
+        )
+        .await?,
         RateLimitOutcome::Exceeded { .. },
     ));
 
@@ -838,7 +846,16 @@ async fn test_different_user_not_blocked_by_per_user_limit(fb: FacebookInit) -> 
         .await?;
     let bob_bcs = bob_draft.load(ctx, repo.repo_blobstore()).await?;
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bob_bcs, &strict_per_user, Some("bob"),).await?,
+        check_commit_rate_limit(
+            ctx,
+            repo,
+            &bm,
+            &bob_bcs,
+            &strict_per_user,
+            Some("bob"),
+            true
+        )
+        .await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -865,11 +882,11 @@ async fn test_new_bookmark_no_ancestors(fb: FacebookInit) -> Result<()> {
     let bcs = root.load(ctx, repo.repo_blobstore()).await?;
 
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &global, None, true).await?,
         RateLimitOutcome::Allowed,
     );
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice")).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_per_user, Some("alice"), true).await?,
         RateLimitOutcome::Allowed,
     );
     Ok(())
@@ -900,7 +917,7 @@ async fn test_new_bookmark_does_not_count_draft_ancestors(fb: FacebookInit) -> R
     let new_bm = BookmarkKey::new("brand_new_bookmark")?;
     let config = make_config(&[], false, 1);
 
-    let outcome = check_commit_rate_limit(ctx, repo, &new_bm, &bcs, &config, None).await?;
+    let outcome = check_commit_rate_limit(ctx, repo, &new_bm, &bcs, &config, None, true).await?;
     assert_eq!(outcome, RateLimitOutcome::Allowed);
     Ok(())
 }
@@ -936,7 +953,8 @@ async fn test_different_name_vs_email_uses_email(fb: FacebookInit) -> Result<()>
             &bm,
             &bcs,
             &per_user,
-            parse_author_username(bcs.author()),
+            parse_author_username(bcs.author(), true).ok().flatten(),
+            true,
         )
         .await?,
         RateLimitOutcome::Allowed,
@@ -970,11 +988,10 @@ async fn test_non_standard_author_tracked_per_user(fb: FacebookInit) -> Result<(
         .await?;
     let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
 
-    // BUG: user_filter is None because parse_author_username fails on
-    // "twsvcscm@host" (no "Name <...>" wrapper). The hook then counts
-    // ALL 7 eligible ancestors globally and rejects (7 >= 6).
-    // The correct behavior would be to count only this author's commits
-    // (0) and accept.
+    // With allow_bare_unixname=false, parse_author_username returns Ok(None)
+    // for "twsvcscm@host" (no "Name <...>" wrapper). user_filter becomes
+    // None, so the per-user hook counts ALL 7 eligible ancestors globally
+    // and rejects (7 >= 6). This is the JK-off fallback behavior.
     assert!(
         matches!(
             check_commit_rate_limit(
@@ -983,12 +1000,58 @@ async fn test_non_standard_author_tracked_per_user(fb: FacebookInit) -> Result<(
                 &bm,
                 &bcs,
                 &per_user,
-                parse_author_username(bcs.author()),
+                parse_author_username(bcs.author(), false).ok().flatten(),
+                false,
             )
             .await?,
             RateLimitOutcome::Exceeded { .. },
         ),
-        "BUG: non-standard author is rejected because per-user acts as global"
+        "JK-off: non-standard author falls back to global counting"
+    );
+    Ok(())
+}
+
+/// With allow_bare_unixname=true (JK on), a bare unixname like "twsvcscm"
+/// is parsed successfully, giving per-user counting scoped to that author.
+/// Since the test DAG has 0 commits by "twsvcscm", the per-user count is
+/// 0 + 1 (self) = 1 < 6 → Allowed.
+#[mononoke::fbinit_test]
+async fn test_non_standard_author_jk_on_tracked(fb: FacebookInit) -> Result<()> {
+    let (ctx, repo, bm, tip) = setup_test_repo(fb).await?;
+    borrowed!(ctx, repo);
+
+    let per_user = make_config(&[], true, 6);
+
+    // Bare unixname (no "Name <...>" wrapper, no @host).
+    let bare_author = "twsvcscm";
+    let draft = CreateCommitContext::new(ctx, repo, vec![tip])
+        .add_file("fbcode/server/sandcastle.txt", "data")
+        .set_message(format!("sandcastle commit {}", ELIGIBLE_TAG))
+        .set_author(bare_author)
+        .set_author_date(recent_date())
+        .commit()
+        .await?;
+    let bcs = draft.load(ctx, repo.repo_blobstore()).await?;
+
+    // With allow_bare_unixname=true, parse_author_username("twsvcscm", true)
+    // returns Ok(Some("twsvcscm")). Per-user counting finds 0 prior commits
+    // by "twsvcscm", total = 0 + 1 = 1 < 6 → Allowed.
+    assert_eq!(
+        check_commit_rate_limit(
+            ctx,
+            repo,
+            &bm,
+            &bcs,
+            &per_user,
+            parse_author_username(bcs.author(), true)
+                .ok()
+                .flatten()
+                .as_deref(),
+            true,
+        )
+        .await?,
+        RateLimitOutcome::Allowed,
+        "JK-on: bare unixname is tracked per-user"
     );
     Ok(())
 }
@@ -1028,7 +1091,8 @@ async fn test_draft_stack_bypass_prevention(fb: FacebookInit) -> Result<()> {
     let bcs_1 = draft_1.load(ctx, repo.repo_blobstore()).await?;
     assert!(
         matches!(
-            check_commit_rate_limit(ctx, repo, &bm, &bcs_1, &users_per_user, Some("alice")).await?,
+            check_commit_rate_limit(ctx, repo, &bm, &bcs_1, &users_per_user, Some("alice"), true,)
+                .await?,
             RateLimitOutcome::Exceeded { .. },
         ),
         "draft_1: alice already at limit from public ancestors"
@@ -1037,7 +1101,8 @@ async fn test_draft_stack_bypass_prevention(fb: FacebookInit) -> Result<()> {
     let bcs_3 = draft_3.load(ctx, repo.repo_blobstore()).await?;
     assert!(
         matches!(
-            check_commit_rate_limit(ctx, repo, &bm, &bcs_3, &users_per_user, Some("alice")).await?,
+            check_commit_rate_limit(ctx, repo, &bm, &bcs_3, &users_per_user, Some("alice"), true,)
+                .await?,
             RateLimitOutcome::Exceeded { .. },
         ),
         "draft_3: 4 public + 2 draft ancestors"
@@ -1052,7 +1117,16 @@ async fn test_draft_stack_bypass_prevention(fb: FacebookInit) -> Result<()> {
         .await?;
     let bcs_safe = non_eligible.load(ctx, repo.repo_blobstore()).await?;
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs_safe, &users_per_user, Some("alice"),).await?,
+        check_commit_rate_limit(
+            ctx,
+            repo,
+            &bm,
+            &bcs_safe,
+            &users_per_user,
+            Some("alice"),
+            true
+        )
+        .await?,
         RateLimitOutcome::Allowed,
         "non-eligible commit must always pass",
     );
@@ -1132,7 +1206,7 @@ async fn test_per_rule_cache_isolation(fb: FacebookInit) -> Result<()> {
     // ancestors, including C and F which touch fbcode/ (not users/).
     assert!(
         matches!(
-            check_commit_rate_limit(ctx, repo, &bm, &bcs, &global_cached, None).await?,
+            check_commit_rate_limit(ctx, repo, &bm, &bcs, &global_cached, None, true).await?,
             RateLimitOutcome::Exceeded { .. },
         ),
         "global rule must EXCEED (7 eligible >= 6 limit)"
@@ -1143,7 +1217,7 @@ async fn test_per_rule_cache_isolation(fb: FacebookInit) -> Result<()> {
     // cached as eligible by the global rule) and return EXCEED.
     // With a separate cache, it correctly sees only 5 eligible and ALLOWs.
     assert_eq!(
-        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_cached, None).await?,
+        check_commit_rate_limit(ctx, repo, &bm, &bcs, &users_cached, None, true).await?,
         RateLimitOutcome::Allowed,
         "users/ rule must ALLOW (5 eligible < 6 limit) — \
          if this fails, the caches are shared across rules"
