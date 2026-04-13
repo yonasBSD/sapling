@@ -106,7 +106,10 @@ pub fn get_config_dir(
             .and_then(|cwd| {
                 locate_eden_config_dir(&cwd).ok_or_else(|| anyhow!("cwd is not in an eden mount"))
             })
-            .unwrap_or(expand_path(DEFAULT_CONFIG_DIR)))
+            .unwrap_or_else(|_| {
+                let default = expand_path(DEFAULT_CONFIG_DIR);
+                default.canonicalize().unwrap_or(default)
+            }))
     }
 }
 
