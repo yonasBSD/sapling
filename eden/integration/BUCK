@@ -241,6 +241,17 @@ python_integration_test(
 )
 
 python_integration_test(
+    name = "list",
+    srcs = ["list_test.py"],
+    env = artifacts["env"],
+    supports_static_listing = False,
+    deps = [
+        "fbsource//third-party/pypi/parameterized:parameterized",
+        "//eden/integration/lib:lib",
+    ],
+)
+
+python_integration_test(
     name = "lock",
     srcs = ["lock_test.py"],
     compatible_with = [
