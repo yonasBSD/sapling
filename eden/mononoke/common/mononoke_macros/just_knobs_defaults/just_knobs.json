@@ -28,7 +28,6 @@
     "scm/mononoke:sql_disable_auto_cache": false,
     "scm/mononoke:sql_disable_auto_retries": false,
     "scm/mononoke:disable_double_writing_to_changesets_table": true,
-    "scm/mononoke:static-backend": false,
     "scm/mononoke:use_optimized_git_packfile_stream": true,
     "scm/mononoke:disable_running_hooks_in_pushredirected_repo": false,
     "scm/mononoke:divert_aosp_push_to_rl_land_service": false,
