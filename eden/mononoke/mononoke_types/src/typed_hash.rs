@@ -48,6 +48,10 @@ use crate::file_contents::FileContents;
 use crate::fsnode::Fsnode;
 use crate::hash::Blake2;
 use crate::hash::Blake2Prefix;
+use crate::history_manifest::HistoryManifestDeletedNode;
+use crate::history_manifest::HistoryManifestDirectory;
+use crate::history_manifest::HistoryManifestEntry;
+use crate::history_manifest::HistoryManifestFile;
 use crate::inferred_copy_from::InferredCopyFrom;
 use crate::inferred_copy_from::InferredCopyFromEntry;
 use crate::rawbundle2::RawBundle2;
@@ -216,6 +220,22 @@ pub struct ShardedMapV2NodeAclManifestId(Blake2);
 /// An identifier for a content-addressed ACL manifest entry blob
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub struct AclManifestEntryBlobId(Blake2);
+
+/// An identifier for a history manifest file node
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
+pub struct HistoryManifestFileId(Blake2);
+
+/// An identifier for a history manifest deleted node
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
+pub struct HistoryManifestDeletedNodeId(Blake2);
+
+/// An identifier for a history manifest directory node
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
+pub struct HistoryManifestDirectoryId(Blake2);
+
+/// An identifier for a sharded map node used in history manifest
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
+pub struct ShardedMapV2NodeHistoryManifestId(Blake2);
 
 /// An identifier for an fsnode
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
@@ -837,6 +857,38 @@ impl_typed_hash! {
     value_type => ShardedMapV2Node<ContentManifestEntry>,
     context_type => ShardedMapV2NodeContentManifestContext,
     context_key => "contentmf.map2node",
+}
+
+impl_typed_hash! {
+    hash_type => HistoryManifestFileId,
+    thrift_hash_type => thrift::id::HistoryManifestFileId,
+    value_type => HistoryManifestFile,
+    context_type => HistoryManifestFileIdContext,
+    context_key => "historymf.file",
+}
+
+impl_typed_hash! {
+    hash_type => HistoryManifestDeletedNodeId,
+    thrift_hash_type => thrift::id::HistoryManifestDeletedNodeId,
+    value_type => HistoryManifestDeletedNode,
+    context_type => HistoryManifestDeletedNodeIdContext,
+    context_key => "historymf.delnode",
+}
+
+impl_typed_hash! {
+    hash_type => HistoryManifestDirectoryId,
+    thrift_hash_type => thrift::id::HistoryManifestDirectoryId,
+    value_type => HistoryManifestDirectory,
+    context_type => HistoryManifestDirectoryIdContext,
+    context_key => "historymf.dir",
+}
+
+impl_typed_hash! {
+    hash_type => ShardedMapV2NodeHistoryManifestId,
+    thrift_hash_type => thrift::id::ShardedMapV2NodeId,
+    value_type => ShardedMapV2Node<HistoryManifestEntry>,
+    context_type => ShardedMapV2NodeHistoryManifestContext,
+    context_key => "historymf.map2node",
 }
 
 impl_typed_hash! {

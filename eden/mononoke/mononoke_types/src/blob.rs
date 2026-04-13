@@ -30,6 +30,9 @@ use crate::typed_hash::DirectoryBranchClusterManifestId;
 use crate::typed_hash::FastlogBatchId;
 use crate::typed_hash::FileUnodeId;
 use crate::typed_hash::FsnodeId;
+use crate::typed_hash::HistoryManifestDeletedNodeId;
+use crate::typed_hash::HistoryManifestDirectoryId;
+use crate::typed_hash::HistoryManifestFileId;
 use crate::typed_hash::InferredCopyFromId;
 use crate::typed_hash::ManifestUnodeId;
 use crate::typed_hash::RawBundle2Id;
@@ -107,6 +110,9 @@ pub type SkeletonManifestV2Blob = Blob<SkeletonManifestV2Id>;
 pub type CaseConflictSkeletonManifestBlob = Blob<CaseConflictSkeletonManifestId>;
 pub type AclManifestBlob = Blob<AclManifestId>;
 pub type AclManifestEntryBlobBlob = Blob<AclManifestEntryBlobId>;
+pub type HistoryManifestFileBlob = Blob<HistoryManifestFileId>;
+pub type HistoryManifestDeletedNodeBlob = Blob<HistoryManifestDeletedNodeId>;
+pub type HistoryManifestDirectoryBlob = Blob<HistoryManifestDirectoryId>;
 pub type InferredCopyFromBlob = Blob<InferredCopyFromId>;
 
 impl<Id: BlobstoreKey> From<Blob<Id>> for BlobstoreBytes {
