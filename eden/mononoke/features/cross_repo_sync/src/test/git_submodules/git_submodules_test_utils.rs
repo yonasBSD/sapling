@@ -825,18 +825,18 @@ pub(crate) async fn assert_working_copy_matches_expected(
     };
 
     let blobstore = repo.repo_blobstore();
-    let all_files: Vec<String> = root
+    let mut all_files: Vec<String> = root
         .list_leaf_entries(ctx.clone(), blobstore.clone())
         .map_ok(|(path, _manifest_file)| path.to_string())
         .try_collect()
         .await?;
+    all_files.sort();
+
+    let mut expected: Vec<String> = expected_files.into_iter().map(|s| s.to_string()).collect();
+    expected.sort();
 
     assert_eq!(
-        all_files,
-        expected_files
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>(),
+        all_files, expected,
         "Working copy doesn't match expectation"
     );
     Ok(())
