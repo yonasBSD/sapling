@@ -9,10 +9,18 @@ import type {EjecaChildProcess} from 'shared/ejeca';
 
 import chalk from 'chalk';
 import {spawn} from 'node:child_process';
+import os from 'node:os';
 import path from 'path';
 import {ejeca} from 'shared/ejeca';
 import {defer} from 'shared/utils';
 import {Internal} from './Internal';
+
+const IS_WINDOWS = os.platform() === 'win32';
+
+/** On Windows, .cmd files (like yarn) can't be spawned directly — they need a shell. */
+function yarnCmd(args: string[]): {cmd: string; args: string[]} {
+  return IS_WINDOWS ? {cmd: 'cmd.exe', args: ['/c', 'yarn', ...args]} : {cmd: 'yarn', args};
+}
 
 function usage() {
   process.stdout.write(`
@@ -311,8 +319,7 @@ async function main() {
       const tuiReady = defer();
       configs.push({
         cwd: 'isl-tui-experimental',
-        cmd: 'yarn',
-        args: ['build'],
+        ...yarnCmd(['build']),
         customStatus: (chunk: string, status?: string) => {
           if (chunk.includes('created ') || chunk.includes('built in')) {
             tuiReady.resolve(null);
@@ -352,8 +359,7 @@ async function main() {
     const tuiReady = defer();
     configs.push({
       cwd: 'isl-tui-experimental',
-      cmd: 'yarn',
-      args: isProduction ? ['build'] : ['watch'],
+      ...yarnCmd(isProduction ? ['build'] : ['watch']),
       customStatus: isProduction
         ? undefined
         : (chunk: string, status?: string) => {
@@ -368,8 +374,7 @@ async function main() {
     // Build Client/Webview
     configs.push({
       cwd: kind === 'vscode' ? 'vscode' : 'isl',
-      cmd: 'yarn',
-      args:
+      ...yarnCmd(
         kind === 'vscode'
           ? isProduction
             ? ['build-webview']
@@ -377,6 +382,7 @@ async function main() {
           : isProduction
             ? ['build']
             : ['start'],
+      ),
       customStatus: isProduction
         ? undefined
         : (chunk: string, status?: string) => {
@@ -394,8 +400,7 @@ async function main() {
     // Build server/extension
     configs.push({
       cwd: kind === 'vscode' ? 'vscode' : 'isl-server',
-      cmd: 'yarn',
-      args:
+      ...yarnCmd(
         kind === 'vscode'
           ? isProduction
             ? ['build-extension']
@@ -403,6 +408,7 @@ async function main() {
           : isProduction
             ? ['build']
             : ['watch'],
+      ),
       customStatus: isProduction
         ? undefined
         : (chunk: string, status?: string) => {
@@ -434,8 +440,15 @@ async function main() {
             }
           : {
               cwd: 'isl-server',
-              cmd: 'yarn',
-              args: ['serve', '--dev', '--foreground', '--stdout', '--force', '--cwd', launchDir],
+              ...yarnCmd([
+                'serve',
+                '--dev',
+                '--foreground',
+                '--stdout',
+                '--force',
+                '--cwd',
+                launchDir,
+              ]),
               waitFor,
               customStatus: (_chunk: string, _status?: string) => {
                 return chalk.white(
