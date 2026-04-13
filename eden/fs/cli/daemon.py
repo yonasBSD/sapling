@@ -39,6 +39,8 @@ from .util import is_apple_silicon, poll_until, print_stderr, ShutdownError
 DEFAULT_SIGKILL_TIMEOUT = 30.0
 
 EDENFS_UNIT_NAME_TEMPLATE = "edenfs@{escaped_state_dir}.service"
+EDENFS_SYSTEMD_SERVICE_UNIT = Path("/usr/lib/systemd/user/edenfs@.service")
+EDENFS_SYSTEMD_SLICE_UNIT = Path("/usr/lib/systemd/user/edenfs.slice")
 
 
 def _sanitize_unit_name(eden_dir: str) -> str:
@@ -348,10 +350,32 @@ def _get_systemd_unit(instance: EdenInstance) -> str:
 
 
 def is_systemd_enabled(instance: EdenInstance) -> bool:
-    """Check whether this EdenFS instance should use systemd for lifecycle management."""
-    return sys.platform == "linux" and instance.get_config_bool(
+    """Check whether this EdenFS instance should use systemd for lifecycle management.
+
+    Returns True only when all of the following are satisfied:
+    1. Running on Linux
+    2. The config key experimental.systemd-managed-lifecycle is true
+    3. The systemd unit files (service and slice) are installed on disk
+    """
+    if sys.platform != "linux":
+        return False
+    if not instance.get_config_bool(
         "experimental.systemd-managed-lifecycle", default=False
-    )
+    ):
+        return False
+    missing = [
+        str(p)
+        for p in (EDENFS_SYSTEMD_SERVICE_UNIT, EDENFS_SYSTEMD_SLICE_UNIT)
+        if not p.exists()
+    ]
+    if missing:
+        print_stderr(
+            f"warning: systemd-managed-lifecycle is enabled in config but "
+            f"the following unit files were not found: {', '.join(missing)}. "
+            f"Falling back to direct daemon management."
+        )
+        return False
+    return True
 
 
 def _is_systemd_unit_active(unit: str) -> bool:
