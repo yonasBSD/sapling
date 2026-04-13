@@ -72,7 +72,6 @@ const DIFF_AUTHOR: &str = "scm_server_infra";
 const REPO_DEFINITIONS_BASE_PATH: &str = "source/scm/mononoke/repos/definitions";
 const REPO_DEFINITION_THRIFT_TYPE: &str = "QuickRepoDefinition";
 const REPO_DEFINITION_THRIFT_PATH: &str = "source/scm/mononoke/repos/repos.thrift";
-const REPO_SPEC_BASE_PATH: &str = "source/scm/mononoke/repos/git";
 const REPO_SPEC_THRIFT_TYPE: &str = "RepoSpec";
 const REPO_SPEC_THRIFT_PATH: &str = "source/scm/mononoke/repos/repos.thrift";
 
@@ -629,20 +628,106 @@ fn to_repo_spec_tshirt_size(
     }
 }
 
-/// Generates the file path for a RepoSpec file.
-/// Path format: source/scm/mononoke/repos/git/{hash_dir}/{repo_name_escaped}.cconf
-/// where hash_dir is the first 2 hex chars of SHA-256(repo_name).
+/// Returns the configerator path for a RepoSpec file (no source/ prefix, no .cconf extension).
+/// E.g., "scm/mononoke/repos/git/a3/org_repo" for repo name "org/repo".
 /// Must match repo_spec_config_path() in generate_repo_index.py and
 /// repo_spec_relative_path() in migrate_qrd_to_repo_spec.py.
-fn make_repo_spec_file_path(repo_name: &str) -> String {
+fn make_repo_spec_config_path(repo_name: &str) -> String {
     let hash = Sha256::digest(repo_name.as_bytes());
     let hash_dir = format!("{:02x}", hash[0]);
     format!(
-        "{}/{}/{}.cconf",
-        REPO_SPEC_BASE_PATH,
+        "scm/mononoke/repos/git/{}/{}",
         hash_dir,
         repo_name.replace('/', "_")
     )
+}
+
+/// Generates the file path for a RepoSpec file.
+/// Path format: source/scm/mononoke/repos/git/{hash_dir}/{repo_name_escaped}.cconf
+fn make_repo_spec_file_path(repo_name: &str) -> String {
+    format!("source/{}.cconf", make_repo_spec_config_path(repo_name))
+}
+
+struct RepoIndexEntry {
+    config_path: String,
+    repo_id: i32,
+    tiers: Vec<&'static str>,
+    is_deep_sharded: bool,
+    t_shirt_size: TShirtSize,
+    hipster_acl: String,
+    enable_git_bundle_uri: Option<bool>,
+}
+
+fn format_python_bool(val: bool) -> &'static str {
+    if val { "True" } else { "False" }
+}
+
+fn format_python_list(items: &[&str]) -> String {
+    let quoted: Vec<String> = items.iter().map(|s| format!("\"{}\"", s)).collect();
+    format!("[{}]", quoted.join(", "))
+}
+
+fn format_tshirt_size_python(size: TShirtSize) -> &'static str {
+    match size {
+        TShirtSize::SMALL => "TShirtSize.SMALL",
+        TShirtSize::MEDIUM => "TShirtSize.MEDIUM",
+        TShirtSize::LARGE => "TShirtSize.LARGE",
+        TShirtSize::EXTRA_LARGE => "TShirtSize.EXTRA_LARGE",
+        TShirtSize::EXTRA_EXTRA_LARGE => "TShirtSize.EXTRA_EXTRA_LARGE",
+        TShirtSize::HUGE => "TShirtSize.HUGE",
+        other => panic!("unexpected TShirtSize variant: {:?}", other),
+    }
+}
+
+/// Escape a string for embedding in a Python string literal (double-quoted).
+/// Matches the escaping in generate_repo_index.py's ast_value_to_python_literal().
+fn escape_python_string(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn append_to_repo_index(
+    current_content: &str,
+    new_entries: &[(String, RepoIndexEntry)],
+) -> Result<String> {
+    let insert_pos = current_content
+        .rfind("\n}")
+        .ok_or_else(|| anyhow::anyhow!("malformed repo_index.cinc: no closing brace"))?;
+
+    let mut result = current_content[..insert_pos].to_string();
+
+    for (repo_name, entry) in new_entries {
+        let mut entry_str = format!(
+            r#"
+    "{}": {{
+        "config_path": "{}",
+        "repo_id": {},
+        "tiers": {},
+        "is_deep_sharded": {},
+        "t_shirt_size": {},
+        "default_commit_identity_scheme": RawCommitIdentityScheme.GIT,
+        "hipster_acl": "{}",
+        "enabled": True,
+        "readonly": False,"#,
+            escape_python_string(repo_name),
+            entry.config_path,
+            entry.repo_id,
+            format_python_list(&entry.tiers),
+            format_python_bool(entry.is_deep_sharded),
+            format_tshirt_size_python(entry.t_shirt_size),
+            escape_python_string(&entry.hipster_acl),
+        );
+        if let Some(bundle_uri) = entry.enable_git_bundle_uri {
+            entry_str.push_str(&format!(
+                "\n        \"enable_git_bundle_uri\": {},",
+                format_python_bool(bundle_uri)
+            ));
+        }
+        entry_str.push_str("\n    },");
+        result.push_str(&entry_str);
+    }
+
+    result.push_str("\n}\n");
+    Ok(result)
 }
 
 fn make_repo_spec(
@@ -728,6 +813,47 @@ async fn prepare_repo_configs_mutation_nowait(
                 None,
             );
         }
+    }
+
+    // Update repo_index.cinc atomically in the same transaction
+    if use_repo_spec {
+        let index_path = "source/scm/mononoke/repos/repo_index.cinc".to_string();
+
+        // Read current content — pins CAS version. Must drop handle before set_file.
+        let index_str = {
+            let handle = txn.get_file(index_path.clone()).await.map_err(|e| {
+                scs_errors::internal_error(format!("Failed to read repo_index.cinc: {e:#}"))
+            })?;
+            String::from_utf8(handle.clone()).map_err(|e| {
+                scs_errors::internal_error(format!("repo_index.cinc is not valid UTF-8: {e:#}"))
+            })?
+        }; // handle dropped — txn no longer borrowed
+
+        // Build entries for all new repos
+        let new_entries: Vec<_> = repos_ids_and_requests
+            .iter()
+            .map(|(repo_id, request)| {
+                let config_path = make_repo_spec_config_path(&request.repo_name);
+                let t_shirt_size = to_repo_spec_tshirt_size(request.size_bucket)?;
+                Ok((
+                    request.repo_name.clone(),
+                    RepoIndexEntry {
+                        config_path,
+                        repo_id: repo_id.id(),
+                        tiers: vec!["gitimport", "gitimport_content", "scs"],
+                        is_deep_sharded: true,
+                        t_shirt_size,
+                        hipster_acl: make_full_acl_name_from_repo_name(&request.repo_name),
+                        enable_git_bundle_uri: None,
+                    },
+                ))
+            })
+            .collect::<Result<_, scs_errors::ServiceError>>()?;
+
+        let updated_index = append_to_repo_index(&index_str, &new_entries).map_err(|e| {
+            scs_errors::internal_error(format!("Failed to update repo_index.cinc: {e:#}"))
+        })?;
+        txn.set_file(index_path, updated_index.into_bytes());
     }
 
     let summary = repos_ids_and_requests
