@@ -69,6 +69,7 @@ use bookmarks::BookmarksRef;
 use bytes::Bytes;
 use commit_graph::CommitGraphRef;
 use commit_graph::CommitGraphWriterRef;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
 use filenodes_derivation::FilenodesOnlyPublic;
@@ -105,8 +106,8 @@ use mononoke_types::MPath;
 use mononoke_types::PrefixTrie;
 use mononoke_types::Timestamp;
 use mononoke_types::check_case_conflicts;
+use mononoke_types::content_manifest::compat;
 use mononoke_types::find_path_conflicts;
-use mononoke_types::fsnode::FsnodeFile;
 use pushrebase_hook::PushrebaseCommitHook;
 use pushrebase_hook::PushrebaseHook;
 use pushrebase_hook::PushrebaseTransactionHook;
@@ -1352,23 +1353,39 @@ fn intersect_changed_files(left: Vec<MPath>, right: Vec<MPath>) -> Result<(), Pu
     }
 }
 
-/// Fetch fsnode file entry for a given path from a changeset's fsnode manifest.
-/// Returns the FsnodeFile which provides access to content_id and file_type.
-async fn fetch_fsnode_file(
+/// Fetch manifest file entry for a given path from a changeset's manifest.
+/// Returns the ContentManifestFile which provides access to content_id and file_type.
+/// Uses content_manifest or fsnode depending on the JustKnobs gate.
+async fn fetch_manifest_file(
     ctx: &CoreContext,
     repo: &impl Repo,
     cs_id: ChangesetId,
     path: &NonRootMPath,
-) -> Result<Option<FsnodeFile>> {
+) -> Result<Option<compat::ContentManifestFile>> {
     use manifest::Entry;
 
-    let root_fsnode_id = repo
-        .repo_derived_data()
-        .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
-        .await?;
+    let repo_name = repo.repo_identity().name();
+    let use_content_manifests = justknobs::eval(
+        "scm/mononoke:derived_data_use_content_manifests",
+        None,
+        Some(repo_name),
+    )?;
 
-    let mf_id = root_fsnode_id.fsnode_id().clone();
-    let entry = mf_id
+    let root_id: compat::ContentManifestId = if use_content_manifests {
+        repo.repo_derived_data()
+            .derive::<RootContentManifestId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?
+            .into_content_manifest_id()
+            .into()
+    } else {
+        repo.repo_derived_data()
+            .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
+            .await?
+            .into_fsnode_id()
+            .into()
+    };
+
+    let entry = root_id
         .find_entry(
             ctx.clone(),
             repo.repo_blobstore().clone(),
@@ -1377,7 +1394,7 @@ async fn fetch_fsnode_file(
         .await?;
 
     match entry {
-        Some(Entry::Leaf(fsnode_file)) => Ok(Some(fsnode_file)),
+        Some(Entry::Leaf(file)) => Ok(Some(file.into())),
         _ => Ok(None),
     }
 }
@@ -1396,10 +1413,11 @@ enum FileMergeOutcome {
 
 /// Attempt a 3-way merge on a single file at `path`.
 ///
-/// Fetches the base (root) version from fsnode manifests. The other
-/// (server-side) content is passed directly as `other_content_id` to avoid
-/// expensive fsnode derivation in the critical section — callers obtain it
-/// from the bonsai changesets instead.
+/// Fetches the base (root) version from the manifest (content_manifest or
+/// fsnode, depending on the JustKnobs gate). The other (server-side) content
+/// is passed directly as `other_content_id` to avoid expensive manifest
+/// derivation in the critical section — callers obtain it from the bonsai
+/// changesets instead.
 ///
 /// If `expected_file_type` is `Some`, validates that the base file type
 /// matches (strict mode for actual merge resolution). If `None`, skips type
@@ -1413,8 +1431,8 @@ async fn try_merge_file(
     other_content_id: ContentId,
     expected_file_type: Option<FileType>,
 ) -> FileMergeOutcome {
-    // Fetch base fsnode entry (only derivation needed — root is pre-derived)
-    let base_fsnode = match fetch_fsnode_file(ctx, repo, root, path).await {
+    // Fetch base manifest entry (only derivation needed — root is pre-derived)
+    let base_file = match fetch_manifest_file(ctx, repo, root, path).await {
         Ok(Some(f)) => f,
         Ok(None) => {
             return FileMergeOutcome::Skipped(format!("file {} not found in base", path));
@@ -1424,7 +1442,7 @@ async fn try_merge_file(
 
     // Validate file types if expected type is provided
     if let Some(local_type) = expected_file_type {
-        let base_type = *base_fsnode.file_type();
+        let base_type = base_file.file_type();
         if base_type != local_type {
             return FileMergeOutcome::Skipped(format!(
                 "file {} has type mismatch: base={:?}, local={:?}",
@@ -1435,7 +1453,7 @@ async fn try_merge_file(
 
     // Fetch all three file contents concurrently
     let (base_bytes, local_bytes, other_bytes) = futures::join!(
-        filestore::fetch_concat(repo.repo_blobstore(), ctx, *base_fsnode.content_id()),
+        filestore::fetch_concat(repo.repo_blobstore(), ctx, base_file.content_id()),
         filestore::fetch_concat(repo.repo_blobstore(), ctx, local_content_id),
         filestore::fetch_concat(repo.repo_blobstore(), ctx, other_content_id),
     );
@@ -1717,7 +1735,7 @@ enum MergeResolutionError {
 /// per-commit rebase loop in `create_rebased_changesets`.
 ///
 /// The server-side content is obtained directly from the bonsai changesets
-/// rather than deriving fsnodes, to avoid expensive derivation in the
+/// rather than deriving manifests, to avoid expensive derivation in the
 /// critical section of pushrebase.
 ///
 /// Fails if any file cannot be merged (missing, type mismatch, copy info,
@@ -1857,9 +1875,9 @@ async fn collect_merge_file_info(
             )));
         }
 
-        // Fetch base content from root fsnode — capture the content ID
+        // Fetch base content from root manifest — capture the content ID
         // so the cascading merge in create_rebased_changesets can reuse it.
-        let base_fsnode = match fetch_fsnode_file(ctx, repo, root, &non_root_path).await {
+        let base_file = match fetch_manifest_file(ctx, repo, root, &non_root_path).await {
             Ok(Some(f)) => f,
             Ok(None) => {
                 return Err(MergeResolutionError::Skipped(format!(
@@ -1870,16 +1888,16 @@ async fn collect_merge_file_info(
             Err(e) => return Err(MergeResolutionError::InternalError(e)),
         };
 
-        if *base_fsnode.file_type() != local_file_type {
+        if base_file.file_type() != local_file_type {
             return Err(MergeResolutionError::Skipped(format!(
                 "file {} has type mismatch: base={:?}, local={:?}",
                 non_root_path,
-                base_fsnode.file_type(),
+                base_file.file_type(),
                 local_file_type,
             )));
         }
 
-        let base_content_id = *base_fsnode.content_id();
+        let base_content_id = base_file.content_id();
         let server_content_id = server_fc.content_id().clone();
 
         // Record metadata for the cascading merge in
