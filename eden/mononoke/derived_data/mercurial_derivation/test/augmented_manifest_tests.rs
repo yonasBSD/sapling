@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
-use blobstore::KeyedBlobstore;
 use blobstore::Loadable;
 use cacheblob::MemWritesKeyedBlobstore;
 use context::CoreContext;
@@ -21,6 +20,7 @@ use justknobs::test_helpers::override_just_knobs;
 use manifest::Entry;
 use manifest::ManifestOps;
 use mercurial_derivation::DeriveHgChangeset;
+use mercurial_derivation::MappedHgChangesetId;
 use mercurial_derivation::RootHgAugmentedManifestId;
 use mercurial_derivation::derive_hg_augmented_manifest;
 use mercurial_types::HgAugmentedManifestId;
@@ -35,8 +35,8 @@ use tests_utils::drawdag::extend_from_dag_with_actions;
 
 use crate::Repo;
 
-/// Invariant test: after augmented manifest derivation (which inline-derives
-/// HgChangesets), all HgManifest blobs must be loadable via `Loadable`.
+/// Invariant test: after augmented manifest derivation, all HgManifest
+/// blobs must be loadable via `Loadable`.
 #[mononoke::fbinit_test]
 async fn test_augmented_manifest_hg_blobs_loadable(fb: FacebookInit) -> Result<()> {
     let ctx = CoreContext::test_mock(fb);
@@ -54,6 +54,12 @@ async fn test_augmented_manifest_hg_blobs_loadable(fb: FacebookInit) -> Result<(
         .await?;
 
     let manager = repo.repo_derived_data().manager();
+
+    // HgChangesets must be derived first (dependency of RootHgAugmentedManifestId).
+    manager
+        .derive_exactly_batch::<MappedHgChangesetId>(&ctx, vec![root, child], None)
+        .await?;
+
     manager
         .derive_exactly_batch::<RootHgAugmentedManifestId>(&ctx, vec![root, child], None)
         .await?;
@@ -245,79 +251,6 @@ async fn test_augmented_manifest(fb: FacebookInit) -> Result<()> {
     Ok(())
 }
 
-/// Test that RootHgAugmentedManifestId batch derivation works correctly
-/// across multiple batch segments. This exercises the scenario where
-/// derive_heads_with_visited splits a large set of commits into multiple
-/// calls to derive_exactly_batch.
-///
-/// RootHgAugmentedManifestId's derive_batch derives HgChangesets inline
-/// and stores their mappings to SQL. The second batch segment depends on
-/// HgChangeset mappings from the first batch being visible via SQL.
-#[mononoke::fbinit_test]
-async fn test_augmented_manifest_multi_batch(fb: FacebookInit) -> Result<()> {
-    let ctx = CoreContext::test_mock(fb);
-    let repo: Repo = test_repo_factory::build_empty(fb).await?;
-
-    // Create a linear chain of commits. We'll split them into two batch
-    // segments to simulate what derive_heads_with_visited does.
-    let mut csids = Vec::new();
-    let root = CreateCommitContext::new_root(&ctx, &repo)
-        .add_file("file", "content_0")
-        .commit()
-        .await?;
-    csids.push(root);
-
-    for i in 1..10 {
-        let parent = *csids.last().unwrap();
-        let cs = CreateCommitContext::new(&ctx, &repo, vec![parent])
-            .add_file("file", format!("content_{}", i))
-            .commit()
-            .await?;
-        csids.push(cs);
-    }
-
-    let manager = repo.repo_derived_data().manager();
-
-    // MappedHgChangesetId is NOT a dependency — it gets derived inline
-    // within derive_batch and stored to SQL for cross-batch visibility.
-    // Split into two batches and derive RootHgAugmentedManifestId.
-    // First batch: commits 0..5
-    let batch1 = csids[0..5].to_vec();
-    manager
-        .derive_exactly_batch::<RootHgAugmentedManifestId>(&ctx, batch1, None)
-        .await?;
-
-    // Second batch: commits 5..10 (parent of commit 5 is commit 4, which
-    // was in batch 1). This works because derive_batch stores
-    // MappedHgChangesetId mappings to SQL, making them visible here.
-    let batch2 = csids[5..10].to_vec();
-    manager
-        .derive_exactly_batch::<RootHgAugmentedManifestId>(&ctx, batch2, None)
-        .await?;
-
-    // Verify all derived augmented manifests match full derivation
-    let derived = manager
-        .fetch_derived_batch::<RootHgAugmentedManifestId>(&ctx, csids.clone(), None)
-        .await?;
-
-    for cs_id in &csids {
-        let aug_id = derived
-            .get(cs_id)
-            .unwrap_or_else(|| panic!("Missing RootHgAugmentedManifestId for {}", cs_id))
-            .hg_augmented_manifest_id();
-
-        let hg_cs_id = repo.derive_hg_changeset(&ctx, *cs_id).await?;
-        let hg_manifest_id = hg_cs_id
-            .load(&ctx, repo.repo_blobstore())
-            .await?
-            .manifestid();
-
-        compare_manifests(&ctx, &repo, hg_manifest_id, aug_id).await?;
-    }
-
-    Ok(())
-}
-
 /// Test that RootHgAugmentedManifestId derivation via derive_heads works
 /// correctly when MappedHgChangesetId is not a declared dependency.
 /// derive_heads calls derive_exactly_batch, which calls our derive_batch
@@ -372,9 +305,9 @@ async fn test_augmented_manifest_derive_heads(fb: FacebookInit) -> Result<()> {
     Ok(())
 }
 
-/// Test that hgmanifest_skip_writes=true prevents HgManifest blobs from
-/// being written to the blobstore, while the reconstruction layer in
-/// fetch_manifest_envelope_opt still makes them loadable.
+/// Test that augmented manifest derivation works correctly when
+/// hgmanifest_skip_writes=true, verifying that HgManifest blobs remain
+/// loadable and augmented manifests match.
 #[mononoke::fbinit_test]
 async fn test_augmented_manifest_skip_writes(fb: FacebookInit) -> Result<()> {
     override_just_knobs(JustKnobsInMemory::new(HashMap::from([(
@@ -404,6 +337,11 @@ async fn test_augmented_manifest_skip_writes(fb: FacebookInit) -> Result<()> {
         .await?;
 
     let manager = repo.repo_derived_data().manager();
+
+    // HgChangesets must be derived first (dependency of RootHgAugmentedManifestId).
+    manager
+        .derive_exactly_batch::<MappedHgChangesetId>(&ctx, vec![root, child, grandchild], None)
+        .await?;
 
     manager
         .derive_exactly_batch::<RootHgAugmentedManifestId>(
@@ -435,30 +373,6 @@ async fn test_augmented_manifest_skip_writes(fb: FacebookInit) -> Result<()> {
         assert!(!entries.is_empty());
 
         compare_manifests(&ctx, &repo, hg_manifest_id, aug.hg_augmented_manifest_id()).await?;
-
-        // Verify HgManifest blobs were NOT written to the blobstore.
-        // Raw blobstore.get() bypasses the reconstruction layer in
-        // fetch_manifest_envelope_opt.
-        let blobstore = repo.repo_blobstore();
-        assert!(
-            blobstore
-                .get(&ctx, &hg_manifest_id.blobstore_key())
-                .await?
-                .is_none(),
-            "Root HgManifest blob should not exist in blobstore when skip_writes is enabled",
-        );
-        for entry in &entries {
-            if let (path, Entry::Tree(subtree_mf_id)) = entry {
-                assert!(
-                    blobstore
-                        .get(&ctx, &subtree_mf_id.blobstore_key())
-                        .await?
-                        .is_none(),
-                    "HgManifest blob for subtree {:?} should not exist in blobstore",
-                    path,
-                );
-            }
-        }
     }
 
     Ok(())

@@ -560,7 +560,7 @@ async fn store_hg_cs_mapping(
 impl BonsaiDerivable for RootHgAugmentedManifestId {
     const VARIANT: DerivableType = DerivableType::HgAugmentedManifests;
 
-    type Dependencies = dependencies![];
+    type Dependencies = dependencies![MappedHgChangesetId];
 
     async fn derive_single(
         ctx: &CoreContext,
@@ -679,19 +679,6 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
         // This ensures that HgChangeset blobs are in persistent storage
         // before their SQL mappings become visible to other processes.
         derivation_ctx.flush(ctx).await?;
-
-        // Now safe to store — blobs are in persistent storage.
-        let entries: Vec<BonsaiHgMappingEntry> = hg_cs_map
-            .iter()
-            .map(|(csid, hg_cs)| BonsaiHgMappingEntry {
-                hg_cs_id: hg_cs.hg_changeset_id(),
-                bcs_id: *csid,
-            })
-            .collect();
-        derivation_ctx
-            .bonsai_hg_mapping()?
-            .bulk_add(ctx, &entries)
-            .await?;
 
         Ok(res)
     }
@@ -911,10 +898,10 @@ mod test {
         Ok(())
     }
 
-    /// Like `verify_repo`, but derives `RootHgAugmentedManifestId` (which
-    /// internally derives HgChangesets).  When the skip-writes knob is
-    /// active, this exercises the write-skipping path and verifies that
-    /// HgManifest blobs can still be read through the reconstruction layer.
+    /// Like `verify_repo`, but derives `RootHgAugmentedManifestId`.
+    /// When the skip-writes knob is active, this exercises the
+    /// write-skipping path and verifies that HgManifest blobs can
+    /// still be read through the reconstruction layer.
     async fn verify_repo_aug<F, Fut>(fb: FacebookInit, repo_func: F) -> Result<()>
     where
         F: Fn() -> Fut,
@@ -938,13 +925,17 @@ mod test {
             .collect::<Vec<_>>();
         let manager = repo.repo_derived_data().manager();
 
+        // HgChangesets must be derived first (dependency of RootHgAugmentedManifestId).
+        manager
+            .derive_exactly_batch::<MappedHgChangesetId>(ctx, csids.clone(), None)
+            .await?;
+
         manager
             .derive_exactly_batch::<RootHgAugmentedManifestId>(ctx, csids.clone(), None)
             .await?;
 
-        // Verify HgChangesets (inline-derived by augmented manifest derivation)
-        // match the expected values and that manifests are readable through
-        // the reconstruction layer (HgManifest blobs were skipped).
+        // Verify HgChangesets match the expected values and that manifests
+        // are readable through the reconstruction layer.
         let hg_cs_derived = manager
             .fetch_derived_batch::<MappedHgChangesetId>(ctx, csids, None)
             .await?;
