@@ -5,16 +5,7 @@
  * GNU General Public License version 2.
  */
 
-use serde::Deserialize;
 use serde::Serialize;
-
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-pub struct Request {
-    jsonrpc: String,
-    pub method: String,
-    pub params: Option<serde_json::Value>,
-    pub id: Option<String>,
-}
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct Response {
