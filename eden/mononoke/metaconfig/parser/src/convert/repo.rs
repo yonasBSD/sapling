@@ -385,6 +385,15 @@ impl Convert for RawPushrebaseParams {
                     .unwrap_or_default(),
                 not_generated_filenodes_limit: 500,
                 monitoring_bookmark: self.monitoring_bookmark,
+                merge_resolution_excluded_path_prefixes: self
+                    .merge_resolution_excluded_path_prefixes
+                    .map(|raw| {
+                        raw.into_iter()
+                            .map(|path| NonRootMPath::new_opt(path.as_bytes()).map(MPath::from))
+                            .collect::<Result<PrefixTrie>>()
+                    })
+                    .transpose()?
+                    .unwrap_or_default(),
             },
             block_merges: self.block_merges.unwrap_or(default.block_merges),
             emit_obsmarkers: self.emit_obsmarkers.unwrap_or(default.emit_obsmarkers),

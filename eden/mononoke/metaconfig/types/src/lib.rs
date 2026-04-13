@@ -1070,6 +1070,11 @@ pub struct PushrebaseFlags {
     pub not_generated_filenodes_limit: u64,
     /// Which bookmark to track in ODS
     pub monitoring_bookmark: Option<String>,
+    /// Path prefixes excluded from merge resolution during pushrebase.
+    /// Files under these prefixes will not be auto-merged; conflicts on
+    /// them will be rejected as before so downstream checks (e.g. Hack
+    /// type-checking in CI land) still trigger.
+    pub merge_resolution_excluded_path_prefixes: PrefixTrie,
 }
 
 impl Default for PushrebaseFlags {
@@ -1082,6 +1087,7 @@ impl Default for PushrebaseFlags {
             casefolding_check_excluded_paths: PrefixTrie::new(),
             not_generated_filenodes_limit: 500,
             monitoring_bookmark: None,
+            merge_resolution_excluded_path_prefixes: PrefixTrie::new(),
         }
     }
 }
