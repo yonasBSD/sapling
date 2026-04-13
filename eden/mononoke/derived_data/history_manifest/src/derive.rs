@@ -1,0 +1,823 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This software may be used and distributed according to the terms of the
+ * GNU General Public License version 2.
+ */
+
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use anyhow::Result;
+use anyhow::anyhow;
+use blobstore::KeyedBlobstore;
+use blobstore::Loadable;
+use blobstore::Storable;
+use borrowed::borrowed;
+use bounded_traversal::bounded_traversal;
+use cloned::cloned;
+use context::CoreContext;
+use either::Either;
+use futures::future;
+use futures::future::FutureExt;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
+use manifest::PathTree;
+use mononoke_macros::mononoke;
+use mononoke_types::BlobstoreValue;
+use mononoke_types::BonsaiChangeset;
+use mononoke_types::ChangesetId;
+use mononoke_types::ContentId;
+use mononoke_types::FileChange;
+use mononoke_types::FileType;
+use mononoke_types::MPath;
+use mononoke_types::MPathElement;
+use mononoke_types::TrieMap;
+use mononoke_types::history_manifest::HistoryManifestDeletedNode;
+use mononoke_types::history_manifest::HistoryManifestDirectory;
+use mononoke_types::history_manifest::HistoryManifestEntry;
+use mononoke_types::history_manifest::HistoryManifestFile;
+use mononoke_types::sharded_map_v2::LoadableShardedMapV2Node;
+use mononoke_types::sharded_map_v2::ShardedMapV2Node;
+use mononoke_types::typed_hash::HistoryManifestDirectoryId;
+use smallvec::SmallVec;
+
+use crate::HistoryManifestDerivationError;
+use crate::merge_subtrees::merge_subtrees;
+
+/// What the unfold decided for this path.
+enum UnfoldAction {
+    /// Reuse a parent entry unchanged.
+    Reuse(HistoryManifestEntry),
+    /// Create a live file node.
+    CreateFile {
+        content_id: ContentId,
+        file_type: FileType,
+        parents: Vec<HistoryManifestEntry>,
+    },
+    /// Create a deleted file node.
+    CreateDeletedFile { parents: Vec<HistoryManifestEntry> },
+    /// Merge file from multiple parents (live).
+    MergeFile { parents: Vec<HistoryManifestEntry> },
+    /// Merge file from multiple parents (deleted).
+    MergeDeletedFile { parents: Vec<HistoryManifestEntry> },
+    /// Recurse into directory. Fold will collect child results.
+    RecurseDirectory {
+        parents: Vec<HistoryManifestEntry>,
+
+        /// Unchanged entries and subtrees reused from parents, keyed by
+        /// byte prefix. Feeds directly into
+        /// `ShardedMapV2Node::from_entries_and_partial_maps`.
+        reused: Vec<(
+            SmallVec<[u8; 24]>,
+            Either<HistoryManifestEntry, LoadableShardedMapV2Node<HistoryManifestEntry>>,
+        )>,
+    },
+}
+
+/// Node for bounded_traversal.
+struct UnfoldNode {
+    // The individual element of the path for the current level of recursion.
+    // For example if we're traversing a/b/c.txt and are at b, this will be
+    // Some("b").
+    path_element: Option<MPathElement>,
+    // The full path at the current level of recursion.
+    // For example if we're traversing a/b/c.txt and are at b, this will be
+    // "a/b".
+    path: MPath,
+    // The changes for this path in the current changeset - there are three possibilities:
+    // 1. None - the path was not changed in the current changeset. This will
+    //    be the case for intermediate directories (i.e. if the changeset
+    //    modifies a/b/c.txt, then when we visit nodes a and b, this field will
+    //    be None.).
+    // 2. Some(None) - the path was deleted in the current changeset.
+    // 3. Some(Some(...) - the path was modified in the current changeset.
+    change: Option<Option<(ContentId, FileType)>>,
+    children: Vec<(
+        MPathElement,
+        PathTree<Option<Option<(ContentId, FileType)>>>,
+    )>,
+    // If we're at a directory, this will contain the manifest node for that
+    // directory for each parent. Empty if we're at a file, even if a parent
+    // had a directory at this path.
+    parent_dirs: Vec<(ChangesetId, HistoryManifestDirectory)>,
+    // The manifest entry for the current node for each parent.
+    parent_entries: Vec<(ChangesetId, HistoryManifestEntry)>,
+    /// When true, this node and all descendants are being implicitly deleted
+    /// (i.e. a file replaced a parent directory). All entries should
+    /// produce deletion nodes regardless of their live/deleted status in the
+    /// parent manifest.
+    implicit_deletion: bool,
+}
+
+fn is_not_directory(entry: &HistoryManifestEntry) -> bool {
+    !matches!(entry, HistoryManifestEntry::Directory(_))
+}
+
+fn is_deleted_entry(entry: &HistoryManifestEntry) -> bool {
+    matches!(entry, HistoryManifestEntry::DeletedNode(_))
+}
+
+/// Get the directory ID from an entry, if it is a directory variant.
+fn get_directory_id(entry: &HistoryManifestEntry) -> Option<HistoryManifestDirectoryId> {
+    match entry {
+        HistoryManifestEntry::Directory(id) => Some(*id),
+        _ => None,
+    }
+}
+
+async fn store_blob<V: BlobstoreValue<Key: Copy + Send + Sync + 'static>>(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    value: V,
+) -> Result<V::Key> {
+    let blob = value.into_blob();
+    let id = *blob.id();
+    blob.store(ctx, blobstore).await?;
+    Ok(id)
+}
+
+async fn load_blob<Id: Loadable + Copy>(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    id: Id,
+) -> Result<Id::Value> {
+    id.load(ctx, blobstore).await.map_err(Into::into)
+}
+
+/// Build a merged file node from multiple parents.
+///
+/// When parents disagree on a file entry (different content or
+/// deleted-vs-live), we create a new file node that records all parents.
+///
+/// If the new node would be identical to an existing parent node
+/// (same content, same parents list), it is reused to avoid creating a
+/// duplicate blob.
+async fn merge_live_file_node(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    cs_id: ChangesetId,
+    path: &MPath,
+    parents: Vec<HistoryManifestEntry>,
+) -> Result<HistoryManifestEntry> {
+    // Find the first File parent to get content_id/file_type.
+    let first_file_id = parents
+        .iter()
+        .find_map(|p| match p {
+            HistoryManifestEntry::File(id) => Some(*id),
+            _ => None,
+        })
+        .ok_or_else(|| anyhow!("MergeFile requires at least one File parent"))?;
+    let parent_file = load_blob(ctx, blobstore, first_file_id).await?;
+
+    // Reuse heuristic: if the first parent already has matching fields.
+    if parent_file.linknode != cs_id && parent_file.parents == parents {
+        return Ok(HistoryManifestEntry::File(first_file_id));
+    }
+
+    let subentries = collect_parent_subentries(ctx, blobstore, &parents).await?;
+
+    let file = HistoryManifestFile {
+        parents,
+        content_id: parent_file.content_id,
+        file_type: parent_file.file_type,
+        path_hash: path.get_path_hash(),
+        linknode: cs_id,
+        subentries,
+    };
+    let id = store_blob(ctx, blobstore, file).await?;
+    Ok(HistoryManifestEntry::File(id))
+}
+
+/// Build a merged deleted node from multiple parents.
+async fn merge_deleted_node(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    cs_id: ChangesetId,
+    _path: &MPath,
+    parents: Vec<HistoryManifestEntry>,
+) -> Result<HistoryManifestEntry> {
+    let subentries = collect_parent_subentries(ctx, blobstore, &parents).await?;
+    let node = HistoryManifestDeletedNode {
+        parents,
+        subentries,
+        linknode: cs_id,
+    };
+    let id = store_blob(ctx, blobstore, node).await?;
+    Ok(HistoryManifestEntry::DeletedNode(id))
+}
+
+/// Collect and merge subentries from parent entries.
+async fn collect_parent_subentries(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    parents: &[HistoryManifestEntry],
+) -> Result<ShardedMapV2Node<HistoryManifestEntry>> {
+    let subentry_nodes: Vec<ShardedMapV2Node<HistoryManifestEntry>> =
+        future::try_join_all(parents.iter().map(|parent| {
+            Box::pin(async move {
+                let subentries = match parent {
+                    HistoryManifestEntry::File(id) => {
+                        load_blob(ctx, blobstore, *id).await?.subentries
+                    }
+                    HistoryManifestEntry::DeletedNode(id) => {
+                        load_blob(ctx, blobstore, *id).await?.subentries
+                    }
+                    HistoryManifestEntry::Directory(id) => {
+                        load_blob(ctx, blobstore, *id).await?.subentries
+                    }
+                };
+                Ok(subentries)
+            }) as futures::future::BoxFuture<'_, Result<_>>
+        }))
+        .await?;
+
+    // Filter out empty nodes to enable fast paths.
+    let subentry_nodes: Vec<_> = subentry_nodes
+        .into_iter()
+        .filter(|node| node.size() > 0)
+        .collect();
+
+    if subentry_nodes.is_empty() {
+        return Ok(Default::default());
+    }
+
+    // Fast path: single parent with subentries, reuse directly.
+    if subentry_nodes.len() == 1 {
+        return Ok(subentry_nodes.into_iter().next().unwrap());
+    }
+
+    // Multiple parents: stream entries one node at a time to avoid
+    // materializing all entries simultaneously, and keep the first
+    // occurrence of each key.
+    let mut merged = BTreeMap::new();
+    for node in subentry_nodes {
+        let mut stream = std::pin::pin!(node.into_entries(ctx, blobstore));
+        while let Some((key, entry)) = stream.try_next().await? {
+            merged.entry(key).or_insert(entry);
+        }
+    }
+
+    let trie_map: TrieMap<
+        Either<HistoryManifestEntry, LoadableShardedMapV2Node<HistoryManifestEntry>>,
+    > = merged
+        .into_iter()
+        .map(|(key, entry)| (key, Either::Left(entry)))
+        .collect();
+
+    ShardedMapV2Node::from_entries_and_partial_maps(ctx, blobstore, trie_map).await
+}
+
+/// Check if a parent has a file entry with matching content_id and file_type.
+/// If found, return that parent's entry for reuse. This avoids creating
+/// unnecessary merge nodes in history when a file was only changed on one
+/// branch of a merge.
+async fn find_reusable_file_entry_by_content(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    parent_entries: &[(ChangesetId, HistoryManifestEntry)],
+    content_id: ContentId,
+    file_type: FileType,
+) -> Result<Option<HistoryManifestEntry>> {
+    for (_, entry) in parent_entries {
+        if let HistoryManifestEntry::File(id) = entry {
+            let file = load_blob(ctx, blobstore, *id).await?;
+            if file.content_id == content_id && file.file_type == file_type {
+                return Ok(Some(entry.clone()));
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// Create implicit deletion unfold nodes from parent entries.
+///
+/// When a file replaces a directory, the old directory's children need
+/// `DeletedNode` entries. This function takes the parent
+/// entries at a path, finds any that are directories, and enumerates their
+/// children as implicit deletion unfold nodes for the bounded traversal to
+/// recurse into.
+async fn create_implicit_deletion_unfold_nodes(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    parent_entries: &[(ChangesetId, HistoryManifestEntry)],
+    path: &MPath,
+) -> Result<Vec<UnfoldNode>> {
+    future::try_join_all(parent_entries.iter().map(|(parent_cs_id, parent_entry)| {
+        let parent_cs_id = *parent_cs_id;
+        let parent_entry = parent_entry.clone();
+        async move {
+            let dir_id = match get_directory_id(&parent_entry) {
+                Some(id) => id,
+                None => return anyhow::Ok(vec![]),
+            };
+            let dir: HistoryManifestDirectory = dir_id.load(ctx, blobstore).await?;
+            let dir_children: Vec<(MPathElement, HistoryManifestEntry)> =
+                dir.into_subentries(ctx, blobstore).try_collect().await?;
+
+            let mut nodes = Vec::new();
+            for (child_name, child_entry) in dir_children {
+                let child_path = path.join(&child_name);
+                let child_parent_dirs = if let Some(child_dir_id) = get_directory_id(&child_entry) {
+                    let child_dir: HistoryManifestDirectory =
+                        child_dir_id.load(ctx, blobstore).await?;
+                    vec![(parent_cs_id, child_dir)]
+                } else {
+                    vec![]
+                };
+                nodes.push(UnfoldNode {
+                    path_element: Some(child_name.clone()),
+                    path: child_path,
+                    change: None,
+                    children: vec![],
+                    parent_dirs: child_parent_dirs,
+                    parent_entries: vec![(parent_cs_id, child_entry)],
+                    implicit_deletion: true,
+                });
+            }
+            Ok(nodes)
+        }
+    }))
+    .await
+    .map(|vecs| vecs.into_iter().flatten().collect())
+}
+
+/// Check whether all entries across all sources are deleted.
+///
+/// A directory is considered "all deleted" when it has at least one entry
+/// and every entry is a `DeletedNode`.
+async fn check_all_deleted(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    changed_entries: &[(Option<MPathElement>, HistoryManifestEntry)],
+    reused: &[(
+        SmallVec<[u8; 24]>,
+        Either<HistoryManifestEntry, LoadableShardedMapV2Node<HistoryManifestEntry>>,
+    )],
+) -> Result<bool> {
+    let has_entries = !changed_entries.is_empty() || !reused.is_empty();
+
+    if !has_entries {
+        return Ok(false);
+    }
+
+    // Check individual entries first (cheap).
+    if changed_entries.iter().any(|(_, e)| !is_deleted_entry(e)) {
+        return Ok(false);
+    }
+
+    // Check reused entries and subtrees.
+    for (_, reused_item) in reused {
+        match reused_item {
+            Either::Left(entry) => {
+                if !is_deleted_entry(entry) {
+                    return Ok(false);
+                }
+            }
+            Either::Right(partial_map) => {
+                let node = partial_map.clone().load(ctx, blobstore).await?;
+                let mut stream = Box::pin(node.into_entries(ctx, blobstore));
+                while let Some(result) = stream.next().await {
+                    let (_, entry) = result?;
+                    if !is_deleted_entry(&entry) {
+                        return Ok(false);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(true)
+}
+
+/// Unfold: decide what to do at each path and return children to recurse into.
+async fn do_unfold(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    _cs_id: ChangesetId,
+    node: UnfoldNode,
+) -> Result<((Option<MPathElement>, UnfoldAction, MPath), Vec<UnfoldNode>)> {
+    let UnfoldNode {
+        path_element,
+        path,
+        change,
+        children,
+        parent_dirs,
+        parent_entries,
+        implicit_deletion,
+    } = node;
+
+    let has_children = !children.is_empty();
+    let node_parents: Vec<HistoryManifestEntry> =
+        parent_entries.iter().map(|(_, e)| e.clone()).collect();
+
+    // Case 1: File created or modified.
+    if let Some(Some((content_id, file_type))) = change {
+        // Check if any parent had a directory here (file replaces directory).
+        // If so, enumerate the old directory's children as implicit deletion
+        // nodes. Their fold results will be collected into the file's
+        // subentries by the CreateFile fold arm.
+        let implicit_deletions =
+            create_implicit_deletion_unfold_nodes(ctx, blobstore, &parent_entries, &path).await?;
+
+        // Merge reuse: if the file content matches a parent's entry exactly,
+        // reuse that parent's entry instead of creating a new one. This
+        // avoids polluting history with merge nodes for files that were only
+        // changed on one branch. Skip when there are implicit deletions
+        // (file-replaces-directory needs a new entry with subentries).
+        if implicit_deletions.is_empty() && parent_entries.len() > 1 {
+            if let Some(reused) = find_reusable_file_entry_by_content(
+                ctx,
+                blobstore,
+                &parent_entries,
+                content_id,
+                file_type,
+            )
+            .await?
+            {
+                let action = UnfoldAction::Reuse(reused);
+                return Ok(((path_element, action, path), vec![]));
+            }
+        }
+
+        let action = UnfoldAction::CreateFile {
+            content_id,
+            file_type,
+            parents: node_parents,
+        };
+        return Ok(((path_element, action, path), implicit_deletions));
+    }
+
+    // Case 2: File deletion.
+    // Either the file was explicitly deleted in the changeset, or we're
+    // implicitly deleting a leaf file entry within a directory that has been
+    // replaced with a file. Directory entries with implicit_deletion fall
+    // through to Case 4, which recurses into their children.
+    let bonsai_deletion = matches!(change, Some(None));
+    let implicit_file_deletion =
+        implicit_deletion && parent_entries.iter().all(|(_, e)| is_not_directory(e));
+    if bonsai_deletion || implicit_file_deletion {
+        // Check whether this has already been deleted in a parent, and if so
+        // reuse the existing deletion node.
+        if !parent_entries.is_empty() {
+            // For merge commits, check if the node is the same across all
+            // parents (note that in the single-parent case this will also be
+            // true).
+            let all_same = parent_entries.windows(2).all(|w| w[0].1 == w[1].1);
+            if all_same && is_deleted_entry(&parent_entries[0].1) {
+                let action = UnfoldAction::Reuse(parent_entries[0].1.clone());
+                return Ok(((path_element, action, path), vec![]));
+            }
+        }
+
+        let action = UnfoldAction::CreateDeletedFile {
+            parents: node_parents,
+        };
+        return Ok(((path_element, action, path), vec![]));
+    }
+
+    // Case 3: A file entry with no bonsai changes that is also not being
+    // implicitly deleted. This must be merge resolution where the outcome
+    // of the resolution matches at least one of the parents.
+    //
+    // This case only applies when all parents have file entries (File or
+    // DeletedNode). If any parent has a directory, we must fall through
+    // to Case 5 (directory recursion) so merge_subtrees can combine the
+    // contents from all parents.
+    if !has_children && parent_entries.iter().all(|(_, e)| is_not_directory(e)) {
+        if parent_entries.len() <= 1 {
+            return Err(HistoryManifestDerivationError::InconsistentMerge.into());
+        }
+
+        let all_same = parent_entries.windows(2).all(|w| w[0].1 == w[1].1);
+        if all_same {
+            // All parents agree → reuse.
+            let action = UnfoldAction::Reuse(parent_entries[0].1.clone());
+            return Ok(((path_element, action, path), vec![]));
+        }
+
+        // Parents disagree on a file entry. No bonsai change means the
+        // merge result matches the first parent — reuse it if it's a
+        // live file.
+        if let HistoryManifestEntry::File(_) = &parent_entries[0].1 {
+            let action = UnfoldAction::Reuse(parent_entries[0].1.clone());
+            return Ok(((path_element, action, path), vec![]));
+        }
+
+        // First parent is a DeletedNode — create a merge node.
+        let all_deleted = parent_entries.iter().all(|(_, e)| is_deleted_entry(e));
+        let action = if all_deleted {
+            UnfoldAction::MergeDeletedFile {
+                parents: node_parents,
+            }
+        } else {
+            UnfoldAction::MergeFile {
+                parents: node_parents,
+            }
+        };
+        return Ok(((path_element, action, path), vec![]));
+    }
+
+    // Case 4: Directory recursion for an implicit deletion - we've deleted
+    // a directory somewhere further up the tree, and now we need to recurse
+    // so that we create deletion nodes for its children.
+    if implicit_deletion {
+        // All entries in this directory need deletion nodes. Enumerate
+        // all parent entries as implicit deletion children.
+        let deletion_children =
+            create_implicit_deletion_unfold_nodes(ctx, blobstore, &parent_entries, &path).await?;
+
+        let action = UnfoldAction::RecurseDirectory {
+            parents: node_parents,
+            reused: vec![],
+        };
+        return Ok(((path_element, action, path), deletion_children));
+    }
+
+    // Case 5: Recursion for a directory that has changes in the bonsai changeset.
+    // Build the unfold node for children.
+    let recurse_children: BTreeMap<MPathElement, UnfoldNode> = children
+        .into_iter()
+        .map(|(child_name, child_tree)| {
+            let child_path = path.join(&child_name);
+            let (child_change, grandchildren) = child_tree.deconstruct();
+
+            // Note that this starts with empty parent info fields - we populate
+            // these below for nodes that have entries in the parent(s).
+            let node = UnfoldNode {
+                path_element: Some(child_name.clone()),
+                path: child_path,
+                change: child_change,
+                children: grandchildren,
+                parent_dirs: vec![],
+                parent_entries: vec![],
+                implicit_deletion: false,
+            };
+            (child_name, node)
+        })
+        .collect();
+
+    let merge_result =
+        merge_subtrees(ctx, blobstore, &parent_dirs, recurse_children.keys()).await?;
+
+    // Attach parent entries found during the traversal to the changed names.
+    let mut recurse_children = recurse_children;
+    for (name, parent_entries) in merge_result.changed_parent_entries {
+        if let Some(child_node) = recurse_children.get_mut(&name) {
+            for (parent_cs_id, entry) in &parent_entries {
+                if let Some(dir_id) = get_directory_id(entry) {
+                    let dir = load_blob(ctx, blobstore, dir_id).await?;
+                    child_node.parent_dirs.push((*parent_cs_id, dir));
+                }
+                child_node
+                    .parent_entries
+                    .push((*parent_cs_id, entry.clone()));
+            }
+        }
+    }
+
+    // Add entries where parents disagree (not in our PathTree).
+    // Construct UnfoldNodes from the raw disagreement info.
+    for (name, parent_entries) in merge_result.disagreements {
+        let child_path = path.join(&name);
+        let mut child_parent_dirs = Vec::new();
+        for (parent_cs_id, entry) in &parent_entries {
+            if let Some(dir_id) = get_directory_id(entry) {
+                let dir = load_blob(ctx, blobstore, dir_id).await?;
+                child_parent_dirs.push((*parent_cs_id, dir));
+            }
+        }
+        recurse_children.insert(
+            name.clone(),
+            UnfoldNode {
+                path_element: Some(name),
+                path: child_path,
+                change: None,
+                children: vec![],
+                parent_dirs: child_parent_dirs,
+                parent_entries,
+                implicit_deletion: false,
+            },
+        );
+    }
+
+    let action = UnfoldAction::RecurseDirectory {
+        parents: node_parents,
+        reused: merge_result.reused,
+    };
+    Ok((
+        (path_element, action, path),
+        recurse_children.into_values().collect(),
+    ))
+}
+
+/// Fold: construct the actual node from the unfold's decision and child results.
+async fn do_fold(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    cs_id: ChangesetId,
+    path: &MPath,
+    action: UnfoldAction,
+    subentries_iter: impl IntoIterator<Item = (Option<MPathElement>, HistoryManifestEntry)>,
+) -> Result<HistoryManifestEntry> {
+    match action {
+        UnfoldAction::Reuse(entry) => Ok(entry),
+
+        UnfoldAction::CreateFile {
+            content_id,
+            file_type,
+            parents,
+        } => {
+            // Collect child fold results (from implicit deletions when a
+            // file replaces a directory) and parent subentries (from prior
+            // file-replaces-directory events). Both must be merged.
+            let fold_results: Vec<_> = subentries_iter.into_iter().collect();
+            let parent_subentries = collect_parent_subentries(ctx, blobstore, &parents).await?;
+
+            let subentries = if fold_results.is_empty() {
+                parent_subentries
+            } else {
+                // Merge fold results with parent subentries. Fold results
+                // (from the current commit) take precedence.
+                let mut parent_entries: BTreeMap<SmallVec<[u8; 24]>, HistoryManifestEntry> =
+                    parent_subentries
+                        .into_entries(ctx, blobstore)
+                        .try_collect()
+                        .await?;
+                for (maybe_name, entry) in fold_results {
+                    let name = maybe_name.expect("File subentry must have a path element");
+                    parent_entries.insert(name.to_smallvec(), entry);
+                }
+                let trie_map: TrieMap<
+                    Either<HistoryManifestEntry, LoadableShardedMapV2Node<HistoryManifestEntry>>,
+                > = parent_entries
+                    .into_iter()
+                    .map(|(key, entry)| (key, Either::Left(entry)))
+                    .collect();
+                ShardedMapV2Node::from_entries_and_partial_maps(ctx, blobstore, trie_map).await?
+            };
+
+            let file = HistoryManifestFile {
+                parents,
+                content_id,
+                file_type,
+                path_hash: path.get_path_hash(),
+                linknode: cs_id,
+                subentries,
+            };
+            let id = store_blob(ctx, blobstore, file).await?;
+            Ok(HistoryManifestEntry::File(id))
+        }
+
+        UnfoldAction::CreateDeletedFile { parents } => {
+            let subentries = collect_parent_subentries(ctx, blobstore, &parents).await?;
+            let node = HistoryManifestDeletedNode {
+                parents,
+                subentries,
+                linknode: cs_id,
+            };
+            let id = store_blob(ctx, blobstore, node).await?;
+            Ok(HistoryManifestEntry::DeletedNode(id))
+        }
+
+        UnfoldAction::MergeFile { parents } => {
+            merge_live_file_node(ctx, blobstore, cs_id, path, parents).await
+        }
+
+        UnfoldAction::MergeDeletedFile { parents } => {
+            merge_deleted_node(ctx, blobstore, cs_id, path, parents).await
+        }
+
+        UnfoldAction::RecurseDirectory { parents, reused } => {
+            // Collect changed entries from child fold results.
+            let changed_entries: Vec<_> = subentries_iter.into_iter().collect();
+
+            let is_deleted = check_all_deleted(ctx, blobstore, &changed_entries, &reused).await?;
+
+            // Build trie from changed entries and reused entries/subtrees.
+            let trie_map: TrieMap<
+                Either<HistoryManifestEntry, LoadableShardedMapV2Node<HistoryManifestEntry>>,
+            > = changed_entries
+                .into_iter()
+                .map(|(maybe_name, entry)| {
+                    let name = maybe_name.expect("Directory subentry must have a path element");
+                    (name.to_smallvec(), Either::Left(entry))
+                })
+                .chain(reused)
+                .collect();
+
+            let subentries =
+                ShardedMapV2Node::from_entries_and_partial_maps(ctx, blobstore, trie_map).await?;
+
+            if is_deleted {
+                let node = HistoryManifestDeletedNode {
+                    parents,
+                    subentries,
+                    linknode: cs_id,
+                };
+                let id = store_blob(ctx, blobstore, node).await?;
+                Ok(HistoryManifestEntry::DeletedNode(id))
+            } else {
+                let dir = HistoryManifestDirectory {
+                    parents,
+                    subentries,
+                    linknode: cs_id,
+                };
+                let id = store_blob(ctx, blobstore, dir).await?;
+                Ok(HistoryManifestEntry::Directory(id))
+            }
+        }
+    }
+}
+
+pub(crate) async fn derive_history_manifest(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn KeyedBlobstore>,
+    cs_id: ChangesetId,
+    bonsai: &BonsaiChangeset,
+    parents: Vec<HistoryManifestDirectoryId>,
+) -> Result<HistoryManifestDirectoryId> {
+    // 1. Build PathTree from bonsai file changes.
+    let changes: PathTree<Option<Option<(ContentId, FileType)>>> =
+        PathTree::from_iter(bonsai.file_changes().map(|(path, change)| {
+            (
+                path.clone(),
+                Some(match change {
+                    FileChange::Change(tc) => Some((tc.content_id(), tc.file_type())),
+                    FileChange::UntrackedChange(uc) => Some((uc.content_id(), uc.file_type())),
+                    FileChange::Deletion | FileChange::UntrackedDeletion => None,
+                }),
+            )
+        }));
+
+    // 2. Load parent root directories concurrently.
+    let parent_dirs: Vec<(ChangesetId, HistoryManifestDirectory)> = {
+        let parent_cs_ids: Vec<ChangesetId> = bonsai.parents().collect();
+        future::try_join_all(parents.iter().zip(parent_cs_ids.iter()).map(
+            |(dir_id, parent_cs_id)| async move {
+                let dir: HistoryManifestDirectory = dir_id.load(ctx, blobstore).await?;
+                anyhow::Ok((*parent_cs_id, dir))
+            },
+        ))
+        .await?
+    };
+
+    // 3. Run bounded_traversal inside a spawned task.
+    let root_node = {
+        let (change, children) = changes.deconstruct();
+        let parent_entries: Vec<(ChangesetId, HistoryManifestEntry)> = parent_dirs
+            .iter()
+            .map(|(cs_id, dir)| {
+                // Root parent entries are Directory entries pointing to the root dir IDs.
+                let dir_id = dir.get_directory_id();
+                (*cs_id, HistoryManifestEntry::Directory(dir_id))
+            })
+            .collect();
+
+        UnfoldNode {
+            path_element: None,
+            path: MPath::ROOT,
+            change,
+            children,
+            parent_dirs: parent_dirs.clone(),
+            parent_entries,
+            implicit_deletion: false,
+        }
+    };
+
+    cloned!(ctx, blobstore);
+    let traversal_handle = mononoke::spawn_task(async move {
+        borrowed!(ctx, blobstore);
+
+        let result = bounded_traversal(
+            256,
+            root_node,
+            // unfold
+            {
+                move |node: UnfoldNode| {
+                    async move { do_unfold(ctx, blobstore, cs_id, node).await }.boxed()
+                }
+            },
+            // fold
+            move |(path_element, action, path): (Option<MPathElement>, UnfoldAction, MPath),
+                  subentries_iter| {
+                async move {
+                    let result =
+                        do_fold(ctx, blobstore, cs_id, &path, action, subentries_iter).await?;
+                    Ok((path_element, result))
+                }
+                .boxed()
+            },
+        )
+        .await?;
+
+        // Result is (None, entry) for root.
+        let (_path_element, entry) = result;
+        match entry {
+            HistoryManifestEntry::Directory(id) => Ok(id),
+            _ => Err(HistoryManifestDerivationError::InvalidRootDirectory.into()),
+        }
+    });
+
+    traversal_handle.await?
+}

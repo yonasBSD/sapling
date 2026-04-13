@@ -33,6 +33,7 @@ use fsnodes::RootFsnodeId;
 use futures::future;
 use futures::stream::TryStreamExt;
 use futures_stats::TimedFutureExt;
+use history_manifest::RootHistoryManifestDirectoryId;
 use manifest::ManifestOps;
 use mercurial_derivation::MappedHgChangesetId;
 use mercurial_derivation::RootHgAugmentedManifestId;
@@ -231,6 +232,13 @@ async fn derive(ctx: &CoreContext, repo: &Repo, data: &str, csid: ChangesetId) -
             .unwrap()
             .into_content_manifest_id()
             .to_string(),
+        RootHistoryManifestDirectoryId::NAME => repo
+            .repo_derived_data()
+            .derive::<RootHistoryManifestDirectoryId>(ctx, csid, DerivationPriority::LOW)
+            .await
+            .unwrap()
+            .into_history_manifest_directory_id()
+            .to_string(),
         _ => panic!("invalid derived data type: {}", data),
     }
 }
@@ -323,6 +331,12 @@ async fn iterate(ctx: &CoreContext, repo: &Repo, data: &str, csid: ChangesetId) 
             .try_fold(0u64, |acc, _| future::ok(acc + 1))
             .await
             .unwrap(),
+        RootHistoryManifestDirectoryId::NAME => {
+            // History manifest doesn't implement ManifestOps, so we skip
+            // iteration for now.
+            println!("  (iteration not supported for history_manifests)");
+            0
+        }
         _ => panic!("invalid derived data type: {}", data),
     }
 }

@@ -206,6 +206,7 @@ members = [
   "derived_data/fastlog",
   "derived_data/filenodes_derivation",
   "derived_data/fsnodes",
+  "derived_data/history_manifest",
   "derived_data/if",
   "derived_data/if/clients",
   "derived_data/if/mocks",

@@ -41,6 +41,7 @@ use futures::stream;
 use git_types::MappedGitCommitId;
 use git_types::RootGitDeltaManifestV2Id;
 use git_types::RootGitDeltaManifestV3Id;
+use history_manifest::RootHistoryManifestDirectoryId;
 use inferred_copy_from::RootInferredCopyFromId;
 use itertools::Itertools;
 use mercurial_derivation::MappedHgChangesetId;
@@ -455,10 +456,9 @@ fn manager_for_type(
         DerivableType::AclManifests => {
             Arc::new(SingleTypeManager::<RootAclManifestId>::new(manager))
         }
-        #[allow(clippy::todo)]
-        DerivableType::HistoryManifests => {
-            todo!("HistoryManifests derivation not yet implemented")
-        }
+        DerivableType::HistoryManifests => Arc::new(SingleTypeManager::<
+            RootHistoryManifestDirectoryId,
+        >::new(manager)),
     }
 }
 
