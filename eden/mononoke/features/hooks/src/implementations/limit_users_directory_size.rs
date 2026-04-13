@@ -11,18 +11,22 @@ use anyhow::Result;
 use async_trait::async_trait;
 use blobstore::Loadable;
 use bookmarks::BookmarkKey;
+use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
+use either::Either;
 use fsnodes::RootFsnodeId;
 use futures::future;
 use futures::stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
+use manifest::Entry;
+use manifest::ManifestOps;
 use mononoke_types::BonsaiChangeset;
-use mononoke_types::FsnodeId;
 use mononoke_types::MPathElement;
 use mononoke_types::NonRootMPath;
-use mononoke_types::fsnode::FsnodeEntry;
+use mononoke_types::content_manifest::compat;
+use mononoke_types::path::MPath;
 use repo_blobstore::RepoBlobstoreArc;
 use repo_derived_data::RepoDerivedDataRef;
 use serde::Deserialize;
@@ -109,17 +113,40 @@ impl ChangesetHook for LimitUsersDirectorySizeHook {
 
         let cs_id = changeset.get_changeset_id();
 
-        let root = hook_repo
-            .repo_derived_data()
-            .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
-            .await?;
+        let repo_name = hook_repo.repo_identity.name();
+        let use_content_manifests = justknobs::eval(
+            "scm/mononoke:derived_data_use_content_manifests",
+            None,
+            Some(repo_name),
+        )?;
 
-        let root_fsnode_id = root.into_fsnode_id();
+        let root_manifest_id: compat::ContentManifestId = if use_content_manifests {
+            hook_repo
+                .repo_derived_data()
+                .derive::<RootContentManifestId>(ctx, cs_id, DerivationPriority::LOW)
+                .await?
+                .into_content_manifest_id()
+                .into()
+        } else {
+            hook_repo
+                .repo_derived_data()
+                .derive::<RootFsnodeId>(ctx, cs_id, DerivationPriority::LOW)
+                .await?
+                .into_fsnode_id()
+                .into()
+        };
 
         // Check all depth-2 directories concurrently with bounded parallelism.
         let rejection = stream::iter(depth2_paths)
             .map(|depth2_path| async move {
-                check_dir_size(&self.config, ctx, hook_repo, &root_fsnode_id, &depth2_path).await
+                check_dir_size(
+                    &self.config,
+                    ctx,
+                    hook_repo,
+                    &root_manifest_id,
+                    &depth2_path,
+                )
+                .await
             })
             .buffer_unordered(MAX_CONCURRENCY)
             .try_filter_map(|x| future::ready(Ok(x)))
@@ -138,26 +165,33 @@ async fn check_dir_size(
     config: &LimitUsersDirectorySizeConfig,
     ctx: &CoreContext,
     hook_repo: &HookRepo,
-    root_fsnode_id: &FsnodeId,
+    root_manifest_id: &compat::ContentManifestId,
     depth2_path: &[MPathElement],
 ) -> Result<Option<HookExecution>> {
     let blobstore = hook_repo.repo_blobstore_arc();
-    let mut fsnode = root_fsnode_id.load(ctx, &blobstore).await?;
 
-    // Navigate to the parent directory (prefix + shard level).
-    for element in &depth2_path[..depth2_path.len() - 1] {
-        match fsnode.lookup(element) {
-            Some(FsnodeEntry::Directory(dir)) => {
-                fsnode = dir.id().load(ctx, &blobstore).await?;
+    // Build MPath from the depth-2 path components
+    let mpath = MPath::from_elements(depth2_path.iter());
+
+    let entry = root_manifest_id
+        .find_entry(ctx.clone(), blobstore.clone(), mpath)
+        .await?;
+
+    let size = match entry {
+        Some(Entry::Tree(tree_id)) => match tree_id {
+            Either::Left(cm_id) => {
+                let cm = cm_id.load(ctx, &blobstore).await?;
+                cm.subentries
+                    .rollup_data()
+                    .descendant_counts
+                    .files_total_size
             }
-            _ => return Ok(None),
-        }
-    }
-
-    // Look up the depth-2 entry and check its recursive size.
-    let depth2_name = &depth2_path[depth2_path.len() - 1];
-    let size = match fsnode.lookup(depth2_name) {
-        Some(FsnodeEntry::Directory(dir)) => dir.summary().descendant_files_total_size,
+            Either::Right(fsnode_id) => {
+                let fsnode: mononoke_types::fsnode::Fsnode =
+                    fsnode_id.load(ctx, &blobstore).await?;
+                fsnode.summary().descendant_files_total_size
+            }
+        },
         _ => return Ok(None),
     };
 
