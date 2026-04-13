@@ -455,6 +455,10 @@ fn manager_for_type(
         DerivableType::AclManifests => {
             Arc::new(SingleTypeManager::<RootAclManifestId>::new(manager))
         }
+        #[allow(clippy::todo)]
+        DerivableType::HistoryManifests => {
+            todo!("HistoryManifests derivation not yet implemented")
+        }
     }
 }
 

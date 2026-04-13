@@ -499,6 +499,7 @@ impl WarmBookmarksCacheBuilder {
             DerivableType::AclManifests => None,
             DerivableType::TestManifests => None,
             DerivableType::TestShardedManifests => None,
+            DerivableType::HistoryManifests => None,
         }
     }
 

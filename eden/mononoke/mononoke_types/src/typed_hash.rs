@@ -1185,6 +1185,18 @@ mod test {
 
         let id = InferredCopyFromId::from_byte_array([1; 32]);
         assert_eq!(id.blobstore_key(), format!("icf.blake2.{}", id));
+
+        let id = HistoryManifestFileId::from_byte_array([1; 32]);
+        assert_eq!(id.blobstore_key(), format!("historymf.file.blake2.{}", id));
+
+        let id = HistoryManifestDirectoryId::from_byte_array([1; 32]);
+        assert_eq!(id.blobstore_key(), format!("historymf.dir.blake2.{}", id));
+
+        let id = ShardedMapV2NodeHistoryManifestId::from_byte_array([1; 32]);
+        assert_eq!(
+            id.blobstore_key(),
+            format!("historymf.map2node.blake2.{}", id)
+        );
     }
 
     #[mononoke::test]
@@ -1290,6 +1302,21 @@ mod test {
         assert_eq!(id, deserialized);
 
         let id = InferredCopyFromId::from_byte_array([1; 32]);
+        let serialized = serde_json::to_string(&id).unwrap();
+        let deserialized = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(id, deserialized);
+
+        let id = HistoryManifestFileId::from_byte_array([1; 32]);
+        let serialized = serde_json::to_string(&id).unwrap();
+        let deserialized = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(id, deserialized);
+
+        let id = HistoryManifestDirectoryId::from_byte_array([1; 32]);
+        let serialized = serde_json::to_string(&id).unwrap();
+        let deserialized = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(id, deserialized);
+
+        let id = ShardedMapV2NodeHistoryManifestId::from_byte_array([1; 32]);
         let serialized = serde_json::to_string(&id).unwrap();
         let deserialized = serde_json::from_str(&serialized).unwrap();
         assert_eq!(id, deserialized);

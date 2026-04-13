@@ -99,6 +99,7 @@ union DerivedData {
   24: DerivedDataGitDeltaManifestV3 git_delta_manifest_v3;
   25: DerivedDataDirectoryBranchClusterManifest directory_branch_cluster_manifest;
   26: DerivedDataAclManifest acl_manifest;
+  27: DerivedDataHistoryManifest history_manifest;
 }
 
 union DerivedDataFsnode {
@@ -200,6 +201,10 @@ union DerivedDataDirectoryBranchClusterManifest {
 
 union DerivedDataAclManifest {
   1: id.AclManifestId root_acl_manifest_id;
+}
+
+union DerivedDataHistoryManifest {
+  1: id.HistoryManifestDirectoryId root_history_manifest_directory_id;
 }
 
 @rust.Exhaustive

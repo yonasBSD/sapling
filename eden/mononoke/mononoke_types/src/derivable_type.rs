@@ -62,6 +62,7 @@ pub enum DerivableType {
     ContentManifests,
     DirectoryBranchClusterManifest,
     AclManifests,
+    HistoryManifests,
 }
 
 /// Enum which consolidates all derived data types that can
@@ -112,6 +113,7 @@ impl DerivableType {
             "content_manifests" => DerivableType::ContentManifests,
             "directory_branch_cluster_manifest" => DerivableType::DirectoryBranchClusterManifest,
             "acl_manifests" => DerivableType::AclManifests,
+            "history_manifests" => DerivableType::HistoryManifests,
             _ => bail!("invalid name for DerivedDataType: {}", s),
         })
     }
@@ -141,6 +143,7 @@ impl DerivableType {
             DerivableType::ContentManifests => "content_manifests",
             DerivableType::DirectoryBranchClusterManifest => "directory_branch_cluster_manifest",
             DerivableType::AclManifests => "acl_manifests",
+            DerivableType::HistoryManifests => "history_manifests",
         }
     }
     pub fn from_thrift(other: thrift::DerivedDataType) -> Result<Self> {
@@ -169,6 +172,7 @@ impl DerivableType {
                 Self::DirectoryBranchClusterManifest
             }
             thrift::DerivedDataType::ACL_MANIFEST => Self::AclManifests,
+            thrift::DerivedDataType::HISTORY_MANIFEST => Self::HistoryManifests,
             _ => bail!("invalid thrift value for DerivedDataType: {:?}", other),
         })
     }
@@ -198,6 +202,7 @@ impl DerivableType {
                 thrift::DerivedDataType::DIRECTORY_BRANCH_CLUSTER_MANIFEST
             }
             Self::AclManifests => thrift::DerivedDataType::ACL_MANIFEST,
+            Self::HistoryManifests => thrift::DerivedDataType::HISTORY_MANIFEST,
             // If the compiler reminds you to add something here, please don't forget to also
             // update the `from_thrift` implementation above.
             // The unit test: `thrift_derived_data_type_conversion_must_be_bidirectional` in this
