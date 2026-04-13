@@ -150,7 +150,7 @@ impl PipelineDerivable for RootFsnodeId {
             .derivation_pipeline_config()
             .get(&DerivableType::Fsnodes)
             .and_then(|cfg| cfg.stages.get(stage_id))
-            .map_or(false, |stage| stage.terminal);
+            .is_some_and(|stage| stage.terminal);
 
         let key_prefix = derivation.mapping_key_prefix::<RootFsnodeId>();
         stream::iter(outputs.into_iter().map(|(cs_id, output)| async move {
@@ -209,7 +209,7 @@ impl PipelineDerivable for RootFsnodeId {
             .derivation_pipeline_config()
             .get(&DerivableType::Fsnodes)
             .and_then(|cfg| cfg.stages.get(stage_id))
-            .map_or(false, |stage| stage.terminal);
+            .is_some_and(|stage| stage.terminal);
 
         let key_prefix = derivation.mapping_key_prefix::<RootFsnodeId>();
         let results = stream::iter(cs_ids.into_iter().map(|cs_id| async move {
