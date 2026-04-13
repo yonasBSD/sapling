@@ -806,6 +806,11 @@ class EdenServer : private TakeoverHandler {
   std::shared_ptr<StructuredLogger> notificationsStructuredLogger_;
 
   /**
+   * Structured logger for error telemetry. Logs to perfpipe_edenfs_errors.
+   */
+  std::shared_ptr<StructuredLogger> errorStructuredLogger_;
+
+  /**
    * HeartbeatManager to handle all heartbeat-related operations
    */
   std::shared_ptr<HeartbeatManager> heartbeatManager_;

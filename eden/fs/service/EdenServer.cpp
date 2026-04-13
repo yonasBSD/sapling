@@ -525,6 +525,12 @@ EdenServer::EdenServer(
               edenConfig->notificationsScribeCategory.getValue(),
               sessionInfo,
               edenStats.copy())},
+      errorStructuredLogger_{
+          makeDefaultStructuredLogger<EdenStructuredLogger, EdenStatsPtr>(
+              edenConfig->scribeLogger.getValue(),
+              edenConfig->errorScribeCategory.getValue(),
+              sessionInfo,
+              edenStats.copy())},
       heartbeatManager_{
           std::make_shared<HeartbeatManager>(edenDir_, structuredLogger_)},
       serverState_{make_shared<ServerState>(
@@ -541,6 +547,7 @@ EdenServer::EdenServer(
           std::make_shared<ProcessInfoCache>(),
           structuredLogger_,
           notificationsStructuredLogger_,
+          errorStructuredLogger_,
           std::move(scribeLogger),
           config_,
           *edenConfig,

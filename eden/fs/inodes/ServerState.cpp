@@ -54,6 +54,7 @@ ServerState::ServerState(
     std::shared_ptr<ProcessInfoCache> processInfoCache,
     std::shared_ptr<StructuredLogger> structuredLogger,
     std::shared_ptr<StructuredLogger> notificationsStructuredLogger,
+    std::shared_ptr<StructuredLogger> errorStructuredLogger,
     std::shared_ptr<IScribeLogger> scribeLogger,
     std::shared_ptr<ReloadableConfig> reloadableConfig,
     const EdenConfig& initialConfig,
@@ -70,6 +71,7 @@ ServerState::ServerState(
       processInfoCache_{std::move(processInfoCache)},
       structuredLogger_{std::move(structuredLogger)},
       notificationsStructuredLogger_{std::move(notificationsStructuredLogger)},
+      errorStructuredLogger_{std::move(errorStructuredLogger)},
       scribeLogger_{std::move(scribeLogger)},
       faultInjector_{std::make_unique<FaultInjector>(enableFaultDetection)},
       nfs_{

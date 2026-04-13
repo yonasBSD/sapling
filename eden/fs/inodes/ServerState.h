@@ -66,6 +66,7 @@ class ServerState {
       std::shared_ptr<ProcessInfoCache> processInfoCache,
       std::shared_ptr<StructuredLogger> structuredLogger,
       std::shared_ptr<StructuredLogger> notificationsStructuredLogger,
+      std::shared_ptr<StructuredLogger> errorStructuredLogger,
       std::shared_ptr<IScribeLogger> scribeLogger,
       std::shared_ptr<ReloadableConfig> reloadableConfig,
       const EdenConfig& initialConfig,
@@ -173,6 +174,10 @@ class ServerState {
     return notificationsStructuredLogger_;
   }
 
+  const std::shared_ptr<StructuredLogger>& getErrorStructuredLogger() const {
+    return errorStructuredLogger_;
+  }
+
   /**
    * Returns a ScribeLogger that can be used to send log events to external
    * long term storage for offline consumption. Prefer this method if the
@@ -221,6 +226,7 @@ class ServerState {
   std::shared_ptr<ProcessInfoCache> processInfoCache_;
   std::shared_ptr<StructuredLogger> structuredLogger_;
   std::shared_ptr<StructuredLogger> notificationsStructuredLogger_;
+  std::shared_ptr<StructuredLogger> errorStructuredLogger_;
   std::shared_ptr<IScribeLogger> scribeLogger_;
   std::unique_ptr<FaultInjector> const faultInjector_;
   std::shared_ptr<NfsServer> nfs_;
