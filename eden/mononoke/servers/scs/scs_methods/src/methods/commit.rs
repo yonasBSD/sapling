@@ -1774,7 +1774,7 @@ impl SourceControlServiceImpl {
             thrift::MutationHistoryFormat::COMMIT_ID => {
                 let commit_ids = predecessors
                     .into_iter()
-                    .map(|sha1_bytes| thrift::CommitId::git(sha1_bytes))
+                    .map(thrift::CommitId::git)
                     .collect();
                 thrift::GitMutationHistory::commit_ids(commit_ids)
             }
@@ -1794,7 +1794,7 @@ impl SourceControlServiceImpl {
 
                     let predecessor_ids: Vec<thrift::CommitId> = predecessors
                         .into_iter()
-                        .map(|sha1_bytes| thrift::CommitId::git(sha1_bytes))
+                        .map(thrift::CommitId::git)
                         .collect();
 
                     let mutation = thrift::GitMutation {
