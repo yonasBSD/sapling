@@ -19,6 +19,8 @@ namespace facebook::eden {
 namespace {
 constexpr size_t kUploadPoolSize = 1;
 
+constexpr uint32_t kMaxQueuedUploads = 10;
+
 folly::CPUThreadPoolExecutor& getUploadPool() {
   static folly::CPUThreadPoolExecutor pool(kUploadPoolSize);
   return pool;
@@ -39,8 +41,14 @@ std::string StackTraceUploader::uploadToManifold(std::string content) {
   auto key = generateKey();
   auto url = keyToUrl(key);
 
-  // Submit to a dedicated upload pool.
-  getUploadPool().add([key = std::move(key), content = std::move(content)]() {
+  // Drop if the upload queue is at capacity.
+  auto& pool = getUploadPool();
+  if (pool.getPendingTaskCount() >= kMaxQueuedUploads) {
+    XLOG(DBG4) << "Dropping Manifold upload: queue full";
+    return "Upload skipped: queue full";
+  }
+
+  pool.add([key = std::move(key), content = std::move(content)]() {
     try {
       manifold_write(
           kBucket,

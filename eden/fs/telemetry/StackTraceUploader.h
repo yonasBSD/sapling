@@ -37,6 +37,7 @@ class StackTraceUploader {
   /**
    * Upload content to Manifold in background, return URL immediately.
    * If the upload queue is full, returns an error message instead.
+   * Excess uploads beyond the pool's task queue are dropped with a debug log.
    */
   static std::string uploadToManifold(std::string content);
 };
