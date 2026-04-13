@@ -11,6 +11,9 @@ mod derive;
 mod mapping;
 mod merge_subtrees;
 
+#[cfg(test)]
+mod tests;
+
 pub use crate::mapping::RootHistoryManifestDirectoryId;
 
 #[derive(Debug, Error)]
