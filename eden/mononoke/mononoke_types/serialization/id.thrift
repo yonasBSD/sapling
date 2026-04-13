@@ -108,3 +108,11 @@ typedef Id TestShardedManifestId
 typedef Id AclManifestId
 @rust.NewType
 typedef Id AclManifestEntryBlobId
+@rust.NewType
+typedef Id HistoryManifestFileId
+@rust.NewType
+typedef Id HistoryManifestDeletedNodeId
+@rust.NewType
+typedef Id HistoryManifestDirectoryId
+@rust.NewType
+typedef Id ShardedMapV2NodeHistoryManifestId

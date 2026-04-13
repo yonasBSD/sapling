@@ -19,6 +19,7 @@ eden/mononoke/mononoke_types/serialization/deleted_manifest.thrift crate //eden/
 eden/mononoke/mononoke_types/serialization/directory_branch_cluster_manifest.thrift crate //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/fastlog.thrift crate //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/fsnodes.thrift crate //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
+eden/mononoke/mononoke_types/serialization/history_manifest.thrift crate //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/id.thrift crate //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/inferred_copy_from.thrift crate //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
 eden/mononoke/mononoke_types/serialization/path.thrift crate //eden/mononoke/mononoke_types/serialization:mononoke_types_serialization-rust
@@ -58,6 +59,7 @@ fn main() {
             "../directory_branch_cluster_manifest.thrift",
             "../fastlog.thrift",
             "../fsnodes.thrift",
+            "../history_manifest.thrift",
             "../id.thrift",
             "../inferred_copy_from.thrift",
             "../path.thrift",
