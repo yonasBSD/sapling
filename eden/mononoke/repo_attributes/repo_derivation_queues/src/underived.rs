@@ -27,6 +27,7 @@ use parking_lot::Mutex;
 use tracing::debug;
 use tracing::error;
 
+use crate::DagItemDep;
 use crate::DerivationDagItem;
 use crate::DerivationPriority;
 use crate::DerivationQueue;
@@ -132,7 +133,10 @@ pub async fn build_underived_batched_graph<'a>(
                 let max_failed_attempts = justknobs::get_as::<u64>("scm/mononoke:build_underived_batched_graph_max_failed_attempts", None)?;
 
                 // Upstream batch will depend on this cs
-                let mut upstream_dep = item.id().clone();
+                let mut upstream_dep = DagItemDep {
+                    dag_item_id: item.id().clone(),
+                    head_cs_id: item.head_cs_id(),
+                };
                 let mut cur_item = Some(item);
                 let mut failed_attempt = 0;
                 let mut err_msg = None;
@@ -238,7 +242,10 @@ pub async fn build_underived_batched_graph<'a>(
                         }
                     };
                     cur_item = maybe_inserted.inspect(|item| {
-                        upstream_dep = item.id().clone();
+                        upstream_dep = DagItemDep {
+                            dag_item_id: item.id().clone(),
+                            head_cs_id: item.head_cs_id(),
+                        };
                     });
                 }
 
@@ -303,7 +310,10 @@ async fn deduplicate(
             dedup_root,
             dedup_head,
             bubble_id,
-            vec![existing.id().clone()],
+            vec![DagItemDep {
+                dag_item_id: existing.id().clone(),
+                head_cs_id: existing.head_cs_id(),
+            }],
             ctx.metadata().client_info(),
             rejected.info().priority(),
             None,

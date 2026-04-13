@@ -27,7 +27,13 @@ use crate::InternalError;
 pub struct DerivationDagItem {
     pub dag_item_id: DagItemId,
     pub dag_item_info: DagItemInfo,
-    pub deps: Vec<DagItemId>,
+    pub deps: Vec<DagItemDep>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct DagItemDep {
+    pub dag_item_id: DagItemId,
+    pub head_cs_id: ChangesetId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -238,7 +244,7 @@ impl DerivationDagItem {
         root_cs_id: ChangesetId,
         head_cs_id: ChangesetId,
         bubble_id: Option<BubbleId>,
-        deps: Vec<DagItemId>,
+        deps: Vec<DagItemDep>,
         client_info: Option<&ClientInfo>,
         priority: derivation_queue_thrift::DerivationPriority,
         stage_id: Option<String>,
@@ -251,7 +257,7 @@ impl DerivationDagItem {
             stage_id,
         };
         let dag_item_info = DagItemInfo::new(head_cs_id, bubble_id, client_info, priority);
-        if deps.contains(&dag_item_id) {
+        if deps.iter().any(|d| d.dag_item_id == dag_item_id) {
             return Err(InternalError::CircularDependency(dag_item_id));
         }
         Ok(Self {
@@ -313,7 +319,7 @@ impl DerivationDagItem {
         self.dag_item_info.priority
     }
 
-    pub fn deps(&self) -> &Vec<DagItemId> {
+    pub fn deps(&self) -> &Vec<DagItemDep> {
         &self.deps
     }
 }

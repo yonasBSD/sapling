@@ -37,6 +37,7 @@ pub struct DerivationQueueArgs {
     pub derivation_queue_namespace: String,
 }
 
+pub use crate::dag_items::DagItemDep;
 pub use crate::dag_items::DagItemId;
 pub use crate::dag_items::DagItemInfo;
 pub use crate::dag_items::DerivationDagItem;
