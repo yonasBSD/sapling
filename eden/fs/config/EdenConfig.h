@@ -1504,6 +1504,15 @@ class EdenConfig : private ConfigSettingManager {
                         : std::chrono::seconds{45},
       this};
 
+  /**
+   * Whether to enable XplatLogger for telemetry.
+   * Only used in the CLI, including here to get rid of warnings.
+   */
+  ConfigSetting<bool> enableXplatLogger{
+      "telemetry:enable-xplatlogger",
+      false,
+      this};
+
   // [experimental]
 
   /**
@@ -1744,6 +1753,25 @@ class EdenConfig : private ConfigSettingManager {
    */
   ConfigSetting<bool> enablePressureBasedGc{
       "experimental:enable-pressure-based-gc",
+      false,
+      this};
+
+  /**
+   * Whether to use systemd for EdenFS lifecycle management
+   * (start/stop/restart). Only used in the CLI, including here to get rid of
+   * warnings.
+   */
+  ConfigSetting<bool> systemdManagedLifecycle{
+      "experimental:systemd-managed-lifecycle",
+      false,
+      this};
+
+  /**
+   * Whether to place EdenFS in a dedicated systemd cgroup via systemd-run.
+   * Only used in the CLI, including here to get rid of warnings.
+   */
+  ConfigSetting<bool> systemdCgroupIsolation{
+      "experimental:systemd-cgroup-isolation",
       false,
       this};
 
