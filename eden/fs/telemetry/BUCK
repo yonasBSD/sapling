@@ -159,6 +159,7 @@ cpp_library(
         "ErrorArg.cpp",
     ],
     headers = [
+        "DaemonError.h",
         "EdenComponent.h",
         "EdenErrorInfo.h",
         "EdenErrorInfoBuilder.h",
@@ -169,6 +170,7 @@ cpp_library(
         ":throw_trace_capture",
         "//folly:demangle",
     ],
+    exported_deps = ["//eden/common/telemetry:log_info"],
 )
 
 cpp_library(
