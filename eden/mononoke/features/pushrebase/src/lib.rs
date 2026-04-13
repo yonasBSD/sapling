@@ -102,6 +102,7 @@ use mononoke_types::FileChange;
 use mononoke_types::FileType;
 use mononoke_types::GitLfs;
 use mononoke_types::MPath;
+use mononoke_types::PrefixTrie;
 use mononoke_types::Timestamp;
 use mononoke_types::check_case_conflicts;
 use mononoke_types::find_path_conflicts;
@@ -777,6 +778,7 @@ async fn check_pushrebase_conflicts(
                         max_merge_conflicts,
                         max_merge_file_size,
                         derive_fsnodes,
+                        &config.merge_resolution_excluded_path_prefixes,
                     )
                     .await,
                 )
@@ -1730,6 +1732,7 @@ async fn collect_merge_file_info(
     max_conflicts: usize,
     max_file_size: u64,
     derive_fsnodes: bool,
+    excluded_path_prefixes: &PrefixTrie,
 ) -> Result<Vec<MergedFileInfo>, MergeResolutionError> {
     // Only handle exact path matches (not prefix conflicts like dir vs dir/file)
     let exact_conflicts: Vec<_> = conflicts.iter().filter(|c| c.left == c.right).collect();
@@ -1786,6 +1789,13 @@ async fn collect_merge_file_info(
                 ));
             }
         };
+
+        if excluded_path_prefixes.contains_prefix(&non_root_path) {
+            return Err(MergeResolutionError::Skipped(format!(
+                "file {} is under an excluded path prefix",
+                non_root_path,
+            )));
+        }
 
         // Get the client file change for this path
         let client_fc = match client_changes.get(&non_root_path) {
