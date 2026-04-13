@@ -10,7 +10,7 @@ import pathlib
 
 from parameterized import parameterized
 
-from .lib import edenclient, testcase
+from .lib import testcase
 
 
 @testcase.eden_test
@@ -37,13 +37,6 @@ class ListTest(testcase.EdenTestCase):
             f"config.toml should exist before removal: {config_path}",
         )
         config_path.unlink()
-
-        if impl == "rust":
-            # FIXME: rust eden list should skip missing client state like the
-            # python implementation, but currently fails the command.
-            with self.assertRaises(edenclient.EdenCommandError):
-                self.eden.list_cmd(env=env)
-            return
 
         mounts = self.eden.list_cmd(env=env)
         expected_mount = str(self.mount_path)

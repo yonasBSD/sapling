@@ -14,6 +14,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Write;
 use std::io::prelude::*;
@@ -396,6 +397,13 @@ impl CheckoutConfig {
     /// returns an Err if it is not properly formatted or does not exist.
     pub fn parse_config(state_dir: &Path) -> Result<CheckoutConfig> {
         let config_path = state_dir.join(MOUNT_CONFIG);
+        if !config_path.try_exists().from_err()? {
+            return Err(EdenFsError::IOError(std::io::Error::new(
+                ErrorKind::NotFound,
+                format!("checkout config {} does not exist", config_path.display()),
+            )));
+        }
+
         let content = String::from_utf8(std::fs::read(config_path).from_err()?).from_err()?;
         let config: CheckoutConfig = toml::from_str(&content).from_err()?;
         Ok(config)
@@ -1187,18 +1195,51 @@ impl fmt::Display for EdenFsCheckout {
     }
 }
 
+fn has_missing_checkout_state(error: &EdenFsError) -> bool {
+    match error {
+        EdenFsError::IOError(err) => err.kind() == ErrorKind::NotFound,
+        EdenFsError::Other(err) => err
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|err| err.kind() == ErrorKind::NotFound),
+        _ => false,
+    }
+}
+
+fn load_configured_checkout_configs(
+    configured_mounts: BTreeMap<PathBuf, String>,
+    clients_dir: &Path,
+) -> Result<Vec<(PathBuf, PathBuf, CheckoutConfig)>> {
+    let mut configs = Vec::new();
+
+    for (mount_path, client_name) in configured_mounts {
+        let data_dir = clients_dir.join(&client_name);
+        match CheckoutConfig::parse_config(&data_dir) {
+            Ok(config) => configs.push((mount_path, data_dir, config)),
+            Err(err) if has_missing_checkout_state(&err) => {
+                // parse_config() normalizes missing config files into ENOENT, and a
+                // concurrent deletion can still race with its read().
+                tracing::warn!(
+                    mount_path = %mount_path.display(),
+                    client_name,
+                    client_dir = %data_dir.display(),
+                    "skipping configured mount with missing client state"
+                );
+            }
+            Err(err) => return Err(err),
+        }
+    }
+
+    Ok(configs)
+}
+
 /// Return information about all checkouts defined in EdenFS's configuration files
 /// and all information about mounted checkouts from the eden daemon
 pub async fn get_mounts(instance: &EdenFsInstance) -> Result<BTreeMap<PathBuf, EdenFsCheckout>> {
     // Get all configured checkout info (including not mounted / not active ones) from configs
-    let mut configs: Vec<(PathBuf, PathBuf, CheckoutConfig)> = Vec::new();
-    for (mount_path, client_name) in instance.get_configured_mounts_map()? {
-        configs.push((
-            mount_path,
-            instance.config_directory(&client_name),
-            CheckoutConfig::parse_config(&instance.config_directory(&client_name))?,
-        ));
-    }
+    let configs = load_configured_checkout_configs(
+        instance.get_configured_mounts_map()?,
+        &instance.clients_dir(),
+    )?;
 
     // Get active mounted checkouts info from eden daemon. Error from listMounts indicates that the
     // Eden daemon is not running or is unhealthy.
@@ -1333,6 +1374,7 @@ pub fn find_checkout(instance: &EdenFsInstance, path: &Path) -> Result<EdenFsChe
 mod tests {
     use std::collections::BTreeMap;
     use std::fs::File;
+    use std::io::ErrorKind;
     use std::io::Write;
     use std::path::Path;
     use std::path::PathBuf;
@@ -1349,6 +1391,7 @@ mod tests {
     use crate::checkout::MOUNT_CONFIG;
     use crate::checkout::REPO_SOURCE;
     use crate::checkout::RedirectionType;
+    use crate::checkout::load_configured_checkout_configs;
     use crate::redirect::Redirection;
     use crate::redirect::RedirectionState;
 
@@ -1371,6 +1414,12 @@ mod tests {
         config_file
             .write_all(DEFAULT_CHECKOUT_CONFIG.as_bytes())
             .from_err()?;
+        Ok(temp_dir)
+    }
+
+    fn create_clients_dir() -> Result<TempDir> {
+        let temp_dir = tempdir().context("couldn't create temp dir")?;
+        std::fs::create_dir_all(temp_dir.path().join("clients")).from_err()?;
         Ok(temp_dir)
     }
 
@@ -1479,5 +1528,58 @@ mod tests {
             state: RedirectionState::UnknownMount,
         };
         assert!(update_and_test_redirection(redir4, config_dir, false).is_ok());
+    }
+
+    #[test]
+    fn test_load_configured_checkout_configs_skips_missing_client_state() {
+        let temp_dir = create_clients_dir().expect("failed to create clients dir");
+        // Manually insert a missing client state
+        let checkout_path = PathBuf::from("/tmp/missing-checkout");
+        let configured_mounts =
+            BTreeMap::from([(checkout_path.clone(), "missing-client".to_string())]);
+
+        let configs =
+            load_configured_checkout_configs(configured_mounts, &temp_dir.path().join("clients"))
+                .expect("missing client state should be skipped");
+
+        assert!(
+            configs.is_empty(),
+            "missing client state should not abort mount discovery"
+        );
+    }
+
+    #[test]
+    fn test_parse_config_missing_returns_not_found() {
+        let temp_dir = create_clients_dir().expect("failed to create clients dir");
+        let error = CheckoutConfig::parse_config(&temp_dir.path().join("clients").join("missing"))
+            .expect_err("missing config should return not found");
+
+        assert!(
+            matches!(error, EdenFsError::IOError(ref err) if err.kind() == ErrorKind::NotFound),
+            "missing config should be reported as ENOENT"
+        );
+    }
+
+    #[test]
+    fn test_load_configured_checkout_configs_preserves_invalid_config_errors() {
+        let temp_dir = create_clients_dir().expect("failed to create clients dir");
+        let clients_dir = temp_dir.path().join("clients");
+        let client_dir = clients_dir.join("broken-client");
+        std::fs::create_dir_all(&client_dir).expect("failed to create client dir");
+        File::create(client_dir.join(MOUNT_CONFIG))
+            .and_then(|mut file| file.write_all(b"not valid toml"))
+            .expect("failed to write invalid config");
+
+        let configured_mounts = BTreeMap::from([(
+            PathBuf::from("/tmp/broken-checkout"),
+            "broken-client".to_string(),
+        )]);
+        let error = load_configured_checkout_configs(configured_mounts, &clients_dir)
+            .expect_err("invalid config should still fail");
+
+        assert!(
+            matches!(error, EdenFsError::Other(_)),
+            "invalid config should be surfaced to the caller"
+        );
     }
 }
