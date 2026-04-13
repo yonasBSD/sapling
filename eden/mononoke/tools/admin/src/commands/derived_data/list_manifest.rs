@@ -29,6 +29,7 @@ use futures::stream::TryStreamExt;
 use git_types::GitLeaf;
 use git_types::GitTreeId;
 use git_types::MappedGitCommitId;
+use history_manifest::RootHistoryManifestDirectoryId;
 use manifest::Entry;
 use manifest::Manifest;
 use manifest::ManifestOps;
@@ -59,6 +60,10 @@ use mononoke_types::deleted_manifest_v2::DeletedManifestV2;
 use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifest;
 use mononoke_types::directory_branch_cluster_manifest::DirectoryBranchClusterManifestFile;
 use mononoke_types::fsnode::FsnodeFile;
+use mononoke_types::history_manifest::HistoryManifestDeletedNode;
+use mononoke_types::history_manifest::HistoryManifestDirectory;
+use mononoke_types::history_manifest::HistoryManifestEntry;
+use mononoke_types::history_manifest::HistoryManifestFile;
 use mononoke_types::path::MPath;
 use mononoke_types::skeleton_manifest_v2::SkeletonManifestV2;
 use mononoke_types::typed_hash::AclManifestId;
@@ -84,6 +89,7 @@ enum ListManifestType {
     HgAugmentedManifests,
     GitTrees,
     AclManifests,
+    HistoryManifests,
 }
 
 #[derive(Args)]
@@ -120,6 +126,15 @@ impl ListItem {
         match entry {
             Entry::Tree(..) => ListItem::Directory(path, entry.list_item()),
             Entry::Leaf(..) => ListItem::File(path, entry.list_item()),
+        }
+    }
+
+    fn new_history_manifest(path: MPath, entry: &HistoryManifestEntry, desc: String) -> Self {
+        match entry {
+            HistoryManifestEntry::File(_) => ListItem::File(path, desc),
+            HistoryManifestEntry::Directory(_) => ListItem::Directory(path, desc),
+            // DeletedNode could be either a file or directory — treat as file for listing.
+            HistoryManifestEntry::DeletedNode(_) => ListItem::File(path, desc),
         }
     }
 
@@ -665,6 +680,201 @@ async fn list_deleted(
     }
 }
 
+/// Format a history manifest entry by loading the underlying blob.
+async fn format_history_entry(
+    ctx: &CoreContext,
+    blobstore: &RepoBlobstore,
+    entry: &HistoryManifestEntry,
+) -> Result<String> {
+    match entry {
+        HistoryManifestEntry::File(id) => {
+            let file: HistoryManifestFile = id.load(ctx, blobstore).await?;
+            Ok(format!(
+                "File\tlinknode={}\tparents={}",
+                file.linknode,
+                file.parents.len()
+            ))
+        }
+        HistoryManifestEntry::Directory(id) => {
+            let dir: HistoryManifestDirectory = id.load(ctx, blobstore).await?;
+            Ok(format!(
+                "Directory\tlinknode={}\tparents={}",
+                dir.linknode,
+                dir.parents.len()
+            ))
+        }
+        HistoryManifestEntry::DeletedNode(deleted) => {
+            let node: HistoryManifestDeletedNode = deleted.load(ctx, blobstore).await?;
+            Ok(format!(
+                "DeletedNode\tlinknode={}\tparents={}",
+                node.linknode,
+                node.parents.len()
+            ))
+        }
+    }
+}
+
+/// List the contents of a history manifest.
+async fn list_history_manifest(
+    ctx: &CoreContext,
+    repo: &Repo,
+    root_dir: HistoryManifestDirectory,
+    path: MPath,
+    directory: bool,
+    recursive: bool,
+) -> Result<BoxStream<'static, Result<ListItem>>> {
+    let blobstore = repo.repo_blobstore().clone();
+
+    if directory {
+        // Navigate to the requested path and display that entry.
+        let entry = find_history_entry(ctx, &blobstore, &root_dir, &path).await?;
+        let desc = format_history_entry(ctx, &blobstore, &entry).await?;
+        let item = ListItem::new_history_manifest(path, &entry, desc);
+        Ok(futures::stream::once(async move { Ok(item) }).boxed())
+    } else if recursive {
+        // Recursively walk all entries.
+        cloned!(ctx, blobstore);
+        Ok(try_stream! {
+            let start_dir = if path.is_root() {
+                root_dir
+            } else {
+                let entry = find_history_entry(&ctx, &blobstore, &root_dir, &path).await?;
+                match entry {
+                    HistoryManifestEntry::Directory(id) => {
+                        id.load(&ctx, &blobstore).await?
+                    }
+                    _ => {
+                        let desc = format_history_entry(&ctx, &blobstore, &entry).await?;
+                        yield ListItem::new_history_manifest(path, &entry, desc);
+                        return;
+                    }
+                }
+            };
+
+            let mut stack: Vec<(MPath, HistoryManifestDirectory)> = vec![(path, start_dir)];
+
+            while let Some((current_path, dir)) = stack.pop() {
+                let subentries: Vec<_> = dir
+                    .into_subentries(&ctx, &blobstore)
+                    .try_collect()
+                    .await?;
+
+                for (name, entry) in subentries {
+                    let subpath = current_path.join(&name);
+                    let desc = format_history_entry(&ctx, &blobstore, &entry).await?;
+                    yield ListItem::new_history_manifest(subpath.clone(), &entry, desc);
+
+                    match entry {
+                        HistoryManifestEntry::Directory(id) => {
+                            let child_dir: HistoryManifestDirectory = id.load(&ctx, &blobstore).await?;
+                            stack.push((subpath, child_dir));
+                        }
+                        HistoryManifestEntry::DeletedNode(deleted) => {
+                            let node: HistoryManifestDeletedNode = deleted.load(&ctx, &blobstore).await?;
+                            // Walk deleted node subentries recursively.
+                            let node_subs: Vec<_> = node.into_subentries(&ctx, &blobstore).try_collect().await?;
+                            for (sub_name, sub_entry) in node_subs {
+                                let sub_path = subpath.join(&sub_name);
+                                let sub_desc = format_history_entry(&ctx, &blobstore, &sub_entry).await?;
+                                yield ListItem::new_history_manifest(sub_path.clone(), &sub_entry, sub_desc);
+                                if let HistoryManifestEntry::Directory(sub_id) = sub_entry {
+                                    let sub_dir: HistoryManifestDirectory = sub_id.load(&ctx, &blobstore).await?;
+                                    stack.push((sub_path, sub_dir));
+                                }
+                            }
+                        }
+                        HistoryManifestEntry::File(id) => {
+                            let file: HistoryManifestFile = id.load(&ctx, &blobstore).await?;
+                            // Walk file subentries (file-replaces-directory case).
+                            let file_subs: Vec<_> = file.into_subentries(&ctx, &blobstore).try_collect().await?;
+                            for (sub_name, sub_entry) in file_subs {
+                                let sub_path = subpath.join(&sub_name);
+                                let sub_desc = format_history_entry(&ctx, &blobstore, &sub_entry).await?;
+                                yield ListItem::new_history_manifest(sub_path.clone(), &sub_entry, format!("(file-sub) {}", sub_desc));
+                                if let HistoryManifestEntry::Directory(sub_id) = sub_entry {
+                                    let sub_dir: HistoryManifestDirectory = sub_id.load(&ctx, &blobstore).await?;
+                                    stack.push((sub_path, sub_dir));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .boxed())
+    } else {
+        // List immediate subentries of the directory at the given path.
+        let dir = if path.is_root() {
+            root_dir
+        } else {
+            let entry = find_history_entry(ctx, &blobstore, &root_dir, &path).await?;
+            match entry {
+                HistoryManifestEntry::Directory(id) => id.load(ctx, &blobstore).await?,
+                _ => {
+                    let desc = format_history_entry(ctx, &blobstore, &entry).await?;
+                    let item = ListItem::new_history_manifest(path, &entry, desc);
+                    return Ok(futures::stream::once(async move { Ok(item) }).boxed());
+                }
+            }
+        };
+
+        cloned!(ctx, blobstore);
+        Ok(try_stream! {
+            let subentries: Vec<_> = dir
+                .into_subentries(&ctx, &blobstore)
+                .try_collect()
+                .await?;
+            for (name, entry) in subentries {
+                let subpath = path.join(&name);
+                let desc = format_history_entry(&ctx, &blobstore, &entry).await?;
+                yield ListItem::new_history_manifest(subpath, &entry, desc);
+            }
+        }
+        .boxed())
+    }
+}
+
+/// Navigate into a history manifest directory to find the entry at a given path.
+async fn find_history_entry(
+    ctx: &CoreContext,
+    blobstore: &RepoBlobstore,
+    root_dir: &HistoryManifestDirectory,
+    path: &MPath,
+) -> Result<HistoryManifestEntry> {
+    let elements: Vec<_> = path.clone().into_iter().collect();
+    if elements.is_empty() {
+        return Err(anyhow!("Cannot look up entry at root path"));
+    }
+
+    let mut current_dir = root_dir.clone();
+    for (i, elem) in elements.iter().enumerate() {
+        let entry = current_dir
+            .lookup(ctx, blobstore, elem)
+            .await?
+            .ok_or_else(|| anyhow!("No entry for path '{}' in history manifest", path))?;
+
+        if i == elements.len() - 1 {
+            return Ok(entry);
+        }
+
+        // Need to descend into a directory for the next element.
+        match entry {
+            HistoryManifestEntry::Directory(id) => {
+                current_dir = id.load(ctx, blobstore).await?;
+            }
+            _ => {
+                return Err(anyhow!(
+                    "Expected directory at intermediate path component '{}' in '{}'",
+                    elem,
+                    path
+                ));
+            }
+        }
+    }
+
+    Err(anyhow!("Unexpected end of path traversal for '{}'", path))
+}
+
 async fn fetch_or_derive_root<TreeId>(
     ctx: &CoreContext,
     manager: &DerivedDataManager,
@@ -785,6 +995,19 @@ pub(super) async fn list_manifest(
                     .await?
                     .into_inner_id();
             list_acl(ctx, repo, root_id, path, args.directory, args.recursive).await?
+        }
+        ListManifestType::HistoryManifests => {
+            let root_dir = fetch_or_derive_root::<RootHistoryManifestDirectoryId>(
+                ctx,
+                manager,
+                cs_id,
+                args.derive,
+            )
+            .await?
+            .into_history_manifest_directory_id()
+            .load(ctx, repo.repo_blobstore())
+            .await?;
+            list_history_manifest(ctx, repo, root_dir, path, args.directory, args.recursive).await?
         }
     };
 
