@@ -9,6 +9,7 @@
 
 mod augmented_manifest_tests;
 mod file_history_test;
+mod slacl_files_test;
 mod tracing_blobstore;
 mod utils;
 

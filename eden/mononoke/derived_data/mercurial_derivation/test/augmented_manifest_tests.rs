@@ -377,3 +377,41 @@ async fn test_augmented_manifest_skip_writes(fb: FacebookInit) -> Result<()> {
 
     Ok(())
 }
+
+/// Test that augmented manifest derivation produces identical results
+/// from both the parent-aware and full derivation paths when the repo
+/// has .slacl files (non-empty AclManifest).
+#[mononoke::fbinit_test]
+async fn test_augmented_manifest_parity_with_slacl(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+    let repo: Repo = test_repo_factory::build_empty(fb).await?;
+
+    // Root commit with a .slacl file creating a restriction root.
+    // ACL tree: root (waypoint) -> restricted (waypoint) -> code (restriction root)
+    let root = CreateCommitContext::new_root(&ctx, &repo)
+        .add_file(
+            "restricted/code/.slacl",
+            "repo_region_acl = \"REPO_REGION:repos/hg/fbsource/=project1\"\n",
+        )
+        .add_file("restricted/code/secret.rs", "fn secret() {}")
+        .add_file("public/readme.md", "hello")
+        .commit()
+        .await?;
+
+    // Derive and compare via the parity helper — this should verify that
+    // both derivation paths produce identical augmented manifests,
+    // including acl_manifest_directory_id pointers.
+    let (_, aug_root) = get_manifests(&ctx, &repo, root, vec![]).await?;
+
+    // Child commit adding more files (tests incremental vs full parity
+    // when parent manifests exist and subtrees are reused)
+    let child = CreateCommitContext::new(&ctx, &repo, vec![root])
+        .add_file("restricted/code/more.rs", "fn more() {}")
+        .add_file("public/docs.md", "docs")
+        .commit()
+        .await?;
+
+    let (_, _aug_child) = get_manifests(&ctx, &repo, child, vec![aug_root]).await?;
+
+    Ok(())
+}
