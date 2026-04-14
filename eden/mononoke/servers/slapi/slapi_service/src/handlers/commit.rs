@@ -1519,18 +1519,22 @@ impl SaplingRemoteApiHandler for UploadIdenticalChangesetsHandler {
 
         let (_, hg_changesets) = tokio::try_join!(bs_fut, hg_fut)?;
 
-        for hg_cs in hg_changesets.clone() {
-            let (hg_cs_id, bcs) = hg_cs?;
-            let bonsai_hg_entry = BonsaiHgMappingEntry {
-                hg_cs_id,
-                bcs_id: bcs.get_changeset_id(),
-            };
+        let mapping_entries: Vec<BonsaiHgMappingEntry> = hg_changesets
+            .clone()
+            .into_iter()
+            .map(|hg_cs| {
+                let (hg_cs_id, bcs) = hg_cs?;
+                Ok(BonsaiHgMappingEntry {
+                    hg_cs_id,
+                    bcs_id: bcs.get_changeset_id(),
+                })
+            })
+            .collect::<Result<_, Error>>()?;
 
-            bonsai_hg_mapping
-                .add(&ctx, bonsai_hg_entry)
-                .await
-                .context("While inserting in bonsai-hg mapping")?;
-        }
+        bonsai_hg_mapping
+            .bulk_add(&ctx, &mapping_entries)
+            .await
+            .context("While inserting in bonsai-hg mapping")?;
 
         let tokens = hg_changesets.into_iter().map(move |r| {
             r.map(|(hg_cs_id, _)| {
