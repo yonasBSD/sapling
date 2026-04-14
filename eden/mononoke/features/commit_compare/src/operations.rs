@@ -252,3 +252,114 @@ pub async fn commit_compare(
         diff_count,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use anyhow::anyhow;
+    use fbinit::FacebookInit;
+    use futures::FutureExt;
+    use justknobs::test_helpers::JustKnobsInMemory;
+    use justknobs::test_helpers::KnobVal;
+    use justknobs::test_helpers::with_just_knobs_async;
+    use maplit::hashmap;
+    use mononoke_api::Mononoke;
+    use mononoke_api::Repo;
+    use mononoke_macros::mononoke;
+    use tests_utils::CreateCommitContext;
+
+    use super::*;
+
+    /// Helper: create a repo with a root changeset and a child changeset that adds
+    /// `file_count` new files (file_0 .. file_{n-1}).
+    async fn setup_repo_with_diff(
+        fb: FacebookInit,
+        file_count: usize,
+    ) -> Result<(
+        RepoContext<Repo>,
+        ChangesetContext<Repo>,
+        ChangesetContext<Repo>,
+    )> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: Repo = test_repo_factory::build_empty(fb).await?;
+        let root = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("base", "content")
+            .commit()
+            .await?;
+        let mut child_builder = CreateCommitContext::new(&ctx, &repo, vec![root]);
+        for i in 0..file_count {
+            child_builder = child_builder.add_file(format!("file_{i}").as_str(), format!("c{i}"));
+        }
+        let child = child_builder.commit().await?;
+
+        let mononoke = Mononoke::new_test(vec![("test".to_string(), repo)]).await?;
+        let repo_ctx = mononoke
+            .repo(ctx, "test")
+            .await?
+            .expect("repo exists")
+            .build()
+            .await?;
+        let base_cs = repo_ctx
+            .changeset(root)
+            .await?
+            .ok_or_else(|| anyhow!("root changeset not found"))?;
+        let other_cs = repo_ctx
+            .changeset(child)
+            .await?
+            .ok_or_else(|| anyhow!("child changeset not found"))?;
+        Ok((repo_ctx, base_cs, other_cs))
+    }
+
+    // FIXME: The current code computes the full diff before checking the limit,
+    // which wastes computation on large diffs. This test verifies the rejection
+    // works but does not yet assert early termination (the test repo is too
+    // small for the timing difference to be measurable). Commit 2 will add a
+    // structural assertion proving truncation.
+    #[mononoke::fbinit_test]
+    async fn test_unordered_diff_rejects_over_limit(fb: FacebookInit) -> Result<()> {
+        let (repo_ctx, base_cs, other_cs) = setup_repo_with_diff(fb, 8).await?;
+        let params = source_control_thrift::CommitCompareParams::default();
+
+        let result = with_just_knobs_async(
+            JustKnobsInMemory::new(hashmap! {
+                "scm/mononoke:commit_compare_unordered_max_paths".to_string() => KnobVal::Int(5),
+            }),
+            async {
+                commit_compare(repo_ctx.ctx(), &repo_ctx, base_cs, Some(other_cs), &params).await
+            }
+            .boxed(),
+        )
+        .await;
+
+        match result {
+            Ok(_) => panic!("should fail when diff exceeds limit"),
+            Err(err) => {
+                let err_str = format!("{err:#}");
+                assert!(
+                    err_str.contains("exceeding maximum"),
+                    "expected 'exceeding maximum' in error, got: {err_str}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_unordered_diff_succeeds_at_limit(fb: FacebookInit) -> Result<()> {
+        let (repo_ctx, other_cs, base_cs) = setup_repo_with_diff(fb, 5).await?;
+        let params = source_control_thrift::CommitCompareParams::default();
+
+        let result = with_just_knobs_async(
+            JustKnobsInMemory::new(hashmap! {
+                "scm/mononoke:commit_compare_unordered_max_paths".to_string() => KnobVal::Int(5),
+            }),
+            async {
+                commit_compare(repo_ctx.ctx(), &repo_ctx, base_cs, Some(other_cs), &params).await
+            }
+            .boxed(),
+        )
+        .await;
+
+        assert!(result.is_ok(), "should succeed when diff is at the limit");
+        Ok(())
+    }
+}
