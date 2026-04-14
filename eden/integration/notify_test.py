@@ -708,6 +708,37 @@ class NotifyTest(testcase.EdenRepoTest):
         self.assertEqual(json.loads(stdout.decode()), [])
         self.assertFalse(os.path.exists(hello_notify_file_path))
 
+    async def test_subscribe_max_events(self) -> None:
+        """Test that --max-events causes the subscription to exit after N non-empty events."""
+        subscription = await self.subscribe("--max-events", "2")
+
+        # Initial result (empty changes) should not count toward max_events
+        event = await self.wait_for_next_event(subscription)
+        self.assertIsNotNone(event)
+        self.assertListEqual(event["changes"], [])
+
+        # First non-empty event (count: 1)
+        event = await self.wait_for_next_event(
+            subscription, lambda: self.write_file("file1", "content1")
+        )
+        self.assertIsNotNone(event)
+        self.assertTrue(len(event["changes"]) > 0, msg=f"changes: {event['changes']}")
+
+        # Second non-empty event (count: 2) -- should hit max_events
+        event = await self.wait_for_next_event(
+            subscription, lambda: self.write_file("file2", "content2")
+        )
+        self.assertIsNotNone(event)
+        self.assertTrue(len(event["changes"]) > 0, msg=f"changes: {event['changes']}")
+
+        # The process should exit with code 0 after reaching max_events
+        returncode = await asyncio.wait_for(subscription.wait(), timeout=10)
+        self.assertEqual(
+            returncode,
+            0,
+            msg="Subscription should exit with code 0 after reaching max_events",
+        )
+
     async def test_subscribe_cleanup_left_over_state_multiple_checks(self) -> None:
         hello_notify_file_path = self.eden_repo.get_path(
             ".edenfs-notifications-state/hello/hello.notify"

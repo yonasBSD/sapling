@@ -102,6 +102,13 @@ pub struct ChangesSinceCmd {
         help = "Convert Commit Transitions to a list of changes between the two commits"
     )]
     unpack_commit_transitions: bool,
+
+    #[clap(
+        long,
+        requires = "subscribe",
+        help = "Return after at most N non-empty events (events with changes) after the initial changes to current position if --position is supplied, then exit. Requires --subscribe"
+    )]
+    max_events: Option<usize>,
 }
 
 impl ChangesSinceCmd {
@@ -212,9 +219,10 @@ impl crate::Subcommand for ChangesSinceCmd {
             .await?;
 
         let _ = self.print_result(&result).await;
+        let mut nonempty_count: usize = 0;
         let mut rc = 0;
         if self.subscribe {
-            let stream = client
+            let mut stream = client
                 .stream_changes_since(
                     &self.mount_point,
                     self.throttle,
@@ -231,40 +239,53 @@ impl crate::Subcommand for ChangesSinceCmd {
             if !self.deferred_states.is_empty() {
                 let stream_client =
                     get_streaming_changes_client(&get_mount_point(&self.mount_point)?, &client)?;
-                let wrapped_stream = stream_client
+                let mut wrapped_stream = stream_client
                     .stream_changes_since_with_deferral(stream, &self.deferred_states, None)
                     .await?;
-                wrapped_stream
-                    .for_each(|result| async {
-                        match result {
-                            Ok(Changes::ChangesSince(result)) => {
-                                let _ = self.print_result(&result).await;
-                            }
-                            Ok(Changes::ChangeEvent(result)) => {
-                                self.print_change_event(&result);
-                            }
-                            Err(e) => {
-                                eprintln!("Error: {}", e);
+                while let Some(result) = wrapped_stream.next().await {
+                    match result {
+                        Ok(Changes::ChangesSince(result)) => {
+                            let _ = self.print_result(&result).await;
+                            if !result.changes.is_empty() {
+                                nonempty_count += 1;
                             }
                         }
-                    })
-                    .await;
+                        Ok(Changes::ChangeEvent(result)) => {
+                            self.print_change_event(&result);
+                        }
+
+                        Err(e) => {
+                            eprintln!("Error: {}", e);
+                        }
+                    }
+                    if self.max_events.is_some_and(|max| nonempty_count >= max) {
+                        break;
+                    }
+                }
             } else {
-                stream
-                    .for_each(|result| async {
-                        match result {
-                            Ok(result) => {
-                                let _ = self.print_result(&result).await;
-                            }
-                            Err(e) => {
-                                eprintln!("Error: {}", e);
+                while let Some(result) = stream.next().await {
+                    match result {
+                        Ok(result) => {
+                            let _ = self.print_result(&result).await;
+                            if !result.changes.is_empty() {
+                                nonempty_count += 1;
                             }
                         }
-                    })
-                    .await;
+                        Err(e) => {
+                            eprintln!("Error: {}", e);
+                        }
+                    }
+                    if self.max_events.is_some_and(|max| nonempty_count >= max) {
+                        break;
+                    }
+                }
             }
-            // Stream only ends on error or cancellation
-            rc = 1;
+            if self.max_events.is_some_and(|max| nonempty_count >= max) {
+                rc = 0;
+            } else {
+                // Stream only ends on error or cancellation
+                rc = 1;
+            }
         }
         Ok(rc)
     }
