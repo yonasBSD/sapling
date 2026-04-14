@@ -15,5 +15,9 @@ pub use tracing_reload::ReloadableEnvFilter;
 /// Reloadable `EnvFilter` for the `LOG` (`SL_LOG`) environment variable.
 pub static LOG_FILTER: ReloadableEnvFilter = ReloadableEnvFilter::new();
 
+/// Reloadable `EnvFilter` for the `BTLOG` (`SL_BTLOG`) environment variable.
+/// Controls which targets get backtrace output.
+pub static BTLOG_FILTER: ReloadableEnvFilter = ReloadableEnvFilter::new();
+
 /// Reloadable writer for `tracing_subscriber::fmt::Layer` output.
 pub static RELOADABLE_WRITER: LazyLock<DynWrite> = LazyLock::new(DynWrite::default);

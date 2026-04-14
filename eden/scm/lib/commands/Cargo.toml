@@ -87,6 +87,7 @@ sapling-repourl = { version = "0.1.0", path = "../repo/url" }
 sapling-runlog = { version = "0.1.0", path = "../runlog" }
 sapling-sampling = { version = "0.1.0", path = "../sampling" }
 sapling-testutil = { version = "0.1.0", path = "../util/testutil" }
+sapling-tracing-backtrace = { version = "0.1.0", path = "../tracing-backtrace" }
 sapling-tracing-collector = { version = "0.1.0", path = "../tracing-collector" }
 sapling-tracing-dyn-layer = { version = "0.1.0", path = "../tracing-dyn-layer" }
 sapling-tracing-reload-states = { version = "0.1.0", path = "../tracing-reload/tracing-reload-states" }

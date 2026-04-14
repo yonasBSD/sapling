@@ -87,6 +87,7 @@ rust_library(
         "//eden/scm/lib/runlog:runlog",
         "//eden/scm/lib/sampling:sampling",
         "//eden/scm/lib/sampling-profiler/global-profiler:global-profiler",
+        "//eden/scm/lib/tracing-backtrace:tracing-backtrace",
         "//eden/scm/lib/tracing-collector:tracing-collector",
         "//eden/scm/lib/tracing-reload/tracing-reload-states:tracing-reload-states",
         "//eden/scm/lib/tracing-dyn-layer:tracing-dyn-layer",

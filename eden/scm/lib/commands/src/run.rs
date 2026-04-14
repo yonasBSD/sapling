@@ -49,6 +49,7 @@ use tracing::Level;
 use tracing::dispatcher;
 use tracing::dispatcher::Dispatch;
 use tracing::metadata::LevelFilter;
+use tracing_backtrace::BacktraceLayer;
 use tracing_collector::TracingData;
 use tracing_sampler::SamplingLayer;
 use tracing_subscriber::Layer;
@@ -421,6 +422,7 @@ fn current_dir(io: &IO) -> io::Result<PathBuf> {
 /// Setup tracing with multiple layers:
 /// - TracingCollector: collects spans, events so they can be logged.
 /// - FmtLayer: print out tracing messages if `SL_LOG` gets set.
+/// - BacktraceLayer: print backtraces for matching events if `SL_BTLOG` gets set.
 /// - SamplingLayer: convenient way to use tracing to report to the telemetry
 ///   program (meta-only).
 fn setup_tracing(global_opts: &Option<HgGlobalOpts>, io: &IO) -> Result<Arc<Mutex<TracingData>>> {
@@ -440,19 +442,24 @@ fn setup_tracing(global_opts: &Option<HgGlobalOpts>, io: &IO) -> Result<Arc<Mute
 
     let is_test = is_inside_test();
     let mut env_filter_dirs: Option<String> = identity::debug_env_var("LOG").map(|v| v.1);
+    let env_filter_dirs_btlog: Option<String> = identity::debug_env_var("BTLOG").map(|v| v.1);
+    let mut can_color = false;
 
     // Ensure EnvFilter is used in tests so it can be changed on the fly.
     if is_test && env_filter_dirs.is_none() {
         env_filter_dirs = Some(String::new());
     }
 
+    if env_filter_dirs.is_some() || env_filter_dirs_btlog.is_some() {
+        let error = io.error();
+        can_color = error.can_color();
+        tracing_reload_states::RELOADABLE_WRITER.update(Box::new(error));
+    }
+
     let mut inner: Vec<tracing_dyn_layer::BoxedLayer<_>> = Vec::new();
 
     if let Some(dirs) = env_filter_dirs {
         // LOG is set: configure human-readable stderr output.
-        let error = io.error();
-        let can_color = error.can_color();
-        tracing_reload_states::RELOADABLE_WRITER.update(Box::new(error));
         tracing_reload_states::LOG_FILTER.update_directives(&dirs)?;
 
         let env_filter = tracing_reload_states::LOG_FILTER.env_filter()?;
@@ -489,6 +496,15 @@ fn setup_tracing(global_opts: &Option<HgGlobalOpts>, io: &IO) -> Result<Arc<Mute
             });
 
         inner.push(collector.with_filter::<LevelFilter>(level.into()).boxed());
+    }
+
+    // BacktraceLayer: print backtraces for matching tracing events (SL_BTLOG).
+    if let Some(dirs) = env_filter_dirs_btlog {
+        tracing_reload_states::BTLOG_FILTER.update_directives(&dirs)?;
+        let bt_filter = tracing_reload_states::BTLOG_FILTER.env_filter()?;
+        let bt_layer = BacktraceLayer::new()
+            .with_writer(|| Box::new(tracing_reload_states::RELOADABLE_WRITER.clone()));
+        inner.push(bt_layer.with_filter(bt_filter).boxed());
     }
 
     inner.push(SamplingLayer::new().boxed());
