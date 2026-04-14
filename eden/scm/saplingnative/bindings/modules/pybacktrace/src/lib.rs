@@ -10,7 +10,10 @@ use cpython::*;
 pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
     let name = [package, "backtrace"].join(".");
     let m = PyModule::new(py, &name)?;
-    m.add(py, "backtrace", py_fn!(py, backtrace_py()))?;
+
+    // By default, skip 1 wrapper frame
+    // - pybacktrace::init_module::wrap
+    m.add(py, "backtrace", py_fn!(py, backtrace_py(skip: usize = 1)))?;
 
     let info = &backtrace_python::SUPPORTED_INFO;
     let info_mod = PyModule::new(py, &format!("{name}.SUPPORTED_INFO"))?;
@@ -23,12 +26,15 @@ pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
 }
 
 /// Obtain Rust+Python backtrace for the current thread.
-fn backtrace_py(_py: Python) -> PyResult<Vec<String>> {
+fn backtrace_py(_py: Python, mut skip: usize) -> PyResult<Vec<String>> {
     backtrace_python::init();
     let mut frames = Vec::with_capacity(32);
     backtrace_ext::trace_unsynchronized!(|frame: backtrace_ext::Frame| {
-        let name = frame.resolve();
-        frames.push(name);
+        if skip == 0 {
+            let name = frame.resolve();
+            frames.push(name);
+        }
+        skip = skip.saturating_sub(1);
         true
     });
     Ok(frames)
