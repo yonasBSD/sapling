@@ -35,7 +35,6 @@ use crate::id::Group;
 use crate::id::Id;
 use crate::idset::Span;
 use crate::lifecycle::LifecycleId;
-use crate::lifecycle::trace_print_short_backtrace;
 use crate::ops::Persist;
 use crate::ops::StorageVersion;
 use crate::ops::TryClone;
@@ -291,7 +290,6 @@ impl IdDagStore for IndexedLogStore {
         let span = segment.span()?;
         if span.high.is_virtual() {
             tracing::trace!(lifecycle_id=?self.lifecycle_id, ?segment, "remove virtual segment");
-            trace_print_short_backtrace();
             self.virtual_segments.retain(|s| {
                 if let Ok(s_span) = s.span() {
                     if span.overlaps_with(&s_span) {
