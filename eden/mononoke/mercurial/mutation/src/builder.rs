@@ -39,15 +39,12 @@ impl SqlConstruct for SqlHgMutationStoreBuilder {
             mut write_connection,
         } = connections;
 
-        if justknobs::eval("scm/mononoke:mutations_use_read_committed", None, None).unwrap_or(false)
+        if let Connection {
+            inner: SqlConnection::Mysql(conn),
+            ..
+        } = &mut write_connection
         {
-            if let Connection {
-                inner: SqlConnection::Mysql(conn),
-                ..
-            } = &mut write_connection
-            {
-                conn.set_isolation_level(Some(IsolationLevel::ReadCommitted));
-            }
+            conn.set_isolation_level(Some(IsolationLevel::ReadCommitted));
         }
         Self {
             connections: SqlConnections {
