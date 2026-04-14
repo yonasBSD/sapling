@@ -12,6 +12,7 @@ use context::CoreContext;
 use futures::stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
+use futures_watchdog::WatchdogExt;
 use itertools::Either;
 use itertools::Itertools;
 use maplit::btreeset;
@@ -111,27 +112,36 @@ pub async fn commit_compare(
 
     let (diff_count, diff_files, diff_trees) = match params.ordered_params {
         None => {
+            let max_paths = unordered_max_paths()?;
             let diff = match other_changeset {
                 Some(ref other_changeset) => {
                     base_changeset
-                        .diff_unordered(
+                        .diff(
                             other_changeset,
                             !params.skip_copies_renames,
                             params.compare_with_subtree_copy_sources.unwrap_or_default(),
                             paths,
                             diff_items,
+                            ChangesetFileOrdering::Unordered,
+                            Some(max_paths + 1),
                         )
+                        .watched()
                         .await?
                 }
                 None => {
                     base_changeset
-                        .diff_root_unordered(paths, diff_items)
+                        .diff_root(
+                            paths,
+                            diff_items,
+                            ChangesetFileOrdering::Unordered,
+                            Some(max_paths + 1),
+                        )
+                        .watched()
                         .await?
                 }
             };
 
             let diff_count = diff.len();
-            let max_paths = unordered_max_paths()?;
             if diff_count > max_paths {
                 return Err(MononokeError::InvalidRequest(format!(
                     "commit_compare: unordered diff has {} entries, exceeding maximum {}. \
@@ -309,11 +319,6 @@ mod tests {
         Ok((repo_ctx, base_cs, other_cs))
     }
 
-    // FIXME: The current code computes the full diff before checking the limit,
-    // which wastes computation on large diffs. This test verifies the rejection
-    // works but does not yet assert early termination (the test repo is too
-    // small for the timing difference to be measurable). Commit 2 will add a
-    // structural assertion proving truncation.
     #[mononoke::fbinit_test]
     async fn test_unordered_diff_rejects_over_limit(fb: FacebookInit) -> Result<()> {
         let (repo_ctx, base_cs, other_cs) = setup_repo_with_diff(fb, 8).await?;
@@ -360,6 +365,67 @@ mod tests {
         .await;
 
         assert!(result.is_ok(), "should succeed when diff is at the limit");
+        Ok(())
+    }
+
+    /// Proves early termination: with 20 file diffs and a limit of 5, the
+    /// underlying diff() call receives limit=Some(6) and returns at most 6
+    /// entries — NOT 20.
+    #[mononoke::fbinit_test]
+    async fn test_unordered_diff_truncates_at_limit_plus_one(fb: FacebookInit) -> Result<()> {
+        let (_repo_ctx, other_cs, base_cs) = setup_repo_with_diff(fb, 20).await?;
+
+        let max_paths: usize = 5;
+        let diff = with_just_knobs_async(
+            JustKnobsInMemory::new(hashmap! {
+                "scm/mononoke:commit_compare_unordered_max_paths".to_string() => KnobVal::Int(max_paths as i64),
+            }),
+            async {
+                base_cs
+                    .diff(
+                        &other_cs,
+                        false,
+                        false,
+                        None,
+                        btreeset! { ChangesetDiffItem::FILES },
+                        ChangesetFileOrdering::Unordered,
+                        Some(max_paths + 1),
+                    )
+                    .await
+            }
+            .boxed(),
+        )
+        .await?;
+
+        // The stream should have been truncated at max_paths + 1 = 6,
+        // not returning all 20 file diffs.
+        assert_eq!(
+            diff.len(),
+            max_paths + 1,
+            "diff should be truncated at limit (max_paths + 1 = {}), got {}",
+            max_paths + 1,
+            diff.len()
+        );
+
+        // Also verify commit_compare itself rejects it
+        let params = source_control_thrift::CommitCompareParams::default();
+        let (repo_ctx2, other_cs2, base_cs2) = setup_repo_with_diff(fb, 20).await?;
+        let result = with_just_knobs_async(
+            JustKnobsInMemory::new(hashmap! {
+                "scm/mononoke:commit_compare_unordered_max_paths".to_string() => KnobVal::Int(max_paths as i64),
+            }),
+            async {
+                commit_compare(repo_ctx2.ctx(), &repo_ctx2, base_cs2, Some(other_cs2), &params)
+                    .await
+            }
+            .boxed(),
+        )
+        .await;
+
+        assert!(
+            result.is_err(),
+            "commit_compare should reject oversized diff"
+        );
         Ok(())
     }
 }
