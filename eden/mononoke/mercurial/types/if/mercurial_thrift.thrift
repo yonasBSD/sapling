@@ -82,6 +82,9 @@ struct HgAugmentedDirectoryNode {
   2: id.Blake3 augmented_manifest_id;
   // Expected to match the size of the directory's encoded augmented mf.
   3: i64 augmented_manifest_size;
+  /// Pointer to the AclManifest node for this directory.
+  /// Present only if this directory is in the sparse AclManifest.
+  4: optional id.AclManifestId acl_manifest_directory_id;
 }
 
 union HgAugmentedManifestEntry {
@@ -101,6 +104,8 @@ struct HgAugmentedManifest {
   4: HgNodeHash computed_node_id;
   // Sharded Map of MPathElement -> HgAugmentedManifestEntry
   5: sharded_map.ShardedMapV2Node subentries;
+  /// Pointer to this directory's AclManifest node.
+  6: optional id.AclManifestId acl_manifest_directory_id;
 }
 
 // Augmented HgManifest Envelope (stored in Mononoke)

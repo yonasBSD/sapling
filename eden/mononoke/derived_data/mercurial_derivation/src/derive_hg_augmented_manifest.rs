@@ -318,6 +318,7 @@ pub async fn derive_from_hg_manifest_and_parents(
                                 treenode: treenode.into_nodehash(),
                                 augmented_manifest_id,
                                 augmented_manifest_size,
+                                acl_manifest_directory_id: None,
                             },
                         )),
                     );
@@ -333,6 +334,7 @@ pub async fn derive_from_hg_manifest_and_parents(
                     p2: hg_manifest.p2(),
                     computed_node_id: hg_manifest.computed_node_id(),
                     subentries,
+                    acl_manifest_directory_id: None,
                 };
 
                 let (augmented_manifest_id, augmented_manifest_size) = augmented_manifest
@@ -431,6 +433,7 @@ pub async fn derive_from_full_hg_manifest(
                         p2: hg_manifest.p2(),
                         computed_node_id: hg_manifest.computed_node_id(),
                         subentries,
+                        acl_manifest_directory_id: None,
                     };
                     let (augmented_manifest_id, augmented_manifest_size) = augmented_manifest
                         .clone()
@@ -446,6 +449,7 @@ pub async fn derive_from_full_hg_manifest(
                         treenode: tree_info.predecessor.into_nodehash(),
                         augmented_manifest_id,
                         augmented_manifest_size,
+                        acl_manifest_directory_id: None,
                     };
                     Ok(((), entry))
                 }

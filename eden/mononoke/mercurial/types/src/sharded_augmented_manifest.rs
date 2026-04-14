@@ -43,6 +43,7 @@ use mononoke_types::sharded_map_v2::LoadableShardedMapV2Node;
 use mononoke_types::sharded_map_v2::Rollup;
 use mononoke_types::sharded_map_v2::ShardedMapV2Node;
 use mononoke_types::sharded_map_v2::ShardedMapV2Value;
+use mononoke_types::typed_hash::AclManifestId;
 
 use crate::FileType;
 use crate::HgAugmentedManifestId;
@@ -72,6 +73,7 @@ pub struct HgAugmentedDirectoryNode {
     pub treenode: HgNodeHash,
     pub augmented_manifest_id: Blake3,
     pub augmented_manifest_size: u64,
+    pub acl_manifest_directory_id: Option<AclManifestId>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -94,6 +96,7 @@ pub struct ShardedHgAugmentedManifest {
     pub p2: Option<HgNodeHash>,
     pub computed_node_id: HgNodeHash,
     pub subentries: ShardedMapV2Node<HgAugmentedManifestEntry>,
+    pub acl_manifest_directory_id: Option<AclManifestId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -435,6 +438,10 @@ impl ThriftConvert for HgAugmentedDirectoryNode {
             treenode: HgNodeHash::from_thrift(t.treenode)?,
             augmented_manifest_id: Blake3::from_thrift(t.augmented_manifest_id)?,
             augmented_manifest_size: t.augmented_manifest_size as u64,
+            acl_manifest_directory_id: t
+                .acl_manifest_directory_id
+                .map(AclManifestId::from_thrift)
+                .transpose()?,
         })
     }
 
@@ -443,6 +450,9 @@ impl ThriftConvert for HgAugmentedDirectoryNode {
             treenode: self.treenode.into_thrift(),
             augmented_manifest_id: self.augmented_manifest_id.into_thrift(),
             augmented_manifest_size: self.augmented_manifest_size as i64,
+            acl_manifest_directory_id: self
+                .acl_manifest_directory_id
+                .map(AclManifestId::into_thrift),
         }
     }
 }
@@ -480,6 +490,10 @@ impl ThriftConvert for ShardedHgAugmentedManifest {
             p2: HgNodeHash::from_thrift_opt(t.p2)?,
             computed_node_id: HgNodeHash::from_thrift(t.computed_node_id)?,
             subentries: ShardedMapV2Node::from_thrift(t.subentries)?,
+            acl_manifest_directory_id: t
+                .acl_manifest_directory_id
+                .map(AclManifestId::from_thrift)
+                .transpose()?,
         })
     }
 
@@ -490,6 +504,9 @@ impl ThriftConvert for ShardedHgAugmentedManifest {
             p2: self.p2.map(HgNodeHash::into_thrift),
             computed_node_id: self.computed_node_id.into_thrift(),
             subentries: self.subentries.into_thrift(),
+            acl_manifest_directory_id: self
+                .acl_manifest_directory_id
+                .map(AclManifestId::into_thrift),
         }
     }
 }
@@ -925,6 +942,7 @@ mod sharded_augmented_manifest_tests {
                     treenode: hash_threes(),
                     augmented_manifest_id: blake3_threes(),
                     augmented_manifest_size: 10,
+                    acl_manifest_directory_id: None,
                 }),
             ),
             (
@@ -933,6 +951,7 @@ mod sharded_augmented_manifest_tests {
                     treenode: hash_ones(),
                     augmented_manifest_id: blake3_ones(),
                     augmented_manifest_size: 10000,
+                    acl_manifest_directory_id: None,
                 }),
             ),
         ];
@@ -943,6 +962,7 @@ mod sharded_augmented_manifest_tests {
             p2: Some(hash_threes()),
             computed_node_id: hash_ones(),
             subentries: ShardedMapV2Node::from_entries(&ctx, &blobstore, subentries).await?,
+            acl_manifest_directory_id: None,
         };
 
         let bytes = augmented_manifest
