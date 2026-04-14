@@ -1759,58 +1759,79 @@ impl SourceControlServiceImpl {
 
     /// Returns the git mutation history of a commit, extracted from
     /// predecessor/predecessor-op extra headers on the commit object.
+    /// Walks the full predecessor chain by loading each predecessor commit
+    /// and reading its headers, similar to how commit_hg_mutation_history
+    /// walks the SQL mutation store.
     pub(crate) async fn commit_git_mutation_history(
         &self,
         ctx: CoreContext,
         commit: thrift::CommitSpecifier,
         params: thrift::CommitGitMutationHistoryParams,
     ) -> Result<thrift::CommitGitMutationHistoryResponse, scs_errors::ServiceError> {
-        let (_repo, changeset) = self.repo_changeset(ctx, &commit).await?;
+        let (repo, changeset) = self.repo_changeset(ctx.clone(), &commit).await?;
 
-        let git_extra_headers = changeset.git_extra_headers().await?;
-        let mutation_entry = git_extra_headers
-            .as_ref()
-            .and_then(|headers| git_types::mutation::extract_mutation_from_headers(headers));
+        // Walk the predecessor chain by following headers hop-by-hop.
+        // Depth limit prevents infinite loops from circular references.
+        const MAX_CHAIN_DEPTH: usize = 100;
+        let mut mutations = Vec::new();
+        let mut all_predecessor_ids = Vec::new();
+        let mut current_changeset = changeset;
+
+        for _ in 0..MAX_CHAIN_DEPTH {
+            let git_extra_headers = current_changeset.git_extra_headers().await?;
+            let mutation_entry = git_extra_headers
+                .as_ref()
+                .and_then(|headers| git_types::mutation::extract_mutation_from_headers(headers));
+
+            let Some(entry) = mutation_entry else {
+                break;
+            };
+
+            let successor_id = current_changeset
+                .git_sha1()
+                .await?
+                .map(|sha1| thrift::CommitId::git(sha1.as_ref().to_vec()))
+                .unwrap_or_else(|| {
+                    thrift::CommitId::bonsai(current_changeset.id().as_ref().to_vec())
+                });
+
+            let predecessor_ids: Vec<thrift::CommitId> = entry
+                .predecessor_bytes()
+                .into_iter()
+                .map(thrift::CommitId::git)
+                .collect();
+
+            all_predecessor_ids.extend(predecessor_ids.clone());
+
+            let next_sha1 = entry.predecessors.first().cloned();
+
+            mutations.push(thrift::GitMutation {
+                successor: successor_id,
+                predecessors: predecessor_ids,
+                op: entry.op,
+                ..Default::default()
+            });
+
+            // Follow the chain: load the predecessor commit
+            match next_sha1 {
+                Some(sha1) => {
+                    let specifier = mononoke_api::ChangesetSpecifier::GitSha1(sha1);
+                    match repo.changeset(specifier).await? {
+                        Some(cs) => current_changeset = cs,
+                        None => break, // Predecessor not on server
+                    }
+                }
+                None => break,
+            }
+        }
 
         let git_mutation_history = match params.format {
             thrift::MutationHistoryFormat::COMMIT_ID => {
-                let commit_ids = mutation_entry
-                    .map(|entry| {
-                        entry
-                            .predecessor_bytes()
-                            .into_iter()
-                            .map(thrift::CommitId::git)
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                thrift::GitMutationHistory::commit_ids(commit_ids)
+                thrift::GitMutationHistory::commit_ids(all_predecessor_ids)
             }
-            thrift::MutationHistoryFormat::GIT_MUTATION => match mutation_entry {
-                None => thrift::GitMutationHistory::git_mutations(vec![]),
-                Some(entry) => {
-                    let successor_id = changeset
-                        .git_sha1()
-                        .await?
-                        .map(|sha1| thrift::CommitId::git(sha1.as_ref().to_vec()))
-                        .unwrap_or_else(|| {
-                            thrift::CommitId::bonsai(changeset.id().as_ref().to_vec())
-                        });
-
-                    let predecessor_ids: Vec<thrift::CommitId> = entry
-                        .predecessor_bytes()
-                        .into_iter()
-                        .map(thrift::CommitId::git)
-                        .collect();
-
-                    let mutation = thrift::GitMutation {
-                        successor: successor_id,
-                        predecessors: predecessor_ids,
-                        op: entry.op,
-                        ..Default::default()
-                    };
-                    thrift::GitMutationHistory::git_mutations(vec![mutation])
-                }
-            },
+            thrift::MutationHistoryFormat::GIT_MUTATION => {
+                thrift::GitMutationHistory::git_mutations(mutations)
+            }
             unknown => {
                 return Err(scs_errors::invalid_request(format!(
                     "invalid mutation history format: {:?}",

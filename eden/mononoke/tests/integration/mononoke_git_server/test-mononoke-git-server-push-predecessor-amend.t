@@ -104,16 +104,21 @@ Amend B→C and push
   $ CHAIN_C=$(mgit rev-parse HEAD)
   $ quiet git_client push origin chain_test --force
 
-Verify C's immediate predecessor is B (not A)
-  $ scs_mutation "$CHAIN_C" | grep "predecessors:" | grep -q "$CHAIN_B" && echo "C predecessor is B"
-  C predecessor is B
-  $ scs_mutation "$CHAIN_C" | grep "op:"
-  op: amend
+Querying C returns the full chain: C→B (amend) and B→A (amend)
+  $ scs_mutation "$CHAIN_C" | grep -c "op: amend"
+  2
+Chain includes both B and A as predecessors
+  $ scs_mutation "$CHAIN_C" | grep "predecessors:" | grep -q "$CHAIN_B" && echo "chain includes B"
+  chain includes B
+  $ scs_mutation "$CHAIN_C" | grep "predecessors:" | grep -q "$CHAIN_A" && echo "chain includes A"
+  chain includes A
 
 Verify A is still queryable and has no predecessor
   $ scs_mutation "$CHAIN_A"
   no mutations
 
-Verify B is still queryable and points to A
-  $ scs_mutation "$CHAIN_B" | grep "predecessors:" | grep -q "$CHAIN_A" && echo "B still points to A"
-  B still points to A
+Verify B returns chain B→A (single hop)
+  $ scs_mutation "$CHAIN_B" | grep -c "op: amend"
+  1
+  $ scs_mutation "$CHAIN_B" | grep "predecessors:" | grep -q "$CHAIN_A" && echo "B chain: predecessor is A"
+  B chain: predecessor is A
