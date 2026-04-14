@@ -47,6 +47,7 @@
     vertical-align: bottom;
     appearance: none;
     line-height: 0;
+    font-size: 0;
     border-width: 1px;
     border-style: solid;
     border-color: var(--button-border, transparent);
