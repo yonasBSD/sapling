@@ -418,60 +418,11 @@ fn current_dir(io: &IO) -> io::Result<PathBuf> {
     result
 }
 
-/// Make tracing write logs to `io` if `LOG` environment is set.
-/// Return `true` if it is set, or `false` if nothing happens.
-///
-/// `collector` is used to integrate with the `TracingCollector`,
-/// which can integrate with Python via bindings.
-fn setup_tracing_io(
-    io: &IO,
-    collector: Option<tracing_collector::TracingCollector>,
-) -> Result<bool> {
-    let is_test = is_inside_test();
-    let mut env_filter_dirs: Option<String> = identity::debug_env_var("LOG").map(|v| v.1);
-
-    // Ensure EnvFilter is used in tests so it can be changed on the fly.
-    if is_test && env_filter_dirs.is_none() {
-        env_filter_dirs = Some(String::new());
-    }
-
-    if let Some(dirs) = env_filter_dirs {
-        // Apply "reload" side effects first.
-        let error = io.error();
-        let can_color = error.can_color();
-        tracing_reload_states::RELOADABLE_WRITER.update(Box::new(error));
-        tracing_reload_states::LOG_FILTER.update_directives(&dirs)?;
-
-        // This might error out if called 2nd time per process.
-        let env_filter = tracing_reload_states::LOG_FILTER.env_filter()?;
-
-        let env_logger = FmtLayer::new()
-            .with_span_events(FmtSpan::ACTIVE)
-            .with_ansi(can_color)
-            .with_writer(|| tracing_reload_states::RELOADABLE_WRITER.clone());
-
-        let env_logger: tracing_dyn_layer::BoxedLayer<_> = if is_test {
-            env_logger.without_time().with_ansi(false).boxed()
-        } else {
-            env_logger.boxed()
-        };
-
-        let mut inner: Vec<tracing_dyn_layer::BoxedLayer<_>> = Vec::new();
-        match collector {
-            None => inner.push(env_logger.with_filter(env_filter).boxed()),
-            Some(c) => inner.push(c.and_then(env_logger).with_filter(env_filter).boxed()),
-        }
-        inner.push(SamplingLayer::new().boxed());
-
-        let subscriber = tracing_subscriber::Registry::default()
-            .with(tracing_dyn_layer::layers(inner));
-        tracing::subscriber::set_global_default(subscriber)?;
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
+/// Setup tracing with multiple layers:
+/// - TracingCollector: collects spans, events so they can be logged.
+/// - FmtLayer: print out tracing messages if `SL_LOG` gets set.
+/// - SamplingLayer: convenient way to use tracing to report to the telemetry
+///   program (meta-only).
 fn setup_tracing(global_opts: &Option<HgGlobalOpts>, io: &IO) -> Result<Arc<Mutex<TracingData>>> {
     // Setup TracingData singleton (currently owned by pytracing).
     {
@@ -485,9 +436,46 @@ fn setup_tracing(global_opts: &Option<HgGlobalOpts>, io: &IO) -> Result<Arc<Mute
         }
     }
     let data = pytracing::DATA.clone();
-
     let collector = tracing_collector::TracingCollector::new(data.clone());
-    if !setup_tracing_io(io, Some(collector))? {
+
+    let is_test = is_inside_test();
+    let mut env_filter_dirs: Option<String> = identity::debug_env_var("LOG").map(|v| v.1);
+
+    // Ensure EnvFilter is used in tests so it can be changed on the fly.
+    if is_test && env_filter_dirs.is_none() {
+        env_filter_dirs = Some(String::new());
+    }
+
+    let mut inner: Vec<tracing_dyn_layer::BoxedLayer<_>> = Vec::new();
+
+    if let Some(dirs) = env_filter_dirs {
+        // LOG is set: configure human-readable stderr output.
+        let error = io.error();
+        let can_color = error.can_color();
+        tracing_reload_states::RELOADABLE_WRITER.update(Box::new(error));
+        tracing_reload_states::LOG_FILTER.update_directives(&dirs)?;
+
+        let env_filter = tracing_reload_states::LOG_FILTER.env_filter()?;
+
+        let env_logger = FmtLayer::new()
+            .with_span_events(FmtSpan::ACTIVE)
+            .with_ansi(can_color)
+            .with_writer(|| tracing_reload_states::RELOADABLE_WRITER.clone());
+
+        let env_logger: tracing_dyn_layer::BoxedLayer<_> = if is_test {
+            env_logger.without_time().with_ansi(false).boxed()
+        } else {
+            env_logger.boxed()
+        };
+
+        inner.push(
+            collector
+                .and_then(env_logger)
+                .with_filter(env_filter)
+                .boxed(),
+        );
+    } else {
+        // No LOG: collector-only with a level filter.
         let level = identity::debug_env_var("TRACE_LEVEL")
             .map(|v| v.1)
             .and_then(|s| Level::from_str(&s).ok())
@@ -500,16 +488,13 @@ fn setup_tracing(global_opts: &Option<HgGlobalOpts>, io: &IO) -> Result<Arc<Mute
                 Level::INFO
             });
 
-        let collector = tracing_collector::TracingCollector::new(data.clone());
-        let inner: Vec<tracing_dyn_layer::BoxedLayer<_>> = vec![
-            Box::new(collector).with_filter(LevelFilter::from(level)).boxed(),
-            SamplingLayer::new().boxed(),
-        ];
-
-        let subscriber = tracing_subscriber::Registry::default()
-            .with(tracing_dyn_layer::layers(inner));
-        tracing::subscriber::set_global_default(subscriber)?;
+        inner.push(collector.with_filter::<LevelFilter>(level.into()).boxed());
     }
+
+    inner.push(SamplingLayer::new().boxed());
+
+    let subscriber = tracing_subscriber::Registry::default().with(tracing_dyn_layer::layers(inner));
+    tracing::subscriber::set_global_default(subscriber)?;
 
     Ok(data)
 }
@@ -1117,7 +1102,7 @@ fn commandserver_serve(args: &[String], io: &IO) -> i32 {
         libc::setsid();
     }
 
-    let _ = setup_tracing_io(io, None);
+    // Commandserver is not enabled. Okay to skip tracing setup here.
     tracing::debug!("preparing commandserver");
 
     let python = HgPython::new(args);
