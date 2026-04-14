@@ -428,4 +428,57 @@ mod tests {
         );
         Ok(())
     }
+
+    /// Verifies that commit_compare also applies early termination and
+    /// limit checking on the diff_root path (root commit with no parent).
+    #[mononoke::fbinit_test]
+    async fn test_unordered_diff_root_rejects_over_limit(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: Repo = test_repo_factory::build_empty(fb).await?;
+
+        // Create a root commit with 8 files (no parent)
+        let mut builder = CreateCommitContext::new_root(&ctx, &repo);
+        for i in 0..8 {
+            builder = builder.add_file(format!("file_{i}").as_str(), format!("c{i}"));
+        }
+        let root = builder.commit().await?;
+
+        let mononoke = Mononoke::new_test(vec![("test".to_string(), repo)]).await?;
+        let repo_ctx = mononoke
+            .repo(ctx, "test")
+            .await?
+            .expect("repo exists")
+            .build()
+            .await?;
+        let base_cs = repo_ctx
+            .changeset(root)
+            .await?
+            .ok_or_else(|| anyhow!("root changeset not found"))?;
+
+        let params = source_control_thrift::CommitCompareParams::default();
+        let result = with_just_knobs_async(
+            JustKnobsInMemory::new(hashmap! {
+                "scm/mononoke:commit_compare_unordered_max_paths".to_string() => KnobVal::Int(5),
+            }),
+            async {
+                // Pass None as other_changeset to trigger the diff_root path.
+                // find_commit_compare_parent returns None for root commits.
+                commit_compare(repo_ctx.ctx(), &repo_ctx, base_cs, None, &params).await
+            }
+            .boxed(),
+        )
+        .await;
+
+        match result {
+            Ok(_) => panic!("diff_root path should reject when root commit exceeds limit"),
+            Err(err) => {
+                let err_str = format!("{err:#}");
+                assert!(
+                    err_str.contains("exceeding maximum"),
+                    "expected 'exceeding maximum' in error, got: {err_str}"
+                );
+            }
+        }
+        Ok(())
+    }
 }
