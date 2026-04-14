@@ -8,10 +8,10 @@
 
 import json
 import os
+import pathlib
 import subprocess
 import sys
 import time
-import unittest
 from typing import Set
 
 from parameterized import parameterized
@@ -24,6 +24,7 @@ class RemoveTestBase(testcase.EdenRepoTest):
 
     # pyre-fixme[13]: Attribute `expected_mount_entries` is never initialized.
     expected_mount_entries: Set[str]
+    rust_env = {"EDENFSCTL_ONLY_RUST": "1"}
 
     def populate_repo(self) -> None:
         self.repo.write_file("hello", "hola\n")
@@ -37,6 +38,15 @@ class RemoveTestBase(testcase.EdenRepoTest):
         self.expected_mount_entries = {".eden", "adir", "bdir", "hello", "slink"}
         if self.repo.get_type() in ["hg", "filteredhg"]:
             self.expected_mount_entries.add(".hg")
+
+    def load_directory_map(self) -> dict[str, str]:
+        config_path = self.eden.eden_dir / "config.json"
+        with open(config_path, "r") as opened_config:
+            return json.load(opened_config)
+
+    def write_directory_map(self, directory_map: dict[str, str]) -> None:
+        config_path = self.eden.eden_dir / "config.json"
+        config_path.write_text(json.dumps(directory_map) + "\n")
 
 
 @testcase.eden_repo_test
@@ -273,3 +283,51 @@ class RemoveTest(RemoveTestBase):
             except subprocess.TimeoutExpired:
                 busy_proc.kill()
                 busy_proc.wait()
+
+    def test_rust_remove_fails_when_configured_client_dir_is_missing(self) -> None:
+        mount_path = pathlib.Path(self.mount)
+        client_dir = self.eden.client_dir_for_mount(mount_path)
+        directory_map = self.load_directory_map()
+        original_client_name = directory_map[self.mount]
+        missing_client_name = f"{original_client_name}-missing"
+
+        self.assertTrue(
+            client_dir.is_dir(),
+            f"client dir should exist before re-pointing config entry: {client_dir}",
+        )
+
+        directory_map[self.mount] = missing_client_name
+        self.write_directory_map(directory_map)
+
+        result = self.eden.run_unchecked(
+            "remove",
+            "--yes",
+            self.mount,
+            env=self.rust_env,
+            capture_output=True,
+            text=True,
+        )
+
+        # FIXME: eden rm should not depend on writing the intentional-unmount
+        # marker, and should still succeed when the configured client dir is missing.
+        self.assertNotEqual(
+            0, result.returncode, "rust eden remove should fail in the current behavior"
+        )
+        self.assertIn("Failed to create unmount marker file", result.stderr)
+        self.assertIn(
+            os.path.join(missing_client_name, "intentionally-unmounted"),
+            result.stderr,
+        )
+        self.assertEqual(
+            missing_client_name,
+            self.load_directory_map()[self.mount],
+            "failed remove should leave the broken config entry behind",
+        )
+        self.assertTrue(
+            os.path.exists(self.mount),
+            "failed remove should leave the checkout path on disk",
+        )
+        self.assertIsNone(
+            self.eden.get_mount_state(mount_path),
+            "thrift unmount should already have succeeded before marker creation fails",
+        )
