@@ -92,7 +92,7 @@ impl AtExit {
         func: Box<dyn FnOnce() + Send + Sync + 'static>,
         name: String,
     ) -> PyResult<Self> {
-        let inner = atexit::AtExit::new(func).named(name.into());
+        let inner = atexit::AtExit::new(name, func);
         let inner = inner.queued();
         Self::create_instance(py, inner)
     }

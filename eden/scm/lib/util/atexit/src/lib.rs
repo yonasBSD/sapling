@@ -63,18 +63,12 @@ impl AtExit {
     /// in a CPython function, the Python objects that wraps the `AtExit` are
     /// not on (Rust) stack and won't be cleaned up on `exit()`. So for Python
     /// logic `queued()` should probably be always used.
-    pub fn new(drop: Box<dyn FnOnce() + Send + Sync>) -> Self {
+    pub fn new(name: impl Into<Cow<'static, str>>, drop: Box<dyn FnOnce() + Send + Sync>) -> Self {
         Self {
             drop: Some(drop),
             ignored: AtomicBool::new(false),
-            name: "unnamed".into(),
+            name: name.into(),
         }
-    }
-
-    /// Assign a name to the `AtExit` handler.
-    pub fn named(mut self, name: Cow<'static, str>) -> Self {
-        self.name = name;
-        self
     }
 
     /// Move the `AtExit` to a global queue.
@@ -129,7 +123,7 @@ mod tests {
         let v = Arc::new(AtomicBool::new(false));
         let a = {
             let v = v.clone();
-            AtExit::new(Box::new(move || v.store(true, Ordering::Release)))
+            AtExit::new("1", Box::new(move || v.store(true, Ordering::Release)))
         };
         (v, a)
     }
@@ -165,7 +159,7 @@ mod tests {
 
         // Does not deadlock if drop_queued is called by AtExit
         // inside drop_queued.
-        let r3 = AtExit::new(Box::new(drop_queued));
+        let r3 = AtExit::new("queued", Box::new(drop_queued));
         let _r3 = r3.queued();
         drop_queued();
     }
@@ -175,9 +169,12 @@ mod tests {
         let drop_order = Arc::new(Mutex::new(Vec::new()));
         let push_atexit = |value: u8| -> AtExit {
             let drop_order = drop_order.clone();
-            AtExit::new(Box::new(move || {
-                drop_order.lock().unwrap().push(value);
-            }))
+            AtExit::new(
+                value.to_string(),
+                Box::new(move || {
+                    drop_order.lock().unwrap().push(value);
+                }),
+            )
         };
 
         let a1 = push_atexit(1);

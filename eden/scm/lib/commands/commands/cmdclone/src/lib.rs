@@ -495,41 +495,43 @@ fn try_clone_metadata(
         let dest_preexists = destination.exists();
         let destination = destination.to_owned();
         let debug = ctx.global_opts.debug;
-        atexit::AtExit::new(Box::new(move || {
-            let cleanup_res = (|| -> Result<()> {
-                let removal_dir = if dest_preexists {
-                    let ident =
-                        identity::sniff_dir(&destination)?.unwrap_or_else(identity::default);
-                    destination.join(ident.dot_dir())
-                } else {
-                    destination.to_path_buf()
-                };
+        atexit::AtExit::new(
+            "clone cleanup",
+            Box::new(move || {
+                let cleanup_res = (|| -> Result<()> {
+                    let removal_dir = if dest_preexists {
+                        let ident =
+                            identity::sniff_dir(&destination)?.unwrap_or_else(identity::default);
+                        destination.join(ident.dot_dir())
+                    } else {
+                        destination.to_path_buf()
+                    };
 
-                if !debug {
-                    // Give some retries to clean up the failed repo. If we are running async in
-                    // another thread, the clone process could still be creating files while we are
-                    // deleting them.
-                    let mut attempt = 0;
-                    loop {
-                        attempt += 1;
-                        let res = fs_err::remove_dir_all(&removal_dir);
-                        if res.is_ok() || attempt >= 10 {
-                            break res;
-                        }
-                    }?;
+                    if !debug {
+                        // Give some retries to clean up the failed repo. If we are running async in
+                        // another thread, the clone process could still be creating files while we are
+                        // deleting them.
+                        let mut attempt = 0;
+                        loop {
+                            attempt += 1;
+                            let res = fs_err::remove_dir_all(&removal_dir);
+                            if res.is_ok() || attempt >= 10 {
+                                break res;
+                            }
+                        }?;
+                    }
+
+                    Ok(())
+                })();
+
+                if let Err(err) = cleanup_res {
+                    logger.warn(format!(
+                        "Error cleaning up incomplete clone {}: {err:?}",
+                        destination.to_string_lossy()
+                    ));
                 }
-
-                Ok(())
-            })();
-
-            if let Err(err) = cleanup_res {
-                logger.warn(format!(
-                    "Error cleaning up incomplete clone {}: {err:?}",
-                    destination.to_string_lossy()
-                ));
-            }
-        }))
-        .named("clone cleanup".into())
+            }),
+        )
         .queued()
     };
 

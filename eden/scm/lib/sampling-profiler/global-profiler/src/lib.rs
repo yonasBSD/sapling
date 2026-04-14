@@ -127,10 +127,13 @@ pub fn setup_profiling(config: &dyn Config) -> Result<Option<AtExit>> {
         )
         .ok();
 
-        let at_exit = AtExit::new(Box::new(move || {
-            teardown_profiling(output);
-            drop(python_keepalvie);
-        }));
+        let at_exit = AtExit::new(
+            "global profiler",
+            Box::new(move || {
+                teardown_profiling(output);
+                drop(python_keepalvie);
+            }),
+        );
         tracing::debug!(?interval, "Profiler initialized");
         Ok(Some(at_exit))
     })

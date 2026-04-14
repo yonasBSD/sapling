@@ -95,12 +95,11 @@ pub fn run_via_commandserver(args: Vec<String>, config: &dyn Config) -> anyhow::
     // On Windows, terminate the server on Ctrl+C event. The server will kill
     // the pager process. We use an "AtExit" handler to handle Ctrl+C.
     #[cfg(windows)]
-    let server_killer = atexit::AtExit::new({
+    let server_killer = atexit::AtExit::new("terminating server", {
         Box::new(move || {
             let _ = procutil::terminate_pid(props.pid, Some(Default::default()));
         })
     })
-    .named("terminating server".into())
     .queued();
 
     // Send the run_command request.

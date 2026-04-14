@@ -284,13 +284,16 @@ impl CheckoutPlan {
 
         let (progress_tx, progress_rx) = flume::unbounded();
 
-        let on_abort = AtExit::new(Box::new(move || {
-            if let Some(progress) = progress {
-                tracing::debug!("writing progress (on abort)");
-                let id_paths: Vec<_> = progress_rx.into_iter().collect();
-                progress.lock().record_writes(&id_paths);
-            }
-        }));
+        let on_abort = AtExit::new(
+            "checkout progress",
+            Box::new(move || {
+                if let Some(progress) = progress {
+                    tracing::debug!("writing progress (on abort)");
+                    let id_paths: Vec<_> = progress_rx.into_iter().collect();
+                    progress.lock().record_writes(&id_paths);
+                }
+            }),
+        );
 
         // Use vfs.batch() for parallel VFS writes.
         let n = self.vfs_worker_count(total);

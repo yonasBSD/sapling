@@ -1038,15 +1038,17 @@ fn setup_http(global_opts: &HgGlobalOpts) {
 }
 
 fn setup_atexit(start_time: StartTime) {
-    atexit::AtExit::new(Box::new(move || {
-        let duration_ms = start_time.elapsed().as_millis() as u64;
+    atexit::AtExit::new(
+        "flush sampling (measuredtimes)",
+        Box::new(move || {
+            let duration_ms = start_time.elapsed().as_millis() as u64;
 
-        tracing::debug!(target: "measuredtimes", command_duration=duration_ms);
+            tracing::debug!(target: "measuredtimes", command_duration=duration_ms);
 
-        // Make extra sure our metrics are written out.
-        sampling::flush();
-    }))
-    .named("flush sampling".into())
+            // Make extra sure our metrics are written out.
+            sampling::flush();
+        }),
+    )
     .queued();
 }
 
