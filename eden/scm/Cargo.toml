@@ -192,6 +192,7 @@ members = [
   "lib/third-party/webview-sys",
   "lib/thrift-types",
   "lib/tracing-analyzer",
+  "lib/tracing-backtrace",
   "lib/tracing-collector",
   "lib/tracing-reload",
   "lib/tracing-runtime-callsite",
