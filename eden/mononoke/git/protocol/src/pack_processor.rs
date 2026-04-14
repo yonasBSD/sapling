@@ -11,6 +11,8 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use anyhow::Context;
 use anyhow::Result;
@@ -196,17 +198,21 @@ async fn fetch_prereq_objects(
 
 /// Method responsible for parsing the packfile provided as part of push, verifying its correctness
 /// and returning an object map containing all the objects present in packfile mapped to their IDs
+/// Returns the parsed object map and the total tracked weight (bytes) that
+/// has been reported via `weight_observer.on_weight_added`. The caller is
+/// responsible for calling `on_weight_removed` with this value when the
+/// objects are no longer held in memory.
 pub async fn parse_pack(
     pack_bytes: &[u8],
     ctx: &CoreContext,
     blobstore: Arc<RepoBlobstore>,
     concurrency: usize,
-    _weight_observer: Option<Arc<dyn WeightObserver>>,
-) -> Result<FxHashMap<ObjectId, ObjectContent>> {
+    weight_observer: Option<Arc<dyn WeightObserver>>,
+) -> Result<(FxHashMap<ObjectId, ObjectContent>, usize)> {
     // If the packfile is empty, return an empty object map. This can happen when the push only has ref create/update
     // pointing to existing commit or just ref deletes
     if pack_bytes.is_empty() {
-        return Ok(FxHashMap::default());
+        return Ok((FxHashMap::default(), 0));
     }
     let mut raw_file = Builder::new()
         .suffix(PACKFILE_SUFFIX)
@@ -214,12 +220,24 @@ pub async fn parse_pack(
         .tempfile()?;
     raw_file.write_all(pack_bytes)?;
     raw_file.flush()?;
-    let response = parse_stored_pack(raw_file.path(), ctx, blobstore, concurrency).await;
+    let response = parse_stored_pack(
+        raw_file.path(),
+        ctx,
+        blobstore,
+        concurrency,
+        weight_observer,
+    )
+    .await;
     raw_file.close().unwrap_or_default();
     response
 }
 
-fn process_pack_entries(pack_file: &data::File, entries: PackEntries) -> Result<PackEntries> {
+fn process_pack_entries(
+    pack_file: &data::File,
+    entries: PackEntries,
+    weight_observer: &Option<Arc<dyn WeightObserver>>,
+    cumulative_weight: &AtomicUsize,
+) -> Result<PackEntries> {
     let (pending_entries, prereq_objects) = entries.into_pending_and_processed();
     let output_entries = pending_entries
         .into_par_iter()
@@ -235,11 +253,15 @@ fn process_pack_entries(pack_file: &data::File, entries: PackEntries) -> Result<
             );
             match outcome {
                 Ok(outcome) => {
-                    let object_bytes = Bytes::from(git_object_bytes(
-                        output,
-                        outcome.kind,
-                        outcome.object_size as usize,
-                    ));
+                    let object_size = outcome.object_size as usize;
+                    // Track weight as objects are decoded — uses the object_size
+                    // already computed by decode_entry, zero extra cost.
+                    if let Some(observer) = weight_observer {
+                        observer.on_weight_added(object_size);
+                        cumulative_weight.fetch_add(object_size, Ordering::Relaxed);
+                    }
+                    let object_bytes =
+                        Bytes::from(git_object_bytes(output, outcome.kind, object_size));
                     let mut hasher = Sha1::new();
                     hasher.update(&object_bytes);
                     let hash_bytes = hasher.finalize();
@@ -272,7 +294,8 @@ async fn parse_stored_pack(
     ctx: &CoreContext,
     blobstore: Arc<RepoBlobstore>,
     concurrency: usize,
-) -> Result<FxHashMap<ObjectId, ObjectContent>> {
+    weight_observer: Option<Arc<dyn WeightObserver>>,
+) -> Result<(FxHashMap<ObjectId, ObjectContent>, usize)> {
     let pack_file = Arc::new(File::at(pack_path, Kind::Sha1).with_context(|| {
         format!(
             "Error while opening packfile for push at {}",
@@ -311,23 +334,49 @@ async fn parse_stored_pack(
         .context("Failure in iterating packfile")?
         .collect::<Result<Vec<_>, InputError>>()?;
 
-    // Process all the entries
+    // Process all the entries. Weight is tracked inline inside
+    // process_pack_entries using outcome.object_size from decode_entry —
+    // zero extra passes or overhead beyond the decoding itself.
     tokio::task::spawn_blocking({
         let pack_file = pack_file.clone();
         move || {
             let mut pack_entries =
                 PackEntries::from_pending_and_processed(pending_entries, prereq_objects);
+            let cumulative_weight = AtomicUsize::new(0);
+
+            // Helper to remove all tracked weight from the observer on error.
+            let cleanup_weight =
+                |cumulative: &AtomicUsize, observer: &Option<Arc<dyn WeightObserver>>| {
+                    let w = cumulative.load(Ordering::Relaxed);
+                    if let Some(observer) = observer {
+                        observer.on_weight_removed(w);
+                    }
+                };
+
             let mut counter = 0;
             while !pack_entries.is_processed() {
                 if counter > MAX_ALLOWED_DEPTH {
+                    cleanup_weight(&cumulative_weight, &weight_observer);
                     anyhow::bail!(
                         "Maximum allowed depth reached while processing packfile entries"
                     );
                 }
                 counter += 1;
-                pack_entries = process_pack_entries(&pack_file, pack_entries)?;
+                match process_pack_entries(
+                    &pack_file,
+                    pack_entries,
+                    &weight_observer,
+                    &cumulative_weight,
+                ) {
+                    Ok(entries) => pack_entries = entries,
+                    Err(e) => {
+                        cleanup_weight(&cumulative_weight, &weight_observer);
+                        return Err(e);
+                    }
+                }
             }
-            pack_entries.into_processed()
+            let tracked_weight = cumulative_weight.load(Ordering::Relaxed);
+            Ok((pack_entries.into_processed()?, tracked_weight))
         }
     })
     .try_timed()

@@ -33,6 +33,7 @@ use repo_blobstore::RepoBlobstoreArc;
 use scuba_ext::FutureStatsScubaExt;
 use sharding_observability::WeightTracker;
 use tracing::info;
+use weight_observer::WeightGuard;
 use weight_observer::WeightObserver;
 
 use crate::command::Command;
@@ -153,12 +154,12 @@ async fn push(
         };
 
         // Parse the packfile provided as part of the push and verify that its valid
-        let parsed_objects = parse_pack(
+        let (parsed_objects, tracked_weight) = parse_pack(
             pack_file.split().1,
             ctx,
             blobstore.clone(),
             concurrency,
-            weight_observer,
+            weight_observer.clone(),
         )
         .try_timed()
         .await?
@@ -168,6 +169,13 @@ async fn push(
             "Push".to_string(),
         );
         drop(pack_file);
+
+        // Keep weight on estimated_memory_bytes for the full push duration.
+        // The guard removes the weight when dropped (end of push or on error).
+        let _weight_guard = WeightGuard {
+            observer: weight_observer,
+            weight: tracked_weight,
+        };
 
         // Generate the GitObjectStore using the parsed objects
         let object_store = Arc::new(GitObjectStore::new(parsed_objects, ctx, blobstore.clone()));
