@@ -407,7 +407,7 @@ class CloneAllowedUnderMaxClonesTest(testcase.EdenRepoTest):
 
 @testcase.eden_test
 class CloneWithStaleConfigTest(testcase.EdenTestCase):
-    def test_python_clone_with_missing_configured_checkout_state_fails(self) -> None:
+    def test_python_clone_with_missing_configured_checkout_state_succeeds(self) -> None:
         repo = self.create_hg_repo("main")
         repo.write_file("hello", "hola\n")
         repo.commit("Initial commit.")
@@ -418,16 +418,12 @@ class CloneWithStaleConfigTest(testcase.EdenTestCase):
         config_path.write_text(json.dumps({str(stale_mount): stale_client}) + "\n")
 
         target = Path(self.make_temporary_directory()) / "clone"
-        # FIXME: clone should succeed even when config.json references a checkout
-        # whose client state directory was deleted, but currently fails with
-        # CheckoutConfigCorruptedError because _combine_mount_info() tries to
-        # read the stale checkout's config.toml file.
-        with self.assertRaises(edenclient.EdenCommandError):
-            self.eden.run_cmd(
-                "clone",
-                repo.path,
-                str(target),
-            )
+        self.eden.run_cmd(
+            "clone",
+            repo.path,
+            str(target),
+        )
+        self.assertEqual("hola\n", (target / "hello").read_text())
 
 
 class CloneFakeEdenFSTestBase(ServiceTestCaseBase):

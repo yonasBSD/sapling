@@ -296,6 +296,32 @@ prefetching-enable = true
     def write_user_config(self, content: str) -> None:
         (self._home_dir / ".edenrc").write_text(content)
 
+    def test_combine_mount_info_skips_missing_configured_checkout_state(self) -> None:
+        cfg = self.get_config()
+        checkout = config_mod.EdenCheckout(
+            cfg,
+            self.tmp_dir / "stale-mount",
+            self._state_dir / "clients" / "stale-client",
+        )
+
+        mounts = config_mod.EdenInstance._combine_mount_info([], [checkout])
+
+        self.assertEqual({}, mounts)
+
+    def test_combine_mount_info_preserves_invalid_config_errors(self) -> None:
+        cfg = self.get_config()
+        client_dir = self._state_dir / "clients" / "broken-client"
+        client_dir.mkdir(parents=True)
+        (client_dir / "config.toml").write_text("not valid toml")
+        checkout = config_mod.EdenCheckout(
+            cfg,
+            self.tmp_dir / "broken-mount",
+            client_dir,
+        )
+
+        with self.assertRaises(config_mod.CheckoutConfigCorruptedError):
+            config_mod.EdenInstance._combine_mount_info([], [checkout])
+
 
 class EdenConfigParserTest(unittest.TestCase):
     unsupported_value = {"dict of string to string": ""}

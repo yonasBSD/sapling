@@ -48,7 +48,6 @@ from eden.fs.service.eden.thrift_types import (
     MountArgument,
     MountId,
     MountInfo,
-    MountInfo as ThriftMountInfo,
     MountState,
     UnmountArgument,
 )
@@ -646,19 +645,35 @@ class EdenInstance(AbstractEdenInstance):
         # in the thrift call.
         for checkout in config_checkouts:
             mount_info = mount_points.get(checkout.path, None)
+            checkout_config: Optional[CheckoutConfig] = None
+            try:
+                if mount_info is None or mount_info.backing_repo is None:
+                    checkout_config = checkout.get_config()
+            except CheckoutConfigCorruptedError as ex:
+                if isinstance(ex.__cause__, FileNotFoundError):
+                    log.warning(
+                        "Skipping configured checkout with missing client state: %s (%s)",
+                        checkout.path,
+                        checkout.state_dir,
+                    )
+                    continue
+                raise
+
             if mount_info is not None:
                 if mount_info.backing_repo is None:
+                    assert checkout_config is not None
                     mount_info = mount_info._replace(
-                        backing_repo=checkout.get_config().backing_repo
+                        backing_repo=checkout_config.backing_repo
                     )
                 mount_points[checkout.path] = mount_info._replace(configured=True)
             else:
+                assert checkout_config is not None
                 mount_points[checkout.path] = ListMountInfo(
                     path=checkout.path,
                     data_dir=checkout.state_dir,
                     state=None,
                     configured=True,
-                    backing_repo=checkout.get_config().backing_repo,
+                    backing_repo=checkout_config.backing_repo,
                 )
 
         return mount_points
