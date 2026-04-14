@@ -26,6 +26,7 @@ buck_filegroup(
         "library.sh",
         "library-commit.sh",
         "library-git-lfs.sh",
+        "library-meta-git-predecessor.sh",
         "library-push-redirector.sh",
         "library-snapshot.sh",
         "raw_text.txt",

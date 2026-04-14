@@ -21,6 +21,15 @@ NETWORK_EXCLUDED_TESTS = [
     "test-mononoke-git-server-with-gclone.t",
 ]
 
+# Tests that use the Meta-built git client (separate target to avoid
+# adding the git binary build dep to all other tests)
+META_GIT_CLIENT_TESTS = [
+    "test-mononoke-git-server-push-predecessor-amend.t",
+    "test-mononoke-git-server-push-predecessor-cherry-pick.t",
+    "test-mononoke-git-server-push-predecessor-combined.t",
+    "test-mononoke-git-server-push-predecessor-rebase.t",
+]
+
 dott_test(
     name = "mononoke-git-server",
     # These tests have been vetted to run well without network access. Please investigate any failure thoroughly before disabling.
@@ -28,7 +37,7 @@ dott_test(
     dott_files =
         glob(
             ["*.t"],
-            exclude = OSS_EXCLUDED_TESTS if rust_oss.is_oss_build() else NETWORK_EXCLUDED_TESTS,
+            exclude = (OSS_EXCLUDED_TESTS if rust_oss.is_oss_build() else NETWORK_EXCLUDED_TESTS) + META_GIT_CLIENT_TESTS,
         ),
     deps = [
         "//eden/mononoke:mononoke",
@@ -66,5 +75,24 @@ dott_test(
         "//eden/mononoke/tools/admin:admin",
         "//eden/mononoke/tools/testtool:testtool",
         "//scm/gclone:gclone",
+    ],
+)
+
+# Tests that use the Meta-built git client (fb-git-client) for predecessor
+# tracking. Separate target to avoid adding the git binary build dep to
+# all other git server tests.
+dott_test(
+    name = "mononoke-git-server-meta-git-client",
+    dott_files = META_GIT_CLIENT_TESTS,
+    rust_allow_oss_build = False,
+    deps = [
+        "fbsource//third-party/git/2.50.1:git",
+        "//eden/mononoke:mononoke",
+        "//eden/mononoke/clients/scsc:scsc",
+        "//eden/mononoke/git/gitimport:gitimport",
+        "//eden/mononoke/servers/git/git_server:git_server",
+        "//eden/mononoke/servers/scs/scs_server:scs_server",
+        "//eden/mononoke/tools/admin:admin",
+        "//eden/mononoke/tools/testtool:testtool",
     ],
 )
