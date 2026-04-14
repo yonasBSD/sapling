@@ -25,6 +25,7 @@ mod derive_delta_manifest_v2;
 mod derive_delta_manifest_v3;
 mod errors;
 pub mod git_lfs;
+pub mod mutation;
 mod object;
 mod packfile;
 mod store;
