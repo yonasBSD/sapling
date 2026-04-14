@@ -40,6 +40,7 @@ struct InodeMetadataTableStats;
 struct BlobCacheStats;
 struct TreeCacheStats;
 struct ScmStatusCacheStats;
+struct TakeoverStats;
 struct FakeStats;
 
 class EdenStats : public RefCounted {
@@ -95,6 +96,7 @@ class EdenStats : public RefCounted {
   ThreadLocal<BlobCacheStats> blobCacheStats_;
   ThreadLocal<TreeCacheStats> treeCacheStats_;
   ThreadLocal<ScmStatusCacheStats> scmStatusCacheStats_;
+  ThreadLocal<TakeoverStats> takeoverStats_;
   ThreadLocal<FakeStats> fakeStats_;
 };
 
@@ -172,6 +174,11 @@ template <>
 inline ScmStatusCacheStats&
 EdenStats::getStatsForCurrentThread<ScmStatusCacheStats>() {
   return *scmStatusCacheStats_.get();
+}
+
+template <>
+inline TakeoverStats& EdenStats::getStatsForCurrentThread<TakeoverStats>() {
+  return *takeoverStats_.get();
 }
 
 template <>
@@ -681,6 +688,18 @@ struct ScmStatusCacheStats : StatsGroup<TreeCacheStats> {
   Counter getMiss{"scm_status_cache.get_miss"};
   Counter insertEviction{"scm_status_cache.insert_eviction"};
   Counter objectDrop{"scm_status_cache.object_drop"};
+};
+
+/**
+ * Tracks duration and outcome of the graceful restart (takeover) protocol.
+ * sendFailure is measured on the old daemon (which stays alive on failure).
+ * receiveSuccess is measured on the new daemon (which stays alive on success).
+ */
+struct TakeoverStats : StatsGroup<TakeoverStats> {
+  Duration send{"takeover.send_us"};
+  Counter sendFailure{"takeover.send_failure"};
+  Duration receive{"takeover.receive_us"};
+  Counter receiveSuccess{"takeover.receive_success"};
 };
 
 /*
