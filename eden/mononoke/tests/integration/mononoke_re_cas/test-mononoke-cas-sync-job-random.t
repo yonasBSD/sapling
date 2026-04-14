@@ -11,6 +11,7 @@
   $ setconfig drawdag.defaultfiles=false
 
   $ start_and_wait_for_mononoke_server
+  $ function hg_push_retry { for attempt in 1 2 3; do hg push "$@" > /dev/null 2>&1 && return 0; sleep 1; done; hg push "$@"; }
   $ hg clone -q mono:repo repo
   $ cd repo
   $ drawdag << EOS
@@ -26,19 +27,19 @@
   > EOS
 
   $ hg goto A -q
-  $ hg push -r . --to master_bookmark -q --create
+  $ hg_push_retry -r . --to master_bookmark -q --create
 
   $ hg goto B -q
-  $ hg push -r . --to master_bookmark -q
+  $ hg_push_retry -r . --to master_bookmark -q
 
   $ hg goto C -q
-  $ hg push -r . --to master_bookmark -q
+  $ hg_push_retry -r . --to master_bookmark -q
 
   $ hg goto D -q
-  $ hg push -r . --to master_bookmark -q
+  $ hg_push_retry -r . --to master_bookmark -q
 
   $ hg goto F -q
-  $ hg push -r . --to other_bookmark -q --create
+  $ hg_push_retry -r . --to other_bookmark -q --create
 
 Check that new entry was added to the sync database. 4 pushes
   $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "select count(*) from bookmarks_update_log";
