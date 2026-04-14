@@ -449,39 +449,23 @@ fn setup_tracing_io(
             .with_span_events(FmtSpan::ACTIVE)
             .with_ansi(can_color)
             .with_writer(tracing_reload::reloadable_writer);
-        if is_test {
-            // In tests, disable color and timestamps for cleaner output.
-            let env_logger = env_logger.without_time().with_ansi(false);
-            match collector {
-                None => {
-                    let subscriber = tracing_subscriber::Registry::default()
-                        .with(env_logger.with_filter(env_filter))
-                        .with(SamplingLayer::new());
-                    tracing::subscriber::set_global_default(subscriber)?;
-                }
-                Some(collector) => {
-                    let subscriber = tracing_subscriber::Registry::default()
-                        .with(collector.and_then(env_logger).with_filter(env_filter))
-                        .with(SamplingLayer::new());
-                    tracing::subscriber::set_global_default(subscriber)?;
-                }
-            };
+
+        let env_logger: tracing_dyn_layer::BoxedLayer<_> = if is_test {
+            env_logger.without_time().with_ansi(false).boxed()
         } else {
-            match collector {
-                None => {
-                    let subscriber = tracing_subscriber::Registry::default()
-                        .with(env_logger.with_filter(env_filter))
-                        .with(SamplingLayer::new());
-                    tracing::subscriber::set_global_default(subscriber)?;
-                }
-                Some(collector) => {
-                    let subscriber = tracing_subscriber::Registry::default()
-                        .with(collector.and_then(env_logger).with_filter(env_filter))
-                        .with(SamplingLayer::new());
-                    tracing::subscriber::set_global_default(subscriber)?;
-                }
-            }
+            env_logger.boxed()
+        };
+
+        let mut inner: Vec<tracing_dyn_layer::BoxedLayer<_>> = Vec::new();
+        match collector {
+            None => inner.push(env_logger.with_filter(env_filter).boxed()),
+            Some(c) => inner.push(c.and_then(env_logger).with_filter(env_filter).boxed()),
         }
+        inner.push(SamplingLayer::new().boxed());
+
+        let subscriber = tracing_subscriber::Registry::default()
+            .with(tracing_dyn_layer::layers(inner));
+        tracing::subscriber::set_global_default(subscriber)?;
         Ok(true)
     } else {
         Ok(false)
@@ -517,9 +501,13 @@ fn setup_tracing(global_opts: &Option<HgGlobalOpts>, io: &IO) -> Result<Arc<Mute
             });
 
         let collector = tracing_collector::TracingCollector::new(data.clone());
+        let inner: Vec<tracing_dyn_layer::BoxedLayer<_>> = vec![
+            Box::new(collector).with_filter(LevelFilter::from(level)).boxed(),
+            SamplingLayer::new().boxed(),
+        ];
+
         let subscriber = tracing_subscriber::Registry::default()
-            .with(collector.with_filter::<LevelFilter>(level.into()))
-            .with(SamplingLayer::new());
+            .with(tracing_dyn_layer::layers(inner));
         tracing::subscriber::set_global_default(subscriber)?;
     }
 
