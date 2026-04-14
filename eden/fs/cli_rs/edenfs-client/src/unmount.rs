@@ -30,6 +30,25 @@ impl EdenFsClient {
         path: &Path,
         no_force: bool,
     ) -> Result<()> {
+        self.unmount_impl(instance, path, no_force, true).await
+    }
+
+    pub async fn unmount_for_removal(
+        &self,
+        instance: &EdenFsInstance,
+        path: &Path,
+        no_force: bool,
+    ) -> Result<()> {
+        self.unmount_impl(instance, path, no_force, false).await
+    }
+
+    async fn unmount_impl(
+        &self,
+        instance: &EdenFsInstance,
+        path: &Path,
+        no_force: bool,
+        mark_intentional_unmount: bool,
+    ) -> Result<()> {
         let encoded_path = bytes_from_path(path.to_path_buf())
             .with_context(|| format!("Failed to encode path {}", path.display()))?;
 
@@ -51,7 +70,9 @@ impl EdenFsClient {
             .await
         {
             Ok(_) => {
-                instance.create_intentional_unmount_flag(path)?;
+                if mark_intentional_unmount {
+                    instance.create_intentional_unmount_flag(path)?;
+                }
                 Ok(())
             }
             Err(ConnectAndRequestError::RequestError(UnmountV2Error::ApplicationException(
@@ -70,7 +91,9 @@ impl EdenFsClient {
                             path.display()
                         )
                     })?;
-                    instance.create_intentional_unmount_flag(path)?;
+                    if mark_intentional_unmount {
+                        instance.create_intentional_unmount_flag(path)?;
+                    }
                     Ok(())
                 } else {
                     Err(EdenFsError::Other(anyhow!(

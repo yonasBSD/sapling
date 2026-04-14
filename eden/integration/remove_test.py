@@ -284,7 +284,7 @@ class RemoveTest(RemoveTestBase):
                 busy_proc.kill()
                 busy_proc.wait()
 
-    def test_rust_remove_fails_when_configured_client_dir_is_missing(self) -> None:
+    def test_rust_remove_succeeds_when_configured_client_dir_is_missing(self) -> None:
         mount_path = pathlib.Path(self.mount)
         client_dir = self.eden.client_dir_for_mount(mount_path)
         directory_map = self.load_directory_map()
@@ -307,27 +307,21 @@ class RemoveTest(RemoveTestBase):
             capture_output=True,
             text=True,
         )
-
-        # FIXME: eden rm should not depend on writing the intentional-unmount
-        # marker, and should still succeed when the configured client dir is missing.
-        self.assertNotEqual(
-            0, result.returncode, "rust eden remove should fail in the current behavior"
-        )
-        self.assertIn("Failed to create unmount marker file", result.stderr)
-        self.assertIn(
-            os.path.join(missing_client_name, "intentionally-unmounted"),
-            result.stderr,
-        )
         self.assertEqual(
-            missing_client_name,
-            self.load_directory_map()[self.mount],
-            "failed remove should leave the broken config entry behind",
+            0,
+            result.returncode,
+            f"rust eden remove should succeed when the configured client dir is missing. stderr={result.stderr}",
         )
-        self.assertTrue(
+        self.assertNotIn(
+            self.mount,
+            self.load_directory_map(),
+            "successful remove should unregister the broken config entry",
+        )
+        self.assertFalse(
             os.path.exists(self.mount),
-            "failed remove should leave the checkout path on disk",
+            "successful remove should delete the checkout path",
         )
         self.assertIsNone(
             self.eden.get_mount_state(mount_path),
-            "thrift unmount should already have succeeded before marker creation fails",
+            "successful remove should leave the checkout unmounted",
         )
