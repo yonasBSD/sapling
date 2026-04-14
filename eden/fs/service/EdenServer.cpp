@@ -2534,6 +2534,9 @@ void EdenServer::stop() {
 
 folly::Future<TakeoverData> EdenServer::startTakeoverShutdown() {
 #ifndef _WIN32
+  // Track how long the takeover send takes and whether it succeeds.
+  folly::stop_watch<std::chrono::microseconds> takeoverSendWatch;
+
   // Make sure we aren't already shutting down, then update our state
   // to indicate that we should perform mount point takeover shutdown
   // once runServer() returns.
@@ -2544,6 +2547,7 @@ folly::Future<TakeoverData> EdenServer::startTakeoverShutdown() {
     if (state->state != RunState::RUNNING) {
       // We are either still in the process of starting,
       // or already shutting down.
+      serverState_->getStats()->increment(&TakeoverStats::sendFailure);
       return makeFuture<TakeoverData>(std::runtime_error(
           folly::to<string>(
               "can only perform graceful restart when running normally; "
@@ -2556,6 +2560,7 @@ folly::Future<TakeoverData> EdenServer::startTakeoverShutdown() {
       for (const auto& entry : *mountPoints) {
         const auto& mount = entry.second.edenMount;
         if (!mount->isSafeForInodeAccess()) {
+          serverState_->getStats()->increment(&TakeoverStats::sendFailure);
           return makeFuture<TakeoverData>(std::runtime_error(
               "can only perform graceful restart when all mount points are initialized"));
           // TODO(xavierd): There is still a potential race after this check if
@@ -2575,6 +2580,7 @@ folly::Future<TakeoverData> EdenServer::startTakeoverShutdown() {
             /*maxRetries=*/3, /*retryInterval=*/std::chrono::seconds(1))) {
       // We are still waiting for the GC to finish. This is unexpected and
       // should not happen. We should not proceed with the graceful restart.
+      serverState_->getStats()->increment(&TakeoverStats::sendFailure);
       return makeFuture<TakeoverData>(std::runtime_error(
           "cannot run graceful restart while garbage collection is running"));
     }
@@ -2654,6 +2660,15 @@ folly::Future<TakeoverData> EdenServer::startTakeoverShutdown() {
               takeover.mountdServerSocket = std::move(mountdSocket);
               return std::move(takeover);
             });
+      })
+      .thenTry([this,
+                takeoverSendWatch](folly::Try<TakeoverData>&& result) mutable {
+        auto& stats = serverState_->getStats();
+        stats->addDuration(&TakeoverStats::send, takeoverSendWatch.elapsed());
+        if (result.hasException()) {
+          stats->increment(&TakeoverStats::sendFailure);
+        }
+        return result;
       });
 #else
   NOT_IMPLEMENTED();
