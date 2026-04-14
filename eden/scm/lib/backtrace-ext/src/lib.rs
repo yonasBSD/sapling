@@ -28,6 +28,7 @@
 //! - Python support is optional. This crate does not directly depend on Python
 //!   crates. The Python support is a separate crate.
 
+use std::collections::VecDeque;
 use std::ffi::c_void;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
@@ -136,6 +137,42 @@ impl Frame {
             Some(s) => s,
             None => format!("{:#x}", self.ip),
         }
+    }
+}
+
+/// A captured backtrace stored as raw [`Frame`]s.
+/// Symbols are resolved lazily on [`Display`](std::fmt::Display).
+/// Display format is most recent call first.
+/// Not async-signal-safe.
+pub struct Backtrace {
+    frames: VecDeque<Frame>,
+}
+
+impl Backtrace {
+    /// Capture the current thread's backtrace immediately as raw frames.
+    pub fn capture() -> Self {
+        let mut frames = VecDeque::new();
+        trace_unsynchronized!(|frame: Frame| {
+            frames.push_back(frame);
+            true
+        });
+        Self { frames }
+    }
+
+    /// Drop the first `n` frames (most recent calls) from the backtrace.
+    pub fn skip(mut self, n: usize) -> Self {
+        let n = n.min(self.frames.len());
+        drop(self.frames.drain(..n));
+        self
+    }
+}
+
+impl std::fmt::Display for Backtrace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, frame) in self.frames.iter().enumerate() {
+            write!(f, "{:4}: {}\n", i, frame.resolve())?;
+        }
+        Ok(())
     }
 }
 
