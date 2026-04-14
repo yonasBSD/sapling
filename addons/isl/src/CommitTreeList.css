@@ -110,7 +110,7 @@
   display: flex;
   flex-direction: row;
   gap: calc(var(--halfpad) / 2) var(--halfpad);
-  padding: calc(var(--halfpad) / 2);
+  padding: var(--halfpad);
   padding-left: 0;
   margin-left: var(--halfpad);
   position: relative;
@@ -156,10 +156,6 @@
   top: 0;
   z-index: 1;
   transition: opacity 0.1s;
-}
-
-.commit:hover .commit-narrow-right-actions {
-  background: var(--background);
 }
 
 .commit-tree-narrow .commit-wide-drag-target {
@@ -307,6 +303,11 @@
 .open-commit-info-button {
   opacity: 0;
   transition: opacity 0.1s;
+}
+
+.goto-button button,
+.open-commit-info-button {
+  background-color: var(--background);
 }
 
 .commit:hover .goto-button,
