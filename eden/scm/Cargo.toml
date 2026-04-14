@@ -194,6 +194,7 @@ members = [
   "lib/tracing-analyzer",
   "lib/tracing-backtrace",
   "lib/tracing-collector",
+  "lib/tracing-dyn-layer",
   "lib/tracing-reload",
   "lib/tracing-runtime-callsite",
   "lib/tracing-sampler",
