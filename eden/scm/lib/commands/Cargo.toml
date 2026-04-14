@@ -89,7 +89,7 @@ sapling-sampling = { version = "0.1.0", path = "../sampling" }
 sapling-testutil = { version = "0.1.0", path = "../util/testutil" }
 sapling-tracing-collector = { version = "0.1.0", path = "../tracing-collector" }
 sapling-tracing-dyn-layer = { version = "0.1.0", path = "../tracing-dyn-layer" }
-sapling-tracing-reload = { version = "0.1.0", path = "../tracing-reload" }
+sapling-tracing-reload-states = { version = "0.1.0", path = "../tracing-reload/tracing-reload-states" }
 sapling-tracing-sampler = { version = "0.1.0", path = "../tracing-sampler" }
 sapling-version = { version = "0.1.0", path = "../version" }
 serde = { version = "1.0.219", features = ["derive", "rc"] }

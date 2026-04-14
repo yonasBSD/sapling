@@ -1037,6 +1037,8 @@ const LEVEL_WARN: usize = 3;
 const LEVEL_ERROR: usize = 4;
 
 fn updateenvfilter(py: Python, dirs: &str) -> PyResult<PyNone> {
-    tracing_reload::update_env_filter_directives(dirs).map_pyerr(py)?;
+    tracing_reload_states::LOG_FILTER
+        .update_directives(dirs)
+        .map_pyerr(py)?;
     Ok(PyNone)
 }

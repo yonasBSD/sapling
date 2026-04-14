@@ -439,16 +439,16 @@ fn setup_tracing_io(
         // Apply "reload" side effects first.
         let error = io.error();
         let can_color = error.can_color();
-        tracing_reload::update_writer(Box::new(error));
-        tracing_reload::update_env_filter_directives(&dirs)?;
+        tracing_reload_states::RELOADABLE_WRITER.update(Box::new(error));
+        tracing_reload_states::LOG_FILTER.update_directives(&dirs)?;
 
         // This might error out if called 2nd time per process.
-        let env_filter = tracing_reload::reloadable_env_filter()?;
+        let env_filter = tracing_reload_states::LOG_FILTER.env_filter()?;
 
         let env_logger = FmtLayer::new()
             .with_span_events(FmtSpan::ACTIVE)
             .with_ansi(can_color)
-            .with_writer(tracing_reload::reloadable_writer);
+            .with_writer(|| tracing_reload_states::RELOADABLE_WRITER.clone());
 
         let env_logger: tracing_dyn_layer::BoxedLayer<_> = if is_test {
             env_logger.without_time().with_ansi(false).boxed()

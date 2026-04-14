@@ -14,7 +14,7 @@ rust_python_library(
         "//eden/scm/lib/cpython-ext:cpython-ext",
         "//eden/scm/lib/mincode:mincode",
         "//eden/scm/lib/tracing-collector:tracing-collector",
-        "//eden/scm/lib/tracing-reload:tracing-reload",
+        "//eden/scm/lib/tracing-reload/tracing-reload-states:tracing-reload-states",
         "//eden/scm/lib/tracing-runtime-callsite:tracing-runtime-callsite",
     ],
 )

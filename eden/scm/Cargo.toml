@@ -196,6 +196,7 @@ members = [
   "lib/tracing-collector",
   "lib/tracing-dyn-layer",
   "lib/tracing-reload",
+  "lib/tracing-reload/tracing-reload-states",
   "lib/tracing-runtime-callsite",
   "lib/tracing-sampler",
   "lib/treestate",
