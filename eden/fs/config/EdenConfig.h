@@ -1333,6 +1333,14 @@ class EdenConfig : private ConfigSettingManager {
       this};
 
   /**
+   * Kill switch for the entire structured error logging feature.
+   */
+  ConfigSetting<bool> enableErrorLogging{
+      "telemetry:enable-error-logging",
+      false,
+      this};
+
+  /**
    * Whether to upload stack traces to Manifold when logging errors.
    */
   ConfigSetting<bool> enableStackTraceUpload{
