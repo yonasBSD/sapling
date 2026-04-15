@@ -588,17 +588,8 @@ impl DerivedDataManager {
                 }
             };
 
-            // Derivation has failed or timed out.  Consider falling back to local derivation.
-            if justknobs::eval(
-                "scm/mononoke:derived_data_enable_remote_derivation_local_fallback",
-                None,
-                Some(self.repo_name()),
-            )? {
-                // Discard the error and fall back to local derivation.
-                Ok(None)
-            } else {
-                Err(derivation_error)
-            }
+            // Derivation has failed or timed out.
+            Err(derivation_error)
         } else {
             // Derivation is not enabled, perform local derivation.
             Ok(None)
