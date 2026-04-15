@@ -12,6 +12,7 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_command_alias", "buck_
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
 load("@fbcode_macros//build_defs:rust_universal_binary.bzl", "rust_universal_binary")
+load("@fbsource//tools/build_defs:check_dependencies_test.bzl", "check_dependencies_test")
 
 oncall("sapling")
 
@@ -217,6 +218,24 @@ rust_universal_binary(
     name = "sl_universal_binary",
     source = ":sl",
     visibility = ["PUBLIC"],
+)
+
+# Sapling is a performance sensitive CLI tool. It must not pull in heavyweight C++ infra
+# like ServiceRouter, Thrift server, etc., because they perform relatively slow global
+# initialization and destruction operations, and bloat the sl binary. Prefer instead a
+# sidecar binary like sl-acl-checker.
+check_dependencies_test(
+    name = "sl_heavyweight_deps_audit",
+    blocklist_patterns = [
+        "//servicerouter/client/.*",
+        "//thrift/lib/cpp2:server",
+    ],
+    compatible_with = [
+        "ovr_config//os:linux",
+    ],
+    contacts = ["oncall+sapling@xmail.facebook.com"],
+    mode = "blocklist",
+    target = ":sl",
 )
 
 cpp_library(
