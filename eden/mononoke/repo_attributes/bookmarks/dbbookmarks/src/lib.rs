@@ -6,12 +6,16 @@
  */
 
 pub mod builder;
+pub mod locked_transaction;
 pub mod store;
 mod subscription;
 pub mod transaction;
 
 pub use crate::builder::SqlBookmarksBuilder;
+pub use crate::locked_transaction::LockedBookmarkTransaction;
 pub use crate::store::ArcSqlBookmarks;
+pub use crate::store::SqlBookmarks;
+pub use crate::store::SqlBookmarksRef;
 
 #[cfg(test)]
 mod test {
