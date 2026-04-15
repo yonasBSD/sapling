@@ -321,6 +321,7 @@ fn export_tree_entry(
                 .map(|subfilter| ExportItem::Tree {
                     path: join_path(path, &name),
                     id: info.id,
+                    id_type: info.id_type,
                     tx,
                     destination: destination.join(&name),
                     filter: subfilter,
@@ -348,6 +349,7 @@ async fn export_tree(
     repo: thrift::RepoSpecifier,
     path: String,
     id: Vec<u8>,
+    id_type: Option<thrift::TreeIdType>,
     tx: FileSender,
     destination: PathBuf,
     mut filter: PathFilter,
@@ -360,6 +362,7 @@ async fn export_tree(
     let tree = thrift::TreeSpecifier::by_id(thrift::TreeIdSpecifier {
         repo: repo.clone(),
         id,
+        id_type,
         ..Default::default()
     });
     let params = thrift::TreeListParams {
@@ -550,6 +553,7 @@ async fn export_item(
         ExportItem::Tree {
             path,
             id,
+            id_type,
             tx,
             destination,
             filter,
@@ -559,6 +563,7 @@ async fn export_item(
                 repo,
                 path,
                 id,
+                id_type,
                 tx,
                 destination,
                 filter,
@@ -586,6 +591,7 @@ enum ExportItem {
     Tree {
         path: String,
         id: Vec<u8>,
+        id_type: Option<thrift::TreeIdType>,
         tx: FileSender,
         destination: PathBuf,
         filter: PathFilter,
@@ -984,6 +990,7 @@ pub(super) async fn run(app: ScscApp, args: CommandArgs) -> Result<()> {
             ExportItem::Tree {
                 path,
                 id: info.id,
+                id_type: info.id_type,
                 tx,
                 destination: root,
                 filter: path_filter,
