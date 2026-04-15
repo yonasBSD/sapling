@@ -242,12 +242,7 @@ async fn do_cache_warmup(
     let blobstore_warmup = mononoke::spawn_task({
         cloned!(ctx, repo);
         async move {
-            if justknobs::eval(
-                "scm/mononoke:mononoke_server_skip_blobstore_warmup",
-                None,
-                None,
-            )? && cache_warmup_kind == CacheWarmupKind::MononokeServer
-            {
+            if cache_warmup_kind == CacheWarmupKind::MononokeServer {
                 Ok(())
             } else {
                 blobstore_and_filenodes_warmup(&ctx, &repo, bcs_id, hg_cs_id)

@@ -21,7 +21,6 @@
     "scm/mononoke:ignore_change_xrepo_mapping_extra": false,
     "scm/mononoke:megarepo_override_author_check": false,
     "scm/mononoke:megarepo_serialize_target_config_into_working_copy": true,
-    "scm/mononoke:mononoke_server_skip_blobstore_warmup": false,
     "scm/mononoke:scs_commit_find_files_disable_bssm": false,
     "scm/mononoke:use_local_wbc_for_git_repos": false,
     "scm/mononoke:scs_thriftcache_nocache_for_non_kcb_identities": false,
