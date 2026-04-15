@@ -36,6 +36,38 @@ pub enum QueueRepoFilter {
     Except(Vec<RepositoryId>),
 }
 
+/// Controls which request types a queue operation applies to.
+#[derive(Clone, Debug)]
+pub enum QueueRequestTypeFilter {
+    /// Accept all request types (no filtering).
+    All,
+    /// Only accept requests of these types.
+    Only(Vec<RequestType>),
+    /// Accept all request types except these.
+    Except(Vec<RequestType>),
+}
+
+impl QueueRequestTypeFilter {
+    /// Resolve this filter into an explicit include-list of `RequestType`
+    /// values for use in SQL `IN (...)` clauses.
+    pub fn resolve_to_include_list(&self) -> Vec<RequestType> {
+        match self {
+            QueueRequestTypeFilter::All => async_requests_types::ALL_REQUEST_TYPE_NAMES
+                .iter()
+                .map(|s| RequestType(s.to_string()))
+                .collect(),
+            QueueRequestTypeFilter::Only(types) => types.clone(),
+            QueueRequestTypeFilter::Except(excluded) => {
+                async_requests_types::ALL_REQUEST_TYPE_NAMES
+                    .iter()
+                    .filter(|s| !excluded.iter().any(|ex| ex.0 == **s))
+                    .map(|s| RequestType(s.to_string()))
+                    .collect()
+            }
+        }
+    }
+}
+
 /// A queue of long-running requests
 /// This is designed to support the use case of
 /// asynchronous request processing, when a client
@@ -58,14 +90,14 @@ pub trait LongRunningRequestsQueue: Send + Sync {
     ) -> Result<RowId>;
 
     /// Claim one of new requests. Mark it as in-progress and return it.
-    /// `repo_filter` controls which repos are eligible for dequeuing:
-    /// - `Only(repos)`: only dequeue for these specific repos
-    /// - `Except(repos)`: dequeue for any repo except these
+    /// `repo_filter` controls which repos are eligible for dequeuing.
+    /// `request_type_filter` controls which request types are eligible.
     async fn claim_and_get_new_request(
         &self,
         ctx: &CoreContext,
         claimed_by: &ClaimedBy,
         repo_filter: &QueueRepoFilter,
+        request_type_filter: &QueueRequestTypeFilter,
     ) -> Result<Option<LongRunningRequestEntry>>;
 
     /// Get the full request object entry by id
@@ -96,10 +128,12 @@ pub trait LongRunningRequestsQueue: Send + Sync {
 
     /// Find requests that have "inprogress" status but which timestamp
     /// hasn't been updated after `abandoned_timestamp`.
+    /// `request_type_filter` controls which request types are eligible.
     async fn find_abandoned_requests(
         &self,
         ctx: &CoreContext,
         repo_filter: &QueueRepoFilter,
+        request_type_filter: &QueueRequestTypeFilter,
         abandoned_timestamp: Timestamp,
     ) -> Result<Vec<RequestId>>;
 

@@ -28,6 +28,7 @@ pub use requests_table::ClaimedBy;
 use requests_table::LongRunningRequestEntry;
 use requests_table::LongRunningRequestsQueue;
 pub use requests_table::QueueRepoFilter;
+pub use requests_table::QueueRequestTypeFilter;
 use requests_table::QueueStats;
 pub use requests_table::RequestId;
 use requests_table::RequestType;
@@ -111,6 +112,7 @@ pub struct AsyncMethodRequestQueue {
     blobstore: Arc<dyn Blobstore>,
     table: Arc<dyn LongRunningRequestsQueue>,
     repo_filter: QueueRepoFilter,
+    request_type_filter: QueueRequestTypeFilter,
 }
 
 #[derive(Debug)]
@@ -138,6 +140,21 @@ impl AsyncMethodRequestQueue {
             blobstore,
             table,
             repo_filter,
+            request_type_filter: QueueRequestTypeFilter::All,
+        }
+    }
+
+    pub fn new_with_request_type_filter(
+        table: Arc<dyn LongRunningRequestsQueue>,
+        blobstore: Arc<dyn Blobstore>,
+        repo_filter: QueueRepoFilter,
+        request_type_filter: QueueRequestTypeFilter,
+    ) -> Self {
+        Self {
+            blobstore,
+            table,
+            repo_filter,
+            request_type_filter,
         }
     }
 
@@ -150,6 +167,7 @@ impl AsyncMethodRequestQueue {
             blobstore,
             table,
             repo_filter: QueueRepoFilter::Except(vec![]),
+            request_type_filter: QueueRequestTypeFilter::All,
         })
     }
 
@@ -345,7 +363,12 @@ impl AsyncMethodRequestQueue {
     ) -> Result<Option<DequeuedRequest>, Error> {
         let entry = self
             .table
-            .claim_and_get_new_request(ctx, claimed_by, &self.repo_filter)
+            .claim_and_get_new_request(
+                ctx,
+                claimed_by,
+                &self.repo_filter,
+                &self.request_type_filter,
+            )
             .await?;
 
         if let Some(entry) = entry {
@@ -528,7 +551,12 @@ impl AsyncMethodRequestQueue {
         abandoned_timestamp: Timestamp,
     ) -> Result<Vec<RequestId>, Error> {
         self.table
-            .find_abandoned_requests(ctx, &self.repo_filter, abandoned_timestamp)
+            .find_abandoned_requests(
+                ctx,
+                &self.repo_filter,
+                &self.request_type_filter,
+                abandoned_timestamp,
+            )
             .await
     }
 

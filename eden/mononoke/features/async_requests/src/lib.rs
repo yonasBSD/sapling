@@ -18,6 +18,7 @@ pub use queue::ClaimedBy;
 pub use queue::DequeuedRequest;
 pub use queue::PollError;
 pub use queue::QueueRepoFilter;
+pub use queue::QueueRequestTypeFilter;
 pub use queue::RequestId;
 
 pub mod tokens {

@@ -27,6 +27,7 @@ use crate::ClaimedBy;
 use crate::LongRunningRequestEntry;
 use crate::LongRunningRequestsQueue;
 use crate::QueueRepoFilter;
+use crate::QueueRequestTypeFilter;
 use crate::RequestId;
 use crate::RequestStatus;
 use crate::RequestType;
@@ -248,6 +249,86 @@ mononoke_queries! {
           ORDER BY q.created_at ASC
           LIMIT 1
         "
+    }
+
+    // Claim queries with both repo and request type filtering.
+    // The type filter is always resolved to an explicit IN-list by the caller
+    // (via QueueRequestTypeFilter::resolve_to_include_list), avoiding the need
+    // for separate IN/NOT IN query variants.
+    read GetOneNewRequestForReposFilteredTypes(>list supported_repo_ids: RepositoryId >list request_types: RequestType) -> (
+        RowId, RequestType, Option<RepositoryId>, BlobstoreKey, Option<BlobstoreKey>,
+        Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
+        RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
+    ) {
+        "SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+           q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND q.repo_id IN {supported_repo_ids}
+           AND q.request_type IN {request_types}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
+         ORDER BY q.created_at ASC LIMIT 1"
+    }
+
+    read GetOneNewRequestExcludingReposFilteredTypes(>list excluded_repo_ids: RepositoryId >list request_types: RequestType) -> (
+        RowId, RequestType, Option<RepositoryId>, BlobstoreKey, Option<BlobstoreKey>,
+        Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
+        RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
+    ) {
+        "SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+           q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND (q.repo_id IS NULL OR q.repo_id NOT IN {excluded_repo_ids})
+           AND q.request_type IN {request_types}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
+         ORDER BY q.created_at ASC LIMIT 1"
+    }
+
+    read GetOneNewRequestFilteredTypes(>list request_types: RequestType) -> (
+        RowId, RequestType, Option<RepositoryId>, BlobstoreKey, Option<BlobstoreKey>,
+        Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
+        RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
+    ) {
+        "SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+           q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND q.request_type IN {request_types}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
+         ORDER BY q.created_at ASC LIMIT 1"
+    }
+
+    // Abandoned request queries with both repo and request type filtering.
+    read FindAbandonedRequestsForReposFilteredTypes(abandoned_timestamp: Timestamp, >list repo_ids: RepositoryId >list request_types: RequestType) -> (RowId, RequestType) {
+        "SELECT id, request_type FROM long_running_request_queue
+         WHERE status = 'inprogress' AND inprogress_last_updated_at <= {abandoned_timestamp}
+           AND repo_id IN {repo_ids} AND request_type IN {request_types}"
+    }
+
+    read FindAbandonedRequestsExcludingReposFilteredTypes(abandoned_timestamp: Timestamp, >list excluded_repo_ids: RepositoryId >list request_types: RequestType) -> (RowId, RequestType) {
+        "SELECT id, request_type FROM long_running_request_queue
+         WHERE status = 'inprogress' AND inprogress_last_updated_at <= {abandoned_timestamp}
+           AND (repo_id IS NULL OR repo_id NOT IN {excluded_repo_ids})
+           AND request_type IN {request_types}"
+    }
+
+    read FindAbandonedRequestsFilteredTypes(abandoned_timestamp: Timestamp, >list request_types: RequestType) -> (RowId, RequestType) {
+        "SELECT id, request_type FROM long_running_request_queue
+         WHERE status = 'inprogress' AND inprogress_last_updated_at <= {abandoned_timestamp}
+           AND request_type IN {request_types}"
     }
 
     write AddRequestWithRepo(request_type: RequestType, repo_id: RepositoryId, args_blobstore_key: BlobstoreKey, created_at: Timestamp) {
@@ -1018,7 +1099,13 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         ctx: &CoreContext,
         claimed_by: &ClaimedBy,
         repo_filter: &QueueRepoFilter,
+        request_type_filter: &QueueRequestTypeFilter,
     ) -> Result<Option<LongRunningRequestEntry>> {
+        let request_types = request_type_filter.resolve_to_include_list();
+        if request_types.is_empty() {
+            return Ok(None);
+        }
+
         // Spin until we win the race or there's nothing to do.
         loop {
             let txn = self
@@ -1032,13 +1119,23 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     return Ok(None);
                 }
                 QueueRepoFilter::Only(repos) => {
-                    GetOneNewRequestForReposWithDeps::query_with_transaction(txn, repos).await
+                    GetOneNewRequestForReposFilteredTypes::query_with_transaction(
+                        txn,
+                        repos,
+                        &request_types,
+                    )
+                    .await
                 }
                 QueueRepoFilter::Except(repos) if repos.is_empty() => {
-                    GetOneNewRequestWithDeps::query_with_transaction(txn).await
+                    GetOneNewRequestFilteredTypes::query_with_transaction(txn, &request_types).await
                 }
                 QueueRepoFilter::Except(repos) => {
-                    GetOneNewRequestExcludingReposWithDeps::query_with_transaction(txn, repos).await
+                    GetOneNewRequestExcludingReposFilteredTypes::query_with_transaction(
+                        txn,
+                        repos,
+                        &request_types,
+                    )
+                    .await
                 }
             }
             .context("claiming new request")?;
@@ -1049,6 +1146,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                 }
                 Some(row) => row_to_entry(row),
             };
+
             let now = Timestamp::now();
             let (txn, res) = MarkRequestInProgress::query_with_transaction(
                 txn,
@@ -1123,40 +1221,51 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         &self,
         ctx: &CoreContext,
         repo_filter: &QueueRepoFilter,
+        request_type_filter: &QueueRequestTypeFilter,
         abandoned_timestamp: Timestamp,
     ) -> Result<Vec<RequestId>> {
+        let request_types = request_type_filter.resolve_to_include_list();
+        if request_types.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let conn = &self.connections.write_connection;
+        let tel = ctx.sql_query_telemetry();
+
         let rows = match repo_filter {
             QueueRepoFilter::Only(repos) if repos.is_empty() => {
                 return Ok(vec![]);
             }
             QueueRepoFilter::Only(repos) => {
-                FindAbandonedRequestsForRepos::query(
-                    &self.connections.write_connection,
-                    ctx.sql_query_telemetry(),
+                FindAbandonedRequestsForReposFilteredTypes::query(
+                    conn,
+                    tel,
                     &abandoned_timestamp,
                     repos,
+                    &request_types,
                 )
                 .await
             }
             QueueRepoFilter::Except(repos) if repos.is_empty() => {
-                FindAbandonedRequestsForAnyRepo::query(
-                    &self.connections.write_connection,
-                    ctx.sql_query_telemetry(),
+                FindAbandonedRequestsFilteredTypes::query(
+                    conn,
+                    tel,
                     &abandoned_timestamp,
+                    &request_types,
                 )
                 .await
             }
             QueueRepoFilter::Except(repos) => {
-                FindAbandonedRequestsExcludingRepos::query(
-                    &self.connections.write_connection,
-                    ctx.sql_query_telemetry(),
+                FindAbandonedRequestsExcludingReposFilteredTypes::query(
+                    conn,
+                    tel,
                     &abandoned_timestamp,
                     repos,
+                    &request_types,
                 )
                 .await
             }
-        }
-        .context("finding abandoned requests")?;
+        }?;
         Ok(rows.into_iter().map(|(id, ty)| RequestId(id, ty)).collect())
     }
 
@@ -1913,7 +2022,7 @@ mod test {
         let id = queue
             .add_request(
                 &ctx,
-                &RequestType("type".to_string()),
+                &RequestType("async_ping".to_string()),
                 None,
                 &BlobstoreKey("key".to_string()),
             )
@@ -1929,6 +2038,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await;
         assert!(result.is_ok());
@@ -1947,7 +2057,7 @@ mod test {
         let id = queue
             .add_request(
                 &ctx,
-                &RequestType("type".to_string()),
+                &RequestType("async_ping".to_string()),
                 Some(&RepositoryId::new(0)),
                 &BlobstoreKey("key".to_string()),
             )
@@ -1964,6 +2074,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await;
         assert!(result.is_ok());
@@ -1978,6 +2089,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(result.is_none());
@@ -1992,7 +2104,7 @@ mod test {
         let id = queue
             .add_request(
                 &ctx,
-                &RequestType("type".to_string()),
+                &RequestType("async_ping".to_string()),
                 None,
                 &BlobstoreKey("key".to_string()),
             )
@@ -2008,6 +2120,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
 
@@ -2039,7 +2152,7 @@ mod test {
         let id = queue
             .add_request(
                 &ctx,
-                &RequestType("type".to_string()),
+                &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
             )
@@ -2051,6 +2164,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(req.is_some());
@@ -2061,7 +2175,12 @@ mod test {
         let abandoned_timestamp = Timestamp::from_timestamp_secs(now.timestamp_seconds() - 1);
         // Search in any repo
         let abandoned = queue
-            .find_abandoned_requests(&ctx, &QueueRepoFilter::Except(vec![]), abandoned_timestamp)
+            .find_abandoned_requests(
+                &ctx,
+                &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
+                abandoned_timestamp,
+            )
             .await?;
         assert_eq!(abandoned.len(), 1);
         assert_eq!(abandoned[0].0, id);
@@ -2070,7 +2189,12 @@ mod test {
         let now = Timestamp::now();
         let abandoned_timestamp = Timestamp::from_timestamp_secs(now.timestamp_seconds() - 1);
         let abandoned = queue
-            .find_abandoned_requests(&ctx, &QueueRepoFilter::Except(vec![]), abandoned_timestamp)
+            .find_abandoned_requests(
+                &ctx,
+                &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
+                abandoned_timestamp,
+            )
             .await?;
         assert_eq!(abandoned.len(), 1);
         assert_eq!(abandoned[0].0, id);
@@ -2086,7 +2210,8 @@ mod test {
                 .find_abandoned_requests(
                     &ctx,
                     &QueueRepoFilter::Except(vec![]),
-                    abandoned_timestamp
+                    &QueueRequestTypeFilter::All,
+                    abandoned_timestamp,
                 )
                 .await?,
             vec![]
@@ -2125,7 +2250,7 @@ mod test {
         let id = queue
             .add_request(
                 &ctx,
-                &RequestType("type".to_string()),
+                &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
             )
@@ -2137,6 +2262,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(req.is_some());
@@ -2145,7 +2271,12 @@ mod test {
         let now = Timestamp::now();
         let abandoned_timestamp = Timestamp::from_timestamp_secs(now.timestamp_seconds() - 1);
         let abandoned = queue
-            .find_abandoned_requests(&ctx, &QueueRepoFilter::Except(vec![]), abandoned_timestamp)
+            .find_abandoned_requests(
+                &ctx,
+                &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
+                abandoned_timestamp,
+            )
             .await?;
         assert_eq!(abandoned.len(), 1);
         assert_eq!(abandoned[0].0, id);
@@ -2172,7 +2303,7 @@ mod test {
         let _ = queue
             .add_request(
                 &ctx,
-                &RequestType("type".to_string()),
+                &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
             )
@@ -2198,6 +2329,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(req.is_some());
@@ -2242,7 +2374,7 @@ mod test {
         let parent_id = queue
             .add_request(
                 &ctx,
-                &RequestType("parent_type".to_string()),
+                &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("parent_key".to_string()),
             )
@@ -2252,7 +2384,7 @@ mod test {
         let child_id = queue
             .add_request_with_dependencies(
                 &ctx,
-                &RequestType("child_type".to_string()),
+                &RequestType("derive_boundaries".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("child_key".to_string()),
                 &[parent_id],
@@ -2277,6 +2409,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_some());
@@ -2289,12 +2422,13 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_none());
 
         // Complete the parent (mark as ready)
-        let parent_req_id = RequestId(parent_id, RequestType("parent_type".to_string()));
+        let parent_req_id = RequestId(parent_id, RequestType("async_ping".to_string()));
         queue
             .mark_ready(&ctx, &parent_req_id, BlobstoreKey("result_key".to_string()))
             .await?;
@@ -2305,6 +2439,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_some());
@@ -2324,7 +2459,7 @@ mod test {
         let parent_id = queue
             .add_request(
                 &ctx,
-                &RequestType("parent_type".to_string()),
+                &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("parent_key".to_string()),
             )
@@ -2334,7 +2469,7 @@ mod test {
         let child1_id = queue
             .add_request_with_dependencies(
                 &ctx,
-                &RequestType("child_type".to_string()),
+                &RequestType("derive_boundaries".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("child1_key".to_string()),
                 &[parent_id],
@@ -2344,7 +2479,7 @@ mod test {
         let child2_id = queue
             .add_request_with_dependencies(
                 &ctx,
-                &RequestType("child_type".to_string()),
+                &RequestType("derive_boundaries".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("child2_key".to_string()),
                 &[parent_id],
@@ -2381,6 +2516,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_none());
@@ -2454,6 +2590,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_some());
@@ -2465,6 +2602,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_none());
@@ -2485,6 +2623,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_some());
@@ -2496,6 +2635,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_none());
@@ -2516,6 +2656,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_some());
@@ -2537,6 +2678,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_some());
@@ -2603,6 +2745,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert_eq!(claimed.unwrap().id, boundary_id);
@@ -2620,6 +2763,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert_eq!(claimed.unwrap().id, slice1_id);
@@ -2656,6 +2800,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("test".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(claimed.is_none());
@@ -2672,7 +2817,7 @@ mod test {
         let id = queue
             .add_request(
                 &ctx,
-                &RequestType("type".to_string()),
+                &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
             )
@@ -2684,6 +2829,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Only(vec![RepositoryId::new(1)]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(result.is_none());
@@ -2694,6 +2840,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![repo_id]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(result.is_none());
@@ -2704,6 +2851,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Only(vec![repo_id]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
         assert!(result.is_some());
@@ -2721,7 +2869,7 @@ mod test {
         let id = queue
             .add_request(
                 &ctx,
-                &RequestType("type".to_string()),
+                &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
             )
@@ -2733,6 +2881,7 @@ mod test {
                 &ctx,
                 &ClaimedBy("me".to_string()),
                 &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
             )
             .await?;
 
@@ -2746,6 +2895,7 @@ mod test {
             .find_abandoned_requests(
                 &ctx,
                 &QueueRepoFilter::Except(vec![repo_id]),
+                &QueueRequestTypeFilter::All,
                 abandoned_timestamp,
             )
             .await?;
@@ -2756,6 +2906,7 @@ mod test {
             .find_abandoned_requests(
                 &ctx,
                 &QueueRepoFilter::Only(vec![RepositoryId::new(99)]),
+                &QueueRequestTypeFilter::All,
                 abandoned_timestamp,
             )
             .await?;
@@ -2766,6 +2917,7 @@ mod test {
             .find_abandoned_requests(
                 &ctx,
                 &QueueRepoFilter::Only(vec![repo_id]),
+                &QueueRequestTypeFilter::All,
                 abandoned_timestamp,
             )
             .await?;
@@ -2774,7 +2926,12 @@ mod test {
 
         // Except([]) should also find it
         let abandoned = queue
-            .find_abandoned_requests(&ctx, &QueueRepoFilter::Except(vec![]), abandoned_timestamp)
+            .find_abandoned_requests(
+                &ctx,
+                &QueueRepoFilter::Except(vec![]),
+                &QueueRequestTypeFilter::All,
+                abandoned_timestamp,
+            )
             .await?;
         assert_eq!(abandoned.len(), 1);
         assert_eq!(abandoned[0].0, id);

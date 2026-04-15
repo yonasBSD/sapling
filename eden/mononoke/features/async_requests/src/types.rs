@@ -12,6 +12,19 @@ use std::sync::Arc;
 use anyhow::Error;
 use anyhow::Result;
 use anyhow::anyhow;
+pub use async_requests_types::AsyncPing;
+pub use async_requests_types::CommitSparseProfileDelta;
+pub use async_requests_types::CommitSparseProfileSize;
+pub use async_requests_types::DeriveBackfill;
+pub use async_requests_types::DeriveBackfillRepo;
+pub use async_requests_types::DeriveBoundaries;
+pub use async_requests_types::DeriveSlice;
+pub use async_requests_types::MegarepoAddBranchingSyncTarget;
+pub use async_requests_types::MegarepoAddSyncTarget;
+pub use async_requests_types::MegarepoChangeTargetConfig;
+pub use async_requests_types::MegarepoRemergeSource;
+pub use async_requests_types::MegarepoSyncChangeset;
+pub use async_requests_types::RequestTypeName;
 pub use async_requests_types_thrift::AsynchronousRequestParams as ThriftAsynchronousRequestParams;
 pub use async_requests_types_thrift::AsynchronousRequestParamsId as ThriftAsynchronousRequestParamsId;
 pub use async_requests_types_thrift::AsynchronousRequestResult as ThriftAsynchronousRequestResult;
@@ -366,7 +379,6 @@ macro_rules! impl_async_svc_method_types_result {
 /// * token_thrift_type:        the Thrift struct holding the token returned by the method and accepted by the poll method
 macro_rules! impl_async_svc_method_types {
     {
-        method_name => $method_name: expr,
         request_struct => $request_struct: ident,
 
         params_value_thrift_type => $params_value_thrift_type: ident,
@@ -403,10 +415,8 @@ macro_rules! impl_async_svc_method_types {
             result_union_variant => $result_union_variant,
         );
 
-        pub struct $request_struct;
-
         impl Request for $request_struct {
-            const NAME: &'static str = $method_name;
+            const NAME: &'static str = <$request_struct as RequestTypeName>::NAME;
 
             type Token = $token_type;
             type ThriftParams = thrift::$params_value_thrift_type;
@@ -477,7 +487,6 @@ macro_rules! impl_async_svc_method_types {
 /// Legacy version of impl_async_svc_method_types_legacy to maintain backward compatibility.
 macro_rules! impl_async_svc_method_types_legacy {
     {
-        method_name => $method_name: expr,
         request_struct => $request_struct: ident,
 
         params_value_thrift_type => $params_value_thrift_type: ident,
@@ -514,10 +523,8 @@ macro_rules! impl_async_svc_method_types_legacy {
             result_union_variant => $result_union_variant,
         );
 
-        pub struct $request_struct;
-
         impl Request for $request_struct {
-            const NAME: &'static str = $method_name;
+            const NAME: &'static str = <$request_struct as RequestTypeName>::NAME;
 
             type Token = $token_type;
             type ThriftParams = thrift::$params_value_thrift_type;
@@ -552,7 +559,6 @@ macro_rules! impl_async_svc_method_types_legacy {
 // Params and result types for megarepo_add_sync_target
 
 impl_async_svc_method_types_legacy! {
-    method_name => "megarepo_add_sync_target",
     request_struct => MegarepoAddSyncTarget,
 
     params_value_thrift_type => MegarepoAddTargetParams,
@@ -574,7 +580,6 @@ impl_async_svc_method_types_legacy! {
 // Params and result types for megarepo_add_branching_sync_target
 
 impl_async_svc_method_types_legacy! {
-    method_name => "megarepo_add_branching_sync_target",
     request_struct => MegarepoAddBranchingSyncTarget,
 
     params_value_thrift_type => MegarepoAddBranchingTargetParams,
@@ -596,7 +601,6 @@ impl_async_svc_method_types_legacy! {
 // Params and result types for megarepo_change_target_config
 
 impl_async_svc_method_types_legacy! {
-    method_name => "megarepo_change_target_config",
     request_struct => MegarepoChangeTargetConfig,
 
     params_value_thrift_type => MegarepoChangeTargetConfigParams,
@@ -618,7 +622,6 @@ impl_async_svc_method_types_legacy! {
 // Params and result types for megarepo_sync_changeset
 
 impl_async_svc_method_types_legacy! {
-    method_name => "megarepo_sync_changeset",
     request_struct => MegarepoSyncChangeset,
 
     params_value_thrift_type => MegarepoSyncChangesetParams,
@@ -640,7 +643,6 @@ impl_async_svc_method_types_legacy! {
 // Params and result types for megarepo_remerge_source
 
 impl_async_svc_method_types_legacy! {
-    method_name => "megarepo_remerge_source",
     request_struct => MegarepoRemergeSource,
 
     params_value_thrift_type => MegarepoRemergeSourceParams,
@@ -662,7 +664,6 @@ impl_async_svc_method_types_legacy! {
 // Params and result types for async_ping
 
 impl_async_svc_method_types! {
-    method_name => "async_ping",
     request_struct => AsyncPing,
 
     params_value_thrift_type => AsyncPingParams,
@@ -683,7 +684,6 @@ impl_async_svc_method_types! {
 // Params and result types for commit_sparse_profile_size_async
 
 impl_async_svc_method_types! {
-    method_name => "commit_sparse_profile_size_async",
     request_struct => CommitSparseProfileSize,
 
     params_value_thrift_type => CommitSparseProfileSizeParamsV2,
@@ -708,7 +708,6 @@ impl_async_svc_method_types! {
 // Params and result types for commit_sparse_profile_delta_async
 
 impl_async_svc_method_types! {
-    method_name => "commit_sparse_profile_delta_async",
     request_struct => CommitSparseProfileDelta,
 
     params_value_thrift_type => CommitSparseProfileDeltaParamsV2,
@@ -734,7 +733,6 @@ impl_async_svc_method_types! {
 // Params and result types for derive_boundaries
 
 impl_async_svc_method_types! {
-    method_name => "derive_boundaries",
     request_struct => DeriveBoundaries,
 
     params_value_thrift_type => DeriveBoundariesParams,
@@ -755,7 +753,6 @@ impl_async_svc_method_types! {
 // Params and result types for derive_slice
 
 impl_async_svc_method_types! {
-    method_name => "derive_slice",
     request_struct => DeriveSlice,
 
     params_value_thrift_type => DeriveSliceParams,
@@ -779,7 +776,6 @@ impl_async_svc_method_types! {
 // Params and result types for derive_backfill
 
 impl_async_svc_method_types! {
-    method_name => "derive_backfill",
     request_struct => DeriveBackfill,
 
     params_value_thrift_type => DeriveBackfillParams,
@@ -811,7 +807,6 @@ impl_async_svc_method_types! {
 // Params and result types for derive_backfill_repo
 
 impl_async_svc_method_types! {
-    method_name => "derive_backfill_repo",
     request_struct => DeriveBackfillRepo,
 
     params_value_thrift_type => DeriveBackfillRepoParams,
