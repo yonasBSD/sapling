@@ -149,6 +149,10 @@ export default class ServerToClientAPI {
       this.postMessage({type: 'fetchedRecommendedBookmarks', bookmarks});
     });
 
+    repo.pullFetchedDiffs().catch((err: unknown) => {
+      this.logger.error('error pulling authored diff commit hashes:', err);
+    });
+
     repo.fetchAndSetHiddenMasterConfig(async (config, odType) => {
       await this.connection.readySignal?.promise;
       this.postMessage({
@@ -654,6 +658,9 @@ export default class ServerToClientAPI {
         logger?.log('refresh requested');
         repo.fetchAndSetRecommendedBookmarks(bookmarks => {
           this.postMessage({type: 'fetchedRecommendedBookmarks', bookmarks});
+        });
+        repo.pullFetchedDiffs().catch((err: unknown) => {
+          this.logger.error('error pulling authored diff commit hashes:', err);
         });
         repo.fetchSmartlogCommits();
         repo.fetchUncommittedChanges();

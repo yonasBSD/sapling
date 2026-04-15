@@ -59,8 +59,11 @@ import {renderCompactAtom, useZoomShortcut, zoomUISettingAtom} from './responsiv
 import {mainCommandName, repositoryInfo} from './serverAPIState';
 import {themeState, useThemeShortcut} from './theme';
 
+import {Internal} from './Internal';
 import './SettingsTooltip.css';
 import {enableSaplingDebugFlag, enableSaplingVerboseFlag} from './atoms/debugToolAtoms';
+
+export const showAuthoredDiffsConfig = configBackedAtom<boolean>('isl.show-authored-diffs', true);
 
 export function SettingsGearButton() {
   useThemeShortcut();
@@ -92,6 +95,7 @@ function SettingsDropdown({
   const [repoInfo, setRepoInfo] = useAtom(repositoryInfo);
   const runOperation = useRunOperation();
   const [showDiffNumber, setShowDiffNumber] = useAtom(showDiffNumberConfig);
+  const [showAuthoredDiffs, setShowAuthoredDiffs] = useAtom(showAuthoredDiffsConfig);
   return (
     <DropdownFields title={<T>Settings</T>} icon="gear" data-testid="settings-dropdown">
       <Button
@@ -206,6 +210,20 @@ function SettingsDropdown({
           </Checkbox>
           <ConfirmSubmitStackSetting />
           <SubmitAsDraftCheckbox forceShow />
+          {Internal.showAuthoredDiffsOption && (
+            <Tooltip
+              title={t(
+                'When enabled, ISL also fetches diff information for diffs you authored but where the latest version was submitted by someone else (e.g., via AI tools, or commandeering).',
+              )}>
+              <Checkbox
+                checked={showAuthoredDiffs}
+                onChange={checked => {
+                  setShowAuthoredDiffs(checked);
+                }}>
+                <T>Fetch authored diffs from Phabricator</T>
+              </Checkbox>
+            </Tooltip>
+          )}
         </div>
       </Setting>
       {platform.canCustomizeFileOpener && (

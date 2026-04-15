@@ -137,6 +137,8 @@ export type TrackEventName =
   | 'LogCommand'
   | 'LookupCommitsCommand'
   | 'LookupAllCommitChangedFilesCommand'
+  | 'AuthoredDiffsPresentCheck'
+  | 'AuthoredDiffsPull'
   | 'GetShelvesCommand'
   | 'GetConflictsCommand'
   | 'BlameCommand'

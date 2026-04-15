@@ -937,6 +937,7 @@ export const allConfigNames = [
   'ui.merge',
   'fbcodereview.code-browser-url',
   'extensions.commitcloud',
+  'isl.show-authored-diffs',
 ] as const;
 
 /** sl configs read by ISL */
@@ -968,6 +969,7 @@ export const settableConfigNames = [
   'ui.allowemptycommit',
   'ui.merge',
   'amend.autorestack',
+  'isl.show-authored-diffs',
 ] as const;
 
 /** sl configs written to by ISL */

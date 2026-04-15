@@ -1632,6 +1632,21 @@ export class Repository {
     );
   }
 
+  /**
+   * Use the code review provider to fetch authored diff commit hashes,
+   * then unhide them so they are visible in the smartlog.
+   */
+  public async pullFetchedDiffs(): Promise<void> {
+    const hashes = await this.codeReviewProvider?.fetchAuthoredDiffs?.();
+    if (hashes == null || hashes.length === 0) {
+      return;
+    }
+
+    const revset = hashes.join(' + ');
+    // Use `sl unhide` instead of `sl pull` since pull doesn't support using '- hidden()'
+    await runCommand(this.initialConnectionContext, ['unhide', '-r', `(${revset}) - hidden()`]);
+  }
+
   public async getActiveAlerts(ctx: RepositoryContext): Promise<Array<Alert>> {
     const result = await this.runCommand(['config', '-Tjson', 'alerts'], 'GetAlertsCommand', ctx, {
       reject: false,

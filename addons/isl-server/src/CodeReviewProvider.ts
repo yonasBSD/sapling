@@ -76,6 +76,9 @@ export interface CodeReviewProvider {
 
   renderMarkup?: (markup: string) => Promise<string>;
 
+  /** Fetch commit hashes of the user's authored open diffs */
+  fetchAuthoredDiffs?(): Promise<Array<string>>;
+
   fetchLandInfo?(topOfStack: DiffId): Promise<LandInfo>;
   confirmLand?(landConfirmationInfo: NonNullable<LandConfirmationInfo>): Promise<Result<undefined>>;
 
