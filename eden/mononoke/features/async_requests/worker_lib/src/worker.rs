@@ -57,7 +57,6 @@ use tracing::error;
 use tracing::info;
 use tracing::warn;
 
-use crate::AsyncRequestsWorkerArgs;
 use crate::methods::megarepo_async_request_compute;
 use crate::scuba::log_result;
 use crate::scuba::log_retriable_error;
@@ -124,8 +123,9 @@ pub struct AsyncMethodRequestWorker {
 }
 
 impl AsyncMethodRequestWorker {
-    pub(crate) async fn new(
-        args: Arc<AsyncRequestsWorkerArgs>,
+    pub async fn new(
+        request_limit: Option<usize>,
+        jobs: usize,
         ctx: Arc<CoreContext>,
         queue: Arc<AsyncMethodRequestQueue>,
         repos_mgr: Arc<MononokeReposManager<Repo>>,
@@ -156,8 +156,8 @@ impl AsyncMethodRequestWorker {
             name,
             queue,
             will_exit,
-            limit: args.request_limit,
-            concurrency_limit: args.jobs,
+            limit: request_limit,
+            concurrency_limit: jobs,
             ondemand_repo_refs: Arc::new(Mutex::new(HashMap::new())),
         })
     }

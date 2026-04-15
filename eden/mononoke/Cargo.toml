@@ -233,6 +233,7 @@ members = [
   "features/async_requests/if/services",
   "features/async_requests/requests_table",
   "features/async_requests/worker",
+  "features/async_requests/worker_lib",
   "features/cache_warmup",
   "features/changesets_creation",
   "features/commit_cloud",

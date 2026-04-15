@@ -5,12 +5,6 @@
  * GNU General Public License version 2.
  */
 
-mod backfill;
-mod methods;
-mod scuba;
-mod stats;
-mod worker;
-
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -51,6 +45,7 @@ use requests_table::LongRunningRequestsQueue;
 use requests_table::SqlLongRunningRequestsQueue;
 use sharding_ext::RepoShard;
 use tracing::info;
+use worker_lib::worker::AsyncMethodRequestWorker;
 
 const SERVICE_NAME: &str = "async_requests_worker";
 
@@ -133,8 +128,9 @@ impl RepoShardedProcess for WorkerProcess {
             QueueRepoFilter::Only(repos),
         ));
 
-        let executor = worker::AsyncMethodRequestWorker::new(
-            self.args.clone(),
+        let executor = AsyncMethodRequestWorker::new(
+            self.args.request_limit,
+            self.args.jobs,
             self.ctx.clone(),
             queue,
             self.repos_mgr.clone(),
@@ -306,8 +302,9 @@ fn run_worker_queue(
             repo_filter,
         ));
 
-        runtime.block_on(worker::AsyncMethodRequestWorker::new(
-            args.clone(),
+        runtime.block_on(AsyncMethodRequestWorker::new(
+            args.request_limit,
+            args.jobs,
             ctx.clone(),
             queue.clone(),
             repos_mgr,

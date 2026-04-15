@@ -42,12 +42,15 @@ use mononoke_api::Repo;
 use mononoke_api::RepoContext;
 use mononoke_types::ChangesetId;
 use repo_authorization::AuthorizationContext;
+#[cfg(fbcode_build)]
 use scs_errors::ServiceErrorResultExt;
 #[cfg(fbcode_build)]
 use scs_methods::commit_sparse_profile_info::commit_sparse_profile_delta_impl;
 #[cfg(fbcode_build)]
 use scs_methods::commit_sparse_profile_info::commit_sparse_profile_size_impl;
+#[cfg(fbcode_build)]
 use scs_methods::from_request::FromRequest;
+#[cfg(fbcode_build)]
 use scs_methods::specifiers::SpecifierExt;
 use source_control as thrift;
 use source_control::CommitSpecifier;
@@ -56,27 +59,27 @@ const METHOD_MAX_POLL_TIME_MS: u64 = 100;
 
 #[cfg(not(fbcode_build))]
 pub async fn commit_sparse_profile_delta_impl(
-    ctx: &CoreContext,
-    repo: RepoContext<Repo>,
-    changeset: ChangesetContext<Repo>,
-    other: ChangesetContext<Repo>,
-    profiles: thrift::SparseProfiles,
-) -> Result<thrift::CommitSparseProfileDeltaResponse, scs_errors::ServiceError> {
-    Err(scs_errors::ServiceError::Request(
-        scs_errors::not_implemented("not implemented in non-fbcode build".to_string()),
-    ))
+    _ctx: &CoreContext,
+    _repo: RepoContext<Repo>,
+    _changeset: ChangesetContext<Repo>,
+    _other: ChangesetContext<Repo>,
+    _profiles: thrift::SparseProfiles,
+) -> Result<thrift::CommitSparseProfileDeltaResponse, AsyncRequestsError> {
+    Err(AsyncRequestsError::internal(anyhow::anyhow!(
+        "not implemented in non-fbcode build"
+    )))
 }
 
 #[cfg(not(fbcode_build))]
 pub async fn commit_sparse_profile_size_impl(
-    ctx: &CoreContext,
-    repo: RepoContext<Repo>,
-    changeset: ChangesetContext<Repo>,
-    profiles: thrift::SparseProfiles,
-) -> Result<thrift::CommitSparseProfileSizeResponse, scs_errors::ServiceError> {
-    Err(scs_errors::ServiceError::Request(
-        scs_errors::not_implemented("not implemented in non-fbcode build".to_string()),
-    ))
+    _ctx: &CoreContext,
+    _repo: RepoContext<Repo>,
+    _changeset: ChangesetContext<Repo>,
+    _profiles: thrift::SparseProfiles,
+) -> Result<thrift::CommitSparseProfileSizeResponse, AsyncRequestsError> {
+    Err(AsyncRequestsError::internal(anyhow::anyhow!(
+        "not implemented in non-fbcode build"
+    )))
 }
 
 async fn megarepo_sync_changeset<R: MononokeRepo>(
@@ -212,6 +215,7 @@ async fn megarepo_remerge_source<R: MononokeRepo>(
     })
 }
 
+#[cfg(fbcode_build)]
 pub async fn commit_sparse_profile_size(
     ctx: &CoreContext,
     mononoke: Arc<Mononoke<Repo>>,
@@ -226,6 +230,7 @@ pub async fn commit_sparse_profile_size(
         .map_err(<scs_errors::ServiceError as Into<AsyncRequestsError>>::into)
 }
 
+#[cfg(fbcode_build)]
 pub async fn commit_sparse_profile_delta(
     ctx: &CoreContext,
     mononoke: Arc<Mononoke<Repo>>,
@@ -306,6 +311,7 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
                 ..Default::default()
             }).into())
         }
+        #[cfg(fbcode_build)]
         async_requests_types_thrift::AsynchronousRequestParams::commit_sparse_profile_size_params(params) => {
             Ok(commit_sparse_profile_size(ctx, mononoke, params)
                 .watched()
@@ -314,6 +320,11 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
                 .await
                 .into())
         }
+        #[cfg(not(fbcode_build))]
+        async_requests_types_thrift::AsynchronousRequestParams::commit_sparse_profile_size_params(_) => {
+            bail!("commit_sparse_profile_size not supported in non-fbcode build")
+        }
+        #[cfg(fbcode_build)]
         async_requests_types_thrift::AsynchronousRequestParams::commit_sparse_profile_delta_params(params) => {
             Ok(commit_sparse_profile_delta(ctx, mononoke, params)
                 .watched()
@@ -321,6 +332,10 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
                 .with_label("commit_sparse_profile_delta")
                 .await
                 .into())
+        }
+        #[cfg(not(fbcode_build))]
+        async_requests_types_thrift::AsynchronousRequestParams::commit_sparse_profile_delta_params(_) => {
+            bail!("commit_sparse_profile_delta not supported in non-fbcode build")
         }
         async_requests_types_thrift::AsynchronousRequestParams::derive_boundaries_params(params) => {
             Ok(AsynchronousRequestResult::from_thrift(
@@ -375,6 +390,7 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
     }
 }
 
+#[cfg(fbcode_build)]
 async fn get_repo_and_changeset(
     ctx: &CoreContext,
     mononoke: Arc<Mononoke<Repo>>,
@@ -394,6 +410,7 @@ async fn get_repo_and_changeset(
 
 /// Get the repo and pair of changesets specified by a `thrift::CommitSpecifier`
 /// and `thrift::CommitId` pair.
+#[cfg(fbcode_build)]
 async fn repo_changeset_pair(
     ctx: CoreContext,
     mononoke: Arc<Mononoke<Repo>>,
@@ -445,6 +462,7 @@ async fn repo_changeset_pair(
     Ok((repo, changeset, other_changeset))
 }
 
+#[cfg(fbcode_build)]
 fn bubble_fetcher_for_changeset(
     ctx: CoreContext,
     specifier: ChangesetSpecifier,
@@ -452,6 +470,7 @@ fn bubble_fetcher_for_changeset(
     move |ephemeral| async move { specifier.bubble_id(&ctx, ephemeral).await }.boxed()
 }
 
+#[cfg(fbcode_build)]
 async fn repo_impl<F, R>(
     ctx: CoreContext,
     mononoke: Arc<Mononoke<Repo>>,
