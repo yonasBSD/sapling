@@ -898,11 +898,6 @@ fn log_result<T: AddScubaResponse>(
     scuba.add_future_stats(stats);
     scuba.add("status", status);
     if let Some(error) = error {
-        let scs_error_log_sampling =
-            justknobs::eval("scm/mononoke:scs_error_log_sampling", None, None).unwrap_or(true);
-        if !scs_error_log_sampling {
-            scuba.unsampled();
-        }
         scuba.add("error", error.as_str());
     }
     scuba.log_with_msg(tag, None);
@@ -1105,11 +1100,6 @@ fn log_stream_complete(
     scuba.add_try_stream_stats(&combined_stats);
     scuba.add("status", status);
     if let Some(error) = error {
-        let scs_error_log_sampling =
-            justknobs::eval("scm/mononoke:scs_error_log_sampling", None, None).unwrap_or(true);
-        if !scs_error_log_sampling {
-            scuba.unsampled();
-        }
         scuba.add("error", error.as_str());
     }
     scuba.log_with_msg("Request complete", None);
