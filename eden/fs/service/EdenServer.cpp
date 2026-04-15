@@ -1349,11 +1349,17 @@ Future<Unit> EdenServer::prepareImpl(std::shared_ptr<StartupLogger> logger) {
     logger->log(
         "Requesting existing edenfs process to gracefully "
         "transfer its mount points...");
+    folly::stop_watch<std::chrono::microseconds> takeoverReceiveWatch;
+    SCOPE_EXIT {
+      serverState_->getStats()->addDuration(
+          &TakeoverStats::receive, takeoverReceiveWatch.elapsed());
+    };
     auto edenConfig = serverState_->getEdenConfig();
     takeoverData = takeoverMounts(
         takeoverPath,
         getTakeoverTimeoutSeconds(*edenConfig),
         shouldThrowDuringTakeover(*edenConfig));
+    serverState_->getStats()->increment(&TakeoverStats::receiveSuccess);
     logger->log(
         "Received takeover information for ",
         takeoverData.mountPoints.size(),
