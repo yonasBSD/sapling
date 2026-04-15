@@ -55,7 +55,7 @@ Create another commit that has other content we can redact
   $ hg bookmark other_bookmark -r tip
 
 Redact file 'C' in commit '477211daba9d'
-  $ mononoke_admin redaction create-key-list -R orig -i $C C --main-bookmark master_bookmark --force --output-file rs_0
+  $ mononoke_admin redaction create-key-list -R orig -i $C C --main-bookmark master_bookmark --force --output-file rs_0 --skip-aws-sync
   Checking redacted content doesn't exist in 'master_bookmark' bookmark
   Redacted content in main bookmark: C content.blake2.896ad5879a5df0403bfc93fc96507ad9c93b31b11f3d0fa05445da7918241e5d
   Creating key list despite 1 files being redacted in the main bookmark (master_bookmark) (--force)

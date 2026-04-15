@@ -71,6 +71,10 @@ pub struct RedactionCreateKeyListArgs {
     #[clap(long)]
     output_file: Option<PathBuf>,
 
+    /// Skip syncing the keylist to the AWS Mononoke instance.
+    #[clap(long)]
+    skip_aws_sync: bool,
+
     /// Files to redact
     #[clap(value_name = "FILE")]
     files: Vec<String>,
@@ -88,6 +92,12 @@ pub struct RedactionCreateKeyListFromIdsArgs {
     /// Name of a file to write the new key to.
     #[clap(long)]
     output_file: Option<PathBuf>,
+
+    /// Skip syncing the keylist to the AWS Mononoke instance.
+    /// This flag is accepted for CLI uniformity but has no effect
+    /// (this command never triggers AWS sync).
+    #[clap(long)]
+    _skip_aws_sync: bool,
 }
 
 #[derive(Args)]
@@ -137,7 +147,7 @@ async fn create_key_list(
     app: &MononokeApp,
     keys: Vec<String>,
     output_file: Option<&Path>,
-) -> Result<()> {
+) -> Result<RedactionKeyListId> {
     let redaction_blobstore = app.redaction_config_blobstore().await?;
     let key_list_id = redaction::create_key_list(ctx, &redaction_blobstore, keys).await?;
     if let Some(output_file) = output_file {
@@ -156,7 +166,7 @@ async fn create_key_list(
                 )
             })?;
     }
-    Ok(())
+    Ok(key_list_id)
 }
 
 /// Returns the content keys for the given paths.
@@ -291,13 +301,17 @@ pub async fn create_key_list_from_commit_files(
         }
     }
 
-    create_key_list(
-        ctx,
-        app,
-        keys.into_iter().collect(),
-        create_args.output_file.as_deref(),
-    )
-    .await
+    let keys_vec: Vec<String> = keys.into_iter().collect();
+    let keys_for_sync = keys_vec.clone();
+
+    let key_list_id =
+        create_key_list(ctx, app, keys_vec, create_args.output_file.as_deref()).await?;
+
+    if !create_args.skip_aws_sync {
+        super::aws_sync::sync_to_aws(&keys_for_sync, key_list_id, repo.repo_identity.name()).await;
+    }
+
+    Ok(())
 }
 
 pub async fn create_key_list_from_blobstore_keys(
@@ -305,11 +319,13 @@ pub async fn create_key_list_from_blobstore_keys(
     app: &MononokeApp,
     create_args: RedactionCreateKeyListFromIdsArgs,
 ) -> Result<()> {
-    create_key_list(
+    let _key_list_id = create_key_list(
         ctx,
         app,
         create_args.keys,
         create_args.output_file.as_deref(),
     )
-    .await
+    .await?;
+
+    Ok(())
 }

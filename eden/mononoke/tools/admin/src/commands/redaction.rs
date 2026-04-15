@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+mod aws_sync;
 mod create_key_list;
 mod list;
 

@@ -74,7 +74,7 @@ setup repo-pull and repo-push
   $ hg up -q $COMMIT_B
 
 Redact file 'c' in commit '$C'
-  $ mononoke_admin redaction create-key-list -R repo -i $C c --main-bookmark master_bookmark --output-file rs_0
+  $ mononoke_admin redaction create-key-list -R repo -i $C c --main-bookmark master_bookmark --output-file rs_0 --skip-aws-sync
   Checking redacted content doesn't exist in 'master_bookmark' bookmark
   No files would be redacted in the main bookmark (master_bookmark)
   Redaction saved as: * (glob)
@@ -86,14 +86,14 @@ Redact file 'c' in commit '$C'
 
 Attempt to redact file 'b' in commit '$COMMIT_B'
 This initially fails because it is still reachable in 'master'
-  $ mononoke_admin redaction create-key-list -R repo -i $COMMIT_B b --main-bookmark master_bookmark
+  $ mononoke_admin redaction create-key-list -R repo -i $COMMIT_B b --main-bookmark master_bookmark --skip-aws-sync
   Checking redacted content doesn't exist in 'master_bookmark' bookmark
   Redacted content in main bookmark: b content.blake2.21c519fe0eb401bc97888f270902935f858d0c5361211f892fd26ed9ce127ff9
   Error: Refusing to create key list because 1 files would be redacted in the main bookmark (master_bookmark)
   [1]
 
 Try again with --force
-  $ mononoke_admin redaction create-key-list -R repo -i $COMMIT_B b --main-bookmark master_bookmark --force --output-file rs_1
+  $ mononoke_admin redaction create-key-list -R repo -i $COMMIT_B b --main-bookmark master_bookmark --force --output-file rs_1 --skip-aws-sync
   Checking redacted content doesn't exist in 'master_bookmark' bookmark
   Redacted content in main bookmark: b content.blake2.21c519fe0eb401bc97888f270902935f858d0c5361211f892fd26ed9ce127ff9
   Creating key list despite 1 files being redacted in the main bookmark (master_bookmark) (--force)
