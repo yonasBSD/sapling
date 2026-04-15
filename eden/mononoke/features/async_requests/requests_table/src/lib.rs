@@ -27,6 +27,15 @@ pub use crate::types::RequestStatus;
 pub use crate::types::RequestType;
 pub use crate::types::RowId;
 
+/// Controls which repos a queue operation applies to.
+#[derive(Clone, Debug)]
+pub enum QueueRepoFilter {
+    /// Only operate on requests for these specific repos.
+    Only(Vec<RepositoryId>),
+    /// Operate on requests for any repo except these.
+    Except(Vec<RepositoryId>),
+}
+
 /// A queue of long-running requests
 /// This is designed to support the use case of
 /// asynchronous request processing, when a client
@@ -49,11 +58,14 @@ pub trait LongRunningRequestsQueue: Send + Sync {
     ) -> Result<RowId>;
 
     /// Claim one of new requests. Mark it as in-progress and return it.
+    /// `repo_filter` controls which repos are eligible for dequeuing:
+    /// - `Only(repos)`: only dequeue for these specific repos
+    /// - `Except(repos)`: dequeue for any repo except these
     async fn claim_and_get_new_request(
         &self,
         ctx: &CoreContext,
         claimed_by: &ClaimedBy,
-        supported_repos: Option<&[RepositoryId]>,
+        repo_filter: &QueueRepoFilter,
     ) -> Result<Option<LongRunningRequestEntry>>;
 
     /// Get the full request object entry by id
@@ -87,7 +99,7 @@ pub trait LongRunningRequestsQueue: Send + Sync {
     async fn find_abandoned_requests(
         &self,
         ctx: &CoreContext,
-        repo_ids: Option<&[RepositoryId]>,
+        repo_filter: &QueueRepoFilter,
         abandoned_timestamp: Timestamp,
     ) -> Result<Vec<RequestId>>;
 
@@ -132,22 +144,22 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         req_id: &RequestId,
     ) -> Result<Option<(bool, LongRunningRequestEntry)>>;
 
-    /// List all requests, optionally filtered by repo_id and/or date.
+    /// List all requests, filtered by repo and/or date.
     async fn list_requests(
         &self,
         ctx: &CoreContext,
-        repo_ids: Option<&[RepositoryId]>,
+        repo_filter: &QueueRepoFilter,
         last_update_newer_than: Option<&Timestamp>,
     ) -> Result<Vec<LongRunningRequestEntry>>;
 
-    /// Retrieve stats on the queue, optionally filtered by repo_id.
+    /// Retrieve stats on the queue, filtered by repo.
     /// If `exclude_backfill` is true, derived data backfill request types
     /// (derive_boundaries, derive_slice, derive_backfill, derive_backfill_repo)
     /// are excluded from the stats.
     async fn get_queue_stats(
         &self,
         ctx: &CoreContext,
-        repo_ids: Option<&[RepositoryId]>,
+        repo_filter: &QueueRepoFilter,
         exclude_backfill: bool,
     ) -> Result<QueueStats>;
 

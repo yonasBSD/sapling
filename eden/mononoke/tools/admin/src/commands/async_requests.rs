@@ -22,7 +22,6 @@ use context::SessionContainer;
 use metaconfig_types::RepoConfigArc;
 use mononoke_api::Repo;
 use mononoke_app::MononokeApp;
-use mononoke_app::args::AsRepoArg;
 use submit::AsyncRequestsSubmitArgs;
 
 use crate::commands::async_requests::abort::AsyncRequestsAbortArgs;
@@ -75,8 +74,7 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
             list::list_requests(list_args, ctx, queue).await?
         }
         AsyncRequestsSubcommand::Show(show_args) => {
-            let repo_id = app.repo_id(show_args.repo.as_repo_arg())?;
-            let queue = async_requests_client::build(fb, &app, Some(vec![repo_id]))
+            let queue = async_requests_client::build(fb, &app, None)
                 .await
                 .context("acquiring the async requests queue")?;
             let mononoke = Arc::new(
@@ -100,8 +98,7 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
             abort::abort_request(abort_args, ctx, queue).await?
         }
         AsyncRequestsSubcommand::Submit(submit_args) => {
-            let repo_id = app.repo_id(submit_args.repo.as_repo_arg())?;
-            let queue = async_requests_client::build(fb, &app, Some(vec![repo_id]))
+            let queue = async_requests_client::build(fb, &app, None)
                 .await
                 .context("acquiring the async requests queue")?;
             let repo = app.open_repo(&submit_args.repo).await?;

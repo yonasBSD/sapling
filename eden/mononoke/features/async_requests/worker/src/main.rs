@@ -18,6 +18,7 @@ use std::sync::atomic::Ordering;
 use anyhow::Context;
 use anyhow::Result;
 use async_requests::AsyncMethodRequestQueue;
+use async_requests::QueueRepoFilter;
 use async_requests_client::open_blobstore;
 use async_requests_client::open_sql_connection;
 use async_trait::async_trait;
@@ -37,7 +38,6 @@ use megarepo_api::MegarepoApi;
 use metaconfig_types::ShardedService;
 use mononoke_api::Mononoke;
 use mononoke_api::Repo;
-use mononoke_api::RepositoryId;
 use mononoke_app::MononokeAppBuilder;
 use mononoke_app::MononokeReposManager;
 use mononoke_app::args::HooksAppExtension;
@@ -46,6 +46,7 @@ use mononoke_app::args::ShutdownTimeoutArgs;
 use mononoke_app::args::WarmBookmarksCacheExtension;
 use mononoke_app::monitoring::AliveService;
 use mononoke_app::monitoring::MonitoringAppExtension;
+use mononoke_types::RepositoryId;
 use requests_table::LongRunningRequestsQueue;
 use requests_table::SqlLongRunningRequestsQueue;
 use sharding_ext::RepoShard;
@@ -71,8 +72,9 @@ struct AsyncRequestsWorkerArgs {
     /// The number of requests / jobs to be processed concurrently
     #[clap(long, short = 'j', default_value = "1")]
     jobs: usize,
-    /// If true, the worker will process requests for the global queue.
-    #[clap(long)]
+    /// Deprecated: the unsharded worker now always processes all repos.
+    /// Kept for backward compatibility with existing callers.
+    #[clap(long, hide = true)]
     process_global_queue: bool,
 }
 
@@ -123,18 +125,19 @@ impl RepoShardedProcess for WorkerProcess {
             .await
             .with_context(|| format!("Failure in setting up repo {}", repo_name))?;
         let repos = vec![repo.repo_identity.id()];
-        info!("Completed setup for repos {:?}", repos);
+        info!("Completed setup for repo {} ({:?})", repo_name, repos);
 
         let queue = Arc::new(AsyncMethodRequestQueue::new(
             self.sql_connection.clone(),
             self.blobstore.clone(),
-            Some(repos),
+            QueueRepoFilter::Only(repos),
         ));
 
         let executor = worker::AsyncMethodRequestWorker::new(
             self.args.clone(),
             self.ctx.clone(),
             queue,
+            self.repos_mgr.clone(),
             self.mononoke.clone(),
             self.megarepo.clone(),
             self.will_exit.clone(),
@@ -142,6 +145,20 @@ impl RepoShardedProcess for WorkerProcess {
         .await?;
         Ok(Arc::new(executor))
     }
+}
+
+/// Collect the repo IDs for all repos known to the config. These are
+/// the repos that ShardManager will assign to dedicated per-repo
+/// executors (on this or other worker instances), so the catch-all
+/// executor should exclude them.
+fn configured_repo_ids(repos_mgr: &MononokeReposManager<Repo>) -> Vec<RepositoryId> {
+    repos_mgr
+        .configs()
+        .repo_configs()
+        .repos
+        .values()
+        .map(|config| config.repoid)
+        .collect()
 }
 
 #[fbinit::main]
@@ -205,20 +222,26 @@ fn main(fb: FacebookInit) -> Result<()> {
         // on its own dedicated task spawned off the common tokio runtime.
         runtime.spawn(executor.block_and_execute(sm_shutdown_receiver));
 
-        if args.process_global_queue {
-            info!("Starting executor for global queue");
-            run_worker_queue(
-                &runtime,
-                ctx.clone(),
-                args.clone(),
-                mononoke.clone(),
-                megarepo.clone(),
-                sql_connection.clone(),
-                blobstore.clone(),
-                None,
-                will_exit.clone(),
-            )?;
-        }
+        // Start a catch-all executor for repos not in the config.
+        // Configured repos are handled by ShardManager per-repo executors
+        // (on this or other worker instances).
+        let excluded_repos = configured_repo_ids(&repos_mgr);
+        info!(
+            "Starting catch-all executor (excluding {} configured repos)",
+            excluded_repos.len()
+        );
+        run_worker_queue(
+            &runtime,
+            ctx.clone(),
+            args.clone(),
+            repos_mgr.clone(),
+            mononoke.clone(),
+            megarepo.clone(),
+            sql_connection.clone(),
+            blobstore.clone(),
+            QueueRepoFilter::Except(excluded_repos),
+            will_exit.clone(),
+        )?;
 
         app.wait_until_terminated(
             move || {
@@ -233,41 +256,19 @@ fn main(fb: FacebookInit) -> Result<()> {
             None,
         )?;
     } else {
-        // Sanity check to avoid a weird nonsensical state. This triggered S460221, so let's be paranoid.
-        let repos = mononoke.known_repo_ids();
-        if repos.is_empty() {
-            panic!("There are no repos configured for this service, cannot continue");
-        }
-
-        // all enabled repos
-        info!("Starting unsharded executor for repos {:?}", repos.clone());
+        info!("Starting unsharded executor for all repos");
         run_worker_queue(
             &runtime,
             ctx.clone(),
             args.clone(),
+            repos_mgr.clone(),
             mononoke.clone(),
             megarepo.clone(),
             sql_connection.clone(),
             blobstore.clone(),
-            Some(repos.clone()),
+            QueueRepoFilter::Except(vec![]),
             will_exit.clone(),
         )?;
-
-        // global queue
-        if args.process_global_queue {
-            info!("Starting unsharded executor for global queue");
-            run_worker_queue(
-                &runtime,
-                ctx.clone(),
-                args.clone(),
-                mononoke.clone(),
-                megarepo.clone(),
-                sql_connection.clone(),
-                blobstore.clone(),
-                None,
-                will_exit.clone(),
-            )?;
-        }
 
         app.wait_until_terminated(
             move || {
@@ -290,24 +291,26 @@ fn run_worker_queue(
     runtime: &tokio::runtime::Handle,
     ctx: Arc<CoreContext>,
     args: Arc<AsyncRequestsWorkerArgs>,
+    repos_mgr: Arc<MononokeReposManager<Repo>>,
     mononoke: Arc<Mononoke<Repo>>,
     megarepo: Arc<MegarepoApi<Repo>>,
     sql_connection: Arc<dyn LongRunningRequestsQueue>,
     blobstore: Arc<dyn Blobstore>,
-    repos: Option<Vec<RepositoryId>>,
+    repo_filter: QueueRepoFilter,
     will_exit: Arc<AtomicBool>,
 ) -> Result<()> {
     let executor = {
         let queue = Arc::new(AsyncMethodRequestQueue::new(
             sql_connection,
             blobstore,
-            repos,
+            repo_filter,
         ));
 
         runtime.block_on(worker::AsyncMethodRequestWorker::new(
             args.clone(),
             ctx.clone(),
             queue.clone(),
+            repos_mgr,
             mononoke.clone(),
             megarepo.clone(),
             will_exit.clone(),

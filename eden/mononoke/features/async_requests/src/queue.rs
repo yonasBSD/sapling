@@ -27,6 +27,7 @@ use requests_table::BlobstoreKey;
 pub use requests_table::ClaimedBy;
 use requests_table::LongRunningRequestEntry;
 use requests_table::LongRunningRequestsQueue;
+pub use requests_table::QueueRepoFilter;
 use requests_table::QueueStats;
 pub use requests_table::RequestId;
 use requests_table::RequestType;
@@ -55,6 +56,7 @@ const JK_RETRY_LIMIT: &str = "scm/mononoke:async_requests_retry_limit";
 #[derive(Debug, PartialEq)]
 pub struct DequeuedRequest {
     pub id: RequestId,
+    pub repo_id: Option<RepositoryId>,
     pub params: AsynchronousRequestParams,
     pub root_request_id: Option<RowId>,
 }
@@ -108,7 +110,7 @@ define_stats! {
 pub struct AsyncMethodRequestQueue {
     blobstore: Arc<dyn Blobstore>,
     table: Arc<dyn LongRunningRequestsQueue>,
-    repos: Option<Vec<RepositoryId>>,
+    repo_filter: QueueRepoFilter,
 }
 
 #[derive(Debug)]
@@ -130,16 +132,16 @@ impl AsyncMethodRequestQueue {
     pub fn new(
         table: Arc<dyn LongRunningRequestsQueue>,
         blobstore: Arc<dyn Blobstore>,
-        repos: Option<Vec<RepositoryId>>,
+        repo_filter: QueueRepoFilter,
     ) -> Self {
         Self {
             blobstore,
             table,
-            repos,
+            repo_filter,
         }
     }
 
-    pub fn new_test_in_memory(repos: Option<Vec<RepositoryId>>) -> Result<Self, Error> {
+    pub fn new_test_in_memory() -> Result<Self, Error> {
         let blobstore: Arc<dyn Blobstore> = Arc::new(Memblob::new(PutBehaviour::IfAbsent));
         let table: Arc<dyn LongRunningRequestsQueue> =
             Arc::new(SqlLongRunningRequestsQueue::with_sqlite_in_memory()?);
@@ -147,7 +149,7 @@ impl AsyncMethodRequestQueue {
         Ok(Self {
             blobstore,
             table,
-            repos,
+            repo_filter: QueueRepoFilter::Except(vec![]),
         })
     }
 
@@ -343,7 +345,7 @@ impl AsyncMethodRequestQueue {
     ) -> Result<Option<DequeuedRequest>, Error> {
         let entry = self
             .table
-            .claim_and_get_new_request(ctx, claimed_by, self.repos.as_deref())
+            .claim_and_get_new_request(ctx, claimed_by, &self.repo_filter)
             .await?;
 
         if let Some(entry) = entry {
@@ -353,10 +355,12 @@ impl AsyncMethodRequestQueue {
                 &entry.args_blobstore_key.0,
             )
             .await?;
+            let repo_id = entry.repo_id;
             let root_request_id = entry.root_request_id.clone();
             let req_id = RequestId(entry.id, entry.request_type);
             Ok(Some(DequeuedRequest {
                 id: req_id,
+                repo_id,
                 params: thrift_params,
                 root_request_id,
             }))
@@ -524,7 +528,7 @@ impl AsyncMethodRequestQueue {
         abandoned_timestamp: Timestamp,
     ) -> Result<Vec<RequestId>, Error> {
         self.table
-            .find_abandoned_requests(ctx, self.repos.as_deref(), abandoned_timestamp)
+            .find_abandoned_requests(ctx, &self.repo_filter, abandoned_timestamp)
             .await
     }
 
@@ -558,7 +562,7 @@ impl AsyncMethodRequestQueue {
     > {
         let entries = self
             .table
-            .list_requests(ctx, self.repos.as_deref(), last_update_newer_than)
+            .list_requests(ctx, &self.repo_filter, last_update_newer_than)
             .await
             .context("listing requests from the DB")?;
 
@@ -698,7 +702,7 @@ impl AsyncMethodRequestQueue {
         exclude_backfill: bool,
     ) -> Result<QueueStats, Error> {
         self.table
-            .get_queue_stats(ctx, self.repos.as_deref(), exclude_backfill)
+            .get_queue_stats(ctx, &self.repo_filter, exclude_backfill)
             .await
     }
 }
@@ -752,7 +756,7 @@ mod tests {
                 let ctx = CoreContext::test_mock(fb);
                 let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
                 let repo_id = repo.repo_identity().id();
-                let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+                let q = AsyncMethodRequestQueue::new_test_in_memory().unwrap();
 
                 // Enqueue a request
                 let params = $thrift_params;
@@ -923,7 +927,7 @@ mod tests {
     async fn test_retry_impl(ctx: &CoreContext) -> Result<(), Error> {
         let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
         let repo_id = repo.repo_identity().id();
-        let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+        let q = AsyncMethodRequestQueue::new_test_in_memory().unwrap();
         let claimed_by = ClaimedBy("tests".to_string());
 
         // Enqueue a request
@@ -1005,7 +1009,7 @@ mod tests {
     async fn test_concurrency_limit_grouped_impl(ctx: &CoreContext) -> Result<(), Error> {
         let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
         let repo_id = repo.repo_identity().id();
-        let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+        let q = AsyncMethodRequestQueue::new_test_in_memory().unwrap();
         let claimed_by = ClaimedBy("tests".to_string());
 
         let make_boundaries_params = || source_control::DeriveBoundariesParams {
@@ -1120,7 +1124,7 @@ mod tests {
             async {
                 let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
                 let repo_id = repo.repo_identity().id();
-                let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+                let q = AsyncMethodRequestQueue::new_test_in_memory().unwrap();
                 let claimed_by = ClaimedBy("tests".to_string());
 
                 let megarepo_type = RequestType("megarepo_sync_changeset".to_string());
@@ -1186,8 +1190,8 @@ mod tests {
             }),
             async {
                 let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
-                let repo_id = repo.repo_identity().id();
-                let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+                let _repo_id = repo.repo_identity().id();
+                let q = AsyncMethodRequestQueue::new_test_in_memory().unwrap();
                 let request_type = RequestType("derive_boundaries".to_string());
 
                 // Zero means unlimited — should always pass
@@ -1204,7 +1208,7 @@ mod tests {
         let ctx = CoreContext::test_mock(fb);
         let repo: Repo = test_repo_factory::build_empty(ctx.fb).await?;
         let repo_id = repo.repo_identity().id();
-        let q = AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap();
+        let q = AsyncMethodRequestQueue::new_test_in_memory().unwrap();
         let claimed_by = ClaimedBy("test_worker".to_string());
 
         // Use a fixed root_request_id for all test requests

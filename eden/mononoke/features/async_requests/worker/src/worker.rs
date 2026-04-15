@@ -13,7 +13,9 @@
 //! One important consideration to keep in mind - worker executes request "at least once"
 //! but not exactly once i.e. the same request might be executed a few times.
 
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -44,7 +46,9 @@ use megarepo_api::MegarepoApi;
 use mononoke_api::Mononoke;
 use mononoke_api::MononokeRepo;
 use mononoke_api::Repo;
+use mononoke_app::MononokeReposManager;
 use mononoke_macros::mononoke;
+use mononoke_types::RepositoryId;
 use mononoke_types::Timestamp;
 use stats::define_stats;
 use stats::prelude::*;
@@ -59,6 +63,33 @@ use crate::scuba::log_result;
 use crate::scuba::log_retriable_error;
 use crate::scuba::log_start;
 use crate::stats::stats_loop;
+
+/// Decrement the refcount for an on-demand loaded repo. When the count drops
+/// to zero the repo is removed from memory via `repos_mgr.remove_repo()`.
+/// This is a standalone function so it can be called both through `&self` and
+/// after `self` has been partially moved.
+fn release_ondemand_repo_impl(
+    repo_id: Option<RepositoryId>,
+    ondemand_repo_refs: &Mutex<HashMap<RepositoryId, (String, usize)>>,
+    repos_mgr: &MononokeReposManager<Repo>,
+) {
+    let repo_id = match repo_id {
+        Some(id) => id,
+        None => return,
+    };
+
+    let mut refs = ondemand_repo_refs.lock().expect("poisoned mutex");
+    if let Some((name, count)) = refs.get_mut(&repo_id) {
+        *count -= 1;
+        if *count == 0 {
+            let name = name.clone();
+            refs.remove(&repo_id);
+            drop(refs); // release lock before remove_repo
+            info!("Removing on-demand repo {} (id={})", name, repo_id);
+            repos_mgr.remove_repo(&name);
+        }
+    }
+}
 
 const DEQUEUE_STREAM_SLEEP_TIME: u64 = 1000;
 // Number of seconds after which inprogress request is considered abandoned
@@ -79,6 +110,7 @@ define_stats! {
 #[derive(Clone)]
 pub struct AsyncMethodRequestWorker {
     ctx: Arc<CoreContext>,
+    repos_mgr: Arc<MononokeReposManager<Repo>>,
     mononoke: Arc<Mononoke<Repo>>,
     megarepo: Arc<MegarepoApi<Repo>>,
     name: String,
@@ -86,6 +118,9 @@ pub struct AsyncMethodRequestWorker {
     will_exit: Arc<AtomicBool>,
     limit: Option<usize>,
     concurrency_limit: usize,
+    /// Tracks the number of in-flight tasks using each on-demand loaded repo.
+    /// Only call `repos_mgr.remove_repo()` when the count drops to zero.
+    ondemand_repo_refs: Arc<Mutex<HashMap<RepositoryId, (String, usize)>>>,
 }
 
 impl AsyncMethodRequestWorker {
@@ -93,6 +128,7 @@ impl AsyncMethodRequestWorker {
         args: Arc<AsyncRequestsWorkerArgs>,
         ctx: Arc<CoreContext>,
         queue: Arc<AsyncMethodRequestQueue>,
+        repos_mgr: Arc<MononokeReposManager<Repo>>,
         mononoke: Arc<Mononoke<Repo>>,
         megarepo: Arc<MegarepoApi<Repo>>,
         will_exit: Arc<AtomicBool>,
@@ -114,6 +150,7 @@ impl AsyncMethodRequestWorker {
 
         Ok(Self {
             ctx,
+            repos_mgr,
             mononoke,
             megarepo,
             name,
@@ -121,6 +158,7 @@ impl AsyncMethodRequestWorker {
             will_exit,
             limit: args.request_limit,
             concurrency_limit: args.jobs,
+            ondemand_repo_refs: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 }
@@ -161,6 +199,7 @@ impl RepoShardedProcessExecutor for AsyncMethodRequestWorker {
                 if let Err(e) = mononoke::spawn_task(worker.compute_and_mark_completed(
                     ctx,
                     dequeued.id,
+                    dequeued.repo_id,
                     dequeued.params,
                     dequeued.root_request_id,
                 ))
@@ -278,6 +317,63 @@ impl AsyncMethodRequestWorker {
         Ok(())
     }
 
+    /// Ensure the repo for this request is loaded. Returns true if this is
+    /// an on-demand repo that should be released after processing via
+    /// `release_ondemand_repo`.
+    async fn ensure_repo_loaded(&self, repo_id: Option<RepositoryId>) -> Result<bool, Error> {
+        let repo_id = match repo_id {
+            Some(id) => id,
+            None => return Ok(false),
+        };
+
+        // Fast path: check if already tracked as on-demand or pre-configured.
+        {
+            let mut refs = self.ondemand_repo_refs.lock().expect("poisoned mutex");
+            if let Some((_, count)) = refs.get_mut(&repo_id) {
+                *count += 1;
+                return Ok(true);
+            }
+            // Pre-configured repo — no on-demand management needed.
+            if self.mononoke.raw_repo_by_id(repo_id.id()).is_some() {
+                return Ok(false);
+            }
+            // Insert a sentinel entry with refcount 1 while we hold the lock.
+            // This prevents a concurrent task from also calling add_repo for
+            // the same repo_id — it will see the entry and just bump the count.
+            let configs = self.repos_mgr.configs();
+            let repo_name = configs
+                .repo_configs()
+                .repos
+                .iter()
+                .find(|(_, config)| config.repoid == repo_id)
+                .map(|(name, _)| name.clone())
+                .ok_or_else(|| Error::msg(format!("No config found for repo_id {}", repo_id)))?;
+            refs.insert(repo_id, (repo_name, 1));
+        }
+
+        // Load the repo outside the lock. If this fails we must clean up the
+        // sentinel so subsequent tasks don't think the repo is loaded.
+        let repo_name = {
+            let refs = self.ondemand_repo_refs.lock().expect("poisoned mutex");
+            refs.get(&repo_id).map(|(name, _)| name.clone()).unwrap()
+        };
+        info!("Loading repo {} (id={}) on-demand", repo_name, repo_id);
+        if let Err(e) = self.repos_mgr.add_repo(&repo_name).await {
+            // Remove the sentinel so concurrent waiters don't see a loaded repo.
+            let mut refs = self.ondemand_repo_refs.lock().expect("poisoned mutex");
+            refs.remove(&repo_id);
+            return Err(e);
+        }
+
+        Ok(true)
+    }
+
+    /// Decrement the refcount for an on-demand repo. When it reaches zero,
+    /// remove the repo from memory.
+    fn release_ondemand_repo(&self, repo_id: Option<RepositoryId>) {
+        release_ondemand_repo_impl(repo_id, &self.ondemand_repo_refs, &self.repos_mgr);
+    }
+
     /// Params into stored response. Doesn't mark it as "in progress" (as this is done during dequeueing).
     /// Returns true if the result was successfully stored. Returns false if we
     /// lost the race (the request table was updated).
@@ -285,14 +381,30 @@ impl AsyncMethodRequestWorker {
         self,
         ctx: CoreContext,
         req_id: RequestId,
+        repo_id: Option<RepositoryId>,
         params: AsynchronousRequestParams,
         root_request_id: Option<RowId>,
     ) {
+        // Load the repo on-demand if needed
+        let is_ondemand = match self.ensure_repo_loaded(repo_id).await {
+            Ok(v) => v,
+            Err(err) => {
+                STATS::process_failed.add_value(1);
+                error!("[{}] Failed to load repo for request: {:?}", &req_id.0, err);
+                if let Err(e) = self.queue.requeue(&ctx, req_id).await {
+                    error!("Failed to requeue after repo load failure: {:?}", e);
+                }
+                return;
+            }
+        };
+        let cleanup_repo_id = if is_ondemand { repo_id } else { None };
+
         let target = match params.target() {
             Ok(target) => target,
             Err(err) => {
                 STATS::process_failed.add_value(1);
                 error!("Error getting target: {:?}", err);
+                self.release_ondemand_repo(cleanup_repo_id);
                 return;
             }
         };
@@ -314,6 +426,7 @@ impl AsyncMethodRequestWorker {
                         &row_id, requeue_err
                     );
                 }
+                self.release_ondemand_repo(cleanup_repo_id);
                 return;
             }
             Err(e) => {
@@ -322,6 +435,9 @@ impl AsyncMethodRequestWorker {
             _ => {}
         }
 
+        // Save refs for cleanup after self is partially moved.
+        let ondemand_repo_refs = self.ondemand_repo_refs.clone();
+        let repos_mgr_for_cleanup = self.repos_mgr.clone();
         // Do the actual work.
         STATS::requested.add_value(1);
         let work_fut = megarepo_async_request_compute(
@@ -412,6 +528,9 @@ impl AsyncMethodRequestWorker {
                 info!("[{}] was completed by other worker, stopping", &req_id.0);
             }
         }
+
+        // Release on-demand repo (decrement refcount, remove when zero).
+        release_ondemand_repo_impl(cleanup_repo_id, &ondemand_repo_refs, &repos_mgr_for_cleanup);
     }
 
     async fn keep_alive_loop(
@@ -469,7 +588,7 @@ mod test {
     #[mononoke::fbinit_test]
     async fn test_request_stream_simple(fb: FacebookInit) -> Result<(), Error> {
         let repo_id = RepositoryId::new(0);
-        let q = Arc::new(AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap());
+        let q = Arc::new(AsyncMethodRequestQueue::new_test_in_memory().unwrap());
         let ctx = CoreContext::test_mock(fb);
 
         let params = thrift::MegarepoSyncChangesetParams {
@@ -510,7 +629,7 @@ mod test {
     #[mononoke::fbinit_test]
     async fn test_request_stream_clear_abandoned(fb: FacebookInit) -> Result<(), Error> {
         let repo_id = RepositoryId::new(0);
-        let q = Arc::new(AsyncMethodRequestQueue::new_test_in_memory(Some(vec![repo_id])).unwrap());
+        let q = Arc::new(AsyncMethodRequestQueue::new_test_in_memory().unwrap());
         let ctx = CoreContext::test_mock(fb);
 
         let params = thrift::MegarepoSyncChangesetParams {

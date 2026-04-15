@@ -26,6 +26,7 @@ use crate::BlobstoreKey;
 use crate::ClaimedBy;
 use crate::LongRunningRequestEntry;
 use crate::LongRunningRequestsQueue;
+use crate::QueueRepoFilter;
 use crate::RequestId;
 use crate::RequestStatus;
 use crate::RequestType;
@@ -106,54 +107,6 @@ mononoke_queries! {
         WHERE id = {id} AND request_type = {request_type}"
     }
 
-    read GetOneNewRequestForGlobalQueueWithDeps() -> (
-        RowId,
-        RequestType,
-        Option<RepositoryId>,
-        BlobstoreKey,
-        Option<BlobstoreKey>,
-        Timestamp,
-        Option<Timestamp>,
-        Option<Timestamp>,
-        Option<Timestamp>,
-        Option<Timestamp>,
-        RequestStatus,
-        Option<ClaimedBy>,
-        Option<u8>,
-        Option<Timestamp>,
-        Option<RowId>,
-    ) {
-        "SELECT
-           q.id,
-           q.request_type,
-           q.repo_id,
-           q.args_blobstore_key,
-           q.result_blobstore_key,
-           q.created_at,
-           q.started_processing_at,
-           q.inprogress_last_updated_at,
-           q.ready_at,
-           q.polled_at,
-           q.status,
-           q.claimed_by,
-           q.num_retries,
-           q.failed_at,
-           q.root_request_id
-         FROM long_running_request_queue q
-         WHERE q.status = 'new'
-           AND q.repo_id IS NULL
-           AND NOT EXISTS (
-             SELECT 1 FROM long_running_request_dependencies dep
-             JOIN long_running_request_queue parent
-               ON dep.depends_on_request_id = parent.id
-             WHERE dep.request_id = q.id
-               AND parent.status NOT IN ('ready', 'polled')
-            )
-          ORDER BY q.created_at ASC
-          LIMIT 1
-        "
-    }
-
     read GetOneNewRequestForReposWithDeps(>list supported_repo_ids: RepositoryId) -> (
         RowId,
         RequestType,
@@ -190,6 +143,101 @@ mononoke_queries! {
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.repo_id IN {supported_repo_ids}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent
+               ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id
+               AND parent.status NOT IN ('ready', 'polled')
+            )
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        "
+    }
+
+    read GetOneNewRequestExcludingReposWithDeps(>list excluded_repo_ids: RepositoryId) -> (
+        RowId,
+        RequestType,
+        Option<RepositoryId>,
+        BlobstoreKey,
+        Option<BlobstoreKey>,
+        Timestamp,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        RequestStatus,
+        Option<ClaimedBy>,
+        Option<u8>,
+        Option<Timestamp>,
+        Option<RowId>,
+    ) {
+        "SELECT
+           q.id,
+           q.request_type,
+           q.repo_id,
+           q.args_blobstore_key,
+           q.result_blobstore_key,
+           q.created_at,
+           q.started_processing_at,
+           q.inprogress_last_updated_at,
+           q.ready_at,
+           q.polled_at,
+           q.status,
+           q.claimed_by,
+           q.num_retries,
+           q.failed_at,
+           q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND (q.repo_id IS NULL OR q.repo_id NOT IN {excluded_repo_ids})
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent
+               ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id
+               AND parent.status NOT IN ('ready', 'polled')
+            )
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        "
+    }
+
+    read GetOneNewRequestWithDeps() -> (
+        RowId,
+        RequestType,
+        Option<RepositoryId>,
+        BlobstoreKey,
+        Option<BlobstoreKey>,
+        Timestamp,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        RequestStatus,
+        Option<ClaimedBy>,
+        Option<u8>,
+        Option<Timestamp>,
+        Option<RowId>,
+    ) {
+        "SELECT
+           q.id,
+           q.request_type,
+           q.repo_id,
+           q.args_blobstore_key,
+           q.result_blobstore_key,
+           q.created_at,
+           q.started_processing_at,
+           q.inprogress_last_updated_at,
+           q.ready_at,
+           q.polled_at,
+           q.status,
+           q.claimed_by,
+           q.num_retries,
+           q.failed_at,
+           q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
            AND NOT EXISTS (
              SELECT 1 FROM long_running_request_dependencies dep
              JOIN long_running_request_queue parent
@@ -250,6 +298,18 @@ mononoke_queries! {
         SELECT id, request_type
         FROM long_running_request_queue
         WHERE repo_id IN {repo_ids} AND status = 'inprogress' AND inprogress_last_updated_at <= {abandoned_timestamp}
+        "
+    }
+
+    read FindAbandonedRequestsExcludingRepos(
+        abandoned_timestamp: Timestamp,
+        >list excluded_repo_ids: RepositoryId
+    ) -> (RowId, RequestType) {
+        "
+        SELECT id, request_type
+        FROM long_running_request_queue
+        WHERE (repo_id IS NULL OR repo_id NOT IN {excluded_repo_ids})
+          AND status = 'inprogress' AND inprogress_last_updated_at <= {abandoned_timestamp}
         "
     }
 
@@ -459,6 +519,66 @@ mononoke_queries! {
             root_request_id
         FROM long_running_request_queue
         WHERE repo_id IN {repo_ids} AND (
+            inprogress_last_updated_at > {last_update_newer_than} OR
+            (status = 'new' AND created_at > {last_update_newer_than})
+        )")
+    }
+
+    read ListRequestsExcludingRepos(last_update_newer_than: Timestamp, >list excluded_repo_ids: RepositoryId) -> (
+        RowId,
+        RequestType,
+        Option<RepositoryId>,
+        BlobstoreKey,
+        Option<BlobstoreKey>,
+        Timestamp,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        Option<Timestamp>,
+        RequestStatus,
+        Option<ClaimedBy>,
+        Option<u8>,
+        Option<Timestamp>,
+        Option<RowId>,
+    ) {
+        mysql("SELECT id,
+            request_type,
+            repo_id,
+            args_blobstore_key,
+            result_blobstore_key,
+            created_at,
+            started_processing_at,
+            inprogress_last_updated_at,
+            ready_at,
+            polled_at,
+            status,
+            claimed_by,
+            num_retries,
+            failed_at,
+            root_request_id
+        FROM long_running_request_queue
+        FORCE INDEX (list_requests_any)
+        WHERE (repo_id IS NULL OR repo_id NOT IN {excluded_repo_ids}) AND (
+            inprogress_last_updated_at > {last_update_newer_than} OR
+            (status = 'new' AND created_at > {last_update_newer_than})
+        )")
+        sqlite("SELECT id,
+            request_type,
+            repo_id,
+            args_blobstore_key,
+            result_blobstore_key,
+            created_at,
+            started_processing_at,
+            inprogress_last_updated_at,
+            ready_at,
+            polled_at,
+            status,
+            claimed_by,
+            num_retries,
+            failed_at,
+            root_request_id
+        FROM long_running_request_queue
+        WHERE (repo_id IS NULL OR repo_id NOT IN {excluded_repo_ids}) AND (
             inprogress_last_updated_at > {last_update_newer_than} OR
             (status = 'new' AND created_at > {last_update_newer_than})
         )")
@@ -897,7 +1017,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         &self,
         ctx: &CoreContext,
         claimed_by: &ClaimedBy,
-        supported_repos: Option<&[RepositoryId]>,
+        repo_filter: &QueueRepoFilter,
     ) -> Result<Option<LongRunningRequestEntry>> {
         // Spin until we win the race or there's nothing to do.
         loop {
@@ -907,11 +1027,19 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                 .start_transaction(ctx.sql_query_telemetry())
                 .await?;
 
-            let (txn, rows) = match supported_repos {
-                Some(repos) => {
+            let (txn, rows) = match repo_filter {
+                QueueRepoFilter::Only(repos) if repos.is_empty() => {
+                    return Ok(None);
+                }
+                QueueRepoFilter::Only(repos) => {
                     GetOneNewRequestForReposWithDeps::query_with_transaction(txn, repos).await
                 }
-                None => GetOneNewRequestForGlobalQueueWithDeps::query_with_transaction(txn).await,
+                QueueRepoFilter::Except(repos) if repos.is_empty() => {
+                    GetOneNewRequestWithDeps::query_with_transaction(txn).await
+                }
+                QueueRepoFilter::Except(repos) => {
+                    GetOneNewRequestExcludingReposWithDeps::query_with_transaction(txn, repos).await
+                }
             }
             .context("claiming new request")?;
             let mut entry = match rows.into_iter().next() {
@@ -994,11 +1122,14 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
     async fn find_abandoned_requests(
         &self,
         ctx: &CoreContext,
-        repo_ids: Option<&[RepositoryId]>,
+        repo_filter: &QueueRepoFilter,
         abandoned_timestamp: Timestamp,
     ) -> Result<Vec<RequestId>> {
-        let rows = match repo_ids {
-            Some(repos) => {
+        let rows = match repo_filter {
+            QueueRepoFilter::Only(repos) if repos.is_empty() => {
+                return Ok(vec![]);
+            }
+            QueueRepoFilter::Only(repos) => {
                 FindAbandonedRequestsForRepos::query(
                     &self.connections.write_connection,
                     ctx.sql_query_telemetry(),
@@ -1007,11 +1138,20 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                 )
                 .await
             }
-            None => {
+            QueueRepoFilter::Except(repos) if repos.is_empty() => {
                 FindAbandonedRequestsForAnyRepo::query(
                     &self.connections.write_connection,
                     ctx.sql_query_telemetry(),
                     &abandoned_timestamp,
+                )
+                .await
+            }
+            QueueRepoFilter::Except(repos) => {
+                FindAbandonedRequestsExcludingRepos::query(
+                    &self.connections.write_connection,
+                    ctx.sql_query_telemetry(),
+                    &abandoned_timestamp,
+                    repos,
                 )
                 .await
             }
@@ -1137,11 +1277,14 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
     async fn list_requests(
         &self,
         ctx: &CoreContext,
-        repo_ids: Option<&[RepositoryId]>,
+        repo_filter: &QueueRepoFilter,
         last_update_newer_than: Option<&Timestamp>,
     ) -> Result<Vec<LongRunningRequestEntry>> {
-        let entries = match repo_ids {
-            Some(repos) => {
+        let entries = match repo_filter {
+            QueueRepoFilter::Only(repos) if repos.is_empty() => {
+                return Ok(vec![]);
+            }
+            QueueRepoFilter::Only(repos) => {
                 ListRequestsForRepos::query(
                     &self.connections.read_connection,
                     ctx.sql_query_telemetry(),
@@ -1150,11 +1293,20 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                 )
                 .await
             }
-            None => {
+            QueueRepoFilter::Except(repos) if repos.is_empty() => {
                 ListRequestsForAnyRepo::query(
                     &self.connections.read_connection,
                     ctx.sql_query_telemetry(),
                     last_update_newer_than.unwrap_or(&Timestamp::from_timestamp_nanos(0)),
+                )
+                .await
+            }
+            QueueRepoFilter::Except(repos) => {
+                ListRequestsExcludingRepos::query(
+                    &self.connections.read_connection,
+                    ctx.sql_query_telemetry(),
+                    last_update_newer_than.unwrap_or(&Timestamp::from_timestamp_nanos(0)),
+                    repos,
                 )
                 .await
             }
@@ -1169,9 +1321,25 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
     async fn get_queue_stats(
         &self,
         ctx: &CoreContext,
-        repo_ids: Option<&[RepositoryId]>,
+        repo_filter: &QueueRepoFilter,
         exclude_backfill: bool,
     ) -> Result<QueueStats> {
+        // Note: Except filtering is intentionally not implemented for stats
+        // queries. Stats are used for monitoring/observability, and returning
+        // stats across all repos is acceptable (and simpler than adding 8
+        // additional SQL query variants). Only `Only` filtering is exact here.
+        let repo_ids = match repo_filter {
+            QueueRepoFilter::Only(repos) if repos.is_empty() => {
+                return Ok(QueueStats {
+                    queue_length_by_status: vec![],
+                    queue_age_by_status: vec![],
+                    queue_length_by_repo_and_status: vec![],
+                    queue_age_by_repo_and_status: vec![],
+                });
+            }
+            QueueRepoFilter::Only(repos) => Some(repos.as_slice()),
+            QueueRepoFilter::Except(_) => None,
+        };
         Ok(QueueStats {
             queue_length_by_status: get_queue_length(
                 ctx,
@@ -1757,7 +1925,11 @@ mod test {
         assert!(request.inprogress_last_updated_at.is_none());
 
         let result = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("me".to_string()), None)
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await;
         assert!(result.is_ok());
         let result = result.unwrap();
@@ -1786,36 +1958,12 @@ mod test {
         let request = request.unwrap();
         assert!(request.inprogress_last_updated_at.is_none());
 
-        // passing None does *not* match any repo id; it only matches global queue
-        let result = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("me".to_string()), None)
-            .await;
-        assert!(result.is_ok());
-        let result = result.unwrap();
-        assert!(result.is_none());
-
-        // different repo id
+        // Dequeue picks up requests for any repo
         let result = queue
             .claim_and_get_new_request(
                 &ctx,
                 &ClaimedBy("me".to_string()),
-                Some(&[RepositoryId::new(1)]),
-            )
-            .await;
-        assert!(result.is_ok());
-        let result = result.unwrap();
-        assert!(result.is_none());
-
-        // correct repo id
-        let result = queue
-            .claim_and_get_new_request(
-                &ctx,
-                &ClaimedBy("me".to_string()),
-                Some(&[
-                    RepositoryId::new(0),
-                    RepositoryId::new(1),
-                    RepositoryId::new(2),
-                ]),
+                &QueueRepoFilter::Except(vec![]),
             )
             .await;
         assert!(result.is_ok());
@@ -1823,6 +1971,16 @@ mod test {
         assert!(result.is_some());
         let result = result.unwrap();
         assert!(result.id == id);
+
+        // Queue is now empty
+        let result = queue
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
+            .await?;
+        assert!(result.is_none());
 
         Ok(())
     }
@@ -1846,7 +2004,11 @@ mod test {
         assert!(request.inprogress_last_updated_at.is_none());
 
         queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("me".to_string()), None)
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
 
         let request = queue.test_get_request_entry_by_id(&ctx, &id).await?;
@@ -1885,7 +2047,11 @@ mod test {
 
         // This claims new request from queue and makes it inprogress
         let req = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("me".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(req.is_some());
 
@@ -1895,33 +2061,16 @@ mod test {
         let abandoned_timestamp = Timestamp::from_timestamp_secs(now.timestamp_seconds() - 1);
         // Search in any repo
         let abandoned = queue
-            .find_abandoned_requests(&ctx, None, abandoned_timestamp)
+            .find_abandoned_requests(&ctx, &QueueRepoFilter::Except(vec![]), abandoned_timestamp)
             .await?;
         assert_eq!(abandoned.len(), 1);
         assert_eq!(abandoned[0].0, id);
 
-        // Search in the wrong repo
+        // Verify abandoned request is still found
         let now = Timestamp::now();
         let abandoned_timestamp = Timestamp::from_timestamp_secs(now.timestamp_seconds() - 1);
         let abandoned = queue
-            .find_abandoned_requests(&ctx, Some(&[RepositoryId::new(1)]), abandoned_timestamp)
-            .await?;
-        assert_eq!(abandoned.len(), 1);
-        assert_eq!(abandoned[0].0, id);
-
-        // Search in a set of repos
-        let now = Timestamp::now();
-        let abandoned_timestamp = Timestamp::from_timestamp_secs(now.timestamp_seconds() - 1);
-        let abandoned = queue
-            .find_abandoned_requests(
-                &ctx,
-                Some(&[
-                    RepositoryId::new(1),
-                    RepositoryId::new(2),
-                    RepositoryId::new(5),
-                ]),
-                abandoned_timestamp,
-            )
+            .find_abandoned_requests(&ctx, &QueueRepoFilter::Except(vec![]), abandoned_timestamp)
             .await?;
         assert_eq!(abandoned.len(), 1);
         assert_eq!(abandoned[0].0, id);
@@ -1934,7 +2083,11 @@ mod test {
         assert!(updated);
         assert_eq!(
             queue
-                .find_abandoned_requests(&ctx, None, abandoned_timestamp)
+                .find_abandoned_requests(
+                    &ctx,
+                    &QueueRepoFilter::Except(vec![]),
+                    abandoned_timestamp
+                )
                 .await?,
             vec![]
         );
@@ -1980,7 +2133,11 @@ mod test {
 
         // This claims new request from queue and makes it inprogress
         let req = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("me".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(req.is_some());
 
@@ -1988,7 +2145,7 @@ mod test {
         let now = Timestamp::now();
         let abandoned_timestamp = Timestamp::from_timestamp_secs(now.timestamp_seconds() - 1);
         let abandoned = queue
-            .find_abandoned_requests(&ctx, Some(&[repo_id]), abandoned_timestamp)
+            .find_abandoned_requests(&ctx, &QueueRepoFilter::Except(vec![]), abandoned_timestamp)
             .await?;
         assert_eq!(abandoned.len(), 1);
         assert_eq!(abandoned[0].0, id);
@@ -2021,7 +2178,9 @@ mod test {
             )
             .await?;
 
-        let stats = queue.get_queue_stats(&ctx, Some(&[repo_id]), false).await?;
+        let stats = queue
+            .get_queue_stats(&ctx, &QueueRepoFilter::Except(vec![]), false)
+            .await?;
         assert_eq!(stats.queue_length_by_status.len(), 1);
         let entry = &stats.queue_length_by_status[0];
         assert_eq!(entry.0, RequestStatus::New);
@@ -2035,13 +2194,19 @@ mod test {
         // This claims new request from queue and makes it inprogress
         let now = Timestamp::now();
         let req = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("me".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(req.is_some());
 
         tokio::time::sleep(Duration::from_secs(3)).await;
 
-        let stats = queue.get_queue_stats(&ctx, Some(&[repo_id]), false).await?;
+        let stats = queue
+            .get_queue_stats(&ctx, &QueueRepoFilter::Except(vec![]), false)
+            .await?;
         assert_eq!(stats.queue_length_by_status.len(), 1);
         let entry = &stats.queue_length_by_status[0];
         assert_eq!(entry.0, RequestStatus::InProgress);
@@ -2108,7 +2273,11 @@ mod test {
 
         // Dequeue should return the parent (no unmet deps), not the child
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_some());
         let claimed = claimed.unwrap();
@@ -2116,7 +2285,11 @@ mod test {
 
         // Dequeue again — child should NOT be dequeued (parent is inprogress, not ready/polled)
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_none());
 
@@ -2128,7 +2301,11 @@ mod test {
 
         // Now dequeue should return the child
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_some());
         let claimed = claimed.unwrap();
@@ -2200,7 +2377,11 @@ mod test {
 
         // Nothing should be dequeueable
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_none());
 
@@ -2269,14 +2450,22 @@ mod test {
 
         // Only boundary should be dequeueable initially
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_some());
         assert_eq!(claimed.unwrap().id, boundary_id);
 
         // No more dequeueable (boundary is inprogress, slices blocked)
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_none());
 
@@ -2292,14 +2481,22 @@ mod test {
 
         // Now slice1 should be dequeueable (boundary is ready)
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_some());
         assert_eq!(claimed.unwrap().id, slice1_id);
 
         // slice2 still blocked (slice1 is inprogress)
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_none());
 
@@ -2315,7 +2512,11 @@ mod test {
 
         // Now slice2 should be dequeueable
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_some());
         assert_eq!(claimed.unwrap().id, slice2_id);
@@ -2332,7 +2533,11 @@ mod test {
 
         // Now slice3 should be dequeueable
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_some());
         assert_eq!(claimed.unwrap().id, slice3_id);
@@ -2394,7 +2599,11 @@ mod test {
         let boundary_req_id = RequestId(boundary_id, RequestType("derive_boundaries".to_string()));
         // Claim boundary first so we can mark it ready (needs inprogress status)
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert_eq!(claimed.unwrap().id, boundary_id);
         queue
@@ -2407,7 +2616,11 @@ mod test {
 
         // Claim slice1 and then fail it with cascade
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert_eq!(claimed.unwrap().id, slice1_id);
 
@@ -2439,9 +2652,132 @@ mod test {
 
         // Nothing should be dequeueable
         let claimed = queue
-            .claim_and_get_new_request(&ctx, &ClaimedBy("test".to_string()), Some(&[repo_id]))
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("test".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
             .await?;
         assert!(claimed.is_none());
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_claim_repo_filter(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let queue = SqlLongRunningRequestsQueue::with_sqlite_in_memory()?;
+
+        let repo_id = RepositoryId::new(0);
+        let id = queue
+            .add_request(
+                &ctx,
+                &RequestType("type".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("key".to_string()),
+            )
+            .await?;
+
+        // Only([wrong_repo]) should not match
+        let result = queue
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Only(vec![RepositoryId::new(1)]),
+            )
+            .await?;
+        assert!(result.is_none());
+
+        // Except([this_repo]) should not match
+        let result = queue
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Except(vec![repo_id]),
+            )
+            .await?;
+        assert!(result.is_none());
+
+        // Only([correct_repo]) should match
+        let result = queue
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Only(vec![repo_id]),
+            )
+            .await?;
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().id, id);
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_find_abandoned_repo_filter(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let queue = SqlLongRunningRequestsQueue::with_sqlite_in_memory()?;
+
+        let repo_id = RepositoryId::new(5);
+        let id = queue
+            .add_request(
+                &ctx,
+                &RequestType("type".to_string()),
+                Some(&repo_id),
+                &BlobstoreKey("key".to_string()),
+            )
+            .await?;
+
+        // Claim the request to make it inprogress
+        queue
+            .claim_and_get_new_request(
+                &ctx,
+                &ClaimedBy("me".to_string()),
+                &QueueRepoFilter::Except(vec![]),
+            )
+            .await?;
+
+        // Wait so the request becomes "abandoned"
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        let now = Timestamp::now();
+        let abandoned_timestamp = Timestamp::from_timestamp_secs(now.timestamp_seconds() - 1);
+
+        // Except([this_repo]) should not find it
+        let abandoned = queue
+            .find_abandoned_requests(
+                &ctx,
+                &QueueRepoFilter::Except(vec![repo_id]),
+                abandoned_timestamp,
+            )
+            .await?;
+        assert!(abandoned.is_empty());
+
+        // Only([wrong_repo]) should not find it
+        let abandoned = queue
+            .find_abandoned_requests(
+                &ctx,
+                &QueueRepoFilter::Only(vec![RepositoryId::new(99)]),
+                abandoned_timestamp,
+            )
+            .await?;
+        assert!(abandoned.is_empty());
+
+        // Only([correct_repo]) should find it
+        let abandoned = queue
+            .find_abandoned_requests(
+                &ctx,
+                &QueueRepoFilter::Only(vec![repo_id]),
+                abandoned_timestamp,
+            )
+            .await?;
+        assert_eq!(abandoned.len(), 1);
+        assert_eq!(abandoned[0].0, id);
+
+        // Except([]) should also find it
+        let abandoned = queue
+            .find_abandoned_requests(&ctx, &QueueRepoFilter::Except(vec![]), abandoned_timestamp)
+            .await?;
+        assert_eq!(abandoned.len(), 1);
+        assert_eq!(abandoned[0].0, id);
 
         Ok(())
     }
