@@ -98,7 +98,8 @@ pub enum SaplingRemoteApiMethod {
     Blame,
     Bookmarks2,
     Capabilities,
-    CheckPermission,
+    CheckManifestPermission,
+    CheckPathPermission,
     CloudHistoricalVersions,
     CloudOtherRepoWorkspaces,
     CloudReferences,
@@ -149,7 +150,8 @@ impl fmt::Display for SaplingRemoteApiMethod {
             Self::Blame => "blame",
             Self::Bookmarks2 => "bookmarks2",
             Self::Capabilities => "capabilities",
-            Self::CheckPermission => "check_permission",
+            Self::CheckManifestPermission => "check_manifest_permission",
+            Self::CheckPathPermission => "check_path_permission",
             Self::CloudHistoricalVersions => "cloud_historical_versions",
             Self::CloudOtherRepoWorkspaces => "cloud_other_repo_workspaces",
             Self::CloudReferences => "cloud_references",
@@ -552,7 +554,8 @@ pub fn build_router<R: Send + Sync + Clone + 'static>(ctx: ServerContext<R>) -> 
         Handlers::setup::<lookup::LookupHandler>(route);
         Handlers::setup::<path_history::PathHistoryHandler>(route);
         Handlers::setup::<suffix_query::SuffixQueryHandler>(route);
-        Handlers::setup::<trees::CheckPermissionHandler>(route);
+        Handlers::setup::<trees::CheckManifestPermissionHandler>(route);
+        Handlers::setup::<trees::CheckPathPermissionHandler>(route);
         Handlers::setup::<trees::UploadTreesHandler>(route);
         route.get("/:repo/health_check").to(health_handler);
         route

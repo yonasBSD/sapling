@@ -17,6 +17,7 @@ use serde_derive::Deserialize;
 use serde_derive::Serialize;
 use thiserror::Error;
 use type_macros::auto_wire;
+use types::RepoPathBuf;
 use types::hgid::HgId;
 use types::hgid::NULL_ID;
 use types::key::Key;
@@ -402,7 +403,7 @@ pub struct UploadTreeResponse {
 #[auto_wire]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "for-tests"), derive(Arbitrary))]
-pub struct CheckPermissionRequest {
+pub struct CheckManifestPermissionRequest {
     #[id(1)]
     pub manifest_ids: Vec<HgId>,
 }
@@ -410,7 +411,7 @@ pub struct CheckPermissionRequest {
 #[auto_wire]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "for-tests"), derive(Arbitrary))]
-pub struct CheckPermissionResponse {
+pub struct CheckManifestPermissionResponse {
     #[id(1)]
     pub manifest_id: HgId,
     /// Whether the caller has access to this manifest.
@@ -419,4 +420,31 @@ pub struct CheckPermissionResponse {
     /// ACL to request access through. Present when has_access is false.
     #[id(3)]
     pub request_acl: Option<String>,
+}
+
+#[auto_wire]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "for-tests"), derive(Arbitrary))]
+pub struct CheckPathPermissionRequest {
+    #[id(1)]
+    pub hg_cs_id: HgId,
+    #[id(2)]
+    pub paths: Vec<RepoPathBuf>,
+}
+
+#[auto_wire]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "for-tests"), derive(Arbitrary))]
+pub struct CheckPathPermissionResponse {
+    #[id(1)]
+    pub path: RepoPathBuf,
+    /// Whether the caller has access to this path.
+    #[id(2)]
+    pub has_access: bool,
+    /// ACLs to request access through (one per restriction covering this path).
+    #[id(3)]
+    pub request_acls: Vec<String>,
+    /// Repo region ACLs that govern access to this path.
+    #[id(4)]
+    pub repo_region_acls: Vec<String>,
 }

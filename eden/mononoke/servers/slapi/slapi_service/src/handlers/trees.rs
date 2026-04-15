@@ -12,8 +12,10 @@ use bytes::Bytes;
 use context::PerfCounterType;
 use edenapi_types::AnyId;
 use edenapi_types::Batch;
-use edenapi_types::CheckPermissionRequest;
-use edenapi_types::CheckPermissionResponse;
+use edenapi_types::CheckManifestPermissionRequest;
+use edenapi_types::CheckManifestPermissionResponse;
+use edenapi_types::CheckPathPermissionRequest;
+use edenapi_types::CheckPathPermissionResponse;
 use edenapi_types::FileAuxData;
 use edenapi_types::SaplingRemoteApiServerError;
 use edenapi_types::TreeAttributes;
@@ -54,6 +56,7 @@ use mononoke_api_hg::HgDataContext;
 use mononoke_api_hg::HgDataId;
 use mononoke_api_hg::HgRepoContext;
 use mononoke_api_hg::HgTreeContext;
+use mononoke_types::MPath;
 use rate_limiting::Metric;
 use rate_limiting::Scope;
 use repo_blobstore::RepoBlobstoreRef;
@@ -435,16 +438,16 @@ impl SaplingRemoteApiHandler for UploadTreesHandler {
     }
 }
 
-pub struct CheckPermissionHandler;
+pub struct CheckManifestPermissionHandler;
 
 #[async_trait]
-impl SaplingRemoteApiHandler for CheckPermissionHandler {
-    type Request = CheckPermissionRequest;
-    type Response = CheckPermissionResponse;
+impl SaplingRemoteApiHandler for CheckManifestPermissionHandler {
+    type Request = CheckManifestPermissionRequest;
+    type Response = CheckManifestPermissionResponse;
 
     const HTTP_METHOD: http::Method = http::Method::POST;
-    const API_METHOD: SaplingRemoteApiMethod = SaplingRemoteApiMethod::CheckPermission;
-    const ENDPOINT: &'static str = "/check_permission";
+    const API_METHOD: SaplingRemoteApiMethod = SaplingRemoteApiMethod::CheckManifestPermission;
+    const ENDPOINT: &'static str = "/check_manifest_permission";
 
     async fn handler(
         ectx: SaplingRemoteApiContext<Self::PathExtractor, Self::QueryStringExtractor, Repo>,
@@ -477,10 +480,72 @@ impl SaplingRemoteApiHandler for CheckPermissionHandler {
                         .as_ref()
                         .map(|info| info.request_acl().to_string());
 
-                    Ok(CheckPermissionResponse {
+                    Ok(CheckManifestPermissionResponse {
                         manifest_id,
                         has_access,
                         request_acl,
+                    })
+                }
+            })
+            .buffer_unordered(20)
+            .boxed())
+    }
+}
+
+pub struct CheckPathPermissionHandler;
+
+#[async_trait]
+impl SaplingRemoteApiHandler for CheckPathPermissionHandler {
+    type Request = CheckPathPermissionRequest;
+    type Response = CheckPathPermissionResponse;
+
+    const HTTP_METHOD: http::Method = http::Method::POST;
+    const API_METHOD: SaplingRemoteApiMethod = SaplingRemoteApiMethod::CheckPathPermission;
+    const ENDPOINT: &'static str = "/check_path_permission";
+
+    async fn handler(
+        ectx: SaplingRemoteApiContext<Self::PathExtractor, Self::QueryStringExtractor, Repo>,
+        request: Self::Request,
+    ) -> HandlerResult<'async_trait, Self::Response> {
+        let repo = ectx.repo();
+        let repo_ctx = repo.repo_ctx().clone();
+        let cs = repo_ctx
+            .changeset(request.hg_cs_id)
+            .await
+            .context("Failed to resolve changeset")?
+            .ok_or_else(|| anyhow::anyhow!("Changeset not found: {}", request.hg_cs_id))?;
+
+        Ok(stream::iter(request.paths)
+            .map(move |path| {
+                let cs = cs.clone();
+                async move {
+                    let mpath = MPath::new(path.as_str().as_bytes())
+                        .with_context(|| format!("Invalid path: {}", path))?;
+                    let restriction_ctx = cs
+                        .path_restriction(mpath)
+                        .await
+                        .with_context(|| format!("Failed to check path restriction: {}", path))?;
+                    let restriction_infos = restriction_ctx.restriction_info(true).await?;
+
+                    let has_access = restriction_infos
+                        .iter()
+                        .all(|info| info.has_access.unwrap_or(false));
+
+                    let request_acls = restriction_infos
+                        .iter()
+                        .map(|info| info.request_acl().to_string())
+                        .collect();
+
+                    let repo_region_acls = restriction_infos
+                        .iter()
+                        .map(|info| info.repo_region_acl().to_string())
+                        .collect();
+
+                    Ok(CheckPathPermissionResponse {
+                        path,
+                        has_access,
+                        request_acls,
+                        repo_region_acls,
                     })
                 }
             })
