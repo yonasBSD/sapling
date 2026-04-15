@@ -785,18 +785,12 @@ fn maybe_set_nocache_thriftcache(
     Ok(())
 }
 
-fn should_log_memory_usage(method: &str) -> bool {
-    justknobs::eval("scm/mononoke:scs_log_memory_usage", None, Some(method)).unwrap_or(false)
-}
-
-fn log_start(ctx: &CoreContext, method: &str) -> Option<MemoryStats> {
+fn log_start(ctx: &CoreContext, _method: &str) -> Option<MemoryStats> {
     let mut start_mem_stats = None;
     let mut scuba = ctx.scuba().clone();
-    if should_log_memory_usage(method) {
-        if let Ok(stats) = memory::get_stats() {
-            scuba.add_memory_stats(&stats);
-            start_mem_stats = Some(stats);
-        }
+    if let Ok(stats) = memory::get_stats() {
+        scuba.add_memory_stats(&stats);
+        start_mem_stats = Some(stats);
     }
     scuba.log_with_msg("Request start", None);
     start_mem_stats
@@ -804,17 +798,15 @@ fn log_start(ctx: &CoreContext, method: &str) -> Option<MemoryStats> {
 
 fn add_request_end_memory_stats(
     scuba: &mut MononokeScubaSampleBuilder,
-    method: &str,
+    _method: &str,
     start_mem_stats: Option<&MemoryStats>,
 ) {
-    if should_log_memory_usage(method) {
-        if let Ok(stats) = memory::get_stats() {
-            scuba.add_memory_stats(&stats);
-            if let Some(start_mem_stats) = start_mem_stats {
-                let rss_used_delta =
-                    start_mem_stats.rss_free_bytes as isize - stats.rss_free_bytes as isize;
-                scuba.add("rss_used_delta", rss_used_delta);
-            }
+    if let Ok(stats) = memory::get_stats() {
+        scuba.add_memory_stats(&stats);
+        if let Some(start_mem_stats) = start_mem_stats {
+            let rss_used_delta =
+                start_mem_stats.rss_free_bytes as isize - stats.rss_free_bytes as isize;
+            scuba.add("rss_used_delta", rss_used_delta);
         }
     }
 }
