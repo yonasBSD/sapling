@@ -22,6 +22,7 @@ rust_binary(
         "//eden/mononoke/features/async_requests:async_requests",
         "//eden/mononoke/features/async_requests:async_requests_client",
         "//eden/mononoke/features/async_requests:requests_table",
+        "//eden/mononoke/features/async_requests/types:async_requests_types",
         "//eden/mononoke/features/async_requests/worker_lib:worker_lib",
         "//eden/mononoke/megarepo_api:megarepo_api",
         "//eden/mononoke/metaconfig:metaconfig_types",

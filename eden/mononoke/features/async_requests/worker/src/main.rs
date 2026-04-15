@@ -13,8 +13,10 @@ use anyhow::Context;
 use anyhow::Result;
 use async_requests::AsyncMethodRequestQueue;
 use async_requests::QueueRepoFilter;
+use async_requests::QueueRequestTypeFilter;
 use async_requests_client::open_blobstore;
 use async_requests_client::open_sql_connection;
+use async_requests_types::BACKFILL_REQUEST_TYPES;
 use async_trait::async_trait;
 use blobstore::Blobstore;
 use clap::Parser;
@@ -48,6 +50,17 @@ use tracing::info;
 use worker_lib::worker::AsyncMethodRequestWorker;
 
 const SERVICE_NAME: &str = "async_requests_worker";
+
+/// Build a QueueRequestTypeFilter that excludes backfill request types.
+/// Backfill requests are handled by the dedicated backfill_worker.
+fn backfill_exclude_filter() -> QueueRequestTypeFilter {
+    QueueRequestTypeFilter::Except(
+        BACKFILL_REQUEST_TYPES
+            .iter()
+            .map(|s| requests_table::RequestType(s.to_string()))
+            .collect(),
+    )
+}
 
 const SM_CLEANUP_TIMEOUT_SECS: u64 = 60;
 
@@ -122,10 +135,11 @@ impl RepoShardedProcess for WorkerProcess {
         let repos = vec![repo.repo_identity.id()];
         info!("Completed setup for repo {} ({:?})", repo_name, repos);
 
-        let queue = Arc::new(AsyncMethodRequestQueue::new(
+        let queue = Arc::new(AsyncMethodRequestQueue::new_with_request_type_filter(
             self.sql_connection.clone(),
             self.blobstore.clone(),
             QueueRepoFilter::Only(repos),
+            backfill_exclude_filter(),
         ));
 
         let executor = AsyncMethodRequestWorker::new(
@@ -296,10 +310,11 @@ fn run_worker_queue(
     will_exit: Arc<AtomicBool>,
 ) -> Result<()> {
     let executor = {
-        let queue = Arc::new(AsyncMethodRequestQueue::new(
+        let queue = Arc::new(AsyncMethodRequestQueue::new_with_request_type_filter(
             sql_connection,
             blobstore,
             repo_filter,
+            backfill_exclude_filter(),
         ));
 
         runtime.block_on(AsyncMethodRequestWorker::new(

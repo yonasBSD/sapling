@@ -12,6 +12,7 @@ anyhow = "1.0.102"
 async-trait = "0.1.86"
 async_requests = { version = "0.1.0", path = ".." }
 async_requests_client = { version = "0.1.0", path = "../client" }
+async_requests_types = { version = "0.1.0", path = "../types" }
 blobstore = { version = "0.1.0", path = "../../../blobstore" }
 clap = { version = "4.6.0", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 cmdlib_logging = { version = "0.1.0", path = "../../../cmdlib/log" }
