@@ -391,7 +391,6 @@ def setuptreestores(repo, mfl):
 
 class treemanifestlog:
     def __init__(self, opener, repo):
-        self.recentlinknode = None
         cachesize = 4
         self._treemanifestcache = util.lrucachedict(cachesize)
         # store object used to construct storemodel.TreeStore

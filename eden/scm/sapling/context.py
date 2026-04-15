@@ -569,12 +569,10 @@ class changectx(basectx):
 
     @propertycache
     def _manifest(self):
-        self._repo.manifestlog.recentlinknode = self.node()
         return self._manifestctx.read()
 
     @property
     def _manifestctx(self):
-        self._repo.manifestlog.recentlinknode = self.node()
         try:
             return self._repo.manifestlog[self._changeset.manifest]
         except Exception as ex:
