@@ -226,6 +226,7 @@ members = [
   "derived_data/test_utils",
   "derived_data/unodes",
   "features/async_requests",
+  "features/async_requests/backfill_worker",
   "features/async_requests/client",
   "features/async_requests/if",
   "features/async_requests/if/clients",

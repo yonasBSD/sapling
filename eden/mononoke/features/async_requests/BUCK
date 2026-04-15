@@ -77,6 +77,8 @@ rust_library(
     visibility = [
         ":async_requests",
         ":client",
+        "//eden/mononoke/features/async_requests/backfill_worker:backfill_worker",
+        "//eden/mononoke/features/async_requests/backfill_worker:backfill_worker-unittest",
         "//eden/mononoke/features/async_requests/worker:worker",
         "//eden/mononoke/features/async_requests/worker:worker-unittest",
         "//eden/mononoke/features/async_requests/worker_lib:worker_lib",

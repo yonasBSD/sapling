@@ -982,6 +982,21 @@ function megarepo_async_worker_foreground {
   _megarepo_async_worker_cmd "$@"
 }
 
+function backfill_worker {
+  GLOG_minloglevel=5 \
+    RUST_LOG="warm_bookmarks_cache=WARN" \
+    "$BACKFILL_WORKER" "$@" \
+    --log-level INFO \
+    --mononoke-config-path "$TESTTMP/mononoke-config" \
+    --scuba-log-file "$TESTTMP/async-worker.json" \
+    --tracing-test-format \
+    "${CACHE_ARGS[@]}" \
+    "${COMMON_ARGS[@]}" \
+    >> "$TESTTMP/backfill_worker.out" 2>&1 &
+  export BACKFILL_WORKER_PID=$!
+  echo "$BACKFILL_WORKER_PID" >> "$DAEMON_PIDS"
+}
+
 function scsc_as {
   local name="$1"
   shift

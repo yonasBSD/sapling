@@ -1,0 +1,26 @@
+load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
+
+oncall("scm_server_infra")
+
+rust_binary(
+    name = "backfill_worker",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/main.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:tracing",
+        "//common/rust/shed/fbinit:fbinit",
+        "//eden/mononoke/cmdlib:cmdlib_logging",
+        "//eden/mononoke/cmdlib:environment",
+        "//eden/mononoke/cmdlib/mononoke_app:mononoke_app",
+        "//eden/mononoke/cmdlib/sharding:executor_lib",
+        "//eden/mononoke/features/async_requests:async_requests",
+        "//eden/mononoke/features/async_requests:async_requests_client",
+        "//eden/mononoke/features/async_requests:requests_table",
+        "//eden/mononoke/features/async_requests/types:async_requests_types",
+        "//eden/mononoke/features/async_requests/worker_lib:worker_lib",
+        "//eden/mononoke/megarepo_api:megarepo_api",
+        "//eden/mononoke/servers/slapi/slapi_server/context:context",
+    ],
+)
