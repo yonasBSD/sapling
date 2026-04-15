@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use anyhow::anyhow;
 use blake3::Hash;
-use rand::RngCore;
+use rand::Rng as _;
 
 use super::types;
 

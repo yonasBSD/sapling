@@ -26,7 +26,7 @@ use fbinit::FacebookInit;
 use futures_stats::TimedTryFutureExt;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use rand::Rng;
+use rand::RngExt as _;
 use rand::distr::Alphanumeric;
 use rand::rng;
 use tokio::sync::Semaphore;

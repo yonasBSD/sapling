@@ -26,7 +26,7 @@ use criterion::Criterion;
 use criterion::Throughput;
 use criterion::criterion_group;
 use criterion::criterion_main;
-use rand::Rng;
+use rand::RngExt as _;
 use rand::prelude::SliceRandom;
 use rand::rng;
 

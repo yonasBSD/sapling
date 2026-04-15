@@ -47,7 +47,7 @@ rust_binary(
     }}},
     deps = [
         "fbsource//third-party/rust:criterion",
-        "fbsource//third-party/rust:rand_09",
+        "fbsource//third-party/rust:rand",
     ] + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [
