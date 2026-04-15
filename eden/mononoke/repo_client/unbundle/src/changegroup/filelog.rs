@@ -371,6 +371,9 @@ mod tests {
         bookmarks: dyn Bookmarks,
 
         #[facet]
+        sql_bookmarks: dbbookmarks::SqlBookmarks,
+
+        #[facet]
         repo_derived_data: RepoDerivedData,
 
         #[facet]

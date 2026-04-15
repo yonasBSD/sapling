@@ -62,6 +62,7 @@ use cross_repo_sync::CommitSyncData;
 use cross_repo_sync::CommitSyncOutcome;
 use cross_repo_sync::find_toposorted_unsynced_ancestors;
 use cross_repo_sync::sync_commit;
+use dbbookmarks::SqlBookmarks;
 use filenodes::Filenodes;
 use filestore::FilestoreConfig;
 use futures::Future;
@@ -117,6 +118,7 @@ pub struct Repo(
     RepoCrossRepo,
     RepoBookmarkAttrs,
     dyn Bookmarks,
+    SqlBookmarks,
     dyn BookmarkUpdateLog,
     FilestoreConfig,
     dyn MutableCounters,

@@ -21,6 +21,7 @@ use bookmarks_types::BookmarkKey;
 use commit_graph::CommitGraphRef;
 use commit_graph::CommitGraphWriterRef;
 use context::CoreContext;
+use dbbookmarks::SqlBookmarksRef;
 use filestore::FilestoreConfigRef;
 use itertools::Itertools;
 use metaconfig_types::RepoConfigRef;
@@ -86,6 +87,7 @@ pub trait Repo = BonsaiHgMappingRef
     + BonsaiGitMappingArc
     + BonsaiGlobalrevMappingArc
     + BookmarksRef
+    + SqlBookmarksRef
     + FilestoreConfigRef
     + PhasesRef
     + PushrebaseMutationMappingRef

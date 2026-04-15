@@ -13,6 +13,7 @@ use bookmarks::Bookmarks;
 use bookmarks_cache::BookmarksCache;
 use commit_graph::CommitGraph;
 use commit_graph::CommitGraphWriter;
+use dbbookmarks::SqlBookmarks;
 use filenodes::Filenodes;
 use filestore::FilestoreConfig;
 use git_source_of_truth::GitSourceOfTruthConfig;
@@ -43,6 +44,7 @@ pub struct RepoClientRepo(
     RepoCrossRepo,
     RepoBookmarkAttrs,
     dyn Bookmarks,
+    SqlBookmarks,
     dyn BookmarkUpdateLog,
     FilestoreConfig,
     dyn MutableCounters,

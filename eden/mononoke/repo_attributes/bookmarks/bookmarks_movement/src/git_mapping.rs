@@ -233,6 +233,7 @@ mod tests {
     use borrowed::borrowed;
     use commit_graph::CommitGraph;
     use commit_graph::CommitGraphWriter;
+    use dbbookmarks::SqlBookmarks;
     use fbinit::FacebookInit;
     use filestore::FilestoreConfig;
     use git_source_of_truth::GitSourceOfTruthConfig;
@@ -278,6 +279,9 @@ mod tests {
 
         #[facet]
         bookmarks: dyn Bookmarks,
+
+        #[facet]
+        sql_bookmarks: SqlBookmarks,
 
         #[facet]
         phases: dyn Phases,

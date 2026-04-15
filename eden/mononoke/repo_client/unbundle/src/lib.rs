@@ -23,6 +23,7 @@ use bonsai_hg_mapping::BonsaiHgMappingArc;
 use bookmarks::BookmarksRef;
 use commit_graph::CommitGraphArc;
 use commit_graph::CommitGraphWriterArc;
+use dbbookmarks::SqlBookmarksRef;
 use filestore::FilestoreConfigRef;
 pub use hook_running::run_hooks;
 pub use hooks::CrossRepoPushSource;
@@ -62,6 +63,7 @@ pub trait Repo = CommitGraphArc
     + CommitGraphWriterArc
     + BonsaiHgMappingArc
     + BookmarksRef
+    + SqlBookmarksRef
     + RepoDerivedDataArc
     + PhasesRef
     + HgMutationStoreArc
