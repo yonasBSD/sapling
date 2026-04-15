@@ -684,8 +684,8 @@ mod tests {
     use indexedlog::DefaultOpenOptions;
     use quickcheck::quickcheck;
     use rand_chacha::ChaChaRng;
-    use rand_core::RngCore;
-    use rand_core::SeedableRng;
+    use rand_core::Rng as _;
+    use rand_core::SeedableRng as _;
     use tempfile::TempDir;
 
     use super::*;

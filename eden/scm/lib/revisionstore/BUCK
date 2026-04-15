@@ -33,7 +33,7 @@ rust_library(
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:mockito",
         "fbsource//third-party/rust:quickcheck",
-        "fbsource//third-party/rust:rand_chacha_09",
+        "fbsource//third-party/rust:rand_chacha",
         "fbsource//third-party/rust:tempfile",
     ],
     # A test inside this target is using #[should_panic], setting the backtrace
@@ -54,7 +54,7 @@ rust_library(
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:paste",
         "fbsource//third-party/rust:quickcheck",
-        "fbsource//third-party/rust:rand_09",
+        "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_derive",
         "fbsource//third-party/rust:serde_json",

@@ -8,6 +8,8 @@
 //! File State.
 
 use bitflags::bitflags;
+#[cfg(test)]
+use rand::RngExt as _;
 
 /// Information relating to a file in the dirstate.
 #[derive(Debug, PartialEq, Copy, Clone)]

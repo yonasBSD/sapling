@@ -33,7 +33,6 @@ use parking_lot::RwLock;
 use progress_model::AggregatingProgressBar;
 use progress_model::ProgressBar;
 use progress_model::Registry;
-use rand::Rng;
 use storemodel::SerializationFormat;
 use tracing::debug;
 
@@ -272,7 +271,7 @@ impl FileStore {
             let span = tracing::span!(
                 tracing::Level::DEBUG,
                 "file fetch",
-                id = rand::rng().random::<u16>()
+                id = rand::random::<u16>()
             );
             let _enter = span.enter();
 

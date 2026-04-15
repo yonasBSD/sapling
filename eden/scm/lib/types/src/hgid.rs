@@ -12,7 +12,7 @@ use std::io::Read;
 use std::io::Write;
 
 #[cfg(any(test, feature = "for-tests"))]
-use rand::RngCore;
+use rand::Rng;
 use sha1::Digest;
 use sha1::Sha1;
 
@@ -132,7 +132,7 @@ impl HgId {
     }
 
     #[cfg(any(test, feature = "for-tests"))]
-    pub fn random(rng: &mut dyn RngCore) -> Self {
+    pub fn random(rng: &mut dyn Rng) -> Self {
         let mut bytes = [0; HgId::len()];
         rng.fill_bytes(&mut bytes);
         loop {
@@ -144,7 +144,7 @@ impl HgId {
     }
 
     #[cfg(any(test, feature = "for-tests"))]
-    pub fn random_distinct(rng: &mut dyn RngCore, count: usize) -> Vec<Self> {
+    pub fn random_distinct(rng: &mut dyn Rng, count: usize) -> Vec<Self> {
         let mut nodes = Vec::new();
         let mut nodeset = HashSet::new();
         while nodes.len() < count {

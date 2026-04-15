@@ -23,7 +23,7 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:parking_lot",
-        "fbsource//third-party/rust:rand_09",
+        "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "//eden/scm/lib/config/model:configmodel",

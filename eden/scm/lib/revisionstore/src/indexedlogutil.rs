@@ -33,7 +33,6 @@ use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockUpgradableReadGuard;
 use parking_lot::RwLockWriteGuard;
-use rand::Rng;
 use tracing::debug;
 
 /// Simple wrapper around either an `IndexedLog` or a `RotateLog`. This abstracts whether a store
@@ -438,7 +437,7 @@ impl StoreOpenOptions {
             .btrfs_compression(!should_compress);
         let mut rotate_log = opts.open_with_repair(path.as_ref())?;
 
-        if rand::rng().random_bool(cleanup_chance) {
+        if rand::random_bool(cleanup_chance) {
             // Attempt to clean up old logs that might be left around. On Windows, other
             // Mercurial processes that have the store opened might prevent their removal.
             let res = rotate_log.remove_old_logs();

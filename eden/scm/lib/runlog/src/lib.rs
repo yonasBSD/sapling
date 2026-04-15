@@ -18,7 +18,7 @@ use configmodel::Config;
 use configmodel::ConfigExt;
 pub use filestore::FileStore;
 use parking_lot::Mutex;
-use rand::Rng;
+use rand::RngExt as _;
 use rand::distr::Alphanumeric;
 use rand::rng;
 use repo::repo::Repo;
@@ -58,7 +58,7 @@ impl Logger {
 
         // Probabilistically clean up old entries to avoid doing the work every time.
         let cleanup_chance = config.get_or("runlog", "cleanup-chance", || 0.01)?;
-        if cleanup_chance > rand::rng().random::<f64>() {
+        if cleanup_chance > rand::random::<f64>() {
             let threshold = config.get_or("runlog", "cleanup-threshold", || 3600.0)?;
             FileStore::cleanup(shared_path, Duration::from_secs_f64(threshold))?;
         }

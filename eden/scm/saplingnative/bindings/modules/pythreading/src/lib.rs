@@ -16,7 +16,7 @@ use std::thread::ThreadId;
 use std::time::Duration;
 
 use cpython::*;
-use rand::Rng;
+use rand::RngExt as _;
 
 pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
     let name = [package, "threading"].join(".");

@@ -11,7 +11,7 @@ use std::fmt::Display;
 use anyhow::Result;
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
-use rand::Rng;
+use rand::RngExt as _;
 use rand::distr::Alphanumeric;
 use rand::rng;
 use serde::Deserialize;

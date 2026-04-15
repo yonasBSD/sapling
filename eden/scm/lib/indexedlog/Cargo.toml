@@ -33,7 +33,7 @@ harness = false
 byteorder = "1.5"
 memmap2 = "0.9.10"
 once_cell = "1.21.4"
-rand = { version = "0.9", features = ["small_rng"] }
+rand = "0.10"
 sapling-atomicfile = { version = "0.1.0", path = "../atomicfile" }
 sapling-configmodel = { version = "0.1.0", path = "../config/model", optional = true }
 sapling-metrics = { version = "0.1.0", path = "../metrics" }
@@ -45,7 +45,7 @@ twox-hash = "1.6.1"
 
 [dev-dependencies]
 quickcheck = "1.0"
-rand_chacha = "0.9"
+rand_chacha = "0.10"
 sapling-dev-logger = { version = "0.1.0", path = "../dev-logger" }
 sapling-fsinfo = { version = "0.1.0", path = "../fsinfo" }
 sapling-minibench = { version = "0.1.0", path = "../minibench" }

@@ -22,6 +22,6 @@ thiserror = "2.0.18"
 
 [dev-dependencies]
 quickcheck = "1.0"
-rand = { version = "0.9", features = ["small_rng"] }
-rand_chacha = "0.9"
+rand = "0.10"
+rand_chacha = "0.10"
 sapling-minibench = { version = "0.1.0", path = "../minibench" }

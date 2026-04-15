@@ -21,7 +21,8 @@ rust_library(
     }},
     crate_root = "src/lib.rs",
     test_deps = [
-        "fbsource//third-party/rust:rand_chacha_09",
+        "fbsource//third-party/rust:rand_chacha",
+        "fbsource//third-party/rust:rand_core",
     ],
     deps = [
         "fbsource//third-party/rust:im",

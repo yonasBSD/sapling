@@ -27,7 +27,6 @@ use coarsetime::Instant;
 #[cfg(test)]
 use mock_instant::Instant;
 use parking_lot::RwLock;
-use rand::Rng;
 use tracing::Level;
 use types::RepoPath;
 use types::RepoPathBuf;
@@ -999,7 +998,7 @@ impl Walk {
             && pid != current_pid
             && (current_pid == 0 || // Always take the new pid if current pid not set.
                 // Give the new pid a probabilistic chance to "take over" based on its weight.
-                rand::rng().random_range(0..self.total_accesses().max(1)) < numerator)
+                rand::random_range(0..self.total_accesses().max(1)) < numerator)
         {
             self.pid.store(pid as u64, Ordering::Relaxed);
             true

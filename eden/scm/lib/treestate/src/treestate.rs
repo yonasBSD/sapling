@@ -569,7 +569,7 @@ impl TreeState {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt as _;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
     use tempfile::tempdir;

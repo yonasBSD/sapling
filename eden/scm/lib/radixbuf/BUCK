@@ -13,7 +13,7 @@ rust_library(
         # Cargo bench deps.
         "extra_buck_dependencies": {"dev-dependencies": [
             "//eden/scm/lib/minibench:minibench",
-            "fbsource//third-party/rust:rand_chacha_09",
+            "fbsource//third-party/rust:rand_chacha",
         ]},
         "features": {},
         "lib": {"name": "radixbuf"},
@@ -28,7 +28,7 @@ rust_library(
     features = ["nobench"],
     test_deps = [
         "fbsource//third-party/rust:quickcheck",
-        "fbsource//third-party/rust:rand_09",
+        "fbsource//third-party/rust:rand",
     ],
     deps = [
         "fbsource//third-party/rust:thiserror",

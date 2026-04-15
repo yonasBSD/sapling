@@ -72,7 +72,7 @@ rust_library(
     features = ["scuba"],
     test_deps = [
         "fbsource//third-party/rust:http",
-        "fbsource//third-party/rust:rand_chacha_09",
+        "fbsource//third-party/rust:rand_chacha",
         "fbsource//third-party/rust:url",
     ],
     deps = [

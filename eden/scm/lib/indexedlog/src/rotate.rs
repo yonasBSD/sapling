@@ -2183,7 +2183,7 @@ Reset latest to 2"#
 
         #[cfg(target_os = "linux")]
         {
-            use rand::RngCore;
+            use rand::Rng as _;
 
             let mut rotate = OpenOptions::new()
                 .create(true)
