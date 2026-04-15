@@ -449,13 +449,7 @@ impl CachingCommitGraphStorage {
         } else {
             prefetch.include_hint()
         };
-        let memcache_prefetch = justknobs::eval(
-            "scm/mononoke:commit_graph_prefetch_store_in_memcache",
-            None,
-            None,
-        )
-        .unwrap_or_default();
-        (prefetch, memcache_prefetch)
+        (prefetch, true)
     }
 
     fn request<'a>(&'a self, ctx: &'a CoreContext, prefetch: Prefetch) -> CacheRequest<'a> {

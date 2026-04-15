@@ -33,7 +33,6 @@
     "scm/mononoke:fastlog_disable_mutable_renames": false,
     "scm/mononoke:derived_data_use_background_session_class": false,
     "scm/mononoke:xrepo_disable_commit_sync_lease": false,
-    "scm/mononoke:commit_graph_prefetch_store_in_memcache": false,
     "scm/mononoke:disable_commit_graph_memcache_for_prefetch": false,
     "scm/mononoke:disable_commit_graph_prefetch": false,
     "scm/mononoke:commit_graph_disable_subtree_source_fallback": true,
