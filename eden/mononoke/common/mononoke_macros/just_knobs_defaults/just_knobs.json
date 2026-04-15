@@ -8,7 +8,7 @@
     "scm/mononoke:derived_data_disable_remote_derivation": false,
     "scm/mononoke:derived_data_enable_local_fallback_for_ephemeral_bubbles": false,
     "scm/mononoke:derived_data_enable_remote_derivation_for_ephemeral_bubbles": false,
-    "scm/mononoke:derived_data_use_content_manifests": false,
+    "scm/mononoke:derived_data_use_content_manifests": true,
     "scm/mononoke:derived_data_use_store_mapping_batch": false,
     "scm/mononoke:derived_data_pipeline_terminal_stage_prod_mapping": false,
     "scm/mononoke:derived_data_tailer_skip_pipeline_types": true,

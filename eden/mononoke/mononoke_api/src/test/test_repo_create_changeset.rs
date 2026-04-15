@@ -47,7 +47,10 @@ use crate::repo::create_changeset::CreateChangeFileContents;
 async fn test_create_commit(fb: FacebookInit) -> Result<(), Error> {
     create_commit(
         fb,
-        &[DerivableType::SkeletonManifestsV2, DerivableType::Fsnodes],
+        &[
+            DerivableType::SkeletonManifestsV2,
+            DerivableType::ContentManifests,
+        ],
     )
     .await?;
 

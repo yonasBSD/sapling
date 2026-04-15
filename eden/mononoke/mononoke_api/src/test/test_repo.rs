@@ -33,7 +33,7 @@ use metaconfig_types::CommitSyncDirection;
 use metaconfig_types::DefaultSmallToLargeCommitSyncPathAction;
 use mononoke_macros::mononoke;
 use mononoke_types::NonRootMPath;
-use mononoke_types::fsnode::FsnodeEntry;
+use mononoke_types::content_manifest::ContentManifestEntry;
 use mononoke_types::hash::Blake3;
 use mononoke_types::hash::GitSha1;
 use mononoke_types::hash::RichGitSha1;
@@ -365,7 +365,7 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
             .get("subsubdir2")
             .expect("entry should exist for subsubdir2")
         {
-            Either::Right(FsnodeEntry::Directory(dir)) => dir.id().clone().into(),
+            Either::Left(ContentManifestEntry::Directory(dir)) => dir.id.clone().into(),
             entry => panic!("subsubdir2 entry should be a directory, not {:?}", entry),
         }
     };
@@ -377,8 +377,8 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
                 .await?
                 .into_iter()
                 .map(|(name, entry)| match entry {
-                    Either::Right(FsnodeEntry::File(file)) => {
-                        Some((name, file.size(), file.content_sha1().to_string()))
+                    Either::Left(ContentManifestEntry::File(file)) => {
+                        Some((name, file.size, file.content_id.to_string()))
                     }
                     _ => None,
                 })
@@ -387,7 +387,7 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
         vec![Some((
             String::from("file_1"),
             9,
-            String::from("aa02177d2c1f3af3fb5b7b25698cb37772b1226b")
+            String::from("50703cfe0783933daaa0fc4dcaec0dec16760f7dc77e553e666ae62cebae9cc6")
         ))]
     );
     // Get tree by id
@@ -405,7 +405,7 @@ async fn tree_list(fb: FacebookInit) -> Result<(), Error> {
     // Get tree by non-existent id returns None.
     assert!(
         repo.tree(
-            mononoke_types::FsnodeId::from_bytes([1; 32])
+            mononoke_types::ContentManifestId::from_bytes([1; 32])
                 .unwrap()
                 .into()
         )

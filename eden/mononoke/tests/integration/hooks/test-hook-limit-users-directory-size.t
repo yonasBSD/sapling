@@ -7,7 +7,7 @@
   $ . "${TEST_FIXTURES}/library.sh"
 
   $ BYTE_LIMIT=500
-  $ ADDITIONAL_DERIVED_DATA="fsnodes" hook_test_setup \
+  $ ADDITIONAL_DERIVED_DATA="content_manifests" hook_test_setup \
   > limit_users_directory_size <(
   >   cat <<CONF
   > config_json='''{

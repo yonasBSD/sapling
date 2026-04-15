@@ -66,7 +66,7 @@ setup configuration
   $ mononoke_admin fetch -R repo -B main -p "" -k content-manifest
   Summary:
   Children: 3 files (3), 0 dirs
-  Descendants: 3 files (3)
+  Descendants: 3 files (3), 0 dirs
   Children list:
   A eb56488e97bb4cf5eb17f05357b80108a4a71f6c3bab52dfcaec07161d105ec9 regular
   B 55662471e2a28db8257939b2f9a2d24e65b46a758bac12914a58f17dcde6905f regular
