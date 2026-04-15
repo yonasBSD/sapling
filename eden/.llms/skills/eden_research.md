@@ -2,7 +2,7 @@
 name: eden_research
 oncalls: ['scm_client_infra', 'scm_server_infra', 'sapling']
 apply_to_regex: 'eden/.*'
-description: "Load FIRST before searching code in eden/. Contains component-to-file maps, key type names, and architecture diagrams for EdenFS, Sapling, and Mononoke. Tells you exactly which files to read for any task. References contain per-component quick reference tables."
+description: "Load when you need to understand Eden architecture, trace cross-project data flows, or discover which subsystem implements a feature. Skip for directed code fixes where the user names a specific file — just search for the file directly instead. Contains component-to-file maps, key type names, and architecture diagrams for EdenFS, Sapling, and Mononoke."
 ---
 
 # Eden Research
