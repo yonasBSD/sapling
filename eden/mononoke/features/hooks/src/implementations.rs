@@ -11,6 +11,7 @@ mod always_fail_changeset;
 pub(crate) mod block_accidental_new_bookmark_creation;
 mod block_commit_message_pattern;
 mod block_content_pattern;
+pub(crate) mod block_dewey_lfs_url;
 mod block_empty_commit;
 mod block_files;
 pub(crate) mod block_invalid_symlinks;
@@ -105,6 +106,7 @@ pub async fn make_changeset_hook(
         "limit_subtree_op_size" => Some(b(limit_subtree_op_size::LimitSubtreeOpSizeHook::new(
             &params.config,
         )?)),
+        "block_dewey_lfs_url" => Some(b(block_dewey_lfs_url::BlockDeweyLfsUrlHook::new())),
         "missing_lfsconfig" => Some(b(missing_lfsconfig::MissingLFSConfigHook::new())),
         "block_commit_message_pattern" => Some(b(
             block_commit_message_pattern::BlockCommitMessagePatternHook::new(&params.config)?,

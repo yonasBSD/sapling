@@ -36,6 +36,7 @@ rust_library(
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:fancy-regex",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:gix-config",
         "fbsource//third-party/rust:http",
         "fbsource//third-party/rust:http-body-util",
         "fbsource//third-party/rust:hyper-tls",
