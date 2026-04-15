@@ -19,6 +19,7 @@ use worktree::load_registry;
 use worktree::with_registry_lock;
 use worktree::with_worktree_path_op_lock;
 
+use crate::CurrentGroup;
 use crate::WorktreeOpts;
 use crate::require_group;
 
@@ -27,12 +28,7 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
     let current_group = require_group(repo)?;
 
     if ctx.opts.all {
-        return run_remove_all(
-            ctx,
-            repo,
-            &current_group.shared_store_path,
-            &current_group.group_id,
-        );
+        return run_remove_all(ctx, repo, &current_group);
     }
 
     let target_str = match ctx.opts.args.get(1) {
@@ -111,14 +107,13 @@ pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
 fn run_remove_all(
     ctx: &ReqCtx<WorktreeOpts>,
     repo: &Repo,
-    shared_store_path: &Path,
-    group_id: &str,
+    current_group: &CurrentGroup,
 ) -> Result<u8> {
     let logger = ctx.logger();
-    let removed_paths = with_registry_lock(shared_store_path, |registry| {
-        let grp = match registry.groups.get_mut(group_id) {
+    let removed_paths = with_registry_lock(&current_group.shared_store_path, |registry| {
+        let grp = match registry.groups.get_mut(&current_group.group_id) {
             Some(group) => group,
-            None => abort!("group '{}' not found in registry", group_id),
+            None => abort!("group '{}' not found in registry", &current_group.group_id),
         };
         let linked_paths: Vec<PathBuf> = grp
             .worktrees
@@ -151,7 +146,7 @@ fn run_remove_all(
             grp.worktrees.remove(path);
         }
 
-        dissolve_group(registry, group_id);
+        dissolve_group(registry, &current_group.group_id);
         Ok(linked_paths)
     })?;
     if removed_paths.is_empty() {
