@@ -81,12 +81,7 @@ fn get_squashing_overrides(repo_name: &str, target_bookmark: &str) -> Result<(Op
         Some(squashing_limit)
     };
 
-    let author_check = justknobs::eval(
-        "scm/mononoke:megarepo_override_author_check",
-        None,
-        Some(&switchval),
-    )?;
-    Ok((maybe_squashing_limit, author_check))
+    Ok((maybe_squashing_limit, false))
 }
 
 pub struct SquashingConfig {
