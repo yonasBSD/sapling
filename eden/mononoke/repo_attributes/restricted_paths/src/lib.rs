@@ -395,6 +395,7 @@ impl RestrictedPaths {
             self.acl_provider.clone(),
             self.config().tooling_allowlist_group.as_deref(),
             self.scuba.clone(),
+            vec!["manifest_db".to_string()],
         )
         .await
     }
@@ -438,6 +439,7 @@ impl RestrictedPaths {
             self.acl_provider.clone(),
             self.config().tooling_allowlist_group.as_deref(),
             self.scuba.clone(),
+            vec!["manifest_db".to_string()],
         )
         .await
     }

@@ -296,6 +296,7 @@ pub(crate) async fn log_access_to_restricted_path(
     acl_provider: Arc<dyn AclProvider>,
     tooling_allowlist_group: Option<&str>,
     scuba: MononokeScubaSampleBuilder,
+    determined_by: Vec<String>,
 ) -> Result<bool> {
     // TODO(T239041722): store permission checkers in RestrictedPaths to improve
     // performance if needed.
@@ -361,6 +362,7 @@ pub(crate) async fn log_access_to_restricted_path(
         is_allowlisted_tooling,
         acls,
         scuba,
+        determined_by,
     )?;
 
     Ok(has_authorization)
@@ -375,6 +377,7 @@ fn log_access_to_scuba(
     is_allowlisted_tooling: bool,
     acls: Vec<&MononokeIdentity>,
     mut scuba: MononokeScubaSampleBuilder,
+    determined_by: Vec<String>,
 ) -> Result<()> {
     scuba.add_metadata(ctx.metadata());
 
@@ -411,6 +414,8 @@ fn log_access_to_scuba(
             scuba.add("full_path", full_path.to_string());
         }
     }
+
+    scuba.add("determined_by", determined_by);
 
     scuba.log();
 
