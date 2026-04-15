@@ -33,8 +33,6 @@ use metaconfig_types::MultiplexId;
 use mononoke_types::BlobstoreBytes;
 use mononoke_types::DateTime;
 use mononoke_types::Timestamp;
-use rand::Rng;
-use rand::rng;
 use tracing::info;
 use tracing::warn;
 
@@ -133,7 +131,7 @@ impl WalHealer {
 
                     fetch_size = new_fetch_size;
                     let delay =
-                        rng().random_range(MIN_FETCH_FAILURE_DELAY..MAX_FETCH_FAILURE_DELAY);
+                        rand::random_range(MIN_FETCH_FAILURE_DELAY..MAX_FETCH_FAILURE_DELAY);
                     tokio::time::sleep(delay).await;
                 }
             }

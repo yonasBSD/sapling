@@ -13,8 +13,8 @@ use context::CoreContext;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::Throughput;
-use rand::Rng;
-use rand::RngCore;
+use rand::Rng as _;
+use rand::RngExt as _;
 use rand::rng;
 use tokio::runtime::Handle;
 

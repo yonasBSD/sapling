@@ -106,7 +106,6 @@ use mononoke_types::hash::GitSha1;
 use mononoke_types::path::MPath;
 use nonzero_ext::nonzero;
 use phases::PhasesArc;
-use rand::Rng;
 use rate_limiting::Metric;
 use rate_limiting::Scope;
 use repo_authorization::AuthorizationContext;
@@ -482,7 +481,7 @@ impl<R: Repo> RepoClient<R> {
                 None => {
                     // Randomize in case source hostname is not set to avoid
                     // sudden jumps in traffic
-                    rand::rng().random_ratio(percentage, 100)
+                    rand::random_ratio(percentage, 100)
                 }
             };
 

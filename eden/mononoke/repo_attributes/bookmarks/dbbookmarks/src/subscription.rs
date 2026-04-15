@@ -22,7 +22,6 @@ use bookmarks::Freshness;
 use context::CoreContext;
 use mononoke_types::ChangesetId;
 use mononoke_types::RepositoryId;
-use rand::Rng;
 use sql_ext::mononoke_queries;
 use stats::prelude::*;
 use tracing::warn;
@@ -77,7 +76,7 @@ impl SqlBookmarksSubscription {
             .flatten()
             .unwrap_or(0);
 
-        let tok: i32 = rand::rng().random();
+        let tok: i32 = rand::random();
         let (txn, bookmarks) = SelectAllUnordered::query_with_transaction(
             txn,
             &sql_bookmarks.repo_id,

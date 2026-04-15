@@ -22,7 +22,7 @@ rust_library(
         "fbsource//third-party/rust:hyper-util",
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:openssl",
-        "fbsource//third-party/rust:rand_09",
+        "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",

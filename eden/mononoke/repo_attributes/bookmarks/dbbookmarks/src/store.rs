@@ -40,7 +40,6 @@ use futures_watchdog::WatchdogExt;
 use mononoke_types::ChangesetId;
 use mononoke_types::RepositoryId;
 use mononoke_types::Timestamp;
-use rand::Rng;
 use sql_ext::Connection;
 use sql_ext::SqlConnections;
 use sql_ext::mononoke_queries;
@@ -379,7 +378,7 @@ impl SqlBookmarks {
                         // Sorting is only useful for pagination. If the query returns all bookmark
                         // names, then skip the sorting.
                         if limit == u64::MAX {
-                            let tok: i32 = rand::rng().random();
+                            let tok: i32 = rand::random();
                             SelectAllUnordered::query(
                                 &conn,
                                 ctx.sql_query_telemetry(),
@@ -654,7 +653,7 @@ impl BookmarkUpdateLog for SqlBookmarks {
         let repo_id = self.repo_id;
 
         async move {
-            let tok: i32 = rand::rng().random();
+            let tok: i32 = rand::random();
 
             let rows = match offset {
                 Some(offset) => {

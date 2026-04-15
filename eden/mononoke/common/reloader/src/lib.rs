@@ -21,7 +21,6 @@ use futures::FutureExt;
 use futures::select;
 use futures_ext::future::ControlledHandle;
 use futures_ext::future::spawn_controlled;
-use rand::Rng;
 use tokio::sync::Notify;
 use tracing::warn;
 
@@ -189,7 +188,7 @@ impl<R: 'static + Send + Sync> Reloader<R> {
             move || {
                 if first {
                     first = false;
-                    let jitter = rand::rng().random_range(Duration::from_secs(0)..period / 10);
+                    let jitter = rand::random_range(Duration::from_secs(0)..period / 10);
                     period + jitter
                 } else {
                     period

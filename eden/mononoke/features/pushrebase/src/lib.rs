@@ -2528,7 +2528,6 @@ mod tests {
     use mutable_counters::MutableCounters;
     use mutable_counters::MutableCountersRef;
     use mutable_counters::SqlMutableCounters;
-    use rand::Rng;
     use repo_blobstore::RepoBlobstore;
     use repo_blobstore::RepoBlobstoreRef;
     use repo_derived_data::RepoDerivedData;
@@ -3676,7 +3675,7 @@ mod tests {
             _ctx: &CoreContext,
             _old_bookmark_value: Option<ChangesetId>,
         ) -> Result<Box<dyn PushrebaseCommitHook>, Error> {
-            let us = rand::rng().random_range(0..100);
+            let us = rand::random_range(0..100);
             tokio::time::sleep(Duration::from_micros(us)).await;
             Ok(Box::new(*self) as Box<dyn PushrebaseCommitHook>)
         }

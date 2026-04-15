@@ -15,8 +15,8 @@ use criterion::Criterion;
 use criterion::Throughput;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
-use rand::Rng;
-use rand::RngCore;
+use rand::Rng as _;
+use rand::RngExt as _;
 use rand::rng;
 use tokio::runtime::Handle;
 

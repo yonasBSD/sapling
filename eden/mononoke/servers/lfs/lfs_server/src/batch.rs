@@ -47,7 +47,6 @@ use maplit::hashmap;
 use mononoke_types::BlobstoreKey;
 use mononoke_types::hash::Sha256;
 use mononoke_types::typed_hash::ContentId;
-use rand::Rng;
 use redactedblobstore::has_redaction_root_cause;
 use repo_blobstore::RepoBlobstoreRef;
 use serde::Deserialize;
@@ -298,7 +297,7 @@ async fn resolve_internal_object(
 
 fn generate_routing_key(tasks_per_content: NonZeroU16, oid: Sha256) -> String {
     // Randomly generate task number to send to.
-    let task_n = rand::rng().random_range(0..tasks_per_content.get());
+    let task_n = rand::random_range(0..tasks_per_content.get());
     // For the base task, no extension is added to routing key.
     let mut routing_key = format!("{}", oid);
     if task_n > 0 {

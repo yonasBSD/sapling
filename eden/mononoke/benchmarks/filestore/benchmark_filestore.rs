@@ -43,7 +43,6 @@ use futures_stats::TimedFutureExt;
 use mononoke_app::MononokeAppBuilder;
 use mononoke_types::BlobstoreKey;
 use mononoke_types::ContentMetadataV2;
-use rand::Rng;
 use throttledblob::ThrottledBlob;
 use tokio::fs::File;
 use tokio::io::BufReader;
@@ -165,7 +164,7 @@ async fn run_benchmark_filestore<'a>(
     let len = metadata.len();
 
     let (len, data) = if args.randomize {
-        let bytes = rand::rng().random::<[u8; 32]>();
+        let bytes = rand::random::<[u8; 32]>();
         let bytes = Bytes::copy_from_slice(&bytes[..]);
         (
             len + (bytes.len() as u64),

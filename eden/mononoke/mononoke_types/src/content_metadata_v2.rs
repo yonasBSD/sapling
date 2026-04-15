@@ -471,7 +471,7 @@ mod test {
     use futures::future;
     use futures::stream;
     use quickcheck::quickcheck;
-    use rand::Rng;
+    use rand::RngExt as _;
     use rand::distr::Alphanumeric;
     use rand::distr::Distribution;
     use rand::distr::StandardUniform;

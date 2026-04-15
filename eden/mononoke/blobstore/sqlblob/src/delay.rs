@@ -12,7 +12,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use futures::stream::StreamExt;
-use rand::RngExt as _;
 use stats::prelude::*;
 use tokio::sync::watch;
 
@@ -38,7 +37,7 @@ async fn jitter_delay(raw_lag: Duration) {
     // Delay should also not be less than or equal to 0 seconds since that
     // will make the range empty and lead to panic
     let delay = max(Duration::from_millis(50), delay);
-    let delay = rand::rng().random_range(Duration::from_millis(0)..delay);
+    let delay = rand::random_range(Duration::from_millis(0)..delay);
     tokio::time::sleep(delay).await;
 }
 

@@ -34,7 +34,6 @@ use pushrebase_hook::PushrebaseCommitHook;
 use pushrebase_hook::PushrebaseHook;
 use pushrebase_hook::PushrebaseTransactionHook;
 use pushrebase_hook::RebasedChangesets;
-use rand::Rng;
 use repo_blobstore::RepoBlobstore;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedData;
@@ -195,7 +194,7 @@ async fn test_pushrebase_race_assigns_monotonic_globalrevs(fb: FacebookInit) -> 
             _ctx: &CoreContext,
             _old_bookmark_value: Option<ChangesetId>,
         ) -> Result<Box<dyn PushrebaseCommitHook>, Error> {
-            let us = rand::rng().random_range(0..100);
+            let us = rand::random_range(0..100);
             tokio::time::sleep(Duration::from_micros(us)).await;
             Ok(Box::new(*self) as Box<dyn PushrebaseCommitHook>)
         }

@@ -7,7 +7,7 @@
 
 use std::fmt;
 
-use rand::Rng;
+use rand::RngExt as _;
 use rand::distr::Alphanumeric;
 use rand::rng;
 

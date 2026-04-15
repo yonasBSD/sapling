@@ -39,6 +39,7 @@ use mercurial_derivation::MappedHgChangesetId;
 use mercurial_derivation::RootHgAugmentedManifestId;
 use mononoke_types::ChangesetId;
 use rand::Rng;
+use rand::RngExt as _;
 use rand::distr::Alphanumeric;
 use rand::distr::Uniform;
 use repo_blobstore::RepoBlobstore;

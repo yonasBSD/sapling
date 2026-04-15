@@ -42,6 +42,7 @@ use futures_stats::TimedFutureExt;
 use mercurial_derivation::RootHgAugmentedManifestId;
 use mononoke_types::ChangesetId;
 use rand::Rng;
+use rand::RngExt as _;
 use repo_derived_data::RepoDerivedDataRef;
 use tests_utils::CreateCommitContext;
 

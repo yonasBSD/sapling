@@ -32,6 +32,7 @@ use fbinit::FacebookInit;
 use filestore::FilestoreConfig;
 use memblob::Memblob;
 use rand::Rng;
+use rand::RngExt as _;
 use rand::distr::Alphanumeric;
 use repo_blobstore::RepoBlobstore;
 use repo_derived_data::RepoDerivedData;
