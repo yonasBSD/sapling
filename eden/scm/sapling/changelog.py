@@ -21,7 +21,7 @@ from .node import bbin, nullid
 from .thirdparty import attr
 
 if TYPE_CHECKING:
-    from .signing import SigningConfig
+    from .signing import SigningBackend
 
 _defaultextra = {"branch": "default"}
 
@@ -300,11 +300,11 @@ def gitcommittext(
     user: str,
     date: Optional[Union[str, Tuple[Union[int, float], int]]],
     extra: Optional[Dict[str, str]],
-    signing_config: "Optional[SigningConfig]" = None,
+    signing_backend: "Optional[SigningBackend]" = None,
 ) -> bytes:
     r"""construct raw text (bytes) used by git commit
 
-    If a signing_config is specified, the commit will be signed using the
+    If a signing_backend is specified, the commit will be signed using the
     configured backend (GPG or SSH). The signature is stored in the ``gpgsig``
     extra header, which is the standard Git header for all signature types.
 
@@ -393,10 +393,10 @@ def gitcommittext(
     to_text = bindings.formatutil.git_commit_fields_to_text
     text = to_text(fields).encode()
 
-    if not signing_config:
+    if not signing_backend:
         return text
 
-    gpgsig = signing.sign(text, signing_config)
+    gpgsig = signing_backend.sign(text)
     fields["extras"]["gpgsig"] = gpgsig
     text = to_text(fields).encode()
     return text

@@ -29,7 +29,7 @@ from .i18n import _
 from .node import bin, hex, nullid, nullrev, wdirid, wdirrev
 
 if TYPE_CHECKING:
-    from .signing import SigningConfig
+    from .signing import SigningBackend
 
 SEGMENTS_DIR = "segments/v1"
 SEGMENTS_DIR_NEXT = "segments/v1next"  # Used on Windows, for migration.
@@ -357,7 +357,7 @@ class changelog:
         user,
         date=None,
         extra=None,
-        signing_config: "Optional[SigningConfig]" = None,
+        signing_backend: "Optional[SigningBackend]" = None,
     ):
         parents = [p for p in (p1, p2) if p != nullid]
         if self._isgit:
@@ -369,7 +369,7 @@ class changelog:
                 user,
                 date,
                 extra,
-                signing_config=signing_config,
+                signing_backend=signing_backend,
             )
             node = git.hashobj(b"commit", text)
         else:

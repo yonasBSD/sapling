@@ -6,7 +6,7 @@
 """
 Commit signing support (GPG and SSH).
 
-Provides a unified signing abstraction with two backends:
+Provides a pluggable signing abstraction with two backends:
 - GPG (OpenPGP): uses gpg to create detached armored signatures
 - SSH: uses ssh-keygen -Y sign to create SSH signatures
 
@@ -28,7 +28,7 @@ Legacy [gpg] config (still works, no migration needed)::
     key = ABCDEF1234567890
 """
 
-import dataclasses
+import abc
 import os
 import subprocess
 import tempfile
@@ -39,15 +39,125 @@ from . import error
 from .i18n import _
 
 
-@dataclasses.dataclass
-class SigningConfig:
-    backend: str  # "gpg" or "ssh"
-    key: str  # key id / path / literal
-    program: str  # path to gpg or ssh-keygen
+class SigningBackend(abc.ABC):
+    """Abstract base class for commit signing backends."""
+
+    @abc.abstractmethod
+    def sign(self, commit_text: bytes) -> str:
+        """Sign commit_text and return the armored signature string."""
+
+    @abc.abstractmethod
+    def git_signing_args(self) -> Tuple[List[str], List[str]]:
+        """Return (config_flags, sign_args) for git CLI commands like commit-tree."""
 
 
-def get_signing_config(ui) -> Optional[SigningConfig]:
-    """Read signing config, returning None if signing is not configured.
+class GpgBackend(SigningBackend):
+    """GPG (OpenPGP) signing backend — uses gpg to create detached armored signatures."""
+
+    def __init__(self, key: str, program: str = "gpg") -> None:
+        self.key = key
+        self.program = program
+
+    def sign(self, commit_text: bytes) -> str:
+        try:
+            # This should match how Git signs commits:
+            # https://github.com/git/git/blob/2e71cbbddd64695d43383c25c7a054ac4ff86882/gpg-interface.c#L956-L960
+            # Long-form arguments for `gpg` are used for clarity.
+            sig_bytes = subprocess.check_output(
+                [
+                    self.program,
+                    "--status-fd=2",
+                    "--detach-sign",
+                    "--sign",
+                    "--armor",
+                    "--always-trust",
+                    "--yes",
+                    "--local-user",
+                    self.key,
+                ],
+                stderr=subprocess.PIPE,
+                input=commit_text,
+            )
+        except subprocess.CalledProcessError as ex:
+            indented_stderr = textwrap.indent(ex.stderr.decode(errors="ignore"), "  ")
+            raise error.Abort(
+                _("error when running gpg with gpgkeyid %s:\n%s")
+                % (self.key, indented_stderr)
+            )
+
+        return sig_bytes.replace(b"\r", b"").decode()
+
+    def git_signing_args(self) -> Tuple[List[str], List[str]]:
+        config_flags = ["-c", "gpg.format=openpgp"]
+        if self.program != "gpg":
+            config_flags += ["-c", f"gpg.program={self.program}"]
+        return config_flags, [f"-S{self.key}"]
+
+
+class SshBackend(SigningBackend):
+    """SSH signing backend — uses ssh-keygen -Y sign to create SSH signatures."""
+
+    def __init__(self, key: str, program: str = "ssh-keygen") -> None:
+        self.key = key
+        self.program = program
+
+    def sign(self, commit_text: bytes) -> str:
+        with tempfile.NamedTemporaryFile(
+            delete=False, prefix=".sl_signing_buffer_"
+        ) as buf_f:
+            buf_f.write(commit_text)
+            buf_path = buf_f.name
+
+        key_tmpfile = None
+        try:
+            cmd = [self.program, "-Y", "sign", "-n", "git"]
+
+            if self.key.startswith("key::"):
+                literal_key = self.key[5:]
+                key_tmpfile = _write_key_tmpfile(literal_key)
+                cmd += ["-f", key_tmpfile, "-U"]
+            elif self.key.startswith("ssh-"):
+                # Legacy literal key format (deprecated in git, but supported).
+                key_tmpfile = _write_key_tmpfile(self.key)
+                cmd += ["-f", key_tmpfile, "-U"]
+            else:
+                expanded = os.path.expanduser(self.key)
+                cmd += ["-f", expanded]
+
+            cmd.append(buf_path)
+
+            result = subprocess.run(cmd, capture_output=True)
+            if result.returncode != 0:
+                stderr = result.stderr.decode(errors="ignore")
+                if "usage:" in stderr:
+                    raise error.Abort(
+                        _("ssh-keygen -Y sign requires OpenSSH 8.2p1 or later")
+                    )
+                raise error.Abort(
+                    _("error when running ssh-keygen for signing:\n%s")
+                    % textwrap.indent(stderr, "  ")
+                )
+
+            sig_path = buf_path + ".sig"
+            with open(sig_path, "rb") as f:
+                sig = f.read()
+
+            return sig.replace(b"\r", b"").decode()
+        finally:
+            _try_unlink(buf_path)
+            _try_unlink(buf_path + ".sig")
+            if key_tmpfile:
+                _try_unlink(key_tmpfile)
+
+    def git_signing_args(self) -> Tuple[List[str], List[str]]:
+        config_flags = ["-c", "gpg.format=ssh"]
+        if self.program != "ssh-keygen":
+            config_flags += ["-c", f"gpg.ssh.program={self.program}"]
+        return config_flags, [f"-S{self.key}"]
+
+
+def get_signing_backend(ui) -> Optional[SigningBackend]:
+    """Read signing config and return the appropriate backend, or None if disabled.
 
     Resolution logic:
     1. If signing.backend is set -> use [signing] config entirely.
@@ -67,129 +177,22 @@ def get_signing_config(ui) -> Optional[SigningConfig]:
 
         if backend == "ssh":
             program = ui.config("signing", "ssh.program") or "ssh-keygen"
+            return SshBackend(key=key, program=program)
         elif backend == "gpg":
             program = ui.config("signing", "gpg.program") or "gpg"
+            return GpgBackend(key=key, program=program)
         else:
             raise error.Abort(
                 _("unsupported signing backend: %s (expected 'gpg' or 'ssh')") % backend
             )
 
-        return SigningConfig(backend=backend, key=key, program=program)
-
     # Fall back to legacy [gpg] config.
     if ui.configbool("gpg", "enabled"):
         key = ui.config("gpg", "key")
         if key:
-            return SigningConfig(backend="gpg", key=key, program="gpg")
+            return GpgBackend(key=key)
 
     return None
-
-
-def sign(commit_text: bytes, config: SigningConfig) -> str:
-    """Sign commit_text using the configured backend. Returns the armored signature."""
-    if config.backend == "gpg":
-        return _sign_gpg(commit_text, config.key, config.program)
-    elif config.backend == "ssh":
-        return _sign_ssh(commit_text, config.key, config.program)
-    else:
-        raise error.Abort(_("unsupported signing backend: %s") % config.backend)
-
-
-def git_signing_args(
-    config: Optional[SigningConfig],
-) -> Tuple[List[str], List[str]]:
-    """Return (config_flags, sign_args) for git CLI commands like commit-tree."""
-    if not config:
-        return [], []
-    sign_args = [f"-S{config.key}"]
-    config_flags = []
-    if config.backend == "ssh":
-        config_flags += ["-c", "gpg.format=ssh"]
-        if config.program != "ssh-keygen":
-            config_flags += ["-c", f"gpg.ssh.program={config.program}"]
-    else:
-        config_flags += ["-c", "gpg.format=openpgp"]
-        if config.program != "gpg":
-            config_flags += ["-c", f"gpg.program={config.program}"]
-    return config_flags, sign_args
-
-
-def _sign_gpg(commit_text: bytes, key: str, program: str) -> str:
-    try:
-        # This should match how Git signs commits:
-        # https://github.com/git/git/blob/2e71cbbddd64695d43383c25c7a054ac4ff86882/gpg-interface.c#L956-L960
-        # Long-form arguments for `gpg` are used for clarity.
-        sig_bytes = subprocess.check_output(
-            [
-                program,
-                "--status-fd=2",
-                "--detach-sign",
-                "--sign",
-                "--armor",
-                "--always-trust",
-                "--yes",
-                "--local-user",
-                key,
-            ],
-            stderr=subprocess.PIPE,
-            input=commit_text,
-        )
-    except subprocess.CalledProcessError as ex:
-        indented_stderr = textwrap.indent(ex.stderr.decode(errors="ignore"), "  ")
-        raise error.Abort(
-            _("error when running gpg with gpgkeyid %s:\n%s") % (key, indented_stderr)
-        )
-
-    return sig_bytes.replace(b"\r", b"").decode()
-
-
-def _sign_ssh(commit_text: bytes, key: str, program: str) -> str:
-    with tempfile.NamedTemporaryFile(
-        delete=False, prefix=".sl_signing_buffer_"
-    ) as buf_f:
-        buf_f.write(commit_text)
-        buf_path = buf_f.name
-
-    key_tmpfile = None
-    try:
-        cmd = [program, "-Y", "sign", "-n", "git"]
-
-        if key.startswith("key::"):
-            literal_key = key[5:]
-            key_tmpfile = _write_key_tmpfile(literal_key)
-            cmd += ["-f", key_tmpfile, "-U"]
-        elif key.startswith("ssh-"):
-            # Legacy literal key format (deprecated in git, but supported).
-            key_tmpfile = _write_key_tmpfile(key)
-            cmd += ["-f", key_tmpfile, "-U"]
-        else:
-            expanded = os.path.expanduser(key)
-            cmd += ["-f", expanded]
-
-        cmd.append(buf_path)
-
-        result = subprocess.run(cmd, capture_output=True)
-        if result.returncode != 0:
-            stderr = result.stderr.decode(errors="ignore")
-            if "usage:" in stderr:
-                raise error.Abort(
-                    _("ssh-keygen -Y sign requires OpenSSH 8.2p1 or later")
-                )
-            raise error.Abort(
-                _("error when running ssh-keygen for signing:\n%s")
-                % textwrap.indent(stderr, "  ")
-            )
-
-        sig_path = buf_path + ".sig"
-        with open(sig_path, "rb") as f:
-            sig = f.read()
-
-        return sig.replace(b"\r", b"").decode()
-    finally:
-        _try_unlink(buf_path)
-        _try_unlink(buf_path + ".sig")
-        if key_tmpfile:
-            _try_unlink(key_tmpfile)
 
 
 def _try_unlink(path: str) -> None:

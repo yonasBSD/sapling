@@ -119,8 +119,9 @@ async def add_commit_to_archives(
         # Synthetically create a new commit that has `oid_to_archive` and the
         # old branch head as parents and force-push it as the new branch head.
         user_name, user_email = gituser.get_identity_or_raise(ui)
-        signing_config_flags, sign_args = signing.git_signing_args(
-            signing.get_signing_config(ui)
+        _backend = signing.get_signing_backend(ui)
+        signing_config_flags, sign_args = (
+            _backend.git_signing_args() if _backend else ([], [])
         )
 
         config_args = [

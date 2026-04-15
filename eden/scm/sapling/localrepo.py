@@ -2845,7 +2845,7 @@ class localrepository:
                 user,
                 ctx.date(),
                 extra,
-                signing.get_signing_config(self.ui),
+                signing.get_signing_backend(self.ui),
             )
             xp1, xp2 = p1.hex(), p2 and p2.hex() or ""
             self.hook("pretxncommit", throw=True, node=hex(n), parent1=xp1, parent2=xp2)

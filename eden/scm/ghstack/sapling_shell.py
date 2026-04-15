@@ -155,8 +155,9 @@ class SaplingShell(ghstack.shell.Shell):
             "-c",
             f"user.email={self.user_email}",
         ]
-        signing_config_flags, sign_args = signing.git_signing_args(
-            signing.get_signing_config(self.ui)
+        _backend = signing.get_signing_backend(self.ui)
+        signing_config_flags, sign_args = (
+            _backend.git_signing_args() if _backend else ([], [])
         )
         config_flags += signing_config_flags
         full_args = config_flags + ["commit-tree"] + sign_args + list(args)
