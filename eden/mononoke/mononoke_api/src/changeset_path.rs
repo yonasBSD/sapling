@@ -202,6 +202,7 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
             changeset.repo_ctx().repo().restricted_paths_arc().clone(),
             &path,
             "changeset_path_content_context_new",
+            Some(changeset.id()),
         )
         .await?;
 
@@ -239,6 +240,7 @@ impl<R: MononokeRepo> ChangesetPathContentContext<R> {
             changeset.repo_ctx().repo().restricted_paths_arc().clone(),
             &path,
             "changeset_path_context_fsnode_new",
+            Some(changeset.id()),
         )
         .await?;
 
@@ -421,6 +423,7 @@ impl<R: MononokeRepo> ChangesetPathHistoryContext<R> {
             changeset.repo_ctx().repo().restricted_paths_arc().clone(),
             &path,
             "changeset_path_history_context_new",
+            Some(changeset.id()),
         )
         .await?;
 
@@ -459,6 +462,7 @@ impl<R: MononokeRepo> ChangesetPathHistoryContext<R> {
             changeset.repo_ctx().repo().restricted_paths_arc().clone(),
             &path,
             "changeset_path_history_context_new",
+            Some(changeset.id()),
         )
         .await?;
 
@@ -498,6 +502,7 @@ impl<R: MononokeRepo> ChangesetPathHistoryContext<R> {
             changeset.repo_ctx().repo().restricted_paths_arc().clone(),
             &path,
             "changeset_path_history_context_new",
+            Some(changeset.id()),
         )
         .await?;
 
@@ -899,6 +904,7 @@ impl<R: MononokeRepo> ChangesetPathContext<R> {
             changeset.repo_ctx().repo().restricted_paths_arc().clone(),
             &path,
             "changeset_path_context_new",
+            Some(changeset.id()),
         )
         .await?;
 

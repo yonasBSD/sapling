@@ -343,9 +343,11 @@ impl RestrictedPaths {
         ctx: &CoreContext,
         manifest_id: ManifestId,
         manifest_type: ManifestType,
+        cs_id: Option<ChangesetId>,
     ) -> Result<bool> {
         // No need to query the DB if the config is empty, i.e. the repo doesn't
         // have any restricted paths.
+        let _ = cs_id; // Will be used in a follow-up diff for ACL manifest checks
 
         if self.config().is_empty() {
             return Ok(true);
@@ -405,8 +407,10 @@ impl RestrictedPaths {
         &self,
         ctx: &CoreContext,
         path: NonRootMPath,
+        cs_id: Option<ChangesetId>,
     ) -> Result<bool> {
         // Return early if the repo doesn't have any restricted paths.
+        let _ = cs_id; // Will be used in a follow-up diff for ACL manifest checks
         if self.config().is_empty() {
             return Ok(true);
         }
@@ -632,6 +636,7 @@ pub fn spawn_log_restricted_path_access(
     restricted_paths: Arc<RestrictedPaths>,
     path: &mononoke_types::MPath,
     switch_value: &str,
+    cs_id: Option<ChangesetId>,
 ) -> Result<Option<task::JoinHandle<Result<bool>>>> {
     // Early return if logging is disabled - avoid all overhead
     if !justknobs::eval(
@@ -654,7 +659,7 @@ pub fn spawn_log_restricted_path_access(
         // Log asynchronously to avoid blocking the request
         let spawned_task = mononoke::spawn_task(async move {
             restricted_paths
-                .log_access_by_path_if_restricted(&ctx_clone, non_root_mpath)
+                .log_access_by_path_if_restricted(&ctx_clone, non_root_mpath, cs_id)
                 .await
         });
 
@@ -682,11 +687,12 @@ pub async fn spawn_enforce_restricted_path_access<'a, 'b>(
     restricted_paths: Arc<RestrictedPaths>,
     path: &'a MPath,
     switch_value: &'b str,
+    cs_id: Option<ChangesetId>,
 ) -> Result<(), RestrictedPathsError<'a>> {
     // Always log first, but get the task handle so we can get the access check
     // result if needed.
     let has_auth_task =
-        spawn_log_restricted_path_access(ctx, restricted_paths.clone(), path, switch_value)?;
+        spawn_log_restricted_path_access(ctx, restricted_paths.clone(), path, switch_value, cs_id)?;
 
     // Check if enforcement JK is enabled
     let enforcement_enabled = justknobs::eval(
@@ -757,6 +763,7 @@ fn spawn_log_restricted_manifest_access(
     manifest_id: ManifestId,
     manifest_type: ManifestType,
     switch_value: &str,
+    cs_id: Option<ChangesetId>,
 ) -> Result<Option<task::JoinHandle<Result<bool>>>> {
     // Early return if logging is disabled - avoid all overhead
     if !justknobs::eval(
@@ -778,7 +785,7 @@ fn spawn_log_restricted_manifest_access(
     // Log asynchronously to avoid blocking the request
     let spawned_task = mononoke::spawn_task(async move {
         restricted_paths
-            .log_access_by_manifest_if_restricted(&ctx_clone, manifest_id, manifest_type)
+            .log_access_by_manifest_if_restricted(&ctx_clone, manifest_id, manifest_type, cs_id)
             .await
     });
 
@@ -804,6 +811,7 @@ pub async fn spawn_enforce_restricted_manifest_access<'a>(
     manifest_id: ManifestId,
     manifest_type: ManifestType,
     switch_value: &'a str,
+    cs_id: Option<ChangesetId>,
 ) -> Result<(), RestrictedPathsError<'a>> {
     // Always log first, but get the task handle so we can get the access check
     // result if needed.
@@ -813,6 +821,7 @@ pub async fn spawn_enforce_restricted_manifest_access<'a>(
         manifest_id.clone(),
         manifest_type.clone(),
         switch_value,
+        cs_id,
     )?;
 
     // Check if enforcement JK is enabled

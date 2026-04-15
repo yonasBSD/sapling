@@ -77,6 +77,7 @@ impl<R: MononokeRepo> HgTreeContext<R> {
             manifest_id,
             ManifestType::Hg,
             "hg_tree_context_new_check_exists",
+            None,
         )
         .await?;
 
@@ -119,6 +120,7 @@ impl<R: MononokeRepo> HgAugmentedTreeContext<R> {
             manifest_id,
             ManifestType::HgAugmented,
             "hg_augmented_tree_context_new_check_exists",
+            None,
         )
         .await?;
 
