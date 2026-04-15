@@ -394,6 +394,12 @@ impl Convert for RawPushrebaseParams {
                     })
                     .transpose()?
                     .unwrap_or_default(),
+                pessimistic_locking_bookmarks: self
+                    .pessimistic_locking_bookmarks
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(BookmarkKey::new)
+                    .collect::<Result<Vec<_>>>()?,
             },
             block_merges: self.block_merges.unwrap_or(default.block_merges),
             emit_obsmarkers: self.emit_obsmarkers.unwrap_or(default.emit_obsmarkers),

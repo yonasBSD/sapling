@@ -1488,6 +1488,7 @@ mod test {
                         not_generated_filenodes_limit: 500,
                         monitoring_bookmark: None,
                         merge_resolution_excluded_path_prefixes: Default::default(),
+                        pessimistic_locking_bookmarks: Vec::new(),
                     },
                     block_merges: false,
                     emit_obsmarkers: false,
