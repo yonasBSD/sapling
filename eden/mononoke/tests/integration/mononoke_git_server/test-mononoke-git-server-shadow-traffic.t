@@ -76,7 +76,7 @@ Verify shadow is alive (plain HTTP)
   I_AM_ALIVE
 
 Record baseline: no git requests processed on shadow yet
-  $ jq -c 'select(.normal.log_tag == "MononokeGit Request Processed")' "$TESTTMP/shadow_git_scuba.json" 2>/dev/null | wc -l
+  $ jq -c 'select(.normal.log_tag == "MononokeGit Request Processed" and .normal.http_path != "/health_check")' "$TESTTMP/shadow_git_scuba.json" 2>/dev/null | wc -l
   0
 
 Configure shadow traffic to forward 100% to shadow git server (plain HTTP)
@@ -124,7 +124,7 @@ Verify cloned content is correct
   $ cd "$TESTTMP"
 
 Verify the shadow git server received forwarded requests
-  $ jq -c 'select(.normal.log_tag == "MononokeGit Request Processed")' "$TESTTMP/shadow_git_scuba.json" | wc -l
+  $ jq -c 'select(.normal.log_tag == "MononokeGit Request Processed" and .normal.http_path != "/health_check")' "$TESTTMP/shadow_git_scuba.json" | wc -l
   3
 
 Now disable shadow traffic

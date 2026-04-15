@@ -529,12 +529,6 @@ impl<H: ScubaHandler> Middleware for ScubaMiddleware<H> {
 
             if let Some(uri) = Uri::try_borrow_from(state) {
                 if uri.path() == "/health_check" || uri.path() == "/proxygen/health_check" {
-                    if !justknobs::eval("scm/mononoke:health_check_scuba_log_enabled", None, None)
-                        .unwrap_or(false)
-                    {
-                        return;
-                    }
-
                     let sampling_rate = core::num::NonZeroU64::new(
                         if status.as_u16() >= 200 || status.as_u16() < 299 {
                             const FALLBACK_SAMPLING_RATE: u64 = 1000;

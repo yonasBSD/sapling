@@ -25,9 +25,6 @@
   $ lfs_log="$TESTTMP/lfs.log"
   $ merge_just_knobs <<EOF
   > {
-  >    "bools": {
-  >      "scm/mononoke:health_check_scuba_log_enabled": true
-  >    },
   >    "ints": {
   >      "scm/mononoke:health_check_scuba_log_failure_sampling_rate": 1,
   >      "scm/mononoke:health_check_scuba_log_success_sampling_rate": 1
