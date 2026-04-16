@@ -390,6 +390,10 @@ pub enum FileAttributes {
     Blake3 = 16,
     DigestSize = 32,
     DigestHash = 64,
+    Mtime = 128,
+    Mode = 256,
+    UnderAcl = 512,
+    Acls = 1024,
 }
 
 impl From<FileAttributes> for thrift_types::edenfs::FileAttributes {
@@ -403,6 +407,10 @@ impl From<FileAttributes> for thrift_types::edenfs::FileAttributes {
             FileAttributes::Blake3 => Self::BLAKE3_HASH,
             FileAttributes::DigestSize => Self::DIGEST_SIZE,
             FileAttributes::DigestHash => Self::DIGEST_HASH,
+            FileAttributes::Mtime => Self::MTIME,
+            FileAttributes::Mode => Self::MODE,
+            FileAttributes::UnderAcl => Self::UNDER_ACL,
+            FileAttributes::Acls => Self::ACLs,
         }
     }
 }
@@ -418,6 +426,10 @@ impl From<thrift_types::edenfs::FileAttributes> for FileAttributes {
             thrift_types::edenfs::FileAttributes::BLAKE3_HASH => Self::Blake3,
             thrift_types::edenfs::FileAttributes::DIGEST_SIZE => Self::DigestSize,
             thrift_types::edenfs::FileAttributes::DIGEST_HASH => Self::DigestHash,
+            thrift_types::edenfs::FileAttributes::MTIME => Self::Mtime,
+            thrift_types::edenfs::FileAttributes::MODE => Self::Mode,
+            thrift_types::edenfs::FileAttributes::UNDER_ACL => Self::UnderAcl,
+            thrift_types::edenfs::FileAttributes::ACLs => Self::Acls,
             _ => Self::None,
         }
     }
@@ -435,6 +447,10 @@ impl FromStr for FileAttributes {
             "blake3" => Ok(Self::Blake3),
             "digestsize" => Ok(Self::DigestSize),
             "digesthash" => Ok(Self::DigestHash),
+            "mtime" => Ok(Self::Mtime),
+            "mode" => Ok(Self::Mode),
+            "underacl" => Ok(Self::UnderAcl),
+            "acls" => Ok(Self::Acls),
             _ => Err(EdenFsError::Other(anyhow!(
                 "invalid file attribute: {:?}",
                 s
@@ -454,6 +470,10 @@ impl AsRef<str> for FileAttributes {
             FileAttributes::Blake3 => "Blake3",
             FileAttributes::DigestSize => "DigestSize",
             FileAttributes::DigestHash => "DigestHash",
+            FileAttributes::Mtime => "Mtime",
+            FileAttributes::Mode => "Mode",
+            FileAttributes::UnderAcl => "UnderAcl",
+            FileAttributes::Acls => "Acls",
         }
     }
 }
@@ -592,7 +612,7 @@ mod test {
                 .unwrap(),
             FileAttributes::SourceControlType.as_mask()
         );
-        assert!(400i32.try_into_bitmask().is_err());
+        assert!(2048i32.try_into_bitmask().is_err());
     }
 
     #[test]

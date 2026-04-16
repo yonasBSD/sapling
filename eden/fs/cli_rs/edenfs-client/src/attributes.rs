@@ -256,6 +256,76 @@ impl From<thrift_types::edenfs::DigestSizeOrError> for DigestSizeOrError {
     }
 }
 
+#[derive(Debug)]
+pub enum UnderAclOrError {
+    UnderAcl(bool),
+    Error(EdenFsError),
+    UnknownField(i32),
+}
+
+impl From<thrift_types::edenfs::UnderAclOrError> for UnderAclOrError {
+    fn from(from: thrift_types::edenfs::UnderAclOrError) -> Self {
+        match from {
+            thrift_types::edenfs::UnderAclOrError::underAcl(v) => Self::UnderAcl(v),
+            thrift_types::edenfs::UnderAclOrError::error(e) => {
+                Self::Error(EdenFsError::ThriftRequestError(e.into()))
+            }
+            thrift_types::edenfs::UnderAclOrError::UnknownField(i) => Self::UnknownField(i),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct AclEntry {
+    pub restriction_root: String,
+    pub repo_region_acl: String,
+    pub request_acl: Option<String>,
+}
+
+impl From<thrift_types::edenfs::AclEntry> for AclEntry {
+    fn from(from: thrift_types::edenfs::AclEntry) -> Self {
+        Self {
+            restriction_root: from.restrictionRoot,
+            repo_region_acl: from.repoRegionAcl,
+            request_acl: from.requestAcl,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct AclInfo {
+    pub under_acl: bool,
+    pub acls: Vec<AclEntry>,
+}
+
+impl From<thrift_types::edenfs::AclInfo> for AclInfo {
+    fn from(from: thrift_types::edenfs::AclInfo) -> Self {
+        Self {
+            under_acl: from.underAcl,
+            acls: from.acls.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum AclInfoOrError {
+    AclInfo(AclInfo),
+    Error(EdenFsError),
+    UnknownField(i32),
+}
+
+impl From<thrift_types::edenfs::AclInfoOrError> for AclInfoOrError {
+    fn from(from: thrift_types::edenfs::AclInfoOrError) -> Self {
+        match from {
+            thrift_types::edenfs::AclInfoOrError::aclInfo(info) => Self::AclInfo(info.into()),
+            thrift_types::edenfs::AclInfoOrError::error(e) => {
+                Self::Error(EdenFsError::ThriftRequestError(e.into()))
+            }
+            thrift_types::edenfs::AclInfoOrError::UnknownField(i) => Self::UnknownField(i),
+        }
+    }
+}
+
 /// Contains file attribute data for a file.
 ///
 /// This struct contains various attributes of a file, such as its SHA1 hash,
@@ -277,6 +347,10 @@ pub struct FileAttributeDataV2 {
     pub digest_size: Option<DigestSizeOrError>,
     /// The digest hash of the file, if requested and available.
     pub digest_hash: Option<DigestHashOrError>,
+    /// Whether the path is under any ACL, if requested and available.
+    pub under_acl: Option<UnderAclOrError>,
+    /// Rich ACL metadata, if requested and available.
+    pub acl_info: Option<AclInfoOrError>,
 }
 
 impl From<thrift_types::edenfs::FileAttributeDataV2> for FileAttributeDataV2 {
@@ -289,6 +363,8 @@ impl From<thrift_types::edenfs::FileAttributeDataV2> for FileAttributeDataV2 {
             blake3: from.blake3.map(Into::into),
             digest_size: from.digestSize.map(Into::into),
             digest_hash: from.digestHash.map(Into::into),
+            under_acl: from.underAcl.map(Into::into),
+            acl_info: from.aclInfo.map(Into::into),
         }
     }
 }
