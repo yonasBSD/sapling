@@ -125,7 +125,7 @@ mononoke_queries! {
         Option<Timestamp>,
         Option<RowId>,
     ) {
-        "SELECT
+        mysql("SELECT
            q.id,
            q.request_type,
            q.repo_id,
@@ -153,7 +153,37 @@ mononoke_queries! {
             )
           ORDER BY q.created_at ASC
           LIMIT 1
-        "
+          FOR UPDATE SKIP LOCKED
+        ")
+        sqlite("SELECT
+           q.id,
+           q.request_type,
+           q.repo_id,
+           q.args_blobstore_key,
+           q.result_blobstore_key,
+           q.created_at,
+           q.started_processing_at,
+           q.inprogress_last_updated_at,
+           q.ready_at,
+           q.polled_at,
+           q.status,
+           q.claimed_by,
+           q.num_retries,
+           q.failed_at,
+           q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND q.repo_id IN {supported_repo_ids}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent
+               ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id
+               AND parent.status NOT IN ('ready', 'polled')
+            )
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        ")
     }
 
     read GetOneNewRequestExcludingReposWithDeps(>list excluded_repo_ids: RepositoryId) -> (
@@ -173,7 +203,7 @@ mononoke_queries! {
         Option<Timestamp>,
         Option<RowId>,
     ) {
-        "SELECT
+        mysql("SELECT
            q.id,
            q.request_type,
            q.repo_id,
@@ -201,7 +231,37 @@ mononoke_queries! {
             )
           ORDER BY q.created_at ASC
           LIMIT 1
-        "
+          FOR UPDATE SKIP LOCKED
+        ")
+        sqlite("SELECT
+           q.id,
+           q.request_type,
+           q.repo_id,
+           q.args_blobstore_key,
+           q.result_blobstore_key,
+           q.created_at,
+           q.started_processing_at,
+           q.inprogress_last_updated_at,
+           q.ready_at,
+           q.polled_at,
+           q.status,
+           q.claimed_by,
+           q.num_retries,
+           q.failed_at,
+           q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND (q.repo_id IS NULL OR q.repo_id NOT IN {excluded_repo_ids})
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent
+               ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id
+               AND parent.status NOT IN ('ready', 'polled')
+            )
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        ")
     }
 
     read GetOneNewRequestWithDeps() -> (
@@ -221,7 +281,7 @@ mononoke_queries! {
         Option<Timestamp>,
         Option<RowId>,
     ) {
-        "SELECT
+        mysql("SELECT
            q.id,
            q.request_type,
            q.repo_id,
@@ -248,7 +308,36 @@ mononoke_queries! {
             )
           ORDER BY q.created_at ASC
           LIMIT 1
-        "
+          FOR UPDATE SKIP LOCKED
+        ")
+        sqlite("SELECT
+           q.id,
+           q.request_type,
+           q.repo_id,
+           q.args_blobstore_key,
+           q.result_blobstore_key,
+           q.created_at,
+           q.started_processing_at,
+           q.inprogress_last_updated_at,
+           q.ready_at,
+           q.polled_at,
+           q.status,
+           q.claimed_by,
+           q.num_retries,
+           q.failed_at,
+           q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent
+               ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id
+               AND parent.status NOT IN ('ready', 'polled')
+            )
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        ")
     }
 
     // Claim queries with both repo and request type filtering.
@@ -260,7 +349,7 @@ mononoke_queries! {
         Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
         RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
     ) {
-        "SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+        mysql("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
            q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
          FROM long_running_request_queue q
@@ -271,7 +360,19 @@ mononoke_queries! {
              SELECT 1 FROM long_running_request_dependencies dep
              JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
              WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
-         ORDER BY q.created_at ASC LIMIT 1"
+         ORDER BY q.created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED")
+        sqlite("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+           q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND q.repo_id IN {supported_repo_ids}
+           AND q.request_type IN {request_types}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
+         ORDER BY q.created_at ASC LIMIT 1")
     }
 
     read GetOneNewRequestExcludingReposFilteredTypes(>list excluded_repo_ids: RepositoryId >list request_types: RequestType) -> (
@@ -279,7 +380,7 @@ mononoke_queries! {
         Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
         RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
     ) {
-        "SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+        mysql("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
            q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
          FROM long_running_request_queue q
@@ -290,7 +391,19 @@ mononoke_queries! {
              SELECT 1 FROM long_running_request_dependencies dep
              JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
              WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
-         ORDER BY q.created_at ASC LIMIT 1"
+         ORDER BY q.created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED")
+        sqlite("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+           q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND (q.repo_id IS NULL OR q.repo_id NOT IN {excluded_repo_ids})
+           AND q.request_type IN {request_types}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
+         ORDER BY q.created_at ASC LIMIT 1")
     }
 
     read GetOneNewRequestFilteredTypes(>list request_types: RequestType) -> (
@@ -298,7 +411,7 @@ mononoke_queries! {
         Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
         RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
     ) {
-        "SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+        mysql("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
            q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
          FROM long_running_request_queue q
@@ -308,7 +421,18 @@ mononoke_queries! {
              SELECT 1 FROM long_running_request_dependencies dep
              JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
              WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
-         ORDER BY q.created_at ASC LIMIT 1"
+         ORDER BY q.created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED")
+        sqlite("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
+           q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+         FROM long_running_request_queue q
+         WHERE q.status = 'new'
+           AND q.request_type IN {request_types}
+           AND NOT EXISTS (
+             SELECT 1 FROM long_running_request_dependencies dep
+             JOIN long_running_request_queue parent ON dep.depends_on_request_id = parent.id
+             WHERE dep.request_id = q.id AND parent.status NOT IN ('ready', 'polled'))
+         ORDER BY q.created_at ASC LIMIT 1")
     }
 
     // Abandoned request queries with both repo and request type filtering.
@@ -1106,64 +1230,59 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
             return Ok(None);
         }
 
-        // Spin until we win the race or there's nothing to do.
-        loop {
-            let txn = self
-                .connections
-                .write_connection
-                .start_transaction(ctx.sql_query_telemetry())
-                .await?;
-
-            let (txn, rows) = match repo_filter {
-                QueueRepoFilter::Only(repos) if repos.is_empty() => {
-                    return Ok(None);
-                }
-                QueueRepoFilter::Only(repos) => {
-                    GetOneNewRequestForReposFilteredTypes::query_with_transaction(
-                        txn,
-                        repos,
-                        &request_types,
-                    )
-                    .await
-                }
-                QueueRepoFilter::Except(repos) if repos.is_empty() => {
-                    GetOneNewRequestFilteredTypes::query_with_transaction(txn, &request_types).await
-                }
-                QueueRepoFilter::Except(repos) => {
-                    GetOneNewRequestExcludingReposFilteredTypes::query_with_transaction(
-                        txn,
-                        repos,
-                        &request_types,
-                    )
-                    .await
-                }
-            }
-            .context("claiming new request")?;
-            let mut entry = match rows.into_iter().next() {
-                None => {
-                    txn.rollback().await?;
-                    return Ok(None);
-                }
-                Some(row) => row_to_entry(row),
-            };
-
-            let now = Timestamp::now();
-            let (txn, res) = MarkRequestInProgress::query_with_transaction(
-                txn,
-                &entry.id,
-                &entry.request_type,
-                &now,
-                claimed_by,
-            )
+        // SELECT FOR UPDATE SKIP LOCKED ensures each worker gets a distinct
+        // row (or no row), eliminating the thundering-herd retry loop.
+        let txn = self
+            .connections
+            .write_connection
+            .start_transaction(ctx.sql_query_telemetry())
             .await?;
-            if res.affected_rows() > 0 {
-                txn.commit().await?;
-                entry.status = RequestStatus::InProgress;
-                return Ok(Some(entry));
+
+        let (txn, rows) = match repo_filter {
+            QueueRepoFilter::Only(repos) if repos.is_empty() => {
+                return Ok(None);
             }
-            // Another worker claimed it between our SELECT and UPDATE, retry.
-            txn.rollback().await?;
+            QueueRepoFilter::Only(repos) => {
+                GetOneNewRequestForReposFilteredTypes::query_with_transaction(
+                    txn,
+                    repos,
+                    &request_types,
+                )
+                .await
+            }
+            QueueRepoFilter::Except(repos) if repos.is_empty() => {
+                GetOneNewRequestFilteredTypes::query_with_transaction(txn, &request_types).await
+            }
+            QueueRepoFilter::Except(repos) => {
+                GetOneNewRequestExcludingReposFilteredTypes::query_with_transaction(
+                    txn,
+                    repos,
+                    &request_types,
+                )
+                .await
+            }
         }
+        .context("claiming new request")?;
+        let mut entry = match rows.into_iter().next() {
+            None => {
+                txn.rollback().await?;
+                return Ok(None);
+            }
+            Some(row) => row_to_entry(row),
+        };
+
+        let now = Timestamp::now();
+        let (txn, _res) = MarkRequestInProgress::query_with_transaction(
+            txn,
+            &entry.id,
+            &entry.request_type,
+            &now,
+            claimed_by,
+        )
+        .await?;
+        txn.commit().await?;
+        entry.status = RequestStatus::InProgress;
+        Ok(Some(entry))
     }
 
     async fn test_get_request_entry_by_id(
