@@ -53,7 +53,7 @@ const DEFAULT_RELOADING_INTERVAL_SECS: u64 = 60 * 60;
 /// Useful for commit graphs with complicated structure that are small enough
 /// to fit into memory.
 pub struct PreloadedCommitGraphStorage {
-    preloaded_edges: Reloader<PreloadedEdges>,
+    preloaded_edges: Arc<Reloader<PreloadedEdges>>,
     persistent_storage: Arc<dyn CommitGraphStorage>,
 }
 
@@ -345,19 +345,20 @@ impl Loader<PreloadedEdges> for PreloadedEdgesLoader {
 }
 
 impl PreloadedCommitGraphStorage {
-    pub async fn from_blobstore(
+    /// Create just the reloader for preloaded edges, without constructing
+    /// the full storage. Useful for caching the reloader independently.
+    pub async fn create_reloader(
         ctx: &CoreContext,
         blobstore_without_cache: Arc<dyn Blobstore>,
         preloaded_edges_blobstore_key: String,
-        persistent_storage: Arc<dyn CommitGraphStorage>,
-    ) -> Result<Arc<Self>> {
+    ) -> Result<Arc<Reloader<PreloadedEdges>>> {
         let loader = PreloadedEdgesLoader {
             ctx: ctx.clone(),
             blobstore_key: preloaded_edges_blobstore_key,
             blobstore_without_cache,
         };
 
-        let reloader = Reloader::reload_periodically(
+        Reloader::reload_periodically(
             ctx.clone(),
             move || {
                 std::time::Duration::from_secs(
@@ -370,11 +371,32 @@ impl PreloadedCommitGraphStorage {
             },
             loader,
         )
-        .await?;
-        Ok(Arc::new(Self {
-            preloaded_edges: reloader,
+        .await
+        .map(Arc::new)
+    }
+
+    /// Construct a PreloadedCommitGraphStorage from an existing reloader
+    /// and persistent storage.
+    pub fn from_reloader(
+        preloaded_edges: Arc<Reloader<PreloadedEdges>>,
+        persistent_storage: Arc<dyn CommitGraphStorage>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            preloaded_edges,
             persistent_storage,
-        }))
+        })
+    }
+
+    pub async fn from_blobstore(
+        ctx: &CoreContext,
+        blobstore_without_cache: Arc<dyn Blobstore>,
+        preloaded_edges_blobstore_key: String,
+        persistent_storage: Arc<dyn CommitGraphStorage>,
+    ) -> Result<Arc<Self>> {
+        let reloader =
+            Self::create_reloader(ctx, blobstore_without_cache, preloaded_edges_blobstore_key)
+                .await?;
+        Ok(Self::from_reloader(reloader, persistent_storage))
     }
 
     /// Check if fallback should be applied for this repository
