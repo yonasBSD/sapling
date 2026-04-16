@@ -44,6 +44,7 @@ from eden.fs.cli.cmd_util import get_eden_instance
 from eden.fs.service.eden.thrift_clients import EdenService as ModernEdenService
 from eden.fs.service.eden.thrift_enums import AttributesRequestScope
 from eden.fs.service.eden.thrift_types import (
+    AclInfoOrError,
     Blake3OrError,
     BlobMetadataOrError,
     BlobMetadataWithOrigin,
@@ -82,6 +83,7 @@ from eden.fs.service.eden.thrift_types import (
     SyncBehavior,
     TimeSpec,
     TreeInodeDebugInfo,
+    UnderAclOrError,
 )
 from thrift.python.exceptions import ApplicationError, ApplicationErrorType
 from thrift.python.serializer import Protocol, serialize as thrift_serialize
@@ -2049,6 +2051,18 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
             action="store_true",
             help="Include file mode attribute",
         )
+        attr_group.add_argument(
+            "--under-acl",
+            action="store_true",
+            default=False,
+            help="Return whether any ACL applies to this path",
+        )
+        attr_group.add_argument(
+            "--acls",
+            action="store_true",
+            default=False,
+            help="Return rich ACL metadata for this path",
+        )
 
         # Scope options - mutually exclusive
         scope_group = parser.add_argument_group(
@@ -2221,6 +2235,42 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
         else:
             print("  Modification Time:    Empty")
 
+    def _print_under_acl(self, under_acl: Optional[UnderAclOrError]) -> None:
+        """Print under_acl attribute."""
+        if under_acl is None:
+            print("  Under ACL:            None")
+            return
+
+        under_acl_type = under_acl.type
+        if under_acl_type is UnderAclOrError.Type.underAcl:
+            print(f"  Under ACL:            {under_acl.underAcl}")
+        elif under_acl_type is UnderAclOrError.Type.error:
+            print(f"  Under ACL:            {under_acl.error.message}")
+        else:
+            print("  Under ACL:            Empty")
+
+    def _print_acl_info(self, acl_info: Optional[AclInfoOrError]) -> None:
+        """Print ACL info attribute."""
+        if acl_info is None:
+            print("  ACL Info:             None")
+            return
+
+        acl_info_type = acl_info.type
+        if acl_info_type is AclInfoOrError.Type.error:
+            print(f"  ACL Info:             {acl_info.error.message}")
+        elif acl_info_type is AclInfoOrError.Type.aclInfo:
+            info = acl_info.aclInfo
+            print("  ACL Info:")
+            print(f"    Under ACL:          {info.underAcl}")
+            print("    ACL Entries:")
+            for entry in info.acls:
+                request = entry.requestAcl if entry.requestAcl else "N/A"
+                print(
+                    f"      - Root: {entry.restrictionRoot}, Region: {entry.repoRegionAcl}, Request: {request}"
+                )
+        else:
+            print("  ACL Info:             Empty")
+
     def _print_file_attributes(
         self, attr_data: FileAttributeDataV2, requested_attributes: int
     ) -> None:
@@ -2243,6 +2293,10 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
             self._print_digest_hash(attr_data.digestHash)
         if requested_attributes & FileAttributes.MTIME:
             self._print_mtime(attr_data.mtime)
+        if requested_attributes & FileAttributes.UNDER_ACL:
+            self._print_under_acl(attr_data.underAcl)
+        if requested_attributes & FileAttributes.ACLs:
+            self._print_acl_info(attr_data.aclInfo)
 
     def _print_path_result(
         self,
@@ -2278,6 +2332,8 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
                 | FileAttributes.DIGEST_SIZE
                 | FileAttributes.DIGEST_HASH
                 | FileAttributes.MTIME
+                | FileAttributes.UNDER_ACL
+                | FileAttributes.ACLs
             )
 
         # Check if any specific attributes were requested
@@ -2300,6 +2356,10 @@ class GetAttributesFromFilesV2Cmd(Subcmd):
             requested_attrs |= FileAttributes.DIGEST_HASH
         if args.mtime:
             requested_attrs |= FileAttributes.MTIME
+        if args.under_acl:
+            requested_attrs |= FileAttributes.UNDER_ACL
+        if args.acls:
+            requested_attrs |= FileAttributes.ACLs
 
         # If no attributes were explicitly requested, use defaults
         if requested_attrs == 0:
