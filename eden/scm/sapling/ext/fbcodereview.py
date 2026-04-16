@@ -36,6 +36,7 @@ import ssl
 import sys
 from typing import Any, List, Optional, Pattern, Set, Sized
 
+from bindings import agentdetect
 from sapling import (
     autopull,
     cmdutil,
@@ -100,6 +101,41 @@ GIT_CALLSIGN_PREFIXES: Set[str] = {"AOSP"}
 githashre: Pattern[str] = re.compile(r"g([0-9a-f]{40})")
 svnrevre: Pattern[str] = re.compile(r"^r[A-Z]+(\d+)$")
 phabhashre: Pattern[str] = re.compile(r"^r([A-Z]+)([0-9a-f]{12,40})$")
+
+
+def validate_message_change(repo, old_desc, new_desc):
+    """Abort or prompt if new commit message drops a Differential Revision line present in old.
+
+    - If running as an agent, abort unconditionally.
+    - Otherwise, prompt the user to confirm whether to proceed.
+    """
+    if repo.ui.configbool("fbcodereview", "allow-diff-revision-drop"):
+        return
+    if repo.ui.plain():
+        # should not block automation like `jf unlink`
+        return
+    if not new_desc:
+        return
+    old_rev = diffprops.parserevfromcommitmsg(old_desc)
+    new_rev = diffprops.parserevfromcommitmsg(new_desc)
+    if old_rev and not new_rev:
+        if agentdetect.is_agent():
+            raise error.Abort(
+                _("commit message drops phabricator diff number 'D%s'") % old_rev,
+                hint=_(
+                    "use `jf template` to modify commit message fields or use 'jf unlink' to remove the associated phabricator diff"
+                ),
+            )
+        else:
+            choice = repo.ui.promptchoice(
+                _(
+                    "commit message drops phabircator diff number 'D%s', proceed (Yn)? $$ &Yes $$ &No"
+                )
+                % old_rev,
+                default=0,
+            )
+            if choice != 0:
+                raise error.Abort(_("aborted by user"))
 
 
 @templatekeyword("phabdiff")
