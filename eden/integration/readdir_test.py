@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Pattern, Tuple, Union
 
 from eden.fs.service.eden.thrift_types import (
+    AclInfoOrError,
     Blake3OrError,
     DigestHashOrError,
     DigestSizeOrError,
@@ -41,6 +42,7 @@ from eden.fs.service.eden.thrift_types import (
     SourceControlTypeOrError,
     SyncBehavior,
     TimeSpec,
+    UnderAclOrError,
 )
 
 from .lib import testcase
@@ -58,6 +60,8 @@ ALL_ATTRIBUTES = (
     | FileAttributes.DIGEST_HASH
     | FileAttributes.MTIME
     | FileAttributes.MODE
+    | FileAttributes.UNDER_ACL
+    | FileAttributes.ACLs
 )
 
 
@@ -344,6 +348,8 @@ class ReaddirTest(testcase.EdenRepoTest):
             Optional[bytes],
             Optional[TimeSpec],
             Optional[int],
+            Optional[UnderAclOrError],
+            Optional[AclInfoOrError],
         ],
     ) -> FileAttributeDataOrErrorV2:
         (
@@ -356,6 +362,8 @@ class ReaddirTest(testcase.EdenRepoTest):
             digest_hash,
             raw_mtime,
             raw_mode,
+            under_acl,
+            acl_info,
         ) = raw_attributes
         data = FileAttributeDataV2(
             sha1=Sha1OrError(sha1=raw_sha1) if raw_sha1 is not None else None,
@@ -375,6 +383,8 @@ class ReaddirTest(testcase.EdenRepoTest):
             else None,
             mtime=MtimeOrError(mtime=raw_mtime) if raw_mtime is not None else None,
             mode=ModeOrError(mode=raw_mode) if raw_mode is not None else None,
+            underAcl=under_acl,
+            aclInfo=acl_info,
         )
 
         return FileAttributeDataOrErrorV2(fileAttributeData=data)
@@ -438,7 +448,19 @@ class ReaddirTest(testcase.EdenRepoTest):
         expected_hello_size = await self.get_expected_file_attributes("hello", None)
 
         expected_hello_result = self.wrap_expected_attributes(
-            (None, expected_hello_size[1], None, None, None, None, None, None, None)
+            (
+                None,
+                expected_hello_size[1],
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
         )
 
         # create result object for "hello"
@@ -456,7 +478,19 @@ class ReaddirTest(testcase.EdenRepoTest):
         # expected size result for file
         expected_hello_type = await self.get_expected_file_attributes("hello", None)
         expected_hello_result = self.wrap_expected_attributes(
-            (None, None, expected_hello_type[2], None, None, None, None, None, None)
+            (
+                None,
+                None,
+                expected_hello_type[2],
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
         )
 
         # create result object for "hello"
@@ -488,7 +522,19 @@ class ReaddirTest(testcase.EdenRepoTest):
         expected_hello_sha1 = await self.get_expected_file_attributes("hello", None)
 
         expected_hello_result = self.wrap_expected_attributes(
-            (expected_hello_sha1[0], None, None, None, None, None, None, None, None)
+            (
+                expected_hello_sha1[0],
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
         )
 
         # create result object for "hello"
@@ -509,7 +555,19 @@ class ReaddirTest(testcase.EdenRepoTest):
         expected_hello_blake3 = await self.get_expected_file_attributes("hello", None)
 
         expected_hello_result = self.wrap_expected_attributes(
-            (None, None, None, None, expected_hello_blake3[4], None, None, None, None)
+            (
+                None,
+                None,
+                None,
+                None,
+                expected_hello_blake3[4],
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
         )
 
         # create result object for "hello"
@@ -529,7 +587,19 @@ class ReaddirTest(testcase.EdenRepoTest):
         # expected mtime result for file
         expected_hello_mtime = await self.get_expected_file_attributes("hello", None)
         expected_hello_result = self.wrap_expected_attributes(
-            (None, None, None, None, None, None, None, expected_hello_mtime[7], None)
+            (
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                expected_hello_mtime[7],
+                None,
+                None,
+                None,
+            )
         )
 
         # create result object for "hello"
@@ -550,7 +620,19 @@ class ReaddirTest(testcase.EdenRepoTest):
         expected_hello_mode = await self.get_expected_file_attributes("hello", None)
 
         expected_hello_result = self.wrap_expected_attributes(
-            (None, None, None, None, None, None, None, None, expected_hello_mode[8])
+            (
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                expected_hello_mode[8],
+                None,
+                None,
+            )
         )
 
         # create result object for "hello"
@@ -623,6 +705,20 @@ class ReaddirTest(testcase.EdenRepoTest):
                 digestHash=self.adir_digest_hash_result,
                 mtime=MtimeOrError(mtime=mtime),
                 mode=ModeOrError(mode=mode),
+                underAcl=UnderAclOrError(
+                    error=EdenError(
+                        message="adir: underAcl requested, but no underAcl available",
+                        errorCode=ENOENT,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
+                aclInfo=AclInfoOrError(
+                    error=EdenError(
+                        message="adir: aclInfo requested, but no aclInfo available",
+                        errorCode=ENOENT,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
             )
         )
 
@@ -689,6 +785,20 @@ class ReaddirTest(testcase.EdenRepoTest):
                     ),
                     mtime=MtimeOrError(mtime=mtime),
                     mode=ModeOrError(mode=mode),
+                    underAcl=UnderAclOrError(
+                        error=EdenError(
+                            message="asock: underAcl requested, but no underAcl available",
+                            errorCode=ENOENT,
+                            errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                        )
+                    ),
+                    aclInfo=AclInfoOrError(
+                        error=EdenError(
+                            message="asock: aclInfo requested, but no aclInfo available",
+                            errorCode=ENOENT,
+                            errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                        )
+                    ),
                 )
             )
 
@@ -749,6 +859,20 @@ class ReaddirTest(testcase.EdenRepoTest):
                 ),
                 mtime=MtimeOrError(mtime=mtime),
                 mode=ModeOrError(mode=mode),
+                underAcl=UnderAclOrError(
+                    error=EdenError(
+                        message="slink: underAcl requested, but no underAcl available",
+                        errorCode=ENOENT,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
+                aclInfo=AclInfoOrError(
+                    error=EdenError(
+                        message="slink: aclInfo requested, but no aclInfo available",
+                        errorCode=ENOENT,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
             )
         )
 
@@ -880,7 +1004,17 @@ class ReaddirTest(testcase.EdenRepoTest):
         path: str,
         object_id: Optional[bytes],
     ) -> Tuple[
-        bytes, int, SourceControlType, Optional[bytes], bytes, int, bytes, TimeSpec, int
+        bytes,
+        int,
+        SourceControlType,
+        Optional[bytes],
+        bytes,
+        int,
+        bytes,
+        TimeSpec,
+        int,
+        Optional[UnderAclOrError],
+        Optional[AclInfoOrError],
     ]:
         """Get attributes for the file with the specified path inside
         the eden repository. For now, just sha1 and file size.
@@ -903,6 +1037,20 @@ class ReaddirTest(testcase.EdenRepoTest):
                 (0).to_bytes(32, byteorder="big"),
                 expected_mtime,
                 expected_mode,
+                UnderAclOrError(
+                    error=EdenError(
+                        message=f"{os.path.basename(path)}: underAcl requested, but no underAcl available",
+                        errorCode=2,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
+                AclInfoOrError(
+                    error=EdenError(
+                        message=f"{os.path.basename(path)}: aclInfo requested, but no aclInfo available",
+                        errorCode=2,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
             )
         if stat.S_ISLNK(mode):
             return (
@@ -915,6 +1063,20 @@ class ReaddirTest(testcase.EdenRepoTest):
                 (0).to_bytes(32, byteorder="big"),
                 expected_mtime,
                 expected_mode,
+                UnderAclOrError(
+                    error=EdenError(
+                        message=f"{os.path.basename(path)}: underAcl requested, but no underAcl available",
+                        errorCode=2,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
+                AclInfoOrError(
+                    error=EdenError(
+                        message=f"{os.path.basename(path)}: aclInfo requested, but no aclInfo available",
+                        errorCode=2,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
             )
         if not stat.S_ISREG(mode):
             return (
@@ -927,6 +1089,20 @@ class ReaddirTest(testcase.EdenRepoTest):
                 (0).to_bytes(32, byteorder="big"),
                 expected_mtime,
                 expected_mode,
+                UnderAclOrError(
+                    error=EdenError(
+                        message=f"{os.path.basename(path)}: underAcl requested, but no underAcl available",
+                        errorCode=2,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
+                AclInfoOrError(
+                    error=EdenError(
+                        message=f"{os.path.basename(path)}: aclInfo requested, but no aclInfo available",
+                        errorCode=2,
+                        errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                    )
+                ),
             )
         if stat.S_IXUSR & mode:
             file_type = SourceControlType.EXECUTABLE_FILE
@@ -948,6 +1124,20 @@ class ReaddirTest(testcase.EdenRepoTest):
             blake3,
             expected_mtime,
             expected_mode,
+            UnderAclOrError(
+                error=EdenError(
+                    message=f"{os.path.basename(path)}: underAcl requested, but no underAcl available",
+                    errorCode=2,
+                    errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                )
+            ),
+            AclInfoOrError(
+                error=EdenError(
+                    message=f"{os.path.basename(path)}: aclInfo requested, but no aclInfo available",
+                    errorCode=2,
+                    errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                )
+            ),
         )
 
     def get_counter(self, name: str) -> float:
@@ -965,8 +1155,11 @@ class ReaddirTest(testcase.EdenRepoTest):
             Optional[bytes],
             TimeSpec,
             int,
+            Optional[UnderAclOrError],
+            Optional[AclInfoOrError],
         ],
         req_attr: int = ALL_ATTRIBUTES,
+        entry_path: str = "",
     ) -> FileAttributeDataOrErrorV2:
         sha1 = None
         if req_attr & FileAttributes.SHA1_HASH:
@@ -1010,6 +1203,26 @@ class ReaddirTest(testcase.EdenRepoTest):
         if (req_attr & FileAttributes.MODE) and expected_attributes[8] is not None:
             mode = ModeOrError(mode=expected_attributes[8])
 
+        under_acl = None
+        if req_attr & FileAttributes.UNDER_ACL:
+            under_acl = UnderAclOrError(
+                error=EdenError(
+                    message=f"{os.path.basename(entry_path)}: underAcl requested, but no underAcl available",
+                    errorCode=ENOENT,
+                    errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                )
+            )
+
+        acl_info = None
+        if req_attr & FileAttributes.ACLs:
+            acl_info = AclInfoOrError(
+                error=EdenError(
+                    message=f"{os.path.basename(entry_path)}: aclInfo requested, but no aclInfo available",
+                    errorCode=ENOENT,
+                    errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                )
+            )
+
         return FileAttributeDataOrErrorV2(
             fileAttributeData=FileAttributeDataV2(
                 sha1=sha1,
@@ -1021,6 +1234,8 @@ class ReaddirTest(testcase.EdenRepoTest):
                 digestHash=digestHash,
                 mtime=mtime,
                 mode=mode,
+                underAcl=under_acl,
+                aclInfo=acl_info,
             )
         )
 
@@ -1036,7 +1251,8 @@ class ReaddirTest(testcase.EdenRepoTest):
                         await self.get_expected_file_attributes(
                             "adir/file",
                             self.adir_file_id,
-                        )
+                        ),
+                        entry_path="adir/file",
                     )
                 }
             )
@@ -1046,7 +1262,8 @@ class ReaddirTest(testcase.EdenRepoTest):
                         await self.get_expected_file_attributes(
                             "bdir/file",
                             self.bdir_file_id,
-                        )
+                        ),
+                        entry_path="bdir/file",
                     ),
                 }
             )
@@ -1157,6 +1374,7 @@ class ReaddirTest(testcase.EdenRepoTest):
                             "adir/file", self.adir_file_id
                         ),
                         req_attr=req_attr,
+                        entry_path="adir/file",
                     )
                 }
             )
@@ -1167,6 +1385,7 @@ class ReaddirTest(testcase.EdenRepoTest):
                             "bdir/file", self.bdir_file_id
                         ),
                         req_attr=req_attr,
+                        entry_path="bdir/file",
                     )
                 }
             )
@@ -1227,6 +1446,20 @@ class ReaddirTest(testcase.EdenRepoTest):
                     digestHash=digest_hash_result,
                     mtime=mtime_result,
                     mode=mode_result,
+                    underAcl=UnderAclOrError(
+                        error=EdenError(
+                            message=f"{entry_name.decode()}: underAcl requested, but no underAcl available",
+                            errorCode=ENOENT,
+                            errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                        )
+                    ),
+                    aclInfo=AclInfoOrError(
+                        error=EdenError(
+                            message=f"{entry_name.decode()}: aclInfo requested, but no aclInfo available",
+                            errorCode=ENOENT,
+                            errorType=EdenErrorType.ATTRIBUTE_UNAVAILABLE,
+                        )
+                    ),
                 )
             )
 
