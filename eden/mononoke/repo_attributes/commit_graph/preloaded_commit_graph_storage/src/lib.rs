@@ -36,6 +36,7 @@ use mononoke_types::Generation;
 use reloader::Loader;
 use reloader::Reloader;
 use repo_identity::ArcRepoIdentity;
+use smallvec::SmallVec;
 use tracing::info;
 use vec1::Vec1;
 
@@ -64,8 +65,11 @@ pub struct PreloadedEdgesLoader {
 
 #[derive(Debug, Default)]
 pub struct PreloadedEdges {
-    pub cs_id_to_edges: HashMap<ChangesetId, Box<CompactChangesetEdges>>,
-    pub unique_id_to_cs_id: HashMap<NonZeroU32, Box<ChangesetId>>,
+    /// Maps changeset ID to index in the edges vector.
+    pub cs_id_to_idx: HashMap<ChangesetId, u32>,
+    /// All changeset edges, indexed by position. The unique_id maps to index + 1
+    /// (since unique_id is NonZeroU32).
+    pub edges: Vec<CompactChangesetEdges>,
     pub max_sql_id: Option<u64>,
 }
 
@@ -73,14 +77,13 @@ impl PreloadedEdges {
     pub fn to_thrift(&self) -> Result<thrift::PreloadedEdges> {
         Ok(thrift::PreloadedEdges {
             edges: self
-                .unique_id_to_cs_id
+                .edges
                 .iter()
-                .map(|(unique_id, cs_id)| {
-                    Ok(self
-                        .cs_id_to_edges
-                        .get(cs_id)
-                        .ok_or_else(|| anyhow!("Missing changeset edges for {}", cs_id))?
-                        .to_thrift(**cs_id, *unique_id))
+                .enumerate()
+                .map(|(idx, edge)| {
+                    let unique_id = NonZeroU32::new((idx as u32) + 1)
+                        .ok_or_else(|| anyhow!("Invalid index for unique_id"))?;
+                    Ok(edge.to_thrift(unique_id))
                 })
                 .collect::<Result<_>>()?,
             max_sql_id: self.max_sql_id.map(|id| id as i64),
@@ -88,43 +91,37 @@ impl PreloadedEdges {
     }
 
     pub fn from_thrift(preloaded_edges: thrift::PreloadedEdges) -> Result<Self> {
-        let mut unique_id_to_cs_id = HashMap::with_capacity(preloaded_edges.edges.len());
-        let mut cs_id_to_edges = HashMap::with_capacity(preloaded_edges.edges.len());
+        let mut cs_id_to_idx = HashMap::with_capacity(preloaded_edges.edges.len());
+        let mut edges = Vec::with_capacity(preloaded_edges.edges.len());
 
         for edge in preloaded_edges.edges {
-            let cs_id = ChangesetId::from_thrift(edge.cs_id.clone())?;
-            unique_id_to_cs_id.insert(
-                NonZeroU32::new(edge.unique_id as u32)
-                    .ok_or_else(|| anyhow!("Couldn't convert unique_id to NonZeroU32"))?,
-                Box::new(cs_id),
-            );
-            cs_id_to_edges.insert(cs_id, Box::new(CompactChangesetEdges::from_thrift(edge)?));
+            let compact_edge = CompactChangesetEdges::from_thrift(edge)?;
+            let idx = edges.len() as u32;
+            cs_id_to_idx.insert(compact_edge.cs_id, idx);
+            edges.push(compact_edge);
         }
 
         Ok(Self {
-            unique_id_to_cs_id,
-            cs_id_to_edges,
+            cs_id_to_idx,
+            edges,
             max_sql_id: preloaded_edges.max_sql_id.map(|id| id as u64),
         })
     }
 
     fn get_node(&self, unique_id: NonZeroU32) -> Result<ChangesetNode> {
-        let cs_id = **self
-            .unique_id_to_cs_id
-            .get(&unique_id)
-            .ok_or_else(|| anyhow!("Missing changeset id for unique id: {}", unique_id))?;
-        let edges = self
-            .cs_id_to_edges
-            .get(&cs_id)
-            .ok_or_else(|| anyhow!("Missing changeset edges for {}", cs_id))?;
+        let idx = (unique_id.get() - 1) as usize;
+        let edge = self
+            .edges
+            .get(idx)
+            .ok_or_else(|| anyhow!("Missing changeset edges for unique id: {}", unique_id))?;
 
         Ok(ChangesetNode::new(
-            cs_id,
-            Generation::new(edges.generation as u64),
-            Generation::new(edges.subtree_source_generation as u64),
-            edges.skip_tree_depth as u64,
-            edges.p1_linear_depth as u64,
-            edges.subtree_source_depth as u64,
+            edge.cs_id,
+            Generation::new(edge.generation as u64),
+            Generation::new(edge.subtree_source_generation as u64),
+            edge.skip_tree_depth as u64,
+            edge.p1_linear_depth as u64,
+            edge.subtree_source_depth as u64,
         ))
     }
 
@@ -133,8 +130,11 @@ impl PreloadedEdges {
         cs_id: &ChangesetId,
         should_apply_fallback: bool,
     ) -> Result<Option<ChangesetEdges>> {
-        let compact_edges = match self.cs_id_to_edges.get(cs_id) {
-            Some(edges) => edges,
+        let compact_edges = match self.cs_id_to_idx.get(cs_id) {
+            Some(&idx) => self
+                .edges
+                .get(idx as usize)
+                .ok_or_else(|| anyhow!("Missing changeset edges for index: {}", idx))?,
             None => return Ok(None),
         };
 
@@ -199,20 +199,11 @@ impl PreloadedEdges {
 #[derive(Debug, Default)]
 pub struct ExtendablePreloadedEdges {
     preloaded_edges: PreloadedEdges,
-    cs_id_to_unique_id: HashMap<ChangesetId, NonZeroU32>,
 }
 
 impl ExtendablePreloadedEdges {
     pub fn from_preloaded_edges(preloaded_edges: PreloadedEdges) -> Self {
-        let cs_id_to_unique_id = preloaded_edges
-            .unique_id_to_cs_id
-            .iter()
-            .map(|(unique_id, cs_id)| (**cs_id, *unique_id))
-            .collect();
-        Self {
-            preloaded_edges,
-            cs_id_to_unique_id,
-        }
+        Self { preloaded_edges }
     }
 
     pub fn into_preloaded_edges(self) -> PreloadedEdges {
@@ -220,15 +211,29 @@ impl ExtendablePreloadedEdges {
     }
 
     pub fn unique_id(&mut self, cs_id: ChangesetId) -> NonZeroU32 {
-        match self.cs_id_to_unique_id.get(&cs_id) {
-            Some(unique_id) => *unique_id,
+        match self.preloaded_edges.cs_id_to_idx.get(&cs_id) {
+            Some(&idx) => NonZeroU32::new(idx + 1).unwrap(),
             None => {
-                let unique_id = NonZeroU32::new(self.cs_id_to_unique_id.len() as u32 + 1).unwrap();
-                self.cs_id_to_unique_id.insert(cs_id, unique_id);
-                self.preloaded_edges
-                    .unique_id_to_cs_id
-                    .insert(unique_id, Box::new(cs_id));
-                unique_id
+                let idx = self.preloaded_edges.edges.len() as u32;
+                self.preloaded_edges.cs_id_to_idx.insert(cs_id, idx);
+                self.preloaded_edges.edges.push(CompactChangesetEdges {
+                    cs_id,
+                    generation: 0,
+                    subtree_source_generation: 0,
+                    skip_tree_depth: 0,
+                    p1_linear_depth: 0,
+                    subtree_source_depth: 0,
+                    parents: SmallVec::new(),
+                    subtree_sources: SmallVec::new(),
+                    merge_ancestor_or_root: None,
+                    skip_tree_parent: None,
+                    skip_tree_skew_ancestor: None,
+                    p1_linear_skew_ancestor: None,
+                    subtree_or_merge_ancestor: None,
+                    subtree_source_parent: None,
+                    subtree_source_skew_ancestor: None,
+                });
+                NonZeroU32::new(idx + 1).unwrap()
             }
         }
     }
@@ -265,32 +270,39 @@ impl ExtendablePreloadedEdges {
             .skip_tree_skew_ancestor::<ParentsAndSubtreeSources>()
             .map(|subtree_source_skew_ancestor| self.unique_id(subtree_source_skew_ancestor.cs_id));
 
-        match self.preloaded_edges.cs_id_to_edges.insert(
-            edges.node().cs_id,
-            Box::new(CompactChangesetEdges {
-                generation: edges.node().generation::<Parents>().value() as u32,
-                subtree_source_generation: edges
-                    .node()
-                    .generation::<ParentsAndSubtreeSources>()
-                    .value() as u32,
-                skip_tree_depth: edges.node().skip_tree_depth::<Parents>() as u32,
-                p1_linear_depth: edges.node().skip_tree_depth::<FirstParentLinear>() as u32,
-                subtree_source_depth: edges.node().skip_tree_depth::<ParentsAndSubtreeSources>()
-                    as u32,
-                parents,
-                subtree_sources,
-                merge_ancestor_or_root,
-                skip_tree_parent,
-                skip_tree_skew_ancestor,
-                p1_linear_skew_ancestor,
-                subtree_or_merge_ancestor,
-                subtree_source_parent,
-                subtree_source_skew_ancestor,
-            }),
-        ) {
-            Some(old_edges) => Err(anyhow!("Duplicate changeset edges found: {:?}", old_edges)),
-            None => Ok(()),
-        }
+        let cs_id = edges.node().cs_id;
+        let &idx = self
+            .preloaded_edges
+            .cs_id_to_idx
+            .get(&cs_id)
+            .ok_or_else(|| anyhow!("Missing index for changeset: {}", cs_id))?;
+        let entry = self
+            .preloaded_edges
+            .edges
+            .get_mut(idx as usize)
+            .ok_or_else(|| anyhow!("Missing changeset edges for index: {}", idx))?;
+        *entry = CompactChangesetEdges {
+            cs_id: edges.node().cs_id,
+            generation: edges.node().generation::<Parents>().value() as u32,
+            subtree_source_generation: edges
+                .node()
+                .generation::<ParentsAndSubtreeSources>()
+                .value() as u32,
+            skip_tree_depth: edges.node().skip_tree_depth::<Parents>() as u32,
+            p1_linear_depth: edges.node().skip_tree_depth::<FirstParentLinear>() as u32,
+            subtree_source_depth: edges.node().skip_tree_depth::<ParentsAndSubtreeSources>() as u32,
+            parents,
+            subtree_sources,
+            merge_ancestor_or_root,
+            skip_tree_parent,
+            skip_tree_skew_ancestor,
+            p1_linear_skew_ancestor,
+            subtree_or_merge_ancestor,
+            subtree_source_parent,
+            subtree_source_skew_ancestor,
+        };
+
+        Ok(())
     }
 
     pub fn update_max_sql_id(&mut self, max_sql_id: u64) {
@@ -320,7 +332,7 @@ impl Loader<PreloadedEdges> for PreloadedEdgesLoader {
                                 .await??;
                         info!(
                             "Finished preloading commit graph ({} changesets)",
-                            preloaded_edges.cs_id_to_edges.len()
+                            preloaded_edges.edges.len()
                         );
                         Ok(Some(preloaded_edges))
                     }
