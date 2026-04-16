@@ -10,6 +10,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use bonsai_git_mapping::BonsaiGitMapping;
 use bonsai_hg_mapping::BonsaiHgMapping;
+use commit_derived_data_mapping::CommitDerivedDataMapping;
 use commit_graph::CommitGraph;
 use context::CoreContext;
 use derived_data_remote::DerivationClient;
@@ -98,6 +99,7 @@ impl DerivedDataManager {
         config: DerivedDataTypesConfig,
         derivation_service_client: Option<Arc<dyn DerivationClient>>,
         restricted_paths: ArcRestrictedPathsConfigBased,
+        commit_derived_data_mapping: Arc<CommitDerivedDataMapping>,
     ) -> Self {
         let derivation_context = DerivationContext::new(
             bonsai_hg_mapping,
@@ -113,6 +115,7 @@ impl DerivedDataManager {
                 .derived_data_config
                 .derivation_pipeline_config
                 .clone(),
+            commit_derived_data_mapping,
         );
         DerivedDataManager {
             inner: Arc::new(DerivedDataManagerInner {

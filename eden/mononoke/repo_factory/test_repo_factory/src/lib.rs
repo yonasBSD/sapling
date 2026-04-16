@@ -38,6 +38,8 @@ use cacheblob::InProcessLease;
 use commit_cloud::ArcCommitCloud;
 use commit_cloud::CommitCloud;
 use commit_cloud::sql::builder::SqlCommitCloudBuilder;
+use commit_derived_data_mapping::CommitDerivedDataMapping;
+use commit_derived_data_mapping::SqlCommitDerivedDataMapping;
 use commit_graph::ArcCommitGraph;
 use commit_graph::ArcCommitGraphWriter;
 use commit_graph::BaseCommitGraphWriter;
@@ -311,6 +313,7 @@ impl TestRepoFactory {
         metadata_con.execute_batch(SqlRepoLock::CREATION_QUERY)?;
         metadata_con.execute_batch(SqlSparseProfilesSizes::CREATION_QUERY)?;
         metadata_con.execute_batch(StreamingCloneBuilder::CREATION_QUERY)?;
+        metadata_con.execute_batch(SqlCommitDerivedDataMapping::CREATION_QUERY)?;
         metadata_con.execute_batch(SqlCommitGraphStorageBuilder::CREATION_QUERY)?;
         metadata_con.execute_batch(SqlCommitCloudBuilder::CREATION_QUERY)?;
         metadata_con.execute_batch(SqlRestrictedPathsManifestIdStoreBuilder::CREATION_QUERY)?;
@@ -689,6 +692,9 @@ impl TestRepoFactory {
             repo_config.derived_data_config.clone(),
             None, // derivation_service_client = None
             restricted_paths_config_based.clone(),
+            Arc::new(CommitDerivedDataMapping {
+                sql: SqlCommitDerivedDataMapping::from_sql_connections(self.metadata_db.clone()),
+            }),
         )?))
     }
 

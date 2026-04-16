@@ -79,6 +79,9 @@ use clientinfo::ClientInfo;
 use commit_cloud::ArcCommitCloud;
 use commit_cloud::CommitCloud;
 use commit_cloud::sql::builder::SqlCommitCloudBuilder;
+use commit_derived_data_mapping::ArcCommitDerivedDataMapping;
+use commit_derived_data_mapping::CommitDerivedDataMapping;
+use commit_derived_data_mapping::SqlCommitDerivedDataMapping;
 use commit_graph::ArcCommitGraph;
 use commit_graph::ArcCommitGraphWriter;
 use commit_graph::BaseCommitGraphWriter;
@@ -828,6 +831,9 @@ pub enum RepoFactoryError {
     #[error("Error opening bonsai blob mapping DB")]
     BonsaiBlobMapping,
 
+    #[error("Error opening commit derived data mapping DB")]
+    CommitDerivedDataMapping,
+
     #[error("Error opening deletion log DB")]
     SqlDeletionLog,
 
@@ -1268,6 +1274,7 @@ impl RepoFactory {
         repo_blobstore: &ArcRepoBlobstore,
         filestore_config: &ArcFilestoreConfig,
         restricted_paths_config_based: &ArcRestrictedPathsConfigBased,
+        commit_derived_data_mapping: &ArcCommitDerivedDataMapping,
     ) -> Result<ArcRepoDerivedData> {
         let config = repo_config.derived_data_config.clone();
         let scuba_table = self
@@ -1295,6 +1302,7 @@ impl RepoFactory {
             config,
             derivation_service_client,
             restricted_paths_config_based.clone(),
+            commit_derived_data_mapping.clone(),
         )?))
     }
 
@@ -2130,6 +2138,17 @@ impl RepoFactory {
         Ok(Arc::new(BonsaiBlobMapping {
             sql_bonsai_blob_mapping,
         }))
+    }
+
+    pub async fn commit_derived_data_mapping(
+        &self,
+        repo_config: &ArcRepoConfig,
+    ) -> Result<ArcCommitDerivedDataMapping> {
+        let (_, sql) = self
+            .open_sql_shardable::<SqlCommitDerivedDataMapping>(repo_config)
+            .await
+            .context(RepoFactoryError::CommitDerivedDataMapping)?;
+        Ok(Arc::new(CommitDerivedDataMapping { sql }))
     }
 
     pub async fn repo_event_publisher(

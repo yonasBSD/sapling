@@ -15,6 +15,7 @@ use blobstore::KeyedBlobstore;
 use bonsai_git_mapping::BonsaiGitMapping;
 use bonsai_hg_mapping::BonsaiHgMapping;
 use cacheblob::MemWritesKeyedBlobstore;
+use commit_derived_data_mapping::CommitDerivedDataMapping;
 use context::CoreContext;
 use filenodes::Filenodes;
 use filestore::FilestoreConfig;
@@ -55,6 +56,7 @@ pub struct DerivationContext {
     )>,
     restricted_paths: ArcRestrictedPathsConfigBased,
     derivation_pipeline_config: HashMap<DerivableType, DerivationPipelineTypeConfig>,
+    commit_derived_data_mapping: Option<Arc<CommitDerivedDataMapping>>,
 }
 
 impl DerivationContext {
@@ -69,6 +71,7 @@ impl DerivationContext {
         filestore_config: FilestoreConfig,
         restricted_paths: ArcRestrictedPathsConfigBased,
         derivation_pipeline_config: HashMap<DerivableType, DerivationPipelineTypeConfig>,
+        commit_derived_data_mapping: Arc<CommitDerivedDataMapping>,
     ) -> Self {
         // Start with None. Use with_rederivation later if needed
         let rederivation = None;
@@ -85,6 +88,7 @@ impl DerivationContext {
             blobstore_write_cache: None,
             restricted_paths,
             derivation_pipeline_config,
+            commit_derived_data_mapping: Some(commit_derived_data_mapping),
         }
     }
 
@@ -143,6 +147,17 @@ impl DerivationContext {
     pub(crate) fn with_replaced_blobstore(&self, blobstore: Arc<dyn KeyedBlobstore>) -> Self {
         Self {
             blobstore,
+            ..self.clone()
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn with_replaced_commit_derived_data_mapping(
+        &self,
+        commit_derived_data_mapping: Arc<CommitDerivedDataMapping>,
+    ) -> Self {
+        Self {
+            commit_derived_data_mapping: Some(commit_derived_data_mapping),
             ..self.clone()
         }
     }
@@ -327,6 +342,12 @@ impl DerivationContext {
 
     pub fn restricted_paths(&self) -> ArcRestrictedPathsConfigBased {
         self.restricted_paths.clone()
+    }
+
+    pub fn commit_derived_data_mapping(&self) -> Result<&CommitDerivedDataMapping> {
+        self.commit_derived_data_mapping
+            .as_deref()
+            .context("Missing CommitDerivedDataMapping")
     }
 
     /// The config that should be used for derivation.

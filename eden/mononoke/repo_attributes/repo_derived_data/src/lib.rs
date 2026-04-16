@@ -16,6 +16,7 @@ use anyhow::Result;
 use anyhow::anyhow;
 use bonsai_git_mapping::BonsaiGitMapping;
 use bonsai_hg_mapping::BonsaiHgMapping;
+use commit_derived_data_mapping::CommitDerivedDataMapping;
 use commit_graph::CommitGraph;
 use context::CoreContext;
 use derivation_queue_thrift::DerivationPriority;
@@ -65,6 +66,7 @@ impl RepoDerivedData {
         config: DerivedDataConfig,
         derivation_service_client: Option<Arc<dyn DerivationClient>>,
         restricted_paths: ArcRestrictedPathsConfigBased,
+        commit_derived_data_mapping: Arc<CommitDerivedDataMapping>,
     ) -> Result<RepoDerivedData> {
         let managers = config
             .available_configs
@@ -87,6 +89,7 @@ impl RepoDerivedData {
                         config.clone(),
                         derivation_service_client.clone(),
                         restricted_paths.clone(),
+                        commit_derived_data_mapping.clone(),
                     ),
                 )
             })

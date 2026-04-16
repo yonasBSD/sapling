@@ -1239,6 +1239,7 @@ mod test {
         git_bundles = { db_address = "git_bundles" }
         repo_metadata = { db_address = "repo_metadata" }
         restricted_paths = { db_address = "restricted_paths" }
+        derived_data_mapping = { unsharded = { db_address = "derived_data_mapping" } }
 
         [main.blobstore.multiplexed_wal]
         multiplex_id = 1
@@ -1384,7 +1385,11 @@ mod test {
                 restricted_paths: Some(RemoteDatabaseConfig {
                     db_address: "restricted_paths".into(),
                 }),
-                commit_derived_data_mapping: None,
+                commit_derived_data_mapping: Some(ShardableRemoteDatabaseConfig::Unsharded(
+                    RemoteDatabaseConfig {
+                        db_address: "derived_data_mapping".into(),
+                    },
+                )),
             }),
             ephemeral_blobstore: None,
             mutable_blobstore: multiplex,
@@ -1926,6 +1931,7 @@ mod test {
         git_bundles = { db_address = "git_bundles" }
         repo_metadata = { db_address = "repo_metadata" }
         restricted_paths = { db_address = "restricted_paths" }
+        derived_data_mapping = { unsharded = { db_address = "derived_data_mapping" } }
 
         [multiplex_store.blobstore.multiplexed_wal]
         multiplex_id = 1
@@ -2046,7 +2052,9 @@ mod test {
                         restricted_paths: Some(RemoteDatabaseConfig {
                             db_address: "restricted_paths".into(),
                         }),
-                        commit_derived_data_mapping: None,
+                        commit_derived_data_mapping: Some(ShardableRemoteDatabaseConfig::Unsharded(RemoteDatabaseConfig {
+                            db_address: "derived_data_mapping".into(),
+                        })),
                     }),
                     ephemeral_blobstore: None,
                     mutable_blobstore: BlobConfig::MultiplexedWal {
@@ -2142,6 +2150,7 @@ mod test {
         git_bundles = { db_address = "git_bundles" }
         repo_metadata = { db_address = "repo_metadata" }
         restricted_paths = { db_address = "restricted_paths" }
+        derived_data_mapping = { unsharded = { db_address = "derived_data_mapping" } }
 
         [storage.multiplex_store.blobstore]
         disabled = {}
@@ -2198,7 +2207,7 @@ mod test {
                         commit_cloud: Some(RemoteDatabaseConfig { db_address: "other_other_other_mutation_db".into(), }),
                         repo_metadata: Some(RemoteDatabaseConfig { db_address: "repo_metadata".into() }),
                         restricted_paths: Some(RemoteDatabaseConfig { db_address: "restricted_paths".into(), }),
-                        commit_derived_data_mapping: None,
+                        commit_derived_data_mapping: Some(ShardableRemoteDatabaseConfig::Unsharded(RemoteDatabaseConfig { db_address: "derived_data_mapping".into() })),
                     }),
 
                     ephemeral_blobstore: None,
