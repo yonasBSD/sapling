@@ -115,6 +115,7 @@ use sorted_vector_map::SortedVectorMap;
 use tracing::debug;
 use types::HgId;
 use types::Parents;
+use vec1::Vec1;
 
 use super::HandlerInfo;
 use super::HandlerResult;
@@ -1484,20 +1485,38 @@ impl SaplingRemoteApiHandler for UploadIdenticalChangesetsHandler {
         let bonsai_changesets_clone = bonsai_changesets.clone();
         let bs_ctx = ctx.clone();
         let bs_fut = async move {
-            for res in bonsai_changesets_clone {
-                let (bcs, _) = res?;
-                let bonsai_blob = bcs.clone().into_blob();
-                let bcs_id = bcs.get_changeset_id();
-                let blobstore_key = bcs_id.blobstore_key();
+            // Single pass: build blobstore put futures and commit graph entries together.
+            let (put_futs, graph_entries_vec): (Vec<_>, Vec<_>) = bonsai_changesets_clone
+                .into_iter()
+                .map(|res| res.map(|(bcs, _)| bcs))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .map(|bcs| {
+                    let bonsai_blob = bcs.clone().into_blob();
+                    let blobstore_key = bcs.get_changeset_id().blobstore_key();
+                    let put_fut = blobstore.put(&bs_ctx, blobstore_key, bonsai_blob.into());
+                    let graph_entry = (bcs.get_changeset_id(), bcs.parents().collect(), Vec::new());
+                    (put_fut, graph_entry)
+                })
+                .unzip();
 
-                blobstore
-                    .put(&bs_ctx, blobstore_key, bonsai_blob.into())
-                    .await?;
+            stream::iter(put_futs)
+                .buffer_unordered(100)
+                .try_collect::<Vec<_>>()
+                .await?;
 
-                commit_graph_writer
-                    .add(&bs_ctx, bcs_id, bcs.parents().collect(), Vec::new())
-                    .await
-                    .context("While inserting into changeset table")?;
+            match Vec1::try_from_vec(graph_entries_vec) {
+                Ok(graph_entries) => {
+                    commit_graph_writer
+                        .add_many(&bs_ctx, graph_entries)
+                        .await
+                        .context("While inserting into changeset table")?;
+                }
+                Err(_empty) => {
+                    // No changesets -- both put_futs and graph_entries are derived
+                    // from the same iterator, so empty here means zero blobstore
+                    // puts above as well.
+                }
             }
             Ok::<_, MononokeError>(())
         };
