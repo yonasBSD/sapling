@@ -45,6 +45,7 @@ use thiserror::Error;
 use tokio::task;
 
 pub use crate::access_log::ACCESS_LOG_SCUBA_TABLE;
+pub use crate::access_log::RestrictionCheckResult;
 pub use crate::access_log::has_read_access_to_repo_region_acls;
 use crate::access_log::is_member_of_groups;
 use crate::access_log::log_access_to_restricted_path;
@@ -335,22 +336,26 @@ impl RestrictedPaths {
     // Public access logging methods
     // -----------------------------------------------------------------------
 
-    /// Check if a manifest id belongs to a restricted path and log access it it.
+    /// Check if a manifest id belongs to a restricted path and log access to it.
     ///
-    /// Returns true if caller is authorized to access it.
+    /// Returns a `RestrictionCheckResult` with authorization status and
+    /// restriction root info.
     pub async fn log_access_by_manifest_if_restricted(
         &self,
         ctx: &CoreContext,
         manifest_id: ManifestId,
         manifest_type: ManifestType,
         cs_id: Option<ChangesetId>,
-    ) -> Result<bool> {
+    ) -> Result<RestrictionCheckResult> {
         // No need to query the DB if the config is empty, i.e. the repo doesn't
         // have any restricted paths.
         let _ = cs_id; // Will be used in a follow-up diff for ACL manifest checks
 
         if self.config().is_empty() {
-            return Ok(true);
+            return Ok(RestrictionCheckResult {
+                has_authorization: true,
+                restriction_roots: vec![],
+            });
         }
 
         // Try to use cache first, fall back to DB query if cache is not available
@@ -374,7 +379,10 @@ impl RestrictedPaths {
         };
 
         if paths.is_empty() {
-            return Ok(true);
+            return Ok(RestrictionCheckResult {
+                has_authorization: true,
+                restriction_roots: vec![],
+            });
         }
 
         // Use config-based lookup directly — this method works with manifest IDs
@@ -403,17 +411,21 @@ impl RestrictedPaths {
     /// Log access to a restricted path, when it's accessed by the full path,
     /// instead of a manifest id.
     ///
-    /// Returns true if caller is authorized to access it.
+    /// Returns a `RestrictionCheckResult` with authorization status and
+    /// restriction root info.
     pub async fn log_access_by_path_if_restricted(
         &self,
         ctx: &CoreContext,
         path: NonRootMPath,
         cs_id: Option<ChangesetId>,
-    ) -> Result<bool> {
+    ) -> Result<RestrictionCheckResult> {
         // Return early if the repo doesn't have any restricted paths.
         let _ = cs_id; // Will be used in a follow-up diff for ACL manifest checks
         if self.config().is_empty() {
-            return Ok(true);
+            return Ok(RestrictionCheckResult {
+                has_authorization: true,
+                restriction_roots: vec![],
+            });
         }
 
         // Find which restricted path roots match this path
@@ -427,7 +439,10 @@ impl RestrictedPaths {
 
         // If no restricted paths match, no need to log
         if restricted_path_roots.is_empty() {
-            return Ok(true);
+            return Ok(RestrictionCheckResult {
+                has_authorization: true,
+                restriction_roots: vec![],
+            });
         }
 
         log_access_to_restricted_path(
@@ -639,7 +654,7 @@ pub fn spawn_log_restricted_path_access(
     path: &mononoke_types::MPath,
     switch_value: &str,
     cs_id: Option<ChangesetId>,
-) -> Result<Option<task::JoinHandle<Result<bool>>>> {
+) -> Result<Option<task::JoinHandle<Result<RestrictionCheckResult>>>> {
     // Early return if logging is disabled - avoid all overhead
     if !justknobs::eval(
         "scm/mononoke:enabled_restricted_paths_access_logging",
@@ -724,15 +739,18 @@ pub async fn spawn_enforce_restricted_path_access<'a, 'b>(
     }
 
     // Conditional enforcement matched - check authorization
-    let has_auth = if let Some(has_auth_handle) = has_auth_task {
+    let check_result = if let Some(has_auth_handle) = has_auth_task {
         has_auth_handle.await.map_err(anyhow::Error::from)??
     } else {
         // Either logging was disabled or there were no restricted paths
         // Access logging is a pre-requisite for enforcement!
-        true
+        RestrictionCheckResult {
+            has_authorization: true,
+            restriction_roots: vec![],
+        }
     };
 
-    if !has_auth {
+    if !check_result.has_authorization {
         return Err(RestrictedPathsError::AuthorizationError(
             RestrictedPathAccessType::Path(path),
         ));
@@ -766,7 +784,7 @@ fn spawn_log_restricted_manifest_access(
     manifest_type: ManifestType,
     switch_value: &str,
     cs_id: Option<ChangesetId>,
-) -> Result<Option<task::JoinHandle<Result<bool>>>> {
+) -> Result<Option<task::JoinHandle<Result<RestrictionCheckResult>>>> {
     // Early return if logging is disabled - avoid all overhead
     if !justknobs::eval(
         "scm/mononoke:enabled_restricted_paths_access_logging",
@@ -854,15 +872,16 @@ pub async fn spawn_enforce_restricted_manifest_access<'a>(
     }
 
     // Conditional enforcement matched - check authorization
-    let has_auth = if let Some(has_auth_handle) = has_auth_task {
+    let check_result = if let Some(has_auth_handle) = has_auth_task {
         has_auth_handle.await.map_err(anyhow::Error::from)??
     } else {
-        // Either logging was disabled or there were no restricted paths
-        // Access logging is a pre-requisite for enforcement!
-        true
+        RestrictionCheckResult {
+            has_authorization: true,
+            restriction_roots: vec![],
+        }
     };
 
-    if !has_auth {
+    if !check_result.has_authorization {
         return Err(RestrictedPathsError::AuthorizationError(
             RestrictedPathAccessType::Manifest(manifest_id),
         ));

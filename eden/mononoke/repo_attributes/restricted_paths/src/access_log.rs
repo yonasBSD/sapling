@@ -25,6 +25,17 @@ use scuba_ext::MononokeScubaSampleBuilder;
 use crate::ManifestId;
 use crate::ManifestType;
 
+/// Result from restricted path access check — carries both authorization
+/// and restriction root info for enforcement condition evaluation.
+#[derive(Debug, Clone)]
+pub struct RestrictionCheckResult {
+    /// Whether the caller has read authorization for the restriction.
+    pub has_authorization: bool,
+    /// The restriction root paths matched by this access check.
+    /// Empty if the path is not restricted.
+    pub restriction_roots: Vec<NonRootMPath>,
+}
+
 pub const ACCESS_LOG_SCUBA_TABLE: &str = "mononoke_restricted_paths_access_test";
 
 pub(crate) enum RestrictedPathAccessData {
@@ -297,7 +308,7 @@ pub(crate) async fn log_access_to_restricted_path(
     tooling_allowlist_group: Option<&str>,
     scuba: MononokeScubaSampleBuilder,
     determined_by: Vec<String>,
-) -> Result<bool> {
+) -> Result<RestrictionCheckResult> {
     // TODO(T239041722): store permission checkers in RestrictedPaths to improve
     // performance if needed.
     let has_path_acl_access =
@@ -356,7 +367,7 @@ pub(crate) async fn log_access_to_restricted_path(
     log_access_to_scuba(
         ctx,
         repo_id,
-        restricted_paths,
+        &restricted_paths,
         access_data,
         has_authorization,
         is_allowlisted_tooling,
@@ -365,13 +376,16 @@ pub(crate) async fn log_access_to_restricted_path(
         determined_by,
     )?;
 
-    Ok(has_authorization)
+    Ok(RestrictionCheckResult {
+        has_authorization,
+        restriction_roots: restricted_paths,
+    })
 }
 
 fn log_access_to_scuba(
     ctx: &CoreContext,
     repo_id: RepositoryId,
-    restricted_paths: Vec<NonRootMPath>,
+    restricted_paths: &[NonRootMPath],
     access_data: RestrictedPathAccessData,
     has_authorization: bool,
     is_allowlisted_tooling: bool,
