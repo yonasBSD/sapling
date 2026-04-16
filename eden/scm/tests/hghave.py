@@ -1,3 +1,8 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This software may be used and distributed according to the terms of the
+# GNU General Public License version 2.
+
 from __future__ import absolute_import
 
 import errno
@@ -335,6 +340,16 @@ def has_rmcwd():
 @check("gpg2", "gpg client v2")
 def has_gpg2():
     return matchoutput("gpg --version 2>&1", rb"GnuPG[^0-9]+2\.")
+
+
+@check("openssl", "openssl with CMS support")
+def has_openssl():
+    return matchoutput("openssl cms --help 2>&1", rb"cms")
+
+
+@check("gpgsm", "gpgsm (GnuPG S/MIME)")
+def has_gpgsm():
+    return matchoutput("gpgsm --version 2>&1", rb"gpgsm")
 
 
 @check("unix-permissions", "unix-style permissions")

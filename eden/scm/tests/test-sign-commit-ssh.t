@@ -61,8 +61,7 @@ Test SSH error with a bad key path.
   updated config in $TESTTMP/repo1/.sl/config
   $ echo 1 > delta
   $ sl commit -m delta
-  abort: error when running ssh-keygen for signing:
-  * (glob)
-  
+  abort: signing key file not found: /nonexistent/bad_key
+  (ensure signing.key points to a valid SSH private key file)
   [255]
 
