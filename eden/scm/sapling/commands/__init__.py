@@ -1778,6 +1778,19 @@ def _docommit(ui, repo, *pats, **opts):
 
     cmdutil.checkunfinished(repo, op="commit")
 
+    # Block merge commits unless explicitly allowed. If repo state is not
+    # maintained for commands like rebase, commit can end up creating a
+    # merge commit, which is incorrect and has performance implications.
+    if not ui.configbool("ui", "allowmerge", default=True):
+        p1, p2 = repo.dirstate.parents()
+        if p2 != nullid:
+            raise error.Abort(
+                _(
+                    "working copy has two parents (merge state) - "
+                    "refusing to create a merge commit"
+                ),
+            )
+
     extra = {}
     if opts.get("amend"):
         old = repo["."]

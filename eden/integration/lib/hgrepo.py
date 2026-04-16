@@ -411,6 +411,8 @@ class HgRepository(repobase.Repository):
                 "commit",
                 "--config",
                 user_config,
+                "--config",
+                "ui.allowmerge=True",
                 "--date",
                 date_str,
                 "--logfile",
