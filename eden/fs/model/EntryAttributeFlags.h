@@ -45,6 +45,10 @@ inline constexpr auto ENTRY_ATTRIBUTE_MTIME =
     EntryAttributeFlags::raw(FileAttributes::MTIME);
 inline constexpr auto ENTRY_ATTRIBUTE_MODE =
     EntryAttributeFlags::raw(FileAttributes::MODE);
+inline constexpr auto ENTRY_ATTRIBUTE_UNDER_ACL =
+    EntryAttributeFlags::raw(FileAttributes::UNDER_ACL);
+inline constexpr auto ENTRY_ATTRIBUTE_ACLs =
+    EntryAttributeFlags::raw(FileAttributes::ACLs);
 
 inline constexpr auto ENTRY_ATTRIBUTES_FROM_BLOB_AUX = ENTRY_ATTRIBUTE_SIZE |
     ENTRY_ATTRIBUTE_SHA1 | ENTRY_ATTRIBUTE_BLAKE3 |
