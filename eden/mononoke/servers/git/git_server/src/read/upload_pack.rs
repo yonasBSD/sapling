@@ -675,21 +675,8 @@ pub async fn fetch(
 
 /// Checks if there are any messages that should be displayed to the user when
 /// running `git pull` on this repo.
-async fn git_fetch_message(request_context: &RepositoryRequestContext) -> Result<Option<String>> {
-    let repo = &request_context.repo;
-    let repo_name = repo.repo_identity().name();
-
-    let should_display_message = justknobs::eval(
-        "scm/mononoke:display_repo_fetch_message_on_git_server",
-        None,
-        Some(repo_name),
-    )?;
-
-    if should_display_message {
-        Ok(repo.repo_config.git_configs.fetch_message.clone())
-    } else {
-        Ok(None)
-    }
+async fn git_fetch_message(_request_context: &RepositoryRequestContext) -> Result<Option<String>> {
+    Ok(None)
 }
 
 /// Generate packline encoded error response that Git client understands

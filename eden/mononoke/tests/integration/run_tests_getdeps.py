@@ -191,8 +191,6 @@ def get_test_groups():
             "mononoke_hg_sync/test-mononoke-hg-sync-job.t",
             # Differs on diff -w
             "mononoke_git_server/test-mononoke-git-server-filemode-delta-cycle.t",
-            # Differs on git_client pull output
-            "mononoke_git_server/test-mononoke-git-server-pull-with-fetch-message.t",
             # Differs on diff at end
             "mononoke_git_server/test-mononoke-git-server-pull-with-tag.t",
             # Differs on jq count output
