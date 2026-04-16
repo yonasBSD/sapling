@@ -90,6 +90,7 @@ describe('run-proxy', () => {
     slVersion: '1.0',
     command: 'sl',
     cwd: undefined,
+    extraCwds: [],
     sessionId: undefined,
     bind: 'localhost',
     tlsCert: undefined,

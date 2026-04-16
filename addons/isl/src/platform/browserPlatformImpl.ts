@@ -30,6 +30,11 @@ export function browserClipboardCopy(text: string, html?: string) {
 }
 
 export const makeBrowserLikePlatformImpl = (platformName: PlatformName): Platform => {
+  // Extract extra cwds before computeInitialParams clears the URL
+  const extraCwds =
+    typeof window !== 'undefined' && window.location.search
+      ? new URLSearchParams(window.location.search).getAll('extraCwd')
+      : [];
   const initialUrlParams = computeInitialParams(platformName === 'browser');
   return {
     platformName,
@@ -110,6 +115,7 @@ export const makeBrowserLikePlatformImpl = (platformName: PlatformName): Platfor
       WebSocket,
       {
         cwd: initialUrlParams.get('cwd'),
+        extraCwds: extraCwds.length > 0 ? extraCwds : undefined,
         sessionId: initialUrlParams.get('sessionId'),
         token: initialUrlParams.get('token'),
         platformName,

@@ -19,6 +19,7 @@ import WebSocket from 'ws';
 import {repositoryCache} from '../src/RepositoryCache';
 import {CLOSED_AND_SHOULD_NOT_RECONNECT_CODE} from '../src/constants';
 import {onClientConnection} from '../src/index';
+import {makeBrowserServerPlatform} from '../src/serverPlatform';
 import {areTokensEqual} from './proxyUtils';
 
 const ossSmartlogDir = path.join(__dirname, '../../isl');
@@ -174,17 +175,20 @@ export function startServer({
       // We require websocket connections to contain the token as a URL search parameter.
       let providedToken: string | undefined;
       let cwd: string | undefined;
+      let extraCwds: string[] = [];
       let platform: string | undefined;
       let sessionId: string | undefined;
       if (connectionRequest.url) {
-        const searchParams = getSearchParams(connectionRequest.url);
-        providedToken = searchParams.get('token');
+        const rawSearch = urlModule.parse(connectionRequest.url).search ?? '';
+        const searchParams = new URLSearchParams(rawSearch);
+        providedToken = searchParams.get('token') ?? undefined;
         const cwdParam = searchParams.get('cwd');
-        platform = searchParams.get('platform') as string;
-        sessionId = searchParams.get('sessionId');
+        platform = searchParams.get('platform') ?? undefined;
+        sessionId = searchParams.get('sessionId') ?? undefined;
         if (cwdParam) {
           cwd = decodeURIComponent(cwdParam);
         }
+        extraCwds = searchParams.getAll('extraCwd');
       }
       if (!providedToken) {
         const reason = 'No token provided in websocket request';
@@ -221,6 +225,7 @@ export function startServer({
           break;
         default:
         case undefined:
+          platformImpl = makeBrowserServerPlatform(extraCwds);
           break;
       }
       if (sessionId != null && platformImpl) {

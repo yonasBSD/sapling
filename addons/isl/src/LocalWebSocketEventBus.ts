@@ -39,7 +39,13 @@ export class LocalWebSocketEventBus {
   constructor(
     private host: string,
     private WebSocketType: typeof WebSocket,
-    private params: {token?: string; cwd?: string; sessionId?: string; platformName: PlatformName},
+    private params: {
+      token?: string;
+      cwd?: string;
+      extraCwds?: string[];
+      sessionId?: string;
+      platformName: PlatformName;
+    },
   ) {
     // startConnection already assigns to websocket, but we do it here so typescript knows websocket is always defined
     this.websocket = this.startConnection();
@@ -72,6 +78,9 @@ export class LocalWebSocketEventBus {
     if (sessionIdParam) {
       const sessionId = decodeURIComponent(sessionIdParam);
       wsUrl.searchParams.append('sessionId', sessionId);
+    }
+    for (const extraCwd of this.params.extraCwds ?? []) {
+      wsUrl.searchParams.append('extraCwd', extraCwd);
     }
     const platformName = this.params.platformName;
     if (platformName) {

@@ -86,6 +86,7 @@ type Args = {
   slVersion: string;
   command: string;
   cwd: string | undefined;
+  extraCwds: string[];
   sessionId: string | undefined;
   bind: string;
   tlsCert: string | undefined;
@@ -110,6 +111,7 @@ export function parseArgs(args: Array<string> = process.argv.slice(2)): Args {
   let force = false;
   let command = process.env.SL ?? 'sl';
   let cwd: string | undefined = undefined;
+  let extraCwds: string[] = [];
   let slVersion = '(dev)';
   let platform: string | undefined = undefined;
   let sessionId: string | undefined = undefined;
@@ -165,6 +167,10 @@ export function parseArgs(args: Array<string> = process.argv.slice(2)): Args {
       }
       case '--cwd': {
         cwd = consumeArgValue(arg);
+        break;
+      }
+      case '--extra-cwd': {
+        extraCwds.push(consumeArgValue(arg));
         break;
       }
       case '--sl-version': {
@@ -250,6 +256,7 @@ export function parseArgs(args: Array<string> = process.argv.slice(2)): Args {
     slVersion,
     command,
     cwd,
+    extraCwds,
     sessionId,
     bind,
     tlsCert,
@@ -376,6 +383,7 @@ export async function runProxyMain(args: Args) {
     slVersion,
     command,
     sessionId,
+    extraCwds,
     bind,
     tlsCert,
     tlsKey,
@@ -472,9 +480,11 @@ export async function runProxyMain(args: Args) {
     // '::' and '0.0.0.0' are wildcard addresses — use localhost in the URL.
     const urlHost = bind === '::' || bind === '0.0.0.0' ? 'localhost' : bind;
     const platformPath = getPlatformIndexHtmlPath(platform);
-    const url = `${protocol}://${urlHost}:${serverPort}/${platformPath}?${Object.entries(urlArgs)
+    const params = Object.entries(urlArgs)
       .map(([key, value]) => `${key}=${value}`)
-      .join('&')}`;
+      .concat(extraCwds.map(c => `extraCwd=${encodeURIComponent(c)}`))
+      .join('&');
+    const url = `${protocol}://${urlHost}:${serverPort}/${platformPath}?${params}`;
     return new URL(url);
   }
 

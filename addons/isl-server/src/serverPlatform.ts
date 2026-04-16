@@ -7,11 +7,12 @@
 
 import type {
   AbsolutePath,
+  CwdInfo,
   PlatformSpecificClientToServerMessages,
   RepoRelativePath,
   ServerToClientMessage,
 } from 'isl/src/types';
-import type {Repository} from './Repository';
+import {Repository} from './Repository';
 import type {RepositoryContext} from './serverTypes';
 
 import {spawn} from 'node:child_process';
@@ -37,54 +38,71 @@ export interface ServerPlatform {
   ): void | Promise<void>;
 }
 
-export const browserServerPlatform: ServerPlatform = {
-  platformName: 'browser',
-  handleMessageFromClient(
-    this: ServerPlatform,
-    repo: Repository | undefined,
-    ctx: RepositoryContext,
-    message: PlatformSpecificClientToServerMessages,
-  ) {
-    switch (message.type) {
-      case 'platform/openContainingFolder': {
-        const absPath: AbsolutePath = pathModule.join(
-          nullthrows(repo?.info.repoRoot),
-          message.path,
-        );
-        let args: Array<string> = [];
-        // use OS-builtin open command to open parent directory
-        // (which may open different file extensions with different programs)
-        switch (process.platform) {
-          case 'darwin':
-            args = ['/usr/bin/open', pathModule.dirname(absPath)];
-            break;
-          case 'win32':
-            // On windows, we can select the file in the newly opened explorer window by giving the full path
-            args = ['explorer.exe', '/select,', absPath];
-            break;
-          case 'linux':
-            args = ['xdg-open', pathModule.dirname(absPath)];
-            break;
+export function makeBrowserServerPlatform(extraCwds?: string[]): ServerPlatform {
+  return {
+    platformName: 'browser',
+    handleMessageFromClient(
+      this: ServerPlatform,
+      repo: Repository | undefined,
+      ctx: RepositoryContext,
+      message: PlatformSpecificClientToServerMessages,
+      postMessage: (message: ServerToClientMessage) => void,
+    ) {
+      switch (message.type) {
+        case 'platform/subscribeToAvailableCwds': {
+          const allCwds = [ctx.cwd, ...(extraCwds ?? [])];
+          void Promise.allSettled(allCwds.map(cwd => Repository.getCwdInfo({...ctx, cwd}))).then(
+            results => {
+              const options = results
+                .filter((r): r is PromiseFulfilledResult<CwdInfo> => r.status === 'fulfilled')
+                .map(r => r.value);
+              postMessage({type: 'platform/availableCwds', options});
+            },
+          );
+          break;
         }
-        repo?.initialConnectionContext.logger.log('open file', absPath);
-        if (args.length > 0) {
-          spawnInBackground(repo, args);
+        case 'platform/openContainingFolder': {
+          const absPath: AbsolutePath = pathModule.join(
+            nullthrows(repo?.info.repoRoot),
+            message.path,
+          );
+          let args: Array<string> = [];
+          // use OS-builtin open command to open parent directory
+          // (which may open different file extensions with different programs)
+          switch (process.platform) {
+            case 'darwin':
+              args = ['/usr/bin/open', pathModule.dirname(absPath)];
+              break;
+            case 'win32':
+              // On windows, we can select the file in the newly opened explorer window by giving the full path
+              args = ['explorer.exe', '/select,', absPath];
+              break;
+            case 'linux':
+              args = ['xdg-open', pathModule.dirname(absPath)];
+              break;
+          }
+          repo?.initialConnectionContext.logger.log('open file', absPath);
+          if (args.length > 0) {
+            spawnInBackground(repo, args);
+          }
+          break;
         }
-        break;
-      }
-      case 'platform/openFile': {
-        openFile(repo, ctx, message.path);
-        break;
-      }
-      case 'platform/openFiles': {
-        for (const path of message.paths) {
-          openFile(repo, ctx, path);
+        case 'platform/openFile': {
+          openFile(repo, ctx, message.path);
+          break;
         }
-        break;
+        case 'platform/openFiles': {
+          for (const path of message.paths) {
+            openFile(repo, ctx, path);
+          }
+          break;
+        }
       }
-    }
-  },
-};
+    },
+  };
+}
+
+export const browserServerPlatform: ServerPlatform = makeBrowserServerPlatform();
 
 async function openFile(
   repo: Repository | undefined,
