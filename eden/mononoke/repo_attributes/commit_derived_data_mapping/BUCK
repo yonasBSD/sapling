@@ -1,0 +1,27 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("scm_server_infra")
+
+rust_library(
+    name = "commit_derived_data_mapping",
+    srcs = glob([
+        "src/**/*.rs",
+        "schemas/**/*.sql",
+    ]),
+    test_deps = [
+        "//common/rust/shed/fbinit:fbinit",
+        "//common/rust/shed/fbinit:fbinit-tokio",
+        "//eden/mononoke/common/mononoke_macros:mononoke_macros",
+        "//eden/mononoke/mononoke_types:mononoke_types-mocks",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:vec1",
+        "//common/rust/shed/facet:facet",
+        "//eden/mononoke/common/rust/sql_ext:sql_ext",
+        "//eden/mononoke/common/sql_construct:sql_construct",
+        "//eden/mononoke/metaconfig:metaconfig_types",
+        "//eden/mononoke/mononoke_types:mononoke_types",
+        "//eden/mononoke/servers/slapi/slapi_server/context:context",
+    ],
+)
