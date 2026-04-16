@@ -1384,6 +1384,7 @@ mod test {
                 restricted_paths: Some(RemoteDatabaseConfig {
                     db_address: "restricted_paths".into(),
                 }),
+                commit_derived_data_mapping: None,
             }),
             ephemeral_blobstore: None,
             mutable_blobstore: multiplex,
@@ -1557,6 +1558,7 @@ mod test {
                             DerivableType::BlameV2 => 20,
                         },
                         inferred_copy_from_config: Default::default(),
+                        xdb_mapping_shard_ids: Default::default(),
                     },],
                     scuba_table: None,
                     derivation_queue_scuba_table: None,
@@ -2044,6 +2046,7 @@ mod test {
                         restricted_paths: Some(RemoteDatabaseConfig {
                             db_address: "restricted_paths".into(),
                         }),
+                        commit_derived_data_mapping: None,
                     }),
                     ephemeral_blobstore: None,
                     mutable_blobstore: BlobConfig::MultiplexedWal {
@@ -2194,7 +2197,8 @@ mod test {
                         git_bundle_metadata: Some(RemoteDatabaseConfig { db_address: "git_bundles".into(), }),
                         commit_cloud: Some(RemoteDatabaseConfig { db_address: "other_other_other_mutation_db".into(), }),
                         repo_metadata: Some(RemoteDatabaseConfig { db_address: "repo_metadata".into() }),
-                        restricted_paths: Some(RemoteDatabaseConfig { db_address: "restricted_paths".into(), })
+                        restricted_paths: Some(RemoteDatabaseConfig { db_address: "restricted_paths".into(), }),
+                        commit_derived_data_mapping: None,
                     }),
 
                     ephemeral_blobstore: None,

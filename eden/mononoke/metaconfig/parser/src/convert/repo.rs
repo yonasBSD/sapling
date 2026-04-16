@@ -598,6 +598,17 @@ impl Convert for RawDerivedDataTypesConfig {
             .map(|raw| raw.convert())
             .transpose()?;
 
+        let xdb_mapping_shard_ids: HashMap<DerivableType, usize> = self
+            .xdb_mapping_shard_ids
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(k, v)| {
+                let dt = DerivableType::from_name(&k)?;
+                let shard_id: usize = v.try_into()?;
+                Ok((dt, shard_id))
+            })
+            .collect::<Result<_>>()?;
+
         Ok(DerivedDataTypesConfig {
             types,
             ephemeral_bubbles_disabled_types,
@@ -611,6 +622,7 @@ impl Convert for RawDerivedDataTypesConfig {
             git_delta_manifest_v3_config,
             derivation_batch_sizes,
             inferred_copy_from_config,
+            xdb_mapping_shard_ids,
         })
     }
 }

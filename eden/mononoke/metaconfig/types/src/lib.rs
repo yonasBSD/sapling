@@ -627,6 +627,10 @@ pub struct DerivedDataTypesConfig {
 
     /// Config for inferred copy from
     pub inferred_copy_from_config: Option<InferredCopyFromConfig>,
+
+    /// Maps DerivableType to XDB shard ID. Types in this map store their
+    /// mapping in XDB rather than the blobstore.
+    pub xdb_mapping_shard_ids: HashMap<DerivableType, usize>,
 }
 
 /// What type of unode derived data to generate
@@ -1496,6 +1500,8 @@ pub struct RemoteMetadataDatabaseConfig {
     pub repo_metadata: Option<RemoteDatabaseConfig>,
     /// Database for restricted paths manifest ids storage
     pub restricted_paths: Option<RemoteDatabaseConfig>,
+    /// Database for commit derived data mapping
+    pub commit_derived_data_mapping: Option<ShardableRemoteDatabaseConfig>,
 }
 
 /// Configuration for the Metadata database when it is remote.
@@ -1519,6 +1525,8 @@ pub struct OssRemoteMetadataDatabaseConfig {
     pub bonsai_blob_mapping: Option<OssRemoteDatabaseConfig>,
     /// Database for deletion log
     pub deletion_log: Option<OssRemoteDatabaseConfig>,
+    /// Database for commit derived data mapping
+    pub commit_derived_data_mapping: Option<OssRemoteDatabaseConfig>,
 }
 
 /// Configuration for the Metadata database

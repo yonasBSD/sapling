@@ -359,6 +359,7 @@ impl Convert for RawMetadataConfig {
                     git_bundle_metadata: raw.git_bundles.convert()?,
                     repo_metadata: raw.repo_metadata.convert()?,
                     restricted_paths: raw.restricted_paths.convert()?,
+                    commit_derived_data_mapping: raw.derived_data_mapping.convert()?,
                 },
             )),
             RawMetadataConfig::oss_remote(raw) => Ok(MetadataDatabaseConfig::OssRemote(
@@ -375,6 +376,7 @@ impl Convert for RawMetadataConfig {
                     sparse_profiles: raw.sparse_profiles.convert()?,
                     bonsai_blob_mapping: raw.bonsai_blob_mapping.convert()?,
                     deletion_log: raw.deletion_log.convert()?,
+                    commit_derived_data_mapping: raw.derived_data_mapping.convert()?,
                 },
             )),
             RawMetadataConfig::UnknownField(f) => Err(anyhow!(
