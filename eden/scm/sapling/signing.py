@@ -38,10 +38,15 @@ import shutil
 import subprocess
 import tempfile
 import textwrap
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Dict, List, Optional, Tuple, Type, TypeVar
 
 from . import error
 from .i18n import _
+
+
+# TypeVar used so that from_config() has a covariant return type: calling
+# GpgBackend.from_config() returns GpgBackend, not the base SigningBackend.
+_BackendT = TypeVar("_BackendT", bound="SigningBackend")
 
 
 class SigningBackend(abc.ABC):
@@ -57,7 +62,7 @@ class SigningBackend(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_config(cls, ui, key: str) -> "SigningBackend":
+    def from_config(cls: Type[_BackendT], ui, key: str) -> _BackendT:
         """Construct a backend from the [signing] config section."""
 
 

@@ -38,9 +38,9 @@ Clone a Sapling repo from a Git repo:
 Create a self-signed X.509 certificate for testing:
 
   $ export HGUSER="Test User <testuser@example.com>"
-  $ openssl req -x509 -newkey rsa:2048 -keyout "$TESTTMP/x509key.pem" \
-  >   -out "$TESTTMP/x509cert.pem" -days 1 -nodes \
-  >   -subj "/CN=Test User/emailAddress=testuser@example.com" 2>/dev/null
+  $ openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+  >   -keyout "$TESTTMP/x509key.pem" -out "$TESTTMP/x509cert.pem" \
+  >   -days 1 -nodes -subj "/CN=Test User/emailAddress=testuser@example.com" 2>/dev/null
 
 Create a combined PEM file (cert + key):
 
