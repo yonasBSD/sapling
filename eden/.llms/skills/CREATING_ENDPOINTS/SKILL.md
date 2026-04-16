@@ -1,6 +1,9 @@
 ---
-oncalls: ['source_control']
-description: "This guide explains how to create new EdenAPI/SLAPI endpoints, covering both streaming and non-streaming patterns."
+description: >
+  This guide explains how to create new EdenAPI/SLAPI endpoints, covering both
+  streaming and non-streaming patterns.
+oncalls:
+  - 'source_control'
 ---
 
 # Creating EdenAPI Endpoints

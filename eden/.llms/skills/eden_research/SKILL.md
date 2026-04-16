@@ -1,8 +1,15 @@
 ---
-name: eden_research
-oncalls: ['scm_client_infra', 'scm_server_infra', 'sapling']
+name: 'eden_research'
+description: >
+  Load FIRST before searching code in eden/. Contains component-to-file maps,
+  key type names, and architecture diagrams for EdenFS, Sapling, and Mononoke.
+  Tells you exactly which files to read for any task. References contain
+  per-component quick reference tables.
+oncalls:
+  - 'scm_client_infra'
+  - 'scm_server_infra'
+  - 'sapling'
 apply_to_regex: 'eden/.*'
-description: "Load when you need to understand Eden architecture, trace cross-project data flows, or discover which subsystem implements a feature. Skip for directed code fixes where the user names a specific file — just search for the file directly instead. Contains component-to-file maps, key type names, and architecture diagrams for EdenFS, Sapling, and Mononoke."
 ---
 
 # Eden Research
@@ -102,7 +109,7 @@ EdenFS exposes a Thrift API defined in `eden/fs/service/eden.thrift` and `stream
 
 ### EdenAPI/SLAPI Protocol
 
-HTTP-based API between Sapling/EdenFS clients and Mononoke server. Endpoints defined in `eden/mononoke/servers/slapi/`. Client library at `eden/scm/lib/edenapi/`. See the [CREATING_ENDPOINTS skill](CREATING_ENDPOINTS.md) for adding new endpoints.
+HTTP-based API between Sapling/EdenFS clients and Mononoke server. Endpoints defined in `eden/mononoke/servers/slapi/`. Client library at `eden/scm/lib/edenapi/`. See the [CREATING_ENDPOINTS skill](../CREATING_ENDPOINTS/SKILL.md) for adding new endpoints.
 
 ## Output Format
 
@@ -137,4 +144,4 @@ For component-specific information (component overview, quick reference, key con
 | **Sapling** | [`references/sapling.md`](references/sapling.md) | CLI commands, Rust libraries, Python interop, .t tests |
 | **Mononoke** | [`references/mononoke.md`](references/mononoke.md) | SLAPI/SCS/Git servers, blobstore, derived data, facets |
 | **Integration** | `eden/integration/.claude/CLAUDE.md` | End-to-end tests with real EdenFS daemon |
-| **Endpoints** | [`CREATING_ENDPOINTS.md`](CREATING_ENDPOINTS.md) | Adding new EdenAPI/SLAPI endpoints |
+| **Endpoints** | [`../CREATING_ENDPOINTS/SKILL.md`](../CREATING_ENDPOINTS/SKILL.md) | Adding new EdenAPI/SLAPI endpoints |
