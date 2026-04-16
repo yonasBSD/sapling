@@ -86,7 +86,7 @@ dott_test(
     dott_files = META_GIT_CLIENT_TESTS,
     rust_allow_oss_build = False,
     deps = [
-        "fbsource//third-party/git/2.50.1:git",
+        "fbsource//third-party/git/v2.53.0:git",
         "//eden/mononoke:mononoke",
         "//eden/mononoke/clients/scsc:scsc",
         "//eden/mononoke/git/gitimport:gitimport",
