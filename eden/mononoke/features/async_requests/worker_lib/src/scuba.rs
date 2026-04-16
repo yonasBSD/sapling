@@ -9,6 +9,7 @@ use anyhow::Error;
 use anyhow::Result;
 use async_requests::RequestId;
 use async_requests::types::AsynchronousRequestResult;
+use async_requests::types::RowId;
 use async_requests_types_thrift::AsynchronousRequestResult as ThriftAsynchronousRequestResult;
 use context::CoreContext;
 use futures_stats::FutureStats;
@@ -34,6 +35,7 @@ impl AsyncMethodRequestWorker {
         ctx: &CoreContext,
         req_id: &RequestId,
         target: &str,
+        root_request_id: Option<RowId>,
     ) -> CoreContext {
         let ctx = ctx.with_mutated_scuba(|mut scuba| {
             // Legacy columns
@@ -43,6 +45,10 @@ impl AsyncMethodRequestWorker {
             // New column names to match the mononoke_scs_server table
             scuba.add("token", format!("{}", req_id.0.0));
             scuba.add("method", req_id.1.0.clone());
+
+            if let Some(root_id) = root_request_id {
+                scuba.add("root_request_id", root_id.0);
+            }
             scuba
         });
 

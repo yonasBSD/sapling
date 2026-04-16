@@ -408,7 +408,7 @@ impl AsyncMethodRequestWorker {
                 return;
             }
         };
-        let ctx = self.prepare_ctx(&ctx, &req_id, &target);
+        let ctx = self.prepare_ctx(&ctx, &req_id, &target, root_request_id);
         log_start(&ctx);
 
         // Check concurrency limit for this request type. If exceeded,
