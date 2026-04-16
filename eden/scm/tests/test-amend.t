@@ -153,6 +153,7 @@ Cannot amend public changeset
   $ sl goto -C -q A
   $ sl amend -m AMEND
   abort: cannot amend public changesets
+  (see 'sl help phases' for details)
   [255]
 
 Amend a merge changeset

@@ -333,6 +333,7 @@ No trees or filenodes are expected to be reuploaded.
   $ cd client2
   $ hg commit --amend -m "Edited: New files Dir3 moved from Dir2" -q
   abort: cannot amend public changesets
+  (see 'hg help phases' for details)
   [255]
   $ hg cloud sync
   commitcloud: synchronizing 'repo' with 'user/test/default'

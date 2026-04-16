@@ -60,6 +60,7 @@ from sapling import (
     lock as lockmod,
     patch,
     registrar,
+    rewriteutil,
     scmutil,
 )
 from sapling.i18n import _
@@ -337,10 +338,7 @@ def amend(ui, repo, *pats, **opts):
     opts["automv"] = not (opts.get("no_automv") or opts.get("no_move_detection"))
 
     old = repo["."]
-    if old.ispublic():
-        raise error.Abort(_("cannot amend public changesets"))
-    if len(repo.working_parent_nodes()) > 1:
-        raise error.Abort(_("cannot amend while merging"))
+    rewriteutil.precheck(repo, [old.rev()], "amend")
 
     haschildren = bool(repo.revs("children(.)"))
 
