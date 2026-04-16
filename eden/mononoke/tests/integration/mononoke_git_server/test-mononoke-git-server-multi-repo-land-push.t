@@ -124,7 +124,8 @@ Start the Mock RL Land Service (proxy that updates manifest)
   $ start_and_wait_for_mock_rl_land_service \
   >   --manifest-repo manifest_repo \
   >   --manifest-bookmark master_bookmark \
-  >   --manifest-path manifest.xml
+  >   --manifest-path manifest.xml \
+  >   --disable-rebase
 
 Start the Git server pointing to the Mock RL Land Service
   $ mononoke_git_service --multi-repo-land-service-address "$(mock_rl_land_service_address)"
