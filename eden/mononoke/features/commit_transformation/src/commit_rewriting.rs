@@ -441,22 +441,17 @@ pub fn rewrite_commit_with_implicit_deletes<'a>(
         cs.parents = new_parents
     }
 
-    let enable_commit_extra_stripping =
-        justknobs::eval("scm/mononoke:strip_commit_extras_in_xrepo_sync", None, None)?;
-
-    if enable_commit_extra_stripping {
-        match rewrite_opts.strip_commit_extras {
-            StripCommitExtras::Hg => {
-                // Set to an empty map to strip the hg extras
-                cs.hg_extra = Default::default();
-            }
-            StripCommitExtras::Git => {
-                // Set to an empty map to strip the git extras
-                cs.git_extra_headers = None;
-            }
-            StripCommitExtras::None => {}
-        };
-    }
+    match rewrite_opts.strip_commit_extras {
+        StripCommitExtras::Hg => {
+            // Set to an empty map to strip the hg extras
+            cs.hg_extra = Default::default();
+        }
+        StripCommitExtras::Git => {
+            // Set to an empty map to strip the git extras
+            cs.git_extra_headers = None;
+        }
+        StripCommitExtras::None => {}
+    };
 
     cs.hg_extra.extend(rewrite_opts.add_hg_extras);
 
