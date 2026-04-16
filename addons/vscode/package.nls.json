@@ -28,6 +28,9 @@
   "settings.isl.showInlineSignals.enumDescriptions.errorsAndWarnings": "Only show signals with error or warning severity.",
   "settings.isl.showInlineSignals.enumDescriptions.errors": "Only show signals with error severity.",
   "settings.isl.showInlineSignals.enumDescriptions.none": "Hide all inline signals.",
+  "settings.isl.inlineSignalsRenderMode.description": "Controls how inline diff signals are rendered in the editor.",
+  "settings.isl.inlineSignalsRenderMode.enumDescriptions.inset": "Render inline signals as inset webviews with rich controls.",
+  "settings.isl.inlineSignalsRenderMode.enumDescriptions.diagnostics": "Render inline signals as standard VS Code diagnostics and squiggles.",
   "sapling.open-comments-command": "Open Code Review Comments Panel",
   "sapling.toggle-inline-comments-command": "Toggle Show/Hide Inline Code Review Comments"
 }

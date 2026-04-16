@@ -111,6 +111,19 @@
           ],
           "description": "%settings.isl.showInlineSignals.description%",
           "default": "all"
+        },
+        "sapling.isl.inlineSignalsRenderMode": {
+          "type": "string",
+          "enum": [
+            "inset",
+            "diagnostics"
+          ],
+          "enumDescriptions": [
+            "%settings.isl.inlineSignalsRenderMode.enumDescriptions.inset%",
+            "%settings.isl.inlineSignalsRenderMode.enumDescriptions.diagnostics%"
+          ],
+          "description": "%settings.isl.inlineSignalsRenderMode.description%",
+          "default": "inset"
         }
       }
     },
