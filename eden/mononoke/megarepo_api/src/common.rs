@@ -1267,14 +1267,6 @@ pub async fn save_sync_target_config_in_changeset(
     config: &SyncTargetConfig,
     bcs: &mut BonsaiChangesetMut,
 ) -> Result<(), Error> {
-    if !justknobs::eval(
-        "scm/mononoke:megarepo_serialize_target_config_into_working_copy",
-        None,
-        Some(repo.repo_identity().name()),
-    )? {
-        return Ok(());
-    }
-
     let bytes = serde_json::to_vec_pretty(&config).map_err(Error::from)?;
 
     let ((content_id, size), fut) = filestore::store_bytes(
