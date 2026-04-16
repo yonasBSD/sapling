@@ -2420,6 +2420,27 @@ pub struct SoftRestrictedPathConfig {
     pub max_copied_files_limit: u64,
 }
 
+/// A single enforcement condition set. All non-empty fields must match (AND).
+/// Multiple sets are evaluated with OR semantics.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnforcementConditionSet {
+    /// If true, this set always matches — skips entry_points, restriction_roots,
+    /// and require_client_request_flag checks. Only the enable_server_side_path_acls
+    /// JK can disable enforcement for this set.
+    pub always_enabled: bool,
+    /// Client entry points that trigger enforcement (e.g. "ScsServer", "EdenApi").
+    /// Empty = match all entry points.
+    pub entry_points: Vec<String>,
+    /// Restriction root paths for enforcement (path-component prefix match).
+    /// Empty = match all restriction roots.
+    pub restriction_roots: Vec<NonRootMPath>,
+    /// Temporary: if true, client must send server_side_tenting=true in metadata.
+    /// Used during the initial rollout stage so clients can opt in to enforcement
+    /// and disable it if it causes issues. Should be removed once rollout is complete.
+    // TODO(T248658346): Remove this field once path ACL enforcement is fully rolled out.
+    pub require_client_request_flag: bool,
+}
+
 /// Configuration for restricted paths and their associated ACLs
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RestrictedPathsConfig {
@@ -2440,6 +2461,9 @@ pub struct RestrictedPathsConfig {
     pub tooling_allowlist_group: Option<String>,
     /// Name of the ACL files (default: ".slacl")
     pub acl_file_name: String,
+    /// Condition sets for conditional enforcement. OR across sets, AND within.
+    /// Replaces conditional_enforcement_acls.
+    pub enforcement_condition_sets: Vec<EnforcementConditionSet>,
 }
 
 const DEFAULT_ACL_FILE_NAME: &str = ".slacl";
@@ -2454,6 +2478,7 @@ impl Default for RestrictedPathsConfig {
             conditional_enforcement_acls: Vec::new(),
             tooling_allowlist_group: None,
             acl_file_name: DEFAULT_ACL_FILE_NAME.to_string(),
+            enforcement_condition_sets: Vec::new(),
         }
     }
 }

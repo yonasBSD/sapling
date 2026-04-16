@@ -37,6 +37,7 @@ use metaconfig_types::DerivedDataTypesConfig;
 use metaconfig_types::DirectoryBranchClusterConfig;
 use metaconfig_types::DirectoryBranchClusterFixedCluster;
 use metaconfig_types::DirectoryBranchClusterFixedConfig;
+use metaconfig_types::EnforcementConditionSet;
 use metaconfig_types::GitBundleURIConfig;
 use metaconfig_types::GitConcurrencyParams;
 use metaconfig_types::GitConfigs;
@@ -1405,6 +1406,34 @@ impl Convert for RawRestrictedPathsConfig {
         // tooling_allowlist_group is used directly as a group name for membership checking
         let tooling_allowlist_group = self.tooling_allowlist_acl;
 
+        let enforcement_condition_sets = self
+            .enforcement_condition_sets
+            .unwrap_or_default()
+            .into_iter()
+            .map(|raw| {
+                let restriction_roots = raw
+                    .restriction_roots
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|s| {
+                        NonRootMPath::new(s.as_bytes()).with_context(|| {
+                            format!(
+                                "Invalid restriction root path in enforcement condition set: {}",
+                                s
+                            )
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+
+                Ok(EnforcementConditionSet {
+                    always_enabled: raw.always_enabled.unwrap_or(false),
+                    entry_points: raw.entry_points.unwrap_or_default(),
+                    restriction_roots,
+                    require_client_request_flag: raw.require_client_request_flag.unwrap_or(false),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+
         Ok(RestrictedPathsConfig {
             path_acls,
             use_manifest_id_cache,
@@ -1415,6 +1444,7 @@ impl Convert for RawRestrictedPathsConfig {
             acl_file_name: self
                 .acl_file_name
                 .unwrap_or(RestrictedPathsConfig::default().acl_file_name.to_string()),
+            enforcement_condition_sets,
         })
     }
 }
