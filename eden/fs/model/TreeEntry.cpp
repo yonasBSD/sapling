@@ -51,7 +51,9 @@ bool operator==(const EntryAttributes& lhs, const EntryAttributes& rhs) {
       checkValueEqual(lhs.digestSize, rhs.digestSize) &&
       checkValueEqual(lhs.digestHash, rhs.digestHash) &&
       checkValueEqual(lhs.mtime, rhs.mtime) &&
-      checkValueEqual(lhs.mode, rhs.mode);
+      checkValueEqual(lhs.mode, rhs.mode) &&
+      checkValueEqual(lhs.underAcl, rhs.underAcl) &&
+      checkValueEqual(lhs.aclInfo, rhs.aclInfo);
 }
 
 bool operator!=(const EntryAttributes& lhs, const EntryAttributes& rhs) {

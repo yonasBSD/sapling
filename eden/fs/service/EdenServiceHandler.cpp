@@ -3525,6 +3525,37 @@ FileAttributeDataOrErrorV2 serializeEntryAttributes(
     fileData.mode() = std::move(mode);
   }
 
+  if (requestedAttributes.contains(ENTRY_ATTRIBUTE_UNDER_ACL)) {
+    UnderAclOrError underAcl;
+    if (!fillErrorRef(underAcl, attributes->underAcl, entryPath, "underAcl")) {
+      underAcl.underAcl() = attributes->underAcl.value().value();
+    }
+    fileData.underAcl() = std::move(underAcl);
+  }
+
+  if (requestedAttributes.contains(ENTRY_ATTRIBUTE_ACLs)) {
+    AclInfoOrError aclInfoResult;
+    if (!fillErrorRef(
+            aclInfoResult, attributes->aclInfo, entryPath, "aclInfo")) {
+      const auto& info = attributes->aclInfo.value().value();
+      AclInfo thriftInfo;
+      thriftInfo.underAcl() = info.underAcl;
+      std::vector<AclEntry> thriftAcls;
+      for (const auto& entry : info.acls) {
+        AclEntry thriftEntry;
+        thriftEntry.restrictionRoot() = entry.restrictionRoot;
+        thriftEntry.repoRegionAcl() = entry.repoRegionAcl;
+        if (entry.requestAcl.has_value()) {
+          thriftEntry.requestAcl() = entry.requestAcl.value();
+        }
+        thriftAcls.push_back(std::move(thriftEntry));
+      }
+      thriftInfo.acls() = std::move(thriftAcls);
+      aclInfoResult.aclInfo() = std::move(thriftInfo);
+    }
+    fileData.aclInfo() = std::move(aclInfoResult);
+  }
+
   fileResult.fileAttributeData() = fileData;
   return fileResult;
 }

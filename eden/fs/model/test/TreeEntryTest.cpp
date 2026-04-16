@@ -69,11 +69,15 @@ TEST(TreeEntry, testEntryAttributesEqual) {
       std::nullopt,
       std::nullopt,
       std::nullopt,
+      std::nullopt,
+      std::nullopt,
       std::nullopt};
   EntryAttributes error1Attributes{
       std::nullopt,
       std::nullopt,
       folly::Try<uint64_t>{newEdenError(std::exception{})},
+      std::nullopt,
+      std::nullopt,
       std::nullopt,
       std::nullopt,
       std::nullopt,
@@ -90,6 +94,8 @@ TEST(TreeEntry, testEntryAttributesEqual) {
       std::nullopt,
       std::nullopt,
       std::nullopt,
+      std::nullopt,
+      std::nullopt,
       std::nullopt};
   EntryAttributes real1Attributes{
       std::nullopt,
@@ -100,11 +106,15 @@ TEST(TreeEntry, testEntryAttributesEqual) {
       std::nullopt,
       std::nullopt,
       std::nullopt,
+      std::nullopt,
+      std::nullopt,
       std::nullopt};
   EntryAttributes real2Attributes{
       std::nullopt,
       std::nullopt,
       folly::Try<uint64_t>{2},
+      std::nullopt,
+      std::nullopt,
       std::nullopt,
       std::nullopt,
       std::nullopt,

@@ -9,6 +9,8 @@
 
 #include <iosfwd>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include <folly/Try.h>
 #include <folly/io/Cursor.h>
@@ -33,6 +35,29 @@ enum class TreeEntryType : uint8_t {
   SYMLINK,
 };
 
+/**
+ * A single ACL entry for a path. Each entry represents one restriction root
+ * with its associated repo-region ACL and optional request ACL.
+ */
+struct EntryAcl {
+  std::string restrictionRoot;
+  std::string repoRegionAcl;
+  std::optional<std::string> requestAcl;
+
+  bool operator==(const EntryAcl&) const = default;
+};
+
+/**
+ * Access control metadata for a path. Mirrors the thrift AclInfo struct
+ * but lives in the model layer without thrift dependencies.
+ */
+struct EntryAclInfo {
+  bool underAcl{false};
+  std::vector<EntryAcl> acls;
+
+  bool operator==(const EntryAclInfo&) const = default;
+};
+
 struct EntryAttributes {
   // for each requested attribute the member here should be set. If the
   // attribute was not requested, then the member will be nullopt.
@@ -50,6 +75,8 @@ struct EntryAttributes {
   std::optional<folly::Try<Hash32>> digestHash;
   std::optional<folly::Try<timespec>> mtime;
   std::optional<folly::Try<mode_t>> mode;
+  std::optional<folly::Try<bool>> underAcl;
+  std::optional<folly::Try<EntryAclInfo>> aclInfo;
 };
 
 /**
