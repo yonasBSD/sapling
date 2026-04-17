@@ -24,7 +24,6 @@ rust_binary(
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tracing",
-        "//common/rust/base_controller:factory_group",
         "//common/rust/base_controller:thrift_factory",
         "//common/rust/mysql:mysql_client",
         "//common/rust/shed/cloned:cloned",

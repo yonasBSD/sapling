@@ -35,7 +35,6 @@ use connection_security_checker::ConnectionSecurityChecker;
 use environment::RemoteDiffOptions;
 use ephemeral_blobstore::BubbleId;
 use ephemeral_blobstore::RepoEphemeralStore;
-use factory_group::FactoryGroup;
 use fbinit::FacebookInit;
 use futures::FutureExt;
 use futures::StreamExt;
@@ -149,7 +148,6 @@ pub struct SourceControlServiceImpl {
     pub(crate) identity: Identity,
     pub(crate) scribe: Scribe,
     pub(crate) configs: Arc<MononokeConfigs>,
-    pub(crate) factory_group: Option<Arc<FactoryGroup<2>>>,
     pub(crate) async_requests_queue: Option<Arc<AsyncMethodRequestQueue>>,
     identity_proxy_checker: Arc<ConnectionSecurityChecker>,
     pub(crate) acl_provider: Arc<dyn AclProvider>,
@@ -172,7 +170,6 @@ impl SourceControlServiceImpl {
         identity_proxy_checker: ConnectionSecurityChecker,
         configs: Arc<MononokeConfigs>,
         common_config: &CommonConfig,
-        factory_group: Option<Arc<FactoryGroup<2>>>,
         async_requests_queue: Option<Arc<AsyncMethodRequestQueue>>,
         git_source_of_truth_config: Arc<dyn GitSourceOfTruthConfig>,
         watchdog_max_poll: u64,
@@ -191,7 +188,6 @@ impl SourceControlServiceImpl {
             scribe,
             configs,
             identity_proxy_checker: Arc::new(identity_proxy_checker),
-            factory_group,
             async_requests_queue,
             acl_provider: app.environment().acl_provider.clone(),
             git_source_of_truth_config,
@@ -1269,15 +1265,7 @@ macro_rules! impl_thrift_methods {
                         .instrument(span)
                     };
 
-                    let result = if let Some(factory_group) = &self.0.factory_group {
-                        let group = factory_group.clone();
-                        let queue: usize =
-                            justknobs::get_as::<u64>("scm/mononoke:scs_factory_queue_for_method", Some(stringify!($method_name))).map_err(scs_errors::internal_error)? as usize;
-                        group.execute(queue, handler, None).await.map_err(|e| scs_errors::internal_error(e.to_string()))?
-                    } else {
-                        let res: Result<$ok_type, $err_type> = handler.await;
-                        res
-                    };
+                    let result: Result<$ok_type, $err_type> = handler.await;
 
                     // If the method set the nocache flag (due to non-KCB identity types),
                     // propagate it to the ThriftCache response header.
@@ -1362,15 +1350,7 @@ macro_rules! impl_thrift_stream_methods {
                         .instrument(span)
                     };
 
-                    let result = if let Some(factory_group) = &self.0.factory_group {
-                        let group = factory_group.clone();
-                        let queue: usize =
-                            justknobs::get_as::<u64>("scm/mononoke:scs_factory_queue_for_method", Some(stringify!($method_name))).map_err(scs_errors::internal_error)? as usize;
-                        group.execute(queue, handler, None).await.map_err(|e| scs_errors::internal_error(e.to_string()))?
-                    } else {
-                        let res: Result<$ok_type, $err_type> = handler.await;
-                        res
-                    };
+                    let result: Result<$ok_type, $err_type> = handler.await;
 
                     // If the method set the nocache flag (due to non-KCB identity types),
                     // propagate it to the ThriftCache response header.

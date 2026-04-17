@@ -37,7 +37,6 @@ rust_library(
         "fbsource//third-party/rust:sha2",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
-        "//common/rust/base_controller:factory_group",
         "//common/rust/everstore:everstore_client",
         "//common/rust/identity:identity",
         "//common/rust/oncall:oncall",
