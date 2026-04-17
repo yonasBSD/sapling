@@ -41,7 +41,6 @@
     "scm/mononoke:enable_manifest_altering_subtree_changes": false,
     "scm/mononoke:use_repo_default_id_scheme_in_scs": true,
     "scm/mononoke:disable_xdb_blobstore_reads": false,
-    "scm/mononoke:caching_ext_use_set_or_replace": true,
     "scm/mononoke:read_bookmarks_from_xdb_replica": true,
     "scm/mononoke:use_maybe_stale_freshness_for_bookmarks": true,
     "scm/mononoke:disable_bonsai_mapping_read_fallback_to_primary": false,
