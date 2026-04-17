@@ -12,11 +12,16 @@
 // different_entry_name.priority=5
 // different_entry_name.path=/some/other
 // different_entry_name.type=auth
+// different_entry_name.wanted-key=scm_service_identity
 //
 // Forwarded and auth types are completely orthogonal. Each type is
 // resolved independently to the highest-priority group of that type.
 // The same token file can appear in groups of both types, causing it
 // to be sent in both x-forwarded-cats and x-auth-cats headers.
+//
+// When wanted-key is set, the JSON file is read as a map
+// and only the value at that key is sent. Without it, the default
+// "crypto_auth_tokens" key is used.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -37,9 +42,11 @@ pub struct MissingCATs {
     missing: Vec<PathBuf>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct Cats {
+#[derive(Deserialize)]
+struct PremintedCats {
     crypto_auth_tokens: String,
+    #[serde(flatten)]
+    extra: HashMap<String, String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -72,6 +79,8 @@ pub struct CatGroup {
     pub priority: i32,
     pub path: Option<PathBuf>,
     pub token_type: CatTokenType,
+    #[serde(default)]
+    pub wanted_key: Option<String>,
 }
 
 impl CatGroup {
@@ -95,11 +104,14 @@ impl CatGroup {
             .transpose()?
             .unwrap_or(CatTokenType::Forwarded);
 
+        let wanted_key = settings.remove("wanted-key").map(|s| s.trim().to_string());
+
         Ok(Self {
             name,
             priority,
             path,
             token_type,
+            wanted_key,
         })
     }
 }
@@ -187,8 +199,23 @@ impl CatsSection {
             if let Some(path) = cats_group.path {
                 let f = std::fs::File::open(&path)?;
                 let reader = std::io::BufReader::new(f);
-                let cats: Cats = serde_json::from_reader(reader)?;
-                return Ok(Some(cats.crypto_auth_tokens));
+                let preminted: PremintedCats = serde_json::from_reader(reader)?;
+                let token = match cats_group.wanted_key.as_deref() {
+                    Some(key) => match preminted.extra.get(key) {
+                        Some(value) => value.clone(),
+                        None => {
+                            tracing::warn!(
+                                "[cats] group {:?}: wanted-key {:?} not found in {:?}, falling back to crypto_auth_tokens",
+                                &cats_group.name,
+                                key,
+                                &path,
+                            );
+                            preminted.crypto_auth_tokens
+                        }
+                    },
+                    None => preminted.crypto_auth_tokens,
+                };
+                return Ok(Some(token));
             }
         }
 

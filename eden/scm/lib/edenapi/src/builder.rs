@@ -691,4 +691,62 @@ mod tests {
                 .contains_key(cats_constants::X_AUTH_CATS_HEADER)
         );
     }
+
+    #[test]
+    fn test_wanted_key_picks_entry() {
+        let dir = std::env::temp_dir().join("test_wanted_key_picks_entry");
+        std::fs::create_dir_all(&dir).unwrap();
+        let cats_file = dir.join("preminted_cats");
+        std::fs::write(
+            &cats_file,
+            r#"{"crypto_auth_tokens":"merged-token","interngraph":"ig-token"}"#,
+        )
+        .unwrap();
+
+        let config = make_config(vec![
+            ("cats.myauth.path", cats_file.to_str().unwrap()),
+            ("cats.myauth.type", "auth"),
+            ("cats.myauth.wanted-key", "interngraph"),
+        ]);
+
+        let builder = HttpClientBuilder::from_config(&config).unwrap();
+        assert_eq!(
+            builder
+                .headers
+                .get(cats_constants::X_AUTH_CATS_HEADER)
+                .map(|s| s.as_str()),
+            Some("ig-token"),
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_wanted_key_missing_falls_back() {
+        let dir = std::env::temp_dir().join("test_wanted_key_fallback");
+        std::fs::create_dir_all(&dir).unwrap();
+        let cats_file = dir.join("preminted_cats");
+        std::fs::write(
+            &cats_file,
+            r#"{"crypto_auth_tokens":"merged-token","interngraph":"ig-token"}"#,
+        )
+        .unwrap();
+
+        let config = make_config(vec![
+            ("cats.myauth.path", cats_file.to_str().unwrap()),
+            ("cats.myauth.type", "auth"),
+            ("cats.myauth.wanted-key", "nonexistent_key"),
+        ]);
+
+        let builder = HttpClientBuilder::from_config(&config).unwrap();
+        assert_eq!(
+            builder
+                .headers
+                .get(cats_constants::X_AUTH_CATS_HEADER)
+                .map(|s| s.as_str()),
+            Some("merged-token"),
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

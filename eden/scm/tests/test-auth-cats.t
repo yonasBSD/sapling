@@ -29,6 +29,18 @@ and does NOT send it in x-forwarded-cats:
   $ hg push --config http.verbose=True --config cats.myauth.path="$auth_cats_file" --config cats.myauth.type=auth --insecure --config paths.default=mononoke://localhost:$PROXY_PORT/test --config auth.mononoke.cert=$cert --config auth.mononoke.key=$cert_key --config auth.mononoke.prefix=mononoke://* 2> /dev/null | grep "x-forwarded-cats" || echo "no x-forwarded-cats header"
   no x-forwarded-cats header
 
+Test that wanted-key picks a specific entry from the JSON file:
+
+  $ echo '{"crypto_auth_tokens": "merged-token", "interngraph": "ig-token"}' > preminted_cats_token
+  $ preminted_cats_file="$(pwd)/preminted_cats_token"
+  $ hg push --config http.verbose=True --config cats.myauth.path="$preminted_cats_file" --config cats.myauth.type=auth --config cats.myauth.wanted-key=interngraph --insecure --config paths.default=mononoke://localhost:$PROXY_PORT/test --config auth.mononoke.cert=$cert --config auth.mononoke.key=$cert_key --config auth.mononoke.prefix=mononoke://* 2> /dev/null | grep -o "x-auth-cats: ig-token"
+  x-auth-cats: ig-token
+
+Test that wanted-key falls back to crypto_auth_tokens when the key is missing:
+
+  $ hg push --config http.verbose=True --config cats.myauth.path="$preminted_cats_file" --config cats.myauth.type=auth --config cats.myauth.wanted-key=nonexistent --insecure --config paths.default=mononoke://localhost:$PROXY_PORT/test --config auth.mononoke.cert=$cert --config auth.mononoke.key=$cert_key --config auth.mononoke.prefix=mononoke://* 2> /dev/null | grep -o "x-auth-cats: merged-token"
+  x-auth-cats: merged-token
+
 Test that missing file does not cause a crash (no x-auth-cats header sent):
 
   $ hg push --config http.verbose=True --config cats.myauth.path="/nonexistent/file" --config cats.myauth.type=auth --insecure --config paths.default=mononoke://localhost:$PROXY_PORT/test --config auth.mononoke.cert=$cert --config auth.mononoke.key=$cert_key --config auth.mononoke.prefix=mononoke://* 2> /dev/null | grep "x-auth-cats" || echo "no x-auth-cats header"
