@@ -730,6 +730,14 @@ is case-sensitive. This is not recommended and is intended only for testing."""
             # Find the commit to check out
             if args.rev is not None:
                 if args.skip_commit_resolve:
+                    if not (
+                        len(args.rev) == 40
+                        and all(c in "0123456789abcdefABCDEF" for c in args.rev)
+                    ):
+                        print_stderr(
+                            f"error: --skip-commit-resolve requires a full 40-character hex hash, got {args.rev!r}"
+                        )
+                        return 1
                     commit = args.rev
                 else:
                     try:
