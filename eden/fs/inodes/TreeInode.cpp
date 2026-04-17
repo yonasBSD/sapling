@@ -3753,12 +3753,6 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
         ctx, oldScmEntry, newScmEntry, std::move(childPtr));
   }
 
-  // If true, preserve inode numbers for files that have been accessed and
-  // still remain when a tree transitions from A -> B.  This is really expensive
-  // because it means we must load TreeInodes for all trees that have ever
-  // allocated inode numbers.
-  constexpr bool kPreciseInodeNumberMemory = false;
-
   // If a load for this entry is in progress, then we have to wait for the
   // load to finish.  Loading the inode ourself will wait for the existing
   // attempt to finish.
@@ -3766,9 +3760,7 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
   // check its contents to see if there are conflicts or not.
   // On Windows, we need to invalidate ProjectedFS on-disk state.
   if (entry.isMaterialized() ||
-      getInodeMap()->isInodeRemembered(entry.getInodeNumber()) ||
-      (kPreciseInodeNumberMemory && entry.isDirectory() &&
-       getOverlay()->hasOverlayDir(entry.getInodeNumber()))) {
+      getInodeMap()->isInodeRemembered(entry.getInodeNumber())) {
     XLOGF(DBG6, "must load child: inode={} child={}", getNodeId(), name);
     // This child is potentially modified (or has saved state that must be
     // updated), but is not currently loaded. Start loading it and create a
@@ -3896,15 +3888,8 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
   // allocated and remembered inode numbers for this tree.  It's much faster to
   // simply forget the inode numbers we allocated here -- if we were a real
   // filesystem, it's as if the entire subtree got deleted and checked out
-  // from scratch.  (Note: if anything uses Watchman and cares precisely about
-  // inode numbers, it could miss changes.)
-  if (!kPreciseInodeNumberMemory && entry.isDirectory()) {
-    XLOGF(
-        DBG5,
-        "recursively removing overlay data for {}({} / {})",
-        oldEntryInodeNumber,
-        getLogPath(),
-        name);
+  // from scratch.
+  if (entry.isDirectory()) {
     getOverlay()->recursivelyRemoveOverlayDir(oldEntryInodeNumber);
   }
 
