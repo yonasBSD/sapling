@@ -13,7 +13,6 @@ use std::future::Future;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use std::sync::Weak;
 
 #[cfg(fbcode_build)]
 use MononokeRepoFactoryStats_ods3::Instrument_MononokeRepoFactoryStats;
@@ -155,7 +154,6 @@ use metaconfig_types::RepoConfig;
 use metaconfig_types::RepoReadOnly;
 #[cfg(fbcode_build)]
 use metaconfig_types::ZelosConfig;
-use mononoke_types::RepositoryId;
 use mutable_blobstore::ArcMutableRepoBlobstore;
 use mutable_blobstore::MutableRepoBlobstore;
 use mutable_counters::ArcMutableCounters;
@@ -168,7 +166,6 @@ use parking_lot::Mutex;
 use permission_checker::AclProvider;
 use phases::ArcPhases;
 use preloaded_commit_graph_storage::PreloadedCommitGraphStorage;
-use preloaded_commit_graph_storage::PreloadedEdges;
 use pushrebase_mutation_mapping::ArcPushrebaseMutationMapping;
 use pushrebase_mutation_mapping::SqlPushrebaseMutationMappingConnection;
 use pushredirect::ArcPushRedirectionConfig;
@@ -177,7 +174,6 @@ use readonlyblob::ReadOnlyBlobstore;
 use redactedblobstore::ArcRedactionConfigBlobstore;
 use redactedblobstore::RedactedBlobs;
 use redactedblobstore::RedactionConfigBlobstore;
-use reloader::Reloader;
 use repo_blobstore::ArcRepoBlobstore;
 use repo_blobstore::RepoBlobstore;
 use repo_bookmark_attrs::ArcRepoBookmarkAttrs;
@@ -354,8 +350,6 @@ pub struct RepoFactory {
     #[cfg(fbcode_build)]
     zelos_clients: RepoFactoryCache<ZelosConfig, Arc<dyn ZeusClient>>,
     repo_event_publishers: RepoFactoryCache<Option<MetadataCacheConfig>, ArcRepoEventPublisher>,
-    preloaded_commit_graphs:
-        Arc<Mutex<HashMap<(RepositoryId, BlobConfig, String), Weak<Reloader<PreloadedEdges>>>>>,
     blobstore_override: Option<Arc<dyn RepoFactoryOverride<Arc<dyn Blobstore>>>>,
     scrub_handler: Arc<dyn ScrubHandler>,
     blobstore_component_sampler: Option<Arc<dyn ComponentSamplingHandler>>,
@@ -372,7 +366,6 @@ impl RepoFactory {
             #[cfg(fbcode_build)]
             zelos_clients: RepoFactoryCache::new(env.fb, "zelos_clients"),
             repo_event_publishers: RepoFactoryCache::new(env.fb, "repo_event_publishers"),
-            preloaded_commit_graphs: Arc::new(Mutex::new(HashMap::new())),
             blobstore_override: None,
             scrub_handler: default_scrub_handler(),
             blobstore_component_sampler: None,
@@ -2015,46 +2008,22 @@ impl RepoFactory {
             Some(preloaded_commit_graph_key)
                 if !self.env.commit_graph_options.skip_preloading_commit_graph =>
             {
-                let cache_key = (
-                    repo_identity.id(),
-                    repo_config.storage_config.mutable_blobstore.clone(),
+                let blobstore_without_cache = self
+                    .mutable_repo_blobstore_from_blobstore(
+                        repo_identity,
+                        &self
+                            .blobstore_no_cache(&repo_config.storage_config.mutable_blobstore)
+                            .await?,
+                    )
+                    .await?;
+
+                let preloaded_commit_graph_storage = PreloadedCommitGraphStorage::from_blobstore(
+                    &self.ctx(),
+                    Arc::new(blobstore_without_cache),
                     preloaded_commit_graph_key.clone(),
-                );
-
-                let existing = self
-                    .preloaded_commit_graphs
-                    .lock()
-                    .get(&cache_key)
-                    .and_then(|weak| weak.upgrade());
-
-                let reloader = match existing {
-                    Some(reloader) => reloader,
-                    None => {
-                        let blobstore_without_cache = self
-                            .mutable_repo_blobstore_from_blobstore(
-                                repo_identity,
-                                &self
-                                    .blobstore_no_cache(
-                                        &repo_config.storage_config.mutable_blobstore,
-                                    )
-                                    .await?,
-                            )
-                            .await?;
-                        let reloader = PreloadedCommitGraphStorage::create_reloader(
-                            &self.ctx(),
-                            Arc::new(blobstore_without_cache),
-                            preloaded_commit_graph_key.clone(),
-                        )
-                        .await?;
-                        self.preloaded_commit_graphs
-                            .lock()
-                            .insert(cache_key, Arc::downgrade(&reloader));
-                        reloader
-                    }
-                };
-
-                let preloaded_commit_graph_storage =
-                    PreloadedCommitGraphStorage::from_reloader(reloader, maybe_cached_storage);
+                    maybe_cached_storage,
+                )
+                .await?;
 
                 Ok(Arc::new(CommitGraph::new(preloaded_commit_graph_storage)))
             }

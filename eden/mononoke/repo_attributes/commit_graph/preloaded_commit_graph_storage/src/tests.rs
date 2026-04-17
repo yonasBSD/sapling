@@ -52,7 +52,7 @@ impl PreloadedCommitGraphStorage {
         let preloaded_edges = deserialize_preloaded_edges(bytes)?;
 
         Ok(Arc::new(Self {
-            preloaded_edges: Arc::new(Reloader::fixed(preloaded_edges)),
+            preloaded_edges: Reloader::fixed(preloaded_edges),
             persistent_storage,
         }))
     }
