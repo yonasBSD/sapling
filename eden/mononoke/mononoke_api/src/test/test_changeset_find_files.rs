@@ -12,12 +12,7 @@ use anyhow::Result;
 use fbinit::FacebookInit;
 use fixtures::ManyFilesDirs;
 use fixtures::TestRepoFixture;
-use futures::FutureExt;
 use futures::stream::TryStreamExt;
-use justknobs::test_helpers::JustKnobsInMemory;
-use justknobs::test_helpers::KnobVal;
-use justknobs::test_helpers::with_just_knobs_async;
-use maplit::hashmap;
 use mononoke_macros::mononoke;
 use mononoke_types::path::MPath;
 
@@ -422,33 +417,16 @@ async fn commit_find_files_impl(fb: FacebookInit) -> Result<(), Error> {
         .await?
         .try_collect()
         .await?;
-    // BSSMv3 and non-BSSM paths produce different but consistent orders.
-    // When enable_bssm_v3_suffix_query is true, BSSMv3 is used and produces
-    // subdirectory-first ordering. Otherwise, the non-BSSM path produces
-    // alphabetical ordering.
-    let use_bssm_v3_suffix =
-        justknobs::eval("scm/mononoke:enable_bssm_v3_suffix_query", None, None).unwrap_or(false);
-    let expected_files = if use_bssm_v3_suffix {
-        vec![
-            MPath::try_from("1")?,
-            MPath::try_from("dir1/subdir1/file_1")?,
-            MPath::try_from("dir1/subdir1/subsubdir1/file_1")?,
-            MPath::try_from("dir1/subdir1/subsubdir2/file_1")?,
-            MPath::try_from("dir1/file_1_in_dir1")?,
-            MPath::try_from("dir1/file_2_in_dir1")?,
-            MPath::try_from("dir2/file_1_in_dir2")?,
-        ]
-    } else {
-        vec![
-            MPath::try_from("1")?,
-            MPath::try_from("dir1/file_1_in_dir1")?,
-            MPath::try_from("dir1/file_2_in_dir1")?,
-            MPath::try_from("dir1/subdir1/file_1")?,
-            MPath::try_from("dir1/subdir1/subsubdir1/file_1")?,
-            MPath::try_from("dir1/subdir1/subsubdir2/file_1")?,
-            MPath::try_from("dir2/file_1_in_dir2")?,
-        ]
-    };
+    // Without BSSMv3 for suffix queries, the order is alphabetical.
+    let expected_files = vec![
+        MPath::try_from("1")?,
+        MPath::try_from("dir1/file_1_in_dir1")?,
+        MPath::try_from("dir1/file_2_in_dir1")?,
+        MPath::try_from("dir1/subdir1/file_1")?,
+        MPath::try_from("dir1/subdir1/subsubdir1/file_1")?,
+        MPath::try_from("dir1/subdir1/subsubdir2/file_1")?,
+        MPath::try_from("dir2/file_1_in_dir2")?,
+    ];
 
     assert_eq!(files, expected_files);
     // Suffixes, basenames, ordered after
@@ -464,19 +442,10 @@ async fn commit_find_files_impl(fb: FacebookInit) -> Result<(), Error> {
         .await?
         .try_collect()
         .await?;
-    let expected_files = if use_bssm_v3_suffix {
-        vec![
-            MPath::try_from("dir1/subdir1/subsubdir2/file_1")?,
-            MPath::try_from("dir1/file_1_in_dir1")?,
-            MPath::try_from("dir1/file_2_in_dir1")?,
-            MPath::try_from("dir2/file_1_in_dir2")?,
-        ]
-    } else {
-        vec![
-            MPath::try_from("dir1/subdir1/subsubdir2/file_1")?,
-            MPath::try_from("dir2/file_1_in_dir2")?,
-        ]
-    };
+    let expected_files = vec![
+        MPath::try_from("dir1/subdir1/subsubdir2/file_1")?,
+        MPath::try_from("dir2/file_1_in_dir2")?,
+    ];
     assert_eq!(files, expected_files);
     // Suffixes, basenames, prefixes
     let mut files: Vec<_> = cs
@@ -545,22 +514,5 @@ async fn commit_find_files_impl(fb: FacebookInit) -> Result<(), Error> {
 
 #[mononoke::fbinit_test]
 async fn commit_find_files_with_bssm_v3(fb: FacebookInit) {
-    let justknobs = JustKnobsInMemory::new(hashmap! {
-        "scm/mononoke:enable_bssm_v3_suffix_query".to_string() => KnobVal::Bool(true),
-    });
-
-    with_just_knobs_async(justknobs, commit_find_files_impl(fb).boxed())
-        .await
-        .unwrap();
-}
-
-#[mononoke::fbinit_test]
-async fn commit_find_files_without_bssm_v3_suffix_query(fb: FacebookInit) {
-    let justknobs = JustKnobsInMemory::new(hashmap! {
-        "scm/mononoke:enable_bssm_v3_suffix_query".to_string() => KnobVal::Bool(false),
-    });
-
-    with_just_knobs_async(justknobs, commit_find_files_impl(fb).boxed())
-        .await
-        .unwrap();
+    commit_find_files_impl(fb).await.unwrap();
 }

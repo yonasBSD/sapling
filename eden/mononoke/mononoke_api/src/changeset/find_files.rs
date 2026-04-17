@@ -65,19 +65,10 @@ impl<R: MononokeRepo> ChangesetContext<R> {
             (Some(basenames), Some(suffixes)) => Some(EitherOrBoth::Both(basenames, suffixes)),
         };
         Ok(match basenames_and_suffixes {
-            Some(basenames_and_suffixes)
-                if !basenames_and_suffixes.has_right()
-                    || justknobs::eval(
-                        "scm/mononoke:enable_bssm_v3_suffix_query",
-                        None,
-                        Some(self.repo_ctx().name()),
-                    )
-                    .unwrap_or_default() =>
-            {
-                self.find_files_with_bssm_v3(prefixes, basenames_and_suffixes, ordering)
-                    .await?
-                    .boxed()
-            }
+            Some(basenames_and_suffixes) if !basenames_and_suffixes.has_right() => self
+                .find_files_with_bssm_v3(prefixes, basenames_and_suffixes, ordering)
+                .await?
+                .boxed(),
             basenames_and_suffixes => {
                 let (basenames, basename_suffixes) = basenames_and_suffixes
                     .map_or((None, None), |b| b.map_any(Some, Some).or_default());
