@@ -35,9 +35,6 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use futures::stream;
 use git_types::MappedGitCommitId;
-use justknobs::test_helpers::JustKnobsInMemory;
-use justknobs::test_helpers::KnobVal;
-use justknobs::test_helpers::override_just_knobs;
 use live_commit_sync_config::LiveCommitSyncConfig;
 use live_commit_sync_config::TestLiveCommitSyncConfigSource;
 use manifest::ManifestOps;
@@ -193,10 +190,6 @@ pub(crate) async fn build_submodule_sync_test_data(
     known_dangling_pointers: Vec<&str>,
 ) -> Result<SubmoduleSyncTestData> {
     let ctx = CoreContext::test_mock(fb.clone());
-    let test_jk = JustKnobsInMemory::new(hashmap! {
-        "scm/mononoke:backsync_submodule_expansion_changes".to_string() => KnobVal::Bool(true),
-    });
-    override_just_knobs(test_jk);
 
     let small_repo_ddt_cfg = submodule_repo_derived_data_types_config();
 
