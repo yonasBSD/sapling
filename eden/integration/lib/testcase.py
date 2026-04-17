@@ -995,6 +995,7 @@ class CoroutinesTestMixin:
         return [
             "enable-phase1 = true",
             "enable-phase2 = true",
+            "enable-phase5 = true",
         ]
 
 
