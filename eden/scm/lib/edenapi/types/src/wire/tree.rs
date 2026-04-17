@@ -85,9 +85,9 @@ impl ToApi for WireTreeEntry {
     type Error = WireToApiConversionError;
 
     fn to_api(self) -> Result<Self::Api, Self::Error> {
-        Ok(if let (key, Some(err)) = (self.key.clone(), self.error) {
+        Ok(if let Some(err) = self.error {
             Err(SaplingRemoteApiServerError {
-                key: key.to_api()?,
+                key: self.key.to_api()?,
                 err: err.to_api()?,
             })
         } else {
@@ -153,32 +153,29 @@ impl ToApi for WireTreeChildEntry {
     type Error = WireToApiConversionError;
 
     fn to_api(self) -> Result<Self::Api, Self::Error> {
-        Ok(if let (key, Some(err)) = (self.key.clone(), self.error) {
+        Ok(if let Some(err) = self.error {
             Err(SaplingRemoteApiServerError {
-                key: key.to_api()?,
+                key: self.key.to_api()?,
                 err: err.to_api()?,
             })
+        } else if let Some(file_metadata) = self.file_metadata {
+            Ok(TreeChildEntry::File(TreeChildFileEntry {
+                key: self
+                    .key
+                    .to_api()?
+                    .ok_or(WireToApiConversionError::CannotPopulateRequiredField("key"))?,
+                file_metadata: Some(file_metadata.to_api()?),
+            }))
         } else {
-            Ok(
-                if let (key, Some(file_metadata)) = (self.key.clone(), self.file_metadata) {
-                    TreeChildEntry::File(TreeChildFileEntry {
-                        key: key
-                            .to_api()?
-                            .ok_or(WireToApiConversionError::CannotPopulateRequiredField("key"))?,
-                        file_metadata: Some(file_metadata.to_api()?),
-                    })
-                } else {
-                    TreeChildEntry::Directory(TreeChildDirectoryEntry {
-                        key: self
-                            .key
-                            .to_api()?
-                            .ok_or(WireToApiConversionError::CannotPopulateRequiredField("key"))?,
-                        tree_aux_data: self.tree_aux_data.to_api()?,
-                        // TODO(T248658346): populate has_acl field
-                        has_acl: None,
-                    })
-                },
-            )
+            Ok(TreeChildEntry::Directory(TreeChildDirectoryEntry {
+                key: self
+                    .key
+                    .to_api()?
+                    .ok_or(WireToApiConversionError::CannotPopulateRequiredField("key"))?,
+                tree_aux_data: self.tree_aux_data.to_api()?,
+                // TODO(T248658346): populate has_acl field
+                has_acl: None,
+            }))
         })
     }
 }
