@@ -1811,6 +1811,14 @@ class EdenConfig : private ConfigSettingManager {
       false,
       this};
 
+  /**
+   * Controls whether EdenFS uses getBlake3 coroutine implementations
+   */
+  ConfigSetting<bool> enableCoroutinesPhase5{
+      "coroutines:enable-phase5",
+      false,
+      this};
+
   // [blobcache]
 
   /**
