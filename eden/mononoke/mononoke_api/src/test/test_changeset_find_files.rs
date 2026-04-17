@@ -422,8 +422,13 @@ async fn commit_find_files_impl(fb: FacebookInit) -> Result<(), Error> {
         .await?
         .try_collect()
         .await?;
-    // BSSM have different but consistent orders. BSSMv3 produces the same order as BSSM.
-    let expected_files = if justknobs::eval("scm/mononoke:enable_bssm_v3", None, None)? {
+    // BSSMv3 and non-BSSM paths produce different but consistent orders.
+    // When enable_bssm_v3_suffix_query is true, BSSMv3 is used and produces
+    // subdirectory-first ordering. Otherwise, the non-BSSM path produces
+    // alphabetical ordering.
+    let use_bssm_v3_suffix =
+        justknobs::eval("scm/mononoke:enable_bssm_v3_suffix_query", None, None).unwrap_or(false);
+    let expected_files = if use_bssm_v3_suffix {
         vec![
             MPath::try_from("1")?,
             MPath::try_from("dir1/subdir1/file_1")?,
@@ -459,7 +464,7 @@ async fn commit_find_files_impl(fb: FacebookInit) -> Result<(), Error> {
         .await?
         .try_collect()
         .await?;
-    let expected_files = if justknobs::eval("scm/mononoke:enable_bssm_v3", None, None)? {
+    let expected_files = if use_bssm_v3_suffix {
         vec![
             MPath::try_from("dir1/subdir1/subsubdir2/file_1")?,
             MPath::try_from("dir1/file_1_in_dir1")?,
@@ -541,7 +546,6 @@ async fn commit_find_files_impl(fb: FacebookInit) -> Result<(), Error> {
 #[mononoke::fbinit_test]
 async fn commit_find_files_with_bssm_v3(fb: FacebookInit) {
     let justknobs = JustKnobsInMemory::new(hashmap! {
-        "scm/mononoke:enable_bssm_v3".to_string() => KnobVal::Bool(true),
         "scm/mononoke:enable_bssm_v3_suffix_query".to_string() => KnobVal::Bool(true),
     });
 
@@ -551,9 +555,8 @@ async fn commit_find_files_with_bssm_v3(fb: FacebookInit) {
 }
 
 #[mononoke::fbinit_test]
-async fn commit_find_files_without_bssm(fb: FacebookInit) {
+async fn commit_find_files_without_bssm_v3_suffix_query(fb: FacebookInit) {
     let justknobs = JustKnobsInMemory::new(hashmap! {
-        "scm/mononoke:enable_bssm_v3".to_string() => KnobVal::Bool(false),
         "scm/mononoke:enable_bssm_v3_suffix_query".to_string() => KnobVal::Bool(false),
     });
 

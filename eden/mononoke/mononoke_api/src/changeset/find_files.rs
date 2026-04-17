@@ -66,19 +66,13 @@ impl<R: MononokeRepo> ChangesetContext<R> {
         };
         Ok(match basenames_and_suffixes {
             Some(basenames_and_suffixes)
-                if justknobs::eval(
-                    "scm/mononoke:enable_bssm_v3",
-                    None,
-                    Some(self.repo_ctx().name()),
-                )
-                .unwrap_or_default()
-                    && (!basenames_and_suffixes.has_right()
-                        || justknobs::eval(
-                            "scm/mononoke:enable_bssm_v3_suffix_query",
-                            None,
-                            Some(self.repo_ctx().name()),
-                        )
-                        .unwrap_or_default()) =>
+                if !basenames_and_suffixes.has_right()
+                    || justknobs::eval(
+                        "scm/mononoke:enable_bssm_v3_suffix_query",
+                        None,
+                        Some(self.repo_ctx().name()),
+                    )
+                    .unwrap_or_default() =>
             {
                 self.find_files_with_bssm_v3(prefixes, basenames_and_suffixes, ordering)
                     .await?
