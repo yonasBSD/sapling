@@ -899,28 +899,31 @@ class TreeInode final : public InodeBaseMetadata<DirContents> {
    * This function could return a std::variant of InvalidationRequired and
    * std::shared_ptr<CheckoutAction> instead of setting a boolean.
    */
+  template <typename Contents>
   std::shared_ptr<CheckoutAction> processCheckoutEntry(
       CheckoutContext* ctx,
       TreeInodeState& state,
-      DirContents& contents,
+      Contents& contents,
       const Tree::value_type* oldScmEntry,
       const Tree::value_type* newScmEntry,
       std::vector<IncompleteInodeLoad>& pendingLoads,
       bool& wasDirectoryListModified);
 
+  template <typename Contents>
   std::shared_ptr<CheckoutAction> processCheckoutEntryImpl(
       CheckoutContext* ctx,
       TreeInodeState& state,
-      DirContents& contents,
+      Contents& contents,
       const Tree::value_type* oldScmEntry,
       const Tree::value_type* newScmEntry,
       std::vector<IncompleteInodeLoad>& pendingLoads,
       bool& wasDirectoryListModified);
 
+  template <typename Contents>
   std::shared_ptr<CheckoutAction> processAbsentCheckoutEntry(
       CheckoutContext* ctx,
       TreeInodeState& state,
-      DirContents& contents,
+      Contents& contents,
       const Tree::value_type* oldScmEntry,
       const Tree::value_type* newScmEntry,
       bool& wasDirectoryListModified);

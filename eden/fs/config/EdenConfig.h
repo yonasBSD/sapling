@@ -1764,6 +1764,15 @@ class EdenConfig : private ConfigSettingManager {
       this};
 
   /**
+   * When true, checkout uses PathMapMutator to batch directory entry
+   * mutations, reducing O(n*k) cost to O(n + k log k) for large directories.
+   */
+  ConfigSetting<bool> batchCheckoutDirMutations{
+      "experimental:batch-checkout-dir-mutations",
+      true,
+      this};
+
+  /**
    * Master gate for pressure-based inode GC on FUSE.
    * When enabled, FUSE TTLs and GC cutoffs are dynamically computed based
    * on total inode count.

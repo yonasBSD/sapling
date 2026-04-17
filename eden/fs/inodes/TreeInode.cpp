@@ -22,6 +22,7 @@
 #include "eden/common/utils/FaultInjector.h"
 #include "eden/common/utils/ImmediateFuture.h"
 #include "eden/common/utils/PathFuncs.h"
+#include "eden/common/utils/PathMapMutator.h"
 #include "eden/common/utils/Synchronized.h"
 #include "eden/common/utils/SystemError.h"
 #include "eden/common/utils/TimeUtil.h"
@@ -3588,92 +3589,109 @@ void TreeInode::computeCheckoutActions(
   // Note that we completely ignore entries in our current contents_ that don't
   // appear in either fromTree or toTree.  These are untracked in both the old
   // and new trees.
-  Tree::container emptyEntries{
-      getMount()->getCheckoutConfig()->getCaseSensitive()};
-  auto oldIter = fromTree ? fromTree->cbegin() : emptyEntries.cbegin();
-  auto oldEnd = fromTree ? fromTree->cend() : emptyEntries.cend();
-  auto newIter = toTree ? toTree->cbegin() : emptyEntries.cbegin();
-  auto newEnd = toTree ? toTree->cend() : emptyEntries.cend();
-  while (true) {
-    std::shared_ptr<CheckoutAction> action;
+  auto diffLoop = [&](auto& dirEntries) {
+    Tree::container emptyEntries{
+        getMount()->getCheckoutConfig()->getCaseSensitive()};
+    auto oldIter = fromTree ? fromTree->cbegin() : emptyEntries.cbegin();
+    auto oldEnd = fromTree ? fromTree->cend() : emptyEntries.cend();
+    auto newIter = toTree ? toTree->cbegin() : emptyEntries.cbegin();
+    auto newEnd = toTree ? toTree->cend() : emptyEntries.cend();
+    while (true) {
+      std::shared_ptr<CheckoutAction> action;
 
-    if (oldIter == oldEnd) {
-      if (newIter == newEnd) {
-        // All Done
-        break;
-      }
+      if (oldIter == oldEnd) {
+        if (newIter == newEnd) {
+          // All Done
+          break;
+        }
 
-      // This entry is present in the new tree but not the old one.
-      action = processCheckoutEntry(
-          ctx,
-          *contents,
-          contents->entries,
-          nullptr,
-          &*newIter,
-          pendingLoads,
-          wasDirectoryListModified);
-      ++newIter;
-    } else if (newIter == newEnd) {
-      // This entry is present in the old tree but not the old one.
-      action = processCheckoutEntry(
-          ctx,
-          *contents,
-          contents->entries,
-          &*oldIter,
-          nullptr,
-          pendingLoads,
-          wasDirectoryListModified);
-      ++oldIter;
-    } else {
-      auto compare = comparePathPiece(
-          oldIter->first,
-          newIter->first,
-          getMount()->getCheckoutConfig()->getCaseSensitive());
-
-      if (compare == CompareResult::BEFORE) {
+        // This entry is present in the new tree but not the old one.
         action = processCheckoutEntry(
             ctx,
             *contents,
-            contents->entries,
-            &*oldIter,
-            nullptr,
-            pendingLoads,
-            wasDirectoryListModified);
-        ++oldIter;
-      } else if (compare == CompareResult::AFTER) {
-        action = processCheckoutEntry(
-            ctx,
-            *contents,
-            contents->entries,
+            dirEntries,
             nullptr,
             &*newIter,
             pendingLoads,
             wasDirectoryListModified);
         ++newIter;
+      } else if (newIter == newEnd) {
+        // This entry is present in the old tree but not the old one.
+        action = processCheckoutEntry(
+            ctx,
+            *contents,
+            dirEntries,
+            &*oldIter,
+            nullptr,
+            pendingLoads,
+            wasDirectoryListModified);
+        ++oldIter;
       } else {
-        action = processCheckoutEntry(
-            ctx,
-            *contents,
-            contents->entries,
-            &*oldIter,
-            &*newIter,
-            pendingLoads,
-            wasDirectoryListModified);
-        ++oldIter;
-        ++newIter;
+        auto compare = comparePathPiece(
+            oldIter->first,
+            newIter->first,
+            getMount()->getCheckoutConfig()->getCaseSensitive());
+
+        if (compare == CompareResult::BEFORE) {
+          action = processCheckoutEntry(
+              ctx,
+              *contents,
+              dirEntries,
+              &*oldIter,
+              nullptr,
+              pendingLoads,
+              wasDirectoryListModified);
+          ++oldIter;
+        } else if (compare == CompareResult::AFTER) {
+          action = processCheckoutEntry(
+              ctx,
+              *contents,
+              dirEntries,
+              nullptr,
+              &*newIter,
+              pendingLoads,
+              wasDirectoryListModified);
+          ++newIter;
+        } else {
+          action = processCheckoutEntry(
+              ctx,
+              *contents,
+              dirEntries,
+              &*oldIter,
+              &*newIter,
+              pendingLoads,
+              wasDirectoryListModified);
+          ++oldIter;
+          ++newIter;
+        }
+      }
+
+      if (action) {
+        actions.push_back(std::move(action));
       }
     }
+  };
 
-    if (action) {
-      actions.push_back(std::move(action));
+  if (getMount()->getEdenConfig()->batchCheckoutDirMutations.getValue()) {
+    PathMapMutator<DirEntry> mutator(std::move(contents->entries));
+    try {
+      diffLoop(mutator);
+    } catch (...) {
+      // Restore entries from mutator so we don't leave the directory empty.
+      contents->entries = DirContents(mutator.finalize());
+      throw;
     }
+    contents->entries = DirContents(mutator.finalize());
+  } else {
+    diffLoop(contents->entries);
   }
 }
 
+template <typename Contents>
 std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntry(
     CheckoutContext* ctx,
     TreeInodeState& state,
-    DirContents& contents,
+    Contents& contents,
     const Tree::value_type* oldScmEntry,
     const Tree::value_type* newScmEntry,
     std::vector<IncompleteInodeLoad>& pendingLoads,
@@ -3701,10 +3719,11 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntry(
   return ret;
 }
 
+template <typename Contents>
 std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
     CheckoutContext* ctx,
     TreeInodeState& state,
-    DirContents& contents,
+    Contents& contents,
     const Tree::value_type* oldScmEntry,
     const Tree::value_type* newScmEntry,
     vector<IncompleteInodeLoad>& pendingLoads,
@@ -3860,7 +3879,8 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
       // loading inodes. In that case, the invalidateChannelEntryCache will
       // fail with an ENOTEMPTY error. Let's catch this and recurse down as if
       // the directory was already loaded.
-      if (auto* exc = success.tryGetExceptionObject<std::system_error>();
+      if (auto* exc =
+              success.template tryGetExceptionObject<std::system_error>();
           exc && isEnotempty(*exc)) {
         XLOGF(
             DBG6,
@@ -3915,10 +3935,11 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
   return nullptr;
 }
 
+template <typename Contents>
 std::shared_ptr<CheckoutAction> TreeInode::processAbsentCheckoutEntry(
     CheckoutContext* ctx,
     TreeInodeState& state,
-    DirContents& contents,
+    Contents& contents,
     const Tree::value_type* oldScmEntry,
     const Tree::value_type* newScmEntry,
     bool& wasDirectoryListModified) {
@@ -3970,7 +3991,8 @@ std::shared_ptr<CheckoutAction> TreeInode::processAbsentCheckoutEntry(
       XDCHECK(inserted);
     } else {
       if (folly::kIsWindows) {
-        if (auto* exc = success.tryGetExceptionObject<std::system_error>();
+        if (auto* exc =
+                success.template tryGetExceptionObject<std::system_error>();
             exc && isEnotempty(*exc)) {
           XLOGF(
               DBG6,
@@ -3993,6 +4015,55 @@ std::shared_ptr<CheckoutAction> TreeInode::processAbsentCheckoutEntry(
   // Nothing else to do when there is no local inode.
   return nullptr;
 }
+
+// Explicit template instantiations for DirContents and PathMapMutator.
+template std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntry(
+    CheckoutContext*,
+    TreeInodeState&,
+    DirContents&,
+    const Tree::value_type*,
+    const Tree::value_type*,
+    std::vector<IncompleteInodeLoad>&,
+    bool&);
+template std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
+    CheckoutContext*,
+    TreeInodeState&,
+    DirContents&,
+    const Tree::value_type*,
+    const Tree::value_type*,
+    std::vector<IncompleteInodeLoad>&,
+    bool&);
+template std::shared_ptr<CheckoutAction> TreeInode::processAbsentCheckoutEntry(
+    CheckoutContext*,
+    TreeInodeState&,
+    DirContents&,
+    const Tree::value_type*,
+    const Tree::value_type*,
+    bool&);
+
+template std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntry(
+    CheckoutContext*,
+    TreeInodeState&,
+    PathMapMutator<DirEntry>&,
+    const Tree::value_type*,
+    const Tree::value_type*,
+    std::vector<IncompleteInodeLoad>&,
+    bool&);
+template std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
+    CheckoutContext*,
+    TreeInodeState&,
+    PathMapMutator<DirEntry>&,
+    const Tree::value_type*,
+    const Tree::value_type*,
+    std::vector<IncompleteInodeLoad>&,
+    bool&);
+template std::shared_ptr<CheckoutAction> TreeInode::processAbsentCheckoutEntry(
+    CheckoutContext*,
+    TreeInodeState&,
+    PathMapMutator<DirEntry>&,
+    const Tree::value_type*,
+    const Tree::value_type*,
+    bool&);
 
 namespace {
 /**
