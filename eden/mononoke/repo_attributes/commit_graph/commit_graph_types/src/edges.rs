@@ -413,7 +413,6 @@ impl ChangesetEdges {
 /// Outgoing edges are replaced by u32 ids identifying a changeset.
 #[derive(Debug)]
 pub struct CompactChangesetEdges {
-    pub cs_id: ChangesetId,
     pub generation: u32,
     pub subtree_source_generation: u32,
     pub skip_tree_depth: u32,
@@ -431,9 +430,13 @@ pub struct CompactChangesetEdges {
 }
 
 impl CompactChangesetEdges {
-    pub fn to_thrift(&self, unique_id: NonZeroU32) -> thrift::CompactChangesetEdges {
+    pub fn to_thrift(
+        &self,
+        cs_id: ChangesetId,
+        unique_id: NonZeroU32,
+    ) -> thrift::CompactChangesetEdges {
         thrift::CompactChangesetEdges {
-            cs_id: self.cs_id.into_thrift(),
+            cs_id: cs_id.into_thrift(),
             unique_id: unique_id.get() as i32,
             generation: self.generation as i32,
             skip_tree_depth: self.skip_tree_depth as i32,
@@ -468,7 +471,6 @@ impl CompactChangesetEdges {
 
     pub fn from_thrift(edges: thrift::CompactChangesetEdges) -> Result<Self> {
         Ok(Self {
-            cs_id: ChangesetId::from_thrift(edges.cs_id)?,
             generation: edges.generation as u32,
             subtree_source_generation: edges.subtree_source_generation.unwrap_or(edges.generation)
                 as u32,
