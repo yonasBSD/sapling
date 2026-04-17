@@ -33,7 +33,6 @@
     "scm/mononoke:commit_graph_disable_subtree_source_fallback": true,
     "scm/mononoke:commitcloud_bulk_inserts": true,
     "scm/mononoke:mononoke_api_find_files_use_skeleton_manifests_v2": true,
-    "scm/mononoke:remote_gitimport_derive_ccsm": true,
     "scm/mononoke:changeset_path_context_use_skeleton_manifest_v2": true,
     "scm/mononoke:case_conflicts_check_use_ccsm": true,
     "scm/mononoke:should_set_committer_info_to_author_info_if_empty": true,
