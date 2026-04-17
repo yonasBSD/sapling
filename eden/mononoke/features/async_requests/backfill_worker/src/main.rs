@@ -79,15 +79,11 @@ fn main(fb: FacebookInit) -> Result<()> {
     let session = SessionContainer::new_with_defaults(env.fb);
     let ctx = Arc::new(session.new_context(env.scuba_sample_builder.clone()));
 
-    // Start with no repos loaded; we'll add pre-loaded ones explicitly.
-    let repos_mgr = runtime.block_on(app.open_managed_repos(None))?;
+    // Only load the repos specified via --preload-repos. Other repos will be
+    // loaded on-demand when a backfill request arrives for them.
+    let repos_mgr =
+        runtime.block_on(app.open_named_managed_repos(args.preload_repos.clone(), None))?;
     let repos_mgr = Arc::new(repos_mgr);
-
-    // Pre-load configured repos so they stay in memory permanently.
-    for repo_name in &args.preload_repos {
-        info!("Pre-loading repo: {}", repo_name);
-        runtime.block_on(repos_mgr.add_repo(repo_name))?;
-    }
 
     let mononoke = Arc::new(repos_mgr.make_mononoke_api()?);
     let megarepo = Arc::new(MegarepoApi::new(&app, mononoke.clone())?);
