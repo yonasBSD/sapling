@@ -32,7 +32,6 @@ rust_library(
         "fbsource//third-party/rust:paste",
         "fbsource//third-party/rust:quickcheck",
         "fbsource//third-party/rust:serde",
-        "fbsource//third-party/rust:serde_bytes",
         "fbsource//third-party/rust:serde_derive",
         "fbsource//third-party/rust:thiserror",
         ":type_macros",

@@ -58,19 +58,34 @@ macro_rules! wire_hash {
             where
                 D: serde::Deserializer<'de>,
             {
-                let bytes: serde_bytes::ByteBuf = serde_bytes::deserialize(deserializer)?;
-                let bytes = bytes.as_ref();
+                struct FixedBytesVisitor;
 
-                if bytes.len() == Self::len() {
-                    let mut ary = [0u8; Self::len()];
-                    ary.copy_from_slice(&bytes);
-                    Ok($wire(ary))
-                } else {
-                    Err(<D::Error as serde::de::Error>::custom($crate::wire::TryFromBytesError {
-                        expected_len: Self::len(),
-                        found_len: bytes.len(),
-                    }))
+                impl<'de> serde::de::Visitor<'de> for FixedBytesVisitor {
+                    type Value = $wire;
+
+                    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        write!(f, "{} bytes", $wire::len())
+                    }
+
+                    fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<$wire, E> {
+                        if v.len() == $wire::len() {
+                            let mut ary = [0u8; $wire::len()];
+                            ary.copy_from_slice(v);
+                            Ok($wire(ary))
+                        } else {
+                            Err(E::custom($crate::wire::TryFromBytesError {
+                                expected_len: $wire::len(),
+                                found_len: v.len(),
+                            }))
+                        }
+                    }
+
+                    fn visit_borrowed_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<$wire, E> {
+                        self.visit_bytes(v)
+                    }
                 }
+
+                deserializer.deserialize_bytes(FixedBytesVisitor)
             }
         }
 
