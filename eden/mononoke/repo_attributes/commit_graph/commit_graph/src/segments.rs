@@ -713,7 +713,14 @@ impl<E: EdgeType> CommitGraphOps<E> {
                     }
                 }
             }
-            sorted_segments.push(segments.remove(&segment_head).unwrap());
+            if let Some(segment) = segments.remove(&segment_head) {
+                sorted_segments.push(segment);
+            } else {
+                panic!(
+                    "Segment head {} not found in segments {:?}",
+                    segment_head, segments
+                );
+            }
         }
         sorted_segments
     }
