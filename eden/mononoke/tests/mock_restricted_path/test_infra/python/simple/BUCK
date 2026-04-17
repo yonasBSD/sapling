@@ -102,7 +102,7 @@ python_unittest(
 python_unittest(
     name = "simple_extended_tests",
     srcs = ["simple_test.py"],
-    labels = ["extended"],
+    labels = [tpx_labels.extended],
     deps = [
         ":simple",
         ":simple_base_module_mapped",
