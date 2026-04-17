@@ -130,10 +130,10 @@ ObjectComparison FilteredBackingStore::compareObjectsById(
   // We're comparing ObjectIDs of different types. The objects are not equal.
   if (typeOne != typeTwo) {
     XLOGF(
-        DBG2,
+        DBG9,
         "Attempted to compare: {} vs {} (types: {} vs {})",
-        filteredOne.getValue(),
-        filteredTwo.getValue(),
+        one.toLogString(),
+        two.toLogString(),
         foidTypeToString(typeOne),
         foidTypeToString(typeTwo));
     return ObjectComparison::Different;
