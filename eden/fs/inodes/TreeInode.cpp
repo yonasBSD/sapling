@@ -3890,7 +3890,13 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
   // filesystem, it's as if the entire subtree got deleted and checked out
   // from scratch.
   if (entry.isDirectory()) {
-    getOverlay()->recursivelyRemoveOverlayDir(oldEntryInodeNumber);
+    if (getMount()
+            ->getEdenConfig()
+            ->backgroundOverlayCleanupDuringCheckout.getValue()) {
+      getOverlay()->recursivelyRemoveOverlayDirBackground(oldEntryInodeNumber);
+    } else {
+      getOverlay()->recursivelyRemoveOverlayDir(oldEntryInodeNumber);
+    }
   }
 
   // TODO: contents have changed: we probably should propagate

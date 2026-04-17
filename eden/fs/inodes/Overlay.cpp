@@ -736,7 +736,6 @@ void Overlay::recursivelyRemoveOverlayDir(InodeNumber inodeNumber) {
       stats_, &OverlayStats::recursivelyRemoveOverlayDir};
   try {
     IORequest req{this};
-    freeInodeFromMetadataTable(inodeNumber);
 
     // This inode's data must be removed from the overlay before
     // recursivelyRemoveOverlayDir returns to avoid a race condition if
@@ -746,6 +745,7 @@ void Overlay::recursivelyRemoveOverlayDir(InodeNumber inodeNumber) {
     // could remove this data.
     auto dirData = inodeCatalog_->loadAndRemoveOverlayDir(inodeNumber);
     if (dirData) {
+      freeInodeFromMetadataTable(inodeNumber);
       gcQueue_.lock()->queue.emplace_back(std::move(*dirData));
       gcCondVar_.notify_one();
       stats_->increment(&OverlayStats::recursivelyRemoveOverlayDirSuccessful);
@@ -759,6 +759,11 @@ void Overlay::recursivelyRemoveOverlayDir(InodeNumber inodeNumber) {
     stats_->increment(&OverlayStats::recursivelyRemoveOverlayDirFailure);
     throw;
   }
+}
+
+void Overlay::recursivelyRemoveOverlayDirBackground(InodeNumber inodeNumber) {
+  gcQueue_.lock()->queue.emplace_back(inodeNumber);
+  gcCondVar_.notify_one();
 }
 
 #ifndef _WIN32
@@ -1028,7 +1033,13 @@ void Overlay::handleGCRequest(GCRequest& request) {
     }
   };
 
-  processDir(std::get<overlay::OverlayDir>(request.requestType));
+  if (auto* inodeNumber = std::get_if<InodeNumber>(&request.requestType)) {
+    // Background removal request: seed the queue with the root inode number
+    // so the BFS loop below handles the load+remove+recurse.
+    queue.push(*inodeNumber);
+  } else {
+    processDir(std::get<overlay::OverlayDir>(request.requestType));
+  }
 
   while (!queue.empty()) {
     auto ino = queue.front();
@@ -1036,14 +1047,13 @@ void Overlay::handleGCRequest(GCRequest& request) {
 
     overlay::OverlayDir dir;
     try {
-      freeInodeFromMetadataTable(ino);
       auto dirData = inodeCatalog_->loadAndRemoveOverlayDir(ino);
       if (!dirData.has_value()) {
         XLOGF(DBG7, "no dir data for inode {}", ino);
         continue;
-      } else {
-        dir = std::move(*dirData);
       }
+      freeInodeFromMetadataTable(ino);
+      dir = std::move(*dirData);
     } catch (const std::exception& e) {
       XLOGF(
           ERR,

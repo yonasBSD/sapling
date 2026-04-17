@@ -228,6 +228,12 @@ class Overlay : public std::enable_shared_from_this<Overlay> {
   void recursivelyRemoveOverlayDir(InodeNumber inodeNumber);
 
   /**
+   * Like recursivelyRemoveOverlayDir, but performs the work on the background
+   * GC thread instead of blocking the caller.
+   */
+  void recursivelyRemoveOverlayDirBackground(InodeNumber inodeNumber);
+
+  /**
    * Returns a future that completes once all previously-issued async
    * operations, namely recursivelyRemoveOverlayDir, finish.
    */
@@ -371,7 +377,17 @@ class Overlay : public std::enable_shared_from_this<Overlay> {
     struct MaintenanceRequest {};
     explicit GCRequest(MaintenanceRequest req) : requestType{std::move(req)} {}
 
-    std::variant<MaintenanceRequest, overlay::OverlayDir, FlushRequest>
+    /**
+     * Request to recursively remove an overlay directory tree in the
+     * background. The GC thread will load, remove, and recurse into children.
+     */
+    explicit GCRequest(InodeNumber ino) : requestType{ino} {}
+
+    std::variant<
+        MaintenanceRequest,
+        overlay::OverlayDir,
+        FlushRequest,
+        InodeNumber>
         requestType;
   };
 

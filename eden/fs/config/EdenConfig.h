@@ -1755,6 +1755,15 @@ class EdenConfig : private ConfigSettingManager {
       this};
 
   /**
+   * When true, checkout removes stale overlay directory data in the background
+   * GC thread instead of synchronously on the checkout thread.
+   */
+  ConfigSetting<bool> backgroundOverlayCleanupDuringCheckout{
+      "experimental:background-overlay-cleanup-during-checkout",
+      true,
+      this};
+
+  /**
    * Master gate for pressure-based inode GC on FUSE.
    * When enabled, FUSE TTLs and GC cutoffs are dynamically computed based
    * on total inode count.

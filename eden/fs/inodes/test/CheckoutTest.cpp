@@ -2339,6 +2339,52 @@ TEST(Checkout, overlayWritesDuringCheckout) {
       testMount.getFileInode("parent/sub5/file5.txt"), "modified5\n", 0644);
 }
 
+TEST(Checkout, backgroundOverlayCleanupDuringCheckout) {
+  // Verify that overlay data for unloaded directories is cleaned up
+  // asynchronously by the GC thread during checkout.
+  auto builder1 = FakeTreeBuilder{};
+  builder1.setFile("dir/sub/file.txt", "contents");
+  TestMount testMount{builder1};
+  testMount.updateEdenConfig(
+      {{"experimental:background-overlay-cleanup-during-checkout", "true"}});
+
+  // Prepare a second commit where dir/sub is replaced with a different tree.
+  auto builder2 = FakeTreeBuilder{};
+  builder2.setFile("dir/sub2/other.txt", "other");
+  builder2.finalize(testMount.getBackingStore(), true);
+  auto commit2 = testMount.getBackingStore()->putCommit("2", builder2);
+  commit2->setReady();
+
+  // Load "dir/sub" so it gets overlay data, then unload it.
+  auto subTree = testMount.getTreeInode("dir/sub"_relpath);
+  auto subInodeNumber = subTree->getNodeId();
+  subTree.reset();
+
+  // Remount so "dir/sub" is unloaded but has overlay data.
+  testMount.remountGracefully();
+
+  EXPECT_TRUE(testMount.hasOverlayDir(subInodeNumber));
+
+  // Checkout to the second commit.
+  auto executor = testMount.getServerExecutor().get();
+  auto checkoutResult = testMount.getEdenMount()
+                            ->checkout(
+                                testMount.getRootInode(),
+                                RootId("2"),
+                                ObjectFetchContext::getNullContext(),
+                                __func__)
+                            .semi()
+                            .via(executor)
+                            .getVia(executor);
+  EXPECT_EQ(0, checkoutResult.conflicts.size());
+
+  // Wait for background GC to complete.
+  testMount.getEdenMount()->getOverlay()->flushPendingAsync().get(60s);
+
+  // Overlay data should be cleaned up by the background GC thread.
+  EXPECT_FALSE(testMount.hasOverlayDir(subInodeNumber));
+}
+
 #endif
 
 /*
