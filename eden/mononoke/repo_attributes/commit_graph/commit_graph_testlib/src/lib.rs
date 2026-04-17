@@ -20,12 +20,8 @@ use commit_graph_types::edges::Parents;
 use commit_graph_types::storage::CommitGraphStorage;
 use commit_graph_types::storage::Prefetch;
 use context::CoreContext;
-use futures::FutureExt;
 use futures::stream::TryStreamExt;
 use in_memory_commit_graph_storage::InMemoryCommitGraphStorage;
-use justknobs::test_helpers::JustKnobsInMemory;
-use justknobs::test_helpers::KnobVal;
-use justknobs::test_helpers::with_just_knobs_async;
 use maplit::hashmap;
 use maplit::hashset;
 use mononoke_types::ChangesetIdPrefix;
@@ -294,26 +290,14 @@ pub async fn test_is_ancestor_exact_prefetching(
     ctx: CoreContext,
     storage: Arc<dyn CommitGraphStorageTest>,
 ) -> Result<()> {
-    with_just_knobs_async(
-        JustKnobsInMemory::new(hashmap![
-            "scm/mononoke:commit_graph_use_skip_tree_exact_prefetching".to_string() => KnobVal::Bool(true)
-        ]),
-        test_is_ancestor_impl(ctx, storage).boxed(),
-    )
-    .await
+    test_is_ancestor_impl(ctx, storage).await
 }
 
 pub async fn test_is_ancestor_skew_ancestors_prefetching(
     ctx: CoreContext,
     storage: Arc<dyn CommitGraphStorageTest>,
 ) -> Result<()> {
-    with_just_knobs_async(
-        JustKnobsInMemory::new(hashmap![
-            "scm/mononoke:commit_graph_use_skip_tree_exact_prefetching".to_string() => KnobVal::Bool(false)
-        ]),
-        test_is_ancestor_impl(ctx, storage).boxed(),
-    )
-    .await
+    test_is_ancestor_impl(ctx, storage).await
 }
 
 async fn test_is_ancestor_impl(
