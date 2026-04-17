@@ -2830,7 +2830,6 @@ ImmediateFuture<Unit> TreeInode::diff(
     inode = gitignoreEntry->getInodePtr();
     if (!inode) {
       gitignoreInodeFuture = loadChildLocked(
-          contents->entries,
           kIgnoreFilename,
           *gitignoreEntry,
           pendingLoads,
@@ -3029,7 +3028,6 @@ ImmediateFuture<Unit> TreeInode::computeDiff(
             auto loadChildLockedSpan = context->createSpan("loadChildLocked");
             auto inodeFuture =
                 self->loadChildLocked(
-                        contents->entries,
                         name,
                         *inodeEntry,
                         pendingLoads,
@@ -3115,7 +3113,6 @@ ImmediateFuture<Unit> TreeInode::computeDiff(
         auto loadChildLockedSpan = context->createSpan("loadChildLocked");
         auto inodeFuture =
             self->loadChildLocked(
-                    contents->entries,
                     componentPath,
                     *inodeEntry,
                     pendingLoads,
@@ -3777,8 +3774,8 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
     // This child is potentially modified (or has saved state that must be
     // updated), but is not currently loaded. Start loading it and create a
     // CheckoutAction to process it once it is loaded.
-    auto inodeFuture = loadChildLocked(
-        contents, name, entry, pendingLoads, ctx->getFetchContext());
+    auto inodeFuture =
+        loadChildLocked(name, entry, pendingLoads, ctx->getFetchContext());
     return std::make_shared<CheckoutAction>(
         ctx, oldScmEntry, newScmEntry, std::move(inodeFuture));
   } else {
@@ -3807,8 +3804,8 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
       case ObjectComparison::Unknown: {
         // We don't know if the files are different or not. The only way to know
         // for sure is to load the inode.
-        auto inodeFuture = loadChildLocked(
-            contents, name, entry, pendingLoads, ctx->getFetchContext());
+        auto inodeFuture =
+            loadChildLocked(name, entry, pendingLoads, ctx->getFetchContext());
         return std::make_shared<CheckoutAction>(
             ctx, oldScmEntry, newScmEntry, std::move(inodeFuture));
       }
@@ -3827,8 +3824,8 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
     // If this is a directory we unfortunately have to load it and recurse into
     // it just so we can accurately report the list of files with conflicts.
     if (entry.isDirectory()) {
-      auto inodeFuture = loadChildLocked(
-          contents, name, entry, pendingLoads, ctx->getFetchContext());
+      auto inodeFuture =
+          loadChildLocked(name, entry, pendingLoads, ctx->getFetchContext());
       return std::make_shared<CheckoutAction>(
           ctx, oldScmEntry, newScmEntry, std::move(inodeFuture));
     }
@@ -3870,8 +3867,8 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
             "loading child inode after invalidation failed: inode={} child={}",
             getNodeId(),
             name);
-        auto inodeFuture = loadChildLocked(
-            contents, name, entry, pendingLoads, ctx->getFetchContext());
+        auto inodeFuture =
+            loadChildLocked(name, entry, pendingLoads, ctx->getFetchContext());
         return std::make_shared<CheckoutAction>(
             ctx, oldScmEntry, newScmEntry, std::move(inodeFuture));
       }
@@ -4547,7 +4544,6 @@ void TreeInode::saveOverlayPostCheckout(
 }
 
 ImmediateFuture<InodePtr> TreeInode::loadChildLocked(
-    DirContents& /* contents */,
     PathComponentPiece name,
     DirEntry& entry,
     std::vector<IncompleteInodeLoad>& pendingLoads,
@@ -5467,8 +5463,7 @@ void TreeInode::doPrefetch(
             // and blob sizes.
             inodeFutures.emplace_back(
                 lease.getTreeInode()
-                    ->loadChildLocked(
-                        contents->entries, name, entry, pendingLoads, context)
+                    ->loadChildLocked(name, entry, pendingLoads, context)
                     .thenValue([context = context.copy()](InodePtr inode) {
                       return inode->stat(context).semi();
                     })

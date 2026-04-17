@@ -828,12 +828,9 @@ class TreeInode final : public InodeBaseMetadata<DirContents> {
 
   /**
    * This helper function starts loading a currently unloaded child inode.
-   * It must be held with the contents_ lock held.  (The Dir argument is only
-   * required as a parameter to ensure that the caller is actually holding the
-   * lock.)
+   * Must be called with the contents_ lock held.
    */
   ImmediateFuture<InodePtr> loadChildLocked(
-      DirContents& dir,
       PathComponentPiece name,
       DirEntry& entry,
       std::vector<IncompleteInodeLoad>& pendingLoads,
