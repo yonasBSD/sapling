@@ -905,6 +905,7 @@ class TreeInode final : public InodeBaseMetadata<DirContents> {
   std::shared_ptr<CheckoutAction> processCheckoutEntry(
       CheckoutContext* ctx,
       TreeInodeState& state,
+      DirContents& contents,
       const Tree::value_type* oldScmEntry,
       const Tree::value_type* newScmEntry,
       std::vector<IncompleteInodeLoad>& pendingLoads,
@@ -912,7 +913,8 @@ class TreeInode final : public InodeBaseMetadata<DirContents> {
 
   std::shared_ptr<CheckoutAction> processCheckoutEntryImpl(
       CheckoutContext* ctx,
-      TreeInodeState& contents,
+      TreeInodeState& state,
+      DirContents& contents,
       const Tree::value_type* oldScmEntry,
       const Tree::value_type* newScmEntry,
       std::vector<IncompleteInodeLoad>& pendingLoads,
@@ -921,6 +923,7 @@ class TreeInode final : public InodeBaseMetadata<DirContents> {
   std::shared_ptr<CheckoutAction> processAbsentCheckoutEntry(
       CheckoutContext* ctx,
       TreeInodeState& state,
+      DirContents& contents,
       const Tree::value_type* oldScmEntry,
       const Tree::value_type* newScmEntry,
       bool& wasDirectoryListModified);

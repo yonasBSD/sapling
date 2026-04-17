@@ -3610,6 +3610,7 @@ void TreeInode::computeCheckoutActions(
       action = processCheckoutEntry(
           ctx,
           *contents,
+          contents->entries,
           nullptr,
           &*newIter,
           pendingLoads,
@@ -3620,6 +3621,7 @@ void TreeInode::computeCheckoutActions(
       action = processCheckoutEntry(
           ctx,
           *contents,
+          contents->entries,
           &*oldIter,
           nullptr,
           pendingLoads,
@@ -3635,6 +3637,7 @@ void TreeInode::computeCheckoutActions(
         action = processCheckoutEntry(
             ctx,
             *contents,
+            contents->entries,
             &*oldIter,
             nullptr,
             pendingLoads,
@@ -3644,6 +3647,7 @@ void TreeInode::computeCheckoutActions(
         action = processCheckoutEntry(
             ctx,
             *contents,
+            contents->entries,
             nullptr,
             &*newIter,
             pendingLoads,
@@ -3653,6 +3657,7 @@ void TreeInode::computeCheckoutActions(
         action = processCheckoutEntry(
             ctx,
             *contents,
+            contents->entries,
             &*oldIter,
             &*newIter,
             pendingLoads,
@@ -3671,6 +3676,7 @@ void TreeInode::computeCheckoutActions(
 std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntry(
     CheckoutContext* ctx,
     TreeInodeState& state,
+    DirContents& contents,
     const Tree::value_type* oldScmEntry,
     const Tree::value_type* newScmEntry,
     std::vector<IncompleteInodeLoad>& pendingLoads,
@@ -3678,13 +3684,14 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntry(
   auto ret = processCheckoutEntryImpl(
       ctx,
       state,
+      contents,
       oldScmEntry,
       newScmEntry,
       pendingLoads,
       wasDirectoryListModified);
   if (!ret) {
     const auto& name = oldScmEntry ? oldScmEntry->first : newScmEntry->first;
-    if (auto it = state.entries.find(name); it != state.entries.end()) {
+    if (auto it = contents.find(name); it != contents.end()) {
       if (auto treeInode = it->second.asTreeOrNull()) {
         // If we didn't get a checkout action for this entry but still were able
         // to find a treeInode representing it, it means we won't recurse on it
@@ -3700,6 +3707,7 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntry(
 std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
     CheckoutContext* ctx,
     TreeInodeState& state,
+    DirContents& contents,
     const Tree::value_type* oldScmEntry,
     const Tree::value_type* newScmEntry,
     vector<IncompleteInodeLoad>& pendingLoads,
@@ -3739,11 +3747,15 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
 
   // Look to see if we have a child entry with this name.
   const auto& name = oldScmEntry ? oldScmEntry->first : newScmEntry->first;
-  auto& contents = state.entries;
   auto it = contents.find(name);
   if (it == contents.end()) {
     return processAbsentCheckoutEntry(
-        ctx, state, oldScmEntry, newScmEntry, wasDirectoryListModified);
+        ctx,
+        state,
+        contents,
+        oldScmEntry,
+        newScmEntry,
+        wasDirectoryListModified);
   }
 
   auto& entry = it->second;
@@ -3909,13 +3921,13 @@ std::shared_ptr<CheckoutAction> TreeInode::processCheckoutEntryImpl(
 std::shared_ptr<CheckoutAction> TreeInode::processAbsentCheckoutEntry(
     CheckoutContext* ctx,
     TreeInodeState& state,
+    DirContents& contents,
     const Tree::value_type* oldScmEntry,
     const Tree::value_type* newScmEntry,
     bool& wasDirectoryListModified) {
   const auto& name = oldScmEntry ? oldScmEntry->first : newScmEntry->first;
   const auto dtype = oldScmEntry ? oldScmEntry->second.getDtype()
                                  : newScmEntry->second.getDtype();
-  auto& contents = state.entries;
   bool contentsUpdated = false;
 
   if (!oldScmEntry) {
