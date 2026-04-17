@@ -205,6 +205,12 @@ class EdenServiceHandler
       std::unique_ptr<std::vector<std::string>> paths,
       std::unique_ptr<SyncBehavior> sync) override;
 
+  folly::SemiFuture<std::unique_ptr<std::vector<Blake3Result>>>
+  semifuture_getBlake3Impl(
+      std::unique_ptr<std::string> mountPoint,
+      std::unique_ptr<std::vector<std::string>> paths,
+      std::unique_ptr<SyncBehavior> sync);
+
   folly::SemiFuture<std::unique_ptr<std::vector<DigestHashResult>>>
   semifuture_getDigestHash(
       std::unique_ptr<std::string> mountPoint,

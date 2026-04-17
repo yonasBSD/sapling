@@ -1103,7 +1103,7 @@ EdenServiceHandler::semifuture_synchronizeWorkingCopy(
 }
 
 folly::SemiFuture<std::unique_ptr<std::vector<Blake3Result>>>
-EdenServiceHandler::semifuture_getBlake3(
+EdenServiceHandler::semifuture_getBlake3Impl(
     std::unique_ptr<std::string> mountPoint,
     std::unique_ptr<std::vector<std::string>> paths,
     std::unique_ptr<SyncBehavior> sync) {
@@ -1153,6 +1153,15 @@ EdenServiceHandler::semifuture_getBlake3(
                    return out;
                  }))
       .semi();
+}
+
+folly::SemiFuture<std::unique_ptr<std::vector<Blake3Result>>>
+EdenServiceHandler::semifuture_getBlake3(
+    std::unique_ptr<std::string> mountPoint,
+    std::unique_ptr<std::vector<std::string>> paths,
+    std::unique_ptr<SyncBehavior> sync) {
+  return semifuture_getBlake3Impl(
+      std::move(mountPoint), std::move(paths), std::move(sync));
 }
 
 folly::SemiFuture<std::unique_ptr<std::vector<DigestHashResult>>>
