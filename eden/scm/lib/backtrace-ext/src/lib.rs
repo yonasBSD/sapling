@@ -159,6 +159,20 @@ impl Backtrace {
         Self { frames }
     }
 
+    /// Drop the first frames (most recent calls) when `predicate(frame)`
+    /// returns true.
+    pub fn skip_while(self, mut predicate: impl FnMut(&Frame) -> bool) -> Self {
+        let mut n = 0;
+        for frame in self.frames.iter() {
+            if predicate(frame) {
+                n += 1;
+            } else {
+                break;
+            }
+        }
+        self.skip(n)
+    }
+
     /// Drop the first `n` frames (most recent calls) from the backtrace.
     pub fn skip(mut self, n: usize) -> Self {
         let n = n.min(self.frames.len());
