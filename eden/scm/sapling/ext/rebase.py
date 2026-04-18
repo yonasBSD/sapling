@@ -985,6 +985,16 @@ class rebaseruntime:
                 else:
                     raise  # Keep old behavior
 
+        # Ensure p2 and merge state are cleared. Normally concludenode handles
+        # this per-commit, but if all revisions were skipped (e.g. detected as
+        # "already in destination" during --continue), concludenode is never
+        # called and p2 from the interrupted merge would leak out.
+        # Only do this for on-disk rebases — in-memory rebases never touch
+        # the dirstate, so we shouldn't clear a pre-existing p2.
+        if not self.inmemory:
+            repo.setparents(repo[None].p1().node())
+            mergemod.mergestate.clean(repo)
+
         collapsedas = None
         if not self.keepf:
             if self.collapsef:

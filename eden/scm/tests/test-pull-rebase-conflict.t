@@ -86,15 +86,14 @@ Run debugmarklanded to mark the draft as a predecessor of the landed version.
   $ sl rebase --continue
   note: not rebasing 37eea62fd262 "my change", already in destination as ba40b905cc98 "my change"
 
-FIXME: p2 should be cleared after rebase --continue.
+p2 should be cleared after rebase --continue.
 
   $ sl whereami
   7917f7c71917a0e1384c5dfd50a9e1ffe7fdd764
-  37eea62fd2622b7611d523a291874f5bf9d327ae
 
-FIXME: A subsequent commit should not be a merge commit.
+A subsequent commit should not be a merge commit.
 
   $ echo "new work" > newfile
   $ sl commit -Aqm "new work"
   $ sl log -r . -T '{parents}\n'
-  7917f7c71917 37eea62fd262 
+  7917f7c71917 
