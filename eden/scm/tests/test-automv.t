@@ -166,7 +166,7 @@
 
   $ echo c > c.txt
   $ sl add c.txt
-  $ sl commit -m 'revision to amend to'
+  $ sl commit -m 'revision to amend to - 1'
   $ mv a.txt b.txt
   $ sl rm a.txt
   $ sl add b.txt
@@ -187,7 +187,7 @@
 
   $ echo c > c.txt
   $ sl add c.txt
-  $ sl commit -m 'revision to amend to'
+  $ sl commit -m 'revision to amend to - 2'
   $ mv a.txt b.txt
   $ sl rm a.txt
   $ sl add b.txt
@@ -209,7 +209,7 @@
 
   $ echo c > c.txt
   $ sl add c.txt
-  $ sl commit -m 'revision to amend to'
+  $ sl commit -m 'revision to amend to - 3'
   $ mv a.txt b.txt
   $ sl rm a.txt
   $ sl add b.txt
@@ -229,7 +229,7 @@
 
   $ echo c > c.txt
   $ sl add c.txt
-  $ sl commit -m 'revision to amend to'
+  $ sl commit -m 'revision to amend to - 4'
   $ mv a.txt b.txt
   $ sl rm a.txt
   $ sl add b.txt
@@ -251,7 +251,7 @@
 
   $ echo c > c.txt
   $ sl add c.txt
-  $ sl commit -m 'revision to amend to'
+  $ sl commit -m 'revision to amend to - 5'
   $ mv a.txt b.txt
   $ sl status -C
   ! a.txt
@@ -267,7 +267,7 @@
 
   $ echo c > c.txt
   $ sl add c.txt
-  $ sl commit -m 'revision to amend to'
+  $ sl commit -m 'revision to amend to - 6'
   $ mv a.txt b.txt
   $ sl rm a.txt
   $ sl add b.txt
@@ -299,7 +299,7 @@
 
   $ echo c > c.txt
   $ sl add c.txt
-  $ sl commit -m 'revision to amend to'
+  $ sl commit -m 'revision to amend to - 7'
   $ mv a.txt b.txt
   $ sl rm a.txt
   $ sl add b.txt
@@ -318,7 +318,7 @@
 
   $ echo c > c.txt
   $ sl add c.txt
-  $ sl commit -m 'revision to amend to'
+  $ sl commit -m 'revision to amend to - 8'
   $ mv a.txt b.txt
   $ sl rm a.txt
   $ sl status -C

@@ -27,6 +27,9 @@ onto the newest successor of their parent.
   $ sl up 7c3bad9141dcb46ff89abf5f61856facd56e476c
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ sl amend -m "successor 2" --no-rebase
+  warning: changing an old version of a commit will diverge your stack:
+  - 7c3bad9141dc -> f60c1f15a70e (amend)
+  proceed with amend (Yn)?  y
   hint[amend-restack]: descendants of 7c3bad9141dc are left behind - use 'sl restack' to rebase them
   hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
   $ sl up 7c3bad9141dcb46ff89abf5f61856facd56e476c
@@ -78,6 +81,9 @@ since the successor is obsolete.
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo c >> b
   $ sl amend
+  warning: changing an old version of a commit will diverge your stack:
+  - 7c3bad9141dc -> c54ee8acf83d (amend)
+  proceed with amend (Yn)?  y
   hint[amend-restack]: descendants of 7c3bad9141dc are left behind - use 'sl restack' to rebase them
   hint[hint-ack]: use 'sl hint --ack amend-restack' to silence these hints
   $ showgraph

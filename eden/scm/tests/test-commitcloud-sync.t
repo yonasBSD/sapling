@@ -436,11 +436,18 @@ Expected result: move should not happen, expect a message that move is ambiguous
   $ sl up 41f3b9359864 -q
   $ echo 1 > filea.txt && sl addremove && sl amend -m "`sl descr | head -n1` amended"
   adding filea.txt
+  warning: changing an old version of a commit will diverge your stack:
+  - 41f3b9359864 -> 8134e74ecdc8 (amend)
+  proceed with amend (Yn)?  y
   $ sl id -i
   abd5311ab3c6
   $ sl up 41f3b9359864 -q
   $ echo 1 > fileb.txt && sl addremove && sl amend -m "`sl descr | head -n1` amended"
   adding fileb.txt
+  warning: changing an old version of a commit will diverge your stack:
+  - 41f3b9359864 -> 8134e74ecdc8 (amend)
+  - 41f3b9359864 -> abd5311ab3c6 (amend)
+  proceed with amend (Yn)?  y
   $ sl id -i
   cebbb614447e
   $ sl cloud sync
