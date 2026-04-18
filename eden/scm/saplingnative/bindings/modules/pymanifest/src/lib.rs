@@ -30,7 +30,6 @@ use manifest::FileMetadata;
 use manifest::FileType;
 use manifest::FsNodeMetadata;
 use manifest::Manifest;
-use manifest::PersistOpts;
 use manifest_tree::TreeManifest;
 use manifest_tree::TreeStore;
 use manifest_tree::apply_diff_grafts;
@@ -79,6 +78,16 @@ pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
     Ok(m)
 }
 
+impl treemanifest {
+    pub fn from_rust(py: Python, underlying: TreeManifest) -> PyResult<Self> {
+        treemanifest::create_instance(
+            py,
+            Arc::new(RwLock::new(underlying)),
+            RefCell::new(HashSet::new()),
+        )
+    }
+}
+
 py_class!(pub class treemanifest |py| {
     data underlying: Arc<RwLock<TreeManifest>>;
     data pending_delete: RefCell<HashSet<RepoPathBuf>>;
@@ -93,7 +102,7 @@ py_class!(pub class treemanifest |py| {
             None => TreeManifest::ephemeral(manifest_store),
             Some(value) => TreeManifest::durable(manifest_store, pybytes_to_node(py, value)?),
         };
-        treemanifest::create_instance(py, Arc::new(RwLock::new(underlying)), RefCell::new(HashSet::new()))
+        treemanifest::from_rust(py, underlying)
     }
 
     /// Returns a new instance of treemanifest that contains the same data as the base.
