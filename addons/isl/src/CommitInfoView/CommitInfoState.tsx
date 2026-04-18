@@ -14,7 +14,7 @@ import {firstLine} from 'shared/utils';
 import serverAPI from '../ClientToServerAPI';
 import {successionTracker} from '../SuccessionTracker';
 import {tracker} from '../analytics';
-import {latestCommitMessageFields} from '../codeReview/CodeReviewInfo';
+import {effectiveSchemaForCommit, latestCommitMessageFields} from '../codeReview/CodeReviewInfo';
 import {expandCommitInfoView} from '../drawerState';
 import {atomFamilyWeak, localStorageBackedAtomFamily, readAtom, writeAtom} from '../jotaiUtils';
 import {AmendMessageOperation} from '../operations/AmendMessageOperation';
@@ -239,7 +239,7 @@ export const forceNextCommitToEditAllFields = atom<boolean>(false);
 export const unsavedFieldsBeingEdited = atomFamilyWeak((hashOrHead: Hash | 'head') => {
   return atom(get => {
     const edited = get(editedCommitMessages(hashOrHead));
-    const schema = get(commitMessageFieldsSchema);
+    const schema = get(effectiveSchemaForCommit(hashOrHead));
     if (hashOrHead === 'head') {
       return allFieldsBeingEdited(schema);
     }
@@ -254,7 +254,7 @@ export const hasUnsavedEditedCommitMessage = atomFamilyWeak((hashOrHead: Hash | 
       // Some fields are being edited, let's look more closely to see if anything is actually different.
       const edited = get(editedCommitMessages(hashOrHead));
       const latest = get(latestCommitMessageFields(hashOrHead));
-      const schema = get(commitMessageFieldsSchema);
+      const schema = get(effectiveSchemaForCommit(hashOrHead));
       return anyEditsMade(schema, latest, edited);
     }
     return false;
@@ -325,9 +325,9 @@ export const parentCommitContextAtom = atom(get => {
   if (!parentCommit || parentCommit.phase === 'public') {
     return undefined;
   }
-  const schema = get(commitMessageFieldsSchema);
+  const parentSchema = get(effectiveSchemaForCommit(parentCommit.hash));
   const parentFields = parseCommitMessageFields(
-    schema,
+    parentSchema,
     parentCommit.title,
     parentCommit.description,
   );
@@ -349,9 +349,9 @@ export function copyFromParentCommit(fieldKey: string): void {
   }
 
   tracker.track('CopyCommitFieldsFromParent');
-  const schema = readAtom(commitMessageFieldsSchema);
-  const field = schema.find(f => f.key === fieldKey);
   const hashOrHead = isCommitMode ? 'head' : commit.hash;
+  const schema = readAtom(effectiveSchemaForCommit(hashOrHead));
+  const field = schema.find(f => f.key === fieldKey);
   const val = Array.isArray(parentVal) ? parentVal.join(',') : parentVal;
   const newVal = field?.type === 'field' ? val + ',' : val;
   writeAtom(editedCommitMessages(hashOrHead), prev => ({

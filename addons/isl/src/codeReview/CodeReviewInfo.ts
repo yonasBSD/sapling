@@ -18,12 +18,13 @@ import {
   applyEditedFields,
   commitMessageFieldsSchema,
   commitMessageFieldsToString,
+  detectSchemaForMessage,
   emptyCommitMessageFields,
   parseCommitMessageFields,
 } from '../CommitInfoView/CommitMessageFields';
 import {Internal} from '../Internal';
 import {getTracker} from '../analytics/globalTracker';
-import {atomFamilyWeak, atomWithOnChange, writeAtom} from '../jotaiUtils';
+import {atomFamilyWeak, atomWithOnChange, configBackedAtom, writeAtom} from '../jotaiUtils';
 import {messageSyncingEnabledState} from '../messageSyncing';
 import {dagWithPreviews} from '../previews';
 import {commitByHash, repositoryInfo} from '../serverAPIState';
@@ -215,8 +216,42 @@ export const latestCommitMessageTitle = atomFamilyWeak((hashOrHead: Hash | 'head
 export const latestCommitMessageFields = atomFamilyWeak((hashOrHead: Hash | 'head') =>
   atom(get => {
     const [title, description] = get(latestCommitMessage(hashOrHead));
-    const schema = get(commitMessageFieldsSchema);
+    const schema = get(effectiveSchemaForCommit(hashOrHead));
     return parseCommitMessageFields(schema, title, description);
+  }),
+);
+
+/**
+ * Config flag to enable auto-detection of commit message schema.
+ * When false (default), always uses the structured schema.
+ * Enable via: sl config --user isl.auto-detect-commit-schema true
+ */
+const autoDetectCommitSchemaEnabled = configBackedAtom<boolean>(
+  'isl.auto-detect-commit-schema',
+  false,
+  true,
+);
+
+/**
+ * Per-commit schema that auto-detects whether a commit message uses structured template
+ * markers (e.g., "Summary:", "Test Plan:") or is a plain git-style message.
+ *
+ * Gated behind the 'isl.auto-detect-commit-schema' config flag (default off).
+ * For 'head' (commit mode), always returns the repo-level structured schema so new commits
+ * get the full template. For existing commits, inspects the description to decide.
+ */
+export const effectiveSchemaForCommit = atomFamilyWeak((hashOrHead: Hash | 'head') =>
+  atom(get => {
+    const baseSchema = get(commitMessageFieldsSchema);
+    if (hashOrHead === 'head') {
+      return baseSchema;
+    }
+    const autoDetect = get(autoDetectCommitSchemaEnabled);
+    if (!autoDetect) {
+      return baseSchema;
+    }
+    const [_title, description] = get(latestCommitMessage(hashOrHead));
+    return detectSchemaForMessage(baseSchema, description);
   }),
 );
 

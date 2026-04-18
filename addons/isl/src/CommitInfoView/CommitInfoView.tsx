@@ -34,6 +34,7 @@ import serverAPI from '../ClientToServerAPI';
 import {
   allDiffSummaries,
   codeReviewProvider,
+  effectiveSchemaForCommit,
   latestCommitMessageFields,
 } from '../codeReview/CodeReviewInfo';
 import {submitAsDraft, SubmitAsDraftCheckbox} from '../codeReview/DraftCheckbox';
@@ -94,7 +95,6 @@ import {
 } from './CommitInfoState';
 import {
   applyEditedFields,
-  commitMessageFieldsSchema,
   commitMessageFieldsToString,
   editedMessageSubset,
   findEditedDiffNumber,
@@ -204,7 +204,7 @@ export function CommitInfoDetails({commit}: {commit: CommitInfo}) {
   const [editedMessage, setEditedCommitMessage] = useAtom(editedCommitMessages(hashOrHead));
   const uncommittedChanges = useAtomValue(uncommittedChangesWithPreviews);
   const selection = useUncommittedSelection();
-  const schema = useAtomValue(commitMessageFieldsSchema);
+  const schema = useAtomValue(effectiveSchemaForCommit(hashOrHead));
 
   const isFoldPreview = commit.hash.startsWith(FOLD_COMMIT_PREVIEW_HASH_PREFIX);
   const isOptimistic =
@@ -547,7 +547,7 @@ function ShowingRemoteMessageBanner({
   editedCommitMessageKey: string;
 }) {
   const provider = useAtomValue(codeReviewProvider);
-  const schema = useAtomValue(commitMessageFieldsSchema);
+  const schema = useAtomValue(effectiveSchemaForCommit(commit.hash));
   const runOperation = useRunOperation();
   const syncingEnabled = useAtomValue(messageSyncingEnabledState);
   const syncingOverride = useAtomValue(messageSyncingOverrideState);
@@ -688,7 +688,7 @@ function ActionsBar({
     ((!isCommitMode && isAnythingBeingEdited) || uncommittedChanges.length > 0);
 
   const provider = useAtomValue(codeReviewProvider);
-  const schema = useAtomValue(commitMessageFieldsSchema);
+  const schema = useAtomValue(effectiveSchemaForCommit(isCommitMode ? 'head' : commit.hash));
   const headCommit = useAtomValue(latestHeadCommit);
 
   const messageSyncEnabled = useAtomValue(messageSyncingEnabledState);

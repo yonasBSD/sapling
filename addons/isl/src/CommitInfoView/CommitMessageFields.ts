@@ -334,6 +334,34 @@ export function parseCommitMessageFields(
 }
 
 /**
+ * Auto-detect whether a commit message uses structured template markers (e.g., "Summary:", "Test Plan:")
+ * or is a plain git-style message (just title + body). Returns the appropriate schema.
+ *
+ * This enables per-commit schema selection in repos that mix structured (Phabricator) and
+ * plain (GitHub/git) commit messages.
+ */
+export function detectSchemaForMessage(
+  structuredSchema: Array<FieldConfig>,
+  description: string,
+): Array<FieldConfig> {
+  // If already using the OSS/plain schema (has 'Description' key), keep it
+  if (structuredSchema.some(f => f.key === 'Description')) {
+    return structuredSchema;
+  }
+  // Empty description → can't detect, use structured (default for new commits)
+  if (!description || description.trim() === '') {
+    return structuredSchema;
+  }
+  // Check if description contains any field markers from the structured schema
+  const fieldKeys = structuredSchema.filter(f => f.key !== 'Title').map(f => f.key);
+  const markerRegex = new RegExp(`\n\\s*\\b(${fieldKeys.join('|')}): ?`, 'm');
+  if (markerRegex.test('\n' + description)) {
+    return structuredSchema;
+  }
+  return OSSCommitMessageFieldSchema;
+}
+
+/**
  * Schema defining what fields we expect to be in a CommitMessageFields object,
  * and some information about those fields.
  */

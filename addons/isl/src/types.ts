@@ -938,6 +938,7 @@ export const allConfigNames = [
   'fbcodereview.code-browser-url',
   'extensions.commitcloud',
   'isl.show-authored-diffs',
+  'isl.auto-detect-commit-schema',
 ] as const;
 
 /** sl configs read by ISL */
