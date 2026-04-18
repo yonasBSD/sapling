@@ -687,6 +687,15 @@ def _pushrevs(repo, ui, rev):
     return []
 
 
+def _marklanded(ui, repo):
+    """Call debugmarklanded to mark landed commits before rebase."""
+    try:
+        fbcodereview = extensions.find("fbcodereview")
+        fbcodereview._cleanuplanded(repo)
+    except KeyError:
+        pass
+
+
 def expullcmd(orig, ui, repo, source="default", **opts):
     revrenames = dict((v, k) for k, v in _getrenames(ui).items())
     source = revrenames.get(source, source)
@@ -717,6 +726,8 @@ def expullcmd(orig, ui, repo, source="default", **opts):
         del opts["rebase"]
         tool = opts.pop("tool", "")
         ret = orig(ui, repo, source, **opts)
+        # Mark landed commits before rebase so it can skip them.
+        _marklanded(ui, repo)
         return ret or rebasemodule.rebase(ui, repo, dest=dest, tool=tool)
     else:
         return orig(ui, repo, source, **opts)

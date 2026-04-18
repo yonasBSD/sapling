@@ -63,37 +63,8 @@ Add a conflicting commit on the server on top of the landed commit
   $ printf '[{"data": {"phabricator_diff_query": [{"results": {"nodes": [%s]}}]}}]' \
   > "$(landed_graphql 123 $LANDED)" > $TESTTMP/mockduit
 
-Now pull --rebase. The rebase tries to rebase our draft onto the new master
-and conflicts because both sides modified "file".
+Now pull --rebase with the mock. The _marklanded call between pull and
+rebase detects the landed commit, so the rebase skips it instead of
+conflicting.
 
-  $ sl pull -q --rebase 2>&1 | head -20
-  warning: 1 conflicts while merging file! (edit, then use 'sl resolve --mark')
-  unresolved conflicts (see sl resolve, then sl rebase --continue)
-
-  $ sl whereami
-  7917f7c71917a0e1384c5dfd50a9e1ffe7fdd764
-  37eea62fd2622b7611d523a291874f5bf9d327ae
-
-  $ echo "resolved" > file
-  $ sl resolve --mark file
-  (no more unresolved files)
-  continue: sl rebase --continue
-
-Run debugmarklanded to mark the draft as a predecessor of the landed version.
-
-  $ sl pull -q -r $LANDED
-
-  $ sl rebase --continue
-  note: not rebasing 37eea62fd262 "my change", already in destination as ba40b905cc98 "my change"
-
-p2 should be cleared after rebase --continue.
-
-  $ sl whereami
-  7917f7c71917a0e1384c5dfd50a9e1ffe7fdd764
-
-A subsequent commit should not be a merge commit.
-
-  $ echo "new work" > newfile
-  $ sl commit -Aqm "new work"
-  $ sl log -r . -T '{parents}\n'
-  7917f7c71917 
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl pull -q --rebase
