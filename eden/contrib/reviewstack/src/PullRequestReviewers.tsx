@@ -148,6 +148,8 @@ export default function PullRequestReviewers(): React.ReactElement {
             text={user.login}
             size="large"
             onRemove={!viewerCanUpdate ? undefined : () => updateReviewers(user, true)}
+            onPointerEnterCapture={undefined}
+            onPointerLeaveCapture={undefined}
           />
         ))}
       </Box>

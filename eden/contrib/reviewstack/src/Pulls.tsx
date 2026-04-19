@@ -182,6 +182,8 @@ function PullsList({onClickLabelToken, pullRequests}: PullsListProps): React.Rea
                   text={name}
                   fillColor={`#${color}`}
                   onClick={() => onClickLabelToken({id, name, color})}
+                  onPointerEnterCapture={undefined}
+                  onPointerLeaveCapture={undefined}
                 />
               ))}
             </Box>
