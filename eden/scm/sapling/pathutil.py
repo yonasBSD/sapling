@@ -8,14 +8,12 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2 or any later version.
 
-import errno
 import os
 import posixpath
-import stat
 
 import bindings
 
-from . import encoding, error, identity, util
+from . import encoding, error, util
 from .i18n import _
 
 

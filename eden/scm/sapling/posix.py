@@ -15,7 +15,6 @@
 
 import errno
 import fcntl
-import getpass
 import grp
 import os
 import pwd

@@ -5,10 +5,8 @@
 
 import contextlib
 import json
-import os
 import shutil
 import tempfile
-from collections import defaultdict
 from typing import List
 
 from .. import (

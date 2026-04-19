@@ -13,11 +13,9 @@
 
 import errno
 import filecmp
-import hashlib
 import os
 import re
 import stat
-import sys
 from functools import partial
 from typing import Callable, List, Optional, Tuple, Union
 

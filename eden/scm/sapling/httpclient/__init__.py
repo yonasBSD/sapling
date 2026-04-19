@@ -53,7 +53,6 @@ import logging
 import select
 import socket
 import ssl
-import sys
 
 from .. import util
 from . import _readers

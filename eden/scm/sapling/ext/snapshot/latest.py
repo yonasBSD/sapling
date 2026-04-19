@@ -3,18 +3,12 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
-from sapling import error, node
+from sapling import node
 from sapling.edenapi_upload import filetypefromfile
 from sapling.i18n import _
 
-from .createremote import (
-    getdefaultmaxuntrackedsize,
-    parsemaxuntracked,
-    parsemaxuntrackedbytes,
-    workingcopy,
-)
+from .createremote import workingcopy
 from .metalog import fetchlatestsnapshot
-from .update import fetchsnapshot
 
 
 def _isworkingcopy(ui, repo, snapshot, maxuntrackedsize, pats=None, opts=None):

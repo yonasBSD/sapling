@@ -13,7 +13,6 @@
 
 import locale
 import os
-import sys
 import unicodedata
 
 import bindings
