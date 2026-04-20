@@ -455,21 +455,13 @@ pub fn rewrite_commit_with_implicit_deletes<'a>(
 
     cs.hg_extra.extend(rewrite_opts.add_hg_extras);
 
-    let enable_should_set_committer_info_to_author_info_if_empty = justknobs::eval(
-        "scm/mononoke:should_set_committer_info_to_author_info_if_empty",
-        None,
-        None,
-    )?;
-
     // Hg doesn't have a concept of committer and committer date, so commits
     // that are originally created in Hg have these fields empty when synced
     // to a git repo.
     //
     // This setting determines if, in Hg->Git sync, the committer and committer
     // date fields should be set to the author and date fields if empty.
-    if enable_should_set_committer_info_to_author_info_if_empty
-        && rewrite_opts.should_set_committer_info_to_author_info_if_empty
-    {
+    if rewrite_opts.should_set_committer_info_to_author_info_if_empty {
         if cs.committer.is_none() {
             cs.committer = Some(cs.author.clone());
         }
