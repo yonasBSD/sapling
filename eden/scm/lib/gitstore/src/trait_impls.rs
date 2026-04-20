@@ -55,7 +55,8 @@ impl KeyStore for GitStore {
         }
         let store = self.clone();
         let iter = keys.into_iter().map(move |k| {
-            let data = store.read_obj(k.hgid, ObjectType::Any, FetchMode::AllowRemote)?;
+            // Use LocalOnly since bulk fetch_objs above already fetched from remote.
+            let data = store.read_obj(k.hgid, ObjectType::Any, FetchMode::LocalOnly)?;
             Ok((k, Blob::Bytes(data.into())))
         });
         Ok(Box::new(iter))
