@@ -1517,29 +1517,20 @@ ImmediateFuture<VirtualInode> EdenMount::getVirtualInode(
 }
 
 ImmediateFuture<folly::Unit> EdenMount::waitForPendingWrites() const {
-  if (getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-    return ImmediateFuture{folly::coro::co_invoke([this]() {
-                             // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                             return co_waitForPendingWrites().as_unsafe();
-                           }).semi()};
-  }
-
-  return serverState_->getFaultInjector()
-      .checkAsync("waitForPendingWrites", "")
-      .thenValue([this](auto&&) -> ImmediateFuture<folly::Unit> {
-        // Snapshot the channel pointer. The ReadMostlySharedPtr keeps the
-        // channel alive for the duration of the call, even if the mount
-        // is being torn down concurrently.
-        auto ch = channel_.load();
-        if (ch) {
-          return ch->waitForPendingWrites().ensure([ch] {});
-        }
-        return folly::unit;
-      });
+  // DEPRECATED: use co_waitForPendingWrites directly. Kept only because
+  // checkout and diff paths still call this via ImmediateFuture chains;
+  // delete once those paths are migrated to coroutines.
+  return ImmediateFuture{
+      // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+      folly::coro::co_invoke([this]() -> folly::coro::Task<folly::Unit> {
+        co_return co_await co_waitForPendingWrites();
+      }).semi()};
 }
 
 folly::coro::now_task<folly::Unit> EdenMount::co_waitForPendingWrites() const {
+  co_await serverState_->getFaultInjector()
+      .checkAsync("waitForPendingWrites", "")
+      .semi();
   auto ch = channel_.load();
   if (ch) {
     co_await ch->co_waitForPendingWrites();
