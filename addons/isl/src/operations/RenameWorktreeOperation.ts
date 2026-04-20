@@ -22,8 +22,21 @@ export class RenameWorktreeOperation extends Operation {
   getArgs(): Array<CommandArg> {
     if (this.newLabel == null || this.newLabel === '') {
       // Remove the label
-      return ['worktree', 'label', this.worktreePath, '--remove'];
+      return [
+        {type: 'config', key: 'worktree.enabled', value: 'true'},
+        'worktree',
+        'label',
+        this.worktreePath,
+        '--remove',
+      ];
     }
-    return ['worktree', 'label', this.worktreePath, this.newLabel];
+
+    return [
+      {type: 'config', key: 'worktree.enabled', value: 'true'},
+      'worktree',
+      'label',
+      this.worktreePath,
+      this.newLabel,
+    ];
   }
 }

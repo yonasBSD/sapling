@@ -1214,7 +1214,7 @@ describe('fetchSubmoduleMap', () => {
         [/^sl root/, {stdout: '/repo/main'}],
         [/^sl debugroots/, {stdout: '/repo/main'}],
         [
-          /^sl worktree list/,
+          /^sl --config worktree\.enabled=true worktree list/,
           {
             stdout: JSON.stringify([
               {path: '/repo/main', role: 'main'},
@@ -1244,7 +1244,7 @@ describe('fetchSubmoduleMap', () => {
         [/^sl root/, {stdout: '/repo/main'}],
         [/^sl debugroots/, {stdout: '/repo/main'}],
         [
-          /^sl worktree list/,
+          /^sl --config worktree\.enabled=true worktree list/,
           {
             stdout: JSON.stringify([{path: '/repo/main', role: 'main'}]),
           },
@@ -1266,7 +1266,10 @@ describe('fetchSubmoduleMap', () => {
         [/^sl root --shared/, {stdout: '/repo/main'}],
         [/^sl root/, {stdout: '/repo/main'}],
         [/^sl debugroots/, {stdout: '/repo/main'}],
-        [/^sl worktree list/, new Error('worktree feature not enabled')],
+        [
+          /^sl --config worktree\.enabled=true worktree list/,
+          new Error('worktree feature not enabled'),
+        ],
       ]);
 
       const info = (await Repository.getRepoInfo(ctx)) as ValidatedRepoInfo;
@@ -1285,7 +1288,7 @@ describe('fetchSubmoduleMap', () => {
         [/^sl root/, {stdout: '/repo/feature'}],
         [/^sl debugroots/, {stdout: '/repo/feature'}],
         [
-          /^sl worktree list/,
+          /^sl --config worktree\.enabled=true worktree list/,
           {
             stdout: JSON.stringify([
               {path: '/repo/main', role: 'main'},
@@ -1314,7 +1317,7 @@ describe('fetchSubmoduleMap', () => {
         [/^sl root/, {stdout: '/repo/main'}],
         [/^sl debugroots/, {stdout: '/repo/main'}],
         [
-          /^sl worktree list/,
+          /^sl --config worktree\.enabled=true worktree list/,
           {
             stdout: JSON.stringify([
               {path: '/repo/main', role: 'main'},

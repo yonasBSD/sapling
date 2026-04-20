@@ -971,6 +971,7 @@ export const settableConfigNames = [
   'ui.merge',
   'amend.autorestack',
   'isl.show-authored-diffs',
+  'worktree.enabled',
 ] as const;
 
 /** sl configs written to by ISL */

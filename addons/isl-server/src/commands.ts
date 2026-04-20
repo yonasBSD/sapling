@@ -159,7 +159,13 @@ export async function findSharedRoot(ctx: RepositoryContext): Promise<AbsolutePa
  */
 export async function listWorktrees(ctx: RepositoryContext): Promise<WorktreeEntry[]> {
   try {
-    const result = await runCommand(ctx, ['worktree', 'list', '-Tjson']);
+    const result = await runCommand(ctx, [
+      '--config',
+      'worktree.enabled=true',
+      'worktree',
+      'list',
+      '-Tjson',
+    ]);
     return JSON.parse(result.stdout);
   } catch (error) {
     ctx.logger.error(`Failed to list worktrees for ${ctx.cwd}`, error);

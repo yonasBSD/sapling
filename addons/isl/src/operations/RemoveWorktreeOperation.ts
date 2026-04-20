@@ -17,6 +17,11 @@ export class RemoveWorktreeOperation extends Operation {
   }
 
   getArgs(): Array<CommandArg> {
-    return ['worktree', 'remove', this.worktreePath];
+    return [
+      {type: 'config', key: 'worktree.enabled', value: 'true'},
+      'worktree',
+      'remove',
+      this.worktreePath,
+    ];
   }
 }

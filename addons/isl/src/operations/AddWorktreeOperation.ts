@@ -20,7 +20,12 @@ export class AddWorktreeOperation extends Operation {
   }
 
   getArgs(): Array<CommandArg> {
-    const args: Array<CommandArg> = ['worktree', 'add', this.destinationPath];
+    const args: Array<CommandArg> = [
+      {type: 'config', key: 'worktree.enabled', value: 'true'},
+      'worktree',
+      'add',
+      this.destinationPath,
+    ];
     if (this.label) {
       args.push('--label', this.label);
     }
