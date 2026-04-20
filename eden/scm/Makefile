@@ -200,34 +200,36 @@ install-getdeps:
 # test-smartlog-interactive.t: smartlog format is different causing output mismatch
 # test-smartlog-interactive-highlighting.t: smartlog format is different causing output mismatch
 # test-agent-advice.t: depends on Meta-internal agent instructions (fb/ module)
+# test-code-format.t: depends on Meta-internal code format (fb/ module)
 GETDEPS_TEST_EXCLUSION_LIST := \
   test-agent-advice.t \
   test-auth-cats.t \
   test-biggrep.t \
   test-casecollision.t \
-	test-cats.t \
-	test-check-execute.t \
-	test-clone-per-repo-config.t \
-	test-clone-resume.t \
-	test-commitcloud-sync.t \
-	test-config-precedence.t \
-	test-copytrace-amend.t \
-	test-copytrace-heuristics.t \
-	test-dynamicconfig-unicode.t \
-	test-debugrefreshconfig.t \
-	test-fastlog.t \
-	test-help.t \
-	test-histedit-fold.t \
-	test-include-fail.t \
-	test-issue586.t \
-	test-matcher-lots-of-globs.t \
-	test-network-doctor.t \
-	test-rust-checkout.t \
-	test-sampling.t \
-	test-smartlog.t \
-	test-smartlog-interactive.t \
-	test-smartlog-interactive-highlighting.t \
-	test-tweakdefaults-grep.t
+  test-cats.t \
+  test-code-format.t \
+  test-check-execute.t \
+  test-clone-per-repo-config.t \
+  test-clone-resume.t \
+  test-commitcloud-sync.t \
+  test-config-precedence.t \
+  test-copytrace-amend.t \
+  test-copytrace-heuristics.t \
+  test-dynamicconfig-unicode.t \
+  test-debugrefreshconfig.t \
+  test-fastlog.t \
+  test-help.t \
+  test-histedit-fold.t \
+  test-include-fail.t \
+  test-issue586.t \
+  test-matcher-lots-of-globs.t \
+  test-network-doctor.t \
+  test-rust-checkout.t \
+  test-sampling.t \
+  test-smartlog.t \
+  test-smartlog-interactive.t \
+  test-smartlog-interactive-highlighting.t \
+  test-tweakdefaults-grep.t
 
 ifeq ($(PYTHON_MINOR_VERSION),12)
 # output differs for these on 3.12 in ways that are hard to match for 3.10 and 3.12 simultaneously
