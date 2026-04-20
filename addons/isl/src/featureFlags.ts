@@ -95,6 +95,9 @@ async function fetchQeFlag(name: string | undefined, default_?: boolean): Promis
   if (name == null) {
     return default_ ?? false;
   }
+  if (qeFlagOverrides != null) {
+    return qeFlagOverrides[name] ?? false;
+  }
   serverAPI.postMessage({
     type: 'fetchQeFlag',
     name,
@@ -107,6 +110,7 @@ async function fetchQeFlag(name: string | undefined, default_?: boolean): Promis
 }
 
 let featureFlagOverrides: Record<string, boolean> | undefined = undefined;
+let qeFlagOverrides: Record<string, boolean> | undefined = undefined;
 export const __TEST__ = {
   overrideFeatureFlag: (name: string, value: boolean) => {
     featureFlagOverrides ??= {};
@@ -114,6 +118,17 @@ export const __TEST__ = {
   },
   clearFeatureFlagOverrides: () => {
     featureFlagOverrides = undefined;
+  },
+  overrideQeFlag: (name: string, value: boolean) => {
+    qeFlagOverrides ??= {};
+    qeFlagOverrides[name] = value;
+  },
+  clearQeFlagOverrides: () => {
+    qeFlagOverrides = undefined;
+  },
+  /** Set qeFlagOverrides to {} so all QE flags default to false without server calls */
+  enableQeFlagOverrides: () => {
+    qeFlagOverrides ??= {};
   },
 };
 

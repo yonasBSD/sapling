@@ -17,6 +17,24 @@
   min-width: 5em;
 }
 
+.use-modal-buttons-with-opt-out {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin: var(--pad) calc(2 * var(--pad));
+}
+
+.use-modal-buttons-actions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--pad);
+}
+
+.warn-button-caution .codicon {
+  color: var(--list-warning-foreground, #cca700);
+}
+
 .use-modal {
   padding: var(--pad);
   display: flex;

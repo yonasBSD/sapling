@@ -44,3 +44,12 @@ configure({
 global.ResizeObserver = require('resize-observer-polyfill');
 
 global.fetch = jest.fn().mockImplementation(() => Promise.resolve());
+
+// Default all QE flags to false in tests so they don't hang waiting for server responses
+beforeEach(() => {
+  // Use lazy require() to avoid loading featureFlags (and its transitive deps like i18n)
+  // at module level, which would prevent test-specific jest.mock() calls from taking effect.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {__TEST__: featureFlagTestUtils} = require('./featureFlags');
+  featureFlagTestUtils.enableQeFlagOverrides();
+});

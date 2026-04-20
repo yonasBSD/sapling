@@ -432,7 +432,7 @@ export function getLatestOperationInfo(operation: Operation): OperationInfo | un
   return info;
 }
 
-function runOperationImpl(operation: Operation): Promise<undefined | Error> {
+export function runOperation(operation: Operation): Promise<undefined | Error> {
   // TODO: check for hashes in arguments that are known to be obsolete already,
   // and mark those to not be rewritten.
   serverAPI.postMessage({
@@ -484,7 +484,7 @@ const currentOperationHeartbeatTimer = new Timer(() => {
  */
 export function useRunOperation() {
   return useCallback(async (operation: Operation, throwOnError?: boolean): Promise<void> => {
-    const result = await runOperationImpl(operation);
+    const result = await runOperation(operation);
     if (result != null && throwOnError) {
       throw result;
     }
@@ -528,7 +528,7 @@ export function useRunPreviewedOperation() {
     const operationToRun = operation ?? readAtom(operationBeingPreviewed);
     writeAtom(operationBeingPreviewed, undefined);
     if (operationToRun) {
-      runOperationImpl(operationToRun);
+      runOperation(operationToRun);
     }
   }, []);
 }

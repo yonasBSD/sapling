@@ -50,7 +50,7 @@ import {
 import {DiffBadge, DiffFollower, DiffInfo} from './codeReview/DiffBadge';
 import {submitAsDraft} from './codeReview/DraftCheckbox';
 import {SyncStatus, syncStatusAtom} from './codeReview/syncStatus';
-import {useFeatureFlagSync} from './featureFlags';
+import {getQeFlag, useFeatureFlagSync} from './featureFlags';
 import {FoldButton, useRunFoldPreview} from './fold';
 import {findPublicBaseAncestor} from './getCommitTree';
 import {t, T} from './i18n';
@@ -67,9 +67,11 @@ import {CONFLICT_SIDE_LABELS} from './mergeConflicts/consts';
 import {getAmendToOperation, isAmendToAllowedForCommit} from './operationUtils';
 import {GotoOperation} from './operations/GotoOperation';
 import {HideOperation} from './operations/HideOperation';
+import {RebaseOperation} from './operations/RebaseOperation';
 import {
   inlineProgressByHash,
   operationBeingPreviewed,
+  runOperation,
   useRunOperation,
   useRunPreviewedOperation,
 } from './operationsState';
@@ -923,7 +925,50 @@ async function maybeWarnAboutOldDestination(dest: CommitInfo): Promise<WarningCh
   return confirmed ? WarningCheckResult.BYPASS : WarningCheckResult.FAIL;
 }
 
-async function maybeWarnAboutRebaseOffWarm(dest: CommitInfo): Promise<WarningCheckResult> {
+function WarnAboutRebaseOffWarmModalContent({
+  message,
+  cancelLabel,
+  continueLabel,
+  optOutLabel,
+  rebaseOntoWarmLabel,
+  showRebaseOntoWarm,
+  returnResultAndDismiss,
+}: {
+  message: string;
+  cancelLabel: string;
+  continueLabel: string;
+  optOutLabel: string;
+  rebaseOntoWarmLabel: string;
+  showRebaseOntoWarm: boolean;
+  returnResultAndDismiss: (data: {action: string; optOut: boolean}) => void;
+}) {
+  const result = (action: string, optOut = false) => returnResultAndDismiss({action, optOut});
+  return (
+    <>
+      <div id="use-modal-message">{message}</div>
+      <div className="use-modal-buttons-with-opt-out">
+        <Button onClick={() => result(optOutLabel, true)}>{optOutLabel}</Button>
+        <div className="use-modal-buttons-actions">
+          <Button onClick={() => result(cancelLabel)}>{cancelLabel}</Button>
+          <Button onClick={() => result(continueLabel)} className="warn-button-caution">
+            <Icon icon="warning" />
+            {continueLabel}
+          </Button>
+          {showRebaseOntoWarm && (
+            <Button kind="primary" onClick={() => result(rebaseOntoWarmLabel)}>
+              {rebaseOntoWarmLabel}
+            </Button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+async function maybeWarnAboutRebaseOffWarm(
+  dest: CommitInfo,
+  options?: {showRebaseOntoWarm?: boolean},
+): Promise<WarningCheckResult> {
   const isRebaseOffWarmWarningEnabled = readAtom(rebaseOffWarmWarningEnabled);
   if (!isRebaseOffWarmWarningEnabled || dest.stableCommitMetadata == null) {
     return WarningCheckResult.PASS;
@@ -938,37 +983,75 @@ async function maybeWarnAboutRebaseOffWarm(dest: CommitInfo): Promise<WarningChe
   }
 
   if (Internal.maybeWarnAboutRebaseOffWarm?.(src, destBase)) {
-    const buttons = [
-      t('Opt Out of Future Warnings'),
-      {label: t('Cancel'), primary: true},
-      t('Continue Anyway'),
-    ];
-    const answer = await showModal({
-      type: 'confirm',
-      buttons,
-      title: <T>Move off Warm Commit</T>,
-      message: t(
-        Internal.warnAboutRebaseOffWarmReason ??
-          "The commit you're on is a warmed up commit. Moving off will cause slower builds and performance.\n" +
-            "It's recommended to rebase your changes onto the warmed up commit instead.\n" +
-            "If you need fresher changes, it's recommended to reserve a new OD and work off the warm commit.\n" +
+    const showRebaseOntoWarm = options?.showRebaseOntoWarm === true && dest.phase !== 'public';
+    const stackRootHash = showRebaseOntoWarm
+      ? dag
+          ?.roots(dag.ancestors(dest.hash, {within: dag.draft()}))
+          .toArray()
+          .at(0)
+      : undefined;
+    const isStack =
+      stackRootHash != null &&
+      (dag?.descendants(stackRootHash, {within: dag.draft()}).size ?? 0) > 1;
+    const continueLabel = t('Continue Anyway');
+    const cancelLabel = t('Cancel');
+    const optOutLabel = t('Opt Out of Future Warnings');
+    const rebaseOntoWarmLabel = isStack ? t('Rebase Stack onto Warm') : t('Rebase onto Warm');
+    const shortHash = dest.hash.slice(0, 12);
+    const message = showRebaseOntoWarm
+      ? t(
+          "You're moving off of a warmed up commit which will degrade OD performance.\n" +
+            (isStack
+              ? `Would you like to rebase the destination stack ${shortHash} onto the warm commit before moving instead?`
+              : `Would you like to rebase the destination commit ${shortHash} onto the warm commit before moving instead?`),
+        )
+      : t(
+          "You're moving off of a warmed up commit which will degrade OD performance.\n" +
+            'Rebase your changes onto the warm commit instead with `sl rebase -s <rev> -d .`\n' +
             'Do you want to continue anyway?',
+        );
+    const answer = await showModal<{action: string; optOut: boolean}>({
+      type: 'custom',
+      title: <T>Move off Warm Commit</T>,
+      component: ({returnResultAndDismiss}) => (
+        <WarnAboutRebaseOffWarmModalContent
+          message={message}
+          showRebaseOntoWarm={showRebaseOntoWarm}
+          cancelLabel={cancelLabel}
+          continueLabel={continueLabel}
+          optOutLabel={optOutLabel}
+          rebaseOntoWarmLabel={rebaseOntoWarmLabel}
+          returnResultAndDismiss={returnResultAndDismiss}
+        />
       ),
     });
     const userEnv = (await Internal.getDevEnvType?.()) ?? 'NotImplemented';
     const cwd = readAtom(repoRelativeCwd);
     tracker.track('WarnAboutRebaseOffWarm', {
       extras: {
-        userAction: answer,
+        userAction: answer?.action,
         envType: userEnv,
         cwd,
       },
     });
-    if (answer === buttons[0]) {
+    if (answer?.optOut) {
       writeAtom(rebaseOffWarmWarningEnabled, false);
+      // If opting out, let the operation proceed regardless of which button was pressed
       return WarningCheckResult.PASS;
     }
-    return answer === buttons[2] ? WarningCheckResult.BYPASS : WarningCheckResult.FAIL;
+    if (answer?.action === continueLabel) {
+      return WarningCheckResult.BYPASS;
+    }
+    if (showRebaseOntoWarm && answer?.action === rebaseOntoWarmLabel) {
+      runOperation(
+        new RebaseOperation(
+          succeedableRevset(stackRootHash ?? dest.hash),
+          succeedableRevset(src.hash),
+        ),
+      );
+      return WarningCheckResult.FAIL;
+    }
+    return WarningCheckResult.FAIL;
   }
 
   return WarningCheckResult.PASS;
@@ -1030,7 +1113,10 @@ async function gotoAction(runOperation: ReturnType<typeof useRunOperation>, comm
   const shouldProceed = await runWarningChecks([
     () => maybeWarnAboutRebaseOntoMaster(commit),
     () => maybeWarnAboutOldDestination(commit),
-    () => maybeWarnAboutRebaseOffWarm(commit),
+    async () => {
+      const showRebaseOntoWarm = await getQeFlag('isl_rebase_onto_warm_button');
+      return maybeWarnAboutRebaseOffWarm(commit, {showRebaseOntoWarm});
+    },
   ]);
 
   if (!shouldProceed) {
