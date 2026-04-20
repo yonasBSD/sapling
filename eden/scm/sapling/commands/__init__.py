@@ -2910,12 +2910,10 @@ def grep(ui, repo, pattern, *pats, **opts):
         if k in opts:
             match_opts[k] = opts.get(k)
 
-    # Search everything in the current directory
+    # Search everything in the current directory, or using the specified
+    # patterns instead.
     wctx = repo[None]
-    matcher = scmutil.match(wctx, ["."], match_opts)
-    if pats:
-        # Search using the specified patterns instead
-        matcher = scmutil.match(wctx, pats, match_opts)
+    matcher = scmutil.match(wctx, pats or ["."], match_opts)
 
     return cmdutil.grep(ui, repo, table, matcher, pattern, **opts)
 

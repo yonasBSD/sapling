@@ -330,3 +330,18 @@ Test grep skips binary files:
   $ sl commit -Aqm 'add files'
   $ sl grep match
   text_file:text match
+
+Test grep with --include filters by file pattern:
+  $ newclientrepo include-test
+  $ mkdir -p src lib
+  $ echo 'hello world' > src/main.py
+  $ echo 'hello test' > src/main.rs
+  $ echo 'hello lib' > lib/util.py
+  $ sl commit -Aqm 'add files'
+  $ sl grep -I '**.py' hello
+  lib/util.py:hello lib
+  src/main.py:hello world
+
+No spurious match-full-traversal hint when a path narrows the search:
+  $ sl grep -I '**.py' hello src --config hint.ack-match-full-traversal=false
+  src/main.py:hello world
