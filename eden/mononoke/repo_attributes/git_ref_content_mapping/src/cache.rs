@@ -124,42 +124,22 @@ impl GitRefContentMapping for CachedGitRefContentMapping {
     }
 
     /// Fetch all the tag mapping entries for the given repo
-    async fn get_all_entries(&self, ctx: &CoreContext) -> Result<Vec<GitRefContentMappingEntry>> {
-        if justknobs::eval(
-            "scm/mononoke:enable_git_ref_content_mapping_caching",
-            None,
-            None,
-        )
-        .unwrap_or(false)
-        {
-            Ok(self.entries.load_full().to_vec())
-        } else {
-            self.inner.get_all_entries(ctx).await
-        }
+    async fn get_all_entries(&self, _ctx: &CoreContext) -> Result<Vec<GitRefContentMappingEntry>> {
+        Ok(self.entries.load_full().to_vec())
     }
 
     async fn get_entry_by_ref_name(
         &self,
-        ctx: &CoreContext,
+        _ctx: &CoreContext,
         ref_name: String,
     ) -> Result<Option<GitRefContentMappingEntry>> {
-        if justknobs::eval(
-            "scm/mononoke:enable_git_ref_content_mapping_caching",
-            None,
-            None,
-        )
-        .unwrap_or(false)
-        {
-            let entry = self
-                .entries
-                .load()
-                .iter()
-                .find(|&entry| entry.ref_name == ref_name)
-                .cloned();
-            Ok(entry)
-        } else {
-            self.inner.get_entry_by_ref_name(ctx, ref_name).await
-        }
+        let entry = self
+            .entries
+            .load()
+            .iter()
+            .find(|&entry| entry.ref_name == ref_name)
+            .cloned();
+        Ok(entry)
     }
 
     async fn add_or_update_mappings(

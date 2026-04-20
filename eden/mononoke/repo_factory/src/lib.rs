@@ -1065,27 +1065,19 @@ impl RepoFactory {
             .context(RepoFactoryError::GitRefContentMapping)?
             .build(repo_identity.id());
         let repo_name = repo_identity.name();
-        if justknobs::eval(
-            "scm/mononoke:enable_git_ref_content_mapping_caching",
-            None,
-            Some(repo_name),
-        )? {
-            match repo_event_publisher.subscribe_for_content_refs_updates(&repo_name.to_string()) {
-                Ok(update_notification_receiver) => {
-                    let cached_git_ref_content_mapping = CachedGitRefContentMapping::new(
-                        &self.ctx(),
-                        Arc::new(git_ref_content_mapping),
-                        update_notification_receiver,
-                    )
-                    .await?;
-                    Ok(Arc::new(cached_git_ref_content_mapping))
-                }
-                // The scribe configuration does not exist for content ref updates for this repo, so use the non-cached
-                // version of git_ref_content_mapping
-                Err(_) => Ok(Arc::new(git_ref_content_mapping)),
+        match repo_event_publisher.subscribe_for_content_refs_updates(&repo_name.to_string()) {
+            Ok(update_notification_receiver) => {
+                let cached_git_ref_content_mapping = CachedGitRefContentMapping::new(
+                    &self.ctx(),
+                    Arc::new(git_ref_content_mapping),
+                    update_notification_receiver,
+                )
+                .await?;
+                Ok(Arc::new(cached_git_ref_content_mapping))
             }
-        } else {
-            Ok(Arc::new(git_ref_content_mapping))
+            // The scribe configuration does not exist for content ref updates for this repo, so use the non-cached
+            // version of git_ref_content_mapping
+            Err(_) => Ok(Arc::new(git_ref_content_mapping)),
         }
     }
 
