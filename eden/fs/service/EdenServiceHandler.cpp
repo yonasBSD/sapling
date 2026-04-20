@@ -1058,31 +1058,25 @@ folly::coro::now_task<void> co_waitForPendingWrites(
 ImmediateFuture<folly::Unit> waitForPendingWrites(
     const EdenMount& mount,
     const SyncBehavior& sync) {
-  if (mount.getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    auto mountHandle = EdenMountHandle{
-        std::const_pointer_cast<EdenMount>(mount.shared_from_this()),
-        mount.getRootInode()};
-    // Capture sync by value to ensure its lifetime, mount is kept alive by
-    // mountHandle
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke([&mount, sync = sync]() {
-          // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-          return co_waitForPendingWrites(mount, sync).as_unsafe();
-        }).semi()}
-        .ensure([mountHandle = std::move(mountHandle)]() {});
-  }
-
-  auto seconds = getSyncTimeout(sync);
-  if (seconds == 0) {
-    return folly::unit;
-  }
-
-  auto future = mount.waitForPendingWrites().semi();
-  if (seconds > 0) {
-    future = std::move(future).within(std::chrono::seconds{seconds});
-  }
-  return std::move(future);
+  // DEPRECATED: use co_waitForPendingWrites directly. Kept only because
+  // 13 thrift handlers still consume ImmediateFuture chains (e.g.
+  // synchronizeWorkingCopy, getSHA1, getBlake3, readdir, changesSince,
+  // getAttributesFromFiles, ensureMaterialized, removeRecursively);
+  // delete once those handlers are migrated to coroutines.
+  auto mountHandle = EdenMountHandle{
+      std::const_pointer_cast<EdenMount>(mount.shared_from_this()),
+      mount.getRootInode()};
+  return ImmediateFuture{
+      // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+      folly::coro::co_invoke(
+          [](auto&& mountPtr, auto&& sync) -> folly::coro::Task<folly::Unit> {
+            co_await co_waitForPendingWrites(*mountPtr, sync);
+            co_return folly::unit;
+          },
+          mount.shared_from_this(),
+          sync)
+          .semi()}
+      .ensure([mountHandle = std::move(mountHandle)]() {});
 }
 
 } // namespace
