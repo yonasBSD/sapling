@@ -494,6 +494,7 @@ impl EagerRepo {
                                 treenode: hgid,
                                 augmented_manifest_id: hash,
                                 augmented_manifest_size: size,
+                                has_acl: false,
                             })
                         }
                         Flag::File(file_type) => {

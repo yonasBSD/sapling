@@ -49,6 +49,7 @@ pub struct AugmentedDirectoryNode {
     pub treenode: HgId,
     pub augmented_manifest_id: Blake3,
     pub augmented_manifest_size: u64,
+    pub has_acl: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -155,6 +156,9 @@ impl AugmentedTree {
                 AugmentedTreeEntry::DirectoryNode(d) => {
                     size += HgId::hex_len() + Blake3::hex_len() + 3;
                     size += d.augmented_manifest_size.to_string().len();
+                    if d.has_acl {
+                        size += 2; // " a"
+                    }
                 }
             };
             size += 1;
@@ -225,6 +229,9 @@ impl AugmentedTree {
                     w.write_all(directory.augmented_manifest_id.to_hex().as_ref())?;
                     w.write_all(b" ")?;
                     w.write_all(directory.augmented_manifest_size.to_string().as_ref())?;
+                    if directory.has_acl {
+                        w.write_all(b" a")?;
+                    }
                 }
             }
             w.write_all(b"\n")?;
@@ -321,12 +328,18 @@ impl AugmentedTree {
                 't' => {
                     sapling_tree_blob_size += HgId::hex_len() + 1;
 
+                    let has_acl = match parts.next() {
+                        Some("a") => true,
+                        _ => false,
+                    };
+
                     Ok((
                         path,
                         AugmentedTreeEntry::DirectoryNode(AugmentedDirectoryNode {
                             treenode: hgid,
                             augmented_manifest_id: blake3,
                             augmented_manifest_size: size,
+                            has_acl,
                         }),
                     ))
                 },
@@ -595,6 +608,7 @@ mod tests {
                 )
                 .unwrap(),
                 augmented_manifest_size: 248,
+                has_acl: false,
             })
         );
 
