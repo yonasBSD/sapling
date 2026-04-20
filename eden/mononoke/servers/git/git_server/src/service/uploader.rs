@@ -223,33 +223,44 @@ async fn process_tags<Uploader: GitUploader>(
         }
     }
     info!("Uploading tags for repo {}", repo_name);
-    // Upload the tags to the blobstore and also create bonsai mapping for it
-    for (tag_id, tag_metadata) in tags {
-        let TagMetadata {
-            name,
-            bonsai_target,
-            git_target,
-        } = tag_metadata;
-        // Add a mapping from the tag object id to the commit changeset id where it points. This will later
-        // be used in bookmark movement
-        if let Some(bonsai_target) = bonsai_target.as_ref() {
-            ref_map.insert_tag(&tag_id, *bonsai_target);
-        } else {
-            content_tags.insert(format!("refs/{}", name), git_target);
-        }
-        // Store the raw tag object first
-        upload_git_tag(ctx, uploader.clone(), object_store.clone(), &tag_id).await?;
-        // Create the changeset corresponding to the commit pointed to by the tag.
-        create_changeset_for_annotated_tag(
-            ctx,
-            uploader.clone(),
-            object_store.clone(),
-            &tag_id,
-            Some(name),
-            bonsai_target,
-        )
+    // Populate ref_map and content_tags first, then upload in parallel.
+    let upload_items: Vec<_> = tags
+        .into_iter()
+        .map(|(tag_id, tag_metadata)| {
+            let TagMetadata {
+                name,
+                bonsai_target,
+                git_target,
+            } = tag_metadata;
+            if let Some(bonsai_target) = bonsai_target.as_ref() {
+                ref_map.insert_tag(&tag_id, *bonsai_target);
+            } else {
+                content_tags.insert(format!("refs/{}", name), git_target);
+            }
+            (tag_id, name, bonsai_target)
+        })
+        .collect();
+    // Upload all tags to blobstore and create bonsai mappings in parallel.
+    stream::iter(upload_items)
+        .map(|(tag_id, name, bonsai_target)| {
+            cloned!(uploader, object_store);
+            async move {
+                upload_git_tag(ctx, uploader.clone(), object_store.clone(), &tag_id).await?;
+                create_changeset_for_annotated_tag(
+                    ctx,
+                    uploader,
+                    object_store,
+                    &tag_id,
+                    Some(name),
+                    bonsai_target,
+                )
+                .await?;
+                anyhow::Ok(())
+            }
+        })
+        .buffer_unordered(20)
+        .try_collect::<Vec<_>>()
         .await?;
-    }
     Ok(content_tags)
 }
 
