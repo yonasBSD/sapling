@@ -439,12 +439,7 @@ class ObjectStore : public IObjectStore,
 
   Hash32 computeBlake3(const Blob& blob) const;
 
-  folly::SemiFuture<BackingStore::GetTreeResult> getTreeImpl(
-      const ObjectId& id,
-      const ObjectFetchContextPtr& context,
-      folly::stop_watch<std::chrono::milliseconds> watch) const;
-
-  folly::coro::now_task<BackingStore::GetTreeResult> co_getTreeImpl(
+  folly::coro::now_task<BackingStore::GetTreeResult> getTreeImpl(
       const ObjectId& id,
       const ObjectFetchContextPtr& context,
       folly::stop_watch<std::chrono::milliseconds> watch) const;
