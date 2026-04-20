@@ -224,20 +224,7 @@ fn fall_back_to_default_identity_scheme<'a>(
         return Cow::Borrowed(schemes);
     };
 
-    let use_default_id_scheme = justknobs::eval(
-        "scm/mononoke:use_repo_default_id_scheme_in_scs",
-        None,
-        Some(repo_ctx.name()),
-    )
-    .unwrap_or(false);
-
-    if !use_default_id_scheme {
-        // If feature is disabled or identity schemes were specified by the
-        // user, return the provided schemes.
-        return Cow::Borrowed(schemes);
-    };
-
-    // Otherwise, get the repo's default identity scheme and use it.
+    // Get the repo's default identity scheme and use it.
     let default_scheme = repo_ctx.config().default_commit_identity_scheme.clone();
 
     let maybe_translated_scheme = match default_scheme {

@@ -29,16 +29,6 @@ fn fall_back_to_default_identity_scheme<'a>(
         return Ok(Cow::Borrowed(schemes));
     }
 
-    let use_default_id_scheme = justknobs::eval(
-        "scm/mononoke:use_repo_default_id_scheme_in_scs",
-        None,
-        Some(repo_ctx.name()),
-    )?;
-
-    if !use_default_id_scheme {
-        return Ok(Cow::Borrowed(schemes));
-    }
-
     let default_scheme = repo_ctx.config().default_commit_identity_scheme.clone();
 
     let maybe_translated_scheme = match default_scheme {
