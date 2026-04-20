@@ -490,11 +490,14 @@ impl EagerRepo {
 
                             sapling_tree_blob_size += HgId::hex_len() + 1;
 
+                            // Check if the subtree contains a .slacl file
+                            let has_acl = self.tree_has_slacl(hgid)?;
+
                             AugmentedTreeEntry::DirectoryNode(AugmentedDirectoryNode {
                                 treenode: hgid,
                                 augmented_manifest_id: hash,
                                 augmented_manifest_size: size,
-                                has_acl: false,
+                                has_acl,
                             })
                         }
                         Flag::File(file_type) => {
@@ -554,6 +557,23 @@ impl EagerRepo {
                 Ok(Some(Bytes::from(buf)))
             }
         }
+    }
+
+    /// Check if a tree contains a .slacl file
+    fn tree_has_slacl(&self, tree_id: Id20) -> Result<bool> {
+        let tree_data = match self.get_sha1_blob(tree_id)? {
+            None => return Ok(false),
+            Some(data) => data,
+        };
+        let (_, data) = Self::extract_parents_from_tree_data_hg(tree_data)?;
+        let tree_entry = manifest_tree::TreeEntry(data, SerializationFormat::Hg);
+        for child in tree_entry.elements() {
+            let child = child?;
+            if child.component.as_str() == ".slacl" {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Insert a commit. Return the commit hash.

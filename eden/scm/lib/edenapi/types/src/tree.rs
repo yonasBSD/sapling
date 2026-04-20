@@ -266,7 +266,7 @@ impl TryFrom<AugmentedTree> for TreeEntry {
                                 augmented_manifest_size: tree.augmented_manifest_size,
                             }),
                             // TODO(T248658346): populate has_acl field
-                            has_acl: None,
+                            has_acl: Some(tree.has_acl),
                         }))
                     }
                 })

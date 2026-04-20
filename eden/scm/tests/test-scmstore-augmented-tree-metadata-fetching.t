@@ -104,7 +104,9 @@ Fetch a tree with children metadata, make sure directories aux data also returne
                                                   augmented_manifest_size: 208,
                                               },
                                           ),
-                                          has_acl: None,
+                                          has_acl: Some(
+                                              false,
+                                          ),
                                       },
                                   ),
                               ),
@@ -237,7 +239,9 @@ Fetch mode can also trigger tree metadata fetch:
                                                   augmented_manifest_size: 208,
                                               },
                                           ),
-                                          has_acl: None,
+                                          has_acl: Some(
+                                              false,
+                                          ),
                                       },
                                   ),
                               ),
