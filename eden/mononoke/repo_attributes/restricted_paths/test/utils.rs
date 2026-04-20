@@ -403,6 +403,11 @@ impl RestrictedPathsTestData {
     /// Each file path can optionally specify content. If no content is provided,
     /// the file path itself is used as the content.
     pub async fn run_restricted_paths_test(&self) -> Result<()> {
+        // ACL manifest checking is enabled via the just_knobs.json default
+        // (restricted_paths_access_log_with_acl_manifest = true). This ensures spawned
+        // tasks also see the JK value, unlike with_just_knobs_async which
+        // only applies to the current thread.
+
         // Run without enforcement scenarios
         self.run_restricted_paths_test_inner(0, &[], false).await?;
 
@@ -466,11 +471,20 @@ impl RestrictedPathsTestData {
         )
         .await?;
 
-        // Create commits and derive data
+        // Create commits and derive data.
+        // .slacl files are added alongside user files so ACL manifest
+        // derivation detects restrictions. The test runner filters .slacl
+        // out of tree traversal and path-based access so they don't
+        // generate spurious access logs.
         let mut commit_ctx = CreateCommitContext::new_root(&self.ctx, &scenario_repo);
         for (path, content) in &self.file_path_changes {
             let file_content = content.as_deref().unwrap_or(path.as_str());
             commit_ctx = commit_ctx.add_file(path.as_str(), file_content.to_string());
+        }
+        for (root, acl) in &self.restricted_paths_config {
+            let slacl_path = format!("{}/.slacl", root);
+            let slacl_content = format!("repo_region_acl = \"{}\"\n", acl);
+            commit_ctx = commit_ctx.add_file(slacl_path.as_str(), slacl_content);
         }
 
         let blobstore = Arc::new(scenario_repo.repo_blobstore().clone());
@@ -640,7 +654,7 @@ impl RestrictedPathsTestData {
             }
         }
 
-        // Access path contents as we do in SCS for diffing
+        // Access path contents as we do in SCS for diffing.
         let bonsai = cs_ctx.bonsai_changeset().await?;
         let paths = bonsai
             .file_changes_map()
@@ -912,8 +926,11 @@ async fn setup_test_repo(
         Some(cache),
     ));
 
-    // Build a repo first to get ArcRepoDerivedData
-    let factory = TestRepoFactory::new(ctx.fb)?;
+    // Build a repo first to get ArcRepoDerivedData. We use the same factory
+    // instance so that the final repo shares the same blobstore, ensuring
+    // that ACL manifest derivation inside spawned logging tasks can find
+    // changesets committed to this repo.
+    let mut factory = TestRepoFactory::new(ctx.fb)?;
     let repo: TestRepo = factory.build().await?;
     let repo_derived_data = repo.repo_derived_data_arc();
 
@@ -925,8 +942,9 @@ async fn setup_test_repo(
         repo_derived_data,
     )?);
 
-    // Rebuild with the custom restricted_paths
-    let repo = TestRepoFactory::new(ctx.fb)?
+    // Rebuild with the custom restricted_paths, reusing the same factory
+    // so the blobstore is shared with repo_derived_data above.
+    let repo = factory
         .with_restricted_paths(repo_restricted_paths)
         .build()
         .await?;
