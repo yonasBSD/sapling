@@ -26,9 +26,9 @@ const allCommits = [
 ];
 
 describe('CommitTreeList', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     render(<App />);
-    act(() => {
+    await act(() => {
       simulateRepoConnected();
       closeCommitInfoSidebar();
       expectMessageSentToServer({
@@ -40,40 +40,40 @@ describe('CommitTreeList', () => {
     });
   });
 
-  it('load more button works', () => {
+  it('load more button works', async () => {
     fireEvent.click(screen.getByText('Load more commits'));
     expectMessageSentToServer({type: 'loadMoreCommits'});
-    act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: 60}));
-    act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
-    act(() => simulateCommits({value: allCommits}));
+    await act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: 60}));
+    await act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
+    await act(() => simulateCommits({value: allCommits}));
   });
 
-  it('disables while running', () => {
+  it('disables while running', async () => {
     fireEvent.click(screen.getByText('Load more commits'));
     expectMessageSentToServer({type: 'loadMoreCommits'});
-    act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: 60}));
-    act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
+    await act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: 60}));
+    await act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
     expect(screen.getByText('Load more commits')).toBeDisabled();
 
-    act(() => simulateCommits({value: allCommits}));
+    await act(() => simulateCommits({value: allCommits}));
     expect(screen.getByText('Load more commits')).not.toBeDisabled();
   });
 
   it('uses cloud sync after loading all commits', async () => {
     fireEvent.click(screen.getByText('Load more commits'));
     expectMessageSentToServer({type: 'loadMoreCommits'});
-    act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: 60}));
-    act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
-    act(() => simulateCommits({value: allCommits}));
+    await act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: 60}));
+    await act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
+    await act(() => simulateCommits({value: allCommits}));
 
     fireEvent.click(screen.getByText('Load more commits'));
     expectMessageSentToServer({type: 'loadMoreCommits'});
-    act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: undefined}));
-    act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
-    act(() => simulateCommits({value: allCommits}));
+    await act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: undefined}));
+    await act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
+    await act(() => simulateCommits({value: allCommits}));
 
     expectMessageSentToServer({type: 'getConfig', name: 'extensions.commitcloud'});
-    act(() =>
+    await act(() =>
       simulateMessageFromServer({type: 'gotConfig', name: 'extensions.commitcloud', value: ''}),
     );
 
@@ -95,7 +95,7 @@ describe('CommitTreeList', () => {
       },
     });
 
-    act(() =>
+    await act(() =>
       simulateMessageFromServer({
         type: 'operationProgress',
         id,
@@ -103,7 +103,7 @@ describe('CommitTreeList', () => {
         queue: [],
       }),
     );
-    act(() =>
+    await act(() =>
       simulateMessageFromServer({
         type: 'operationProgress',
         id,
@@ -123,19 +123,18 @@ describe('CommitTreeList', () => {
   it('does not show cloud sync button if commit cloud not enabled', async () => {
     fireEvent.click(screen.getByText('Load more commits'));
     expectMessageSentToServer({type: 'loadMoreCommits'});
-    act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: 60}));
-    act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
-    act(() => simulateCommits({value: allCommits}));
+    await act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: 60}));
+    await act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
+    await act(() => simulateCommits({value: allCommits}));
 
     fireEvent.click(screen.getByText('Load more commits'));
     expectMessageSentToServer({type: 'loadMoreCommits'});
-    act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: undefined}));
-    act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
-    act(() => simulateCommits({value: allCommits}));
+    await act(() => simulateMessageFromServer({type: 'commitsShownRange', rangeInDays: undefined}));
+    await act(() => simulateMessageFromServer({type: 'beganLoadingMoreCommits'}));
+    await act(() => simulateCommits({value: allCommits}));
 
     expectMessageSentToServer({type: 'getConfig', name: 'extensions.commitcloud'});
-    // eslint-disable-next-line require-await
-    await act(async () =>
+    await act(() =>
       simulateMessageFromServer({type: 'gotConfig', name: 'extensions.commitcloud', value: '!'}),
     );
 

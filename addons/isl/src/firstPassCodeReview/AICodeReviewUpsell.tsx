@@ -105,13 +105,13 @@ export function AICodeReviewUpsell({
     reviewOptions.length === 1 ? (
       shouldDisableButton && disabledReason ? (
         <Tooltip title={disabledReason}>
-          <Button data-testId="start-review-button" disabled={true}>
+          <Button data-testid="start-review-button" disabled={true}>
             Start review
           </Button>
         </Tooltip>
       ) : (
         <Button
-          data-testId="start-review-button"
+          data-testid="start-review-button"
           disabled={shouldDisableButton}
           onClick={() => startReview(reviewOptions[0].id)}>
           Start review
@@ -119,7 +119,7 @@ export function AICodeReviewUpsell({
       )
     ) : (
       <ButtonDropdown
-        data-testId="start-review-button"
+        data-testid="start-review-button"
         options={reviewOptions}
         selected={selectedOption}
         onChangeSelected={option => {
