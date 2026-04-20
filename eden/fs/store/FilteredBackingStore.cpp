@@ -248,122 +248,22 @@ FilteredBackingStore::filterImpl(
     RelativePathPiece treePath,
     folly::StringPiece filterId,
     FilteredObjectIdType treeType) {
-  if (config_ && config_->getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke(
-            [this](auto&&... args) {
-              return co_filterImpl(std::forward<decltype(args)>(args)...)
-                  // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                  .as_unsafe();
-            },
-            unfilteredTree,
-            treePath.copy(),
-            filterId.toString(),
-            treeType)
-            .semi()};
-  }
-  // First we determine whether each child should be filtered.
-  auto isFilteredFutures =
-      std::vector<ImmediateFuture<std::pair<RelativePath, FilterCoverage>>>{};
-
-  // The FilterID is passed through multiple futures. Let's create a copy and
-  // pass it around to avoid lifetime issues.
-  auto filter = filterId.toString();
-  for (const auto& [path, entry] : *unfilteredTree) {
-    auto relPath = RelativePath{treePath + path};
-
-    // For normal (unfiltered) trees, we call into Mercurial to determine
-    // whether each child is filtered or not.
-    if (treeType == FilteredObjectIdType::OBJECT_TYPE_TREE) {
-      auto filteredRes = filter_->getFilterCoverageForPath(relPath, filter);
-      auto fut = std::move(filteredRes)
-                     .thenValue([relPath = std::move(relPath)](
-                                    FilterCoverage coverage) mutable {
-                       return std::pair(std::move(relPath), coverage);
-                     });
-      isFilteredFutures.emplace_back(std::move(fut));
-    } else if (treeType == FilteredObjectIdType::OBJECT_TYPE_UNFILTERED_TREE) {
-      // For recursively unfiltered trees, we know that every child will also be
-      // recursively unfiltered. Therefore, we can avoid the cost of calling
-      // into Mercurial to check each child.
-      isFilteredFutures.emplace_back(
-          ImmediateFuture<std::pair<RelativePath, FilterCoverage>>{
-              {std::move(relPath), FilterCoverage::RECURSIVELY_UNFILTERED}});
-    } else {
-      // OBJECT_TYPE_BLOB should never be passed to filterImpl
-      throwf<std::invalid_argument>(
-          "FilterImpl() received an unexpected tree type: {}",
-          foidTypeToString(treeType));
-    }
-  }
-
-  // CollectAllSafe is intentional -- failure to determine whether a file is
-  // filtered would cause it to disappear from the source tree. Instead of
-  // leaving users in a weird state where some files are missing, we'll fail
-  // the entire getTree() request and the caller can decide to retry.
-  return collectAllSafe(std::move(isFilteredFutures))
-      .thenValue(
-          [unfilteredTree, filterId = std::move(filter)](
-              std::vector<std::pair<RelativePath, FilterCoverage>>&&
-                  filterCoverageVec) -> std::unique_ptr<PathMap<TreeEntry>> {
-            // This PathMap will only contain tree entries that aren't
-            // filtered
-            auto pathMap =
-                PathMap<TreeEntry>{unfilteredTree->getCaseSensitivity()};
-
-            for (auto&& filterCoveragePair : filterCoverageVec) {
-              auto filterCoverage = filterCoveragePair.second;
-
-              // We need to re-add unfiltered entries to the path map.
-              if (filterCoverage != FilterCoverage::RECURSIVELY_FILTERED) {
-                auto relPath = std::move(filterCoveragePair.first);
-                auto entry = unfilteredTree->find(relPath.basename().piece());
-                auto entryType = entry->second.getType();
-                ObjectId oid;
-
-                // The entry type is a tree. Trees can either be unfiltered or
-                // recursively unfiltered. We handle these cases differently.
-                if (entryType == TreeEntryType::TREE) {
-                  if (filterCoverage == FilterCoverage::UNFILTERED) {
-                    // We can't guarantee all the trees descendents are
-                    // filtered, so we need to create a normal tree FOID
-                    auto foid = FilteredObjectId(
-                        relPath.piece(), filterId, entry->second.getObjectId());
-                    oid = ObjectId{foid.getValue()};
-                  } else {
-                    // We can guarantee that all the descendents of this tree
-                    // are unfiltered. We can special case this tree to avoid
-                    // recursive filter lookups in the future.
-                    auto foid = FilteredObjectId{
-                        entry->second.getObjectId(),
-                        FilteredObjectIdType::OBJECT_TYPE_UNFILTERED_TREE};
-                    oid = ObjectId{foid.getValue()};
-                  }
-                } else {
-                  // Blobs are the same regardless of recursive/non-recursive
-                  // FilterCoverage.
-                  auto foid = FilteredObjectId{
-                      entry->second.getObjectId(),
-                      FilteredObjectIdType::OBJECT_TYPE_BLOB};
-                  oid = ObjectId{foid.getValue()};
-                }
-
-                // Regardless of FilteredObjectIdType, all unfiltered entries
-                // need to be placed into the unfiltered PathMap.
-                auto treeEntry = TreeEntry{std::move(oid), entryType};
-                auto pair =
-                    std::pair{relPath.basename().copy(), std::move(treeEntry)};
-                pathMap.insert(std::move(pair));
-              }
-              // Recursively filtered objects don't need to be handled. They are
-              // simply omitted from the PathMap.
-            }
-
-            // The result is a PathMap containing only unfiltered or
-            // recursively-unfiltered tree entries.
-            return std::make_unique<PathMap<TreeEntry>>(std::move(pathMap));
-          });
+  // DEPRECATED: use co_filterImpl directly. Kept only because getRootTree and
+  // getTree (future versions) still call it; delete once BackingStore interface
+  // drops the future-based getTree/getRootTree virtuals.
+  return ImmediateFuture{
+      // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+      folly::coro::co_invoke(
+          [this](auto&&... args)
+              -> folly::coro::Task<std::unique_ptr<PathMap<TreeEntry>>> {
+            co_return co_await co_filterImpl(
+                std::forward<decltype(args)>(args)...);
+          },
+          unfilteredTree,
+          treePath.copy(),
+          filterId.toString(),
+          treeType)
+          .semi()};
 }
 
 folly::coro::now_task<std::unique_ptr<PathMap<TreeEntry>>>
