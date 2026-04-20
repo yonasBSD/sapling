@@ -59,6 +59,15 @@ ALERT_TYPE_BLAMED: str = "merge_resolved_then_blamed"
 ALERT_TYPE_REVERTED: str = "merge_resolved_then_reverted"
 _VALID_ALERT_TYPES: set[str] = {ALERT_TYPE_BLAMED, ALERT_TYPE_REVERTED}
 
+# Revert alerts use two-step confirmation: a diff must be observed as REVERTED
+# on two consecutive runs before alerting. The first sighting is logged with
+# alert_state="tentative" (no alert), and on the second sighting we promote to
+# "confirmed" and fire the alert. This avoids false positives from transient
+# REVERTED flips on Phabricator (e.g., revert-hammer attempts that abort and
+# leave the diff back at CLOSED with no actual revert commit landed).
+ALERT_STATE_TENTATIVE: str = "tentative"
+ALERT_STATE_CONFIRMED: str = "confirmed"
+
 
 def _get_merge_resolved_diffs_sql(lookback_secs: int) -> str:
     """SQL JOIN to find merge-resolved pushrebases and their diff IDs."""
@@ -267,12 +276,19 @@ async def check_merge_resolution_blames(
 SCUBA_OUTPUT_TABLE: str = "mononoke_merge_resolution_alerts"
 
 
-def _log_matches_to_scuba(matches: list[dict[str, str]], alert_type: str) -> None:
+def _log_matches_to_scuba(
+    matches: list[dict[str, str]],
+    alert_type: str,
+    alert_state: str = ALERT_STATE_CONFIRMED,
+) -> None:
     """Write alert events to a dedicated Scuba table for OneDetection alerting.
 
     Scuba write failures are logged but not re-raised because the primary
     alerting mechanism is the non-zero exit code for Chronos. Failing to
     write to Scuba should not prevent the script from reporting the match.
+
+    `alert_state` distinguishes tentative sightings (logged but not alerted)
+    from confirmed alerts (fire OneDetection). Only REVERTED uses tentative.
     """
     try:
         with ScubaData(SCUBA_OUTPUT_TABLE) as scuba:
@@ -283,6 +299,7 @@ def _log_matches_to_scuba(matches: list[dict[str, str]], alert_type: str) -> Non
                 sample.add_normal("repo", match["repo"])
                 sample.add_normal("merge_resolved_paths", match["merge_resolved_paths"])
                 sample.add_normal("alert_type", alert_type)
+                sample.add_normal("alert_state", alert_state)
                 if "breakage_id" in match:
                     sample.add_normal("breakage_id", match["breakage_id"])
                 sample.add_int(
@@ -291,9 +308,10 @@ def _log_matches_to_scuba(matches: list[dict[str, str]], alert_type: str) -> Non
                 )
                 scuba.addSample(sample)
         logger.info(
-            "Logged %d %s matches to Scuba table %s",
+            "Logged %d %s/%s matches to Scuba table %s",
             len(matches),
             alert_type,
+            alert_state,
             SCUBA_OUTPUT_TABLE,
         )
     except Exception:
@@ -301,15 +319,33 @@ def _log_matches_to_scuba(matches: list[dict[str, str]], alert_type: str) -> Non
 
 
 async def _get_already_alerted_diffs(
-    user_name: str, uid: int, alert_type: str, lookback_secs: int
+    user_name: str,
+    uid: int,
+    alert_type: str,
+    lookback_secs: int,
+    alert_state: str | None = None,
 ) -> set[str]:
     """Query mononoke_merge_resolution_alerts for diffs we already alerted on.
 
     Prevents duplicate alerts when the same diff appears in multiple
     pipeline runs within the lookback window.
+
+    When `alert_state` is provided, only rows matching that state are
+    returned. Rows with a NULL/missing alert_state are treated as
+    `confirmed` for backward compatibility with rows written before the
+    two-step confirmation flow was introduced.
     """
     if alert_type not in _VALID_ALERT_TYPES:
         raise ValueError(f"Invalid alert_type: {alert_type!r}")
+    state_clause = ""
+    if alert_state == ALERT_STATE_CONFIRMED:
+        # Treat NULL/empty alert_state as confirmed (legacy rows)
+        state_clause = (
+            f" AND (`alert_state` = '{ALERT_STATE_CONFIRMED}'"
+            f" OR `alert_state` IS NULL OR `alert_state` = '')"
+        )
+    elif alert_state is not None:
+        state_clause = f" AND `alert_state` = '{alert_state}'"
     sql = f"""
         SELECT `diff_id` AS the_diff_id
         FROM {SCUBA_OUTPUT_TABLE}
@@ -317,6 +353,7 @@ async def _get_already_alerted_diffs(
             `time` >= NOW() - {lookback_secs}
             AND `time` <= NOW()
             AND `alert_type` = '{alert_type}'
+            {state_clause}
     """
     try:
         results = await _query_scuba(sql, SCUBA_OUTPUT_TABLE, user_name, uid)
@@ -363,28 +400,50 @@ async def check_merge_resolution_reverts(
     if not diff_id_to_entry:
         return 0
 
-    # Deduplicate: skip diffs we already alerted on
-    already_alerted = await _get_already_alerted_diffs(
-        user_name, uid, ALERT_TYPE_REVERTED, REVERT_LOOKBACK_SECS
+    # Two-step confirmation:
+    #   - Skip diffs we already confirmed (already fired alert).
+    #   - Diffs previously seen as `tentative` will be promoted to `confirmed`
+    #     (and alert) if Phab still reports REVERTED on this run.
+    #   - New REVERTED sightings are logged as `tentative` (no alert).
+    # This avoids alerting on transient REVERTED flips (e.g., revert-hammer
+    # attempts that abort and leave the diff back at CLOSED).
+    already_confirmed = await _get_already_alerted_diffs(
+        user_name,
+        uid,
+        ALERT_TYPE_REVERTED,
+        REVERT_LOOKBACK_SECS,
+        alert_state=ALERT_STATE_CONFIRMED,
     )
-    unchecked = {k: v for k, v in diff_id_to_entry.items() if k not in already_alerted}
+    already_tentative = await _get_already_alerted_diffs(
+        user_name,
+        uid,
+        ALERT_TYPE_REVERTED,
+        REVERT_LOOKBACK_SECS,
+        alert_state=ALERT_STATE_TENTATIVE,
+    )
+    unchecked = {
+        k: v for k, v in diff_id_to_entry.items() if k not in already_confirmed
+    }
 
     if not unchecked:
         logger.info(
-            "All %d merge-resolved diffs already alerted, skipping.",
+            "All %d merge-resolved diffs already confirmed, skipping.",
             len(diff_id_to_entry),
         )
         return 0
 
     logger.info(
-        "Checking %d diff IDs for revert status (%d already alerted, skipping)...",
+        "Checking %d diff IDs for revert status "
+        "(%d already confirmed, %d tentative)...",
         len(unchecked),
-        len(already_alerted),
+        len(already_confirmed),
+        len(already_tentative),
     )
 
     reverted_ids = _check_diffs_reverted(list(unchecked.keys()))
 
-    matches: list[dict[str, str]] = []
+    confirmed_matches: list[dict[str, str]] = []
+    tentative_matches: list[dict[str, str]] = []
     for diff_id in reverted_ids:
         entry = unchecked[diff_id]
         match_info = {
@@ -394,22 +453,49 @@ async def check_merge_resolution_reverts(
             "merge_resolved_count": str(entry.get("merge_count", "")),
             "merge_resolved_paths": str(entry.get("merge_paths", "")),
         }
-        matches.append(match_info)
+        if diff_id in already_tentative:
+            confirmed_matches.append(match_info)
+            logger.warning(
+                "REVERT CONFIRMED: Merge-resolved diff D%s "
+                "(repo=%s, paths=%s) reverted on two consecutive runs",
+                diff_id,
+                match_info["repo"],
+                match_info["merge_resolved_paths"],
+            )
+        else:
+            tentative_matches.append(match_info)
+            logger.info(
+                "REVERT TENTATIVE: Merge-resolved diff D%s (repo=%s, paths=%s) "
+                "reported REVERTED — awaiting second observation",
+                diff_id,
+                match_info["repo"],
+                match_info["merge_resolved_paths"],
+            )
+
+    if not dry_run:
+        if tentative_matches:
+            _log_matches_to_scuba(
+                tentative_matches, ALERT_TYPE_REVERTED, ALERT_STATE_TENTATIVE
+            )
+        if confirmed_matches:
+            _log_matches_to_scuba(
+                confirmed_matches, ALERT_TYPE_REVERTED, ALERT_STATE_CONFIRMED
+            )
+
+    if confirmed_matches:
         logger.warning(
-            "REVERT DETECTED: Merge-resolved diff D%s (repo=%s, paths=%s) was reverted",
-            diff_id,
-            match_info["repo"],
-            match_info["merge_resolved_paths"],
+            "Found %d confirmed reverted merge-resolved diffs!",
+            len(confirmed_matches),
+        )
+    else:
+        logger.info(
+            "No confirmed reverted merge-resolved diffs "
+            "(%d tentative awaiting confirmation).",
+            len(tentative_matches),
         )
 
-    if matches:
-        logger.warning("Found %d reverted merge-resolved diffs!", len(matches))
-        if not dry_run:
-            _log_matches_to_scuba(matches, ALERT_TYPE_REVERTED)
-    else:
-        logger.info("No reverted merge-resolved diffs found.")
-
-    return len(matches)
+    # Only confirmed reverts contribute to the non-zero exit code / alert.
+    return len(confirmed_matches)
 
 
 def main() -> None:
