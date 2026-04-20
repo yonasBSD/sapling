@@ -1630,23 +1630,14 @@ folly::Future<FsChannel::StopFuture> PrjfsChannel::initialize() {
 }
 
 ImmediateFuture<folly::Unit> PrjfsChannel::waitForPendingWrites() {
-  auto config = config_->getEdenConfig();
-  if (config->enableCoroutinesPhase1.getValue()) {
-    // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-    return ImmediateFuture{folly::coro::co_invoke([this]() {
-                             // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                             return co_waitForPendingWrites().as_unsafe();
-                           }).semi()};
-  }
-
-  auto inner = getInner();
-  if (!inner) {
-    return makeImmediateFuture<folly::Unit>(std::runtime_error(
-        fmt::format(
-            FMT_STRING("The mount at {} has been stopped"), mountPath_)));
-  }
-  return inner->waitForPendingNotifications().ensure(
-      [inner = std::move(inner)] {});
+  // DEPRECATED: use co_waitForPendingWrites directly. Kept only because
+  // FsChannel still declares the ImmediateFuture virtual; delete once
+  // EdenMount::waitForPendingWrites is fully migrated to coroutines.
+  // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+  return ImmediateFuture{
+      folly::coro::co_invoke([this]() -> folly::coro::Task<folly::Unit> {
+        co_return co_await co_waitForPendingWrites();
+      }).semi()};
 }
 
 folly::coro::now_task<folly::Unit> PrjfsChannel::co_waitForPendingWrites() {
