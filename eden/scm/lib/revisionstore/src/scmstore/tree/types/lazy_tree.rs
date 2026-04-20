@@ -8,8 +8,6 @@
 use anyhow::Result;
 use edenapi_types::TreeChildEntry;
 use edenapi_types::TreeEntry;
-use manifest_augmented_tree::AugmentedTreeEntry;
-use manifest_augmented_tree::AugmentedTreeWithDigest;
 use manifest_tree::TreeEntry as ManifestTreeEntry;
 use minibytes::Bytes;
 use storemodel::SerializationFormat;
@@ -30,10 +28,10 @@ use crate::scmstore::tree::TreeEntryWithAux;
 pub(crate) enum LazyTree {
     /// An entry from a local IndexedLog. The contained Key's path might not match the requested Key's path.
     /// It may include the tree aux data if available
-    IndexedLog(TreeEntryWithAux),
+    IndexedLog(TreeEntryWithAux, SerializationFormat),
 
     /// An SaplingRemoteApi TreeEntry.
-    SaplingRemoteApi(TreeEntry, bool),
+    SaplingRemoteApi(TreeEntry, bool, SerializationFormat),
 
     // Null tree is a special case with null content.
     Null,
@@ -45,11 +43,18 @@ pub enum AuxData {
 }
 
 impl LazyTree {
+    pub(crate) fn format(&self) -> SerializationFormat {
+        match self {
+            LazyTree::IndexedLog(_, format) | LazyTree::SaplingRemoteApi(_, _, format) => *format,
+            LazyTree::Null => SerializationFormat::Hg,
+        }
+    }
+
     #[allow(dead_code)]
     fn hgid(&self) -> Option<HgId> {
         use LazyTree::*;
         match self {
-            IndexedLog(entry_with_aux) => Some(entry_with_aux.node()),
+            IndexedLog(entry_with_aux, ..) => Some(entry_with_aux.node()),
             SaplingRemoteApi(entry, ..) => Some(entry.key().hgid),
             Null => Some(NULL_ID),
         }
@@ -59,8 +64,8 @@ impl LazyTree {
     pub(crate) fn hg_content(&self) -> Result<Bytes> {
         use LazyTree::*;
         Ok(match self {
-            IndexedLog(entry_with_aux) => entry_with_aux.content()?,
-            SaplingRemoteApi(entry, verify_hash) => entry.data(*verify_hash)?,
+            IndexedLog(entry_with_aux, ..) => entry_with_aux.content()?,
+            SaplingRemoteApi(entry, verify_hash, ..) => entry.data(*verify_hash)?,
             Null => Bytes::default(),
         })
     }
@@ -69,8 +74,8 @@ impl LazyTree {
     pub(crate) fn indexedlog_cache_entry(&self, node: Id20) -> Result<Option<Entry>> {
         use LazyTree::*;
         Ok(match self {
-            IndexedLog(entry_with_aux) => Some(entry_with_aux.entry.clone()),
-            SaplingRemoteApi(entry, verify_hash) => Some(Entry::new(
+            IndexedLog(entry_with_aux, ..) => Some(entry_with_aux.entry.clone()),
+            SaplingRemoteApi(entry, verify_hash, ..) => Some(Entry::new(
                 node,
                 entry.data(*verify_hash)?,
                 Metadata::default(),
@@ -80,11 +85,7 @@ impl LazyTree {
     }
 
     pub fn manifest_tree_entry(&self) -> Result<ManifestTreeEntry> {
-        // Currently revisionstore is only for hg format.
-        Ok(ManifestTreeEntry(
-            self.hg_content()?,
-            SerializationFormat::Hg,
-        ))
+        Ok(ManifestTreeEntry(self.hg_content()?, self.format()))
     }
 
     pub(crate) fn parents(&self) -> Option<Parents> {
@@ -96,7 +97,7 @@ impl LazyTree {
 
     pub(crate) fn aux_data(&self) -> Option<TreeAuxData> {
         match &self {
-            Self::IndexedLog(entry_with_aux) => entry_with_aux.tree_aux.clone(),
+            Self::IndexedLog(entry_with_aux, ..) => entry_with_aux.tree_aux.clone(),
             Self::SaplingRemoteApi(entry, ..) => entry.tree_aux_data.clone(),
             _ => None,
         }

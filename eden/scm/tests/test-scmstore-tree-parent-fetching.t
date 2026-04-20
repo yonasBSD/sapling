@@ -42,6 +42,7 @@ We can fetch tree parents:
                       has_acl: None,
                   },
                   true,
+                  Hg,
               ),
           ),
           parents: Some(

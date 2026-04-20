@@ -192,10 +192,13 @@ impl TreeStore {
             None => Ok(None),
             Some(blob) => {
                 let res: Arc<ScmStoreTreeEntry> = Arc::new(
-                    LazyTree::IndexedLog(TreeEntryWithAux {
-                        entry: Entry::new(node, blob.into_bytes(), Metadata::default()),
-                        tree_aux: self.get_local_aux_direct(&node)?,
-                    })
+                    LazyTree::IndexedLog(
+                        TreeEntryWithAux {
+                            entry: Entry::new(node, blob.into_bytes(), Metadata::default()),
+                            tree_aux: self.get_local_aux_direct(&node)?,
+                        },
+                        self.format(),
+                    )
                     .into(),
                 );
                 Ok(Some(res))
@@ -324,6 +327,7 @@ impl TreeStore {
         );
 
         let verify_hash = self.verify_hash;
+        let format = self.format();
         let process_func = move || -> Result<()> {
             // We might be in a different thread than when `bar` was created - set bar as
             // active here as well.
@@ -404,10 +408,13 @@ impl TreeStore {
                                     tracing::trace!("{:?} found in {:?}", key, location);
                                     found_count += 1;
                                     Some(
-                                        LazyTree::IndexedLog(TreeEntryWithAux {
-                                            entry,
-                                            tree_aux: None,
-                                        })
+                                        LazyTree::IndexedLog(
+                                            TreeEntryWithAux {
+                                                entry,
+                                                tree_aux: None,
+                                            },
+                                            format,
+                                        )
                                         .into(),
                                     )
                                 }
@@ -492,6 +499,7 @@ impl TreeStore {
                             None
                         },
                         verify_hash,
+                        format,
                     )?;
                 } else {
                     tracing::debug!("no SaplingRemoteApi associated with TreeStore");
@@ -949,6 +957,15 @@ impl ScmStoreTreeEntry {
     }
 }
 
+impl From<LazyTree> for ScmStoreTreeEntry {
+    fn from(tree: LazyTree) -> Self {
+        ScmStoreTreeEntry {
+            tree,
+            basic_tree_entry: OnceCell::new(),
+        }
+    }
+}
+
 impl TreeEntry for ScmStoreTreeEntry {
     fn iter<'a>(
         &'a self,
@@ -997,23 +1014,12 @@ impl TreeEntry for ScmStoreTreeEntry {
 
     fn size_hint(&self) -> Option<usize> {
         match &self.tree {
-            LazyTree::IndexedLog(_) => self
+            LazyTree::IndexedLog(..) => self
                 .basic_tree_entry()
                 .map(|t| t.size_hint())
                 .unwrap_or_default(),
             LazyTree::SaplingRemoteApi(slapi, ..) => slapi.children.as_ref().map(|c| c.len()),
             LazyTree::Null => Some(0),
-        }
-    }
-}
-
-/// ScmStoreTreeEntry is a wrapper around a LazyTree that implements `TreeEntry` with aux data support.
-/// Basic tree entry is used to avoid multiple conversions of the same tree into the mercurial format.
-impl From<LazyTree> for ScmStoreTreeEntry {
-    fn from(val: LazyTree) -> Self {
-        ScmStoreTreeEntry {
-            tree: val,
-            basic_tree_entry: OnceCell::new(),
         }
     }
 }
@@ -1042,7 +1048,6 @@ impl storemodel::TreeStore for TreeStore {
                 let tree: LazyTree = store_tree
                     .content
                     .ok_or_else(|| anyhow::format_err!("no content available"))?;
-                // returns ScmStoreTreeEntry that supports both file and tree aux data.
                 Ok((key, Arc::<ScmStoreTreeEntry>::new(tree.into())))
             });
         Ok(Box::new(iter))
