@@ -93,6 +93,7 @@ oss: HG_BIN_NAME=$(SL_BIN_NAME)
 oss: local
 
 install-oss: oss
+	$(SL_NAME) --kill-chg-daemon || true
 	mkdir -p $(DESTDIR)/$(PREFIX)/bin
 	cp $(SL_NAME) $(DESTDIR)/$(PREFIX)/bin
 	mkdir -p $(DESTDIR)/$(PREFIX)/lib
