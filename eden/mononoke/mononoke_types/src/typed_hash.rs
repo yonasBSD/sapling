@@ -825,11 +825,18 @@ impl Loadable for FsnodeId {
         let now = std::time::Instant::now();
         let blob: Blob<FsnodeId> = Blob::new(id, bytes.into_raw_bytes());
         let len = blob.len();
-        let ret = tokio::task::spawn_blocking(move || {
+
+        const LARGE_FSNODE_THRESHOLD: usize = 102_400;
+        let ret = if len > LARGE_FSNODE_THRESHOLD {
+            tokio::task::spawn_blocking(move || {
+                <Fsnode as BlobstoreValue>::from_blob(blob).map_err(LoadableError::Error)
+            })
+            .await
+            .map_err(|e| LoadableError::Error(anyhow::anyhow!("spawn_blocking join error: {e}")))?
+        } else {
             <Fsnode as BlobstoreValue>::from_blob(blob).map_err(LoadableError::Error)
-        })
-        .await
-        .map_err(|e| LoadableError::Error(anyhow::anyhow!("spawn_blocking join error: {e}")))?;
+        };
+
         let diff = now.elapsed().as_millis();
         if diff > SLOW_DESERIAZLIZATION_THRESHOLD_MS {
             tracing::warn!(
