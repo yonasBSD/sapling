@@ -5,6 +5,8 @@
  * GNU General Public License version 2.
  */
 
+namespace py3 eden.mononoke.mononoke_types.serialization
+
 //! ------------
 //! IMPORTANT!!!
 //! ------------
