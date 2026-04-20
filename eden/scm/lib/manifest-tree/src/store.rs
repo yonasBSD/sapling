@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use anyhow::format_err;
+use edenapi_types::errors::is_permission_denied;
 use manifest::FileMetadata;
 use manifest::FileType;
 use manifest::FsNodeMetadata;
@@ -44,10 +45,17 @@ impl InnerStore {
             id = AsRef::<str>::as_ref(&hgid.to_hex())
         )
         .in_scope(|| {
-            let blob = self
+            match self
                 .tree_store
-                .get_content(FetchContext::default(), path, hgid)?;
-            Ok(Entry(blob.into_bytes(), self.tree_store.format()))
+                .get_content(FetchContext::default(), path, hgid)
+            {
+                Ok(blob) => Ok(Entry(blob.into_bytes(), self.tree_store.format())),
+                Err(err) if is_permission_denied(&err) => {
+                    Ok(Entry(Default::default(), self.tree_store.format()))
+                }
+
+                Err(err) => Err(err),
+            }
         })
     }
 

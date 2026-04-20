@@ -54,3 +54,22 @@ impl From<types::hash::HexError> for ServerError {
         Self::new(e.to_string(), 2)
     }
 }
+
+pub fn find_permission_denied(err: &anyhow::Error) -> Option<&crate::SaplingRemoteApiServerError> {
+    for err in err.chain() {
+        if let Some(slapi_err) = err.downcast_ref::<crate::SaplingRemoteApiServerError>() {
+            if matches!(
+                slapi_err.err,
+                crate::SaplingRemoteApiServerErrorKind::PermissionDenied { .. }
+            ) {
+                return Some(slapi_err);
+            }
+        }
+    }
+
+    None
+}
+
+pub fn is_permission_denied(err: &anyhow::Error) -> bool {
+    find_permission_denied(err).is_some()
+}

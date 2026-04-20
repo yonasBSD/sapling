@@ -66,6 +66,7 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tracing",
         "//eden/scm/lib/blob:blob",
+        "//eden/scm/lib/edenapi/types:edenapi_types",
         "//eden/scm/lib/manifest:manifest",
         "//eden/scm/lib/minibytes:minibytes",
         "//eden/scm/lib/pathmatcher:pathmatcher",

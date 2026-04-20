@@ -11,6 +11,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use anyhow::bail;
+use edenapi_types::SaplingRemoteApiServerErrorKind;
+use edenapi_types::errors::find_permission_denied;
+use edenapi_types::errors::is_permission_denied;
 use flume::Receiver;
 use flume::Sender;
 use flume::WeakSender;
@@ -131,14 +134,28 @@ pub(crate) fn prefetch_trees<'a>(
     );
     let _entered = span.enter();
 
-    for r in store.get_tree_iter(FetchContext::default(), keys)? {
-        let (key, tree_entry) = r?;
-
-        let links = tree_entry_to_links(tree_entry)?;
-        if let Some(entries) = by_hgid.get(&key.hgid) {
-            for entry in entries {
-                entry.links.get_or_init(|| links.clone());
+    for res in store.get_tree_iter(FetchContext::default(), keys)? {
+        match res {
+            Ok((key, tree_entry)) => {
+                let links = tree_entry_to_links(tree_entry)?;
+                if let Some(entries) = by_hgid.get(&key.hgid) {
+                    for entry in entries {
+                        entry.links.get_or_init(|| links.clone());
+                    }
+                }
             }
+            Err(ref err) if is_permission_denied(err) => {
+                if let Some(SaplingRemoteApiServerErrorKind::PermissionDenied { tree_id, .. }) =
+                    find_permission_denied(err).map(|e| &e.err)
+                {
+                    if let Some(entries) = by_hgid.get(tree_id) {
+                        for entry in entries {
+                            entry.links.get_or_init(BTreeMap::new);
+                        }
+                    }
+                }
+            }
+            Err(err) => return Err(err),
         }
     }
     Ok(())
