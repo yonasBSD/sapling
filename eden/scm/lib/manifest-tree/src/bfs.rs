@@ -7,21 +7,24 @@
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Result;
 use anyhow::bail;
 use flume::Receiver;
 use flume::Sender;
 use flume::WeakSender;
-use minibytes::Bytes;
+use manifest::FileMetadata;
+use storemodel::TreeEntry;
 use types::FetchContext;
 use types::HgId;
 use types::Key;
 use types::PathComponentBuf;
-use types::RepoPath;
+use types::RepoPathBuf;
 
 use crate::link::DurableEntry;
 use crate::link::Link;
+use crate::store;
 use crate::store::InnerStore;
 
 fn num_workers() -> usize {
@@ -84,9 +87,40 @@ where
     work_send
 }
 
-/// Batch-fetch tree content. Errors are silently ignored — they'll be retried
-/// in `materialize_links`.
-pub(crate) fn prefetch_trees(store: &InnerStore, keys: Vec<Key>) -> HashMap<HgId, Bytes> {
+fn tree_entry_to_links(entry: Arc<dyn TreeEntry>) -> Result<BTreeMap<PathComponentBuf, Link>> {
+    let mut links = BTreeMap::new();
+    for item in entry.iter_owned()? {
+        let (component, hgid, flag) = item?;
+        let link = match flag {
+            store::Flag::File(file_type) => Link::leaf(FileMetadata::new(hgid, file_type)),
+            store::Flag::Directory => Link::durable(hgid),
+        };
+        links.insert(component, link);
+    }
+    Ok(links)
+}
+
+/// Batch-fetch tree content and populate DurableEntry links.
+pub(crate) fn prefetch_trees<'a>(
+    store: &InnerStore,
+    entries: impl IntoIterator<Item = &'a Arc<DurableEntry>>,
+) -> Result<()> {
+    let mut by_hgid: HashMap<HgId, Vec<&'a Arc<DurableEntry>>> = HashMap::new();
+    let mut keys = Vec::new();
+    for entry in entries {
+        if !entry.links_initialized() {
+            let v = by_hgid.entry(entry.hgid).or_default();
+            if v.is_empty() {
+                keys.push(Key::new(RepoPathBuf::new(), entry.hgid));
+            }
+            v.push(entry);
+        }
+    }
+
+    if keys.is_empty() {
+        return Ok(());
+    }
+
     let span = tracing::debug_span!(
         "tree::store::prefetch",
         ids = keys
@@ -97,23 +131,15 @@ pub(crate) fn prefetch_trees(store: &InnerStore, keys: Vec<Key>) -> HashMap<HgId
     );
     let _entered = span.enter();
 
-    store
-        .get_content_iter(FetchContext::default(), keys)
-        .ok()
-        .map(|iter| {
-            iter.filter_map(|r| r.ok())
-                .map(|(key, blob)| (key.hgid, blob.into_bytes()))
-                .collect()
-        })
-        .unwrap_or_default()
-}
+    for r in store.get_tree_iter(FetchContext::default(), keys)? {
+        let (key, tree_entry) = r?;
 
-pub(crate) fn materialize_links<'a>(
-    entry: &'a DurableEntry,
-    store: &InnerStore,
-    path: &RepoPath,
-    prefetched: &HashMap<HgId, Bytes>,
-) -> Result<&'a BTreeMap<PathComponentBuf, Link>> {
-    let data = prefetched.get(&entry.hgid);
-    entry.materialize_links(store, path, data)
+        let links = tree_entry_to_links(tree_entry)?;
+        if let Some(entries) = by_hgid.get(&key.hgid) {
+            for entry in entries {
+                entry.links.get_or_init(|| links.clone());
+            }
+        }
+    }
+    Ok(())
 }

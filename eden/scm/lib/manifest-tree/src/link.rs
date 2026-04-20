@@ -7,7 +7,6 @@
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -18,7 +17,6 @@ use anyhow::bail;
 use manifest::File;
 use manifest::FileMetadata;
 use manifest::FsNodeMetadata;
-use minibytes::Bytes;
 use once_cell::sync::OnceCell;
 use pathmatcher::DirectoryMatch;
 use pathmatcher::Matcher;
@@ -312,15 +310,11 @@ impl DirLink {
     /// not available locally. As such, algorithms that require fast access to
     /// this data should take care to ensure that this content is present
     /// locally before calling this method.
-    pub fn list(
-        &self,
-        store: &InnerStore,
-        prefetched: &HashMap<HgId, Bytes>,
-    ) -> Result<(Vec<File>, Vec<DirLink>)> {
+    pub fn list(&self, store: &InnerStore) -> Result<(Vec<File>, Vec<DirLink>)> {
         let mut files = Vec::new();
         let mut dirs = Vec::new();
 
-        for (name, link) in self.links(store, prefetched)? {
+        for (name, link) in self.links(store)? {
             let mut path = self.path.clone();
             path.push(name.as_path_component());
             match link.as_ref() {
@@ -341,15 +335,11 @@ impl DirLink {
     pub fn links(
         &self,
         store: &InnerStore,
-        prefetched: &HashMap<HgId, Bytes>,
     ) -> Result<impl Iterator<Item = (&PathComponentBuf, &Link)> + use<'_>> {
         let links = match self.link.as_ref() {
             Leaf(_) => panic!("programming error: directory cannot be a leaf node"),
             Ephemeral(links) => links,
-            Durable(entry) => {
-                let data = prefetched.get(&entry.hgid);
-                entry.materialize_links(store, &self.path, data)?
-            }
+            Durable(entry) => entry.materialize_links(store, &self.path, None)?,
         };
         Ok(links.iter())
     }
@@ -451,7 +441,7 @@ mod tests {
         let store = Arc::new(TestStore::new());
         let tree = make_tree_manifest(store, &[("a", "1"), ("b/f", "2"), ("c", "3"), ("d/f", "4")]);
         let dir = DirLink::from_root(&tree.root).unwrap();
-        let (files, dirs) = dir.list(&tree.store, &Default::default())?;
+        let (files, dirs) = dir.list(&tree.store)?;
 
         let file_names = files.into_iter().map(|f| f.path).collect::<Vec<_>>();
         let dir_names = dirs.into_iter().map(|d| d.path).collect::<Vec<_>>();

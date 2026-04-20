@@ -20,7 +20,6 @@ use flume::WeakSender;
 use manifest::FsNodeMetadata;
 use once_cell::sync::Lazy;
 use pathmatcher::Matcher;
-use types::Key;
 use types::RepoPathBuf;
 
 use crate::bfs;
@@ -87,39 +86,39 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
             continue;
         }
 
-        // Collect prefetch keys for uninitialized durable entries.
-        let keys: Vec<_> = work
-            .iter()
-            .filter_map(|(_, link)| {
-                if let Durable(entry) = link.as_ref() {
-                    if !entry.links_initialized() {
-                        return Some(Key::new(RepoPathBuf::new(), entry.hgid.clone()));
-                    }
-                }
-                None
-            })
-            .collect();
+        // Batch-prefetch uninitialized durable entries.
+        if let Err(e) = bfs::prefetch_trees(
+            &ctx.store,
+            work.iter().filter_map(|(_, link)| match link.as_ref() {
+                Durable(entry) => Some(entry),
+                _ => None,
+            }),
+        ) {
+            if ctx
+                .result_send
+                .send(vec![Err(e).context("prefetch in bfs_iter")])
+                .is_err()
+            {
+                continue 'outer;
+            }
+            continue;
+        }
 
-        // Errors are retried in materialize_links below.
-        let prefetched = bfs::prefetch_trees(&ctx.store, keys);
-
-        let mut work_to_send = Vec::<(RepoPathBuf, Link)>::new();
         let mut results_to_send = Vec::<Result<(RepoPathBuf, FsNodeMetadata)>>::new();
+        let mut work_to_send = Vec::<(RepoPathBuf, Link)>::new();
         for (path, link) in work {
             let (children, hgid) = match link.as_ref() {
                 Leaf(_) => {
                     continue;
                 }
                 Ephemeral(children) => (children, None),
-                Durable(entry) => {
-                    match bfs::materialize_links(entry, &ctx.store, &path, &prefetched) {
-                        Ok(children) => (children, Some(entry.hgid)),
-                        Err(e) => {
-                            results_to_send.push(Err(e).context("materialize_links in bfs_iter"));
-                            continue;
-                        }
+                Durable(entry) => match entry.materialize_links(&ctx.store, &path, None) {
+                    Ok(children) => (children, Some(entry.hgid)),
+                    Err(e) => {
+                        results_to_send.push(Err(e).context("materialize_links in bfs_iter"));
+                        continue;
                     }
-                }
+                },
             };
 
             for (component, link) in children.iter() {
@@ -543,7 +542,7 @@ mod tests {
             }
         };
 
-        // The iter.rs uses empty paths when collecting keys for get_content_iter,
+        // The iter.rs uses empty paths when collecting keys for get_tree_iter,
         // so we compare by hgid only.
         let fetches: Vec<Vec<types::HgId>> = store
             .fetches()

@@ -6,7 +6,6 @@
  */
 
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
 
@@ -19,14 +18,12 @@ use flume::bounded;
 use manifest::DiffEntry;
 use manifest::DiffType;
 use manifest::DirDiffEntry;
-use minibytes::Bytes;
 use once_cell::sync::Lazy;
 use pathmatcher::DirectoryMatch;
 use pathmatcher::Matcher;
 use progress_model::ActiveProgressBar;
 use progress_model::ProgressBar;
 use progress_model::Registry;
-use types::HgId;
 use types::PathComponentBuf;
 use types::RepoPath;
 use types::RepoPathBuf;
@@ -71,22 +68,12 @@ impl DiffWork {
         matcher: &dyn Matcher,
         work: &mut Vec<DiffWork>,
         result: &ResultSender,
-        prefetched: &HashMap<HgId, Bytes>,
     ) -> Result<()> {
         match self {
-            DiffWork::Single(dir, side, path_conflict) => diff_single(
-                dir,
-                side,
-                path_conflict,
-                store,
-                matcher,
-                work,
-                result,
-                prefetched,
-            ),
-            DiffWork::Changed(left, right) => {
-                diff_dirs(left, right, store, matcher, work, result, prefetched)
+            DiffWork::Single(dir, side, path_conflict) => {
+                diff_single(dir, side, path_conflict, store, matcher, work, result)
             }
+            DiffWork::Changed(left, right) => diff_dirs(left, right, store, matcher, work, result),
         }
     }
 
@@ -232,37 +219,46 @@ fn run_diff_worker(
             continue;
         }
 
-        let keys = work.iter().fold(Vec::new(), |mut acc, item| {
-            let mut maybe_add = |dir: &DirLink| {
-                if let Durable(entry) = dir.link.as_ref() {
-                    if !entry.links_initialized() {
-                        if let Some(key) = dir.key() {
-                            acc.push(key);
+        let durable_entries: Vec<_> = work
+            .iter()
+            .flat_map(|item| match item {
+                DiffWork::Single(dir, _, _) => {
+                    let mut v = Vec::new();
+                    if let Durable(entry) = dir.link.as_ref() {
+                        if !entry.links_initialized() {
+                            v.push(entry);
                         }
                     }
+                    v
                 }
-            };
-            match item {
-                DiffWork::Single(dir, _, _) => maybe_add(dir),
                 DiffWork::Changed(left, right) => {
-                    maybe_add(left);
-                    maybe_add(right);
+                    let mut v = Vec::new();
+                    if let Durable(entry) = left.link.as_ref() {
+                        if !entry.links_initialized() {
+                            v.push(entry);
+                        }
+                    }
+                    if let Durable(entry) = right.link.as_ref() {
+                        if !entry.links_initialized() {
+                            v.push(entry);
+                        }
+                    }
+                    v
                 }
+            })
+            .collect();
+        ctx.progress_bar
+            .increase_position(durable_entries.len() as u64);
+        if let Err(err) = bfs::prefetch_trees(&ctx.store, durable_entries) {
+            if ctx.result_send.send_error(err).is_err() {
+                continue 'outer;
             }
-            acc
-        });
-        ctx.progress_bar.increase_position(keys.len() as u64);
-        let prefetched = bfs::prefetch_trees(&ctx.store, keys);
+            continue;
+        }
 
         let mut to_send = Vec::new();
         for item in work {
-            let res = item.process(
-                &ctx.store,
-                &ctx.matcher,
-                &mut to_send,
-                &ctx.result_send,
-                &prefetched,
-            );
+            let res = item.process(&ctx.store, &ctx.matcher, &mut to_send, &ctx.result_send);
             if let Err(err) = res {
                 if ctx.result_send.send_error(err).is_err() {
                     continue 'outer;
@@ -314,9 +310,8 @@ fn diff_single(
     matcher: &dyn Matcher,
     work: &mut Vec<DiffWork>,
     result: &ResultSender,
-    prefetched: &HashMap<HgId, Bytes>,
 ) -> Result<()> {
-    let (files, dirs) = dir.list(store, prefetched)?;
+    let (files, dirs) = dir.list(store)?;
 
     if result.need_dir_diff() {
         result.send_dir_diff(DirDiffEntry {
@@ -360,7 +355,6 @@ fn diff_dirs(
     matcher: &dyn Matcher,
     work: &mut Vec<DiffWork>,
     result: &ResultSender,
-    prefetched: &HashMap<HgId, Bytes>,
 ) -> Result<()> {
     // Returns whether the parent directory is considered as modified:
     // - Either `l` or `r` is None (added or deleted).
@@ -399,8 +393,8 @@ fn diff_dirs(
         Ok(dir_changed)
     };
 
-    let mut llinks = left.links(store, prefetched)?.peekable();
-    let mut rlinks = right.links(store, prefetched)?.peekable();
+    let mut llinks = left.links(store)?.peekable();
+    let mut rlinks = right.links(store)?.peekable();
     let mut dir_changed = false;
 
     loop {
@@ -583,7 +577,6 @@ mod tests {
             &matcher,
             &mut work,
             &sender,
-            &Default::default(),
         )
         .unwrap();
 

@@ -7,6 +7,8 @@
 
 //! Implement traits from other crates.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use blob::Blob;
 use storemodel::BoxIterator;
@@ -15,9 +17,11 @@ use storemodel::InsertOpts;
 use storemodel::KeyStore;
 use storemodel::Kind;
 use storemodel::SerializationFormat;
+use storemodel::TreeEntry;
 use storemodel::TreeStore;
 use types::FetchContext;
 use types::HgId;
+use types::Key;
 use types::RepoPath;
 use types::fetch_mode::FetchMode;
 
@@ -115,5 +119,31 @@ impl FileStore for GitStore {
 impl TreeStore for GitStore {
     fn clone_tree_store(&self) -> Box<dyn TreeStore> {
         Box::new(self.clone())
+    }
+
+    fn get_tree_iter(
+        &self,
+        _fctx: FetchContext,
+        keys: Vec<Key>,
+    ) -> anyhow::Result<BoxIterator<anyhow::Result<(Key, Arc<dyn TreeEntry>)>>> {
+        // Bulk fetch from remote first.
+        if self.has_fetch_url() {
+            let ids = keys.iter().map(|k| k.hgid).collect::<Vec<_>>();
+            self.fetch_objs(&ids)?;
+        }
+        // Then read locally and parse into TreeEntry.
+        let store = self.clone_tree_store();
+        let iter = keys
+            .into_iter()
+            .map(move |k| match store.get_local_tree(&k.path, k.hgid) {
+                Err(e) => Err(e),
+                Ok(None) => Err(anyhow::format_err!(
+                    "{}@{}: not found locally",
+                    k.path,
+                    k.hgid
+                )),
+                Ok(Some(data)) => Ok((k, data)),
+            });
+        Ok(Box::new(iter))
     }
 }

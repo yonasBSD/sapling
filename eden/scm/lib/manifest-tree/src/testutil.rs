@@ -21,6 +21,7 @@ use storemodel::InsertOpts;
 use storemodel::KeyStore;
 use storemodel::Kind;
 use storemodel::SerializationFormat;
+use storemodel::TreeEntry;
 use types::FetchContext;
 use types::HgId;
 use types::Key;
@@ -65,7 +66,7 @@ pub struct TestStore {
 #[derive(Default)]
 pub struct TestStoreInner {
     entries: HashMap<HgId, Bytes>,
-    // Calls to get_content_iter().
+    // Calls to get_content_iter() and get_tree_iter().
     fetched: Vec<Vec<Key>>,
     // FetchContexts passed to get_content_iter().
     fetch_contexts: Vec<FetchContext>,
@@ -185,6 +186,49 @@ impl KeyStore for TestStore {
 }
 
 impl TreeStore for TestStore {
+    fn get_tree_iter(
+        &self,
+        _fctx: FetchContext,
+        keys: Vec<Key>,
+    ) -> anyhow::Result<BoxIterator<anyhow::Result<(Key, Arc<dyn TreeEntry>)>>> {
+        let mut inner = self.inner.write();
+        inner
+            .key_fetch_count
+            .fetch_add(keys.len() as u64, Ordering::Relaxed);
+        inner.fetched.push(keys.clone());
+        drop(inner);
+
+        let store = self.clone_tree_store();
+        let iter = keys
+            .into_iter()
+            .map(move |k| match store.get_local_tree(&k.path, k.hgid) {
+                Err(e) => Err(e),
+                Ok(None) => Err(anyhow::format_err!(
+                    "{}@{}: not found locally",
+                    k.path,
+                    k.hgid
+                )),
+                Ok(Some(data)) => Ok((k, data)),
+            });
+        Ok(Box::new(iter))
+    }
+
+    fn get_local_tree(
+        &self,
+        _path: &RepoPath,
+        hgid: HgId,
+    ) -> anyhow::Result<Option<Arc<dyn TreeEntry>>> {
+        let inner = self.inner.read();
+        match inner.entries.get(&hgid) {
+            Some(data) => {
+                let format = inner.format;
+                let entry = crate::store::Entry(data.clone(), format);
+                Ok(Some(Arc::new(entry)))
+            }
+            None => Ok(None),
+        }
+    }
+
     fn clone_tree_store(&self) -> Box<dyn TreeStore> {
         Box::new(self.clone())
     }
