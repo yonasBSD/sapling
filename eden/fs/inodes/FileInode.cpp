@@ -1025,81 +1025,22 @@ ImmediateFuture<folly::Unit> FileInode::fallocate(
 ImmediateFuture<string> FileInode::readAll(
     const ObjectFetchContextPtr& fetchContext,
     CacheHint cacheHint) {
-  auto config = getMount()->getEdenConfig();
-  if (config->enableCoroutinesPhase1.getValue()) {
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke(
-            [](auto&& self, auto&&... args) {
-              return self
-                  ->co_readAll(std::forward<decltype(args)>(args)...)
-                  // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                  .as_unsafe();
-            },
-            inodePtrFromThis(),
-            fetchContext.copy(),
-            cacheHint)
-            .semi()};
-  }
-
-  // TODO: calling this on Windows with a non ProjFS filesystem is likely to
-  // deadlock Eden. diff calls into this. So `hg status` on non ProjFS mounts
-  // is likely to hang things.
-  auto interest = BlobCache::Interest::LikelyNeededAgain;
-  switch (cacheHint) {
-    case CacheHint::NotNeededAgain:
-      interest = BlobCache::Interest::UnlikelyNeededAgain;
-      break;
-    case CacheHint::LikelyNeededAgain:
-      // readAll() with LikelyNeededAgain is primarily called for files read
-      // by Eden itself, like .gitignore, and for symlinks on kernels that don't
-      // cache readlink. At least keep the blob around while the inode is
-      // loaded.
-      interest = BlobCache::Interest::WantHandle;
-      break;
-  }
-
-  return runWhileDataLoaded(
-      LockedState{this},
-      interest,
-      fetchContext,
-      nullptr,
-      [self = inodePtrFromThis()](
-          LockedState&& state, std::shared_ptr<const Blob> blob) -> string {
-        std::string result;
-        switch (state->tag) {
-          case State::MATERIALIZED_IN_OVERLAY: {
-#ifdef _WIN32
-            result = readFile(self->getMaterializedFilePath()).value();
-#else
-            XDCHECK(!blob);
-            result = self->getOverlayFileAccess(state)->readAllContents(*self);
-#endif
-            break;
-          }
-          case State::BLOB_NOT_LOADING: {
-            const auto& contentsBuf = blob->getContents();
-            folly::io::Cursor cursor(&contentsBuf);
-            result =
-                cursor.readFixedString(contentsBuf.computeChainDataLength());
-            break;
-          }
-          default:
-            EDEN_BUG() << "neither materialized nor loaded during "
-                          "runWhileDataLoaded() call";
-        }
-
-        // We want to update atime after the read operation.
-        self->updateAtimeLocked(*state);
-
-        return result;
-      });
+  // DEPRECATED: use co_readAll directly. Kept only because
+  // TreeInode::loadGitIgnoreThenDiff (diff path) still calls it;
+  // delete once diff is migrated to coroutines.
+  return ImmediateFuture{
+      // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+      folly::coro::co_invoke(
+          [](auto&& self, auto&&... args) -> folly::coro::Task<std::string> {
+            co_return co_await self->co_readAll(
+                std::forward<decltype(args)>(args)...);
+          },
+          inodePtrFromThis(),
+          fetchContext.copy(),
+          cacheHint)
+          .semi()};
 }
 
-// Coroutine equivalent of readAll(). Mirrors the logic of runWhileDataLoaded
-// but expressed linearly — co_await replaces the recursive .thenValue()
-// callback that runWhileDataLoaded uses to re-check state after an async blob
-// load.
 folly::coro::now_task<std::string> FileInode::co_readAll(
     const ObjectFetchContextPtr& fetchContext,
     CacheHint cacheHint) {
