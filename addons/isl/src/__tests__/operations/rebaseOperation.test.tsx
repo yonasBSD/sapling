@@ -322,7 +322,9 @@ describe('rebase operation', () => {
         getCommitWithPreview('e', CommitPreview.REBASE_OPTIMISTIC_DESCENDANT),
         'b',
       );
-      fireEvent.click(screen.getByText('Run Rebase'));
+      await act(async () => {
+        fireEvent.click(screen.getByText('Run Rebase'));
+      });
 
       // original optimistic is still there
       expect(scanForkedBranchHashes('a')).toContain('d');

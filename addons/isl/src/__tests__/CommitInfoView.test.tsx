@@ -8,6 +8,7 @@
 import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
+import {__TEST__ as ChangedFilesTestUtils} from '../ChangedFilesWithFetching';
 import {tracker} from '../analytics';
 import platform from '../platform';
 import {CommitInfoTestUtils, CommitTreeListTestUtils, ignoreRTL} from '../testQueries';
@@ -47,6 +48,10 @@ describe('CommitInfoView', () => {
   beforeEach(() => {
     resetTestMessages();
     jest.spyOn(tracker, 'track').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    ChangedFilesTestUtils.commitFilesCache.clear();
   });
 
   it('shows loading spinner on mount', () => {
