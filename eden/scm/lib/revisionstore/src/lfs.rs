@@ -3038,7 +3038,7 @@ mod tests {
             &config,
         )?);
         let k = StoreKey::hgid(k1.clone());
-        remote.upload(&[k.clone()])?;
+        remote.upload(std::slice::from_ref(&k))?;
 
         let contentk = StoreKey::Content(ContentHash::sha256(&data), Some(k1));
 
