@@ -404,7 +404,7 @@ fn log_access_to_scuba(
     scuba.add(
         "restricted_paths",
         restricted_paths
-            .into_iter()
+            .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>(),
     );
