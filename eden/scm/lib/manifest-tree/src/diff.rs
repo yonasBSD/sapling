@@ -6,33 +6,37 @@
  */
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
-use std::sync::atomic;
-use std::sync::atomic::AtomicUsize;
 
 use anyhow::Result;
-use anyhow::anyhow;
+use anyhow::bail;
 use flume::Receiver;
 use flume::Sender;
+use flume::WeakSender;
 use flume::bounded;
-use flume::unbounded;
 use manifest::DiffEntry;
 use manifest::DiffType;
 use manifest::DirDiffEntry;
+use minibytes::Bytes;
+use once_cell::sync::Lazy;
 use pathmatcher::DirectoryMatch;
 use pathmatcher::Matcher;
 use progress_model::ActiveProgressBar;
 use progress_model::ProgressBar;
 use progress_model::Registry;
+use types::HgId;
 use types::PathComponentBuf;
 use types::RepoPath;
 use types::RepoPathBuf;
 
 use crate::DirLink;
 use crate::Link;
-use crate::THREAD_POOL;
 use crate::TreeManifest;
+use crate::bfs;
+use crate::bfs::BfsWork;
+use crate::bfs::Cancelable;
 use crate::link::Durable;
 use crate::link::Ephemeral;
 use crate::link::Leaf;
@@ -56,10 +60,9 @@ enum DiffWork {
     Changed(DirLink, DirLink),
 }
 
-enum WorkerInput {
-    Diff(Vec<DiffWork>),
-    Shutdown,
-}
+type DiffWorkItem = BfsWork<DiffWork, DiffContext>;
+
+static DIFF_SENDER: Lazy<Sender<DiffWorkItem>> = Lazy::new(|| bfs::spawn_workers(run_diff_worker));
 
 impl DiffWork {
     fn process(
@@ -67,13 +70,23 @@ impl DiffWork {
         store: &InnerStore,
         matcher: &dyn Matcher,
         work: &mut Vec<DiffWork>,
-        result: ResultSender,
+        result: &ResultSender,
+        prefetched: &HashMap<HgId, Bytes>,
     ) -> Result<()> {
         match self {
-            DiffWork::Single(dir, side, path_conflict) => {
-                diff_single(dir, side, path_conflict, store, matcher, work, result)
+            DiffWork::Single(dir, side, path_conflict) => diff_single(
+                dir,
+                side,
+                path_conflict,
+                store,
+                matcher,
+                work,
+                result,
+                prefetched,
+            ),
+            DiffWork::Changed(left, right) => {
+                diff_dirs(left, right, store, matcher, work, result, prefetched)
             }
-            DiffWork::Changed(left, right) => diff_dirs(left, right, store, matcher, work, result),
         }
     }
 
@@ -121,6 +134,13 @@ impl ResultSender {
         }
         Ok(())
     }
+
+    fn is_disconnected(&self) -> bool {
+        match self {
+            Self::File(sender) => sender.is_disconnected(),
+            Self::Dir(sender) => sender.is_disconnected(),
+        }
+    }
 }
 
 impl From<Sender<Result<DiffEntry>>> for ResultSender {
@@ -136,15 +156,22 @@ impl From<Sender<Result<DirDiffEntry>>> for ResultSender {
 }
 
 #[derive(Clone)]
-struct DiffWorker {
-    work_recv: Receiver<WorkerInput>,
-    work_send: Sender<WorkerInput>,
+struct DiffContext {
     result_send: ResultSender,
     matcher: Arc<dyn Matcher + Sync + Send>,
     store: InnerStore,
-    pending: Arc<AtomicUsize>,
     progress_bar: Arc<ProgressBar>,
 }
+
+impl Cancelable for DiffContext {
+    fn canceled(&self) -> bool {
+        self.result_send.is_disconnected()
+    }
+}
+
+// Balance between large remote fetch batches and parallelism for CPU-intensive
+// tree deserialization. 1000 was faster than 100 and 5000 in testing.
+const BATCH_SIZE: usize = 1000;
 
 /// A parallel iterator over two trees.
 ///
@@ -167,51 +194,27 @@ where
         return Box::new(std::iter::empty());
     }
 
-    // Pick a large number since trees are typically small and I don't want to impact perf.
-    // The important thing is it is less than infinity.
-    const RESULT_QUEUE_SIZE: usize = 100_000;
-
     // Bound this channel so we don't use up unlimited memory if we are diffing faster
     // than caller is reading results.
+    const RESULT_QUEUE_SIZE: usize = 100_000;
     let (result_send, result_recv) = bounded::<Result<T>>(RESULT_QUEUE_SIZE);
-
-    // Use unbounded channel to avoid deadlocks. Memory use should be bounded in practice
-    // since workers will block sending results to caller.
-    let (work_send, work_recv) = unbounded();
-
-    let store = left.store.clone();
 
     let progress_bar = ProgressBar::new("diffing manifest", 0, "trees");
     let registry = Registry::main();
     registry.register_progress_bar(&progress_bar);
 
-    let result_send = ResultSender::from(result_send);
-
-    let worker = DiffWorker {
-        work_recv,
-        work_send,
-        result_send,
-        pending: Arc::new(AtomicUsize::new(0)),
-        store,
-        matcher: Arc::new(matcher),
+    let ctx = DiffContext {
+        result_send: ResultSender::from(result_send),
+        matcher,
+        store: left.store.clone(),
         progress_bar: progress_bar.clone(),
     };
 
-    let thread_count = THREAD_POOL.max_count();
-
-    for _ in 0..thread_count {
-        let worker = worker.clone();
-        THREAD_POOL.execute(move || {
-            // If the worker returns an error, that signals we should shutdown
-            // the whole operation.
-            if worker.run().is_err() {
-                worker.broadcast_shutdown(thread_count);
-            }
-        });
-    }
-
-    worker
-        .publish_work(vec![DiffWork::Changed(lroot, rroot)])
+    DIFF_SENDER
+        .send(BfsWork {
+            work: vec![DiffWork::Changed(lroot, rroot)],
+            ctx,
+        })
         .unwrap();
 
     Box::new(DiffIter {
@@ -220,92 +223,71 @@ where
     })
 }
 
-impl DiffWorker {
-    // This value is a balance between a large value to get big remote fetch batches and
-    // a small value to get more parallelism for CPU intensive tree deserialization and
-    // diff operation.
-    // In my basic testing, 1000 was faster than 100 and faster than 5000 for a large diff
-    // operation.
-    const BATCH_SIZE: usize = 1000;
+fn run_diff_worker(
+    work_recv: Receiver<DiffWorkItem>,
+    work_send: WeakSender<DiffWorkItem>,
+) -> Result<()> {
+    'outer: for BfsWork { work, ctx } in work_recv {
+        if ctx.canceled() {
+            continue;
+        }
 
-    fn run(&self) -> Result<()> {
-        for work in &self.work_recv {
-            let work = match work {
-                WorkerInput::Diff(work) => work,
-                WorkerInput::Shutdown => return Ok(()),
+        let keys = work.iter().fold(Vec::new(), |mut acc, item| {
+            let mut maybe_add = |dir: &DirLink| {
+                if let Durable(entry) = dir.link.as_ref() {
+                    if !entry.links_initialized() {
+                        if let Some(key) = dir.key() {
+                            acc.push(key);
+                        }
+                    }
+                }
             };
-
-            let work_len = work.len();
-
-            // First prefetch everything for this batch.
-            let keys = work.iter().fold(Vec::new(), |mut acc, item| {
-                match item {
-                    DiffWork::Single(dir, side, _) => {
-                        match side {
-                            Side::Left => dir.key().map(|key| acc.push(key)),
-                            Side::Right => dir.key().map(|key| acc.push(key)),
-                        };
-                    }
-                    DiffWork::Changed(left, right) => {
-                        if let Some(key) = left.key() {
-                            acc.push(key);
-                        }
-                        if let Some(key) = right.key() {
-                            acc.push(key);
-                        }
-                    }
-                }
-                acc
-            });
-            self.progress_bar.increase_position(keys.len() as u64);
-            let _ = self.store.prefetch(keys);
-
-            // Now process diff work, accumulating work for the next tree level.
-            let mut to_send = Vec::new();
-            for item in work {
-                let res = item.process(
-                    &self.store,
-                    &self.matcher,
-                    &mut to_send,
-                    self.result_send.clone(),
-                );
-                if let Err(err) = res {
-                    self.result_send.send_error(err)?;
-                }
-
-                if to_send.len() >= Self::BATCH_SIZE {
-                    self.publish_work(mem::take(&mut to_send))?;
+            match item {
+                DiffWork::Single(dir, _, _) => maybe_add(dir),
+                DiffWork::Changed(left, right) => {
+                    maybe_add(left);
+                    maybe_add(right);
                 }
             }
-            self.publish_work(to_send)?;
+            acc
+        });
+        ctx.progress_bar.increase_position(keys.len() as u64);
+        let prefetched = bfs::prefetch_trees(&ctx.store, keys);
 
-            if self.pending.fetch_sub(work_len, atomic::Ordering::AcqRel) == work_len {
-                // If we processed the last work item (i.e. pending has become
-                // 0), return an error which will trigger the shutdown of all
-                // the worker threads.
-                return Err(anyhow!("walk done"));
+        let mut to_send = Vec::new();
+        for item in work {
+            let res = item.process(
+                &ctx.store,
+                &ctx.matcher,
+                &mut to_send,
+                &ctx.result_send,
+                &prefetched,
+            );
+            if let Err(err) = res {
+                if ctx.result_send.send_error(err).is_err() {
+                    continue 'outer;
+                }
+            }
+
+            if to_send.len() >= BATCH_SIZE {
+                if !bfs::try_send(
+                    &work_send,
+                    BfsWork {
+                        work: mem::take(&mut to_send),
+                        ctx: ctx.clone(),
+                    },
+                )? {
+                    continue 'outer;
+                }
             }
         }
 
-        unreachable!("worker owns channel send and recv - channel should not disconnect");
-    }
-
-    fn publish_work(&self, to_send: Vec<DiffWork>) -> Result<()> {
-        if to_send.is_empty() {
-            return Ok(());
-        }
-
-        self.pending
-            .fetch_add(to_send.len(), atomic::Ordering::AcqRel);
-        Ok(self.work_send.send(WorkerInput::Diff(to_send))?)
-    }
-
-    fn broadcast_shutdown(&self, num_workers: usize) {
-        // I couldn't think of a better way to handle shutdown.
-        for _ in 0..num_workers {
-            self.work_send.send(WorkerInput::Shutdown).unwrap();
+        if !bfs::try_send(&work_send, BfsWork { work: to_send, ctx })? {
+            continue 'outer;
         }
     }
+
+    bail!("work channel disconnected (receiver)")
 }
 
 struct DiffIter<T = DiffEntry> {
@@ -331,9 +313,10 @@ fn diff_single(
     store: &InnerStore,
     matcher: &dyn Matcher,
     work: &mut Vec<DiffWork>,
-    result: ResultSender,
+    result: &ResultSender,
+    prefetched: &HashMap<HgId, Bytes>,
 ) -> Result<()> {
-    let (files, dirs) = dir.list(store)?;
+    let (files, dirs) = dir.list(store, prefetched)?;
 
     if result.need_dir_diff() {
         result.send_dir_diff(DirDiffEntry {
@@ -376,7 +359,8 @@ fn diff_dirs(
     store: &InnerStore,
     matcher: &dyn Matcher,
     work: &mut Vec<DiffWork>,
-    result: ResultSender,
+    result: &ResultSender,
+    prefetched: &HashMap<HgId, Bytes>,
 ) -> Result<()> {
     // Returns whether the parent directory is considered as modified:
     // - Either `l` or `r` is None (added or deleted).
@@ -415,8 +399,8 @@ fn diff_dirs(
         Ok(dir_changed)
     };
 
-    let mut llinks = left.links(store)?.peekable();
-    let mut rlinks = right.links(store)?.peekable();
+    let mut llinks = left.links(store, prefetched)?.peekable();
+    let mut rlinks = right.links(store, prefetched)?.peekable();
     let mut dir_changed = false;
 
     loop {
@@ -473,7 +457,6 @@ fn diff_links(
     let (mut dir_diff, mut file_diff) = (None, None);
 
     match (left.map(|l| l.as_ref()), right.map(|r| r.as_ref())) {
-        // Both are files - compare file metadata (including id).
         (Some(Leaf(lmeta)), Some(Leaf(rmeta))) => {
             if lmeta != rmeta {
                 file_diff = Some(DiffEntry::new(
@@ -482,7 +465,6 @@ fn diff_links(
                 ));
             }
         }
-        // Both are directories - short circuit diff if ids match.
         (Some(ldata @ (Durable(_) | Ephemeral(_))), Some(rdata @ (Durable(_) | Ephemeral(_)))) => {
             let mut equal = false;
             if let (Durable(left), Durable(right)) = (ldata, rdata) {
@@ -496,7 +478,6 @@ fn diff_links(
                 ));
             }
         }
-        // Differing types.
         _ => {
             let mut single_diff = |link: &Link, side: Side| match link.as_ref() {
                 Leaf(meta) => {
@@ -517,8 +498,6 @@ fn diff_links(
                     let dir_link = DirLink::from_link(link, path())
                         .expect("non-leaf node must be a valid directory");
 
-                    // If we don't have a path conflict here, we don't want to mark
-                    // unknown files under us as conflicts.
                     let is_conflict = side != Side::Left || right.is_some();
                     dir_diff = Some(DiffWork::Single(dir_link, side, is_conflict));
                 }
@@ -591,7 +570,7 @@ mod tests {
         let store = Arc::new(TestStore::new());
         let tree = make_tree_manifest(store, &[("a", "1"), ("b/f", "2"), ("c", "3"), ("d/f", "4")]);
         let dir = DirLink::from_root(&tree.root).unwrap();
-        let (sender, receiver) = unbounded::<Result<DiffEntry>>();
+        let (sender, receiver) = flume::unbounded::<Result<DiffEntry>>();
         let mut work = Vec::new();
         let sender = ResultSender::from(sender);
 
@@ -603,9 +582,12 @@ mod tests {
             &tree.store,
             &matcher,
             &mut work,
-            sender,
+            &sender,
+            &Default::default(),
         )
         .unwrap();
+
+        drop(sender);
 
         let expected_entries = vec![
             DiffEntry::new(

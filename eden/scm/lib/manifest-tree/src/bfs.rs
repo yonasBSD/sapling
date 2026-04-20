@@ -14,8 +14,6 @@ use flume::Receiver;
 use flume::Sender;
 use flume::WeakSender;
 use minibytes::Bytes;
-use once_cell::sync::Lazy;
-use threadpool::ThreadPool;
 use types::FetchContext;
 use types::HgId;
 use types::Key;
@@ -26,11 +24,8 @@ use crate::link::DurableEntry;
 use crate::link::Link;
 use crate::store::InnerStore;
 
-static BFS_POOL: Lazy<ThreadPool> =
-    Lazy::new(|| ThreadPool::with_name("manifest-bfs".to_string(), num_cpus::get().min(20)));
-
-pub(crate) fn pool() -> &'static ThreadPool {
-    &BFS_POOL
+fn num_workers() -> usize {
+    num_cpus::get().min(20)
 }
 
 pub(crate) struct BfsWork<W, Ctx> {
@@ -63,7 +58,7 @@ pub(crate) fn try_send<W: Send + Sync + 'static, Ctx: Cancelable + Send + Sync +
     Ok(true)
 }
 
-/// Spawn BFS workers on the shared pool with weak-sender shutdown.
+/// Spawn BFS workers as dedicated threads with weak-sender shutdown.
 /// Workers shut down when the returned strong `Sender` is dropped.
 pub(crate) fn spawn_workers<W, Ctx, F>(worker_fn: F) -> Sender<BfsWork<W, Ctx>>
 where
@@ -76,12 +71,11 @@ where
 {
     let (work_send, work_recv) = flume::unbounded();
 
-    let pool = pool();
-    for _ in 0..pool.max_count() {
+    for _ in 0..num_workers() {
         let work_recv = work_recv.clone();
         let work_send_weak = work_send.downgrade();
         let worker_fn = worker_fn.clone();
-        pool.execute(move || {
+        std::thread::spawn(move || {
             let res = worker_fn(work_recv, work_send_weak);
             tracing::debug!(?res, "bfs worker exited");
         });

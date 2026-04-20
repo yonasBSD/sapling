@@ -19,7 +19,6 @@ use storemodel::SerializationFormat;
 pub use storemodel::TreeStore;
 use types::FetchContext;
 use types::HgId;
-use types::Key;
 use types::PathComponent;
 use types::PathComponentBuf;
 use types::RepoPath;
@@ -67,18 +66,6 @@ impl InnerStore {
             let id = self.tree_store.insert_data(opts, path, entry.0.into())?;
             Ok(id)
         })
-    }
-
-    pub fn prefetch(&self, keys: Vec<Key>) -> Result<()> {
-        tracing::debug_span!(
-            "tree::store::prefetch",
-            ids = keys
-                .iter()
-                .map(|k| k.hgid.to_hex())
-                .collect::<Vec<String>>()
-                .join(" ")
-        )
-        .in_scope(|| self.tree_store.prefetch(keys))
     }
 }
 

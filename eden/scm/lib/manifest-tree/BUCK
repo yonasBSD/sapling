@@ -64,7 +64,6 @@ rust_library(
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:thiserror",
-        "fbsource//third-party/rust:threadpool",
         "fbsource//third-party/rust:tracing",
         "//eden/scm/lib/blob:blob",
         "//eden/scm/lib/manifest:manifest",
