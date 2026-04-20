@@ -276,60 +276,20 @@ ObjectStore::getTreeEntryForObjectId(
 ImmediateFuture<shared_ptr<const Tree>> ObjectStore::getTree(
     const ObjectId& id,
     const ObjectFetchContextPtr& fetchContext) const {
-  if (getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke(
-            [this](auto&&... args) {
-              return co_getTree(std::forward<decltype(args)>(args)...)
-                  // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                  .as_unsafe();
-            },
-            ObjectId{id},
-            fetchContext.copy())
-            .semi()};
-  }
-  TaskTraceBlock block{"ObjectStore::getTree"};
-  DurationScope<EdenStats> statScope{stats_, &ObjectStoreStats::getTree};
-  folly::stop_watch<std::chrono::milliseconds> watch;
-
-  if (auto maybeTree = treeCache_->get(id)) {
-    stats_->increment(&ObjectStoreStats::getTreeFromMemory);
-    fetchContext->didFetch(
-        ObjectFetchContext::Tree, id, ObjectFetchContext::FromMemoryCache);
-
-    updateProcessFetch(*fetchContext);
-    stats_->addDuration(
-        &ObjectStoreStats::getTreeMemoryDuration, watch.elapsed());
-    return changeCaseSensitivity(std::move(maybeTree), caseSensitive_);
-  }
-
-  deprioritizeWhenFetchHeavy(*fetchContext);
-
+  // DEPRECATED: use co_getTree directly. Kept only because IObjectStore
+  // still declares the ImmediateFuture virtual; delete once all callers
+  // (checkout, diff, glob, readdir, inode loading) are migrated to coroutines.
   return ImmediateFuture{
       // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
       folly::coro::co_invoke(
-          [this](auto&&... args)
-              -> folly::coro::Task<BackingStore::GetTreeResult> {
-            co_return co_await getTreeImpl(std::move(args)...);
+          [self = shared_from_this()](auto&&... args)
+              -> folly::coro::Task<std::shared_ptr<const Tree>> {
+            co_return co_await self->co_getTree(
+                std::forward<decltype(args)>(args)...);
           },
           ObjectId{id},
-          fetchContext.copy(),
-          watch)
-          .semi()}
-      .thenValue([self = shared_from_this(),
-                  statScope = std::move(statScope),
-                  id,
-                  fetchContext =
-                      fetchContext.copy()](BackingStore::GetTreeResult result) {
-        TaskTraceBlock block2{"ObjectStore::getTree::thenValue"};
-        auto tree =
-            changeCaseSensitivity(std::move(result.tree), self->caseSensitive_);
-        self->treeCache_->insert(tree->getObjectId(), tree);
-        fetchContext->didFetch(ObjectFetchContext::Tree, id, result.origin);
-        self->updateProcessFetch(*fetchContext);
-        return tree;
-      });
+          fetchContext.copy())
+          .semi()};
 }
 
 folly::coro::now_task<std::shared_ptr<const Tree>> ObjectStore::co_getTree(
