@@ -15,6 +15,7 @@ use blobstore::BlobstoreGetData;
 use context::CoreContext;
 use derived_data_manager::BonsaiDerivable;
 use derived_data_manager::DerivableType;
+use derived_data_manager::DerivableUntopologically;
 use derived_data_manager::DerivationContext;
 use derived_data_manager::dependencies;
 use derived_data_service_if as thrift;
@@ -25,10 +26,12 @@ use mononoke_types::BlobstoreBytes;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::BssmV3DirectoryId;
 use mononoke_types::ChangesetId;
+use mononoke_types::DerivableUntopologicallyVariant;
 use mononoke_types::ThriftConvert;
 use skeleton_manifest::RootSkeletonManifestId;
 
 use crate::derive::derive_single;
+use crate::derive_from_predecessor::derive_from_predecessor;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct RootBssmV3DirectoryId(pub(crate) BssmV3DirectoryId);
@@ -143,5 +146,24 @@ impl BonsaiDerivable for RootBssmV3DirectoryId {
         Ok(thrift::DerivedData::bssm_v3(
             thrift::DerivedDataBssmV3::root_bssm_v3_directory_id(data.0.into_thrift()),
         ))
+    }
+}
+
+#[async_trait]
+impl DerivableUntopologically for RootBssmV3DirectoryId {
+    const DERIVABLE_UNTOPOLOGICALLY_VARIANT: DerivableUntopologicallyVariant =
+        DerivableUntopologicallyVariant::BssmV3;
+    type PredecessorDependencies = dependencies![RootSkeletonManifestId];
+
+    async fn unsafe_derive_untopologically(
+        ctx: &CoreContext,
+        derivation_ctx: &DerivationContext,
+        bonsai: BonsaiChangeset,
+    ) -> Result<Self> {
+        let csid = bonsai.get_changeset_id();
+        let skeleton_manifest = derivation_ctx
+            .fetch_dependency::<RootSkeletonManifestId>(ctx, csid)
+            .await?;
+        derive_from_predecessor(ctx, derivation_ctx, skeleton_manifest).await
     }
 }

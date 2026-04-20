@@ -468,6 +468,9 @@ fn manager_for_derivable_untopologically_variant(
 ) -> Arc<dyn SingleTypeUntopologicalDerivation + Send + Sync + 'static> {
     let manager = manager.clone();
     match variant {
+        DerivableUntopologicallyVariant::BssmV3 => {
+            Arc::new(SingleTypeManager::<RootBssmV3DirectoryId>::new(manager))
+        }
         DerivableUntopologicallyVariant::ContentManifests => {
             Arc::new(SingleTypeManager::<RootContentManifestId>::new(manager))
         }
