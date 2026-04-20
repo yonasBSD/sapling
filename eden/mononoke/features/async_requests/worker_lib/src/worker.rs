@@ -341,13 +341,11 @@ impl AsyncMethodRequestWorker {
             // This prevents a concurrent task from also calling add_repo for
             // the same repo_id — it will see the entry and just bump the count.
             let configs = self.repos_mgr.configs();
-            let repo_name = configs
-                .repo_configs()
-                .repos
-                .iter()
-                .find(|(_, config)| config.repoid == repo_id)
-                .map(|(name, _)| name.clone())
-                .ok_or_else(|| Error::msg(format!("No config found for repo_id {}", repo_id)))?;
+            let (repo_name, _) = configs
+                .get_or_load_repo_config_by_id(repo_id.id())
+                .map_err(|e| {
+                    Error::msg(format!("No config found for repo_id {}: {}", repo_id, e))
+                })?;
             refs.insert(repo_id, (repo_name, 1));
         }
 
