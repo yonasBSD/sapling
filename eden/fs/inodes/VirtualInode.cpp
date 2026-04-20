@@ -862,60 +862,6 @@ folly::coro::now_task<VirtualInode> co_getOrFindChildHelper(
   }
 }
 
-/**
- * Helper function for getOrFindChild when the current node is a Tree.
- */
-ImmediateFuture<VirtualInode> getOrFindChildHelper(
-    TreePtr tree,
-    PathComponentPiece childName,
-    RelativePathPiece path,
-    const std::shared_ptr<ObjectStore>& objectStore,
-    const ObjectFetchContextPtr& fetchContext) {
-  if (objectStore->getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke(
-            [](auto&&... args) {
-              return co_getOrFindChildHelper(
-                         std::forward<decltype(args)>(args)...)
-                  // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                  .as_unsafe();
-            },
-            std::move(tree),
-            childName.copy(),
-            path.copy(),
-            std::shared_ptr<ObjectStore>(objectStore),
-            fetchContext.copy())
-            .semi()};
-  }
-  // Lookup the next child
-  const auto it = tree->find(childName);
-  if (it == tree->cend()) {
-    // Note that the path printed below is the requested path that is being
-    // walked, childName may appear anywhere in the path.
-    XLOGF(
-        DBG7,
-        "attempted to find non-existent TreeEntry \"{}\" in {}",
-        childName,
-        path);
-    return makeImmediateFuture<VirtualInode>(
-        std::system_error(ENOENT, std::generic_category()));
-  }
-
-  // Always descend if the treeEntry is a Tree
-  const auto* treeEntry = &it->second;
-  if (treeEntry->isTree()) {
-    return objectStore->getTree(treeEntry->getObjectId(), fetchContext)
-        .thenValue(
-            [mode = modeFromTreeEntryType(treeEntry->getType())](TreePtr tree) {
-              return VirtualInode{std::move(tree), mode};
-            });
-  } else {
-    // This is a file, return the TreeEntry for it
-    return VirtualInode{*treeEntry};
-  }
-}
-
 } // namespace
 
 ImmediateFuture<VirtualInode> VirtualInode::getOrFindChild(
@@ -923,43 +869,22 @@ ImmediateFuture<VirtualInode> VirtualInode::getOrFindChild(
     RelativePathPiece path,
     const std::shared_ptr<ObjectStore>& objectStore,
     const ObjectFetchContextPtr& fetchContext) const {
-  if (objectStore->getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke(
-            [](auto&& self, auto&&... args) {
-              return std::forward<decltype(self)>(self)
-                  .co_getOrFindChild(std::forward<decltype(args)>(args)...)
-                  // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                  .as_unsafe();
-            },
-            *this,
-            childName.copy(),
-            path.copy(),
-            std::shared_ptr<ObjectStore>(objectStore),
-            fetchContext.copy())
-            .semi()};
-  }
-  if (!isDirectory()) {
-    return makeImmediateFuture<VirtualInode>(PathError(ENOTDIR, path));
-  }
-  auto notDirectory = [&] {
-    // These represent files in VirtualInode, and can't be descended
-    return makeImmediateFuture<VirtualInode>(PathError(
-        ENOTDIR, path, std::string_view{"variant is of unhandled type"}));
-  };
-  return match(
-      variant_,
-      [&](const InodePtr& inode) {
-        return inode.asTreePtr()->getOrFindChild(
-            childName, fetchContext, false);
-      },
-      [&](const TreePtr& tree) {
-        return getOrFindChildHelper(
-            tree, childName, path, objectStore, fetchContext);
-      },
-      [&](const UnmaterializedUnloadedBlobDirEntry&) { return notDirectory(); },
-      [&](const TreeEntry&) { return notDirectory(); });
+  // DEPRECATED: use co_getOrFindChild directly. Kept only because
+  // EdenMount::VirtualInodeLookupProcessor::next and VirtualInodeLoader
+  // still consume ImmediateFuture chains; delete once those are migrated.
+  return ImmediateFuture{
+      // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+      folly::coro::co_invoke(
+          [](auto&& self, auto&&... args) -> folly::coro::Task<VirtualInode> {
+            co_return co_await self.co_getOrFindChild(
+                std::forward<decltype(args)>(args)...);
+          },
+          *this,
+          childName.copy(),
+          path.copy(),
+          std::shared_ptr<ObjectStore>(objectStore),
+          fetchContext.copy())
+          .semi()};
 }
 
 folly::coro::now_task<VirtualInode> VirtualInode::co_getOrFindChild(
