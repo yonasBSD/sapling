@@ -369,7 +369,7 @@ pub enum WireSaplingRemoteApiServerError {
     OpaqueError(String),
 
     #[serde(rename = "2")]
-    RestrictedPathPermissionError {
+    PermissionDenied {
         tree_id: WireHgId,
         request_acl: String,
     },
@@ -385,10 +385,10 @@ impl ToWire for SaplingRemoteApiServerErrorKind {
         use SaplingRemoteApiServerErrorKind::*;
         match self {
             OpaqueError(s) => WireSaplingRemoteApiServerError::OpaqueError(s),
-            RestrictedPathPermissionError {
+            PermissionDenied {
                 tree_id,
                 request_acl,
-            } => WireSaplingRemoteApiServerError::RestrictedPathPermissionError {
+            } => WireSaplingRemoteApiServerError::PermissionDenied {
                 tree_id: tree_id.to_wire(),
                 request_acl,
             },
@@ -409,10 +409,10 @@ impl ToApi for WireSaplingRemoteApiServerError {
                 ));
             }
             OpaqueError(s) => SaplingRemoteApiServerErrorKind::OpaqueError(s),
-            RestrictedPathPermissionError {
+            PermissionDenied {
                 tree_id,
                 request_acl,
-            } => SaplingRemoteApiServerErrorKind::RestrictedPathPermissionError {
+            } => SaplingRemoteApiServerErrorKind::PermissionDenied {
                 tree_id: tree_id.to_api()?,
                 request_acl,
             },

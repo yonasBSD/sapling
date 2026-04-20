@@ -291,7 +291,7 @@ pub enum SaplingRemoteApiServerErrorKind {
     #[error(
         "Unauthorized access to manifest under restricted path: {tree_id}. Request access via ACL {request_acl}."
     )]
-    RestrictedPathPermissionError {
+    PermissionDenied {
         /// ID of the tree to which the user does not have access.
         tree_id: HgId,
         /// ACL to direct users for access requests.

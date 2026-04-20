@@ -254,20 +254,20 @@ impl TryFrom<AugmentedTree> for TreeEntry {
                         .into(),
                     )),
                     AugmentedTreeEntry::DirectoryNode(tree) => {
-                        Ok(TreeChildEntry::new_directory_entry(
-                            Key {
+                        Ok(TreeChildEntry::Directory(TreeChildDirectoryEntry {
+                            key: Key {
                                 hgid: tree.treenode,
                                 path: path.into(),
                             },
-                            DirectoryMetadata {
+                            tree_aux_data: Some(DirectoryMetadata {
                                 augmented_manifest_id: Blake3::from_another(
                                     tree.augmented_manifest_id,
                                 ),
                                 augmented_manifest_size: tree.augmented_manifest_size,
-                            },
+                            }),
                             // TODO(T248658346): populate has_acl field
-                            None,
-                        ))
+                            has_acl: None,
+                        }))
                     }
                 })
                 .collect::<Result<Vec<_>, TreeError>>()?

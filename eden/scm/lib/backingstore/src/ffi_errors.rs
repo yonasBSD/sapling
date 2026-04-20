@@ -64,6 +64,7 @@ fn extract_remote_api_error(err: &SaplingRemoteApiError) -> (BackingStoreErrorKi
         | SaplingRemoteApiError::MissingCerts(_)
         | SaplingRemoteApiError::NotSupported
         | SaplingRemoteApiError::WireToApiConversionFailed(_)
+        | SaplingRemoteApiError::PermissionDenied(_)
         | SaplingRemoteApiError::Other(_) => (BackingStoreErrorKind::Generic, None),
     }
 }
