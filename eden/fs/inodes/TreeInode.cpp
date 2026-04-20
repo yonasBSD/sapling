@@ -624,30 +624,19 @@ class LookupProcessor {
 ImmediateFuture<InodePtr> TreeInode::getChildRecursive(
     RelativePathPiece path,
     const ObjectFetchContextPtr& context) {
-  if (getMount()->getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke(
-            [this](auto&&... args) {
-              return co_getChildRecursive(std::forward<decltype(args)>(args)...)
-                  // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                  .as_unsafe();
-            },
-            path.copy(),
-            context.copy())
-            .semi()};
-  }
-  auto pathStr = path.view();
-  if (pathStr.empty()) {
-    return inodePtrFromThis();
-  }
-
-  auto processor = std::make_unique<LookupProcessor>(path, context.copy());
-  auto future = processor->next(inodePtrFromThis());
-  // This ensure() callback serves to hold onto the unique_ptr,
-  // and makes sure it only gets destroyed when the future is finally resolved.
-  return std::move(future).ensure(
-      [p = std::move(processor)]() mutable { p.reset(); });
+  // DEPRECATED: use co_getChildRecursive directly. Kept only because
+  // EdenMount::getInodeSlow and EdenServiceHandler glob entry lookup
+  // still consume ImmediateFuture chains; delete once those are migrated.
+  return ImmediateFuture{
+      // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+      folly::coro::co_invoke(
+          [this](auto&&... args) -> folly::coro::Task<InodePtr> {
+            co_return co_await co_getChildRecursive(
+                std::forward<decltype(args)>(args)...);
+          },
+          path.copy(),
+          context.copy())
+          .semi()};
 }
 
 folly::coro::now_task<InodePtr> TreeInode::co_getChildRecursive(
