@@ -188,11 +188,6 @@ impl MononokeScubaSampleBuilder {
                 consistent_hashing: Some(client_info.correlator.as_str()),
             },
             ExperimentJKData {
-                jk_name: "scm/mononoke:disable_bonsai_mapping_read_fallback_to_primary",
-                switch_values: vec!["git"],
-                consistent_hashing: Some(client_info.correlator.as_str()),
-            },
-            ExperimentJKData {
                 jk_name: "scm/mononoke:remote_diff",
                 switch_values: vec!["instagram-server", "www", "fbcode"],
                 consistent_hashing: Some(client_info.correlator.as_str()),
