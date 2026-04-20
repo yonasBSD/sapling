@@ -70,6 +70,7 @@ use edenapi::types::NodeInfo;
 use edenapi::types::Parents;
 use edenapi::types::RepoPathBuf;
 use edenapi::types::SaplingRemoteApiServerError;
+use edenapi::types::SaplingRemoteApiServerErrorKind;
 use edenapi::types::ServerError;
 use edenapi::types::SetBookmarkResponse;
 use edenapi::types::SuffixQueryResponse;
@@ -331,6 +332,24 @@ impl SaplingRemoteApi for EagerRepo {
                     Ok(tree) => {
                         let augmented_tree_with_digest =
                             AugmentedTreeWithDigest::try_deserialize(std::io::Cursor::new(tree))?;
+
+                        // Check if the tree has a .slacl file and return PermissionDenied if so
+                        if augmented_tree_with_digest
+                            .augmented_tree
+                            .entries
+                            .iter()
+                            .any(|(path, _)| path.as_str() == ".slacl")
+                        {
+                            values.push(Ok(Err(SaplingRemoteApiServerError {
+                                key: Some(key.clone()),
+                                err: SaplingRemoteApiServerErrorKind::PermissionDenied {
+                                    tree_id: key.hgid,
+                                    request_acl: "some-acl".to_string(),
+                                },
+                            })));
+                            continue;
+                        }
+
                         let mut converted_entry: TreeEntry =
                             TreeEntry::try_from(augmented_tree_with_digest).map_err(|err| {
                                 SaplingRemoteApiServerError::with_key(key.clone(), err)
