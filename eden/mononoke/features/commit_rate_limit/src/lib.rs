@@ -104,6 +104,12 @@ pub struct CommitRateLimitCheckResult {
 pub struct RuleCheckResult {
     pub rule_name: String,
     pub outcome: RateLimitOutcome,
+    /// The author username the rule was scoped to, when `per_user` is true.
+    /// `None` for global (non-per-user) rules, or when the author could not
+    /// be parsed.
+    pub user_filter: Option<String>,
+    /// Directories the rule applies to. Empty when the rule applies repo-wide.
+    pub directories: Vec<String>,
 }
 
 // --- Public API ---
@@ -136,6 +142,7 @@ pub async fn check_all_commit_rate_limits(
             } else {
                 None
             };
+            let directories = rule.directories().to_vec();
             async move {
                 let outcome = check_commit_rate_limit(
                     ctx,
@@ -150,6 +157,8 @@ pub async fn check_all_commit_rate_limits(
                 anyhow::Ok(RuleCheckResult {
                     rule_name: rule.name().to_string(),
                     outcome,
+                    user_filter,
+                    directories,
                 })
             }
         })
