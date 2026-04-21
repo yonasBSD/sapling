@@ -1071,7 +1071,7 @@ impl TreeEntry for ScmStoreTreeEntry {
             None => return Ok(Box::new(std::iter::empty())),
         };
 
-        let children_with_acl = self.tree.children_with_acl();
+        let children_with_acl = self.tree.children_with_acl()?;
         if children_with_acl.is_empty() {
             return Ok(Box::new(std::iter::empty()));
         }

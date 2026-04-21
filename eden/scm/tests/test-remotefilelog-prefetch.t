@@ -68,6 +68,7 @@ Now we do have aux data locally:
                       size: None,
                       flags: None,
                   },
+                  acl_children_indices: None,
                   content: OnceCell(Uninit),
                   compressed_content: Some(
                       b"\x01\x00\x00\x00\x10A",
@@ -104,6 +105,7 @@ Make sure we don't have aux data yet:
                       size: None,
                       flags: None,
                   },
+                  acl_children_indices: None,
                   content: OnceCell(Uninit),
                   compressed_content: Some(
                       b"\x01\x00\x00\x00\x10B",

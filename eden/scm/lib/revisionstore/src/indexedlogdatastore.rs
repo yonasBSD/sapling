@@ -66,6 +66,7 @@ pub struct IndexedLogHgIdDataStore {
 pub struct Entry {
     node: Id20,
     metadata: Metadata,
+    acl_children_indices: Option<Vec<u32>>,
 
     content: OnceCell<Bytes>,
     compressed_content: Option<Bytes>,
@@ -75,6 +76,7 @@ impl std::cmp::PartialEq for Entry {
     fn eq(&self, other: &Self) -> bool {
         self.node == other.node
             && self.metadata == other.metadata
+            && self.acl_children_indices == other.acl_children_indices
             && match (self.calculate_content(), other.calculate_content()) {
                 (Ok(c1), Ok(c2)) if c1 == c2 => true,
                 _ => false,
@@ -87,6 +89,7 @@ impl Entry {
         Entry {
             node,
             metadata,
+            acl_children_indices: None,
             content: OnceCell::with_value(content),
             compressed_content: None,
         }
@@ -130,6 +133,7 @@ impl Entry {
         Ok(Entry {
             node: hgid,
             metadata: metadata.api,
+            acl_children_indices: metadata.acl_children_indices,
             content,
             compressed_content,
         })
@@ -165,6 +169,7 @@ impl Entry {
         let metadata = InternalMetadata {
             api: self.metadata,
             uncompressed: !should_compress,
+            acl_children_indices: self.acl_children_indices.clone(),
         };
         metadata.write(buf)?;
 
@@ -221,6 +226,14 @@ impl Entry {
 
     pub fn node(&self) -> Id20 {
         self.node
+    }
+
+    pub fn acl_children_indices(&self) -> Option<&[u32]> {
+        self.acl_children_indices.as_deref()
+    }
+
+    pub fn set_acl_children_indices(&mut self, indices: Vec<u32>) {
+        self.acl_children_indices = Some(indices);
     }
 }
 

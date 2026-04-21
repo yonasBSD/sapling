@@ -9,7 +9,6 @@ use std::io::Cursor;
 use std::io::Write;
 
 use anyhow::Result;
-use anyhow::format_err;
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
@@ -18,6 +17,7 @@ use quickcheck_arbitrary_derive::Arbitrary;
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
 use vlqencoding::VLQDecode;
+use vlqencoding::VLQEncode;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "for-tests"), derive(Arbitrary))]
@@ -28,10 +28,12 @@ pub struct Metadata {
 
 /// InternalMetadata combines the "external" metadata about the entry with "internal" metadata
 /// specific to how we store/serialize it.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct InternalMetadata {
     pub api: Metadata,
     pub uncompressed: bool,
+    /// VLQ-encoded indices of directory children (in manifest blob order) that have `has_acl`.
+    pub acl_children_indices: Option<Vec<u32>>,
 }
 
 impl Metadata {
@@ -53,6 +55,7 @@ impl Metadata {
         InternalMetadata {
             api: *self,
             uncompressed: false,
+            acl_children_indices: None,
         }
         .write(writer)
     }
@@ -72,6 +75,15 @@ impl InternalMetadata {
         if self.uncompressed {
             buf.write_u8(b'u')?;
         }
+        if let Some(indices) = &self.acl_children_indices {
+            let mut vlq_buf = vec![];
+            for &idx in indices {
+                vlq_buf.write_vlq(idx)?;
+            }
+            buf.write_u8(b'a')?;
+            buf.write_vlq(vlq_buf.len() as u64)?;
+            buf.write_all(&vlq_buf)?;
+        }
 
         writer.write_u32::<BigEndian>(buf.len() as u32)?;
         writer.write_all(buf.as_ref())?;
@@ -90,6 +102,7 @@ impl InternalMetadata {
         let mut size: Option<u64> = None;
         let mut flags: Option<u64> = None;
         let mut uncompressed = false;
+        let mut acl_children_indices: Option<Vec<u32>> = None;
         let start_offset = cur.position();
         while cur.position() < start_offset + metadata_len {
             let key = cur.read_u8()?;
@@ -101,37 +114,52 @@ impl InternalMetadata {
             }
 
             if key == b'a' {
-                // ACL children indices — skip over VLQ-length-prefixed data.
+                // ACL children indices use a VLQ length prefix.
                 let value_len: u64 = cur.read_vlq()?;
-                let cur_pos = cur.position();
-                cur.set_position(cur_pos + value_len);
+                let value_start = cur.position() as usize;
+                let buf = cur.get_ref();
+                let value_end = value_start
+                    .checked_add(value_len as usize)
+                    .filter(|&end| end <= buf.len())
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "acl children indices length {} exceeds buffer at offset {}",
+                            value_len,
+                            value_start
+                        )
+                    })?;
+                let vlq_data = &buf[value_start..value_end];
+                let mut vlq_cur = Cursor::new(vlq_data);
+                let indices = acl_children_indices.get_or_insert_with(Vec::new);
+                while (vlq_cur.position() as usize) < vlq_data.len() {
+                    let idx: u32 = vlq_cur.read_vlq()?;
+                    indices.push(idx);
+                }
+                cur.set_position(value_end as u64);
                 continue;
             }
 
             let value_len = cur.read_u16::<BigEndian>()? as usize;
+            let value_start = cur.position() as usize;
             match key {
                 b'f' => {
                     let buf = cur.get_ref();
-                    flags = Some(bin_to_u64(
-                        &buf[cur.position() as usize..cur.position() as usize + value_len],
-                    ));
+                    flags = Some(bin_to_u64(&buf[value_start..value_start + value_len]));
                 }
                 b's' => {
                     let buf = cur.get_ref();
-                    size = Some(bin_to_u64(
-                        &buf[cur.position() as usize..cur.position() as usize + value_len],
-                    ));
+                    size = Some(bin_to_u64(&buf[value_start..value_start + value_len]));
                 }
-                _ => return Err(format_err!("invalid metadata format '{:?}'", key)),
+                _ => anyhow::bail!("invalid metadata format '{:?}'", key),
             }
 
-            let cur_pos = cur.position();
-            cur.set_position(cur_pos + value_len as u64);
+            cur.set_position((value_start + value_len) as u64);
         }
 
         Ok(Self {
             api: Metadata { flags, size },
             uncompressed,
+            acl_children_indices,
         })
     }
 }
@@ -177,7 +205,6 @@ fn bin_to_u64(buf: &[u8]) -> u64 {
 #[cfg(test)]
 mod tests {
     use quickcheck::quickcheck;
-    use vlqencoding::VLQEncode;
 
     use super::*;
     quickcheck! {
@@ -192,7 +219,7 @@ mod tests {
         }
 
         fn test_roundtrip_metadata(size: Option<u64>, flags: Option<u64>) -> bool {
-            let meta = InternalMetadata { api: Metadata {size, flags }, uncompressed: false };
+            let meta = InternalMetadata { api: Metadata {size, flags }, uncompressed: false, acl_children_indices: None };
             let mut buf: Vec<u8> = vec![];
             meta.write(&mut buf).expect("write");
             let read_meta = InternalMetadata::read(&mut Cursor::new(&buf)).expect("read");
@@ -202,34 +229,88 @@ mod tests {
     }
 
     #[test]
-    fn test_acl_tag_skipped() {
-        // Build metadata bytes containing an 'a' tag between 'f' and 'u'.
-        let mut inner = vec![];
-
-        // flags = 1
-        inner.push(b'f');
-        inner.extend_from_slice(&1u16.to_be_bytes()); // value_len = 1
-        inner.push(1u8); // flags value
-
-        // 'a' tag with VLQ length prefix and some VLQ-encoded indices
-        inner.push(b'a');
-        let mut vlq_payload = vec![];
-        vlq_payload.write_vlq(0u32).unwrap();
-        vlq_payload.write_vlq(3u32).unwrap();
-        vlq_payload.write_vlq(128u32).unwrap();
-        inner.write_vlq(vlq_payload.len() as u64).unwrap();
-        inner.extend_from_slice(&vlq_payload);
-
-        // uncompressed flag
-        inner.push(b'u');
-
-        // Wrap with u32 outer length
+    fn test_acl_children_indices_none() {
+        let meta = InternalMetadata {
+            api: Metadata {
+                size: None,
+                flags: None,
+            },
+            uncompressed: false,
+            acl_children_indices: None,
+        };
         let mut buf = vec![];
-        buf.extend_from_slice(&(inner.len() as u32).to_be_bytes());
-        buf.extend_from_slice(&inner);
+        meta.write(&mut buf).unwrap();
+        let read = InternalMetadata::read(&mut Cursor::new(buf.as_slice())).unwrap();
+        assert!(read.acl_children_indices.is_none());
+    }
 
-        let meta = InternalMetadata::read(&mut Cursor::new(buf.as_slice())).unwrap();
-        assert_eq!(meta.api.flags, Some(1));
-        assert!(meta.uncompressed);
+    #[test]
+    fn test_acl_children_indices_empty() {
+        let meta = InternalMetadata {
+            api: Metadata {
+                size: None,
+                flags: None,
+            },
+            uncompressed: false,
+            acl_children_indices: Some(vec![]),
+        };
+        let mut buf = vec![];
+        meta.write(&mut buf).unwrap();
+        let read = InternalMetadata::read(&mut Cursor::new(buf.as_slice())).unwrap();
+        assert_eq!(read.acl_children_indices, Some(vec![]));
+    }
+
+    #[test]
+    fn test_acl_children_indices_small() {
+        let indices = vec![0, 3, 5, 127];
+        let meta = InternalMetadata {
+            api: Metadata {
+                size: Some(42),
+                flags: Some(1),
+            },
+            uncompressed: true,
+            acl_children_indices: Some(indices.clone()),
+        };
+        let mut buf = vec![];
+        meta.write(&mut buf).unwrap();
+        let read = InternalMetadata::read(&mut Cursor::new(buf.as_slice())).unwrap();
+        assert_eq!(read.acl_children_indices, Some(indices));
+        assert_eq!(read.api.size, Some(42));
+        assert_eq!(read.api.flags, Some(1));
+        assert!(read.uncompressed);
+    }
+
+    #[test]
+    fn test_acl_children_indices_large_values() {
+        let indices = vec![0, 128, 16384, 100_000, u32::MAX];
+        let meta = InternalMetadata {
+            api: Metadata {
+                size: None,
+                flags: None,
+            },
+            uncompressed: false,
+            acl_children_indices: Some(indices.clone()),
+        };
+        let mut buf = vec![];
+        meta.write(&mut buf).unwrap();
+        let read = InternalMetadata::read(&mut Cursor::new(buf.as_slice())).unwrap();
+        assert_eq!(read.acl_children_indices, Some(indices));
+    }
+
+    #[test]
+    fn test_acl_children_indices_many() {
+        let indices: Vec<u32> = (0..10_000).collect();
+        let meta = InternalMetadata {
+            api: Metadata {
+                size: None,
+                flags: None,
+            },
+            uncompressed: false,
+            acl_children_indices: Some(indices.clone()),
+        };
+        let mut buf = vec![];
+        meta.write(&mut buf).unwrap();
+        let read = InternalMetadata::read(&mut Cursor::new(buf.as_slice())).unwrap();
+        assert_eq!(read.acl_children_indices, Some(indices));
     }
 }

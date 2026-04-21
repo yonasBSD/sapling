@@ -157,6 +157,7 @@ mod tests {
         InternalMetadata {
             api: *meta,
             uncompressed: false,
+            acl_children_indices: None,
         }
         .write(&mut buf)
         .expect("write");
