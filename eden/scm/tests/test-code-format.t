@@ -18,7 +18,7 @@ Setup repo:
   $ newclientrepo
   $ setconfig hooks.pre-commit.sl_code_format=python:sapling.agent.fb.code_format.main
   $ setconfig hooks.pre-amend.sl_code_format=python:sapling.agent.fb.code_format.main
-  $ setconfig fix.always-enable-code-format=True
+  $ setconfig fix.code-format-mode=on
   $ setconfig fix.code-format-command="sl debugpython $TESTTMP/formatter.py"
 
 Test basic formatting on commit:
@@ -52,24 +52,24 @@ Test formatting on amend with new file:
   world
 
 Test disabled via config:
-  $ setconfig 'fix.enable-code-format=False'
+  $ setconfig 'fix.code-format-mode=off'
   $ echo "not formatted" > c.txt
   $ sl add c.txt
   $ sl amend
   $ cat c.txt
   not formatted
 Re-enable for subsequent tests:
-  $ setconfig 'fix.enable-code-format=True'
+  $ setconfig 'fix.code-format-mode=on'
 
-Test skipped when not agent and always-enable is false:
-  $ setconfig 'fix.always-enable-code-format=False'
+Test skipped when not agent and code-format-mode is agent:
+  $ setconfig 'fix.code-format-mode=agent'
   $ echo "not formatted either" > d.txt
   $ sl add d.txt
   $ sl amend
   $ cat d.txt
   not formatted either
 Re-enable for subsequent tests:
-  $ setconfig 'fix.always-enable-code-format=True'
+  $ setconfig 'fix.code-format-mode=on'
 
 Test max-files limit skips formatting:
   $ setconfig 'fix.code-format-max-files=1'
@@ -88,7 +88,19 @@ Test max-file-size limit skips formatting:
   $ sl amend
   $ cat g.txt
   this is a long line that exceeds the size limit
-  $ setconfig 'fix.code-format-max-file-size=500000'
+  $ setconfig 'fix.code-format-max-file-size=500KB'
+
+Test invalid code-format-mode config:
+  $ setconfig 'fix.code-format-mode=invalid'
+  $ echo "i" > i.txt
+  $ sl add i.txt
+  $ sl amend
+  error: pre-amend.sl_code_format hook failed: invalid value for fix.code-format-mode: invalid. Valid values are 'off', 'agent', 'on'.
+  abort: invalid value for fix.code-format-mode: invalid. Valid values are 'off', 'agent', 'on'.
+  [255]
+
+Re-enable for subsequent tests:
+  $ setconfig 'fix.code-format-mode=on'
 
 Test formatter failure aborts amend:
   $ cat > "$TESTTMP/fail_formatter.py" <<EOF
