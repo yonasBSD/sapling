@@ -13,4 +13,7 @@ thrift_library(
     py_base_module = "configerator.blobimport_state",
     thrift_py_options = "json",
     thrift_srcs = {"state.thrift": None},
+    deps = [
+        "//thrift/annotation:thrift",
+    ],
 )
