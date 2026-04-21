@@ -16,8 +16,8 @@ import {Icon} from 'isl-components/Icon';
 import {Subtle} from 'isl-components/Subtle';
 import {Tooltip} from 'isl-components/Tooltip';
 import {atom, useAtom, useAtomValue} from 'jotai';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {notEmpty, truncate} from 'shared/utils';
-import {Delayed} from './Delayed';
 import {LogRenderExposures} from './analytics/LogRenderExposures';
 import {codeReviewProvider} from './codeReview/CodeReviewInfo';
 import {T, t} from './i18n';
@@ -109,6 +109,11 @@ export function CommandHistoryAndProgress() {
   const [collapsed, setCollapsed] = useAtom(nextToRunCollapsedAtom);
   const [errorCollapsed, setErrorCollapsed] = useAtom(queueErrorCollapsedAtom);
 
+  const [outputExpanded, setOutputExpanded] = useState(false);
+
+  const outputRef = useRef<HTMLDivElement>(null);
+  const userScrolledUpRef = useRef(false);
+
   const info = useAtomValue(repositoryInfo);
   if (!info) {
     return null;
@@ -119,6 +124,7 @@ export function CommandHistoryAndProgress() {
     return null;
   }
 
+  const isRunning = progress.exitCode == null;
   const desc = progress.operation.getDescriptionForDisplay();
   const command = (
     <OperationDescription
@@ -130,34 +136,15 @@ export function CommandHistoryAndProgress() {
 
   let label;
   let icon;
-  let abort = null;
   let showLastLineOfOutput = false;
-  if (progress.exitCode == null) {
+  if (isRunning) {
     label = desc?.description ? command : <T replace={{$command: command}}>Running $command</T>;
     icon = <Icon icon="loading" />;
     showLastLineOfOutput = desc?.tooltip == null;
-    // Only show "Abort" for slow commands, since "Abort" might leave modified
-    // files or pending commits around.
-    const slowThreshold = 10000;
-    const hideUntil = new Date((progress.startTime?.getTime() || 0) + slowThreshold);
-    abort = (
-      <Delayed hideUntil={hideUntil}>
-        <Button
-          data-testid="abort-button"
-          disabled={progress.aborting}
-          onClick={() => {
-            abortRunningOperation(progress.operation.id);
-          }}>
-          <Icon slot="start" icon={progress.aborting ? 'loading' : 'stop-circle'} />
-          <T>Abort</T>
-        </Button>
-      </Delayed>
-    );
   } else if (progress.exitCode === 0) {
     label = <span>{command}</span>;
     icon = <Icon icon="pass" aria-label={t('Command exited successfully')} />;
   } else if (progress.aborting) {
-    // Exited (tested above) by abort.
     label = <T replace={{$command: command}}>Aborted $command</T>;
     icon = <Icon icon="stop-circle" aria-label={t('Command aborted')} />;
   } else if (progress.exitCode === EXIT_CODE_FORGET) {
@@ -176,10 +163,20 @@ export function CommandHistoryAndProgress() {
 
   let processedLines = processTerminalLines(progress.commandOutput ?? []);
   if (desc?.tooltip != null) {
-    // Output might contain a JSON string not suitable for human reading.
-    // Filter the line out.
     processedLines = processedLines.filter(line => !line.startsWith('{'));
   }
+
+  const showAbort = isRunning;
+
+  const lastLine =
+    showLastLineOfOutput && processedLines.length > 0 ? processedLines.at(-1) : undefined;
+
+  const progressInfo =
+    showLastLineOfOutput &&
+    progress.currentProgress != null &&
+    progress.currentProgress.unit != null
+      ? progress.currentProgress
+      : undefined;
 
   return (
     <div className="progress-container" data-testid="progress-container">
@@ -243,35 +240,12 @@ export function CommandHistoryAndProgress() {
         </div>
       ) : null}
 
-      <Tooltip
-        component={() => (
-          <div className="progress-command-tooltip">
-            {desc?.tooltip || (
-              <>
-                <div className="progress-command-tooltip-command">
-                  <strong>Command: </strong>
-                  <OperationDescription info={info} operation={progress.operation} long />
-                </div>
-              </>
-            )}
-            <br />
-            <b>Command output:</b>
-            <br />
-            {processedLines.length === 0 ? (
-              <Subtle>
-                <T>No output</T>
-              </Subtle>
-            ) : (
-              <pre>
-                {processedLines.map((line, i) => (
-                  <div key={i}>{line}</div>
-                ))}
-              </pre>
-            )}
-          </div>
-        )}
-        interactive>
-        <div className="progress-container-row">
+      <div className="progress-collapsible">
+        <div
+          className="progress-header-row"
+          onClick={() => setOutputExpanded(prev => !prev)}
+          data-testid="progress-header-row">
+          <Icon icon={outputExpanded ? 'chevron-down' : 'chevron-right'} />
           {icon}
           {label}
           {progress.warnings?.map(warning => (
@@ -283,25 +257,100 @@ export function CommandHistoryAndProgress() {
               <T replace={{$provider: warning}}>$provider</T>
             </Banner>
           ))}
+          {progressInfo != null ? (
+            <span className="progress-header-last-line">
+              <ProgressLine
+                progress={progressInfo.progress}
+                progressTotal={progressInfo.progressTotal}>
+                {progressInfo.message +
+                  ` - ${progressInfo.progress}/${progressInfo.progressTotal} ${progressInfo.unit}`}
+              </ProgressLine>
+            </span>
+          ) : !outputExpanded && lastLine != null ? (
+            <span className="progress-header-last-line">
+              <code>{lastLine}</code>
+            </span>
+          ) : null}
+          {showAbort && (
+            <span className="progress-abort-wrapper">
+              <Tooltip title={progress.aborting ? t('Aborting…') : t('Abort')}>
+                <Button
+                  icon
+                  data-testid="abort-button"
+                  className="progress-abort-button"
+                  disabled={progress.aborting}
+                  onClick={e => {
+                    e.stopPropagation();
+                    abortRunningOperation(progress.operation.id);
+                  }}>
+                  <Icon icon={progress.aborting ? 'loading' : 'debug-stop'} />
+                </Button>
+              </Tooltip>
+            </span>
+          )}
         </div>
-        {showLastLineOfOutput ? (
-          <div className="progress-container-row">
-            <div className="progress-container-last-output">
-              {progress.currentProgress != null && progress.currentProgress.unit != null ? (
-                <ProgressLine
-                  progress={progress.currentProgress.progress}
-                  progressTotal={progress.currentProgress.progressTotal}>
-                  {progress.currentProgress.message +
-                    ` - ${progress.currentProgress.progress}/${progress.currentProgress.progressTotal} ${progress.currentProgress.unit}`}
-                </ProgressLine>
-              ) : (
-                processedLines.length > 0 && <ProgressLine>{processedLines.at(-1)}</ProgressLine>
-              )}
-            </div>
-          </div>
-        ) : null}
-        {abort}
-      </Tooltip>
+
+        {outputExpanded && (
+          <CommandOutputArea
+            processedLines={processedLines}
+            isRunning={isRunning}
+            outputRef={outputRef}
+            userScrolledUpRef={userScrolledUpRef}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommandOutputArea({
+  processedLines,
+  isRunning,
+  outputRef,
+  userScrolledUpRef,
+}: {
+  processedLines: string[];
+  isRunning: boolean;
+  outputRef: React.RefObject<HTMLDivElement | null>;
+  userScrolledUpRef: React.MutableRefObject<boolean>;
+}) {
+  const scrollToBottom = useCallback(() => {
+    const el = outputRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [outputRef]);
+
+  useEffect(() => {
+    if (!userScrolledUpRef.current) {
+      scrollToBottom();
+    }
+  }, [processedLines.length, scrollToBottom, userScrolledUpRef]);
+
+  const handleScroll = useCallback(() => {
+    const el = outputRef.current;
+    if (!el) {
+      return;
+    }
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 10;
+    userScrolledUpRef.current = !atBottom;
+  }, [outputRef, userScrolledUpRef]);
+
+  return (
+    <div
+      className="progress-output-area"
+      ref={outputRef}
+      onScroll={handleScroll}
+      data-testid="progress-output">
+      {processedLines.length === 0 ? (
+        <Subtle>{isRunning ? <T>Waiting for output…</T> : <T>No output</T>}</Subtle>
+      ) : (
+        <pre className="progress-output-pre">
+          {processedLines.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </pre>
+      )}
     </div>
   );
 }

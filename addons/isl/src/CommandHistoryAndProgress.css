@@ -17,30 +17,65 @@
   position: relative;
 }
 
-.progress-container .tooltip-creator {
-  width: fit-content;
-  max-width: 100%;
+.progress-collapsible {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: var(--pad);
 }
 
-.progress-container-row {
+.progress-header-row {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: var(--pad);
-  width: fit-content;
+  cursor: pointer;
   max-width: 100%;
+  user-select: none;
 }
 
-.progress-container-row .codicon-error {
+.progress-header-row .codicon-error {
   color: var(--scm-removed-foreground);
 }
-.progress-container-row .codicon-pass {
+.progress-header-row .codicon-pass {
   color: var(--scm-added-foreground);
+}
+
+.progress-header-last-line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  opacity: 0.7;
+}
+
+.progress-header-last-line code {
+  white-space: nowrap;
+}
+
+.progress-abort-wrapper {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.progress-abort-button {
+  flex-shrink: 0;
+}
+
+.progress-output-area {
+  max-height: min(30vh, 300px);
+  overflow-y: auto;
+  margin-top: var(--pad);
+  border: 1px solid var(--panel-view-border);
+  border-radius: 4px;
+  padding: var(--pad);
+  background: var(--panel-view-background, var(--background));
+}
+
+.progress-output-pre {
+  margin: 0;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-size: 12px;
 }
 
 .queued-operations-container {
@@ -76,31 +111,6 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.progress-container-row .tooltip-creator {
-  width: 100%;
-  gap: var(--pad);
-  align-items: center;
-}
-
-.progress-command-tooltip {
-  max-width: min(700px, 50vw);
-  overflow-wrap: anywhere;
-}
-
-.progress-command-tooltip pre {
-  word-wrap: break-word;
-  white-space: pre-wrap;
-}
-
-.progress-container-last-output {
-  max-height: 5rem;
-  overflow-y: auto;
-}
-
-.progress-container-last-output code {
-  white-space: pre-wrap;
 }
 
 .progress-line {

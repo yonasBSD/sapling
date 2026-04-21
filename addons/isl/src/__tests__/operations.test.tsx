@@ -137,13 +137,8 @@ describe('operations', () => {
     expect(screen.queryByText('another message', {exact: false})).toBeInTheDocument();
   });
 
-  it('shows abort on long-running commands', async () => {
+  it('shows abort button while command is running', async () => {
     await clickGoto('c');
-    expect(abortButton()).toBeNull();
-
-    act(() => {
-      jest.advanceTimersByTime(600000);
-    });
     expect(abortButton()).toBeInTheDocument();
   });
 
@@ -293,10 +288,6 @@ describe('operations', () => {
       utils.nullthrows(getLastMessageOfTypeSentToServer('runOperation')),
     );
     const id = message.operation.id;
-
-    act(() => {
-      jest.advanceTimersByTime(600000);
-    });
 
     // Start abort
     fireEvent.click(abortButton() as Element);
