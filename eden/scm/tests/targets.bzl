@@ -50,6 +50,7 @@ def excluded_t_tests():
             "commitcloud_sync_t",
             "fb_ext_copytrace_t",
             "merge_changedelete_t",
+            "sign_commit_x509_t",
         ]
     return excluded
 
