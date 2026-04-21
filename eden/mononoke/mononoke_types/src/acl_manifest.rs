@@ -167,6 +167,12 @@ impl AclManifest {
         }
     }
 
+    /// Returns the canonical content-addressed ID for an empty AclManifest
+    /// (no restrictions, no subentries). Computed without blobstore writes.
+    pub fn empty_id() -> AclManifestId {
+        *Self::empty().into_blob().id()
+    }
+
     pub async fn lookup(
         &self,
         ctx: &CoreContext,

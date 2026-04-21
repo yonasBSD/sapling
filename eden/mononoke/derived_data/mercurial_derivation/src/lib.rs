@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+mod acl_overlay_manifest;
 pub mod derive_hg_augmented_manifest;
 pub mod derive_hg_changeset;
 pub mod derive_hg_manifest;

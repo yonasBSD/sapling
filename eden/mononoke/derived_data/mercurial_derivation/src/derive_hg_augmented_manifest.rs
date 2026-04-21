@@ -41,13 +41,18 @@ use mononoke_types::MPathElement;
 use mononoke_types::MPathElementPrefix;
 use mononoke_types::RepoPath;
 use mononoke_types::TrieMap;
+use mononoke_types::acl_manifest::AclManifest;
+use mononoke_types::acl_manifest::AclManifestEntry;
 use mononoke_types::hash::Blake3;
 use mononoke_types::sharded_map_v2::LookupKind;
 use mononoke_types::sharded_map_v2::ShardedMapV2Node;
+use mononoke_types::typed_hash::AclManifestId;
 use restricted_paths_common::ManifestType;
 use restricted_paths_common::RestrictedPathManifestIdEntry;
 use restricted_paths_common::RestrictedPathsConfigBased;
 use tracing::warn;
+
+use crate::acl_overlay_manifest::AclOverlayHgManifestId;
 
 /// Derive an HgAugmentedManifestId from an HgManifestId and parents.
 pub async fn derive_from_hg_manifest_and_parents(
@@ -57,6 +62,7 @@ pub async fn derive_from_hg_manifest_and_parents(
     parents: Vec<HgAugmentedManifestId>,
     content_metadata_cache: &HashMap<ContentId, ContentMetadataV2>,
     restricted_paths: &RestrictedPathsConfigBased,
+    acl_root_overlay: Option<AclManifestId>,
 ) -> Result<HgAugmentedManifestId> {
     let restricted_paths_enabled = justknobs::eval(
         "scm/mononoke:enabled_restricted_paths_access_logging",
@@ -67,8 +73,8 @@ pub async fn derive_from_hg_manifest_and_parents(
     let parents = parents.into_iter().map(Some).collect::<Vec<_>>();
     let (_, root, _, _) = bounded_traversal::bounded_traversal(
         256,
-        (MPath::ROOT, None, hg_manifest_id, parents),
-        |(parent_path, name, hg_manifest_id, parents): (MPath, Option<MPathElement>, _, _)| {
+        (MPath::ROOT, None, hg_manifest_id, parents, acl_root_overlay),
+        |(parent_path, name, hg_manifest_id, parents, acl_overlay): (MPath, Option<MPathElement>, _, _, _)| {
             async move {
                 let path = parent_path.join_element(name.as_ref());
                 let (hg_manifest, parents) = future::try_join(
@@ -92,6 +98,12 @@ pub async fn derive_from_hg_manifest_and_parents(
                 let (aug_parents, hg_parents): (Vec<Option<_>>, Vec<Option<_>>) =
                     parents.into_iter().unzip();
 
+                // Build ACL child directory map from the current overlay
+                let child_acl_map = match &acl_overlay {
+                    Some(acl_id) => load_acl_child_directory_map(ctx, blobstore, acl_id).await?,
+                    None => HashMap::new(),
+                };
+
                 let mut children = Vec::new();
                 let mut new_subentries = Vec::new();
 
@@ -109,7 +121,8 @@ pub async fn derive_from_hg_manifest_and_parents(
                     match diff {
                         ManifestComparison::New(elem, entry) => match entry {
                             Entry::Tree(id) => {
-                                children.push((path.clone(), Some(elem), id, Vec::new()));
+                                let child_acl = child_acl_map.get(&elem).copied();
+                                children.push((path.clone(), Some(elem), id, Vec::new(), child_acl));
                             }
                             Entry::Leaf((file_type, filenode)) => {
                                 new_subentries.push((elem, file_type, filenode));
@@ -150,7 +163,8 @@ pub async fn derive_from_hg_manifest_and_parents(
                                             .collect();
                                     future::try_join_all(child_parents_futs).await?
                                 };
-                                children.push((path.clone(), Some(elem), id, child_parents));
+                                let child_acl = child_acl_map.get(&elem).copied();
+                                children.push((path.clone(), Some(elem), id, child_parents, child_acl));
                             }
                             Entry::Leaf((file_type, filenode)) => {
                                 new_subentries.push((elem, file_type, filenode));
@@ -172,11 +186,14 @@ pub async fn derive_from_hg_manifest_and_parents(
                             for (suffix, entry) in entries {
                                 match entry {
                                     Entry::Tree(id) => {
+                                        let elem = prefix.clone().join_into_element(suffix)?;
+                                        let child_acl = child_acl_map.get(&elem).copied();
                                         children.push((
                                             path.clone(),
-                                            Some(prefix.clone().join_into_element(suffix)?),
+                                            Some(elem),
                                             id,
                                             Vec::new(),
+                                            child_acl,
                                         ));
                                     }
                                     Entry::Leaf((file_type, filenode)) => {
@@ -261,13 +278,15 @@ pub async fn derive_from_hg_manifest_and_parents(
                         hg_manifest,
                         new_subentries,
                         reused_subentries_and_partial_maps,
+                        child_acl_map,
+                        acl_overlay,
                     ),
                     children,
                 ))
             }
             .boxed()
         },
-        |(path, name, hg_manifest, new_subentries, reused_subentries_and_partial_maps),
+        |(path, name, hg_manifest, new_subentries, reused_subentries_and_partial_maps, child_acl_map, acl_overlay),
          children: bounded_traversal::Iter<(
             Option<MPathElement>,
             HgAugmentedManifestId,
@@ -307,18 +326,28 @@ pub async fn derive_from_hg_manifest_and_parents(
                 for (elem, entry) in new_subentries {
                     subentries.insert(elem, Either::Left(entry));
                 }
+                // Reused entries from parents are safe to use with their existing ACL
+                // pointers: ACL pointer changes only occur when .slacl files are
+                // added/removed, which always causes ManifestComparison::Changed on
+                // the path to the .slacl file. Directories not on such a path either
+                // (a) are not in the ACL tree (pointer is None) or (b) have an
+                // unchanged ACL subtree (pointer remains valid).
                 for (key, reused_item) in reused_subentries_and_partial_maps {
                     subentries.insert(key, reused_item);
                 }
                 for (name, treenode, augmented_manifest_id, augmented_manifest_size) in children {
+                    let child_name = name.ok_or_else(|| {
+                        anyhow!("child name must be defined for non-root traversal nodes")
+                    })?;
+                    let child_acl_id = child_acl_map.get(&child_name).copied();
                     subentries.insert(
-                        name.expect("name must be defined for children"),
+                        child_name,
                         Either::Left(HgAugmentedManifestEntry::DirectoryNode(
                             HgAugmentedDirectoryNode {
                                 treenode: treenode.into_nodehash(),
                                 augmented_manifest_id,
                                 augmented_manifest_size,
-                                acl_manifest_directory_id: None,
+                                acl_manifest_directory_id: child_acl_id,
                             },
                         )),
                     );
@@ -334,8 +363,16 @@ pub async fn derive_from_hg_manifest_and_parents(
                     p2: hg_manifest.p2(),
                     computed_node_id: hg_manifest.computed_node_id(),
                     subentries,
-                    acl_manifest_directory_id: None,
+                    acl_manifest_directory_id: acl_overlay,
                 };
+
+                // Enforce root invariant: root pointer must never be
+                // Some(canonical_empty_acl_manifest_id)
+                if name.is_none() {
+                    assert_root_acl_pointer_invariant(
+                        &augmented_manifest.acl_manifest_directory_id,
+                    )?;
+                }
 
                 let (augmented_manifest_id, augmented_manifest_size) = augmented_manifest
                     .clone()
@@ -403,21 +440,50 @@ async fn get_metadata<'a>(
     })
 }
 
+/// Normalize a derived ACL root into an optional overlay.
+/// Returns `None` if the JK is disabled or the ACL manifest is the canonical
+/// empty one (no .slacl files), `Some(id)` otherwise.
+pub fn normalize_acl_root(
+    root_acl_manifest_id: &acl_manifest::RootAclManifestId,
+) -> Result<Option<AclManifestId>> {
+    let add_acl_manifest_pointer =
+        justknobs::eval("scm/mononoke:add_acl_manifest_pointer", None, None)?;
+    if !add_acl_manifest_pointer {
+        return Ok(None);
+    }
+    let id = *root_acl_manifest_id.inner_id();
+    if id == AclManifest::empty_id() {
+        Ok(None)
+    } else {
+        Ok(Some(id))
+    }
+}
+
 pub async fn derive_from_full_hg_manifest(
     ctx: CoreContext,
     blobstore: Arc<dyn KeyedBlobstore>,
     hg_manifest_id: HgManifestId,
+    acl_root_overlay: Option<AclManifestId>,
 ) -> Result<HgAugmentedManifestId> {
+    let predecessor = AclOverlayHgManifestId {
+        hg_manifest_id,
+        acl_manifest_id: acl_root_overlay,
+    };
     let root_entry = derive_manifest_from_predecessor(
         ctx.clone(),
         blobstore.clone(),
-        hg_manifest_id,
+        predecessor,
         {
             cloned!(ctx, blobstore);
             move |tree_info| {
                 cloned!(ctx, blobstore);
                 async move {
-                    let hg_manifest = tree_info.predecessor.load(&ctx, &blobstore).await?;
+                    let acl_manifest_directory_id = tree_info.predecessor.acl_manifest_id;
+                    let hg_manifest = tree_info
+                        .predecessor
+                        .hg_manifest_id
+                        .load(&ctx, &blobstore)
+                        .await?;
                     let entries = tree_info.subentries.into_iter().map(|(elem, ((), entry))| {
                         let entry = match entry {
                             Entry::Tree(tree) => HgAugmentedManifestEntry::DirectoryNode(tree),
@@ -428,13 +494,18 @@ pub async fn derive_from_full_hg_manifest(
                     let subentries =
                         ShardedMapV2Node::from_entries(&ctx, &blobstore, entries).await?;
                     let augmented_manifest = ShardedHgAugmentedManifest {
-                        hg_node_id: tree_info.predecessor.into_nodehash(),
+                        hg_node_id: tree_info.predecessor.hg_manifest_id.into_nodehash(),
                         p1: hg_manifest.p1(),
                         p2: hg_manifest.p2(),
                         computed_node_id: hg_manifest.computed_node_id(),
                         subentries,
-                        acl_manifest_directory_id: None,
+                        acl_manifest_directory_id,
                     };
+
+                    assert_root_acl_pointer_invariant(
+                        &augmented_manifest.acl_manifest_directory_id,
+                    )?;
+
                     let (augmented_manifest_id, augmented_manifest_size) = augmented_manifest
                         .clone()
                         .compute_content_addressed_digest(&ctx, &blobstore)
@@ -446,10 +517,10 @@ pub async fn derive_from_full_hg_manifest(
                     };
                     envelope.store(&ctx, &blobstore).await?;
                     let entry = HgAugmentedDirectoryNode {
-                        treenode: tree_info.predecessor.into_nodehash(),
+                        treenode: tree_info.predecessor.hg_manifest_id.into_nodehash(),
                         augmented_manifest_id,
                         augmented_manifest_size,
-                        acl_manifest_directory_id: None,
+                        acl_manifest_directory_id,
                     };
                     Ok(((), entry))
                 }
@@ -488,4 +559,43 @@ pub async fn derive_from_full_hg_manifest(
     )
     .await?;
     Ok(HgAugmentedManifestId::new(root_entry.treenode))
+}
+
+// ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+/// Load an ACL manifest node by ID and build a map of direct child directory
+/// name -> child AclManifestId. Only directory entries (waypoints and restriction
+/// roots) are included; leaf entries (.slacl files) are skipped.
+async fn load_acl_child_directory_map(
+    ctx: &CoreContext,
+    blobstore: &(impl KeyedBlobstore + 'static),
+    acl_id: &AclManifestId,
+) -> Result<HashMap<MPathElement, AclManifestId>> {
+    let acl_manifest: AclManifest = blobstore::Loadable::load(acl_id, ctx, blobstore).await?;
+    acl_manifest
+        .into_subentries(ctx, blobstore)
+        .try_filter_map(|(name, entry)| async move {
+            match entry {
+                AclManifestEntry::Directory(dir) => Ok(Some((name, dir.id))),
+                AclManifestEntry::AclFile(_) => Ok(None),
+            }
+        })
+        .try_collect()
+        .await
+}
+
+/// Assert that the root ACL pointer invariant holds: the root pointer must
+/// never be `Some(canonical_empty_acl_manifest_id)`. Valid states are `None`
+/// (no restrictions) or `Some(non_empty_id)` (root is a waypoint or restriction root).
+fn assert_root_acl_pointer_invariant(pointer: &Option<AclManifestId>) -> Result<()> {
+    if let Some(id) = pointer {
+        anyhow::ensure!(
+            *id != AclManifest::empty_id(),
+            "Root acl_manifest_directory_id must never be Some(canonical_empty_acl_manifest_id). \
+             This indicates broken sparse-tree normalization."
+        );
+    }
+    Ok(())
 }

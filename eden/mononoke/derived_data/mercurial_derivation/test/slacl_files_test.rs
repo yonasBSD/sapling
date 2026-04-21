@@ -5,11 +5,17 @@
  * GNU General Public License version 2.
  */
 
+use std::collections::HashMap;
+
+use acl_manifest::RootAclManifestId;
 use anyhow::Context;
 use anyhow::Result;
 use blobstore::Loadable;
 use context::CoreContext;
 use fbinit::FacebookInit;
+use justknobs::test_helpers::JustKnobsInMemory;
+use justknobs::test_helpers::KnobVal;
+use justknobs::test_helpers::override_just_knobs;
 use mercurial_derivation::MappedHgChangesetId;
 use mercurial_derivation::RootHgAugmentedManifestId;
 use mercurial_types::HgAugmentedManifestEntry;
@@ -18,6 +24,8 @@ use mercurial_types::HgAugmentedManifestId;
 use mononoke_macros::mononoke;
 use mononoke_types::ChangesetId;
 use mononoke_types::MPath;
+use mononoke_types::acl_manifest::AclManifest;
+use mononoke_types::blob::BlobstoreValue;
 use mononoke_types::typed_hash::AclManifestId;
 use repo_blobstore::RepoBlobstoreRef;
 use repo_derived_data::RepoDerivedDataRef;
@@ -70,11 +78,27 @@ async fn test_root_and_waypoint_acl_manifest_pointers(fb: FacebookInit) -> Resul
         .commit()
         .await?;
 
-    // Derive augmented manifest (pre-derive batch dependencies first)
+    // Verify AclManifest is NOT the canonical empty manifest (pre-derive batch dependencies first)
     let manager = repo.repo_derived_data().manager();
+    // Pre-derive batch dependencies
     manager
         .derive_exactly_batch::<MappedHgChangesetId>(&ctx, vec![root], None)
         .await?;
+    manager
+        .derive_exactly_batch::<RootAclManifestId>(&ctx, vec![root], None)
+        .await?;
+    let acl_root = manager
+        .fetch_derived::<RootAclManifestId>(&ctx, root, None)
+        .await?
+        .context("Missing RootAclManifestId")?;
+    let canonical_empty_id = *AclManifest::empty().into_blob().id();
+    assert_ne!(
+        acl_root.into_inner_id(),
+        canonical_empty_id,
+        "AclManifest should not be empty when repo has .slacl files"
+    );
+
+    // Derive augmented manifest (dependencies already derived above)
     manager
         .derive_exactly_batch::<RootHgAugmentedManifestId>(&ctx, vec![root], None)
         .await?;
@@ -87,23 +111,33 @@ async fn test_root_and_waypoint_acl_manifest_pointers(fb: FacebookInit) -> Resul
         .load(&ctx, repo.repo_blobstore())
         .await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        root_envelope.augmented_manifest.acl_manifest_directory_id, None,
-        "Root acl_manifest_directory_id is None until derivation populates ACL pointers"
+    // Root: Some (waypoint), and not the canonical empty ID
+    assert!(
+        root_envelope
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Root acl_manifest_directory_id should be Some when repo has .slacl files"
+    );
+    assert_ne!(
+        root_envelope.augmented_manifest.acl_manifest_directory_id,
+        Some(canonical_empty_id),
+        "Root pointer should never be Some(canonical_empty_acl_manifest_id)"
     );
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_dir_acl_pointer(&ctx, &repo, &root_envelope, b"foo").await?,
-        None,
-        "foo/ pointer is None until derivation populates ACL pointers"
+    // foo/: Some (waypoint)
+    assert!(
+        get_dir_acl_pointer(&ctx, &repo, &root_envelope, b"foo")
+            .await?
+            .is_some(),
+        "foo/ should have an ACL pointer (waypoint for foo/bar/.slacl)"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_nested_dir_acl_pointer(&ctx, &repo, &root_envelope, &MPath::new("foo/bar")?).await?,
-        None,
-        "foo/bar/ pointer is None until derivation populates ACL pointers"
+    // foo/bar/: Some (restriction root)
+    assert!(
+        get_nested_dir_acl_pointer(&ctx, &repo, &root_envelope, &MPath::new("foo/bar")?)
+            .await?
+            .is_some(),
+        "foo/bar/ should have an ACL pointer (restriction root)"
     );
     // foo/other/: None (not in ACL tree)
     assert_eq!(
@@ -116,6 +150,43 @@ async fn test_root_and_waypoint_acl_manifest_pointers(fb: FacebookInit) -> Resul
         get_dir_acl_pointer(&ctx, &repo, &root_envelope, b"unrelated").await?,
         None,
         "unrelated/ should have no ACL pointer (not in sparse ACL tree)"
+    );
+
+    Ok(())
+}
+
+/// Test that all ACL pointers are `None` when the JustKnob
+/// `scm/mononoke:add_acl_manifest_pointer` is disabled, even if `.slacl`
+/// files exist in the repo.
+#[mononoke::fbinit_test]
+async fn test_acl_pointers_none_when_jk_disabled(fb: FacebookInit) -> Result<()> {
+    override_just_knobs(JustKnobsInMemory::new(HashMap::from([(
+        "scm/mononoke:add_acl_manifest_pointer".to_string(),
+        KnobVal::Bool(false),
+    )])));
+
+    let ctx = CoreContext::test_mock(fb);
+    let repo: Repo = test_repo_factory::build_empty(fb).await?;
+
+    let root = CreateCommitContext::new_root(&ctx, &repo)
+        .add_file(
+            "foo/bar/.slacl",
+            "repo_region_acl = \"REPO_REGION:repos/hg/fbsource/=project1\"\n",
+        )
+        .add_file("foo/bar/file", "content")
+        .commit()
+        .await?;
+
+    let envelope = derive_and_load_augmented_manifest(&ctx, &repo, vec![root], root).await?;
+
+    assert_eq!(
+        envelope.augmented_manifest.acl_manifest_directory_id, None,
+        "Root pointer should be None when JK is disabled"
+    );
+    assert_eq!(
+        get_dir_acl_pointer(&ctx, &repo, &envelope, b"foo").await?,
+        None,
+        "foo/ should be None when JK disabled"
     );
 
     Ok(())
@@ -152,16 +223,19 @@ async fn test_acl_pointers_when_slacl_added_in_child(fb: FacebookInit) -> Result
         "Parent root should have no ACL pointer"
     );
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        child_env.augmented_manifest.acl_manifest_directory_id, None,
-        "Child root pointer is None until derivation populates ACL pointers"
+    // Child: root and foo should be waypoints; other should be None
+    assert!(
+        child_env
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Child root should be a waypoint"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_dir_acl_pointer(&ctx, &repo, &child_env, b"foo").await?,
-        None,
-        "foo/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        get_dir_acl_pointer(&ctx, &repo, &child_env, b"foo")
+            .await?
+            .is_some(),
+        "foo/ should be a waypoint"
     );
     assert_eq!(
         get_dir_acl_pointer(&ctx, &repo, &child_env, b"other").await?,
@@ -197,10 +271,13 @@ async fn test_acl_pointers_when_slacl_removed(fb: FacebookInit) -> Result<()> {
     let parent_env = derive_and_load_augmented_manifest(&ctx, &repo, batch.clone(), parent).await?;
     let child_env = derive_and_load_augmented_manifest(&ctx, &repo, batch, child).await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        parent_env.augmented_manifest.acl_manifest_directory_id, None,
-        "Parent root pointer is None until derivation populates ACL pointers"
+    // Parent: root should have pointer
+    assert!(
+        parent_env
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Parent root should have pointer"
     );
 
     // Child: all pointers None (no more .slacl)
@@ -240,26 +317,30 @@ async fn test_acl_pointers_multiple_sibling_slacl(fb: FacebookInit) -> Result<()
 
     let envelope = derive_and_load_augmented_manifest(&ctx, &repo, vec![root], root).await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        envelope.augmented_manifest.acl_manifest_directory_id, None,
-        "Root pointer is None until derivation populates ACL pointers"
+    // Root: Some (waypoint)
+    assert!(
+        envelope
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Root acl_manifest_directory_id should be Some (waypoint for foo/ and bar/)"
     );
 
     let foo_ptr = get_dir_acl_pointer(&ctx, &repo, &envelope, b"foo").await?;
     let bar_ptr = get_dir_acl_pointer(&ctx, &repo, &envelope, b"bar").await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        foo_ptr, None,
-        "foo/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        foo_ptr.is_some(),
+        "foo/ should have an ACL pointer (restriction root)"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        bar_ptr, None,
-        "bar/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        bar_ptr.is_some(),
+        "bar/ should have an ACL pointer (restriction root)"
     );
-    // FIXME(T248660053): cannot compare foo_ptr != bar_ptr since both are None
+    assert_ne!(
+        foo_ptr, bar_ptr,
+        "foo/ and bar/ should have different AclManifestIds (independent restriction roots)"
+    );
     assert_eq!(
         get_dir_acl_pointer(&ctx, &repo, &envelope, b"other").await?,
         None,
@@ -296,26 +377,30 @@ async fn test_acl_pointers_nested_slacl(fb: FacebookInit) -> Result<()> {
 
     let envelope = derive_and_load_augmented_manifest(&ctx, &repo, vec![root], root).await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        envelope.augmented_manifest.acl_manifest_directory_id, None,
-        "Root pointer is None until derivation populates ACL pointers"
+    // Root: Some (waypoint)
+    assert!(
+        envelope
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Root acl_manifest_directory_id should be Some (waypoint for a/)"
     );
 
     let a_ptr = get_dir_acl_pointer(&ctx, &repo, &envelope, b"a").await?;
     let ab_ptr = get_nested_dir_acl_pointer(&ctx, &repo, &envelope, &MPath::new("a/b")?).await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        a_ptr, None,
-        "a/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        a_ptr.is_some(),
+        "a/ should have an ACL pointer (restriction root and waypoint)"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        ab_ptr, None,
-        "a/b/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        ab_ptr.is_some(),
+        "a/b/ should have an ACL pointer (restriction root)"
     );
-    // FIXME(T248660053): cannot compare a_ptr != ab_ptr since both are None
+    assert_ne!(
+        a_ptr, ab_ptr,
+        "a/ and a/b/ should have different AclManifestIds"
+    );
     assert_eq!(
         get_nested_dir_acl_pointer(&ctx, &repo, &envelope, &MPath::new("a/c")?).await?,
         None,
@@ -358,24 +443,26 @@ async fn test_acl_pointers_remove_inner_nested_slacl(fb: FacebookInit) -> Result
     let parent_env = derive_and_load_augmented_manifest(&ctx, &repo, batch.clone(), parent).await?;
     let child_env = derive_and_load_augmented_manifest(&ctx, &repo, batch, child).await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_dir_acl_pointer(&ctx, &repo, &parent_env, b"a").await?,
-        None,
-        "Parent: a/ pointer is None until derivation populates ACL pointers"
+    // Parent: a/ and a/b/ should both have pointers
+    assert!(
+        get_dir_acl_pointer(&ctx, &repo, &parent_env, b"a")
+            .await?
+            .is_some(),
+        "Parent: a/ should have an ACL pointer"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_nested_dir_acl_pointer(&ctx, &repo, &parent_env, &MPath::new("a/b")?).await?,
-        None,
-        "Parent: a/b/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        get_nested_dir_acl_pointer(&ctx, &repo, &parent_env, &MPath::new("a/b")?)
+            .await?
+            .is_some(),
+        "Parent: a/b/ should have an ACL pointer"
     );
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_dir_acl_pointer(&ctx, &repo, &child_env, b"a").await?,
-        None,
-        "Child: a/ pointer is None until derivation populates ACL pointers"
+    // Child: a/ still has pointer, a/b/ lost its pointer
+    assert!(
+        get_dir_acl_pointer(&ctx, &repo, &child_env, b"a")
+            .await?
+            .is_some(),
+        "Child: a/ should still have an ACL pointer (a/.slacl remains)"
     );
     assert_eq!(
         get_nested_dir_acl_pointer(&ctx, &repo, &child_env, &MPath::new("a/b")?).await?,
@@ -410,23 +497,25 @@ async fn test_acl_pointers_implicit_delete_directory_with_slacl(fb: FacebookInit
 
     let parent_env = derive_and_load_augmented_manifest(&ctx, &repo, vec![parent], parent).await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        parent_env.augmented_manifest.acl_manifest_directory_id, None,
-        "Parent root pointer is None until derivation populates ACL pointers"
+    // Parent: root, restricted/, restricted/code/ all have pointers
+    assert!(
+        parent_env
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Parent root should have ACL pointer"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_dir_acl_pointer(&ctx, &repo, &parent_env, b"restricted").await?,
-        None,
-        "Parent restricted/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        get_dir_acl_pointer(&ctx, &repo, &parent_env, b"restricted")
+            .await?
+            .is_some(),
+        "Parent restricted/ should have ACL pointer (waypoint)"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
+    assert!(
         get_nested_dir_acl_pointer(&ctx, &repo, &parent_env, &MPath::new("restricted/code")?)
-            .await?,
-        None,
-        "Parent restricted/code/ pointer is None until derivation populates ACL pointers"
+            .await?
+            .is_some(),
+        "Parent restricted/code/ should have ACL pointer (restriction root)"
     );
 
     // Child: implicitly delete restricted/code/ directory by creating a file
@@ -446,6 +535,7 @@ async fn test_acl_pointers_implicit_delete_directory_with_slacl(fb: FacebookInit
         child_env.augmented_manifest.acl_manifest_directory_id, None,
         "Child root should have no ACL pointer after deleting all .slacl files"
     );
+
     // restricted/ still exists (contains the file "code") but is no longer
     // a waypoint since there are no .slacl files left.
     assert!(
@@ -500,28 +590,31 @@ async fn test_acl_pointers_implicit_delete_nested_acl_middle(fb: FacebookInit) -
 
     let parent_env = derive_and_load_augmented_manifest(&ctx, &repo, vec![parent], parent).await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        parent_env.augmented_manifest.acl_manifest_directory_id, None,
-        "Parent root pointer is None until derivation populates ACL pointers"
+    // Parent: all four levels have pointers
+    assert!(
+        parent_env
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Parent root should have ACL pointer"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_dir_acl_pointer(&ctx, &repo, &parent_env, b"a").await?,
-        None,
-        "Parent a/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        get_dir_acl_pointer(&ctx, &repo, &parent_env, b"a")
+            .await?
+            .is_some(),
+        "Parent a/ should have ACL pointer"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_nested_dir_acl_pointer(&ctx, &repo, &parent_env, &MPath::new("a/b")?).await?,
-        None,
-        "Parent a/b/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        get_nested_dir_acl_pointer(&ctx, &repo, &parent_env, &MPath::new("a/b")?)
+            .await?
+            .is_some(),
+        "Parent a/b/ should have ACL pointer"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_nested_dir_acl_pointer(&ctx, &repo, &parent_env, &MPath::new("a/b/c")?).await?,
-        None,
-        "Parent a/b/c/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        get_nested_dir_acl_pointer(&ctx, &repo, &parent_env, &MPath::new("a/b/c")?)
+            .await?
+            .is_some(),
+        "Parent a/b/c/ should have ACL pointer"
     );
 
     // Child: implicitly delete a/b/ directory by creating a file at the same path
@@ -532,16 +625,19 @@ async fn test_acl_pointers_implicit_delete_nested_acl_middle(fb: FacebookInit) -
 
     let child_env = derive_and_load_augmented_manifest(&ctx, &repo, vec![child], child).await?;
 
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        child_env.augmented_manifest.acl_manifest_directory_id, None,
-        "Child root pointer is None until derivation populates ACL pointers"
+    // Child: root and a/ keep pointers (a/.slacl survives)
+    assert!(
+        child_env
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Child root should still have ACL pointer (a/.slacl survives)"
     );
-    // FIXME(T248660053): should be Some once HgAugmentedManifest derivation populates ACL pointers
-    assert_eq!(
-        get_dir_acl_pointer(&ctx, &repo, &child_env, b"a").await?,
-        None,
-        "Child a/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        get_dir_acl_pointer(&ctx, &repo, &child_env, b"a")
+            .await?
+            .is_some(),
+        "Child a/ should still have ACL pointer (a/.slacl survives)"
     );
     // a/b/ directory was implicitly deleted — "b" is now a file inside a/,
     // not a directory.
@@ -605,26 +701,36 @@ async fn test_acl_pointer_changes_when_slacl_content_changes(fb: FacebookInit) -
     let parent_env = derive_and_load_augmented_manifest(&ctx, &repo, batch.clone(), parent).await?;
     let child_env = derive_and_load_augmented_manifest(&ctx, &repo, batch, child).await?;
 
-    // FIXME(T248660053): both pointers are None until derivation populates ACL pointers
-    assert_eq!(
-        parent_env.augmented_manifest.acl_manifest_directory_id, None,
-        "Parent root pointer is None until derivation populates ACL pointers"
+    // Both roots should have Some pointers
+    assert!(
+        parent_env
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Parent root should have an ACL pointer"
     );
-    assert_eq!(
-        child_env.augmented_manifest.acl_manifest_directory_id, None,
-        "Child root pointer is None until derivation populates ACL pointers"
+    assert!(
+        child_env
+            .augmented_manifest
+            .acl_manifest_directory_id
+            .is_some(),
+        "Child root should have an ACL pointer"
     );
 
-    // FIXME(T248660053): both foo/ pointers are None, cannot compare for difference
+    // foo/ ACL pointer must DIFFER (content-addressed)
     let parent_foo_ptr = get_dir_acl_pointer(&ctx, &repo, &parent_env, b"foo").await?;
     let child_foo_ptr = get_dir_acl_pointer(&ctx, &repo, &child_env, b"foo").await?;
-    assert_eq!(
-        parent_foo_ptr, None,
-        "Parent foo/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        parent_foo_ptr.is_some(),
+        "Parent foo/ should have an ACL pointer"
     );
-    assert_eq!(
-        child_foo_ptr, None,
-        "Child foo/ pointer is None until derivation populates ACL pointers"
+    assert!(
+        child_foo_ptr.is_some(),
+        "Child foo/ should have an ACL pointer"
+    );
+    assert_ne!(
+        parent_foo_ptr, child_foo_ptr,
+        "foo/ ACL pointer should change when .slacl content changes (content-addressed)"
     );
 
     Ok(())
@@ -659,14 +765,13 @@ async fn test_acl_pointers_stable_when_file_added_no_slacl_change(fb: FacebookIn
     let parent_env = derive_and_load_augmented_manifest(&ctx, &repo, batch.clone(), parent).await?;
     let child_env = derive_and_load_augmented_manifest(&ctx, &repo, batch, child).await?;
 
-    // FIXME(T248660053): both are None (stable since both are None), but should be Some once
-    // derivation populates ACL pointers
+    // Root ACL pointer should be SAME (ACL tree didn't change)
     assert_eq!(
         parent_env.augmented_manifest.acl_manifest_directory_id,
         child_env.augmented_manifest.acl_manifest_directory_id,
         "Root ACL pointer should be stable when no .slacl files changed"
     );
-    // foo/ ACL pointer should be SAME (both None)
+    // foo/ ACL pointer should be SAME
     assert_eq!(
         get_dir_acl_pointer(&ctx, &repo, &parent_env, b"foo").await?,
         get_dir_acl_pointer(&ctx, &repo, &child_env, b"foo").await?,
@@ -701,9 +806,12 @@ async fn derive_and_load_augmented_manifest(
     cs_id: ChangesetId,
 ) -> Result<HgAugmentedManifestEnvelope> {
     let manager = repo.repo_derived_data().manager();
-    // MappedHgChangesetId is a batch dependency of RootHgAugmentedManifestId
+    // Pre-derive batch dependencies of RootHgAugmentedManifestId
     manager
         .derive_exactly_batch::<MappedHgChangesetId>(ctx, batch.clone(), None)
+        .await?;
+    manager
+        .derive_exactly_batch::<RootAclManifestId>(ctx, batch.clone(), None)
         .await?;
     manager
         .derive_exactly_batch::<RootHgAugmentedManifestId>(ctx, batch, None)

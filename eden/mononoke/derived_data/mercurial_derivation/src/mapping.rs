@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use acl_manifest::RootAclManifestId;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
@@ -560,7 +561,7 @@ async fn store_hg_cs_mapping(
 impl BonsaiDerivable for RootHgAugmentedManifestId {
     const VARIANT: DerivableType = DerivableType::HgAugmentedManifests;
 
-    type Dependencies = dependencies![MappedHgChangesetId];
+    type Dependencies = dependencies![MappedHgChangesetId, RootAclManifestId];
 
     async fn derive_single(
         ctx: &CoreContext,
@@ -579,11 +580,16 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
 
         let csid = bonsai.get_changeset_id();
 
-        let ((hg_manifest_id, derived_hg_cs), content_metadata) = future::try_join(
+        let acl_root_fut = derivation_ctx.fetch_dependency::<RootAclManifestId>(ctx, csid);
+
+        let ((hg_manifest_id, derived_hg_cs), content_metadata, acl_root) = future::try_join3(
             get_manifest_id(ctx, derivation_ctx, &bonsai, None),
             content_metadata_fut,
+            acl_root_fut,
         )
         .await?;
+
+        let acl_root_overlay = crate::derive_hg_augmented_manifest::normalize_acl_root(&acl_root)?;
 
         // Derive augmented manifests before flushing. The HgManifest blobs
         // are still in the MemWritesBlobstore write cache, so augmented
@@ -600,6 +606,7 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
                 parents,
                 &content_metadata,
                 &derivation_ctx.restricted_paths(),
+                acl_root_overlay,
             )
             .await?;
 
@@ -636,11 +643,17 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
                 .collect::<HashSet<_>>();
             let content_metadata_fut = prefetch_content_metadata(ctx, blobstore, content_ids);
 
-            let ((hg_manifest_id, derived_hg_cs), content_metadata) = future::try_join(
+            let acl_root_fut = derivation_ctx.fetch_dependency::<RootAclManifestId>(ctx, csid);
+
+            let ((hg_manifest_id, derived_hg_cs), content_metadata, acl_root) = future::try_join3(
                 get_manifest_id(ctx, derivation_ctx, bonsai, Some(&hg_cs_map)),
                 content_metadata_fut,
+                acl_root_fut,
             )
             .await?;
+
+            let acl_root_overlay =
+                crate::derive_hg_augmented_manifest::normalize_acl_root(&acl_root)?;
 
             if let Some(hg_cs) = derived_hg_cs {
                 hg_cs_map.insert(csid, hg_cs);
@@ -660,6 +673,7 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
                 parents,
                 &content_metadata,
                 &derivation_ctx.restricted_paths(),
+                acl_root_overlay,
             )
             .await?;
 
@@ -738,17 +752,25 @@ impl BonsaiDerivable for RootHgAugmentedManifestId {
 impl DerivableUntopologically for RootHgAugmentedManifestId {
     const DERIVABLE_UNTOPOLOGICALLY_VARIANT: DerivableUntopologicallyVariant =
         DerivableUntopologicallyVariant::HgAugmentedManifests;
-    type PredecessorDependencies = dependencies![MappedHgChangesetId];
+    type PredecessorDependencies = dependencies![MappedHgChangesetId, RootAclManifestId];
 
     async fn unsafe_derive_untopologically(
         ctx: &CoreContext,
         derivation_ctx: &DerivationContext,
         bonsai: BonsaiChangeset,
     ) -> Result<Self> {
-        let hg_changeset_id = derivation_ctx
-            .fetch_dependency::<MappedHgChangesetId>(ctx, bonsai.get_changeset_id())
-            .await?
-            .hg_changeset_id();
+        let csid = bonsai.get_changeset_id();
+        let (hg_changeset_id, acl_root) = future::try_join(
+            async {
+                Ok(derivation_ctx
+                    .fetch_dependency::<MappedHgChangesetId>(ctx, csid)
+                    .await?
+                    .hg_changeset_id())
+            },
+            derivation_ctx.fetch_dependency::<RootAclManifestId>(ctx, csid),
+        )
+        .await?;
+        let acl_root_overlay = crate::derive_hg_augmented_manifest::normalize_acl_root(&acl_root)?;
         let hg_manifest_id = hg_changeset_id
             .load(ctx, derivation_ctx.blobstore())
             .await?
@@ -757,6 +779,7 @@ impl DerivableUntopologically for RootHgAugmentedManifestId {
             ctx.clone(),
             Arc::clone(derivation_ctx.blobstore()),
             hg_manifest_id,
+            acl_root_overlay,
         )
         .await?;
 
@@ -928,6 +951,11 @@ mod test {
         // HgChangesets must be derived first (dependency of RootHgAugmentedManifestId).
         manager
             .derive_exactly_batch::<MappedHgChangesetId>(ctx, csids.clone(), None)
+            .await?;
+
+        // RootAclManifestId is a batch dependency of RootHgAugmentedManifestId
+        manager
+            .derive_exactly_batch::<RootAclManifestId>(ctx, csids.clone(), None)
             .await?;
 
         manager

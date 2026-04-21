@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use acl_manifest::RootAclManifestId;
 use anyhow::Result;
 use blobstore::Loadable;
 use cacheblob::MemWritesKeyedBlobstore;
@@ -60,6 +61,11 @@ async fn test_augmented_manifest_hg_blobs_loadable(fb: FacebookInit) -> Result<(
         .derive_exactly_batch::<MappedHgChangesetId>(&ctx, vec![root, child], None)
         .await?;
 
+    // Pre-derive RootAclManifestId (batch dependency of RootHgAugmentedManifestId)
+    manager
+        .derive_exactly_batch::<RootAclManifestId>(&ctx, vec![root, child], None)
+        .await?;
+
     manager
         .derive_exactly_batch::<RootHgAugmentedManifestId>(&ctx, vec![root, child], None)
         .await?;
@@ -97,12 +103,24 @@ async fn get_manifests(
         .await?
         .manifestid();
 
+    // Derive ACL manifest for this changeset to get the overlay.
+    let manager = repo.repo_derived_data().manager();
+    manager
+        .derive_exactly_batch::<RootAclManifestId>(ctx, vec![cs_id], None)
+        .await?;
+    let acl_root = manager
+        .fetch_derived::<RootAclManifestId>(ctx, cs_id, None)
+        .await?
+        .unwrap_or_else(|| panic!("Missing RootAclManifestId for {}", cs_id));
+    let acl_root_overlay = derive_hg_augmented_manifest::normalize_acl_root(&acl_root)?;
+
     // First derive the manifest in full using a temporary side blobstore.
     let blobstore = Arc::new(MemWritesKeyedBlobstore::new(repo.repo_blobstore().clone()));
     let full_aug_id = derive_hg_augmented_manifest::derive_from_full_hg_manifest(
         ctx.clone(),
         blobstore.clone(),
         hg_id,
+        acl_root_overlay,
     )
     .await?;
     let full_aug = full_aug_id.load(ctx, &blobstore).await?;
@@ -116,11 +134,19 @@ async fn get_manifests(
         parents,
         &Default::default(),
         restricted_paths_config,
+        acl_root_overlay,
     )
     .await?;
     let aug = aug_id.load(ctx, repo.repo_blobstore()).await?;
 
-    // Check that the two manifests are the same.
+    // Verify ACL pointers match between full and parent-aware derivation
+    assert_eq!(
+        aug.augmented_manifest.acl_manifest_directory_id,
+        full_aug.augmented_manifest.acl_manifest_directory_id,
+        "acl_manifest_directory_id mismatch at root between full and parent-aware derivation"
+    );
+
+    // Check that the two manifests are the same (deep equality includes ACL pointers).
     assert_eq!(aug, full_aug);
 
     Ok((hg_id, aug_id))
@@ -251,6 +277,84 @@ async fn test_augmented_manifest(fb: FacebookInit) -> Result<()> {
     Ok(())
 }
 
+/// Test that RootHgAugmentedManifestId batch derivation works correctly
+/// across multiple batch segments. This exercises the scenario where
+/// derive_heads_with_visited splits a large set of commits into multiple
+/// calls to derive_exactly_batch.
+///
+/// RootHgAugmentedManifestId's derive_batch derives HgChangesets inline
+/// and stores their mappings to SQL. The second batch segment depends on
+/// HgChangeset mappings from the first batch being visible via SQL.
+#[mononoke::fbinit_test]
+async fn test_augmented_manifest_multi_batch(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+    let repo: Repo = test_repo_factory::build_empty(fb).await?;
+
+    // Create a linear chain of commits. We'll split them into two batch
+    // segments to simulate what derive_heads_with_visited does.
+    let mut csids = Vec::new();
+    let root = CreateCommitContext::new_root(&ctx, &repo)
+        .add_file("file", "content_0")
+        .commit()
+        .await?;
+    csids.push(root);
+
+    for i in 1..10 {
+        let parent = *csids.last().unwrap();
+        let cs = CreateCommitContext::new(&ctx, &repo, vec![parent])
+            .add_file("file", format!("content_{}", i))
+            .commit()
+            .await?;
+        csids.push(cs);
+    }
+
+    let manager = repo.repo_derived_data().manager();
+
+    // Pre-derive RootAclManifestId (batch dependency of RootHgAugmentedManifestId)
+    manager
+        .derive_exactly_batch::<RootAclManifestId>(&ctx, csids.clone(), None)
+        .await?;
+
+    // MappedHgChangesetId is NOT a dependency — it gets derived inline
+    // within derive_batch and stored to SQL for cross-batch visibility.
+    // Split into two batches and derive RootHgAugmentedManifestId.
+    // First batch: commits 0..5
+    let batch1 = csids[0..5].to_vec();
+    manager
+        .derive_exactly_batch::<RootHgAugmentedManifestId>(&ctx, batch1, None)
+        .await?;
+
+    // Second batch: commits 5..10 (parent of commit 5 is commit 4, which
+    // was in batch 1). This works because derive_batch stores
+    // MappedHgChangesetId mappings to SQL, making them visible here.
+    let batch2 = csids[5..10].to_vec();
+    manager
+        .derive_exactly_batch::<RootHgAugmentedManifestId>(&ctx, batch2, None)
+        .await?;
+
+    // Verify all derived augmented manifests match full derivation
+    let derived = manager
+        .fetch_derived_batch::<RootHgAugmentedManifestId>(&ctx, csids.clone(), None)
+        .await?;
+
+    for cs_id in &csids {
+        let aug_id = derived
+            .get(cs_id)
+            .unwrap_or_else(|| panic!("Missing RootHgAugmentedManifestId for {}", cs_id))
+            .hg_augmented_manifest_id();
+
+        let hg_cs_id = repo.derive_hg_changeset(&ctx, *cs_id).await?;
+        let hg_manifest_id = hg_cs_id
+            .load(&ctx, repo.repo_blobstore())
+            .await?
+            .manifestid();
+
+        compare_manifests(&ctx, &repo, hg_manifest_id, aug_id).await?;
+    }
+
+    Ok(())
+}
+
 /// Test that RootHgAugmentedManifestId derivation via derive_heads works
 /// correctly when MappedHgChangesetId is not a declared dependency.
 /// derive_heads calls derive_exactly_batch, which calls our derive_batch
@@ -341,6 +445,11 @@ async fn test_augmented_manifest_skip_writes(fb: FacebookInit) -> Result<()> {
     // HgChangesets must be derived first (dependency of RootHgAugmentedManifestId).
     manager
         .derive_exactly_batch::<MappedHgChangesetId>(&ctx, vec![root, child, grandchild], None)
+        .await?;
+
+    // Pre-derive RootAclManifestId (batch dependency of RootHgAugmentedManifestId)
+    manager
+        .derive_exactly_batch::<RootAclManifestId>(&ctx, vec![root, child, grandchild], None)
         .await?;
 
     manager

@@ -12,6 +12,7 @@ name = "mercurial_derivation_test"
 path = "test/main.rs"
 
 [dependencies]
+acl_manifest = { version = "0.1.0", path = "../acl_manifest" }
 anyhow = "1.0.102"
 async-trait = "0.1.86"
 blobrepo_common = { version = "0.1.0", path = "../../blobrepo/common" }
