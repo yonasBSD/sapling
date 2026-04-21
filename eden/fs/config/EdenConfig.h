@@ -1813,14 +1813,6 @@ class EdenConfig : private ConfigSettingManager {
   ConfigSetting<bool> enableCoroutines{"coroutines:enabled", true, this};
 
   /**
-   * Enable phase 1 coroutine implementations.
-   */
-  ConfigSetting<bool> enableCoroutinesPhase1{
-      "coroutines:enable-phase1",
-      false,
-      this};
-
-  /**
    * Controls whether EdenFS uses phase 2 coroutine implementations
    * (prefetchFilesV2, glob, getRootTree, and related code paths).
    */
