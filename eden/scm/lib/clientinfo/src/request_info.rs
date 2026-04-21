@@ -124,7 +124,6 @@ pub enum ClientEntryPoint {
     MegarepoForwardsyncer,
     MononokeAdmin,
     GitImport,
-    RemoteGitImport,
     #[serde(rename = "EdenApiReplay", alias = "SaplingRemoteApiReplay")]
     SaplingRemoteApiReplay,
     MononokeCasSync,
@@ -219,7 +218,6 @@ impl Display for ClientEntryPoint {
             ClientEntryPoint::MononokeAdmin => "mononoke_admin",
             ClientEntryPoint::DiffService => "diff_service",
             ClientEntryPoint::GitImport => "git_import",
-            ClientEntryPoint::RemoteGitImport => "remote_git_import",
             ClientEntryPoint::SaplingRemoteApiReplay => "eden_api_replay",
             ClientEntryPoint::MononokeCasSync => "mononoke_re_cas_sync",
             ClientEntryPoint::ModernSync => "modern_sync",
@@ -267,7 +265,6 @@ impl TryFrom<&str> for ClientEntryPoint {
             "mononoke_admin" => Ok(ClientEntryPoint::MononokeAdmin),
             "diff_service" => Ok(ClientEntryPoint::DiffService),
             "git_import" => Ok(ClientEntryPoint::GitImport),
-            "remote_git_import" => Ok(ClientEntryPoint::RemoteGitImport),
             "eden_api_replay" => Ok(ClientEntryPoint::SaplingRemoteApiReplay),
             "mononoke_re_cas_sync" => Ok(ClientEntryPoint::MononokeCasSync),
             "modern_sync" => Ok(ClientEntryPoint::ModernSync),
@@ -423,10 +420,6 @@ mod tests {
         assert_eq!(
             Some(ClientEntryPoint::GitImport),
             ClientEntryPoint::try_from(ClientEntryPoint::GitImport.to_string().as_ref()).ok()
-        );
-        assert_eq!(
-            Some(ClientEntryPoint::RemoteGitImport),
-            ClientEntryPoint::try_from(ClientEntryPoint::RemoteGitImport.to_string().as_ref()).ok()
         );
         assert_eq!(
             Some(ClientEntryPoint::SaplingRemoteApiReplay),
