@@ -227,7 +227,6 @@ use synced_commit_mapping::ArcSyncedCommitMapping;
 use synced_commit_mapping::CachingSyncedCommitMapping;
 use synced_commit_mapping::SqlSyncedCommitMappingBuilder;
 use thiserror::Error;
-use tracing::debug;
 use tracing::error;
 use virtually_sharded_blobstore::VirtuallyShardedBlobstore;
 use warm_bookmarks_cache::NoopBookmarksCache;
@@ -428,12 +427,6 @@ impl RepoFactory {
                 })
                 .context("initializing DB connection")?;
 
-                if justknobs::eval("scm/mononoke:log_sql_factory_init", None, None)? {
-                    debug!(
-                        "initializing DB connection succeeded for config: {:?}",
-                        config
-                    )
-                }
                 Ok(Arc::new(sql_factory))
             })
             .await
