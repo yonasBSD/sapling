@@ -330,14 +330,16 @@ impl<'a> DiffRouter<'a> {
         repo_name: &str,
         commit_id: thrift::CommitId,
         params: thrift::CommitCompareParams,
-    ) -> Result<thrift::CommitCompareResponse, ServiceError> {
-        let client = self.create_diff_service_client(repo_name)?;
+    ) -> Result<thrift::CommitCompareResponse, RemoteDiffError> {
+        let client = self
+            .create_diff_service_client(repo_name)
+            .map_err(|e| RemoteDiffError::InfraError(format!("{e:?}")))?;
         let repo_client = RepoDiffServiceClient::new(repo_name.to_string(), client);
 
         let response = repo_client
             .commit_compare(ctx, commit_id, params)
             .await
-            .map_err(convert_diff_service_error)?;
+            .map_err(classify_diff_error)?;
 
         Ok(response)
     }
@@ -992,6 +994,39 @@ mod tests {
     }
 
     #[mononoke::test]
+    fn test_classify_diff_error_commit_compare_request() {
+        let err = CommitCompareError::ex(diff_service_if::RequestError {
+            reason: diff_service_if::RequestErrorReason::diff_error(diff_service_if::DiffError {
+                reason: "bad input".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        assert!(
+            matches!(classify_diff_error(err), RemoteDiffError::RequestError(_)),
+            "CommitCompareError with DiffError should classify as RequestError"
+        );
+    }
+
+    #[test]
+    fn test_classify_diff_error_commit_compare_transient() {
+        let err = CommitCompareError::ex(diff_service_if::RequestError {
+            reason: diff_service_if::RequestErrorReason::transient_error(
+                diff_service_if::TransientError {
+                    error_type: diff_service_if::TransientErrorType::OVERLOADED,
+                    message: "overloaded".into(),
+                    ..Default::default()
+                },
+            ),
+            ..Default::default()
+        });
+        assert!(
+            matches!(classify_diff_error(err), RemoteDiffError::InfraError(_)),
+            "CommitCompareError with TransientError should classify as InfraError"
+        );
+    }
+
+    #[test]
     fn test_classify_diff_error_transient() {
         let err = DiffUnifiedHeaderlessError::ex(diff_service_if::RequestError {
             reason: diff_service_if::RequestErrorReason::transient_error(
