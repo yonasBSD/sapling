@@ -123,7 +123,7 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
                         tracing::debug!(path = %path, hgid = %entry.hgid, "skipping permission-denied tree in bfs_iter");
                         continue;
                     }
-                    match entry.materialize_links(&ctx.store, &path, None) {
+                    match entry.materialize_links(&ctx.store, &path) {
                         Ok(children) => children,
                         Err(e) => {
                             results_to_send.push(Err(e).context("materialize_links in bfs_iter"));
@@ -306,8 +306,7 @@ impl<'a> DfsCursor<'a> {
                                 tracing::debug!(path = %self.path, hgid = %durable_entry.hgid, "skipping permission-denied tree in DfsCursor");
                                 self.state = State::Pop;
                             } else {
-                                match durable_entry.materialize_links(self.store, &self.path, None)
-                                {
+                                match durable_entry.materialize_links(self.store, &self.path) {
                                     Err(err) => {
                                         self.state = State::Done;
                                         return Step::Err(err);
