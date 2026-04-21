@@ -39,6 +39,7 @@ use mononoke_api::ChangesetPathContentContext;
 use mononoke_api::ChangesetPathDiffContext;
 use mononoke_api::ChangesetSpecifier;
 use mononoke_api::CopyInfo;
+use mononoke_api::FingerprintVersion;
 use mononoke_api::MetadataDiff;
 use mononoke_api::MononokeError;
 use mononoke_api::MononokeRepo;
@@ -764,6 +765,33 @@ impl SourceControlServiceImpl {
     ) -> Result<i64, scs_errors::ServiceError> {
         let (_repo, changeset) = self.repo_changeset(ctx, &commit).await?;
         Ok(changeset.generation().await?.value() as i64)
+    }
+
+    /// Get the content fingerprint of a commit.
+    pub(crate) async fn commit_fingerprint(
+        &self,
+        ctx: CoreContext,
+        commit: thrift::CommitSpecifier,
+        params: thrift::CommitFingerprintParams,
+    ) -> Result<thrift::CommitFingerprintResponse, scs_errors::ServiceError> {
+        let version = match params.version {
+            thrift::CommitFingerprintVersion::V1 => FingerprintVersion::V1,
+            other => {
+                return Err(scs_errors::ServiceError::from(
+                    MononokeError::InvalidRequest(format!(
+                        "unsupported fingerprint version: {:?}",
+                        other
+                    )),
+                ));
+            }
+        };
+        let (_repo, changeset) = self.repo_changeset(ctx, &commit).await?;
+        let fingerprint = changeset.content_fingerprint(version).await?;
+        Ok(thrift::CommitFingerprintResponse {
+            fingerprint,
+            version: params.version,
+            ..Default::default()
+        })
     }
 
     /// Returns `true` if this commit is an ancestor of `other_commit`.

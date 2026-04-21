@@ -372,6 +372,7 @@ impl_into_thrift_error!(service::CommitLookupExn);
 impl_into_thrift_error!(service::CommitLookupPushrebaseHistoryExn);
 impl_into_thrift_error!(service::CommitInfoExn);
 impl_into_thrift_error!(service::CommitGenerationExn);
+impl_into_thrift_error!(service::CommitFingerprintExn);
 impl_into_thrift_error!(service::CommitCompareExn);
 impl_into_thrift_error!(service::CommitIsAncestorOfExn);
 impl_into_thrift_error!(service::CommitFilterAncestorsExn);

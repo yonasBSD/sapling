@@ -128,6 +128,8 @@ impl AddScubaResponse for thrift::CommitFindFilesStreamItem {}
 
 impl AddScubaResponse for thrift::CommitInfo {}
 
+impl AddScubaResponse for thrift::CommitFingerprintResponse {}
+
 impl AddScubaResponse for thrift::CommitLookupResponse {}
 
 impl AddScubaResponse for thrift::CommitFilterAncestorsResponse {
