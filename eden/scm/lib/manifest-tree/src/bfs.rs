@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -27,6 +28,7 @@ use types::RepoPathBuf;
 
 use crate::link::DurableEntry;
 use crate::link::Link;
+use crate::link::MaybeLinks;
 use crate::store;
 use crate::store::InnerStore;
 
@@ -90,13 +92,22 @@ where
     work_send
 }
 
-fn tree_entry_to_links(entry: Arc<dyn TreeEntry>) -> Result<BTreeMap<PathComponentBuf, Link>> {
+fn tree_entry_to_links(
+    entry: Arc<dyn TreeEntry>,
+    denied_hgids: &HashSet<HgId>,
+) -> Result<BTreeMap<PathComponentBuf, Link>> {
     let mut links = BTreeMap::new();
     for item in entry.iter_owned()? {
         let (component, hgid, flag) = item?;
         let link = match flag {
             store::Flag::File(file_type) => Link::leaf(FileMetadata::new(hgid, file_type)),
-            store::Flag::Directory => Link::durable(hgid),
+            store::Flag::Directory => {
+                if denied_hgids.contains(&hgid) {
+                    Link::durable_permission_denied(hgid)
+                } else {
+                    Link::durable(hgid)
+                }
+            }
         };
         links.insert(component, link);
     }
@@ -137,10 +148,33 @@ pub(crate) fn prefetch_trees<'a>(
     for res in store.get_tree_iter(FetchContext::default(), keys)? {
         match res {
             Ok((key, tree_entry)) => {
-                let links = tree_entry_to_links(tree_entry)?;
+                let mut denied_hgids = HashSet::new();
+                match tree_entry.permission_denied_children() {
+                    Ok(iter) => {
+                        for item in iter {
+                            match item {
+                                Ok((_component, hgid, reason)) => {
+                                    tracing::debug!(%hgid, reason, "marking child tree as permission denied");
+                                    denied_hgids.insert(hgid);
+                                }
+                                Err(err) => {
+                                    tracing::debug!(
+                                        ?err,
+                                        "error reading permission_denied_children"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        tracing::debug!(?err, "error calling permission_denied_children");
+                    }
+                }
+
+                let links = tree_entry_to_links(tree_entry, &denied_hgids)?;
                 if let Some(entries) = by_hgid.get(&key.hgid) {
                     for entry in entries {
-                        entry.links.get_or_init(|| links.clone());
+                        entry.links.get_or_init(|| MaybeLinks::Links(links.clone()));
                     }
                 }
             }
@@ -150,7 +184,7 @@ pub(crate) fn prefetch_trees<'a>(
                 {
                     if let Some(entries) = by_hgid.get(tree_id) {
                         for entry in entries {
-                            entry.links.get_or_init(BTreeMap::new);
+                            entry.links.get_or_init(|| MaybeLinks::PermissionDenied);
                         }
                     }
                 }

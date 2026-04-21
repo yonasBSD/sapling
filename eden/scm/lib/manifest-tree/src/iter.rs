@@ -90,7 +90,7 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
         if let Err(e) = bfs::prefetch_trees(
             &ctx.store,
             work.iter().filter_map(|(_, link)| match link.as_ref() {
-                Durable(entry) => Some(entry),
+                Durable(entry) if !entry.is_permission_denied() => Some(entry),
                 _ => None,
             }),
         ) {
@@ -107,18 +107,30 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
         let mut results_to_send = Vec::<Result<(RepoPathBuf, FsNodeMetadata)>>::new();
         let mut work_to_send = Vec::<(RepoPathBuf, Link)>::new();
         for (path, link) in work {
-            let (children, hgid) = match link.as_ref() {
-                Leaf(_) => {
-                    continue;
-                }
-                Ephemeral(children) => (children, None),
-                Durable(entry) => match entry.materialize_links(&ctx.store, &path, None) {
-                    Ok(children) => (children, Some(entry.hgid)),
-                    Err(e) => {
-                        results_to_send.push(Err(e).context("materialize_links in bfs_iter"));
+            let hgid = match link.as_ref() {
+                Leaf(_) => continue,
+                Ephemeral(_) => None,
+                Durable(entry) => Some(entry.hgid),
+            };
+
+            results_to_send.push(Ok((path.clone(), FsNodeMetadata::Directory(hgid))));
+
+            let children = match link.as_ref() {
+                Leaf(_) => unreachable!(),
+                Ephemeral(children) => children,
+                Durable(entry) => {
+                    if entry.is_permission_denied() {
+                        tracing::debug!(path = %path, hgid = %entry.hgid, "skipping permission-denied tree in bfs_iter");
                         continue;
                     }
-                },
+                    match entry.materialize_links(&ctx.store, &path, None) {
+                        Ok(children) => children,
+                        Err(e) => {
+                            results_to_send.push(Err(e).context("materialize_links in bfs_iter"));
+                            continue;
+                        }
+                    }
+                }
             };
 
             for (component, link) in children.iter() {
@@ -151,8 +163,6 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
                     }
                 };
             }
-
-            results_to_send.push(Ok((path, FsNodeMetadata::Directory(hgid))));
         }
 
         if !results_to_send.is_empty() {
@@ -292,14 +302,20 @@ impl<'a> DfsCursor<'a> {
                             self.state = State::Next;
                         }
                         Durable(durable_entry) => {
-                            match durable_entry.materialize_links(self.store, &self.path, None) {
-                                Err(err) => {
-                                    self.state = State::Done;
-                                    return Step::Err(err);
+                            if durable_entry.is_permission_denied() {
+                                tracing::debug!(path = %self.path, hgid = %durable_entry.hgid, "skipping permission-denied tree in DfsCursor");
+                                self.state = State::Pop;
+                            } else {
+                                match durable_entry.materialize_links(self.store, &self.path, None)
+                                {
+                                    Err(err) => {
+                                        self.state = State::Done;
+                                        return Step::Err(err);
+                                    }
+                                    Ok(links) => self.stack.push(links.iter()),
                                 }
-                                Ok(links) => self.stack.push(links.iter()),
+                                self.state = State::Next;
                             }
-                            self.state = State::Next;
                         }
                         Leaf(_) => {
                             self.state = State::Pop;

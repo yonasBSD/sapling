@@ -57,6 +57,7 @@ use crate::link::Durable;
 use crate::link::DurableEntry;
 use crate::link::Ephemeral;
 use crate::link::Leaf;
+use crate::link::MaybeLinks;
 use crate::store::InnerStore;
 
 /// The Tree implementation of a Manifest dedicates an inner node for each directory in the
@@ -380,8 +381,8 @@ impl fmt::Debug for TreeManifest {
                 Durable(entry) => {
                     write!(f, "(Durable, {})\n", entry.hgid)?;
                     match entry.links.get() {
-                        None => Ok(()),
-                        Some(children) => write_children(f, children, indent),
+                        Some(MaybeLinks::Links(children)) => write_children(f, children, indent),
+                        _ => Ok(()),
                     }
                 }
             }
@@ -565,7 +566,7 @@ fn finalize_trees<P: ParentTreeTracker>(
 
     let cell = OnceCell::new();
     // TODO: remove clone
-    cell.set(links.clone()).unwrap();
+    cell.set(MaybeLinks::Links(links.clone())).unwrap();
 
     let hgid = store.insert_entry(path, entry, parent_tree_nodes)?;
 

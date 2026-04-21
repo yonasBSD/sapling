@@ -77,12 +77,22 @@ pub enum LinkData {
 }
 pub use self::LinkData::*;
 
+/// Result of materializing a durable tree entry's children.
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub enum MaybeLinks {
+    /// The tree was fetched successfully.
+    Links(BTreeMap<PathComponentBuf, Link>),
+    /// Access to this tree was denied by a path ACL.
+    PermissionDenied,
+}
+
 // TODO: Use Vec instead of BTreeMap
 /// The inner structure of a durable link.
 #[derive(Debug)]
 pub struct DurableEntry {
     pub hgid: HgId,
-    pub links: OnceCell<BTreeMap<PathComponentBuf, Link>>,
+    pub links: OnceCell<MaybeLinks>,
 }
 
 impl Link {
@@ -94,6 +104,12 @@ impl Link {
 
     pub fn durable(hgid: HgId) -> Link {
         Link::new(LinkData::Durable(Arc::new(DurableEntry::new(hgid))))
+    }
+
+    pub fn durable_permission_denied(hgid: HgId) -> Link {
+        let links = OnceCell::new();
+        links.set(MaybeLinks::PermissionDenied).unwrap();
+        Link::new(LinkData::Durable(Arc::new(DurableEntry { hgid, links })))
     }
 
     pub fn ephemeral() -> Link {
@@ -201,9 +217,13 @@ impl DurableEntry {
         }
     }
 
+    pub fn is_permission_denied(&self) -> bool {
+        matches!(self.links.get(), Some(MaybeLinks::PermissionDenied))
+    }
+
     /// Returns true if links have already been materialized.
     pub fn links_initialized(&self) -> bool {
-        self.links.get().is_some()
+        matches!(self.links.get(), Some(MaybeLinks::Links(_)))
     }
 
     pub fn materialize_links(
@@ -212,7 +232,7 @@ impl DurableEntry {
         path: &RepoPath,
         prefetched_data: Option<&minibytes::Bytes>,
     ) -> Result<&BTreeMap<PathComponentBuf, Link>> {
-        self.links.get_or_try_init(|| {
+        let maybe = self.links.get_or_try_init(|| -> Result<MaybeLinks> {
             let entry = match prefetched_data {
                 Some(data) => store::Entry(data.clone(), store.format()),
                 None => store.get_entry(path, self.hgid).with_context(|| {
@@ -240,8 +260,19 @@ impl DurableEntry {
                 };
                 links.insert(element.component, link);
             }
-            Ok(links)
-        })
+            Ok(MaybeLinks::Links(links))
+        })?;
+        match maybe {
+            MaybeLinks::Links(links) => Ok(links),
+            MaybeLinks::PermissionDenied => Err(edenapi_types::SaplingRemoteApiServerError {
+                err: edenapi_types::SaplingRemoteApiServerErrorKind::PermissionDenied {
+                    tree_id: self.hgid,
+                    request_acl: String::new(),
+                },
+                key: None,
+            }
+            .into()),
+        }
     }
 }
 
@@ -349,6 +380,13 @@ impl DirLink {
     /// for interacting with Mercurial's data fetching code.
     pub fn key(&self) -> Option<Key> {
         Some(Key::new(self.path.clone(), self.hgid().clone()?))
+    }
+
+    pub fn is_permission_denied(&self) -> bool {
+        match self.link.as_ref() {
+            Durable(entry) => entry.is_permission_denied(),
+            _ => false,
+        }
     }
 }
 

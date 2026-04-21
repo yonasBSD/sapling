@@ -225,7 +225,7 @@ fn run_diff_worker(
                 DiffWork::Single(dir, _, _) => {
                     let mut v = Vec::new();
                     if let Durable(entry) = dir.link.as_ref() {
-                        if !entry.links_initialized() {
+                        if !entry.links_initialized() && !entry.is_permission_denied() {
                             v.push(entry);
                         }
                     }
@@ -234,12 +234,12 @@ fn run_diff_worker(
                 DiffWork::Changed(left, right) => {
                     let mut v = Vec::new();
                     if let Durable(entry) = left.link.as_ref() {
-                        if !entry.links_initialized() {
+                        if !entry.links_initialized() && !entry.is_permission_denied() {
                             v.push(entry);
                         }
                     }
                     if let Durable(entry) = right.link.as_ref() {
-                        if !entry.links_initialized() {
+                        if !entry.links_initialized() && !entry.is_permission_denied() {
                             v.push(entry);
                         }
                     }
@@ -311,6 +311,11 @@ fn diff_single(
     work: &mut Vec<DiffWork>,
     result: &ResultSender,
 ) -> Result<()> {
+    if dir.is_permission_denied() {
+        tracing::debug!(path = %dir.path, "skipping permission-denied tree in diff_single");
+        return Ok(());
+    }
+
     let (files, dirs) = dir.list(store)?;
 
     if result.need_dir_diff() {
@@ -356,6 +361,21 @@ fn diff_dirs(
     work: &mut Vec<DiffWork>,
     result: &ResultSender,
 ) -> Result<()> {
+    let left_denied = left.is_permission_denied();
+    let right_denied = right.is_permission_denied();
+    if left_denied && right_denied {
+        tracing::debug!(path = %left.path, "skipping permission-denied trees on both sides in diff_dirs");
+        return Ok(());
+    }
+    if left_denied {
+        tracing::debug!(path = %left.path, "skipping permission-denied left tree in diff_dirs");
+        return diff_single(right, Side::Right, false, store, matcher, work, result);
+    }
+    if right_denied {
+        tracing::debug!(path = %right.path, "skipping permission-denied right tree in diff_dirs");
+        return diff_single(left, Side::Left, false, store, matcher, work, result);
+    }
+
     // Returns whether the parent directory is considered as modified:
     // - Either `l` or `r` is None (added or deleted).
     // - Item type change (file -> dir, or vice-versa).
