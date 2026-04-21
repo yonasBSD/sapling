@@ -158,7 +158,7 @@ class basepackstore:
             yield path
 
     def getpack(self, path):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def getmissing(self, keys):
         missing = keys
