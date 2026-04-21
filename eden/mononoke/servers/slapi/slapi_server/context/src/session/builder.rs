@@ -43,6 +43,7 @@ impl SessionContainerBuilder {
                 blobstore_write_limiter: None,
                 blobstore_read_limiter: None,
                 readonly: false,
+                server_side_tenting: false,
             },
             session_class: SessionClass::UserWaiting,
         }
@@ -90,6 +91,11 @@ impl SessionContainerBuilder {
 
     pub fn readonly(mut self, readonly: bool) -> Self {
         self.inner.readonly = readonly;
+        self
+    }
+
+    pub fn server_side_tenting(mut self, server_side_tenting: bool) -> Self {
+        self.inner.server_side_tenting = server_side_tenting;
         self
     }
 }
