@@ -3424,6 +3424,14 @@ except AttributeError:
 
 
 def main() -> int:
+    # Ensure stdout/stderr use UTF-8 encoding. On Windows, Python defaults to
+    # the system code page (e.g. cp1252) which cannot encode non-Latin paths.
+    # This matches Sapling's utf8_mode=1 pre-initialization (python.rs).
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure:
+            reconfigure(encoding="utf-8", errors=stream.errors)
+
     # This is called hundreds of millions of times on unique hosts.
     # Increase how often it's sampled.
     usage.set_sample_rate(automation=10000)

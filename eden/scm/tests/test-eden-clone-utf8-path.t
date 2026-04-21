@@ -15,7 +15,7 @@ test eden clone to a path with non-ASCII characters
   $ cd
 #if windows
   $ sl clone -q test:repo test_你好 2>&1 | grep Error
-  UnicodeEncodeError: 'charmap' codec can't encode characters in position *: character maps to *\r (esc) (glob)
+   Stderr: 'Failed to clone. Error from EdenFS: class cpptoml::parse_exception: * could not be opened for parsing\r (esc) (glob)
 #else
   $ sl clone -q test:repo test_你好
 #endif
