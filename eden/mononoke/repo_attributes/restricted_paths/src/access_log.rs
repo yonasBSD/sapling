@@ -310,7 +310,7 @@ pub(crate) async fn log_access_to_restricted_path(
     tooling_allowlist_group: Option<&str>,
     rollout_allowlist_group: Option<&str>,
     scuba: MononokeScubaSampleBuilder,
-    determined_by: Vec<String>,
+    considered_restricted_by: Vec<String>,
 ) -> Result<RestrictionCheckResult> {
     // TODO(T239041722): store permission checkers in RestrictedPaths to improve
     // performance if needed.
@@ -386,7 +386,7 @@ pub(crate) async fn log_access_to_restricted_path(
         is_rollout_allowlisted,
         acls,
         scuba,
-        determined_by,
+        considered_restricted_by,
     )?;
 
     Ok(RestrictionCheckResult {
@@ -405,7 +405,7 @@ fn log_access_to_scuba(
     is_rollout_allowlisted: bool,
     acls: Vec<&MononokeIdentity>,
     mut scuba: MononokeScubaSampleBuilder,
-    determined_by: Vec<String>,
+    considered_restricted_by: Vec<String>,
 ) -> Result<()> {
     scuba.add_metadata(ctx.metadata());
 
@@ -444,7 +444,7 @@ fn log_access_to_scuba(
         }
     }
 
-    scuba.add("determined_by", determined_by);
+    scuba.add("considered_restricted_by", considered_restricted_by);
 
     scuba.log();
 

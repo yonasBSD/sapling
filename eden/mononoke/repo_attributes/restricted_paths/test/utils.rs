@@ -112,7 +112,7 @@ pub struct ScubaAccessLogSample {
     has_authorization: bool,
     is_allowlisted_tooling: bool,
     acls: Vec<MononokeIdentity>,
-    determined_by: Vec<String>,
+    considered_restricted_by: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -127,7 +127,7 @@ pub struct ScubaAccessLogSampleBuilder {
     has_authorization: Option<bool>,
     is_allowlisted_tooling: Option<bool>,
     acls: Vec<MononokeIdentity>,
-    determined_by: Vec<String>,
+    considered_restricted_by: Vec<String>,
 }
 
 impl ScubaAccessLogSampleBuilder {
@@ -143,7 +143,7 @@ impl ScubaAccessLogSampleBuilder {
             has_authorization: None,
             is_allowlisted_tooling: None,
             acls: Vec::new(),
-            determined_by: vec!["manifest_db".to_string()],
+            considered_restricted_by: vec!["manifest_db".to_string()],
         }
     }
 
@@ -198,8 +198,8 @@ impl ScubaAccessLogSampleBuilder {
     }
 
     #[allow(dead_code)]
-    pub fn with_determined_by(mut self, determined_by: Vec<String>) -> Self {
-        self.determined_by = determined_by;
+    pub fn with_considered_restricted_by(mut self, considered_restricted_by: Vec<String>) -> Self {
+        self.considered_restricted_by = considered_restricted_by;
         self
     }
 
@@ -225,7 +225,7 @@ impl ScubaAccessLogSampleBuilder {
             has_authorization,
             is_allowlisted_tooling,
             acls: self.acls,
-            determined_by: self.determined_by,
+            considered_restricted_by: self.considered_restricted_by,
         })
     }
 }
@@ -1070,16 +1070,17 @@ fn deserialize_scuba_log_file(
                         })
                         .unwrap_or_default();
 
-                    let determined_by: Vec<String> = flattened_log["determined_by"]
-                        .as_array()
-                        .map(|ids| {
-                            ids.iter()
-                                .filter_map(|id| id.as_str())
-                                .map(String::from)
-                                .sorted()
-                                .collect()
-                        })
-                        .unwrap_or_default();
+                    let considered_restricted_by: Vec<String> =
+                        flattened_log["considered_restricted_by"]
+                            .as_array()
+                            .map(|ids| {
+                                ids.iter()
+                                    .filter_map(|id| id.as_str())
+                                    .map(String::from)
+                                    .sorted()
+                                    .collect()
+                            })
+                            .unwrap_or_default();
 
                     Ok(ScubaAccessLogSample {
                         repo_id,
@@ -1092,7 +1093,7 @@ fn deserialize_scuba_log_file(
                         is_allowlisted_tooling,
                         client_main_id,
                         acls,
-                        determined_by,
+                        considered_restricted_by,
                     })
                 })?
         })
