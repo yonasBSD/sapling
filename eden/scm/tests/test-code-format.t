@@ -102,17 +102,15 @@ Test invalid code-format-mode config:
 Re-enable for subsequent tests:
   $ setconfig 'fix.code-format-mode=on'
 
-Test formatter failure aborts amend:
+Test formatter failure does not abort amend:
   $ cat > "$TESTTMP/fail_formatter.py" <<EOF
-  > import sys; sys.exit(1)
+  > import sys
+  > sys.stderr.write("something went wrong\n")
+  > sys.exit(1)
   > EOF
   $ setconfig fix.code-format-command="sl debugpython $TESTTMP/fail_formatter.py"
   $ echo "h" > h.txt
   $ sl add h.txt
   $ sl amend
   running code formatter: '*' (glob)
-  error: pre-amend.sl_code_format hook failed: code formatter failed with exit code 1. Run `*` manually to see details. (glob)
-  
-  abort: code formatter failed with exit code 1. Run `sl debugpython $TESTTMP/fail_formatter.py` manually to see details.
-  
-  [255]
+  skipping code formatter: failed to run '*': something went wrong (glob)
