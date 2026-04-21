@@ -53,6 +53,13 @@ cpp_library(
 )
 
 cpp_library(
+    name = "xplat_keys",
+    headers = [
+        "XplatKeys.h",
+    ],
+)
+
+cpp_library(
     name = "scribe_logger",
     headers = [
         "IScribeLogger.h",
