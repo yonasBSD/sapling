@@ -479,12 +479,10 @@ async fn plain_push_bookmark(
     cross_repo_push_source: CrossRepoPushSource,
 ) -> Result<(), BundleResolverError> {
     let authz = AuthorizationContext::new(ctx);
-    // Override the justknob if we know for sure writes are not allowed
-    let only_log_acl_checks =
-        !matches!(
-            authz,
-            AuthorizationContext::ReadOnlyIdentity | AuthorizationContext::DraftOnlyIdentity,
-        ) && justknobs::eval("scm/mononoke:wireproto_log_only_write_acl", None, None)?;
+    let only_log_acl_checks = !matches!(
+        authz,
+        AuthorizationContext::ReadOnlyIdentity | AuthorizationContext::DraftOnlyIdentity,
+    );
     match (bookmark_push.old, bookmark_push.new) {
         (None, Some(new_target)) => {
             let res = bookmarks_movement::CreateBookmarkOp::new(
@@ -588,12 +586,10 @@ async fn infinitepush_scratch_bookmark(
     cross_repo_push_source: CrossRepoPushSource,
 ) -> Result<()> {
     let authz = AuthorizationContext::new(ctx);
-    // Override the justknob if we know for sure writes are not allowed
-    let only_log_acl_checks =
-        !matches!(
-            authz,
-            AuthorizationContext::ReadOnlyIdentity | AuthorizationContext::DraftOnlyIdentity,
-        ) && justknobs::eval("scm/mononoke:wireproto_log_only_write_acl", None, None)?;
+    let only_log_acl_checks = !matches!(
+        authz,
+        AuthorizationContext::ReadOnlyIdentity | AuthorizationContext::DraftOnlyIdentity,
+    );
     if bookmark_push.old.is_none() && bookmark_push.create {
         bookmarks_movement::CreateBookmarkOp::new(
             bookmark_push.name.clone(),
