@@ -155,7 +155,6 @@ registerDisposable(
       return;
     }
 
-    expandCommitInfoView();
     const schema = readAtom(commitMessageFieldsSchema);
     const fields = parseCommitMessageFields(schema, title, description);
 
@@ -168,8 +167,11 @@ registerDisposable(
       mergeOnlyEmptyMessageFields(schema, fields, currentMessage as CommitMessageFields),
     );
 
-    writeAtom(selectedCommits, new Set([hash]));
-    writeAtom(rawCommitMode, mode);
+    if (event.preserveFocus !== true) {
+      expandCommitInfoView();
+      writeAtom(selectedCommits, new Set([hash]));
+      writeAtom(rawCommitMode, mode);
+    }
   }),
 );
 

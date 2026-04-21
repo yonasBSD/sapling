@@ -1246,6 +1246,7 @@ export type ServerToClientMessage =
       description: string;
       mode?: 'commit' | 'amend';
       hash?: string;
+      preserveFocus?: boolean;
     }
   | {type: 'uploadFileResult'; id: string; result: Result<string>}
   | {type: 'gotRepoUrlAtHash'; url: Result<string>}
