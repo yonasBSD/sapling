@@ -45,8 +45,13 @@ pub(crate) enum RestrictedPathAccessData {
     FullPath { full_path: NonRootMPath },
 }
 
-/// Check if the caller has read access to paths protected by the given repo region ACLs.
-/// This uses PermissionChecker to verify the caller has "read" permission.
+/// Check if the caller has read access to every repo region ACL in `acls`
+/// (conjunctive evaluation). For nested restrictions (e.g. `/secret` plus
+/// `/secret/inner`), the caller must satisfy the inner ACL even when they
+/// already satisfy the outer one — otherwise being a member of an outer ACL
+/// would silently bypass an inner restriction.
+///
+/// Runs checks concurrently and short-circuits on the first deny or error.
 pub async fn has_read_access_to_repo_region_acls(
     ctx: &CoreContext,
     acl_provider: &Arc<dyn AclProvider>,
@@ -56,25 +61,22 @@ pub async fn has_read_access_to_repo_region_acls(
         return Ok(true);
     }
 
-    let permission_checker = stream::iter(acls.iter().cloned())
-        .map(anyhow::Ok)
-        .try_fold(PermissionCheckerBuilder::new(), async |builder, acl| {
-            Ok(builder.allow(
-                acl_provider
-                    .repo_region_acl(acl.id_data())
-                    .await
-                    .with_context(|| {
-                        format!("Failed to create PermissionChecker for {}", acl.id_data())
-                    })?,
-            ))
+    let identities = ctx.metadata().identities();
+    stream::iter(acls.iter().copied())
+        .map(|acl| async move {
+            let checker = acl_provider
+                .repo_region_acl(acl.id_data())
+                .await
+                .with_context(|| {
+                    format!("Failed to create PermissionChecker for {}", acl.id_data())
+                })?;
+            let permission_checker = PermissionCheckerBuilder::new().allow(checker).build();
+            anyhow::Ok(permission_checker.check_set(identities, &["read"]).await)
         })
+        .boxed()
+        .buffer_unordered(acls.len())
+        .try_all(futures::future::ready)
         .await
-        .context("creating PermissionCheckerBuilder")?
-        .build();
-
-    Ok(permission_checker
-        .check_set(ctx.metadata().identities(), &["read"])
-        .await)
 }
 
 /// Check if the caller is a member of any of the given groups.

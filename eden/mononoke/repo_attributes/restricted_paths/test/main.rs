@@ -1388,7 +1388,8 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_has_authorization(false)
                 .with_acls(vec![more_restricted_acl.clone()])
                 .build()?,
-            // project/restricted access - path log (includes both ACLs)
+            // project/restricted access - path log (includes both ACLs).
+            // Conjunctive: user lacks more_restricted_acl, so access is denied.
             base_sample
                 .clone()
                 .with_restricted_paths(cast_to_non_root_mpaths(vec![
@@ -1396,7 +1397,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                     "project/restricted",
                 ])?)
                 .with_full_path(NonRootMPath::new("project/restricted")?)
-                .with_has_authorization(true)
+                .with_has_authorization(false)
                 .with_acls(vec![more_restricted_acl.clone(), project_acl.clone()])
                 .build()?,
             // project access - Fsnode log
@@ -1455,7 +1456,8 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_has_authorization(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
-            // project/restricted/.slacl access - path log (paths_with_content)
+            // project/restricted/.slacl access - path log (paths_with_content).
+            // Conjunctive: user lacks more_restricted_acl, so access is denied.
             base_sample
                 .clone()
                 .with_restricted_paths(cast_to_non_root_mpaths(vec![
@@ -1463,10 +1465,11 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                     "project/restricted",
                 ])?)
                 .with_full_path(NonRootMPath::new("project/restricted/.slacl")?)
-                .with_has_authorization(true)
+                .with_has_authorization(false)
                 .with_acls(vec![more_restricted_acl.clone(), project_acl.clone()])
                 .build()?,
-            // project/restricted/.slacl access - path log (paths_with_history)
+            // project/restricted/.slacl access - path log (paths_with_history).
+            // Conjunctive: user lacks more_restricted_acl, so access is denied.
             base_sample
                 .clone()
                 .with_restricted_paths(cast_to_non_root_mpaths(vec![
@@ -1474,10 +1477,11 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                     "project/restricted",
                 ])?)
                 .with_full_path(NonRootMPath::new("project/restricted/.slacl")?)
-                .with_has_authorization(true)
+                .with_has_authorization(false)
                 .with_acls(vec![more_restricted_acl.clone(), project_acl.clone()])
                 .build()?,
-            // project/restricted access - path log (includes both ACLs)
+            // project/restricted access - path log (includes both ACLs).
+            // Conjunctive: user lacks more_restricted_acl, so access is denied.
             base_sample
                 .clone()
                 .with_restricted_paths(cast_to_non_root_mpaths(vec![
@@ -1485,11 +1489,11 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                     "project/restricted",
                 ])?)
                 .with_full_path(NonRootMPath::new("project/restricted/sensitive_file.txt")?)
-                // User has access to the broader project ACL
-                .with_has_authorization(true)
+                .with_has_authorization(false)
                 .with_acls(vec![more_restricted_acl.clone(), project_acl.clone()])
                 .build()?,
-            // project/restricted access - path log (includes both ACLs)
+            // project/restricted access - path log (includes both ACLs).
+            // Conjunctive: user lacks more_restricted_acl, so access is denied.
             base_sample
                 .clone()
                 .with_restricted_paths(cast_to_non_root_mpaths(vec![
@@ -1497,8 +1501,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                     "project/restricted",
                 ])?)
                 .with_full_path(NonRootMPath::new("project/restricted/sensitive_file.txt")?)
-                // User has access to the broader project ACL
-                .with_has_authorization(true)
+                .with_has_authorization(false)
                 .with_acls(vec![more_restricted_acl.clone(), project_acl.clone()])
                 .build()?,
         ])
