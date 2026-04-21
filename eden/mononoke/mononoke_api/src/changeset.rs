@@ -107,6 +107,13 @@ use crate::specifiers::HgChangesetId;
 
 mod find_files;
 
+/// Algorithm version for changeset content fingerprinting.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FingerprintVersion {
+    /// Root ContentManifestId (content-addressed tree hash).
+    V1,
+}
+
 #[derive(Clone, Debug)]
 enum PathMutableHistory {
     /// Checking the mutable history datastore shows no changes
@@ -403,6 +410,28 @@ impl<R: RepoDerivedDataArc> ChangesetContext<R> {
                 .derive::<Derivable>(&ctx, id, DerivationPriority::LOW)
                 .await
                 .map_err(MononokeError::from)
+        }
+    }
+
+    /// Returns a content-based fingerprint for this changeset.
+    ///
+    /// The fingerprint depends only on the file tree contents (paths, content
+    /// ids, file types, sizes), not on metadata (author, date, message).
+    /// Two changesets with identical file trees produce the same fingerprint
+    /// regardless of how they got there.
+    pub async fn content_fingerprint(
+        &self,
+        version: FingerprintVersion,
+    ) -> Result<Vec<u8>, MononokeError> {
+        match version {
+            FingerprintVersion::V1 => {
+                let root_id = self.derive::<RootContentManifestId>().await?;
+                Ok(root_id
+                    .into_content_manifest_id()
+                    .blake2()
+                    .as_ref()
+                    .to_vec())
+            }
         }
     }
 

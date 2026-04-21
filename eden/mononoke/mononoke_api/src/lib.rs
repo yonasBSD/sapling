@@ -52,6 +52,7 @@ pub use crate::changeset::ChangesetDiffItem;
 pub use crate::changeset::ChangesetFileOrdering;
 pub use crate::changeset::ChangesetHistoryOptions;
 pub use crate::changeset::ChangesetLinearHistoryOptions;
+pub use crate::changeset::FingerprintVersion;
 pub use crate::changeset::Generation;
 pub use crate::changeset_path::ChangesetPathContentContext;
 pub use crate::changeset_path::ChangesetPathHistoryOptions;
