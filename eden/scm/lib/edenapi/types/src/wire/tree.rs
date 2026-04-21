@@ -56,6 +56,9 @@ pub struct WireTreeEntry {
 
     #[serde(rename = "5", default, skip_serializing_if = "is_default")]
     pub tree_aux_data: Option<WireTreeAuxData>,
+
+    #[serde(rename = "6", default, skip_serializing_if = "is_default")]
+    pub has_acl: Option<bool>,
 }
 
 impl ToWire for Result<TreeEntry, SaplingRemoteApiServerError> {
@@ -70,6 +73,7 @@ impl ToWire for Result<TreeEntry, SaplingRemoteApiServerError> {
                 children: t.children.to_wire(),
                 error: None,
                 tree_aux_data: t.tree_aux_data.to_wire(),
+                has_acl: t.has_acl,
             },
             Err(e) => WireTreeEntry {
                 key: e.key.to_wire(),
@@ -100,8 +104,7 @@ impl ToApi for WireTreeEntry {
                 parents: self.parents.to_api()?,
                 children: self.children.to_api()?,
                 tree_aux_data: self.tree_aux_data.to_api()?,
-                // TODO(T248658346): populate has_acl field
-                has_acl: None,
+                has_acl: self.has_acl,
             })
         })
     }
@@ -120,6 +123,9 @@ pub struct WireTreeChildEntry {
 
     #[serde(rename = "5", default, skip_serializing_if = "is_default")]
     tree_aux_data: Option<WireTreeAuxData>,
+
+    #[serde(rename = "6", default, skip_serializing_if = "is_default")]
+    has_acl: Option<bool>,
 }
 
 impl ToWire for Result<TreeChildEntry, SaplingRemoteApiServerError> {
@@ -132,12 +138,14 @@ impl ToWire for Result<TreeChildEntry, SaplingRemoteApiServerError> {
                 file_metadata: t.file_metadata.to_wire(),
                 tree_aux_data: None,
                 error: None,
+                has_acl: None,
             },
             Ok(TreeChildEntry::Directory(t)) => WireTreeChildEntry {
                 key: Some(t.key.to_wire()),
                 file_metadata: None,
                 tree_aux_data: t.tree_aux_data.to_wire(),
                 error: None,
+                has_acl: t.has_acl,
             },
             Err(e) => WireTreeChildEntry {
                 key: e.key.to_wire(),
@@ -173,8 +181,7 @@ impl ToApi for WireTreeChildEntry {
                     .to_api()?
                     .ok_or(WireToApiConversionError::CannotPopulateRequiredField("key"))?,
                 tree_aux_data: self.tree_aux_data.to_api()?,
-                // TODO(T248658346): populate has_acl field
-                has_acl: None,
+                has_acl: self.has_acl,
             }))
         })
     }
@@ -300,6 +307,7 @@ impl Arbitrary for WireTreeEntry {
             // TODO
             error: None,
             tree_aux_data: Arbitrary::arbitrary(g),
+            has_acl: Arbitrary::arbitrary(g),
         }
     }
 }

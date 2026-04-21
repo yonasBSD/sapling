@@ -162,7 +162,7 @@ async fn fetch_git_object_as_tree<R: MononokeRepo>(
         parents: None,
         children: None,
         tree_aux_data: None,
-        // TODO(T248658346): populate has_acl field
+        // Path ACLs are not supported in Git
         has_acl: None,
     })
 }
@@ -193,6 +193,7 @@ async fn fetch_tree<R: MononokeRepo>(
                 augmented_manifest_id: ctx.augmented_manifest_id().clone().into(),
                 augmented_manifest_size: ctx.augmented_manifest_size(),
             });
+            entry.with_has_acl(ctx.is_restricted());
 
             if attributes.parents {
                 entry.with_parents(Some(ctx.hg_parents().into()));
@@ -255,8 +256,7 @@ async fn fetch_tree<R: MononokeRepo>(
                                             .augmented_manifest_size
                                             .clone(),
                                     },
-                                    // TODO(T248658346): populate has_acl field
-                                    None,
+                                    ctx.child_is_restricted(path),
                                 ))
                             }
                         })

@@ -202,7 +202,7 @@ Expected for tree_aux_data to be returned.
   [{"key": {"node": bin("b3930c8a2f6a25b56d20ed48ce1d30cd98026792"),
             "path": ""},
     "data": b"COMMIT_1\05690dd090bcba4b8f272493af3c574cd5242c4d1\ntest.txt\0186cafa3319c24956783383dc44c5cbc68c5a0ca\n",
-    "has_acl": None,
+    "has_acl": False,
     "parents": None,
     "children": [{"Ok": {"File": {"key": {"node": bin("5690dd090bcba4b8f272493af3c574cd5242c4d1"),
                                           "path": "COMMIT_1"},
@@ -225,7 +225,7 @@ Expected for tree_aux_data to be returned.
    {"key": {"node": bin("dfe7fab71e1f96a0f0f53b0c76725c01d79b244d"),
             "path": ""},
     "data": b"COMMIT_1\05690dd090bcba4b8f272493af3c574cd5242c4d1\nCOMMIT_2\030a356c25fb06508d81ed1dceb0550bcaa1ba9e0\ncopy.txt\017b8d4e3bafd4ec4812ad7c930aace9bf07ab033\ntest.txt\0186cafa3319c24956783383dc44c5cbc68c5a0ca\n",
-    "has_acl": None,
+    "has_acl": False,
     "parents": bin("b3930c8a2f6a25b56d20ed48ce1d30cd98026792"),
     "children": [{"Ok": {"File": {"key": {"node": bin("5690dd090bcba4b8f272493af3c574cd5242c4d1"),
                                           "path": "COMMIT_1"},
@@ -267,3 +267,93 @@ Expected for tree_aux_data to be returned.
     "edenapi_method": "trees",
     "fetch_from_cas_attempted": "false"
   }
+
+Test has_acl field with ACL-restricted directories (.slacl files)
+  $ cd $TESTTMP/repo
+  $ testtool_drawdag -R repo --print-hg-hashes <<EOF
+  > ACL_COMMIT
+  > # modify: ACL_COMMIT "restricted/code/.slacl" "repo_region_acl = \"REPO_REGION:repos/hg/fbsource/=project1\"\n"
+  > # modify: ACL_COMMIT "restricted/code/secret.rs" "fn secret() {}\n"
+  > # modify: ACL_COMMIT "public/readme.md" "hello\n"
+  > # message: ACL_COMMIT "commit with .slacl file"
+  > EOF
+  ACL_COMMIT=* (glob)
+
+  $ hg pull -q -r $ACL_COMMIT
+  $ ACL_MFID=$(hg log -r $ACL_COMMIT -T '{manifest}')
+  $ cd $TESTTMP
+
+Derive augmented manifests (AclManifest is derived as a dependency)
+  $ mononoke_admin derived-data -R repo derive --derived-data-types hg_augmented_manifests -i "$ACL_COMMIT" --unsafe-derive-untopologically
+
+Fetch tree with augmented_trees to verify has_acl tracks restriction status.
+The root directory is a waypoint (ancestor of restricted/code/.slacl) but NOT
+itself restricted, so has_acl=False. The restricted/ directory is also a waypoint
+(has_acl=False). Only directories with a .slacl file get has_acl=True.
+
+  $ cat > acl_keys << EOF
+  > [
+  >     ("", "$ACL_MFID")
+  > ]
+  > EOF
+
+  $ cat > acl_attrs << EOF
+  > {
+  >     "manifest_blob": True,
+  >     "parents": True,
+  >     "child_metadata": True,
+  >     "augmented_trees": True
+  > }
+  > EOF
+
+Verify has_acl for root tree: root and restricted/ are waypoints (not restricted),
+public/ is not in the ACL tree at all.
+  $ hg debugapi mono:repo -e trees -f acl_keys -f acl_attrs --sort > "$TESTTMP/acl_root_tree.out"
+  $ python3 -c "
+  > import sys
+  > bin = lambda x: x
+  > data = eval(open('$TESTTMP/acl_root_tree.out').read())
+  > for entry in data:
+  >     path = entry['key']['path'] or 'root'
+  >     print(f'{path}: has_acl={entry.get(\"has_acl\")}')
+  >     for child in (entry.get('children') or []):
+  >         if 'Ok' in child and 'Directory' in child['Ok']:
+  >             d = child['Ok']['Directory']
+  >             print(f'  {d[\"key\"][\"path\"]}: has_acl={d.get(\"has_acl\")}')
+  > "
+  root: has_acl=False
+    public: has_acl=None
+    restricted: has_acl=False
+
+Extract restricted/ manifest ID and fetch its tree to find restricted/code/
+  $ RESTRICTED_MFID=$(python3 -c "
+  > bin = lambda x: x
+  > data = eval(open('$TESTTMP/acl_root_tree.out').read())
+  > for child in (data[0].get('children') or []):
+  >     if 'Ok' in child and 'Directory' in child['Ok']:
+  >         d = child['Ok']['Directory']
+  >         if d['key']['path'] == 'restricted':
+  >             print(d['key']['node'])
+  > ")
+
+  $ cat > restricted_keys << EOF
+  > [
+  >     ("restricted", "$RESTRICTED_MFID")
+  > ]
+  > EOF
+
+  $ hg debugapi mono:repo -e trees -f restricted_keys -f acl_attrs --sort > "$TESTTMP/acl_restricted_tree.out"
+  $ python3 -c "
+  > import sys
+  > bin = lambda x: x
+  > data = eval(open('$TESTTMP/acl_restricted_tree.out').read())
+  > for entry in data:
+  >     path = entry['key']['path'] or 'root'
+  >     print(f'{path}: has_acl={entry.get(\"has_acl\")}')
+  >     for child in (entry.get('children') or []):
+  >         if 'Ok' in child and 'Directory' in child['Ok']:
+  >             d = child['Ok']['Directory']
+  >             print(f'  {d[\"key\"][\"path\"]}: has_acl={d.get(\"has_acl\")}')
+  > "
+  restricted: has_acl=False
+    code: has_acl=True

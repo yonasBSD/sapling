@@ -5,12 +5,18 @@
  * GNU General Public License version 2.
  */
 
+use std::collections::HashMap;
+
 use anyhow::Result;
 use blobstore::KeyedBlobstore;
 use bytes::Bytes;
 use context::CoreContext;
 use futures::TryStreamExt;
+use futures::future;
 use mononoke_types::MPathElement;
+use mononoke_types::acl_manifest::AclManifest;
+use mononoke_types::acl_manifest::AclManifestDirectoryRestriction;
+use mononoke_types::acl_manifest::AclManifestEntry;
 use mononoke_types::hash::Blake3;
 
 use crate::HgAugmentedManifestEntry;
@@ -32,6 +38,13 @@ pub struct HgPreloadedAugmentedManifest {
     pub augmented_manifest_size: u64,
     pub contents: Bytes,
     pub children_augmented_metadata: Vec<(MPathElement, HgAugmentedManifestMetadata)>,
+    /// Whether this directory itself is a restriction root (has a `.slacl` file).
+    /// Waypoints (ancestors of restriction roots) are NOT restricted.
+    pub is_restricted: bool,
+    /// For each child directory in the sparse ACL tree, whether the child is
+    /// itself a restriction root. Used by the SLAPI handler to populate
+    /// `has_acl` on child `TreeChildEntry::Directory` entries.
+    pub child_restriction_map: HashMap<MPathElement, bool>,
 }
 
 // Each manifest revision contains a list of the file revisions in each changeset, in the form:
@@ -75,12 +88,45 @@ impl HgPreloadedAugmentedManifest {
         let p1 = sharded_manifest.augmented_manifest.p1;
         let p2 = sharded_manifest.augmented_manifest.p2;
 
-        let children_augmented_metadata: Vec<(MPathElement, HgAugmentedManifestEntry)> =
-            sharded_manifest
-                .augmented_manifest
-                .into_subentries(ctx, blobstore)
-                .try_collect()
-                .await?;
+        let acl_manifest_directory_id = sharded_manifest
+            .augmented_manifest
+            .acl_manifest_directory_id;
+
+        // Load children and ACL restriction info in parallel
+        let children_fut = sharded_manifest
+            .augmented_manifest
+            .into_subentries(ctx, blobstore)
+            .try_collect::<Vec<_>>();
+
+        let acl_info_fut = async {
+            match acl_manifest_directory_id {
+                Some(acl_id) => {
+                    let acl_manifest: AclManifest =
+                        blobstore::Loadable::load(&acl_id, ctx, blobstore).await?;
+                    let is_restricted = matches!(
+                        acl_manifest.restriction,
+                        AclManifestDirectoryRestriction::Restricted(_)
+                    );
+                    let child_map: HashMap<MPathElement, bool> = acl_manifest
+                        .into_subentries(ctx, blobstore)
+                        .try_filter_map(|(name, entry)| async move {
+                            match entry {
+                                AclManifestEntry::Directory(dir) => {
+                                    Ok(Some((name, dir.is_restricted)))
+                                }
+                                AclManifestEntry::AclFile(_) => Ok(None),
+                            }
+                        })
+                        .try_collect()
+                        .await?;
+                    anyhow::Ok((is_restricted, child_map))
+                }
+                None => Ok((false, HashMap::new())),
+            }
+        };
+
+        let (children_augmented_metadata, (is_restricted, child_restriction_map)) =
+            future::try_join(children_fut, acl_info_fut).await?;
 
         let contents = serialize_manifest(&children_augmented_metadata)?;
 
@@ -92,6 +138,8 @@ impl HgPreloadedAugmentedManifest {
             augmented_manifest_size,
             children_augmented_metadata,
             contents,
+            is_restricted,
+            child_restriction_map,
         })
     }
 }

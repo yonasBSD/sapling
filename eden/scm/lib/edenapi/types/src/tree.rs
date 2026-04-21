@@ -265,7 +265,9 @@ impl TryFrom<AugmentedTree> for TreeEntry {
                                 ),
                                 augmented_manifest_size: tree.augmented_manifest_size,
                             }),
-                            // TODO(T248658346): populate has_acl field
+                            // AugmentedDirectoryNode (client-side) does not carry
+                            // acl_manifest_directory_id — populated via wire format
+                            // when served by SLAPI.
                             has_acl: Some(tree.has_acl),
                         }))
                     }
@@ -305,8 +307,7 @@ impl Arbitrary for TreeEntry {
             // Recursive TreeEntry in children causes stack overflow in QuickCheck
             children: None,
             tree_aux_data: None,
-            // TODO(T248658346): populate has_acl field
-            has_acl: None,
+            has_acl: Arbitrary::arbitrary(g),
         }
     }
 }

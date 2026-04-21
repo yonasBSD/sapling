@@ -144,6 +144,21 @@ impl<R: MononokeRepo> HgAugmentedTreeContext<R> {
         self.preloaded_manifest.augmented_manifest_size
     }
 
+    /// Whether this directory itself is a restriction root (has a `.slacl` file).
+    /// Waypoints (ancestors of restriction roots) return `false`.
+    pub fn is_restricted(&self) -> bool {
+        self.preloaded_manifest.is_restricted
+    }
+
+    /// Whether a child directory is itself a restriction root.
+    /// Returns `None` if the child is not in the ACL tree (or is a file).
+    pub fn child_is_restricted(&self, name: &MPathElement) -> Option<bool> {
+        self.preloaded_manifest
+            .child_restriction_map
+            .get(name)
+            .copied()
+    }
+
     pub fn augmented_children_entries(
         &self,
     ) -> impl Iterator<Item = &(MPathElement, HgAugmentedManifestEntry)> {
@@ -398,7 +413,11 @@ impl<R: MononokeRepo> HgAugmentedTreeRestrictionContext<R> {
         )
         .await?;
 
-        // TODO(T248658346): look up permission_request_group from .slacl file
+        // TODO(T248660053): look up permission_request_group from .slacl file
+        // via AclManifest. The config-based path_acls only stores MononokeIdentity
+        // (repo_region_acl) without permission_request_group. To get it, we need to
+        // load AclManifestEntryBlob for the restriction root via acl_manifest_directory_id.
+        // For now, fall back to using repo_region_acl as the request ACL.
         let request_acl = repo_region_acl.clone();
 
         Ok(Some(PathAccessInfo {
