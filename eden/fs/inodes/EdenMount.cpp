@@ -1399,20 +1399,20 @@ InodeNumber EdenMount::getDotEdenInodeNumber() const {
 ImmediateFuture<InodePtr> EdenMount::getInodeSlow(
     RelativePathPiece path,
     const ObjectFetchContextPtr& context) const {
-  if (getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke(
-            [this](auto&&... args) {
-              return co_getInodeSlow(std::forward<decltype(args)>(args)...)
-                  // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                  .as_unsafe();
-            },
-            path.copy(),
-            context.copy())
-            .semi()};
-  }
-  return inodeMap_->getRootInode()->getChildRecursive(path, context);
+  // DEPRECATED: use co_getInodeSlow directly. Kept only because
+  // PrjfsDispatcherImpl and EdenServiceHandler (removeRecursively,
+  // inodeFromUserPath) still consume ImmediateFuture chains; delete
+  // once those are migrated.
+  return ImmediateFuture{
+      // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+      folly::coro::co_invoke(
+          [this](auto&&... args) -> folly::coro::Task<InodePtr> {
+            co_return co_await co_getInodeSlow(
+                std::forward<decltype(args)>(args)...);
+          },
+          path.copy(),
+          context.copy())
+          .semi()};
 }
 
 folly::coro::now_task<InodePtr> EdenMount::co_getInodeSlow(
@@ -1434,31 +1434,6 @@ class VirtualInodeLookupProcessor {
         iter_{iterRange_.begin()},
         objectStore_(std::move(objectStore)),
         context_{std::move(context)} {}
-
-  ImmediateFuture<VirtualInode> next(VirtualInode inodeTreeEntry) {
-    if (objectStore_->getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-      return ImmediateFuture{
-          // @lint-ignore CLANGTIDY
-          // facebook-folly-coro-return-captures-local-var
-          folly::coro::co_invoke([this,
-                                  entry = std::move(inodeTreeEntry)]() mutable {
-            // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-            return co_next(std::move(entry)).as_unsafe();
-          }).semi()};
-    }
-
-    if (iter_ == iterRange_.end()) {
-      // Lookup terminated, return the existing entry
-      return std::move(inodeTreeEntry);
-    }
-
-    // There are path components left, recurse looking for the next child
-    auto childName = *iter_++;
-    return inodeTreeEntry
-        .getOrFindChild(childName, path_, objectStore_, context_)
-        .thenValue(
-            [this](VirtualInode entry) { return next(std::move(entry)); });
-  }
 
   folly::coro::now_task<VirtualInode> co_next(VirtualInode inodeTreeEntry) {
     if (iter_ == iterRange_.end()) {
@@ -1494,26 +1469,20 @@ folly::coro::now_task<VirtualInode> EdenMount::co_getVirtualInode(
 ImmediateFuture<VirtualInode> EdenMount::getVirtualInode(
     RelativePathPiece path,
     const ObjectFetchContextPtr& context) const {
-  if (getEdenConfig()->enableCoroutinesPhase1.getValue()) {
-    return ImmediateFuture{
-        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-        folly::coro::co_invoke(
-            [this](auto&&... args) {
-              return co_getVirtualInode(std::forward<decltype(args)>(args)...)
-                  // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                  .as_unsafe();
-            },
-            path.copy(),
-            context.copy())
-            .semi()};
-  }
-
-  auto rootInode = static_cast<InodePtr>(getRootInode());
-  auto processor = std::make_unique<VirtualInodeLookupProcessor>(
-      path, getObjectStore(), context.copy());
-  auto future = processor->next(VirtualInode(std::move(rootInode)));
-  return std::move(future).ensure(
-      [p = std::move(processor)]() mutable { p.reset(); });
+  // DEPRECATED: use co_getVirtualInode directly. Kept only because
+  // EdenServiceHandler (changesSince, getEntryAttributesForPath,
+  // getFileContentImpl, readdir) still consume ImmediateFuture chains;
+  // delete once those are migrated.
+  return ImmediateFuture{
+      // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+      folly::coro::co_invoke(
+          [this](auto&&... args) -> folly::coro::Task<VirtualInode> {
+            co_return co_await co_getVirtualInode(
+                std::forward<decltype(args)>(args)...);
+          },
+          path.copy(),
+          context.copy())
+          .semi()};
 }
 
 ImmediateFuture<folly::Unit> EdenMount::waitForPendingWrites() const {
