@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use anyhow::Context;
 use anyhow::Error;
@@ -57,6 +58,7 @@ use mononoke_api::Repo;
 use mononoke_app::MononokeApp;
 use mononoke_app::MononokeAppBuilder;
 use mononoke_app::MononokeReposManager;
+use mononoke_app::ShutdownGracePeriod;
 use mononoke_app::args::McrouterAppExtension;
 use mononoke_app::args::ReadonlyArgs;
 use mononoke_app::args::RepoFilterAppExtension;
@@ -113,10 +115,25 @@ const CONFIGERATOR_RATE_LIMITING_CONFIG: &str = "scm/mononoke/ratelimiting/git_r
 /// (copies all body data into a single Vec), preventing multi-GB allocations
 /// for large streaming responses like git packfiles.
 const HTTP1_VECTORED_WRITES: &str = "scm/mononoke:http1_vectored_writes_enabled";
+/// JustKnob to override the shutdown grace period (in seconds).
+/// During SEVs, set this to a low value (e.g., 60) for fast rollback.
+const SHUTDOWN_GRACE_PERIOD_OVERRIDE: &str = "scm/mononoke:git_server_shutdown_grace_period_secs";
 // Used to determine how many entries are in cachelib's HashTable. A smaller
 // object size results in more entries and possibly higher idle memory usage.
 // More info: https://fburl.com/wiki/i78i3uzk
 const CACHE_OBJECT_SIZE: usize = 256 * 1024;
+
+struct DynamicGracePeriod {
+    fallback: Duration,
+}
+
+impl ShutdownGracePeriod for DynamicGracePeriod {
+    fn resolve(&self) -> Duration {
+        justknobs::get_as::<u64>(SHUTDOWN_GRACE_PERIOD_OVERRIDE, None)
+            .map(Duration::from_secs)
+            .unwrap_or(self.fallback)
+    }
+}
 
 /// Mononoke Git Server
 #[derive(Parser)]
@@ -472,13 +489,16 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
             Ok(())
         }
     };
+    let shutdown_grace_period = DynamicGracePeriod {
+        fallback: args.shutdown_timeout_args.shutdown_grace_period,
+    };
     app.run_until_terminated(
         server,
         move || {
             will_exit.store(true, Ordering::SeqCst);
             let _ = sm_shutdown_sender.send(true);
         },
-        args.shutdown_timeout_args.shutdown_grace_period,
+        shutdown_grace_period,
         async move {
             let _ = shutdown_tx.send(());
             // Currently we kill off in-flight requests as soon as we've closed the listener.

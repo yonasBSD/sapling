@@ -22,6 +22,25 @@ use tokio::time;
 use tracing::error;
 use tracing::info;
 
+/// A shutdown grace period that can be resolved lazily.
+///
+/// This allows the grace period to be determined at shutdown time (when the
+/// termination signal is received) rather than at server startup. For example,
+/// a JustKnob can be read when SIGTERM arrives, allowing oncall to reduce the
+/// grace period during a SEV without restarting the server.
+///
+/// `Duration` implements this trait directly, so callers that use a fixed
+/// grace period require no changes.
+pub trait ShutdownGracePeriod: Send {
+    fn resolve(&self) -> Duration;
+}
+
+impl ShutdownGracePeriod for Duration {
+    fn resolve(&self) -> Duration {
+        *self
+    }
+}
+
 /// Run a server future, and wait until a termination signal is received.
 ///
 /// When the termination signal is received, the `quiesce` callback is called.
@@ -41,7 +60,7 @@ use tracing::info;
 pub async fn run_until_terminated<Server, QuiesceFn, ShutdownFut>(
     server: Server,
     quiesce: QuiesceFn,
-    shutdown_grace_period: Duration,
+    shutdown_grace_period: impl ShutdownGracePeriod,
     shutdown: ShutdownFut,
     shutdown_timeout: Duration,
     requests_counter: Option<Arc<AtomicI64>>,
@@ -101,6 +120,7 @@ where
     let wait_start = std::time::Instant::now();
     if let Some(requests_counter) = requests_counter {
         loop {
+            let grace_period = shutdown_grace_period.resolve();
             let requests_in_flight = requests_counter.load(std::sync::atomic::Ordering::Relaxed);
             let waited = std::time::Instant::now() - wait_start;
 
@@ -109,28 +129,33 @@ where
                     info!("No requests still in flight!");
                     break;
                 }
-                (waited, req) if waited > shutdown_grace_period => {
+                (waited, req) if waited > grace_period => {
                     info!(
                         "Still {} requests in flight but we already waited {}s while the shutdown grace period is {}s. We're dropping the remaining requests.",
                         req,
                         waited.as_secs(),
-                        shutdown_grace_period.as_secs(),
+                        grace_period.as_secs(),
                     );
                     break;
                 }
                 (_, req) => {
-                    info!("Still {} requests in flight. Waiting", req);
+                    info!(
+                        "Still {} requests in flight. Waiting (grace period: {}s)",
+                        req,
+                        grace_period.as_secs(),
+                    );
                 }
             }
 
             time::sleep(Duration::from_secs(5)).await;
         }
     } else {
+        let grace_period = shutdown_grace_period.resolve();
         info!(
             "Waiting {}s before shutting down server",
-            shutdown_grace_period.as_secs(),
+            grace_period.as_secs(),
         );
-        time::sleep(shutdown_grace_period).await;
+        time::sleep(grace_period).await;
     }
 
     let shutdown = async move {
@@ -145,4 +170,137 @@ where
     time::timeout(shutdown_timeout, shutdown)
         .map_err(|_| Error::msg("Timed out shutting down server"))
         .await?
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::Ordering;
+
+    use super::*;
+
+    #[mononoke::test]
+    fn test_duration_implements_shutdown_grace_period() {
+        let d = Duration::from_secs(30);
+        assert_eq!(d.resolve(), Duration::from_secs(30));
+        // Can be called multiple times
+        assert_eq!(d.resolve(), Duration::from_secs(30));
+    }
+
+    #[mononoke::test]
+    fn test_zero_duration_grace_period() {
+        let d = Duration::from_secs(0);
+        assert_eq!(d.resolve(), Duration::ZERO);
+    }
+
+    struct CountingGracePeriod {
+        value: Duration,
+        call_count: Arc<AtomicU64>,
+    }
+
+    impl ShutdownGracePeriod for CountingGracePeriod {
+        fn resolve(&self) -> Duration {
+            self.call_count.fetch_add(1, Ordering::SeqCst);
+            self.value
+        }
+    }
+
+    #[mononoke::test]
+    fn test_custom_grace_period_is_called() {
+        let count = Arc::new(AtomicU64::new(0));
+        let gp = CountingGracePeriod {
+            value: Duration::from_secs(60),
+            call_count: count.clone(),
+        };
+        assert_eq!(gp.resolve(), Duration::from_secs(60));
+        assert_eq!(gp.resolve(), Duration::from_secs(60));
+        assert_eq!(count.load(Ordering::SeqCst), 2);
+    }
+
+    struct MutableGracePeriod {
+        secs: Arc<AtomicU64>,
+    }
+
+    impl ShutdownGracePeriod for MutableGracePeriod {
+        fn resolve(&self) -> Duration {
+            Duration::from_secs(self.secs.load(Ordering::SeqCst))
+        }
+    }
+
+    #[mononoke::test]
+    fn test_dynamic_grace_period_reflects_changes() {
+        let secs = Arc::new(AtomicU64::new(1800));
+        let gp = MutableGracePeriod { secs: secs.clone() };
+
+        assert_eq!(gp.resolve(), Duration::from_secs(1800));
+
+        secs.store(60, Ordering::SeqCst);
+        assert_eq!(gp.resolve(), Duration::from_secs(60));
+
+        secs.store(0, Ordering::SeqCst);
+        assert_eq!(gp.resolve(), Duration::ZERO);
+    }
+
+    #[tokio::test]
+    async fn test_run_until_terminated_respects_dynamic_grace_period() {
+        let secs = Arc::new(AtomicU64::new(0));
+        let gp = MutableGracePeriod { secs: secs.clone() };
+        let counter = Arc::new(AtomicI64::new(5));
+        let counter_clone = counter.clone();
+
+        // Server that immediately exits
+        let server = async { Ok(()) };
+
+        // Set grace period to 0 so drain loop exits immediately
+        secs.store(0, Ordering::SeqCst);
+
+        let result = run_until_terminated(
+            server,
+            || {},
+            gp,
+            async {},
+            Duration::from_secs(5),
+            Some(counter_clone),
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_until_terminated_exits_when_no_requests() {
+        let counter = Arc::new(AtomicI64::new(0));
+        let counter_clone = counter.clone();
+
+        let server = async { Ok(()) };
+
+        let result = run_until_terminated(
+            server,
+            || {},
+            Duration::from_secs(300),
+            async {},
+            Duration::from_secs(5),
+            Some(counter_clone),
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_until_terminated_without_counter() {
+        let server = async { Ok(()) };
+
+        let result = run_until_terminated(
+            server,
+            || {},
+            Duration::from_secs(0),
+            async {},
+            Duration::from_secs(5),
+            None,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
 }

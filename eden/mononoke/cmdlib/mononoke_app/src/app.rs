@@ -57,6 +57,7 @@ use redactedblobstore::RedactionConfigBlobstore;
 use repo_blobstore::RepoBlobstore;
 use repo_factory::RepoFactory;
 use repo_factory::RepoFactoryBuilder;
+use running::ShutdownGracePeriod;
 use running::run_until_terminated;
 use scuba_ext::MononokeScubaSampleBuilder;
 use services::Fb303Service;
@@ -246,7 +247,7 @@ impl MononokeApp {
         mut self,
         server: ServerFn,
         quiesce: QuiesceFn,
-        shutdown_grace_period: Duration,
+        shutdown_grace_period: impl ShutdownGracePeriod,
         shutdown: ShutdownFut,
         shutdown_timeout: Duration,
         requests_counter: Option<Arc<AtomicI64>>,
@@ -283,7 +284,7 @@ impl MononokeApp {
     pub fn wait_until_terminated<QuiesceFn, ShutdownFut>(
         self,
         quiesce: QuiesceFn,
-        shutdown_grace_period: Duration,
+        shutdown_grace_period: impl ShutdownGracePeriod,
         shutdown: ShutdownFut,
         shutdown_timeout: Duration,
         requests_counter: Option<Arc<AtomicI64>>,

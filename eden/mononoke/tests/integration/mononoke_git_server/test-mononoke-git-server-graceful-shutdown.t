@@ -19,7 +19,7 @@
   $ termandwait $MONONOKE_GIT_SERVICE_PID
   I_AM_ALIVE
   $ tail -n10 $TESTTMP/mononoke_git_service.out | grep -E "(in flight)|(Shutting down)"
-  * Still 1 requests in flight. Waiting (glob)
-  * Still 1 requests in flight. Waiting (glob)
+  * Still 1 requests in flight. Waiting (grace period: *s) (glob)
+  * Still 1 requests in flight. Waiting (grace period: *s) (glob)
   * No requests still in flight! (glob)
   * Shutting down... (glob)

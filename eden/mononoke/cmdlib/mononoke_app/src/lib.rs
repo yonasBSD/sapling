@@ -18,6 +18,7 @@ pub use app::MononokeApp;
 pub use builder::MononokeAppBuilder;
 pub use extension::AppExtension;
 pub use repos_manager::MononokeReposManager;
+pub use running::ShutdownGracePeriod;
 
 #[doc(hidden)]
 pub mod macro_export {
