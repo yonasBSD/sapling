@@ -17,6 +17,7 @@ cpp_binary(
         "fbsource//third-party/fmt:fmt",
         "//eden/common/utils:path",
         "//eden/common/utils:utils",
+        "//eden/fs/config:toml_file_util",
         "//eden/fs/service:thrift-streaming-cpp2-clients",
         "//eden/fs/service:thrift-streaming-cpp2-types",
         "//folly:portability",

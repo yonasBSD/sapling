@@ -15,12 +15,14 @@
 #include <folly/io/IOBuf.h>
 #include <folly/json/json.h>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 
 #include "eden/common/utils/FileUtils.h"
 #include "eden/common/utils/PathMap.h"
 #include "eden/common/utils/SystemError.h"
 #include "eden/common/utils/Throw.h"
+#include "eden/fs/config/TomlFileUtil.h"
 #include "eden/fs/utils/FilterUtils.h"
 
 using folly::ByteRange;
@@ -344,7 +346,7 @@ std::unique_ptr<std::unordered_map<std::string, std::string>>
 CheckoutConfig::getLatestRedirectionTargets() const {
   // Extract repository name from the client config file
   auto configPath = clientDirectory_ + kCheckoutConfig;
-  auto configRoot = cpptoml::parse_file(configPath.c_str());
+  auto configRoot = parseTomlFile(configPath);
   auto redirection_targets =
       std::make_unique<std::unordered_map<std::string, std::string>>();
   // Load redirection targets
@@ -372,7 +374,7 @@ std::unique_ptr<CheckoutConfig> CheckoutConfig::loadFromClientDirectory(
     AbsolutePathPiece clientDirectory) {
   // Extract repository name from the client config file
   auto configPath = clientDirectory + kCheckoutConfig;
-  auto configRoot = cpptoml::parse_file(configPath.c_str());
+  auto configRoot = parseTomlFile(configPath);
 
   // Construct CheckoutConfig object
   auto config = std::make_unique<CheckoutConfig>(mountPath, clientDirectory);

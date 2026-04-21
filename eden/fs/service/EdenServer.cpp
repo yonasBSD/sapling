@@ -1449,7 +1449,11 @@ Future<Unit> EdenServer::prepareImpl(std::shared_ptr<StartupLogger> logger) {
 std::shared_ptr<cpptoml::table> EdenServer::parseConfig() {
   auto configPath = edenDir_.getPath() + RelativePathPiece{kStateConfig};
 
+#ifdef _WIN32
+  std::ifstream inputFile(configPath.wide());
+#else
   std::ifstream inputFile(configPath.c_str());
+#endif
   if (!inputFile.is_open()) {
     if (errno != ENOENT) {
       folly::throwSystemErrorExplicit(

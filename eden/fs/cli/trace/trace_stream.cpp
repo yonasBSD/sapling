@@ -21,6 +21,7 @@
 
 #include "eden/common/utils/PathFuncs.h"
 #include "eden/common/utils/TimeUtil.h"
+#include "eden/fs/config/TomlFileUtil.h"
 #include "eden/fs/service/gen-cpp2/StreamingEdenServiceAsyncClient.h"
 #include "eden/fs/service/gen-cpp2/streamingeden_constants.h"
 
@@ -925,7 +926,7 @@ int trace_inode_retroactive(
 AbsolutePath getSocketPath(AbsolutePathPiece mountRoot) {
   if constexpr (folly::kIsWindows) {
     auto configPath = mountRoot + ".eden"_pc + "config"_pc;
-    auto config = cpptoml::parse_file(configPath.asString());
+    auto config = parseTomlFile(AbsolutePath{configPath});
     auto socketPath = *config->get_qualified_as<std::string>("Config.socket");
     return canonicalPath(socketPath);
   } else {

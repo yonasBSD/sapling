@@ -5,10 +5,27 @@ load("@fbcode_macros//build_defs:thrift_library.bzl", "thrift_library")
 oncall("scm_client_infra")
 
 cpp_library(
+    name = "toml_file_util",
+    srcs = ["TomlFileUtil.cpp"],
+    headers = ["TomlFileUtil.h"],
+    exported_deps = [
+        "fbsource//third-party/cpptoml:cpptoml",
+        "//eden/common/utils:path",
+    ],
+)
+
+cpp_library(
     name = "config",
-    srcs = glob(["*.cpp"]),
-    headers = glob(["*.h"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = ["TomlFileUtil.cpp"],
+    ),
+    headers = glob(
+        ["*.h"],
+        exclude = ["TomlFileUtil.h"],
+    ),
     deps = [
+        ":toml_file_util",
         "//eden/common/utils:bug",
         "//eden/common/utils:enum",
         "//eden/common/utils:file_utils",
