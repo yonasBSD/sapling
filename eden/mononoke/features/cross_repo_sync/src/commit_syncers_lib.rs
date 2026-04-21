@@ -983,10 +983,7 @@ where
             break;
         }
 
-        let leased = if justknobs::eval("scm/mononoke:xrepo_disable_commit_sync_lease", None, None)?
-        {
-            true
-        } else {
+        let leased = {
             let result = lease.try_add_put_lease(&lease_key).await;
             // In case of lease unavailability assume it's taken to not block the backsyncer
             result.unwrap_or(true)

@@ -781,9 +781,7 @@ async fn sync_commit_impl<R: Repo>(
             .await?;
             Ok(())
         };
-        let xrepo_disable_commit_sync_lease =
-            justknobs::eval("scm/mononoke:xrepo_disable_commit_sync_lease", None, None)?;
-        if xrepo_disable_commit_sync_lease || disable_lease {
+        if disable_lease {
             sync().await?;
         } else {
             run_with_lease(
