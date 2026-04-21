@@ -1325,6 +1325,25 @@ struct CommitInfoParams {
 
 struct CommitGenerationParams {}
 
+enum CommitFingerprintVersion {
+  UNKNOWN = 0,
+  /// root ContentManifestId (content-addressed tree hash)
+  V1 = 1,
+}
+
+/// Parameters for the `commit_fingerprint` method.
+struct CommitFingerprintParams {
+  1: CommitFingerprintVersion version;
+}
+
+/// Response for the `commit_fingerprint` method.
+struct CommitFingerprintResponse {
+  /// The fingerprint hash bytes.
+  1: binary fingerprint;
+  /// The algorithm version that produced this fingerprint.
+  2: CommitFingerprintVersion version;
+}
+
 /// Parameters for the `commit_is_ancestor_of` method.
 ///
 /// This method takes a commit specifier (the target commit), and checks
@@ -3430,6 +3449,20 @@ service SourceControlService extends fb303_core.BaseService {
   i64 commit_generation(
     1: CommitSpecifier commit,
     2: CommitGenerationParams params,
+  ) throws (
+    1: RequestError request_error,
+    2: InternalError internal_error,
+    3: OverloadError overload_error,
+  );
+
+  /// Get a content-based fingerprint for a commit.
+  ///
+  /// Returns a hash that depends only on the file tree contents,
+  /// not on metadata (author, date, message). Two commits with
+  /// identical file trees produce the same fingerprint.
+  CommitFingerprintResponse commit_fingerprint(
+    1: CommitSpecifier commit,
+    2: CommitFingerprintParams params,
   ) throws (
     1: RequestError request_error,
     2: InternalError internal_error,
