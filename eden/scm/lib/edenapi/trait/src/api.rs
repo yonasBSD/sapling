@@ -18,6 +18,8 @@ use edenapi_types::BlameResult;
 use edenapi_types::BonsaiChangesetContent;
 use edenapi_types::BookmarkEntry;
 use edenapi_types::BookmarkKind;
+use edenapi_types::CheckManifestPermissionRequest;
+use edenapi_types::CheckManifestPermissionResponse;
 use edenapi_types::CheckPathPermissionRequest;
 use edenapi_types::CheckPathPermissionResponse;
 use edenapi_types::CloudShareWorkspaceRequest;
@@ -550,11 +552,20 @@ pub trait SaplingRemoteApi: Send + Sync + 'static {
         Err(SaplingRemoteApiError::NotSupported)
     }
 
-    /// Check whether the caller has access to the given manifest IDs.
+    /// Check whether the caller has access to the given paths.
     async fn check_permission(
         &self,
         request: CheckPathPermissionRequest,
     ) -> Result<Response<CheckPathPermissionResponse>, SaplingRemoteApiError> {
+        let _ = request;
+        Err(SaplingRemoteApiError::NotSupported)
+    }
+
+    /// Check whether the caller has access to the given manifest IDs.
+    async fn check_manifest_permission(
+        &self,
+        request: CheckManifestPermissionRequest,
+    ) -> Result<Response<CheckManifestPermissionResponse>, SaplingRemoteApiError> {
         let _ = request;
         Err(SaplingRemoteApiError::NotSupported)
     }

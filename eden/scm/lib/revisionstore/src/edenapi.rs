@@ -13,6 +13,8 @@ use edenapi::BlockingResponse;
 use edenapi::Response;
 use edenapi::SaplingRemoteApi;
 use edenapi::SaplingRemoteApiError;
+use edenapi_types::CheckManifestPermissionRequest;
+use edenapi_types::CheckManifestPermissionResponse;
 use edenapi_types::FileResponse;
 use edenapi_types::FileSpec;
 use edenapi_types::SaplingRemoteApiServerError;
@@ -156,6 +158,15 @@ impl SaplingRemoteApiTreeStore {
     > {
         async_runtime::block_in_place(|| {
             BlockingResponse::from_async(self.client.trees(fctx, keys, attributes))
+        })
+    }
+
+    pub fn check_manifest_permission_blocking(
+        &self,
+        request: CheckManifestPermissionRequest,
+    ) -> Result<BlockingResponse<CheckManifestPermissionResponse>, SaplingRemoteApiError> {
+        async_runtime::block_in_place(|| {
+            BlockingResponse::from_async(self.client.check_manifest_permission(request))
         })
     }
 }

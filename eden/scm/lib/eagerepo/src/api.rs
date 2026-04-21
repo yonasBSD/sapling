@@ -35,6 +35,8 @@ use edenapi::types::AnyFileContentId;
 use edenapi::types::AnyId;
 use edenapi::types::BookmarkEntry;
 use edenapi::types::BookmarkKind;
+use edenapi::types::CheckManifestPermissionRequest;
+use edenapi::types::CheckManifestPermissionResponse;
 use edenapi::types::CheckPathPermissionRequest;
 use edenapi::types::CheckPathPermissionResponse;
 use edenapi::types::CommitGraphEntry;
@@ -1267,6 +1269,47 @@ impl SaplingRemoteApi for EagerRepo {
                 })
             })
             .collect::<Vec<_>>();
+
+        Ok(convert_to_response(values))
+    }
+
+    async fn check_manifest_permission(
+        &self,
+        request: CheckManifestPermissionRequest,
+    ) -> edenapi::Result<Response<CheckManifestPermissionResponse>> {
+        debug!(
+            "check_manifest_permission {}",
+            debug_hgid_list(&request.manifest_ids)
+        );
+        self.refresh_for_api()?;
+
+        let mut values = Vec::new();
+        for manifest_id in request.manifest_ids {
+            let tree = self
+                .get_augmented_tree_blob_with_digest_for_api(
+                    manifest_id,
+                    "check_manifest_permission",
+                )
+                .await?;
+            let augmented_tree_with_digest =
+                AugmentedTreeWithDigest::try_deserialize(std::io::Cursor::new(tree))?;
+
+            let has_slacl = augmented_tree_with_digest
+                .augmented_tree
+                .entries
+                .iter()
+                .any(|(path, _)| path.as_str() == ".slacl");
+
+            values.push(Ok(CheckManifestPermissionResponse {
+                manifest_id,
+                has_access: !has_slacl,
+                request_acl: if has_slacl {
+                    Some("some-acl".to_string())
+                } else {
+                    None
+                },
+            }));
+        }
 
         Ok(convert_to_response(values))
     }

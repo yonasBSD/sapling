@@ -14,6 +14,7 @@ use storemodel::SerializationFormat;
 use types::HgId;
 use types::Id20;
 use types::Parents;
+use types::PathComponentBuf;
 use types::hgid::NULL_ID;
 
 use crate::Metadata;
@@ -131,6 +132,35 @@ impl LazyTree {
                             }
                         })
                         .collect::<Vec<_>>()
+                })
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// Returns `(path_component, manifest_id)` for directory children that have `has_acl` set.
+    pub fn children_with_acl(&self) -> Vec<(PathComponentBuf, HgId)> {
+        use LazyTree::*;
+        match self {
+            SaplingRemoteApi(entry, ..) => {
+                entry.children.as_ref().map_or_else(Vec::new, |children| {
+                    children
+                        .iter()
+                        .filter_map(|entry| {
+                            let child_entry = entry.as_ref().ok()?;
+                            match child_entry {
+                                TreeChildEntry::Directory(dir_entry) => {
+                                    if dir_entry.has_acl.unwrap_or(false) {
+                                        let path = dir_entry.key.path.last_component()?.to_owned();
+                                        Some((path, dir_entry.key.hgid))
+                                    } else {
+                                        None
+                                    }
+                                }
+                                _ => None,
+                            }
+                        })
+                        .collect()
                 })
             }
             _ => Vec::new(),

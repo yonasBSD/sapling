@@ -338,6 +338,13 @@ pub trait TreeEntry: Send + Sync + 'static {
         Ok(None)
     }
 
+    /// Get children entries that will be denied permission when fetched.
+    fn permission_denied_children(
+        &self,
+    ) -> anyhow::Result<BoxIterator<anyhow::Result<(PathComponentBuf, HgId, String)>>> {
+        Ok(Box::new(std::iter::empty()))
+    }
+
     /// Get number of entries, if available. Useful to pre-allocate vector capacity, etc.
     fn size_hint(&self) -> Option<usize>;
 }

@@ -149,6 +149,7 @@ impl FetchState {
         let response = edenapi
             .trees_blocking(self.common.fctx.clone(), pending, Some(attributes))
             .map_err(|e| e.tag_network())?;
+
         for entry in response.entries {
             bar.increase_position(1);
 
@@ -172,8 +173,8 @@ impl FetchState {
             }
 
             if indexedlog_cache.is_some() {
-                if let Some(entry) = entry.indexedlog_cache_entry(key.hgid)? {
-                    self.trees_to_cache.push((entry.node(), entry));
+                if let Some(cache_entry) = entry.indexedlog_cache_entry(key.hgid)? {
+                    self.trees_to_cache.push((cache_entry.node(), cache_entry));
                     if self.trees_to_cache.len() >= TREE_BATCH_THRESHOLD {
                         self.flush_trees();
                     }

@@ -29,6 +29,8 @@ use edenapi_types::BonsaiChangesetContent;
 use edenapi_types::BookmarkEntry;
 use edenapi_types::BookmarkKind;
 use edenapi_types::BookmarkResult;
+use edenapi_types::CheckManifestPermissionRequest;
+use edenapi_types::CheckManifestPermissionResponse;
 use edenapi_types::CheckPathPermissionRequest;
 use edenapi_types::CheckPathPermissionResponse;
 use edenapi_types::CloudShareWorkspaceRequest;
@@ -221,6 +223,7 @@ pub mod paths {
     pub const UPLOAD_IDENTICAL_CHANGESET: &str = "upload/changesets/identical";
     pub const UPLOAD_FILE: &str = "upload/file/";
     pub const CHECK_PERMISSION: &str = "check_permission";
+    pub const CHECK_MANIFEST_PERMISSION: &str = "check_manifest_permission";
 }
 
 #[derive(Clone)]
@@ -1096,6 +1099,27 @@ impl Client {
             .map_err(SaplingRemoteApiError::RequestSerializationFailed)?;
 
         self.fetch::<CheckPathPermissionResponse>(vec![req])
+    }
+
+    async fn check_manifest_permission_attempt(
+        &self,
+        request: CheckManifestPermissionRequest,
+    ) -> Result<Response<CheckManifestPermissionResponse>, SaplingRemoteApiError> {
+        tracing::info!(
+            "Checking manifest permissions for {} manifest(s)",
+            request.manifest_ids.len()
+        );
+
+        let url = self.build_url(paths::CHECK_MANIFEST_PERMISSION)?;
+        let req = self
+            .configure_request(
+                paths::CHECK_MANIFEST_PERMISSION,
+                self.inner.client.post(url),
+            )?
+            .cbor(&request.to_wire())
+            .map_err(SaplingRemoteApiError::RequestSerializationFailed)?;
+
+        self.fetch::<CheckManifestPermissionResponse>(vec![req])
     }
 
     async fn commit_translate_id_attempt(
@@ -2235,6 +2259,17 @@ impl SaplingRemoteApi for Client {
     ) -> Result<Response<CheckPathPermissionResponse>, SaplingRemoteApiError> {
         self.with_retry(|this| this.check_permission_attempt(request.clone()).boxed())
             .await
+    }
+
+    async fn check_manifest_permission(
+        &self,
+        request: CheckManifestPermissionRequest,
+    ) -> Result<Response<CheckManifestPermissionResponse>, SaplingRemoteApiError> {
+        self.with_retry(|this| {
+            this.check_manifest_permission_attempt(request.clone())
+                .boxed()
+        })
+        .await
     }
 }
 

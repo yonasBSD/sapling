@@ -6,6 +6,7 @@
  */
 
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -27,6 +28,7 @@ use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
 use blob::Blob;
+use edenapi_types::CheckManifestPermissionRequest;
 use edenapi_types::FileAuxData;
 use edenapi_types::TreeAuxData;
 use fetch::FetchState;
@@ -227,6 +229,40 @@ impl TreeStore {
             }
         }
         Ok(None)
+    }
+
+    /// Create a deferred ACL checker closure that captures the edenapi client.
+    /// Returns None if no edenapi client is configured.
+    fn create_acl_checker(&self) -> Option<AclChecker> {
+        let edenapi = self.edenapi.clone()?;
+        Some(Arc::new(
+            move |children_with_acl: Vec<(PathComponentBuf, HgId)>| {
+                let manifest_ids: Vec<HgId> =
+                    children_with_acl.iter().map(|(_, hgid)| *hgid).collect();
+                let request = CheckManifestPermissionRequest { manifest_ids };
+                let response = edenapi.check_manifest_permission_blocking(request)?;
+                let mut denied_map: HashMap<HgId, String> = HashMap::new();
+                for resp in response.entries {
+                    if !resp.has_access {
+                        let acl = resp
+                            .request_acl
+                            .unwrap_or_else(|| "unknown-acl".to_string());
+                        denied_map.insert(resp.manifest_id, acl);
+                    }
+                }
+                let iter = children_with_acl
+                    .into_iter()
+                    .filter_map(move |(path, hgid)| {
+                        denied_map
+                            .get(&hgid)
+                            .map(|acl| Ok((path, hgid, acl.clone())))
+                    });
+                Ok(Box::new(iter)
+                    as BoxIterator<
+                        anyhow::Result<(PathComponentBuf, HgId, String)>,
+                    >)
+            },
+        ))
     }
 
     pub fn fetch_batch(
@@ -942,11 +978,25 @@ impl storemodel::KeyStore for TreeStore {
     }
 }
 
-/// Extends a basic `TreeEntry` with aux data.
+/// Type alias for the deferred ACL checker callback. Given a list of
+/// (path_component, manifest_id) for children with has_acl, returns denied
+/// results. The outer Result captures transport/batch errors; the inner
+/// iterator yields per-entry results.
+type AclChecker = Arc<
+    dyn Fn(
+            Vec<(PathComponentBuf, HgId)>,
+        ) -> anyhow::Result<BoxIterator<anyhow::Result<(PathComponentBuf, HgId, String)>>>
+        + Send
+        + Sync,
+>;
+
+/// Extends a basic `TreeEntry` with aux data and deferred ACL checking.
 struct ScmStoreTreeEntry {
     tree: LazyTree,
     // The "basic" version of `TreeEntry` that does not have aux data.
     basic_tree_entry: OnceCell<Arc<dyn TreeEntry>>,
+    // Deferred ACL checker callback. Called at permission_denied_children() time.
+    acl_checker: Option<AclChecker>,
 }
 
 impl ScmStoreTreeEntry {
@@ -962,6 +1012,7 @@ impl From<LazyTree> for ScmStoreTreeEntry {
         ScmStoreTreeEntry {
             tree,
             basic_tree_entry: OnceCell::new(),
+            acl_checker: None,
         }
     }
 }
@@ -1012,6 +1063,22 @@ impl TreeEntry for ScmStoreTreeEntry {
         Ok(self.tree.aux_data())
     }
 
+    fn permission_denied_children(
+        &self,
+    ) -> anyhow::Result<BoxIterator<anyhow::Result<(PathComponentBuf, HgId, String)>>> {
+        let acl_checker = match &self.acl_checker {
+            Some(c) => c.clone(),
+            None => return Ok(Box::new(std::iter::empty())),
+        };
+
+        let children_with_acl = self.tree.children_with_acl();
+        if children_with_acl.is_empty() {
+            return Ok(Box::new(std::iter::empty()));
+        }
+
+        acl_checker(children_with_acl)
+    }
+
     fn size_hint(&self) -> Option<usize> {
         match &self.tree {
             LazyTree::IndexedLog(..) => self
@@ -1041,15 +1108,19 @@ impl storemodel::TreeStore for TreeStore {
         // TreeAttributes::CONTENT means at least the content attribute is requested.
         // In practice, files/trees aux data may be requested as well, but we don't know that here as it depends on the configs.
         let fetched = self.fetch_batch(fctx, keys.into_iter(), TreeAttributes::CONTENT);
-        let iter = fetched
-            .into_iter()
-            .map(|entry| -> anyhow::Result<(Key, Arc<dyn TreeEntry>)> {
-                let (key, store_tree) = entry?;
-                let tree: LazyTree = store_tree
-                    .content
-                    .ok_or_else(|| anyhow::format_err!("no content available"))?;
-                Ok((key, Arc::<ScmStoreTreeEntry>::new(tree.into())))
-            });
+        let acl_checker = self.create_acl_checker();
+        let iter =
+            fetched
+                .into_iter()
+                .map(move |entry| -> anyhow::Result<(Key, Arc<dyn TreeEntry>)> {
+                    let (key, store_tree) = entry?;
+                    let tree: LazyTree = store_tree
+                        .content
+                        .ok_or_else(|| anyhow::format_err!("no content available"))?;
+                    let mut scm_entry: ScmStoreTreeEntry = tree.into();
+                    scm_entry.acl_checker = acl_checker.clone();
+                    Ok((key, Arc::new(scm_entry) as Arc<dyn TreeEntry>))
+                });
         Ok(Box::new(iter))
     }
 
