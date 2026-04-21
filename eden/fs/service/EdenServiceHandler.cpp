@@ -6004,8 +6004,9 @@ EdenServiceHandler::semifuture_debugInvalidateNonMaterialized(
   }
 }
 
-folly::SemiFuture<std::unique_ptr<GetFileContentResponse>>
-EdenServiceHandler::semifuture_getFileContentImpl(
+folly::coro::Task<std::unique_ptr<GetFileContentResponse>>
+EdenServiceHandler::co_getFileContent(
+    apache::thrift::RequestParams params,
     std::unique_ptr<GetFileContentRequest> request) {
   // Read from request
   auto sync = request->sync();
@@ -6013,69 +6014,14 @@ EdenServiceHandler::semifuture_getFileContentImpl(
   auto filePath = request->filePath();
 
   // Set up log helper
-  auto helper = INSTRUMENT_THRIFT_CALL(
-      DBG3, *mountPoint, getSyncTimeout(*sync), *filePath);
-
-  // Prepare params for querying
-  auto mountHandle = lookupMount(mountPoint);
-  auto path = RelativePathPiece(*filePath);
-  auto& fetchContext = helper->getFetchContext();
-
-  // Ensure Eden has its internal state updated.
-  // See SyncBehavior struct in eden.thrift for details.
-  auto fut = waitForPendingWrites(mountHandle.getEdenMount(), *request->sync());
-
-  return wrapImmediateFuture(
-             std::move(helper),
-             std::move(fut)
-                 .thenValue([mountHandle,
-                             path = path.copy(),
-                             fetchContext = fetchContext.copy()](auto&&) {
-                   auto& edenMount = mountHandle.getEdenMount();
-                   return edenMount.getVirtualInode(path, fetchContext);
-                 })
-                 .thenValue([mountHandle,
-                             fetchContext = fetchContext.copy()](auto&& inode) {
-                   auto& objectStore = mountHandle.getObjectStorePtr();
-                   return inode.getBlob(objectStore, fetchContext);
-                 })
-                 .thenTry([path = path.copy()](auto&& result) {
-                   ScmBlobOrError blobOrError;
-                   if (result.hasException()) {
-                     blobOrError.error() = newEdenError(result.exception());
-                   } else {
-                     // Return error if the binary size exceeds 2GB limit.
-                     // Enforced by CompactProtocolWriter in the Thrift
-                     // https://github.com/facebook/fbthrift/blob/main/thrift/lib/cpp2/protocol/CompactProtocol-inl.h
-                     const auto blobSize = result.value().size();
-                     if (blobSize > std::numeric_limits<int32_t>::max()) {
-                       blobOrError.error() = newEdenError(
-                           EFBIG,
-                           EdenErrorType::POSIX_ERROR,
-                           "Thrift size limit (2GB) exceeded by file: ",
-                           path);
-                     } else {
-                       blobOrError.blob() = std::move(result.value());
-                     }
-                   }
-                   auto response = std::make_unique<GetFileContentResponse>();
-                   response->blob() = std::move(blobOrError);
-                   return response;
-                 }))
-      .semi();
-}
-
-folly::coro::now_task<std::unique_ptr<GetFileContentResponse>>
-EdenServiceHandler::co_getFileContentImpl(
-    std::unique_ptr<GetFileContentRequest> request) {
-  // Read from request
-  auto sync = request->sync();
-  auto mountPoint = request->mount()->mountPoint();
-  auto filePath = request->filePath();
-
-  // Set up log helper
-  auto helper = INSTRUMENT_THRIFT_CALL(
-      DBG3, *mountPoint, getSyncTimeout(*sync), *filePath);
+  auto requestContext = params.getRequestContext();
+  auto helper = INSTRUMENT_THRIFT_CALL_WITH_CANCELLATION(
+      DBG3,
+      false,
+      requestContext,
+      *mountPoint,
+      getSyncTimeout(*sync),
+      *filePath);
 
   // Prepare params for querying
   auto mountHandle = lookupMount(mountPoint);
@@ -6113,26 +6059,6 @@ EdenServiceHandler::co_getFileContentImpl(
   auto response = std::make_unique<GetFileContentResponse>();
   response->blob() = std::move(blobOrError);
   co_return response;
-}
-
-folly::SemiFuture<std::unique_ptr<GetFileContentResponse>>
-EdenServiceHandler::semifuture_getFileContent(
-    std::unique_ptr<GetFileContentRequest> request) {
-  if (server_->getServerState()
-          ->getEdenConfig()
-          ->enableCoroutinesPhase1.getValue()) {
-    // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
-    return folly::coro::co_invoke(
-               [this](auto&&... args) {
-                 // @lint-ignore CLANGTIDY facebook-hte-Deprecated
-                 return co_getFileContentImpl(
-                            std::forward<decltype(args)>(args)...)
-                     .as_unsafe();
-               },
-               std::move(request))
-        .semi();
-  }
-  return semifuture_getFileContentImpl(std::move(request));
 }
 
 folly::coro::Task<std::unique_ptr<::facebook::eden::GetActiveRequestsResponse>>

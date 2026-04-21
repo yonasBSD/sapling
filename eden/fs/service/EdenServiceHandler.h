@@ -539,15 +539,9 @@ class EdenServiceHandler
       ListRedirectionsResponse& response,
       std::unique_ptr<ListRedirectionsRequest> request) override;
 
-  folly::SemiFuture<std::unique_ptr<GetFileContentResponse>>
-  semifuture_getFileContent(
+  folly::coro::Task<std::unique_ptr<GetFileContentResponse>> co_getFileContent(
+      apache::thrift::RequestParams params,
       std::unique_ptr<GetFileContentRequest> request) override;
-
-  folly::SemiFuture<std::unique_ptr<GetFileContentResponse>>
-  semifuture_getFileContentImpl(std::unique_ptr<GetFileContentRequest> request);
-
-  folly::coro::now_task<std::unique_ptr<GetFileContentResponse>>
-  co_getFileContentImpl(std::unique_ptr<GetFileContentRequest> request);
 
   folly::coro::Task<std::unique_ptr<::facebook::eden::CancelRequestsResponse>>
   co_cancelRequests(
