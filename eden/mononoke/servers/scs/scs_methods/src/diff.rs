@@ -5,8 +5,6 @@
  * GNU General Public License version 2.
  */
 
-use std::time::Duration;
-
 use context::CoreContext;
 use diff_service_client::DiffInput;
 use diff_service_client::DiffServiceClient;
@@ -18,7 +16,6 @@ use diff_service_if_clients::errors::DiffUnifiedHeaderlessError;
 use diff_service_if_clients::errors::MetadataDiffError;
 use environment::RemoteDiffOptions;
 use futures::StreamExt;
-use futures_retry::retry;
 use metaconfig_types::RemoteDiffConfig;
 use mononoke_api::ChangesetPathContentContext;
 use mononoke_api::ChangesetPathDiffContext;
@@ -33,11 +30,6 @@ use mononoke_api::headerless_unified_diff;
 use mononoke_types::NonRootMPath;
 use scs_errors::ServiceError;
 use source_control as thrift;
-
-// Retry configuration for transient diff service errors
-const DIFF_SERVICE_RETRY_BASE_DELAY: Duration = Duration::from_secs(1);
-const DIFF_SERVICE_MAX_RETRY_ATTEMPTS: usize = 5;
-const DIFF_SERVICE_BACKOFF_MULTIPLIER: f64 = 1.5;
 
 /// Trait for extracting RequestError from diff service error types.
 /// All diff service operations throw the same error types (RequestError and InternalError),
@@ -88,24 +80,6 @@ impl DiffServiceError for CommitCompareError {
             Self::ex(req_err) => Some(req_err),
             _ => None,
         }
-    }
-}
-
-/// Check if an error from the diff service is transient and should be retried.
-/// This checks for errors marked as transient by the diff service (e.g., repo not found
-/// during shard reallocation, repo initialization, etc.).
-///
-/// This function works with any diff service error type (DiffUnifiedError,
-/// DiffUnifiedHeaderlessError, DiffHunksError, MetadataDiffError,
-/// CommitCompareError) since they all throw the same RequestError exception type.
-fn is_transient_diff_error<E: DiffServiceError>(e: &E) -> bool {
-    if let Some(request_error) = e.request_error() {
-        matches!(
-            &request_error.reason,
-            diff_service_if::RequestErrorReason::transient_error(_)
-        )
-    } else {
-        false
     }
 }
 
@@ -304,31 +278,10 @@ impl<'a> DiffRouter<'a> {
         let client = self.create_diff_service_client(repo_name)?;
         let repo_client = RepoDiffServiceClient::new(repo_name.to_string(), client);
 
-        let (response, _attempts) = retry(
-            |attempt| {
-                let repo_client = repo_client.clone();
-                let commit_id = commit_id.clone();
-                let params = params.clone();
-
-                async move {
-                    if attempt > 1 {
-                        tracing::info!(
-                            repo_name = %repo_name,
-                            attempt = attempt,
-                            "Retrying diff service commit_compare call"
-                        );
-                    }
-
-                    repo_client.commit_compare(ctx, commit_id, params).await
-                }
-            },
-            DIFF_SERVICE_RETRY_BASE_DELAY,
-        )
-        .exponential_backoff(DIFF_SERVICE_BACKOFF_MULTIPLIER)
-        .max_attempts(DIFF_SERVICE_MAX_RETRY_ATTEMPTS)
-        .retry_if(|_attempt, e| is_transient_diff_error(e))
-        .await
-        .map_err(convert_diff_service_error)?;
+        let response = repo_client
+            .commit_compare(ctx, commit_id, params)
+            .await
+            .map_err(convert_diff_service_error)?;
 
         Ok(response)
     }
@@ -354,41 +307,12 @@ impl<'a> DiffRouter<'a> {
         });
 
         let client = self.create_diff_service_client(repo_name)?;
-
         let repo_client = RepoDiffServiceClient::new(repo_name.to_string(), client);
 
-        // Retry the diff service call with exponential backoff for transient errors
-        let (result, _attempts) = retry(
-            |attempt| {
-                // Clone the values so they can be moved into the async block
-                let repo_client = repo_client.clone();
-                let base_input = base_input.clone();
-                let other_input = other_input.clone();
-                let options = options.clone();
-
-                async move {
-                    if attempt > 1 {
-                        tracing::info!(
-                            repo_name = %repo_name,
-                            attempt = attempt,
-                            "Retrying diff service call"
-                        );
-                    }
-
-                    repo_client
-                        .diff_unified_headerless(ctx, base_input, other_input, options)
-                        .await
-                }
-            },
-            DIFF_SERVICE_RETRY_BASE_DELAY,
-        )
-        .exponential_backoff(DIFF_SERVICE_BACKOFF_MULTIPLIER)
-        .max_attempts(DIFF_SERVICE_MAX_RETRY_ATTEMPTS)
-        .retry_if(|_attempt, e| is_transient_diff_error(e))
-        .await
-        .map_err(convert_diff_service_error)?;
-
-        let (response, mut stream) = result;
+        let (response, mut stream) = repo_client
+            .diff_unified_headerless(ctx, base_input, other_input, options)
+            .await
+            .map_err(convert_diff_service_error)?;
 
         let mut raw_diff = Vec::new();
         while let Some(chunk) = stream.next().await {
@@ -476,39 +400,12 @@ impl<'a> DiffRouter<'a> {
         };
 
         let client = self.create_diff_service_client(repo_name)?;
-
         let repo_client = RepoDiffServiceClient::new(repo_name.to_string(), client);
 
-        let (result, _attempts) = retry(
-            |attempt| {
-                let repo_client = repo_client.clone();
-                let base_input = base_input.clone();
-                let other_input = other_input.clone();
-                let options = options.clone();
-
-                async move {
-                    if attempt > 1 {
-                        tracing::info!(
-                            repo_name = %repo_name,
-                            attempt = attempt,
-                            "Retrying diff service call"
-                        );
-                    }
-
-                    repo_client
-                        .diff_unified(ctx, base_input, other_input, options)
-                        .await
-                }
-            },
-            DIFF_SERVICE_RETRY_BASE_DELAY,
-        )
-        .exponential_backoff(DIFF_SERVICE_BACKOFF_MULTIPLIER)
-        .max_attempts(DIFF_SERVICE_MAX_RETRY_ATTEMPTS)
-        .retry_if(|_attempt, e| is_transient_diff_error(e))
-        .await
-        .map_err(convert_diff_service_error)?;
-
-        let (response, mut stream) = result;
+        let (response, mut stream) = repo_client
+            .diff_unified(ctx, base_input, other_input, options)
+            .await
+            .map_err(convert_diff_service_error)?;
         let mut raw_diff = Vec::new();
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|e| {
@@ -545,36 +442,12 @@ impl<'a> DiffRouter<'a> {
             .transpose()?;
 
         let client = self.create_diff_service_client(repo_name)?;
-
         let repo_client = RepoDiffServiceClient::new(repo_name.to_string(), client);
 
-        let (response, _attempts) = retry(
-            |attempt| {
-                let repo_client = repo_client.clone();
-                let base_input = base_input.clone();
-                let other_input = other_input.clone();
-
-                async move {
-                    if attempt > 1 {
-                        tracing::info!(
-                            repo_name = %repo_name,
-                            attempt = attempt,
-                            "Retrying diff service call"
-                        );
-                    }
-
-                    repo_client
-                        .metadata_diff(ctx, base_input, other_input, false)
-                        .await
-                }
-            },
-            DIFF_SERVICE_RETRY_BASE_DELAY,
-        )
-        .exponential_backoff(DIFF_SERVICE_BACKOFF_MULTIPLIER)
-        .max_attempts(DIFF_SERVICE_MAX_RETRY_ATTEMPTS)
-        .retry_if(|_attempt, e| is_transient_diff_error(e))
-        .await
-        .map_err(convert_diff_service_error)?;
+        let response = repo_client
+            .metadata_diff(ctx, base_input, other_input, false)
+            .await
+            .map_err(convert_diff_service_error)?;
 
         // Convert the diff_service_if enums to mononoke_api enums
         let convert_file_type = |ft: Option<diff_service_if::DiffFileType>| -> Result<
