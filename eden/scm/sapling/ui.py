@@ -493,7 +493,8 @@ class ui:
     def walkconfig(self):
         return self._uiconfig.walkconfig()
 
-    def plain(self, feature=None):
+    @staticmethod
+    def plain(feature=None):
         """is plain mode active?
 
         Plain mode means that all configuration variables which affect
