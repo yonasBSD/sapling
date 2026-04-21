@@ -11,6 +11,7 @@
 # GNU General Public License version 2 or any later version.
 
 
+import bisect
 import errno
 import filecmp
 import os
@@ -1791,7 +1792,19 @@ class committablectx(basectx):
 
     def matches(self, match):
         # XXX: Consider using: return sorted(self._manifest.walk(match))
-        return sorted(self._repo.dirstate.matches(match))
+        results = sorted(self._repo.dirstate.matches(match))
+
+        # Check for restricted paths via the parent manifest.
+        if self._parents:
+            manifest = self._parents[0]._manifest
+            for f in match.files():
+                idx = bisect.bisect_left(results, f)
+                if (idx >= len(results) or results[idx] != f) and manifest.lookup(
+                    f
+                ) is None:
+                    match.bad(f, "restricted path")
+
+        return results
 
     def ancestors(self):
         for p in self._parents:

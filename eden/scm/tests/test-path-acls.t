@@ -33,6 +33,10 @@ Give a specific message when referencing a restricted file:
   restricted/secret.txt: restricted path
   [1]
 
-FIXME: Give a specific error when referencing a restricted file
   $ hg files restricted/secret.txt
+  restricted/secret.txt: restricted path
+  [1]
+
+  $ hg files -r . restricted/secret.txt
+  restricted/secret.txt: restricted path
   [1]
