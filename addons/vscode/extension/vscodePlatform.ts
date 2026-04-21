@@ -345,17 +345,21 @@ export const getVSCodePlatform = (context: vscode.ExtensionContext): VSCodeServe
         }
         case 'platform/recommendTestPlanWithAI': {
           const {commitHash, userContext} = message;
-          Internal.promptAIAgent?.(
-            {type: 'recommendTestPlan', commitHash, userContext},
+          await Internal.promptAIAgent?.(
+            {type: 'recommendTestPlan', commitHash, repoPath: repo?.info.repoRoot, userContext},
             ActionTriggerType.ISL2CommitInfoView,
+            undefined,
+            {postMessage},
           );
           break;
         }
         case 'platform/generateSummaryWithAI': {
           const {commitHash, userContext} = message;
-          Internal.promptAIAgent?.(
-            {type: 'generateSummary', commitHash, userContext},
+          await Internal.promptAIAgent?.(
+            {type: 'generateSummary', commitHash, repoPath: repo?.info.repoRoot, userContext},
             ActionTriggerType.ISL2CommitInfoView,
+            undefined,
+            {postMessage},
           );
           break;
         }

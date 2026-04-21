@@ -10,6 +10,7 @@ import type {CommitMessageFields} from './types';
 
 import {ErrorNotice} from 'isl-components/ErrorNotice';
 import {atom} from 'jotai';
+import {InternalFieldName} from 'shared/constants';
 import {firstLine} from 'shared/utils';
 import serverAPI from '../ClientToServerAPI';
 import {successionTracker} from '../SuccessionTracker';
@@ -39,6 +40,20 @@ import {
 export type EditedMessage = Partial<CommitMessageFields>;
 
 export type CommitInfoMode = 'commit' | 'amend';
+
+export function getCommitFieldAIRequestKey(
+  target: Hash | 'head',
+  field: InternalFieldName,
+): string {
+  return `${target}:${field}`;
+}
+
+export const commitFieldAIInFlight = atom(new Set<string>());
+registerCleanup(
+  commitFieldAIInFlight,
+  serverAPI.onSetup(() => writeAtom(commitFieldAIInFlight, new Set<string>())),
+  import.meta.hot,
+);
 
 export const commitMessageTemplate = atom<EditedMessage | undefined>(undefined);
 registerDisposable(
@@ -155,6 +170,41 @@ registerDisposable(
 
     writeAtom(selectedCommits, new Set([hash]));
     writeAtom(rawCommitMode, mode);
+  }),
+);
+
+registerDisposable(
+  serverAPI,
+  serverAPI.onMessageOfType('platform/commitFieldAIStatus', event => {
+    const requestKey = getCommitFieldAIRequestKey(event.target, event.field);
+    writeAtom(commitFieldAIInFlight, current => {
+      if (event.status === 'loading') {
+        return new Set(current).add(requestKey);
+      }
+      if (!current.has(requestKey)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.delete(requestKey);
+      return next;
+    });
+
+    if (event.status === 'error') {
+      showToast(
+        <ErrorNotice
+          title={
+            event.field === InternalFieldName.Summary
+              ? 'Failed to generate summary'
+              : 'Failed to recommend test plan'
+          }
+          error={new Error(event.error ?? 'Unknown error')}
+        />,
+        {
+          durationMs: 5000,
+          key: `commit-field-ai-error-${event.field}`,
+        },
+      );
+    }
   }),
 );
 

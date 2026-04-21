@@ -10,6 +10,7 @@ import type {TrackEventName} from 'isl-server/src/analytics/eventNames';
 import type {TrackDataWithEventName} from 'isl-server/src/analytics/types';
 import type {GitHubDiffSummary} from 'isl-server/src/github/githubCodeReviewProvider';
 import type {Comparison} from 'shared/Comparison';
+import type {InternalFieldName} from 'shared/constants';
 import type {ParsedDiff} from 'shared/patch/types';
 import type {AllUndefined, Json} from 'shared/typeUtils';
 import type {Hash} from 'shared/types/common';
@@ -883,6 +884,13 @@ export type PlatformSpecificServerToClientMessages =
   | {
       type: 'platform/gotAIReviewComments';
       comments: Result<CodeReviewIssue[]>;
+    }
+  | {
+      type: 'platform/commitFieldAIStatus';
+      target: Hash | 'head';
+      field: InternalFieldName;
+      status: 'loading' | 'idle' | 'error';
+      error?: string;
     };
 
 export type CodeReviewProviderSpecificClientToServerMessages =
