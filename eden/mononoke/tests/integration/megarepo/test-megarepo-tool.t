@@ -194,6 +194,8 @@ test gradual-delete functionality
    1 files changed, 0 insertions(+), 1 deletions(-)
   
   $ sl files -r "$LAST_DELETION_COMMIT" arvr fbcode || echo "Directories have been deleted"
+  arvr: no such file in rev * (glob)
+  fbcode: no such file in rev * (glob)
   Directories have been deleted
 
 run mover

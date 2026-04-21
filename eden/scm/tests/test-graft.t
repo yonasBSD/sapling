@@ -695,6 +695,7 @@
   $ sl cat f1a
   c1c
   $ sl cat f1b
+  f1b: no such file in rev c9763722f9bd
   [1]
 
 # Test the cases A.0 (f4x) and A.6 (f3x)

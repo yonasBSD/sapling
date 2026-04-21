@@ -28,9 +28,11 @@ Don't attempt to fetch 19d1f9c4 - it is restricted
   regular
   regular/file.txt
 
-FIXME: Give a specific error when referencing a restricted file
+Give a specific message when referencing a restricted file:
   $ hg cat restricted/secret.txt
+  restricted/secret.txt: restricted path
   [1]
 
+FIXME: Give a specific error when referencing a restricted file
   $ hg files restricted/secret.txt
   [1]

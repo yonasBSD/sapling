@@ -169,6 +169,17 @@ py_class!(pub class treemanifest |py| {
         Ok(result)
     }
 
+    /// Return path is present (True), absent (False), or restricted (None).
+    def lookup(&self, path: PyPathBuf) -> PyResult<Option<bool>> {
+        let repo_path = path.to_repo_path().map_pyerr(py)?;
+        let tree = self.underlying(py).read();
+        match tree.get(repo_path) {
+            Ok(entry) => Ok(Some(entry.is_some())),
+            Err(err) if edenapi_types::errors::is_permission_denied(&err) => Ok(None),
+            Err(err) => Err(err).map_pyerr(py),
+        }
+    }
+
     /// Count the number of files that match the predicate passed to the function.
     def countfiles(&self, pymatcher: PyObject) -> PyResult<u64> {
         let tree = self.underlying(py);

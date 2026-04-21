@@ -304,9 +304,11 @@ annotate after ABA with follow
   $ sl annotate --file foo
   foo: foo
 
-missing file (tofix: treemanifest.walk should abort with no such file error)
+missing file
 
   $ sl ann nosuchfile
+  abort: nosuchfile: no such file in rev e9e6b4fa872f
+  [255]
 
 annotate file without '\n' on last line
 

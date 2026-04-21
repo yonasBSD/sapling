@@ -20,6 +20,7 @@
   $ sl cat -r 9e16845058722867cade99889e97fc5ef64ddf5a b
   0
   $ sl cat -r 'max(desc(m))' a
+  a: no such file in rev 7040230c159c
   [1]
   $ sl cat -r 'max(desc(m))' b
   1

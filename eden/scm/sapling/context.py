@@ -729,12 +729,23 @@ class changectx(basectx):
     def walk(self, match):
         """Generates matching file names."""
 
-        # Wrap match.bad method to have message with nodeid
         def bad(fn, msg):
-            match.bad(fn, _("no such file in rev %s") % self)
+            match.bad(fn, msg or _("no such file in rev %s") % self)
 
         m = matchmod.badmatch(match, bad)
-        return self._manifest.walk(m)
+
+        paths = self._manifest.walk(m)
+
+        for f in match.files():
+            match self._manifest.lookup(f):
+                case None:
+                    m.bad(f, "restricted path")
+                case True:
+                    pass
+                case False:
+                    m.bad(f, None)
+
+        return paths
 
     def matches(self, match):
         return self.walk(match)

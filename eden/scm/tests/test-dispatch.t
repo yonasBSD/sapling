@@ -129,6 +129,7 @@ For compatibility reasons, HGPLAIN=+strictflags is not enabled by plain HGPLAIN:
   > cat = -r null
   > EOF
   $ sl cat a
+  a: no such file in rev 000000000000
   [1]
 
   $ cd "$TESTTMP"

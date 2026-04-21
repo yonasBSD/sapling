@@ -109,6 +109,7 @@ Remove file that was added in amended commit:
   $ HGEDITOR='sh "`pwd`/editor.sh"' sl ci --amend --logfile ../logfile
 
   $ sl cat C
+  C: no such file in rev 9579b4a5c1df
   [1]
 
 No changes, just a different message:

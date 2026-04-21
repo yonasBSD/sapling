@@ -1383,6 +1383,7 @@ specified file as expected
 
   $ sl debugpickmergetool -X f
   $ sl debugpickmergetool unknown
+  unknown: no such file in rev ef83787e2614
 
 (--absent emulates merging change and delete)
 

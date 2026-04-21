@@ -53,6 +53,7 @@ Test that hg cat does not do anything wrong the working copy has 'b' as director
   $ sl cat -r "desc(directory)" b/a
   c
   $ sl cat -r "desc(symlink)" b/a
+  b/a: no such file in rev 940e1c0d7f31
   [1]
 
 Test that hg cat does not do anything wrong the working copy has 'b' as a symlink (issue4749)
@@ -60,10 +61,12 @@ Test that hg cat does not do anything wrong the working copy has 'b' as a symlin
   $ sl up 'desc(symlink)'
   1 files updated, 0 files merged, 1 files removed, 0 files unresolved
   $ sl cat b/a
+  b/a: no such file in rev 940e1c0d7f31
   [1]
   $ sl cat -r "desc(directory)" b/a
   c
   $ sl cat -r "desc(symlink)" b/a
+  b/a: no such file in rev 940e1c0d7f31
   [1]
 
 #endif
