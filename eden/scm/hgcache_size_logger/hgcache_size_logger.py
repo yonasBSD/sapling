@@ -3,7 +3,7 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2.
 
-# pyre-unsafe
+# pyre-strict
 
 import argparse
 import logging
@@ -14,20 +14,20 @@ from libfb.py import log
 from rfe.scubadata.scubadata_py3 import Sample, ScubaData
 
 
-def computecachesize(cachepath, logger):
+def computecachesize(cachepath: str, logger: logging.Logger) -> tuple[int, int, int]:
     """measure size of cache directory"""
-    skipped = 0
+    skipped: int = 0
 
-    cachesize = 0
-    manifestsize = 0
+    cachesize: int = 0
+    manifestsize: int = 0
     for root, dirs, files in os.walk(cachepath):
-        dirsize = 0
+        dirsize: int = 0
         for filename in files:
             try:
                 stat = os.lstat(os.path.join(root, filename))
                 dirsize += stat.st_size
             except Exception as e:
-                logger.warn(
+                logger.warning(
                     ("error statting file '%s': %r. skipping file.\n") % (filename, e)
                 )
                 skipped += 1
@@ -42,7 +42,7 @@ def computecachesize(cachepath, logger):
     return (cachesize, manifestsize, skipped)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--hgcache-path", required=True, help="path to the hgcache location"
@@ -52,7 +52,7 @@ def main():
 
     if not os.path.exists(args.hgcache_path):
         logger.error(f"path not found {args.hgcache_path}")
-        return 0
+        return
 
     with ScubaData("mercurial_hgcache_size") as client:
         sample = Sample()
