@@ -338,7 +338,7 @@ Test grep with --include filters by file pattern:
   $ echo 'hello test' > src/main.rs
   $ echo 'hello lib' > lib/util.py
   $ sl commit -Aqm 'add files'
-  $ sl grep -I '**.py' hello
+  $ sl grep -I '**.py' hello | sort
   lib/util.py:hello lib
   src/main.py:hello world
 
