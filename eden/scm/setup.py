@@ -105,9 +105,10 @@ def filter(f, it):
 # `from distutils.*` resolve to setuptools' vendored copy. Must run before
 # any `from distutils.*` imports. Done via importlib so autoformatters don't
 # re-order it below the distutils imports and break the bootstrap.
-import importlib as _importlib
+if sys.version_info >= (3, 12):
+    import importlib as _importlib
 
-_importlib.import_module("setuptools")
+    _importlib.import_module("setuptools")
 
 from distutils.ccompiler import new_compiler
 from distutils.command.build import build

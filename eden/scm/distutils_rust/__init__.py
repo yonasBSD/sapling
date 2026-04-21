@@ -14,13 +14,6 @@ log = logging.getLogger()
 
 import contextlib
 import errno
-
-# Python 3.12 removed `distutils` from the stdlib (PEP 632). Bootstrap
-# setuptools — its module-level code registers a meta-path hook that makes
-# `from distutils.*` resolve to setuptools' vendored copy. Must run before
-# any `from distutils.*` imports. Done via importlib so autoformatters don't
-# re-order it below the distutils imports and break the bootstrap.
-import importlib as _importlib
 import io
 import os
 import shutil
@@ -29,7 +22,15 @@ import sys
 import tempfile
 import threading
 
-_importlib.import_module("setuptools")
+# Python 3.12 removed `distutils` from the stdlib (PEP 632). Bootstrap
+# setuptools — its module-level code registers a meta-path hook that makes
+# `from distutils.*` resolve to setuptools' vendored copy. Must run before
+# any `from distutils.*` imports. Done via importlib so autoformatters don't
+# re-order it below the distutils imports and break the bootstrap.
+if sys.version_info >= (3, 12):
+    import importlib as _importlib
+
+    _importlib.import_module("setuptools")
 
 from distutils.command.build import build
 from distutils.command.install import install
