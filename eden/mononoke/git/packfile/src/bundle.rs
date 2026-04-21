@@ -132,7 +132,7 @@ impl<T: AsyncWrite + Unpin> BundleWriter<T> {
         &mut self,
         objects_stream: impl Stream<Item = Result<PackfileItem>>,
     ) -> Result<()> {
-        self.pack_writer.write(objects_stream).await
+        self.pack_writer.write(objects_stream, None).await
     }
 
     /// Returns the number of bytes written to the underlying writer

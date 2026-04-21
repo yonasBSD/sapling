@@ -31,6 +31,7 @@ use repo_blobstore::ArcRepoBlobstore;
 use repo_derived_data::ArcRepoDerivedData;
 use rustc_hash::FxHashSet;
 
+use crate::OptionalWeightObserver;
 use crate::types::FetchContainer;
 use crate::types::PackfileItemInclusion;
 use crate::utils::delta_base;
@@ -192,6 +193,7 @@ pub(crate) async fn packfile_item_for_delta_manifest_entry(
     fetch_container: FetchContainer,
     base_set: Arc<FxHashSet<ObjectId>>,
     mut entry: Box<dyn GitDeltaManifestEntryOps + Send>,
+    weight_observer: OptionalWeightObserver,
 ) -> Result<Option<PackfileItem>> {
     let FetchContainer {
         ctx,
@@ -225,12 +227,15 @@ pub(crate) async fn packfile_item_for_delta_manifest_entry(
                 delta.instructions_uncompressed_size(),
                 instruction_bytes,
             );
+            if let Some(ref observer) = weight_observer {
+                observer.on_weight_added(packfile_item.weight());
+            }
             Ok(Some(packfile_item))
         }
         None => {
             // Use the full object instead
             if let Some(inlined_bytes) = entry.into_full_object_inlined_bytes() {
-                Ok(Some(PackfileItem::new_encoded_base(
+                let item = PackfileItem::new_encoded_base(
                     GitPackfileBaseItem::from_encoded_bytes(inlined_bytes)
                         .with_context(|| {
                             format!(
@@ -239,19 +244,25 @@ pub(crate) async fn packfile_item_for_delta_manifest_entry(
                             )
                         })?
                         .try_into()?,
-                )))
+                );
+                if let Some(ref observer) = weight_observer {
+                    observer.on_weight_added(item.weight());
+                }
+                Ok(Some(item))
             } else {
-                Ok(Some(
-                    base_packfile_item(
-                        ctx.clone(),
-                        blobstore.clone(),
-                        ObjectIdentifierType::AllObjects(GitIdentifier::Rich(
-                            entry.full_object_rich_git_sha1()?,
-                        )),
-                        packfile_item_inclusion,
-                    )
-                    .await?,
-                ))
+                let item = base_packfile_item(
+                    ctx.clone(),
+                    blobstore.clone(),
+                    ObjectIdentifierType::AllObjects(GitIdentifier::Rich(
+                        entry.full_object_rich_git_sha1()?,
+                    )),
+                    packfile_item_inclusion,
+                )
+                .await?;
+                if let Some(ref observer) = weight_observer {
+                    observer.on_weight_added(item.weight());
+                }
+                Ok(Some(item))
             }
         }
     }

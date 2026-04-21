@@ -144,7 +144,7 @@ async fn validate_basic_packfile_generation() -> anyhow::Result<()> {
         PackfileWriter::new(Vec::new(), 3, concurrency, DeltaForm::RefAndOffset);
     // Validate we are able to write the objects to the packfile without errors
     packfile_writer
-        .write(objects_stream)
+        .write_unweighted(objects_stream)
         .await
         .expect("Expected successful write of objects to packfile");
     // Validate we are able to finish writing to the packfile and generate the final checksum
@@ -162,7 +162,7 @@ async fn validate_packfile_generation_format() -> anyhow::Result<()> {
         PackfileWriter::new(Vec::new(), 3, concurrency, DeltaForm::RefAndOffset);
     // Validate we are able to write the objects to the packfile without errors
     packfile_writer
-        .write(objects_stream)
+        .write_unweighted(objects_stream)
         .await
         .expect("Expected successful write of objects to packfile");
     // Validate we are able to finish writing to the packfile and generate the final checksum
@@ -214,7 +214,7 @@ async fn validate_staggered_packfile_generation() -> anyhow::Result<()> {
     }))?;
     // Validate we are able to write the object to the packfile without errors
     packfile_writer
-        .write(stream::iter(vec![PackfileItem::new_base(
+        .write_unweighted(stream::iter(vec![PackfileItem::new_base(
             tag_object.raw().clone(),
         )]))
         .await
@@ -225,7 +225,7 @@ async fn validate_staggered_packfile_generation() -> anyhow::Result<()> {
         }))?;
     // Validate we are able to write the object to the packfile without errors
     packfile_writer
-        .write(stream::iter(vec![PackfileItem::new_base(
+        .write_unweighted(stream::iter(vec![PackfileItem::new_base(
             blob_object.raw().clone(),
         )]))
         .await
@@ -240,7 +240,7 @@ async fn validate_staggered_packfile_generation() -> anyhow::Result<()> {
         }))?;
     // Validate we are able to write the object to the packfile without errors
     packfile_writer
-        .write(stream::iter(vec![PackfileItem::new_base(
+        .write_unweighted(stream::iter(vec![PackfileItem::new_base(
             tree_object.raw().clone(),
         )]))
         .await
@@ -288,7 +288,7 @@ async fn validate_roundtrip_packfile_generation() -> anyhow::Result<()> {
         PackfileWriter::new(Vec::new(), 3, concurrency, DeltaForm::RefAndOffset);
     // Validate we are able to write the objects to the packfile without errors
     packfile_writer
-        .write(objects_stream)
+        .write_unweighted(objects_stream)
         .await
         .expect("Expected successful write of objects to packfile");
     // Validate we are able to finish writing to the packfile and generate the final checksum
@@ -328,7 +328,7 @@ async fn validate_delta_packfile_generation() -> anyhow::Result<()> {
         PackfileWriter::new(Vec::new(), 4, concurrency, DeltaForm::OnlyOffset);
     // Validate we are able to write the objects to the packfile without errors
     packfile_writer
-        .write(objects_stream)
+        .write_unweighted(objects_stream)
         .await
         .expect("Expected successful write of objects to packfile");
     // Validate we are able to finish writing to the packfile and generate the final checksum

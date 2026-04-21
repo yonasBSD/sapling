@@ -633,6 +633,7 @@ pub async fn fetch(
                     request_context.pushvars.bypass_bookmark_cache(),
                 );
                 let request_signature = fetch_request.hash_heads_and_bases();
+                let weight_observer_for_writer = weight_observer.clone();
                 let response_stream = fetch_response(
                     request_context.ctx.clone(),
                     &request_context.repo,
@@ -651,7 +652,9 @@ pub async fn fetch(
                     5000,
                     delta_form,
                 );
-                pack_writer.write(response_stream.items).await?;
+                pack_writer
+                    .write(response_stream.items, weight_observer_for_writer.as_ref())
+                    .await?;
                 pack_writer.finish().await?;
                 anyhow::Ok(())
             };

@@ -62,6 +62,20 @@ impl PackfileItem {
             compressed_data,
         ))
     }
+
+    /// Estimated in-memory byte weight of this item. Values are chosen to
+    /// match entry_weight() in the generator for balanced add/remove on
+    /// estimated_memory_bytes:
+    /// - Base: uncompressed size (matches full_object_size())
+    /// - EncodedBase: decompressed_size (matches full_object_size())
+    /// - OidDelta: compressed_data.len() (matches instructions_compressed_size())
+    pub fn weight(&self) -> usize {
+        match self {
+            PackfileItem::Base(base) => base.size(),
+            PackfileItem::EncodedBase(entry) => entry.decompressed_size,
+            PackfileItem::OidDelta(delta) => delta.compressed_data.len(),
+        }
+    }
 }
 
 impl TryFrom<PackfileItem> for output::Entry {

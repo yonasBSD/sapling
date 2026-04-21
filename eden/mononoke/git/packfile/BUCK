@@ -17,6 +17,7 @@ rust_library(
         "fbsource//third-party/rust:sha1-checked",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
+        "//common/rust/shed/weight_observer:weight_observer",
         "//eden/mononoke/git/git_types:git_types",
     ],
 )

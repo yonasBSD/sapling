@@ -446,7 +446,13 @@ fn packfile_stream_from_changesets<'a, T: GDMEntryProvider + Send + 'static>(
             tokio_stream::wrappers::ReceiverStream::new(gdm_receiver).filter_map({
                 let error_sender = packfile_item_sender.clone();
                 move |entry_result| {
-                    cloned!(fetch_container, base_set, filter, error_sender);
+                    cloned!(
+                        fetch_container,
+                        base_set,
+                        filter,
+                        error_sender,
+                        weight_observer
+                    );
                     async move {
                         let entry = match entry_result {
                             Ok(entry) => entry,
@@ -469,6 +475,7 @@ fn packfile_stream_from_changesets<'a, T: GDMEntryProvider + Send + 'static>(
                             fetch_container.clone(),
                             base_set.clone(),
                             entry,
+                            weight_observer.clone(),
                         );
 
                         Some((weight, future))
@@ -476,8 +483,12 @@ fn packfile_stream_from_changesets<'a, T: GDMEntryProvider + Send + 'static>(
                 }
             });
 
+        // Pass None to buffered_weighted — it handles flow control internally.
+        // Weight is added inside packfile_item_for_delta_manifest_entry when
+        // items are created (filtered-out items never get weight added).
+        // Weight is removed in PackfileWriter::write after each item is written.
         let mut stream = weighted_stream
-            .buffered_weighted(max_buffer, weight_observer)
+            .buffered_weighted(max_buffer, None)
             .try_filter_map(futures::future::ok)
             .boxed();
 
@@ -512,14 +523,21 @@ async fn tree_and_blob_packfile_stream<'a>(
         ..
     } = fetch_container.clone();
 
+    let boundary_observer = weight_observer.clone();
     let boundary_packfile_item_stream = boundary_stream(fetch_container.clone())
         .await?
         .map_ok({
             cloned!(fetch_container, base_set);
             move |(_changeset_id, entry)| {
-                cloned!(fetch_container, base_set);
+                cloned!(fetch_container, base_set, boundary_observer);
                 async move {
-                    packfile_item_for_delta_manifest_entry(fetch_container, base_set, entry).await
+                    packfile_item_for_delta_manifest_entry(
+                        fetch_container,
+                        base_set,
+                        entry,
+                        boundary_observer,
+                    )
+                    .await
                 }
             }
         })
@@ -534,6 +552,7 @@ async fn tree_and_blob_packfile_stream<'a>(
         weight_observer.clone(),
     );
 
+    let requested_observer = weight_observer.clone();
     let individual_cs_ids_packfile_item_stream = packfile_stream_from_changesets(
         fetch_container,
         base_set,
@@ -557,6 +576,12 @@ async fn tree_and_blob_packfile_stream<'a>(
             }
         })
         .try_buffered(concurrency.trees_and_blobs)
+        .map_ok(move |item| {
+            if let Some(ref observer) = requested_observer {
+                observer.on_weight_added(item.weight());
+            }
+            item
+        })
         .boxed();
     Ok(boundary_packfile_item_stream
         .chain(groups_packfile_item_stream)
@@ -571,6 +596,7 @@ async fn commit_packfile_stream<'a>(
     fetch_container: FetchContainer,
     repo: &'a impl Repo,
     divided_changesets: CGDMDividedChangesets,
+    weight_observer: OptionalWeightObserver,
 ) -> Result<(BoxStream<'a, Result<PackfileItem>>, usize)> {
     let mut commit_count = divided_changesets.individual_cs_ids.len();
     let mut final_commits = divided_changesets.individual_cs_ids;
@@ -647,16 +673,23 @@ async fn commit_packfile_stream<'a>(
             }
         })
         .try_buffered(concurrency.commits);
-    Ok((
-        groups_commit_stream.chain(commit_stream).boxed(),
-        commit_count,
-    ))
+    let combined = groups_commit_stream
+        .chain(commit_stream)
+        .map_ok(move |item| {
+            if let Some(ref observer) = weight_observer {
+                observer.on_weight_added(item.weight());
+            }
+            item
+        })
+        .boxed();
+    Ok((combined, commit_count))
 }
 
 /// Convert the provided tag entries into a stream of packfile items
 fn tag_entries_to_stream<'a>(
     fetch_container: FetchContainer,
     tag_entries: FxHashSet<GitSha1>,
+    weight_observer: OptionalWeightObserver,
 ) -> BoxStream<'a, Result<PackfileItem>> {
     let FetchContainer {
         ctx,
@@ -681,6 +714,12 @@ fn tag_entries_to_stream<'a>(
             }
         })
         .try_buffered(concurrency.tags)
+        .map_ok(move |item| {
+            if let Some(ref observer) = weight_observer {
+                observer.on_weight_added(item.weight());
+            }
+            item
+        })
         .boxed()
 }
 
@@ -691,6 +730,7 @@ async fn tag_packfile_stream<'a>(
     fetch_container: FetchContainer,
     repo: &'a impl Repo,
     bookmarks: &GitBookmarks,
+    weight_observer: OptionalWeightObserver,
 ) -> Result<(BoxStream<'a, Result<PackfileItem>>, usize)> {
     // Since we need the count of items, we would have to consume the stream either for counting or collecting the items.
     // This is fine, since unlike commits, blobs and trees there will only be thousands of tags in the worst case.
@@ -728,7 +768,7 @@ async fn tag_packfile_stream<'a>(
     )
     .await?;
     let tags_count = annotated_tags.len();
-    let tag_stream = tag_entries_to_stream(fetch_container, annotated_tags);
+    let tag_stream = tag_entries_to_stream(fetch_container, annotated_tags, weight_observer);
     Ok((tag_stream, tags_count))
 }
 
@@ -740,6 +780,7 @@ async fn tags_packfile_stream<'a>(
     requested_commits: Vec<ChangesetId>,
     requested_tag_names: Arc<FxHashSet<String>>,
     refs_source: RefsSource,
+    weight_observer: OptionalWeightObserver,
 ) -> Result<(BoxStream<'a, Result<PackfileItem>>, usize)> {
     let (ctx, filter, blobstore, concurrency) = (
         fetch_container.ctx.clone(),
@@ -792,7 +833,8 @@ async fn tags_packfile_stream<'a>(
         tag_entries_to_hashes(tag_entries, ctx, blobstore, concurrency.tags).await?;
 
     let tags_count = exhaustive_tag_entries.len();
-    let tag_stream = tag_entries_to_stream(fetch_container, exhaustive_tag_entries);
+    let tag_stream =
+        tag_entries_to_stream(fetch_container, exhaustive_tag_entries, weight_observer);
     Ok((tag_stream, tags_count))
 }
 
@@ -882,21 +924,21 @@ pub async fn generate_pack_item_stream<'a>(
     // STEP 4: Get the stream of commit packfile items to include in the pack/bundle. Note that we have already counted these items
     // as part of object count.
     let (commit_stream, commits_count) =
-        commit_packfile_stream(fetch_container.clone(), repo, divided_changesets)
+        commit_packfile_stream(fetch_container.clone(), repo, divided_changesets, None)
             .await
             .context("Error while generating commit packfile item stream")?;
 
     // STEP 5: Get the stream of tag packfile items to include in the pack/bundle. Note that we have not yet included the tag count in the
     // total object count so we will need the stream + count of elements in the stream
     let (tag_stream, tags_count) =
-        tag_packfile_stream(ctx.as_ref(), fetch_container.clone(), repo, bookmarks)
+        tag_packfile_stream(ctx.as_ref(), fetch_container.clone(), repo, bookmarks, None)
             .await
             .context("Error while generating tag packfile item stream")?;
     // Compute the overall object count by summing the trees, blobs, tags and commits count
     let object_count = commits_count + trees_and_blobs_count + tags_count;
 
     // STEP 6: Combine all streams together and return the response. The ordering of the streams in this case is irrelevant since the commit
-    // and tag stream include full objects and the tree_and_blob_stream has deltas in the correct order
+    // and tag stream include full objects and the tree_and_blob_stream has deltas in the correct order.
     let packfile_stream = tag_stream
         .chain(commit_stream)
         .chain(tree_and_blob_stream)
@@ -1052,6 +1094,8 @@ pub async fn fetch_response<'a>(
     progress_writer
         .send("Generating trees and blobs stream\n".to_string())
         .await?;
+    let weight_observer_for_commits = weight_observer.clone();
+    let weight_observer_for_tags = weight_observer.clone();
     let tree_and_blob_stream = tree_and_blob_packfile_stream(
         fetch_container.clone(),
         divided_changesets.clone(),
@@ -1072,16 +1116,20 @@ pub async fn fetch_response<'a>(
     progress_writer
         .send("Generating commits stream\n".to_string())
         .await?;
-    let (commit_stream, commits_count) =
-        commit_packfile_stream(fetch_container.clone(), repo, divided_changesets)
-            .try_timed()
-            .await
-            .context("Error while generating commit packfile item stream during fetch")?
-            .log_future_stats(
-                perf_scuba.clone(),
-                "Generated commits stream",
-                "Read".to_string(),
-            );
+    let (commit_stream, commits_count) = commit_packfile_stream(
+        fetch_container.clone(),
+        repo,
+        divided_changesets,
+        weight_observer_for_commits,
+    )
+    .try_timed()
+    .await
+    .context("Error while generating commit packfile item stream during fetch")?
+    .log_future_stats(
+        perf_scuba.clone(),
+        "Generated commits stream",
+        "Read".to_string(),
+    );
     // Get the stream of all annotated tag items in the repo
     progress_writer
         .send("Generating tags stream\n".to_string())
@@ -1092,6 +1140,7 @@ pub async fn fetch_response<'a>(
         target_commits,
         translated_sha_heads.tag_names.clone(),
         request.refs_source,
+        weight_observer_for_tags,
     )
     .try_timed()
     .await
@@ -1102,7 +1151,8 @@ pub async fn fetch_response<'a>(
         "Read".to_string(),
     );
     // Combine all streams together and return the response. The ordering of the streams in this case is irrelevant since the commit
-    // and tag stream include full objects and the tree_and_blob_stream has deltas in the correct order
+    // and tag stream include full objects and the tree_and_blob_stream has deltas in the correct order.
+    // Weight tracking happens in PackfileWriter::write — add when item arrives, remove after written.
     let packfile_stream = tag_stream
         .chain(commit_stream)
         .chain(tree_and_blob_stream)
