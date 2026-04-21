@@ -378,7 +378,10 @@ impl<R: Repo> RepoClient<R> {
         command: &str,
         sampling_rate: SamplingRate,
     ) -> (CoreContext, CommandLogger) {
-        info!("{}", command);
+        match command {
+            "hello" | "clienttelemetry" => debug!("{}", command),
+            _ => info!("{}", command),
+        }
 
         let mut scuba = self.logging.scuba().clone();
         scuba
