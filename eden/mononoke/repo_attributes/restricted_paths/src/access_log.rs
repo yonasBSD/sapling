@@ -153,6 +153,7 @@ mod schematized_logger {
         access_data: &RestrictedPathAccessData,
         has_authorization: bool,
         is_allowlisted_tooling: bool,
+        is_rollout_allowlisted: bool,
         acls: &[&MononokeIdentity],
     ) -> Result<()> {
         let mut logger = MononokeRestrictedPathsAccessLogger::new(ctx.fb);
@@ -175,6 +176,7 @@ mod schematized_logger {
         );
         logger.set_has_authorization(has_authorization.to_string());
         logger.set_is_allowlisted_tooling(is_allowlisted_tooling.to_string());
+        logger.set_is_rollout_allowlisted(is_rollout_allowlisted.to_string());
         logger.set_acls(acls.iter().map(|acl| acl.to_string()).collect::<Vec<_>>());
 
         // Set access data variant fields
@@ -306,6 +308,7 @@ pub(crate) async fn log_access_to_restricted_path(
     access_data: RestrictedPathAccessData,
     acl_provider: Arc<dyn AclProvider>,
     tooling_allowlist_group: Option<&str>,
+    rollout_allowlist_group: Option<&str>,
     scuba: MononokeScubaSampleBuilder,
     determined_by: Vec<String>,
 ) -> Result<RestrictionCheckResult> {
@@ -321,8 +324,16 @@ pub(crate) async fn log_access_to_restricted_path(
         false
     };
 
-    // Caller has authorization if they have access via path ACLs OR via tooling allowlist
-    let has_authorization = has_path_acl_access || is_allowlisted_tooling;
+    // Check if caller is in the rollout allowlist group
+    let is_rollout_allowlisted = if let Some(group_name) = rollout_allowlist_group {
+        is_part_of_group(ctx, &acl_provider, group_name).await?
+    } else {
+        false
+    };
+
+    // Caller has authorization if they have access via path ACLs, tooling allowlist,
+    // or rollout allowlist
+    let has_authorization = has_path_acl_access || is_allowlisted_tooling || is_rollout_allowlisted;
 
     // Override sampling for unauthorized SCSC accesses to restricted paths
     #[cfg(fbcode_build)]
@@ -357,6 +368,7 @@ pub(crate) async fn log_access_to_restricted_path(
                 &access_data,
                 has_authorization,
                 is_allowlisted_tooling,
+                is_rollout_allowlisted,
                 &acls,
             ) {
                 tracing::error!("Failed to log to schematized logger: {:?}", e);
@@ -371,6 +383,7 @@ pub(crate) async fn log_access_to_restricted_path(
         access_data,
         has_authorization,
         is_allowlisted_tooling,
+        is_rollout_allowlisted,
         acls,
         scuba,
         determined_by,
@@ -389,6 +402,7 @@ fn log_access_to_scuba(
     access_data: RestrictedPathAccessData,
     has_authorization: bool,
     is_allowlisted_tooling: bool,
+    is_rollout_allowlisted: bool,
     acls: Vec<&MononokeIdentity>,
     mut scuba: MononokeScubaSampleBuilder,
     determined_by: Vec<String>,
@@ -411,6 +425,7 @@ fn log_access_to_scuba(
 
     scuba.add("has_authorization", has_authorization);
     scuba.add("is_allowlisted_tooling", is_allowlisted_tooling);
+    scuba.add("is_rollout_allowlisted", is_rollout_allowlisted);
     scuba.add(
         "acls",
         acls.into_iter()

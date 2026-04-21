@@ -402,6 +402,7 @@ impl RestrictedPaths {
             crate::access_log::RestrictedPathAccessData::Manifest(manifest_id, manifest_type),
             self.acl_provider.clone(),
             self.config().tooling_allowlist_group.as_deref(),
+            self.config().rollout_allowlist_group.as_deref(),
             self.scuba.clone(),
             vec!["manifest_db".to_string()],
         )
@@ -453,6 +454,7 @@ impl RestrictedPaths {
             crate::access_log::RestrictedPathAccessData::FullPath { full_path: path },
             self.acl_provider.clone(),
             self.config().tooling_allowlist_group.as_deref(),
+            self.config().rollout_allowlist_group.as_deref(),
             self.scuba.clone(),
             vec!["manifest_db".to_string()],
         )
@@ -983,6 +985,7 @@ mod tests {
             conditional_enforcement_acls: Vec::new(),
             enforcement_condition_sets: Vec::new(),
             tooling_allowlist_group: None,
+            rollout_allowlist_group: None,
             acl_file_name: RestrictedPathsConfig::default().acl_file_name,
         };
 
@@ -1006,6 +1009,7 @@ mod tests {
             conditional_enforcement_acls: Vec::new(),
             enforcement_condition_sets: Vec::new(),
             tooling_allowlist_group: None,
+            rollout_allowlist_group: None,
             acl_file_name: RestrictedPathsConfig::default().acl_file_name,
         };
 

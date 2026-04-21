@@ -598,6 +598,7 @@ mod tests {
             cache_update_interval_ms: 5,
             soft_path_acls: Vec::new(),
             tooling_allowlist_group: None,
+            rollout_allowlist_group: None,
             conditional_enforcement_acls: Vec::new(),
             enforcement_condition_sets: Vec::new(),
             acl_file_name: RestrictedPathsConfig::default().acl_file_name,

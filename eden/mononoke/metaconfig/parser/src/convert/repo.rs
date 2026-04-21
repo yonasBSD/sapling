@@ -1418,6 +1418,9 @@ impl Convert for RawRestrictedPathsConfig {
         // tooling_allowlist_group is used directly as a group name for membership checking
         let tooling_allowlist_group = self.tooling_allowlist_acl;
 
+        // rollout_allowlist_group is used for tooling allowed during rollout
+        let rollout_allowlist_group = self.rollout_allowlist_acl;
+
         let enforcement_condition_sets = self
             .enforcement_condition_sets
             .unwrap_or_default()
@@ -1453,6 +1456,7 @@ impl Convert for RawRestrictedPathsConfig {
             soft_path_acls,
             conditional_enforcement_acls,
             tooling_allowlist_group,
+            rollout_allowlist_group,
             acl_file_name: self
                 .acl_file_name
                 .unwrap_or(RestrictedPathsConfig::default().acl_file_name.to_string()),

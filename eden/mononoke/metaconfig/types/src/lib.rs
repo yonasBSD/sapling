@@ -2467,6 +2467,9 @@ pub struct RestrictedPathsConfig {
     pub conditional_enforcement_acls: Vec<MononokeIdentity>,
     /// Group name for tooling that should be allowlisted for all restricted paths.
     pub tooling_allowlist_group: Option<String>,
+    /// Group name for tooling that is allowlisted during rollout for all restricted paths.
+    /// Used during rollout for tooling that will likely be permanently allowlisted.
+    pub rollout_allowlist_group: Option<String>,
     /// Name of the ACL files (default: ".slacl")
     pub acl_file_name: String,
     /// Condition sets for conditional enforcement. OR across sets, AND within.
@@ -2485,6 +2488,7 @@ impl Default for RestrictedPathsConfig {
             soft_path_acls: Vec::new(),
             conditional_enforcement_acls: Vec::new(),
             tooling_allowlist_group: None,
+            rollout_allowlist_group: None,
             acl_file_name: DEFAULT_ACL_FILE_NAME.to_string(),
             enforcement_condition_sets: Vec::new(),
         }
