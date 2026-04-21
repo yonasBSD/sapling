@@ -29,6 +29,8 @@ use edenapi_types::BonsaiChangesetContent;
 use edenapi_types::BookmarkEntry;
 use edenapi_types::BookmarkKind;
 use edenapi_types::BookmarkResult;
+use edenapi_types::CheckPathPermissionRequest;
+use edenapi_types::CheckPathPermissionResponse;
 use edenapi_types::CloudShareWorkspaceRequest;
 use edenapi_types::CloudShareWorkspaceResponse;
 use edenapi_types::CloudWorkspaceRequest;
@@ -218,6 +220,7 @@ pub mod paths {
     pub const UPLOAD_TREES: &str = "upload/trees";
     pub const UPLOAD_IDENTICAL_CHANGESET: &str = "upload/changesets/identical";
     pub const UPLOAD_FILE: &str = "upload/file/";
+    pub const CHECK_PERMISSION: &str = "check_permission";
 }
 
 #[derive(Clone)]
@@ -1078,6 +1081,21 @@ impl Client {
             .map_err(SaplingRemoteApiError::RequestSerializationFailed)?;
 
         self.fetch::<StreamingChangelogResponse>(vec![request])
+    }
+
+    async fn check_permission_attempt(
+        &self,
+        request: CheckPathPermissionRequest,
+    ) -> Result<Response<CheckPathPermissionResponse>, SaplingRemoteApiError> {
+        tracing::info!("Checking permissions for {} path(s)", request.paths.len());
+
+        let url = self.build_url(paths::CHECK_PERMISSION)?;
+        let req = self
+            .configure_request(paths::CHECK_PERMISSION, self.inner.client.post(url))?
+            .cbor(&request.to_wire())
+            .map_err(SaplingRemoteApiError::RequestSerializationFailed)?;
+
+        self.fetch::<CheckPathPermissionResponse>(vec![req])
     }
 
     async fn commit_translate_id_attempt(
@@ -2208,6 +2226,14 @@ impl SaplingRemoteApi for Client {
         tag: Option<String>,
     ) -> Result<Response<StreamingChangelogResponse>, SaplingRemoteApiError> {
         self.with_retry(|this| this.streaming_clone_attempt(tag.clone()).boxed())
+            .await
+    }
+
+    async fn check_permission(
+        &self,
+        request: CheckPathPermissionRequest,
+    ) -> Result<Response<CheckPathPermissionResponse>, SaplingRemoteApiError> {
+        self.with_retry(|this| this.check_permission_attempt(request.clone()).boxed())
             .await
     }
 }

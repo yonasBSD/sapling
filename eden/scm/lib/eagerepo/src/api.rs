@@ -35,6 +35,8 @@ use edenapi::types::AnyFileContentId;
 use edenapi::types::AnyId;
 use edenapi::types::BookmarkEntry;
 use edenapi::types::BookmarkKind;
+use edenapi::types::CheckPathPermissionRequest;
+use edenapi::types::CheckPathPermissionResponse;
 use edenapi::types::CommitGraphEntry;
 use edenapi::types::CommitGraphSegments;
 use edenapi::types::CommitGraphSegmentsEntry;
@@ -1244,6 +1246,29 @@ impl SaplingRemoteApi for EagerRepo {
             }
         }
         Ok(convert_to_response(res))
+    }
+
+    async fn check_permission(
+        &self,
+        request: CheckPathPermissionRequest,
+    ) -> edenapi::Result<Response<CheckPathPermissionResponse>> {
+        debug!("check_permission {:?}", &request.paths);
+        self.refresh_for_api()?;
+
+        let values = request
+            .paths
+            .into_iter()
+            .map(|path| {
+                Ok(CheckPathPermissionResponse {
+                    path,
+                    has_access: true,
+                    request_acls: Vec::new(),
+                    repo_region_acls: Vec::new(),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        Ok(convert_to_response(values))
     }
 
     async fn land_stack(
