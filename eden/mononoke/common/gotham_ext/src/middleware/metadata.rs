@@ -33,7 +33,6 @@ use tracing::error;
 
 use super::Middleware;
 use crate::socket_data::TlsCertificateIdentities;
-use crate::state_ext::StateExt;
 
 const INGRESS_LEAF_CERT_HEADER: &str = "X-Amzn-Mtls-Clientcert-Leaf";
 const ENCODED_CLIENT_IDENTITY: &str = "x-fb-validated-client-encoded-identity";
@@ -167,26 +166,7 @@ impl Middleware for MetadataMiddleware {
                 ingress_request_identities_from_headers(headers)
             } else {
                 let maybe_cat_idents =
-                    match try_get_cats_idents(self.fb, headers, &self.internal_identity) {
-                        Err(e) => {
-                            let msg = format!("Error extracting CATs identities: {}.", &e,);
-                            error!("{}", &msg,);
-                            let response = Response::builder()
-                                .status(StatusCode::UNAUTHORIZED)
-                                .body(
-                                    format!(
-                                        "{{\"message:\"{}\", \"request_id\":\"{}\"}}",
-                                        msg,
-                                        state.short_request_id()
-                                    )
-                                    .into_body(),
-                                )
-                                .expect("Couldn't build http response");
-
-                            return Some(response);
-                        }
-                        Ok(maybe_cats) => maybe_cats,
-                    };
+                    try_get_cats_idents(self.fb, headers, &self.internal_identity);
 
                 let maybe_tls_or_proxied_idents: Option<MononokeIdentitySet> =
                     cert_idents.and_then(|x| self.extract_client_identities(x, headers));
