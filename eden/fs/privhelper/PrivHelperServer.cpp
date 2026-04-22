@@ -1032,7 +1032,14 @@ UnixSocket::Message PrivHelperServer::processTakeoverStartupMsg(
       mountPath,
       bindMounts.size());
 
-  auto sanityResult = sanityCheckMountPoint(mountPath);
+  // Skip stale bind mount cleanup on takeover: the kernel preserves live
+  // redirections (e.g. buck-out) across a graceful restart, so unmounting
+  // them here would destroy legitimate user state.
+  auto sanityResult = sanityCheckMountPoint(
+      mountPath,
+      /*isNFS=*/false,
+      /*isHardMount=*/false,
+      /*performBindMountCleanup=*/false);
 
   mountPoints_.insert(mountPath);
   auto response = makeResponse();

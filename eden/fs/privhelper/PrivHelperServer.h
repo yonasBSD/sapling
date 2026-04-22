@@ -144,11 +144,18 @@ class PrivHelperServer : private UnixSocket::ReceiveCallback {
    * This will check that the user has RW access to every path component
    * leading to the mount point. A std::domain_error exception will be raised
    * if the user doesn't have access to the mount point.
+   *
+   * When performBindMountCleanup is true (the default), stale redirection
+   * bind mounts under the checkout are detached before the sanity check.
+   * The takeover path passes false because the kernel preserves legitimate
+   * bind mounts (e.g. Sapling redirections like buck-out) across a graceful
+   * restart, and running cleanup there would unmount live user state.
    */
   SanityCheckResult sanityCheckMountPoint(
       const std::string& mountPoint,
       bool isNFS = false,
-      bool isHardMount = false);
+      bool isHardMount = false,
+      bool performBindMountCleanup = true);
 
   // These methods are virtual so we can override them during unit tests
   virtual folly::File

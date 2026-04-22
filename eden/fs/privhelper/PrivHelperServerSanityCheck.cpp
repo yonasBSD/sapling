@@ -317,15 +317,21 @@ bool PrivHelperServer::detectAndUnmountStaleMount(
 SanityCheckResult PrivHelperServer::sanityCheckMountPoint(
     const std::string& mountPoint,
     bool isNFS,
-    bool isHardMount) {
+    bool isHardMount,
+    bool performBindMountCleanup) {
   XLOGF(INFO, "Sanity checking mount {}", mountPoint);
   if (getuid() == 0) {
     XLOG(INFO, "Skipping sanity check for root user.");
     return SanityCheckResult{};
   }
 
-  // Clean up any stale bind mounts under this checkout before proceeding
-  auto result = cleanupStaleBindMounts(mountPoint);
+  SanityCheckResult result{};
+  if (performBindMountCleanup) {
+    // Clean up any stale bind mounts under this checkout before proceeding.
+    // Skipped on the takeover path so live redirections (e.g. buck-out) that
+    // the kernel preserves across a graceful restart are not detached.
+    result = cleanupStaleBindMounts(mountPoint);
+  }
 
   result.staleCheckoutMountUnmounted =
       detectAndUnmountStaleMount(mountPoint, isNFS, isHardMount);
