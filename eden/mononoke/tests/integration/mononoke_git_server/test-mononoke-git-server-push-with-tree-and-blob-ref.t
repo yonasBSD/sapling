@@ -13,14 +13,6 @@
   $ GIT_REPO_ORIGIN="${TESTTMP}/origin/repo-git"
   $ GIT_REPO="${TESTTMP}/repo-git"
 
-  $ merge_just_knobs <<EOF
-  > {
-  >   "bools": {
-  >     "scm/mononoke:enable_git_ref_content_mapping_caching": true
-  >   }
-  > }
-  > EOF
-
 # Setup git repository
   $ mkdir -p "$GIT_REPO_ORIGIN"
   $ cd "$GIT_REPO_ORIGIN"
