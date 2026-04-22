@@ -33,6 +33,7 @@ mod ccsm;
 mod content_manifests;
 mod dbcm;
 mod fsnodes;
+mod history_manifests;
 mod skeleton_manifests;
 mod test_manifests;
 mod unodes;

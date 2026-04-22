@@ -214,6 +214,43 @@ impl HistoryManifestDirectory {
             .and_then(|(k, v)| async move { anyhow::Ok((MPathElement::from_smallvec(k)?, v)) })
             .boxed()
     }
+
+    pub fn into_subentries_skip<'a>(
+        self,
+        ctx: &'a CoreContext,
+        blobstore: &'a impl KeyedBlobstore,
+        skip: usize,
+    ) -> BoxStream<'a, Result<(MPathElement, HistoryManifestEntry)>> {
+        self.subentries
+            .into_entries_skip(ctx, blobstore, skip)
+            .and_then(|(k, v)| async move { anyhow::Ok((MPathElement::from_smallvec(k)?, v)) })
+            .boxed()
+    }
+
+    pub fn into_prefix_subentries<'a>(
+        self,
+        ctx: &'a CoreContext,
+        blobstore: &'a impl KeyedBlobstore,
+        prefix: &'a [u8],
+    ) -> BoxStream<'a, Result<(MPathElement, HistoryManifestEntry)>> {
+        self.subentries
+            .into_prefix_entries(ctx, blobstore, prefix)
+            .map(|res| res.and_then(|(k, v)| anyhow::Ok((MPathElement::from_smallvec(k)?, v))))
+            .boxed()
+    }
+
+    pub fn into_prefix_subentries_after<'a>(
+        self,
+        ctx: &'a CoreContext,
+        blobstore: &'a impl KeyedBlobstore,
+        prefix: &'a [u8],
+        after: &'a [u8],
+    ) -> BoxStream<'a, Result<(MPathElement, HistoryManifestEntry)>> {
+        self.subentries
+            .into_prefix_entries_after(ctx, blobstore, prefix, after)
+            .map(|res| res.and_then(|(k, v)| anyhow::Ok((MPathElement::from_smallvec(k)?, v))))
+            .boxed()
+    }
 }
 
 impl BlobstoreValue for HistoryManifestDirectory {
