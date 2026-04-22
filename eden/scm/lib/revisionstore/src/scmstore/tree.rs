@@ -86,6 +86,17 @@ pub enum TreeMetadataMode {
     OptIn,
 }
 
+/// Controls how path-based ACL restrictions are handled for tree entries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestrictedTreeMode {
+    /// No ACL checking. permission_denied_children() returns empty.
+    Disabled,
+    /// ACL checks are performed and results logged, but not enforced.
+    Logged,
+    /// ACL checks are performed, logged, and enforced.
+    Enforced,
+}
+
 static TREESTORE_FLUSH_COUNT: Counter = Counter::new_counter("scmstore.tree.flush");
 
 #[derive(Debug, Clone)]
@@ -152,6 +163,8 @@ pub struct TreeStore {
     pub(crate) unbounded_queue: bool,
 
     pub(crate) verify_hash: bool,
+
+    pub restricted_tree_mode: RestrictedTreeMode,
 }
 
 impl Drop for TreeStore {
@@ -232,9 +245,13 @@ impl TreeStore {
     }
 
     /// Create a deferred ACL checker closure that captures the edenapi client.
-    /// Returns None if no edenapi client is configured.
+    /// Returns None if no edenapi client is configured or mode is Disabled.
     fn create_acl_checker(&self) -> Option<AclChecker> {
+        if self.restricted_tree_mode == RestrictedTreeMode::Disabled {
+            return None;
+        }
         let edenapi = self.edenapi.clone()?;
+        let mode = self.restricted_tree_mode;
         Some(Arc::new(
             move |children_with_acl: Vec<(PathComponentBuf, HgId)>| {
                 let manifest_ids: Vec<HgId> =
@@ -249,6 +266,18 @@ impl TreeStore {
                             .unwrap_or_else(|| "unknown-acl".to_string());
                         denied_map.insert(resp.manifest_id, acl);
                     }
+                }
+                if mode == RestrictedTreeMode::Logged {
+                    for (path, hgid) in &children_with_acl {
+                        if let Some(acl) = denied_map.get(hgid) {
+                            tracing::info!(
+                                %path, %hgid, %acl,
+                                "restricted tree detected (logged mode, not enforcing)"
+                            );
+                        }
+                    }
+                    return Ok(Box::new(std::iter::empty())
+                        as BoxIterator<anyhow::Result<(PathComponentBuf, HgId, String)>>);
                 }
                 let iter = children_with_acl
                     .into_iter()
@@ -598,6 +627,7 @@ impl TreeStore {
             progress_bar: AggregatingProgressBar::new("", ""),
             unbounded_queue: false,
             verify_hash: true,
+            restricted_tree_mode: RestrictedTreeMode::Disabled,
         }
     }
 
@@ -676,6 +706,7 @@ impl TreeStore {
             progress_bar: self.progress_bar.clone(),
             unbounded_queue: self.unbounded_queue,
             verify_hash: self.verify_hash,
+            restricted_tree_mode: self.restricted_tree_mode,
         }
     }
 

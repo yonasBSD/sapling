@@ -35,6 +35,7 @@ use crate::scmstore::FileStore;
 use crate::scmstore::TreeStore;
 use crate::scmstore::activitylogger::ActivityLogger;
 use crate::scmstore::file::FileStoreMetrics;
+use crate::scmstore::tree::RestrictedTreeMode;
 use crate::scmstore::tree::TreeMetadataMode;
 use crate::util::RUN_ONCE_FILENAME;
 use crate::util::check_run_once;
@@ -645,6 +646,16 @@ impl<'a> TreeStoreBuilder<'a> {
             _ => TreeMetadataMode::Never,
         };
 
+        let restricted_tree_mode = match self
+            .config
+            .get("experimental", "restricted-tree-mode")
+            .as_deref()
+        {
+            Some("logged") => RestrictedTreeMode::Logged,
+            Some("enforced") => RestrictedTreeMode::Enforced,
+            _ => RestrictedTreeMode::Disabled,
+        };
+
         let fetch_tree_aux_data = self
             .config
             .get_or_default::<bool>("scmstore", "fetch-tree-aux-data")?;
@@ -677,6 +688,7 @@ impl<'a> TreeStoreBuilder<'a> {
                 .config
                 .get_or_default("experimental", "unbounded-scmstore-queue")?,
             verify_hash,
+            restricted_tree_mode,
         })
     }
 }
