@@ -11,6 +11,8 @@
 #include <string>
 
 #include <folly/String.h>
+#include <folly/io/Cursor.h>
+#include <folly/io/IOBuf.h>
 
 #include "eden/fs/model/Hash.h"
 #include "eden/fs/model/TestOps.h"

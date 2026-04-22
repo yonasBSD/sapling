@@ -13,7 +13,6 @@
 #include <vector>
 
 #include <folly/Try.h>
-#include <folly/io/Cursor.h>
 
 #include "eden/common/utils/DirType.h"
 #include "eden/common/utils/PathFuncs.h"
@@ -174,30 +173,12 @@ class TreeEntry {
     return contentBlake3_;
   }
 
-  /**
-   * Computes exact serialized size of this entry.
-   */
-  size_t serializedSize(PathComponentPiece name) const;
-
-  /**
-   * Serializes entry into appender, consuming exactly serializedSize() bytes.
-   */
-  void serialize(PathComponentPiece name, folly::io::Appender& appender) const;
-
-  /**
-   * Deserialize tree entry.
-   */
-  static std::optional<std::pair<PathComponent, TreeEntry>> deserialize(
-      folly::StringPiece& data);
-
  private:
   TreeEntryType type_;
   ObjectId id_;
   std::optional<uint64_t> size_;
   std::optional<Hash20> contentSha1_;
   std::optional<Hash32> contentBlake3_;
-
-  static constexpr uint64_t NO_SIZE = std::numeric_limits<uint64_t>::max();
 };
 
 } // namespace facebook::eden

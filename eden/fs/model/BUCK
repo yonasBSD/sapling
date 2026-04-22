@@ -26,6 +26,7 @@ cpp_library(
         "//folly:conv",
         "//folly:string",
         "//folly/logging:logging",
+        "//folly/memory:malloc",
         "//folly/ssl:openssl_hash",
     ],
     exported_deps = [
