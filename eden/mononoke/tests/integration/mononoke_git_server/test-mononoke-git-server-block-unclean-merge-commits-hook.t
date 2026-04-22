@@ -25,14 +25,6 @@
   > bypass_pushvar="x-git-allow-unclean-merges=1"
   > EOF
 
-  $ merge_just_knobs <<EOF
-  > {
-  >   "bools": {
-  >     "scm/mononoke:run_hooks_on_additional_changesets": true
-  >   }
-  > }
-  > EOF
-
 # Setup git repository
   $ mkdir -p "$GIT_REPO_ORIGIN"
   $ cd "$GIT_REPO_ORIGIN"
