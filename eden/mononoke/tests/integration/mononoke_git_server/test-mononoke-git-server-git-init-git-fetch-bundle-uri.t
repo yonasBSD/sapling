@@ -42,15 +42,6 @@
 # Create a bundle on disk
   $ mononoke_admin git-bundle create from-repo -R repo --output-location "$BUNDLE_PATH"
 
-# Enable bundle-uri capability for the repo
-  $ merge_just_knobs <<EOF
-  > {
-  >   "bools": {
-  >     "scm/mononoke:git_bundle_uri_capability": true
-  >   }
-  > }
-  > EOF
-
 # Set Mononoke as the Source of Truth
   $ set_mononoke_as_source_of_truth_for_git
 
