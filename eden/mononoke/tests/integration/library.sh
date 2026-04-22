@@ -25,6 +25,11 @@ fi
 
 python_fn setup_environment_variables
 
+# Redirect LLVM profiling output to $TESTTMP so coverage-instrumented binaries
+# (e.g. hg) don't write default.profraw into test repo working directories,
+# where it would be picked up by "hg commit -Am" and break test expectations.
+export LLVM_PROFILE_FILE="$TESTTMP/default_%p.profraw"
+
 function urlencode {
   python_fn urlencode "$@"
 }
@@ -1712,9 +1717,9 @@ function hook_tailer() {
     "$@"
 }
 
-# quiet <command> - run command and supress all output in case of success
+# quiet <command> - run command and suppress all output in case of success
 #
-# This helper function allows to supress overly verbose logging when there
+# This helper function allows to suppress overly verbose logging when there
 # are no errors but print all the useful stacktraces when there are errors.
 #
 # The function always returns the original command return code.
@@ -1734,9 +1739,9 @@ function quiet() {
   return "$ret"
 }
 
-# quiet_grep <grep_args> -- <command> - run command and supress all output in case of success
+# quiet_grep <grep_args> -- <command> - run command and suppress all output in case of success
 #
-# This helper function allows to supress overly verbose logging when the output
+# This helper function allows to suppress overly verbose logging when the output
 # matches grep expression but display full output otherwise.
 #
 # Full command output is always printed to stderr.
