@@ -866,6 +866,16 @@ pub fn doc() -> &'static str {
 
           @prog@ grep -l "deprecated"
 
+      - Search only Python files using ``-I`` (include)::
+
+          @prog@ grep -I "**.py" "import os"
+
+      - Exclude test files::
+
+          @prog@ grep -X "**test**" "TODO"
+
+    Use :prog:`help patterns` for more information on specifying file patterns.
+
     Returns 0 if a match is found, 1 if no match."#
 }
 
