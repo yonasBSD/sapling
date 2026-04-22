@@ -55,6 +55,7 @@ use repo_identity::RepoIdentityRef;
 use rustc_hash::FxHashSet;
 use scuba_ext::MononokeScubaSampleBuilder;
 use sharding_observability::WeightTracker;
+use stats::prelude::*;
 use tokio::sync::mpsc;
 use weight_observer::WeightObserver;
 
@@ -72,6 +73,11 @@ use crate::scuba::MononokeGitScubaHandler;
 use crate::scuba::MononokeGitScubaKey;
 use crate::util::empty_body;
 use crate::util::get_body;
+
+define_stats! {
+    prefix = "mononoke.git.request";
+    packfile_read_error: timeseries(Rate, Sum),
+}
 
 /// The header for the packfile section of the response
 const PACKFILE_HEADER: &[u8] = b"packfile";
@@ -661,6 +667,7 @@ pub async fn fetch(
             match writer_future.await {
                 Ok(_) => anyhow::Ok(()),
                 Err(e) => {
+                    STATS::packfile_read_error.add_value(1);
                     scuba.add(MononokeGitScubaKey::PackfileReadError, format!("{:?}", e));
                     scuba.add("log_tag", "Packfile Read Error");
                     scuba.unsampled();
