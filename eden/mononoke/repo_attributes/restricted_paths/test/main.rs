@@ -201,6 +201,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_manifest_id(expected_manifest_id.clone())
                 .with_manifest_type(ManifestType::Hg)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // HgAugmentedManifest access log
@@ -211,6 +212,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_manifest_id(expected_manifest_id.clone())
                 .with_manifest_type(ManifestType::HgAugmented)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // Path access logs for directories traversed
@@ -219,6 +221,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_full_path(NonRootMPath::new("user_project/foo")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             base_sample
@@ -226,6 +229,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_full_path(NonRootMPath::new("user_project/foo/bar")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // Fsnode access log
@@ -236,6 +240,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_manifest_id(expected_fsnode_id.clone())
                 .with_manifest_type(ManifestType::Fsnode)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // ContentManifest access log
@@ -245,6 +250,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_manifest_id(expected_content_manifest_id.clone())
                 .with_manifest_type(ManifestType::ContentManifest)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // .slacl path access (paths_with_content)
@@ -253,6 +259,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_full_path(NonRootMPath::new("user_project/foo/.slacl")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // .slacl path access (paths_with_history)
@@ -261,6 +268,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_full_path(NonRootMPath::new("user_project/foo/.slacl")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // Path access logs for directories traversed
@@ -269,6 +277,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_full_path(NonRootMPath::new("user_project/foo/bar/a")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             base_sample
@@ -276,6 +285,7 @@ async fn test_change_to_restricted_with_access_is_logged(fb: FacebookInit) -> Re
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_full_path(NonRootMPath::new("user_project/foo/bar/a")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
         ])
@@ -1089,6 +1099,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_manifest_type(ManifestType::Hg)
                 // User had access to this restricted path
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // user_project/foo access - HgAugmentedManifest log
@@ -1099,6 +1110,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_manifest_type(ManifestType::HgAugmented)
                 // User had access to this restricted path
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // user_project/foo access - path log
@@ -1108,6 +1120,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_full_path(NonRootMPath::new("user_project/foo")?)
                 // User had access to this restricted path
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // restricted/one access - HgManifest log
@@ -1144,6 +1157,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_manifest_type(ManifestType::Fsnode)
                 // User had access to this restricted path
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // restricted/one access - Fsnode log
@@ -1163,6 +1177,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_manifest_type(ManifestType::ContentManifest)
                 // User had access to this restricted path
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // restricted/one access - ContentManifest log
@@ -1196,6 +1211,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_full_path(NonRootMPath::new("user_project/foo/.slacl")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // user_project/foo/.slacl access - path log (paths_with_history)
@@ -1204,6 +1220,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["user_project/foo"])?)
                 .with_full_path(NonRootMPath::new("user_project/foo/.slacl")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // user_project/foo access - path log
@@ -1213,6 +1230,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_full_path(NonRootMPath::new("user_project/foo/b")?)
                 // User had access to this restricted path
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // restricted/one access - path log
@@ -1230,6 +1248,7 @@ async fn test_multiple_restricted_dirs_with_partial_access(fb: FacebookInit) -> 
                 .with_full_path(NonRootMPath::new("user_project/foo/b")?)
                 // User had access to this restricted path
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![myusername_project_acl.clone()])
                 .build()?,
             // restricted/one access - path log
@@ -1347,6 +1366,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_manifest_type(ManifestType::Hg)
                 // User has access to the broader project ACL
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // project access - HgAugmentedManifest log
@@ -1357,6 +1377,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_manifest_type(ManifestType::HgAugmented)
                 // User has access to the broader project ACL
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // project access - path log
@@ -1366,6 +1387,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_full_path(NonRootMPath::new("project")?)
                 // User has access to the broader project ACL
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // project/restricted access - HgManifest log
@@ -1408,6 +1430,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_manifest_type(ManifestType::Fsnode)
                 // User has access to the broader project ACL
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // project/restricted access - Fsnode log
@@ -1428,6 +1451,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_manifest_type(ManifestType::ContentManifest)
                 // User has access to the broader project ACL
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // project/restricted access - ContentManifest log
@@ -1446,6 +1470,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["project"])?)
                 .with_full_path(NonRootMPath::new("project/.slacl")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // project/.slacl access - path log (paths_with_history)
@@ -1454,6 +1479,7 @@ async fn test_overlapping_restricted_directories(fb: FacebookInit) -> Result<()>
                 .with_restricted_paths(cast_to_non_root_mpaths(vec!["project"])?)
                 .with_full_path(NonRootMPath::new("project/.slacl")?)
                 .with_has_authorization(true)
+                .with_has_acl_access(true)
                 .with_acls(vec![project_acl.clone()])
                 .build()?,
             // project/restricted/.slacl access - path log (paths_with_content).

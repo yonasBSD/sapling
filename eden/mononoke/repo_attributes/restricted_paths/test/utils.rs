@@ -111,6 +111,7 @@ pub struct ScubaAccessLogSample {
     client_main_id: String,
     has_authorization: bool,
     is_allowlisted_tooling: bool,
+    has_acl_access: bool,
     acls: Vec<MononokeIdentity>,
     considered_restricted_by: Vec<String>,
 }
@@ -126,6 +127,7 @@ pub struct ScubaAccessLogSampleBuilder {
     client_main_id: Option<String>,
     has_authorization: Option<bool>,
     is_allowlisted_tooling: Option<bool>,
+    has_acl_access: Option<bool>,
     acls: Vec<MononokeIdentity>,
     considered_restricted_by: Vec<String>,
 }
@@ -142,6 +144,7 @@ impl ScubaAccessLogSampleBuilder {
             client_main_id: None,
             has_authorization: None,
             is_allowlisted_tooling: None,
+            has_acl_access: None,
             acls: Vec::new(),
             considered_restricted_by: vec!["manifest_db".to_string()],
         }
@@ -192,6 +195,11 @@ impl ScubaAccessLogSampleBuilder {
         self
     }
 
+    pub fn with_has_acl_access(mut self, has_acl_access: bool) -> Self {
+        self.has_acl_access = Some(has_acl_access);
+        self
+    }
+
     pub fn with_acls(mut self, acls: Vec<MononokeIdentity>) -> Self {
         self.acls = acls;
         self
@@ -213,6 +221,7 @@ impl ScubaAccessLogSampleBuilder {
             .ok_or_else(|| anyhow!("has_authorization is required"))?;
         // Default to false if not provided, since most tests don't have a tooling allowlist
         let is_allowlisted_tooling = self.is_allowlisted_tooling.unwrap_or(false);
+        let has_acl_access = self.has_acl_access.unwrap_or(false);
 
         Ok(ScubaAccessLogSample {
             repo_id,
@@ -224,6 +233,7 @@ impl ScubaAccessLogSampleBuilder {
             client_main_id,
             has_authorization,
             is_allowlisted_tooling,
+            has_acl_access,
             acls: self.acls,
             considered_restricted_by: self.considered_restricted_by,
         })
@@ -1034,6 +1044,12 @@ fn deserialize_scuba_log_file(
                         .transpose()?
                         .unwrap_or(false);
 
+                    let has_acl_access: bool = flattened_log["has_acl_access"]
+                        .as_str()
+                        .map(|st| st.parse::<bool>())
+                        .transpose()?
+                        .unwrap_or(false);
+
                     let restricted_paths: Vec<NonRootMPath> = flattened_log["restricted_paths"]
                         .as_array()
                         .map(|ids| {
@@ -1091,6 +1107,7 @@ fn deserialize_scuba_log_file(
                         client_identities,
                         has_authorization,
                         is_allowlisted_tooling,
+                        has_acl_access,
                         client_main_id,
                         acls,
                         considered_restricted_by,

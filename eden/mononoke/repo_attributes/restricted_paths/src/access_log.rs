@@ -386,6 +386,7 @@ pub(crate) async fn log_access_to_restricted_path(
         has_authorization,
         is_allowlisted_tooling,
         is_rollout_allowlisted,
+        has_path_acl_access,
         acls,
         scuba,
         considered_restricted_by,
@@ -405,6 +406,7 @@ fn log_access_to_scuba(
     has_authorization: bool,
     is_allowlisted_tooling: bool,
     is_rollout_allowlisted: bool,
+    has_acl_access: bool,
     acls: Vec<&MononokeIdentity>,
     mut scuba: MononokeScubaSampleBuilder,
     considered_restricted_by: Vec<String>,
@@ -428,6 +430,7 @@ fn log_access_to_scuba(
     scuba.add("has_authorization", has_authorization);
     scuba.add("is_allowlisted_tooling", is_allowlisted_tooling);
     scuba.add("is_rollout_allowlisted", is_rollout_allowlisted);
+    scuba.add("has_acl_access", has_acl_access);
     scuba.add(
         "acls",
         acls.into_iter()
