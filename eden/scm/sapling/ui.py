@@ -510,17 +510,7 @@ class ui:
         - False if feature is disabled by default and not included in HGPLAIN
         - True otherwise
         """
-        plain = bindings.identity.envvar("PLAIN")
-        plainexcept = bindings.identity.envvar("PLAINEXCEPT")
-        if plain is None and plainexcept is None:
-            return False
-        exceptions = (plainexcept or "").strip().split(",")
-        # TODO: add support for HGPLAIN=+feature,-feature syntax
-        if "+strictflags" not in (plain or "").split(","):
-            exceptions.append("strictflags")
-        if feature and exceptions:
-            return feature not in exceptions
-        return True
+        return bindings.util.is_plain(feature)
 
     def username(self, acceptempty=False):
         """Return default username to be used in commits.

@@ -8,6 +8,7 @@ rust_python_library(
     crate_root = "src/lib.rs",
     deps = [
         "//eden/scm/lib/cpython-ext:cpython-ext",
+        "//eden/scm/lib/util/hgplain:hgplain",
         "//eden/scm/lib/util/sysutil:sysutil",
     ],
 )

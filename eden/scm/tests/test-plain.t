@@ -27,10 +27,10 @@ Multiple exceptions:
   $ HGPLAINEXCEPT=alias,color HGPLAIN=1 sl debugshell -c 'print(sapling.ui.ui.plain("pager"))'
   True
 
-strictflags is exempted by default:
+strictflags is no longer exempted by default:
 
   $ HGPLAIN=1 sl debugshell -c 'print(sapling.ui.ui.plain("strictflags"))'
-  False
+  True
 
   $ HGPLAIN=+strictflags sl debugshell -c 'print(sapling.ui.ui.plain("strictflags"))'
   True
