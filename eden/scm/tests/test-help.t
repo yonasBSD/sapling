@@ -1018,11 +1018,11 @@ Help subsection:
   [1]
 
 Show nested definitions
-("profiling.type"[break]"ls"[break]"stat"[break])
 
-  $ sl help config.type | grep -E '^$'|wc -l
-  \s*3 (re)
-
+  $ sl help config.ui.quiet
+      "ui.quiet"
+          Reduce the amount of output printed. (default: False)
+  
 Separate sections from subsections
 
   $ sl help config.format | grep -E '^    ("|-)|^\s*$' | uniq

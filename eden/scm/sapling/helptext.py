@@ -1851,24 +1851,44 @@ information about working with phases.
 ``profiling``
 -------------
 
-Specifies profiling type, format, and file output. Two profilers are
-supported: an instrumenting profiler (named ``ls``), and a sampling
-profiler (named ``stat``).
+Specifies profiling configuration. There are a native sampling profiler
+that samples both Python and Rust stacks, and a few Python profilers.
 
-In this section description, 'profiling data' stands for the raw data
-collected during profiling, while 'profiling report' stands for a
-statistical text report generated from the profiling data. The
-profiling is done using lsprof.
-
-If ``profiling.enabled`` is false, alternative sections can still enable
-profiling. Sections starting with ``profiling:`` are examined in alphabet
-order. The first one with ``enabled`` set to true will be used.
+Following configs affect the native sampling profiler::
 
 ``enabled``
-    Enable the profiler.
-    (default: false)
+    Enable the native sampling profiler. It covers both Python and Rust
+    logic. (default: false)
 
     This is equivalent to passing ``--profile`` on the command line.
+
+``output``
+    File path where profiling data or report should be saved. If the
+    file exists, it is appended. (default: None, data is printed on
+    stderr)
+
+``interval``
+    Sampling profiler frequency.
+    (default: 10ms)
+
+``always-on-enabled``
+    If ``enabled`` is false, and ``always-on-enabled`` is true,
+    still turn on the profiling (usually with low frequency) to
+    collect insights about slow runs.
+
+``always-on-interval``
+    Sampling profiler frequency for the "always-on" mode.
+    (default: 1s)
+
+Following configs affect the Python profiler::
+
+``enabled-python``
+    Enable the Python profiler. It only covers Python logic.
+    (default: false)
+
+    If ``profiling.enabled-python`` is false, alternative sections can still
+    enable profiling. Sections starting with ``profiling:`` are examined in
+    alphabet order. The first one with ``enabled`` set to true will be used.
 
 ``type``
     The type of profiler to use.
@@ -1883,6 +1903,9 @@ order. The first one with ``enabled`` set to true will be used.
       Use a statistical profiler, statprof. This profiler is most
       useful for profiling commands that run for longer than about 0.1
       seconds.
+    ``traceprof``
+      Use a tracing profiler. The profiler is good at counting high
+      frequent small function calls.
 
 ``format``
     Profiling format.  Specific to the ``ls`` instrumenting profiler.
