@@ -72,7 +72,7 @@
     "scm/mononoke:cross_repo_pause_backsyncer": false,
     "scm/mononoke:allow_bare_author_unixname": true,
     "scm/mononoke:lock_users_directory": false,
-    "scm/mononoke:per_bookmark_locking": false,
+    "scm/mononoke:per_bookmark_locking": true,
     "scm/mononoke:per_bookmark_locking_shadow": false,
     "scm/mononoke:add_acl_manifest_pointer": true
   },
