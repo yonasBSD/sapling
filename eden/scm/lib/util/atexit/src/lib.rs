@@ -9,6 +9,9 @@
 //! Intended to be used as an alternative to Python's
 //! `except KeyboardInterrupt`.
 
+#[allow(unused)]
+mod once_take;
+
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::sync::LazyLock as Lazy;
