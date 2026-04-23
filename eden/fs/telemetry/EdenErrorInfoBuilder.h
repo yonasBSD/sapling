@@ -16,6 +16,8 @@
 
 namespace facebook::eden {
 
+struct DaemonError;
+
 class EdenErrorInfoBuilder {
  public:
   EdenErrorInfoBuilder& withMountPoint(std::string mountPoint);
@@ -25,6 +27,7 @@ class EdenErrorInfoBuilder {
   EdenErrorInfoBuilder& withErrorCode(int64_t code);
   EdenErrorInfoBuilder& withErrorName(std::string name);
   EdenErrorInfo create();
+  DaemonError createEvent();
 
  private:
   friend class EdenErrorInfo;

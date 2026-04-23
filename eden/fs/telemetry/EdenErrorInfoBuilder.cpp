@@ -9,6 +9,8 @@
 
 #include <fmt/core.h>
 
+#include "eden/fs/telemetry/DaemonError.h"
+
 namespace facebook::eden {
 
 EdenErrorInfoBuilder& EdenErrorInfoBuilder::withMountPoint(
@@ -56,6 +58,10 @@ EdenErrorInfo EdenErrorInfoBuilder::create() {
   info.filePath = std::move(filePath_);
   info.mountPoint = std::move(mountPoint_);
   return info;
+}
+
+DaemonError EdenErrorInfoBuilder::createEvent() {
+  return DaemonError{create()};
 }
 
 EdenErrorInfoBuilder::EdenErrorInfoBuilder(

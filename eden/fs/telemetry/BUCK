@@ -123,6 +123,24 @@ cpp_library(
 )
 
 cpp_library(
+    name = "error_logger",
+    srcs = [
+        "ErrorLogger.cpp",
+    ],
+    headers = [
+        "ErrorLogger.h",
+    ],
+    deps = [
+        ":error_info",
+        ":stack_trace_uploader",
+        "//eden/fs/config:config",
+    ],
+    exported_deps = [
+        ":structured_logger",
+    ],
+)
+
+cpp_library(
     name = "throw_trace_capture",
     srcs = [
         "ThrowTraceCapture.cpp",
