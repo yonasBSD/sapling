@@ -19,7 +19,7 @@ use backtrace_ext::SupplementalFrameResolver;
 use backtrace_ext::SupplementalInfo;
 
 mod libpython_filter;
-mod offsets;
+pub mod offsets;
 
 /// Setup backtrace-ext to resolve Python frames on supported platforms.
 /// This function is a no-op if the platform is not supported.

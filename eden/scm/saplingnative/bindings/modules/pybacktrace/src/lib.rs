@@ -21,6 +21,8 @@ pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
     info_mod.add(py, "c_evalframe", info.c_evalframe)?;
 
     m.add(py, "SUPPORTED_INFO", info_mod)?;
+    m.add(py, "OFFSET_IP", backtrace_python::offsets::OFFSET_IP)?;
+    m.add(py, "OFFSET_SP", backtrace_python::offsets::OFFSET_SP)?;
 
     Ok(m)
 }
