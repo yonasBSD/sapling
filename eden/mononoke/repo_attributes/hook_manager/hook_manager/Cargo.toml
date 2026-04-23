@@ -58,6 +58,6 @@ hook_manager_testlib = { version = "0.1.0", path = "../hook_manager_testlib" }
 maplit = "1.0"
 mononoke_macros = { version = "0.1.0", path = "../../../common/mononoke_macros" }
 mononoke_types-mocks = { version = "0.1.0", path = "../../../mononoke_types/mocks" }
-sorted_vector_map = { version = "0.2.0", git = "https://github.com/facebookexperimental/rust-shed.git", branch = "main" }
+sorted_vector_map = { version = "0.3.0", git = "https://github.com/facebookexperimental/rust-shed.git", branch = "main" }
 test_repo_factory = { version = "0.1.0", path = "../../../repo_factory/test_repo_factory" }
 tests_utils = { version = "0.1.0", path = "../../../tests/utils" }
