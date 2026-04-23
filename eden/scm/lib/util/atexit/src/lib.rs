@@ -9,9 +9,7 @@
 //! Intended to be used as an alternative to Python's
 //! `except KeyboardInterrupt`.
 
-#[allow(unused)]
 mod once_take;
-
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::sync::LazyLock as Lazy;
@@ -20,11 +18,13 @@ use std::sync::Weak;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
+use once_take::OnceTake;
+
 /// Call `drop` on drop if `ignored` is `false`.
 pub struct AtExit(Arc<AtExitInner>);
 
 struct AtExitInner {
-    drop: Option<Box<dyn FnOnce() + Send + Sync>>,
+    drop: OnceTake<Box<dyn FnOnce() + Send + Sync>>,
     name: Cow<'static, str>,
     ignored: AtomicBool,
 }
@@ -42,9 +42,13 @@ static AT_EXIT_QUEUED: Lazy<Mutex<Vec<Arc<AtExitInner>>>> = Lazy::new(Default::d
 
 impl Drop for AtExitInner {
     fn drop(&mut self) {
-        let mut drop = None;
-        std::mem::swap(&mut drop, &mut self.drop);
-        if let Some(func) = drop {
+        self.maybe_drop_once();
+    }
+}
+
+impl AtExitInner {
+    fn maybe_drop_once(&self) {
+        if let Some(func) = self.drop.take() {
             if !self.ignored.load(Ordering::Acquire) {
                 tracing::debug!("running AtExit handler: {}", self.name);
                 func();
@@ -69,7 +73,7 @@ impl AtExit {
     /// logic `queued()` should probably be always used.
     pub fn new(name: impl Into<Cow<'static, str>>, drop: Box<dyn FnOnce() + Send + Sync>) -> Self {
         let inner = AtExitInner {
-            drop: Some(drop),
+            drop: OnceTake::new(drop),
             ignored: AtomicBool::new(false),
             name: name.into(),
         };
