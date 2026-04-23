@@ -102,7 +102,7 @@ pub(crate) const REMOTE_CONFIG_SNAPSHOT: &str = r#"
     },
     "watch-active-commit": {
         "use_case_id": "watch-active-commit",
-        "oncall": "devenv_integrations",
+        "oncall": "devenv_experiences",
         "config": {
           "edenfs_limits": {
             "max_concurrent_requests": 512
