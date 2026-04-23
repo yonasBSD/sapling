@@ -21,7 +21,6 @@ use once_cell::sync::OnceCell;
 use pathmatcher::DirectoryMatch;
 use pathmatcher::Matcher;
 use types::HgId;
-use types::Key;
 use types::PathComponentBuf;
 use types::RepoPath;
 use types::RepoPathBuf;
@@ -369,13 +368,6 @@ impl DirLink {
             Durable(entry) => entry.materialize_links(store, &self.path)?,
         };
         Ok(links.iter())
-    }
-
-    /// Create a `Key` (path/hgid pair) corresponding to this directory. Keys are used
-    /// by the Eden API to fetch data from the server, making this representation useful
-    /// for interacting with Mercurial's data fetching code.
-    pub fn key(&self) -> Option<Key> {
-        Some(Key::new(self.path.clone(), self.hgid().clone()?))
     }
 
     pub fn is_permission_denied(&self) -> bool {
