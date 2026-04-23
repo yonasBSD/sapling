@@ -19,7 +19,9 @@ use std::sync::atomic::Ordering;
 use once_cell::sync::Lazy;
 
 /// Call `drop` on drop if `ignored` is `false`.
-pub struct AtExit {
+pub struct AtExit(Arc<AtExitInner>);
+
+struct AtExitInner {
     drop: Option<Box<dyn FnOnce() + Send + Sync>>,
     name: Cow<'static, str>,
     ignored: AtomicBool,
@@ -29,14 +31,14 @@ pub struct AtExit {
 /// Dropping `AtExitRef` does not call `drop`.
 pub struct AtExitRef {
     // Private to prevent Arc::upgrade.
-    inner: Weak<AtExit>,
+    inner: Weak<AtExitInner>,
 }
 
 /// Central place for global `AtExit`s.
 /// Use `drop_queued` to drop them.
-static AT_EXIT_QUEUED: Lazy<Mutex<Vec<Arc<AtExit>>>> = Lazy::new(Default::default);
+static AT_EXIT_QUEUED: Lazy<Mutex<Vec<Arc<AtExitInner>>>> = Lazy::new(Default::default);
 
-impl Drop for AtExit {
+impl Drop for AtExitInner {
     fn drop(&mut self) {
         let mut drop = None;
         std::mem::swap(&mut drop, &mut self.drop);
@@ -64,11 +66,12 @@ impl AtExit {
     /// not on (Rust) stack and won't be cleaned up on `exit()`. So for Python
     /// logic `queued()` should probably be always used.
     pub fn new(name: impl Into<Cow<'static, str>>, drop: Box<dyn FnOnce() + Send + Sync>) -> Self {
-        Self {
+        let inner = AtExitInner {
             drop: Some(drop),
             ignored: AtomicBool::new(false),
             name: name.into(),
-        }
+        };
+        Self(Arc::new(inner))
     }
 
     /// Move the `AtExit` to a global queue.
@@ -78,7 +81,7 @@ impl AtExit {
     ///
     /// The global queue can be dropped by `drop_queued`.
     pub fn queued(self) -> AtExitRef {
-        let arc = Arc::new(self);
+        let arc = self.0;
         let weak = Arc::downgrade(&arc);
         let mut queue = AT_EXIT_QUEUED.lock().unwrap();
         queue.push(arc);
@@ -87,6 +90,12 @@ impl AtExit {
 
     /// Skip calling `drop` on drop.
     pub fn cancel(&self) {
+        self.0.cancel()
+    }
+}
+
+impl AtExitInner {
+    fn cancel(&self) {
         self.ignored.store(true, Ordering::Release);
     }
 }
