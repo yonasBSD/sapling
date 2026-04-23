@@ -59,6 +59,7 @@ use std::time::Instant;
 
 use anyhow::Error;
 use anyhow::Result;
+use anyhow::anyhow;
 use anyhow::format_err;
 use blobrepo_utils::convert_diff_result_into_file_change_for_diamond_merge;
 use blobstore::Loadable;
@@ -72,6 +73,7 @@ use commit_graph::CommitGraphRef;
 use commit_graph::CommitGraphWriterRef;
 use content_manifest_derivation::RootContentManifestId;
 use context::CoreContext;
+use dbbookmarks::SqlBookmarksRef;
 use derivation_queue_thrift::DerivationPriority;
 use filenodes_derivation::FilenodesOnlyPublic;
 use filestore::FilestoreConfigRef;
@@ -284,12 +286,16 @@ pub trait Repo = BookmarksRef
     + Send
     + Sync;
 
+/// Extended repo trait for pessimistic pushrebase, which needs direct
+/// access to `SqlBookmarks` for `LockedBookmarkTransaction`.
+pub trait PushrebaseRepo = Repo + SqlBookmarksRef;
+
 /// Does a pushrebase of a list of commits `pushed` onto `onto_bookmark`
 /// The commits from the pushed set should already be committed to the blobrepo
 /// Returns updated bookmark value.
 pub async fn do_pushrebase_bonsai(
     ctx: &CoreContext,
-    repo: &impl Repo,
+    repo: &impl PushrebaseRepo,
     config: &PushrebaseFlags,
     onto_bookmark: &BookmarkKey,
     pushed: &HashSet<BonsaiChangeset>,
@@ -302,7 +308,28 @@ pub async fn do_pushrebase_bonsai(
         root,
     } = index_pushrebase_request(ctx, repo, config, onto_bookmark, pushed).await?;
 
-    let res = rebase_in_loop(
+    let use_pessimistic = justknobs::eval(
+        "scm/mononoke:per_bookmark_locking",
+        None,
+        Some(&repo.repo_identity().id().to_string()),
+    )? && config.pessimistic_locking_bookmarks.contains(onto_bookmark);
+
+    if use_pessimistic {
+        return rebase_with_lock(
+            ctx,
+            repo,
+            config,
+            onto_bookmark,
+            head,
+            root,
+            client_cf,
+            &client_bcs,
+            prepushrebase_hooks,
+        )
+        .await;
+    }
+
+    rebase_in_loop(
         ctx,
         repo,
         config,
@@ -313,9 +340,7 @@ pub async fn do_pushrebase_bonsai(
         &client_bcs,
         prepushrebase_hooks,
     )
-    .await?;
-
-    Ok(res)
+    .await
 }
 
 /// Computes changed files, head, root, and bonsai changesets for a pushed
@@ -356,6 +381,22 @@ struct PendingRebase {
     pushrebase_distance: usize,
     old_bookmark_value: Option<ChangesetId>,
     merge_resolved_paths: Option<Vec<NonRootMPath>>,
+}
+
+/// Result of a speculative (pre-lock) conflict check.
+struct SpeculativeConflictResult {
+    bookmark_value: ChangesetId,
+    merge_info: Vec<MergedFileInfo>,
+    server_changeset_count: usize,
+}
+
+/// Output of a successful rebase under lock, ready to be committed.
+struct RebaseUnderLockResult {
+    new_head: ChangesetId,
+    rebased_changesets: RebasedChangesets,
+    txn_hooks: Vec<Box<dyn PushrebaseTransactionHook>>,
+    merge_resolved_paths: Option<Vec<NonRootMPath>>,
+    pushrebase_distance: usize,
 }
 
 /// Lands multiple indexed stacks in a single critical section pass.
@@ -833,6 +874,237 @@ async fn check_pushrebase_conflicts(
         }
         Err(e) => Err(e),
     }
+}
+
+/// Pessimistic pushrebase: acquires a per-bookmark SQL lock before rebasing.
+/// The lock guarantees exclusivity — no other writer can move this bookmark
+/// during the rebase. CAS is retained as defense-in-depth.
+///
+/// The expensive conflict check runs outside the lock (speculative). Only
+/// a small delta check runs inside the lock if the bookmark moved between
+/// the speculative read and lock acquisition.
+async fn rebase_with_lock(
+    ctx: &CoreContext,
+    repo: &impl PushrebaseRepo,
+    config: &PushrebaseFlags,
+    onto_bookmark: &BookmarkKey,
+    head: ChangesetId,
+    root: ChangesetId,
+    client_cf: Vec<MPath>,
+    client_bcs: &[BonsaiChangeset],
+    prepushrebase_hooks: &[Box<dyn PushrebaseHook>],
+) -> Result<PushrebaseOutcome, PushrebaseError> {
+    let overall_start = Instant::now();
+
+    // Phase 1: Speculative conflict check OUTSIDE the lock.
+    let speculative_bv = get_bookmark_value(ctx, repo, onto_bookmark).await?;
+    let speculative_bv_cs = speculative_bv
+        .ok_or_else(|| PushrebaseError::Error(anyhow!("bookmark {} not found", onto_bookmark)))?;
+
+    let speculative_conflicts = check_pushrebase_conflicts(
+        ctx,
+        repo,
+        config,
+        root,
+        root,
+        speculative_bv_cs,
+        client_bcs,
+        &client_cf,
+    )
+    .await?;
+
+    let speculative = SpeculativeConflictResult {
+        bookmark_value: speculative_bv_cs,
+        merge_info: speculative_conflicts
+            .merged_file_overrides
+            .unwrap_or_default(),
+        server_changeset_count: speculative_conflicts.server_changeset_count,
+    };
+
+    // Phase 2: Acquire per-bookmark lock.
+    let lock_start = Instant::now();
+    let sql_bookmarks = repo.sql_bookmarks();
+    let locked_txn = sql_bookmarks
+        .start_locked_transaction(ctx, onto_bookmark)
+        .await
+        .map_err(PushrebaseError::Error)?;
+    let lock_wait_ms = lock_start.elapsed().as_millis() as i64;
+    let lock_hold_start = Instant::now();
+    let auth_value = locked_txn.current_value();
+
+    // Phases 3+4: validate, rebase, save — all under lock.
+    // On failure, rollback the lock so it is released promptly.
+    let rebase_result = try_rebase_under_lock(
+        ctx,
+        repo,
+        config,
+        auth_value,
+        speculative,
+        root,
+        head,
+        &client_cf,
+        client_bcs,
+        prepushrebase_hooks,
+    )
+    .await;
+
+    let rebase = match rebase_result {
+        Ok(r) => r,
+        Err(e) => {
+            locked_txn.rollback().await.ok();
+            return Err(e);
+        }
+    };
+
+    // Phase 5: Commit the bookmark move under the lock.
+    let log_id = locked_txn
+        .commit(
+            ctx,
+            rebase.new_head,
+            BookmarkUpdateReason::Pushrebase,
+            vec![wrap_pushrebase_hooks(rebase.txn_hooks)],
+        )
+        .await
+        .map_err(PushrebaseError::Error)?;
+
+    let log_id = log_id.ok_or_else(|| {
+        PushrebaseError::Error(anyhow!(
+            "CAS failed despite holding lock — non-pushrebase writer moved bookmark"
+        ))
+    })?;
+
+    let total_ms = overall_start.elapsed().as_millis() as i64;
+    let lock_hold_ms = lock_hold_start.elapsed().as_millis() as i64;
+    let bookmark_moved = auth_value != Some(speculative_bv_cs);
+
+    ctx.scuba()
+        .clone()
+        .add("pessimistic_lock_wait_ms", lock_wait_ms)
+        .add("pessimistic_lock_hold_ms", lock_hold_ms)
+        .add("pessimistic_total_ms", total_ms)
+        .add("pessimistic_bookmark_moved", bookmark_moved)
+        .add(
+            "pessimistic_pushrebase_distance",
+            rebase.pushrebase_distance as i64,
+        )
+        .add(
+            "pessimistic_rebased_changesets",
+            rebase.rebased_changesets.len() as i64,
+        )
+        .log_with_msg("pessimistic_pushrebase_complete", None);
+
+    let rebased_pairs = rebased_changesets_into_pairs(rebase.rebased_changesets);
+
+    Ok(PushrebaseOutcome {
+        old_bookmark_value: auth_value,
+        head: rebase.new_head,
+        retry_num: PushrebaseRetryNum(0),
+        rebased_changesets: rebased_pairs,
+        pushrebase_distance: PushrebaseDistance(rebase.pushrebase_distance),
+        log_id: BookmarkUpdateLogId(log_id),
+        merge_resolved_paths: rebase.merge_resolved_paths,
+    })
+}
+
+/// Performs the delta-check, rebase, and save phases under the lock.
+/// Does NOT commit or rollback — the caller owns the `LockedBookmarkTransaction`.
+async fn try_rebase_under_lock(
+    ctx: &CoreContext,
+    repo: &impl PushrebaseRepo,
+    config: &PushrebaseFlags,
+    auth_value: Option<ChangesetId>,
+    speculative: SpeculativeConflictResult,
+    root: ChangesetId,
+    head: ChangesetId,
+    client_cf: &[MPath],
+    client_bcs: &[BonsaiChangeset],
+    prepushrebase_hooks: &[Box<dyn PushrebaseHook>],
+) -> Result<RebaseUnderLockResult, PushrebaseError> {
+    let auth_cs = auth_value.ok_or_else(|| {
+        PushrebaseError::Error(anyhow!("bookmark deleted during lock acquisition"))
+    })?;
+
+    let mut merge_info = speculative.merge_info;
+
+    // Phase 3: Validate and delta check.
+    let pushrebase_distance = if auth_cs != speculative.bookmark_value {
+        let is_descendant = repo
+            .commit_graph()
+            .is_ancestor(ctx, speculative.bookmark_value, auth_cs)
+            .await
+            .map_err(PushrebaseError::Error)?;
+
+        if !is_descendant {
+            return Err(PushrebaseError::Error(anyhow!(
+                "bookmark moved to non-descendant during lock acquisition, retry"
+            )));
+        }
+
+        let delta_conflicts = check_pushrebase_conflicts(
+            ctx,
+            repo,
+            config,
+            root,
+            speculative.bookmark_value,
+            auth_cs,
+            client_bcs,
+            client_cf,
+        )
+        .await?;
+
+        let delta_overrides = delta_conflicts.merged_file_overrides.unwrap_or_default();
+        merge_info = reconcile_merge_file_info(&merge_info, &delta_overrides);
+
+        speculative.server_changeset_count + delta_conflicts.server_changeset_count
+    } else {
+        speculative.server_changeset_count
+    };
+
+    // Phase 4: Rebase + save.
+    let mut hooks = try_join_all(prepushrebase_hooks.iter().map(|h| {
+        h.in_critical_section(ctx, auth_value)
+            .map_err(PushrebaseError::from)
+    }))
+    .await?;
+
+    let merged_overrides = if merge_info.is_empty() {
+        None
+    } else {
+        Some(merge_info)
+    };
+
+    let merge_resolved_paths = merged_overrides
+        .as_ref()
+        .map(|overrides| overrides.iter().map(|info| info.path.clone()).collect());
+
+    let (new_head, rebased_changesets, rebased_bonsais) = create_rebased_changesets(
+        ctx,
+        repo,
+        config,
+        root,
+        head,
+        auth_cs,
+        &mut hooks,
+        merged_overrides,
+    )
+    .await?;
+
+    changesets_creation::save_changesets(ctx, repo, rebased_bonsais).await?;
+
+    let txn_hooks: Vec<Box<dyn PushrebaseTransactionHook>> = try_join_all(
+        hooks
+            .into_iter()
+            .map(|h| h.into_transaction_hook(ctx, &rebased_changesets)),
+    )
+    .await?;
+
+    Ok(RebaseUnderLockResult {
+        new_head,
+        rebased_changesets,
+        txn_hooks,
+        merge_resolved_paths,
+        pushrebase_distance,
+    })
 }
 
 async fn rebase_in_loop(
@@ -2569,6 +2841,9 @@ mod tests {
         bookmarks: dyn Bookmarks,
 
         #[facet]
+        sql_bookmarks: dbbookmarks::SqlBookmarks,
+
+        #[facet]
         repo_blobstore: RepoBlobstore,
 
         #[facet]
@@ -2620,7 +2895,7 @@ mod tests {
 
     async fn do_pushrebase(
         ctx: &CoreContext,
-        repo: &(impl Repo + BonsaiHgMappingRef),
+        repo: &(impl PushrebaseRepo + BonsaiHgMappingRef),
         config: &PushrebaseFlags,
         onto_bookmark: &BookmarkKey,
         pushed_set: &HashSet<HgChangesetId>,
@@ -2663,7 +2938,7 @@ mod tests {
 
     async fn push_and_verify(
         ctx: &CoreContext,
-        repo: &(impl Repo + BonsaiHgMappingRef),
+        repo: &(impl PushrebaseRepo + BonsaiHgMappingRef),
         parent: ChangesetId,
         bookmark: &BookmarkKey,
         content: BTreeMap<&str, Option<&str>>,
@@ -6078,6 +6353,154 @@ line 5.1
             file_content.contains("modified_line5"),
             "should have client's change"
         );
+
+        Ok(())
+    }
+
+    fn pessimistic_config() -> PushrebaseFlags {
+        PushrebaseFlags {
+            pessimistic_locking_bookmarks: vec![master_bookmark()],
+            ..Default::default()
+        }
+    }
+
+    fn init_just_knobs_for_pessimistic_test() {
+        override_just_knobs(JustKnobsInMemory::new(hashmap! {
+            "scm/mononoke:pushrebase_dry_run_merge_resolution".to_string() => KnobVal::Bool(false),
+            "scm/mononoke:pushrebase_enable_merge_resolution".to_string() => KnobVal::Bool(false),
+            "scm/mononoke:pushrebase_merge_resolution_derive_fsnodes".to_string() => KnobVal::Bool(true),
+            "scm/mononoke:per_bookmark_locking".to_string() => KnobVal::Bool(true),
+        }));
+    }
+
+    // NOTE: Full end-to-end pessimistic pushrebase cannot be tested with
+    // SQLite unit tests because TestRepoFactory shares a single SQLite
+    // connection across all facets. LockedBookmarkTransaction holds the
+    // connection open during rebase, and save_changesets ->
+    // CommitGraphWriter::add_many tries to acquire the same connection,
+    // causing a deadlock. Full E2E is covered by integration tests (MySQL).
+
+    #[mononoke::fbinit_test]
+    async fn pessimistic_pushrebase_conflict(fb: FacebookInit) -> Result<(), Error> {
+        init_just_knobs_for_pessimistic_test();
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = Linear::get_repo(fb).await;
+
+        let book = master_bookmark();
+        bookmark(&ctx, &repo, book.clone())
+            .set_to("a5ffa77602a066db7d5cfb9fb5823a0895717c5a")
+            .await?;
+
+        let root = HgChangesetId::from_str("2d7d4ba9ce0a6ffd222de7785b249ead9c51c536")?;
+        let p = repo
+            .bonsai_hg_mapping()
+            .get_bonsai_from_hg(&ctx, root)
+            .await?
+            .ok_or_else(|| Error::msg("Root is missing"))?;
+
+        let bcs_id = CreateCommitContext::new(&ctx, &repo, vec![p])
+            .add_file("files", "conflicting content")
+            .commit()
+            .await?;
+        let bcs = bcs_id.load(&ctx, repo.repo_blobstore()).await?;
+
+        let config = pessimistic_config();
+        let result = do_pushrebase_bonsai(&ctx, &repo, &config, &book, &hashset![bcs], &[]).await;
+
+        should_have_conflicts(result);
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pessimistic_dispatch_selection(fb: FacebookInit) -> Result<(), Error> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = Linear::get_repo(fb).await;
+
+        let book = master_bookmark();
+        let other_book = BookmarkKey::new("other_bookmark")?;
+        let config = pessimistic_config();
+        let repo_id_str = repo.repo_identity().id().to_string();
+
+        init_just_knobs_for_test();
+        let use_pessimistic = justknobs::eval(
+            "scm/mononoke:per_bookmark_locking",
+            None,
+            Some(&repo_id_str),
+        )? && config.pessimistic_locking_bookmarks.contains(&book);
+        assert!(!use_pessimistic, "should be optimistic when knob is off");
+
+        init_just_knobs_for_pessimistic_test();
+        let use_pessimistic = justknobs::eval(
+            "scm/mononoke:per_bookmark_locking",
+            None,
+            Some(&repo_id_str),
+        )? && config.pessimistic_locking_bookmarks.contains(&other_book);
+        assert!(
+            !use_pessimistic,
+            "should be optimistic when bookmark not in pessimistic list"
+        );
+
+        let use_pessimistic = justknobs::eval(
+            "scm/mononoke:per_bookmark_locking",
+            None,
+            Some(&repo_id_str),
+        )? && config.pessimistic_locking_bookmarks.contains(&book);
+        assert!(
+            use_pessimistic,
+            "should be pessimistic when knob is on and bookmark is in list"
+        );
+
+        let config_empty = PushrebaseFlags::default();
+        let use_pessimistic = justknobs::eval(
+            "scm/mononoke:per_bookmark_locking",
+            None,
+            Some(&repo_id_str),
+        )? && config_empty.pessimistic_locking_bookmarks.contains(&book);
+        assert!(
+            !use_pessimistic,
+            "should be optimistic with empty pessimistic_locking_bookmarks"
+        );
+
+        drop(ctx);
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pessimistic_locked_transaction_lifecycle(fb: FacebookInit) -> Result<(), Error> {
+        init_just_knobs_for_pessimistic_test();
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let book = master_bookmark();
+
+        let root_cs = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file", "content")
+            .commit()
+            .await?;
+
+        bookmark(&ctx, &repo, book.clone()).set_to(root_cs).await?;
+
+        let child_cs = CreateCommitContext::new(&ctx, &repo, vec![root_cs])
+            .add_file("file2", "content2")
+            .commit()
+            .await?;
+
+        let sql_bookmarks = repo.sql_bookmarks();
+        let locked_txn = sql_bookmarks.start_locked_transaction(&ctx, &book).await?;
+
+        assert_eq!(locked_txn.current_value(), Some(root_cs));
+
+        let log_id = locked_txn
+            .commit(&ctx, child_cs, BookmarkUpdateReason::Pushrebase, vec![])
+            .await?;
+
+        assert!(log_id.is_some(), "CAS should succeed under the lock");
+
+        let new_value = repo
+            .bookmarks()
+            .get(ctx.clone(), &book, bookmarks::Freshness::MostRecent)
+            .await?;
+        assert_eq!(new_value, Some(child_cs));
 
         Ok(())
     }

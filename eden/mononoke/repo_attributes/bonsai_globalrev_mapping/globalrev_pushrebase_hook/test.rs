@@ -76,6 +76,9 @@ struct Repo {
 
     #[facet]
     bookmarks: dyn Bookmarks,
+
+    #[facet]
+    sql_bookmarks: dbbookmarks::SqlBookmarks,
 }
 
 #[mononoke::fbinit_test]

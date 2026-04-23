@@ -46,6 +46,9 @@ struct Repo {
     bookmarks: dyn Bookmarks,
 
     #[facet]
+    sql_bookmarks: dbbookmarks::SqlBookmarks,
+
+    #[facet]
     commit_graph: CommitGraph,
 
     #[facet]
