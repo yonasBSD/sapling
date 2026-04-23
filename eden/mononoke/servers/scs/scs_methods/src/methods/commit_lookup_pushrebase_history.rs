@@ -99,7 +99,7 @@ impl RepoChangesetsPushrebaseHistory {
         let is_public = repo
             .repo()
             .phases()
-            .get_public(&self.ctx, vec![*bcs_id], true /* ephemeral_derive */)
+            .get_cached_public(&self.ctx, vec![*bcs_id])
             .await
             .map_err(scs_errors::internal_error)?
             .contains(bcs_id);
