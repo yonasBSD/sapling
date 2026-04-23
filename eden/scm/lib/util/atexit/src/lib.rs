@@ -40,6 +40,13 @@ pub struct AtExitRef {
 /// Use `drop_queued` to drop them.
 static AT_EXIT_QUEUED: Lazy<Mutex<Vec<Arc<AtExitInner>>>> = Lazy::new(Default::default);
 
+/// `AtExit`s that are created but not queued to `AT_EXIT_QUEUED`.
+///
+/// This is to ensure those `AtExit`s get handled during Ctrl+C calling
+/// `drop_queued`. The regular stack unwinding could be unreliable for
+/// Ctrl+C unwinding.
+static AT_EXIT_WEAK: Lazy<Mutex<Vec<Weak<AtExitInner>>>> = Lazy::new(Default::default);
+
 impl Drop for AtExitInner {
     fn drop(&mut self) {
         self.maybe_drop_once();
@@ -63,8 +70,7 @@ impl AtExit {
     /// Create `AtExit` that calls `drop` on drop.
     ///
     /// The `AtExit` is intended to be a (Rust) stack variable that gets dropped
-    /// when exiting the (Rust) function. `exit()` will unroll stacks so `drop`
-    /// will be called if another thread calls `exit()`.
+    /// when exiting the (Rust) function, or calling `drop_queued` (e.g. Ctrl+C).
     ///
     /// If you don't want the drop behavior on (Rust) function return, or have
     /// to store the `AtExit` in heap, consider using `queued()`. For example,
@@ -77,15 +83,21 @@ impl AtExit {
             ignored: AtomicBool::new(false),
             name: name.into(),
         };
-        Self(Arc::new(inner))
+        let inner = Arc::new(inner);
+        {
+            let mut stack = AT_EXIT_WEAK.lock().unwrap();
+            clean_up_weak_refs(&mut *stack);
+            stack.push(Arc::downgrade(&inner));
+        }
+        Self(inner)
     }
 
-    /// Move the `AtExit` to a global queue.
+    /// Move the `AtExit` to a global queue. Extends its scope.
     ///
     /// Return `AtExitRef`, which can be used to cancel the `drop`.
-    /// Dropping `AtExitRef` wouldn't trigger `drop`.
-    ///
-    /// The global queue can be dropped by `drop_queued`.
+    /// Dropping `AtExitRef` wouldn't trigger `drop` immediately.
+    /// `drop` will be triggered by `drop_queued` (usually normal
+    /// exit and Ctrl+C exit).
     pub fn queued(self) -> AtExitRef {
         let arc = self.0;
         let weak = Arc::downgrade(&arc);
@@ -98,6 +110,12 @@ impl AtExit {
     pub fn cancel(&self) {
         self.0.cancel()
     }
+}
+
+fn clean_up_weak_refs(weak_vec: &mut Vec<Weak<AtExitInner>>) {
+    // Scan the tail. Avoid whole vec scan (pushing N AtExits will be O(N^2)),
+    // and linear vec shifts. Practically this is hopefully good enough.
+    while weak_vec.pop_if(|v| v.upgrade().is_none()).is_some() {}
 }
 
 impl AtExitInner {
@@ -118,15 +136,35 @@ impl AtExitRef {
 /// Drop `AtExit`s that are previously `queued`.
 /// This is usually called at the end of a program.
 pub fn drop_queued() {
+    if let Ok(mut lock) = AT_EXIT_WEAK.lock() {
+        if !lock.is_empty() {
+            tracing::debug!(
+                "running {} AtExit handlers (WEAK) by drop_queued()",
+                lock.len()
+            );
+            let mut to_drop: Vec<_> = lock.drain(..).collect();
+            drop(lock);
+            to_drop.drain(..).rev().for_each(|w| {
+                if let Some(v) = w.upgrade() {
+                    v.maybe_drop_once();
+                }
+            });
+        }
+    }
     if let Ok(mut lock) = AT_EXIT_QUEUED.lock() {
-        tracing::debug!("running {} AtExit handlers by drop_queued()", lock.len());
-        let mut to_drop: Vec<_> = lock.drain(..).collect();
-        // Unlock first so drop(to_drop) can call `drop_queued`
-        // without deadlock.
-        drop(lock);
-        // Drop in reverse push order (first push last drop)
-        // as if it is a stack.
-        to_drop.drain(..).rev().for_each(drop);
+        if !lock.is_empty() {
+            tracing::debug!(
+                "running {} AtExit handlers (QUEUED) by drop_queued()",
+                lock.len()
+            );
+            let mut to_drop: Vec<_> = lock.drain(..).collect();
+            // Unlock first so drop(to_drop) can call `drop_queued`
+            // without deadlock.
+            drop(lock);
+            // Drop in reverse push order (first push last drop)
+            // as if it is a stack.
+            to_drop.drain(..).rev().for_each(drop);
+        }
     }
 }
 
@@ -193,8 +231,8 @@ mod tests {
         };
 
         let a1 = push_atexit(1);
-        let a2 = push_atexit(2);
         let a3 = push_atexit(3);
+        let a2 = push_atexit(2);
         a1.queued();
         a3.queued();
         a2.queued();
