@@ -53,6 +53,14 @@ BLAME_LOOKBACK_SECS: int = 14400  # 4 hours
 # so use a wider lookback than the breakage blame check.
 REVERT_LOOKBACK_SECS: int = 14400  # 4 hours
 
+# After tentative -> confirmed promotion, re-query Phabricator one more time
+# after a short delay before firing the alert. The two-step state machine
+# catches REVERTED flips that span >=10 minutes (one polling interval), but
+# some flips persist long enough to be observed twice and still settle back
+# to CLOSED before any actual revert commit lands. The delayed re-check
+# adds a final observation gap to filter those out.
+REVERT_CONFIRMATION_RECHECK_DELAY_SECS: int = 90
+
 SCUBA_SOURCE: str = "merge_resolution_blame_checker"
 
 ALERT_TYPE_BLAMED: str = "merge_resolved_then_blamed"
@@ -365,6 +373,36 @@ async def _get_already_alerted_diffs(
         return set()
 
 
+async def _verify_still_reverted(
+    matches: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    """Re-query Phab after a delay to confirm REVERTED status persists.
+
+    Returns the subset of `matches` whose diffs are still REVERTED on
+    Phab after `REVERT_CONFIRMATION_RECHECK_DELAY_SECS` seconds. Diffs
+    that have flipped back to non-REVERTED are dropped (treated as
+    transient flaps, not real reverts).
+    """
+    diff_ids = [m["diff_id"] for m in matches]
+    logger.info(
+        "Re-checking %d candidate confirmed reverts after %ds delay...",
+        len(diff_ids),
+        REVERT_CONFIRMATION_RECHECK_DELAY_SECS,
+    )
+    await asyncio.sleep(REVERT_CONFIRMATION_RECHECK_DELAY_SECS)
+    still_reverted = set(_check_diffs_reverted(diff_ids))
+    survived = [m for m in matches if m["diff_id"] in still_reverted]
+    dropped_ids = sorted(set(diff_ids) - still_reverted)
+    if dropped_ids:
+        logger.warning(
+            "Dropped %d confirmed-revert candidates that settled back to "
+            "non-REVERTED during re-check: %s",
+            len(dropped_ids),
+            ", ".join(f"D{d}" for d in dropped_ids),
+        )
+    return survived
+
+
 async def check_merge_resolution_reverts(
     user_name: str, uid: int, dry_run: bool = False
 ) -> int:
@@ -477,6 +515,8 @@ async def check_merge_resolution_reverts(
             _log_matches_to_scuba(
                 tentative_matches, ALERT_TYPE_REVERTED, ALERT_STATE_TENTATIVE
             )
+        if confirmed_matches:
+            confirmed_matches = await _verify_still_reverted(confirmed_matches)
         if confirmed_matches:
             _log_matches_to_scuba(
                 confirmed_matches, ALERT_TYPE_REVERTED, ALERT_STATE_CONFIRMED
