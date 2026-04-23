@@ -1120,7 +1120,8 @@ EdenServiceHandler::semifuture_getBlake3Impl(
                            mountHandle.getRootInode(),
                            *paths,
                            [mountHandle, fetchContext = fetchContext.copy()](
-                               const VirtualInode& inode, RelativePath path) {
+                               const VirtualInode& inode,
+                               const RelativePath& path) {
                              return inode
                                  .getBlake3(
                                      path,
@@ -1149,11 +1150,75 @@ EdenServiceHandler::semifuture_getBlake3Impl(
       .semi();
 }
 
+folly::coro::now_task<std::unique_ptr<std::vector<Blake3Result>>>
+EdenServiceHandler::co_getBlake3Impl(
+    std::unique_ptr<std::string> mountPoint,
+    std::unique_ptr<std::vector<std::string>> paths,
+    std::unique_ptr<SyncBehavior> sync) {
+  TraceBlock block("getBlake3");
+  auto helper = INSTRUMENT_THRIFT_CALL(
+      DBG3, *mountPoint, getSyncTimeout(*sync), toLogArg(*paths));
+  auto& fetchContext = helper->getFetchContext();
+  auto mountHandle = lookupMount(mountPoint);
+  auto objectStore = mountHandle.getObjectStorePtr();
+
+  co_await co_waitForPendingWrites(mountHandle.getEdenMount(), *sync);
+
+  auto results =
+      co_await applyToVirtualInode(
+          mountHandle.getRootInode(),
+          *paths,
+          [mountHandle, fetchContext = fetchContext.copy()](
+              const VirtualInode& inode, const RelativePath& path) {
+            return inode
+                .getBlake3(path, mountHandle.getObjectStorePtr(), fetchContext)
+                .semi();
+          },
+          objectStore,
+          fetchContext)
+          .semi();
+
+  auto out = std::make_unique<std::vector<Blake3Result>>();
+  out->reserve(results.size());
+
+  for (auto& result : results) {
+    auto& blake3Result = out->emplace_back();
+    if (result.hasValue()) {
+      blake3Result.blake3() = thriftHash32(result.value());
+    } else {
+      blake3Result.error() = newEdenError(result.exception());
+    }
+  }
+
+  co_return out;
+}
+
 folly::SemiFuture<std::unique_ptr<std::vector<Blake3Result>>>
 EdenServiceHandler::semifuture_getBlake3(
     std::unique_ptr<std::string> mountPoint,
     std::unique_ptr<std::vector<std::string>> paths,
     std::unique_ptr<SyncBehavior> sync) {
+  if (server_->getServerState()
+          ->getEdenConfig()
+          ->enableCoroutinesPhase5.getValue()) {
+    auto result = ImmediateFuture{
+        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+        folly::coro::co_invoke(
+            [self = shared_from_this()](
+                std::unique_ptr<std::string> mountPoint,
+                std::unique_ptr<std::vector<std::string>> paths,
+                std::unique_ptr<SyncBehavior> sync)
+                -> folly::coro::Task<
+                    std::unique_ptr<std::vector<Blake3Result>>> {
+              co_return co_await self->co_getBlake3Impl(
+                  std::move(mountPoint), std::move(paths), std::move(sync));
+            },
+            std::move(mountPoint),
+            std::move(paths),
+            std::move(sync))
+            .semi()};
+    return std::move(result).semi();
+  }
   return semifuture_getBlake3Impl(
       std::move(mountPoint), std::move(paths), std::move(sync));
 }
