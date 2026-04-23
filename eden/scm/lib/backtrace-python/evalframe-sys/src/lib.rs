@@ -69,7 +69,7 @@ pub unsafe fn resolve_frame(frame_ptr: usize) -> *const u8 {
 ///   that owns the frame must be paused.
 pub unsafe fn extract_code_lineno_from_frame(
     frame: *mut libc::c_void,
-    pline_no: *mut libc::c_int,
+    pline_no: *mut isize,
 ) -> *mut libc::c_void {
     unsafe { sapling_cext_evalframe_extract_code_lineno_from_frame(frame, pline_no) }
 }
@@ -113,7 +113,7 @@ unsafe extern "C" {
 
     fn sapling_cext_evalframe_extract_code_lineno_from_frame(
         frame: *mut libc::c_void,
-        pline_no: *mut libc::c_int,
+        pline_no: *mut isize,
     ) -> *mut libc::c_void;
 
     fn sapling_cext_evalframe_resolve_frame_is_supported() -> libc::c_int;

@@ -124,7 +124,7 @@ fn extract_python_supplemental_info(sp: usize) -> Option<SupplementalInfo> {
     unsafe {
         let frame_ptr: *const *mut libc::c_void = addr as *const _;
         let frame: *mut libc::c_void = *frame_ptr;
-        let mut line_no: libc::c_int = 0;
+        let mut line_no: isize = 0;
         let code = evalframe_sys::extract_code_lineno_from_frame(frame, &mut line_no);
         if !code.is_null() {
             return Some([code as usize, line_no as usize]);

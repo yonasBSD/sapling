@@ -30,6 +30,10 @@ To learn examples about the APIs, check  cpython/Modules/_testinternalcapi.c.
 
 #if defined(_WIN32)
 #define EXPORT __declspec(dllexport)
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
 #else
 #define EXPORT
 #endif
@@ -66,7 +70,7 @@ To learn examples about the APIs, check  cpython/Modules/_testinternalcapi.c.
  */
 EXPORT PyCodeObject* sapling_cext_evalframe_extract_code_lineno_from_frame(
     PyFrame* f,
-    int* pline_no) {
+    volatile ssize_t* pline_no) {
   if (!f) {
     return NULL;
   }
@@ -83,14 +87,14 @@ EXPORT PyCodeObject* sapling_cext_evalframe_extract_code_lineno_from_frame(
   if (code == NULL) {
     return NULL;
   }
-  *pline_no = PyFrame_GetLineNumber(f);
+  *pline_no = (ssize_t)PyFrame_GetLineNumber(f);
 #elif PY_VERSION_HEX >= 0x030c0000
   // >=3.12: f is _PyInterpreterFrame. Can be accessed via PyUnstable APIs.
   code = (PyCodeObject*)PyUnstable_InterpreterFrame_GetCode(f);
   if (code == NULL) {
     return NULL;
   }
-  *pline_no = PyUnstable_InterpreterFrame_GetLine(f);
+  *pline_no = (ssize_t)PyUnstable_InterpreterFrame_GetLine(f);
 #endif
   return code;
 }
@@ -215,7 +219,7 @@ out:
  */
 EXPORT const char* sapling_cext_evalframe_stringify_code_lineno(
     PyCodeObject* code,
-    int line_no) {
+    ssize_t line_no) {
   static char buf[4096] = {0};
   memset(buf, 0, sizeof buf);
   const char* filename = NULL;
@@ -224,7 +228,7 @@ EXPORT const char* sapling_cext_evalframe_stringify_code_lineno(
   if (!filename || !name) {
     goto out;
   }
-  snprintf(buf, (sizeof buf) - 1, "%s at %s:%d", name, filename, line_no);
+  snprintf(buf, (sizeof buf) - 1, "%s at %s:%d", name, filename, (int)line_no);
 out:
   // Intentionally leak the reference. We don't have GIL and DECREF is risky.
   // Py_XDECREF(code);
@@ -258,7 +262,7 @@ out:
  */
 EXPORT const char* sapling_cext_evalframe_resolve_frame(size_t address) {
   PyFrame* f = (PyFrame*)address;
-  int line_no = 0;
+  ssize_t line_no = 0;
   PyCodeObject* code =
       (PyCodeObject*)sapling_cext_evalframe_extract_code_lineno_from_frame(
           f, &line_no);
