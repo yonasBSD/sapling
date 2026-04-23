@@ -220,6 +220,9 @@ pub fn default_test_repo_derived_data_types_config() -> DerivedDataTypesConfig {
             max_num_changed_files: 6_000,
             partial_match_skip_file_extensions: BTreeSet::from([".obj".to_string()]),
         }),
+        xdb_mapping_shard_ids: hashmap! {
+            DerivableType::HistoryManifests => 0,
+        },
         ..Default::default()
     }
 }

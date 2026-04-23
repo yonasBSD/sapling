@@ -25,6 +25,7 @@ use metaconfig_types::DerivedDataTypesConfig;
 use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
 use mononoke_types::DerivableType;
+use mononoke_types::RepositoryId;
 use restricted_paths_common::config_based::ArcRestrictedPathsConfigBased;
 
 use crate::derivable::BonsaiDerivable;
@@ -43,6 +44,7 @@ pub struct DerivationContext {
     config_name: String,
     config: DerivedDataTypesConfig,
     pub(crate) rederivation: Option<Arc<dyn Rederivation>>,
+    repo_id: RepositoryId,
     repo_name: String,
     pub(crate) blobstore: Arc<dyn KeyedBlobstore>,
     filestore_config: FilestoreConfig,
@@ -64,6 +66,7 @@ impl DerivationContext {
         bonsai_hg_mapping: Arc<dyn BonsaiHgMapping>,
         bonsai_git_mapping: Arc<dyn BonsaiGitMapping>,
         filenodes: Arc<dyn Filenodes>,
+        repo_id: RepositoryId,
         repo_name: String,
         config_name: String,
         config: DerivedDataTypesConfig,
@@ -79,6 +82,7 @@ impl DerivationContext {
             bonsai_hg_mapping: Some(bonsai_hg_mapping),
             bonsai_git_mapping: Some(bonsai_git_mapping),
             filenodes: Some(filenodes),
+            repo_id,
             repo_name,
             config_name,
             config,
@@ -336,6 +340,10 @@ impl DerivationContext {
         self.config_name.clone()
     }
 
+    pub fn repo_id(&self) -> RepositoryId {
+        self.repo_id
+    }
+
     pub fn repo_name(&self) -> &str {
         &self.repo_name
     }
@@ -348,6 +356,20 @@ impl DerivationContext {
         self.commit_derived_data_mapping
             .as_deref()
             .context("Missing CommitDerivedDataMapping")
+    }
+
+    /// The XDB shard ID for a given derived data type.
+    pub fn xdb_shard_id(&self, variant: DerivableType) -> Result<usize> {
+        self.config
+            .xdb_mapping_shard_ids
+            .get(&variant)
+            .copied()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "xdb_mapping_shard_ids not configured for {}",
+                    variant.name()
+                )
+            })
     }
 
     /// The config that should be used for derivation.

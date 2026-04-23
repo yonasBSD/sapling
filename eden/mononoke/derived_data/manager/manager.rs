@@ -105,6 +105,7 @@ impl DerivedDataManager {
             bonsai_hg_mapping,
             bonsai_git_mapping,
             filenodes,
+            repo_id,
             repo_name.clone(),
             config_name,
             config,

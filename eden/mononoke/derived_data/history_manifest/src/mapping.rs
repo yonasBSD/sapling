@@ -24,6 +24,8 @@ use mononoke_types::BonsaiChangeset;
 use mononoke_types::ChangesetId;
 use mononoke_types::HistoryManifestDirectoryId;
 
+const HISTORY_MANIFEST_VERSION: i32 = 1;
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct RootHistoryManifestDirectoryId(pub(crate) HistoryManifestDirectoryId);
 
@@ -55,11 +57,6 @@ impl From<RootHistoryManifestDirectoryId> for BlobstoreBytes {
     fn from(value: RootHistoryManifestDirectoryId) -> Self {
         BlobstoreBytes::from_bytes(Bytes::copy_from_slice(value.0.blake2().as_ref()))
     }
-}
-
-pub fn format_key(derivation_ctx: &DerivationContext, changeset_id: ChangesetId) -> String {
-    let key_prefix = derivation_ctx.mapping_key_prefix::<RootHistoryManifestDirectoryId>();
-    format!("derived_root_history_manifest.{key_prefix}{changeset_id}")
 }
 
 #[async_trait]
@@ -95,8 +92,19 @@ impl BonsaiDerivable for RootHistoryManifestDirectoryId {
         derivation_ctx: &DerivationContext,
         changeset_id: ChangesetId,
     ) -> Result<()> {
-        let key = format_key(derivation_ctx, changeset_id);
-        derivation_ctx.blobstore().put(ctx, key, self.into()).await
+        let mapping = derivation_ctx.commit_derived_data_mapping()?;
+        let value = self.0.blake2().as_ref().to_vec();
+        mapping
+            .store_mapping(
+                ctx,
+                derivation_ctx.repo_id(),
+                changeset_id,
+                Self::VARIANT,
+                HISTORY_MANIFEST_VERSION,
+                &value,
+                derivation_ctx.xdb_shard_id(Self::VARIANT)?,
+            )
+            .await
     }
 
     async fn fetch(
@@ -104,13 +112,24 @@ impl BonsaiDerivable for RootHistoryManifestDirectoryId {
         derivation_ctx: &DerivationContext,
         changeset_id: ChangesetId,
     ) -> Result<Option<Self>> {
-        let key = format_key(derivation_ctx, changeset_id);
-        Ok(derivation_ctx
-            .blobstore()
-            .get(ctx, &key)
-            .await?
-            .map(TryInto::try_into)
-            .transpose()?)
+        let mapping = derivation_ctx.commit_derived_data_mapping()?;
+        let value = mapping
+            .fetch_mapping(
+                ctx,
+                derivation_ctx.repo_id(),
+                changeset_id,
+                Self::VARIANT,
+                HISTORY_MANIFEST_VERSION,
+                derivation_ctx.xdb_shard_id(Self::VARIANT)?,
+            )
+            .await?;
+        match value {
+            Some(bytes) => {
+                let id = HistoryManifestDirectoryId::from_bytes(Bytes::from(bytes))?;
+                Ok(Some(RootHistoryManifestDirectoryId(id)))
+            }
+            None => Ok(None),
+        }
     }
 
     fn from_thrift(data: thrift::DerivedData) -> Result<Self> {
