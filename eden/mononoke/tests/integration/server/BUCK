@@ -19,6 +19,7 @@ dott_test(
                 # because LockedBookmarkTransaction holds the single
                 # shared connection during rebase).
                 "test-pushrebase-pessimistic-locking.t",
+                "test-pushrebase-pessimistic-locking-stack.t",
             ],
         ),
     deps = [
@@ -68,6 +69,7 @@ dott_test(
     dott_files =
         [
             "test-pushrebase-pessimistic-locking.t",
+            "test-pushrebase-pessimistic-locking-stack.t",
         ],
     rust_allow_oss_build = False,
     use_mysql = True,
