@@ -813,4 +813,57 @@ mod tests {
 
         Ok(())
     }
+
+    #[mononoke::fbinit_test]
+    async fn test_unified_binary_base_text_other(fb: FacebookInit) -> Result<(), DiffError> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo = init_test_repo(&ctx).await?;
+
+        let base_cs = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.bin", b"binary\x00content".as_slice())
+            .commit()
+            .await
+            .map_err(DiffError::internal)?;
+
+        let other_cs = CreateCommitContext::new(&ctx, &repo, vec![base_cs])
+            .add_file("file.bin", "now this is text\n")
+            .commit()
+            .await
+            .map_err(DiffError::internal)?;
+
+        let base_input = DiffSingleInput::ChangesetPath(DiffInputChangesetPath {
+            changeset_id: base_cs,
+            path: to_non_root_path("file.bin")?,
+            replacement_path: None,
+        });
+        let other_input = DiffSingleInput::ChangesetPath(DiffInputChangesetPath {
+            changeset_id: other_cs,
+            path: to_non_root_path("file.bin")?,
+            replacement_path: None,
+        });
+
+        let options = UnifiedDiffOpts {
+            context: 3,
+            copy_info: DiffCopyInfo::None,
+            file_type: DiffFileType::Regular,
+            inspect_lfs_pointers: true,
+            omit_content: false,
+            ignore_whitespace: false,
+        };
+
+        let diff = unified(
+            &ctx,
+            Some((base_input, &repo)),
+            Some((other_input, &repo)),
+            options,
+        )
+        .await?;
+
+        assert!(
+            diff.is_binary,
+            "is_binary should be true when base is binary"
+        );
+
+        Ok(())
+    }
 }

@@ -735,4 +735,50 @@ mod tests {
 
         Ok(())
     }
+
+    #[mononoke::fbinit_test]
+    async fn test_hunks_binary_base_text_other(fb: FacebookInit) -> Result<(), DiffError> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo = init_test_repo(&ctx).await?;
+
+        let base_cs = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.bin", b"binary\x00content".as_slice())
+            .commit()
+            .await
+            .map_err(DiffError::internal)?;
+
+        let other_cs = CreateCommitContext::new(&ctx, &repo, vec![base_cs])
+            .add_file("file.bin", "now this is text\n")
+            .commit()
+            .await
+            .map_err(DiffError::internal)?;
+
+        let base_input = DiffSingleInput::ChangesetPath(DiffInputChangesetPath {
+            changeset_id: base_cs,
+            path: create_non_root_path("file.bin")?,
+            replacement_path: None,
+        });
+        let other_input = DiffSingleInput::ChangesetPath(DiffInputChangesetPath {
+            changeset_id: other_cs,
+            path: create_non_root_path("file.bin")?,
+            replacement_path: None,
+        });
+
+        let result = hunks(
+            &ctx,
+            &repo,
+            &repo,
+            Some(base_input),
+            Some(other_input),
+            false,
+        )
+        .await?;
+
+        assert!(
+            result.is_empty(),
+            "Binary base should produce empty hunks even when other is text"
+        );
+
+        Ok(())
+    }
 }
