@@ -63,6 +63,7 @@ use anyhow::format_err;
 use blobrepo_utils::convert_diff_result_into_file_change_for_diamond_merge;
 use blobstore::Loadable;
 use bookmarks::BookmarkKey;
+use bookmarks::BookmarkTransactionHook;
 use bookmarks::BookmarkUpdateLogId;
 use bookmarks::BookmarkUpdateReason;
 use bookmarks::BookmarksRef;
@@ -2425,6 +2426,27 @@ async fn find_rebased_set(
     fetch_bonsai_range_ancestor_not_included(ctx, repo, root, head).await
 }
 
+/// Wrap a list of pushrebase transaction hooks into a single
+/// `BookmarkTransactionHook` closure that runs them sequentially.
+///
+/// Used by both the optimistic path (`try_move_bookmark`) and
+/// pessimistic path (`rebase_with_lock`, `batched_rebase_with_lock`).
+fn wrap_pushrebase_hooks(
+    hooks: Vec<Box<dyn PushrebaseTransactionHook>>,
+) -> BookmarkTransactionHook {
+    let hooks = Arc::new(hooks);
+    Arc::new(move |ctx, mut sql_txn| {
+        let hooks = hooks.clone();
+        async move {
+            for hook in hooks.iter() {
+                sql_txn = hook.populate_transaction(&ctx, sql_txn).await?
+            }
+            Ok(sql_txn)
+        }
+        .boxed()
+    })
+}
+
 async fn try_move_bookmark(
     ctx: CoreContext,
     repo: &impl Repo,
@@ -2457,21 +2479,8 @@ async fn try_move_bookmark(
         }
     }
 
-    let hooks = Arc::new(hooks);
-
-    let sql_txn_hook = move |ctx, mut sql_txn| {
-        let hooks = hooks.clone();
-        async move {
-            for hook in hooks.iter() {
-                sql_txn = hook.populate_transaction(&ctx, sql_txn).await?
-            }
-            Ok(sql_txn)
-        }
-        .boxed()
-    };
-
     let maybe_log_id = txn
-        .commit_with_hooks(vec![Arc::new(sql_txn_hook)])
+        .commit_with_hooks(vec![wrap_pushrebase_hooks(hooks)])
         .await?
         .map(BookmarkUpdateLogId::from);
 
