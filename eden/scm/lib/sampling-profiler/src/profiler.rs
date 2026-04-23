@@ -40,8 +40,8 @@ pub struct Profiler {
     // Without this, a race condition might look like:
     // 1. [thread 1] Start profiling for thread 1.
     // 2. [thread 1] Enter signal handler. Before writing to ring buffer.
-    // 3. [thread 2] Stop profiling. Close the ring buffer writer.
-    // 4. [thread 1] Write to ring buffer — push returns false, backtrace dropped.
+    // 3. [thread 2] Stop profiling. `Profiler::drop`. Free `signal_state`.
+    // 4. [thread 1] Use `signal_state.writer`, use after free!
     // If the profiling for thread 1 can only be stopped by thread 1,
     // then the stop logic can block the signal first, guaranteeing the
     // signal handler isn't (and won't) run.
