@@ -14,6 +14,12 @@ dott_test(
             [
                 "*.t",
             ],
+            exclude = [
+                # Pessimistic locking requires MySQL (SQLite deadlocks
+                # because LockedBookmarkTransaction holds the single
+                # shared connection during rebase).
+                "test-pushrebase-pessimistic-locking.t",
+            ],
         ),
     deps = [
         "//eden/mononoke/tools/blobimport:blobimport",
@@ -45,6 +51,25 @@ dott_test(
             "test-server-init.t",
             "test-server-lookup.t",
         ],
+    use_mysql = True,
+    deps = [
+        "//eden/mononoke:mononoke",
+        "//eden/mononoke/tools/admin:admin",
+        "//eden/mononoke/tools/blobimport:blobimport",
+        "//eden/mononoke/tools/testtool:testtool",
+    ],
+)
+
+# Pessimistic locking tests are heavy (SQL locks + full pushrebase) and
+# time out in dev-rust-oss debug builds. Run only in fbcode opt builds.
+dott_test(
+    name = "server-mysql-pessimistic",
+    disable_all_network_access_target = True,
+    dott_files =
+        [
+            "test-pushrebase-pessimistic-locking.t",
+        ],
+    rust_allow_oss_build = False,
     use_mysql = True,
     deps = [
         "//eden/mononoke:mononoke",
