@@ -345,3 +345,37 @@ Test grep with --include filters by file pattern:
 No spurious match-full-traversal hint when a path narrows the search:
   $ sl grep -I '**.py' hello src --config hint.ack-match-full-traversal=false
   src/main.py:hello world
+
+Test BRE-style \| alternation without -E.
+Both \| and | work as alternation (superset of BRE and ERE):
+  $ newclientrepo bre-test
+  $ echo 'apple' > a
+  $ echo 'banana' > b
+  $ echo 'cherry' > c
+  $ sl commit -Aqm 'add files'
+
+  $ sl grep 'apple\|banana' | sort
+  a:apple
+  b:banana
+  $ sl grep 'apple|banana' | sort
+  a:apple
+  b:banana
+
+With -E, no BRE conversion — \| is literal, | is alternation:
+  $ sl grep -E 'apple\|banana'
+  [1]
+  $ sl grep -E 'apple|banana' | sort
+  a:apple
+  b:banana
+
+\( is NOT converted (users use it for literal paren, e.g. function calls):
+  $ echo 'f(x) = 1' > parens
+  $ sl commit -Aqm 'add parens'
+  $ sl grep 'f\(x\)' path:parens
+  parens:f(x) = 1
+
+Escaped backslash is not converted:
+  $ echo 'back\slash' > d
+  $ sl commit -Aqm 'add d'
+  $ sl grep 'back\\' path:d
+  d:back\slash

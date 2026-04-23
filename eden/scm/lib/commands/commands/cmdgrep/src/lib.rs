@@ -8,6 +8,7 @@
 #[cfg(feature = "fb")]
 mod biggrep;
 
+use std::borrow::Cow;
 use std::io;
 use std::io::Write;
 use std::path::Path;
@@ -206,10 +207,68 @@ fn build_regex_matcher(opts: &GrepOpts, pattern: &str) -> Result<RegexMatcher> {
         matcher_builder.fixed_strings(true);
     }
 
-    match matcher_builder.build(pattern) {
+    // Without -E, convert BRE-style \| to ERE | (alternation).
+    // In GNU grep BRE, \| means alternation. In Rust regex, \| is literal
+    // pipe. We only convert \| — NOT \( \) \{ \} because users overwhelmingly
+    // use \( to search for literal parentheses (e.g. "functionName\("), which
+    // already works correctly in Rust regex.
+    let pattern = if !opts.extended_regexp && !opts.fixed_strings {
+        convert_bre_alternation(pattern)
+    } else {
+        Cow::Borrowed(pattern)
+    };
+
+    match matcher_builder.build(&pattern) {
         Ok(m) => Ok(m),
         Err(e) => abort!("invalid grep pattern '{}': {:?}", pattern, e),
     }
+}
+
+/// Convert BRE-style `\|` alternation to ERE-style `|`.
+///
+/// In GNU grep BRE, `\|` means alternation while `|` is literal.
+/// In Rust regex (and ERE), `|` means alternation and `\|` is literal.
+/// This strips the backslash from `\|` so it becomes `|` (alternation).
+/// `\\|` (escaped backslash followed by pipe) is left unchanged.
+///
+/// Returns `Cow::Borrowed` if no conversion is needed (no allocation).
+fn convert_bre_alternation(pattern: &str) -> Cow<'_, str> {
+    // Scan bytes directly — `\` (0x5C) and `|` (0x7C) are ASCII, so they
+    // cannot appear as continuation bytes in valid UTF-8.
+    let bytes = pattern.as_bytes();
+
+    // First pass: find indexes of backslashes to remove (the `\` before `|`).
+    let mut removals = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\\' && i + 1 < bytes.len() {
+            if bytes[i + 1] == b'|' {
+                removals.push(i);
+            }
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+
+    if removals.is_empty() {
+        return Cow::Borrowed(pattern);
+    }
+
+    // Second pass: copy bytes, skipping the marked backslashes.
+    let mut result = Vec::with_capacity(bytes.len() - removals.len());
+    let mut ri = 0;
+    for (i, &b) in bytes.iter().enumerate() {
+        if ri < removals.len() && i == removals[ri] {
+            ri += 1;
+        } else {
+            result.push(b);
+        }
+    }
+
+    // We only removed ASCII backslash bytes (0x5C) that preceded ASCII pipe
+    // bytes (0x7C), so valid UTF-8 in = valid UTF-8 out.
+    Cow::Owned(String::from_utf8(result).expect("BRE conversion preserved valid UTF-8"))
 }
 
 /// Build a searcher from grep options.
