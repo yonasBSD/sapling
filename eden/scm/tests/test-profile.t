@@ -38,13 +38,13 @@ Test minelapsed config option
 
 Test other config sections
 
-  $ sl --config profiling:background.enabled=1 --config profiling:background.output=z debugshell -c '1'
+  $ sl --config profiling:background.enabled-python=1 --config profiling:background.output=z debugshell -c '1'
   unrecognized profiler 'None' - ignored
   invalid sampling frequency 'None' - ignoring
   unknown profiler output format: None
   $ [ -f z ]
 
-  $ sl --profile --config profiling.output=x --config profiling:background.enabled=1 --config profiling:background.output=y debugshell -c '1'
+  $ sl --config profiling.enabled-python=1 --config profiling.output=x --config profiling:background.enabled-python=1 --config profiling:background.output=y debugshell -c '1'
   $ [ -f x ]
   $ [ -f y ]
   [1]

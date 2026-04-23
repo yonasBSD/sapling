@@ -856,10 +856,6 @@ def _dispatch(req):
     if req.repo:
         uis.add(req.repo.ui)
 
-    if req.earlyoptions["profile"]:
-        for ui_ in uis:
-            ui_.setconfig("profiling", "enabled", "true", "--profile")
-
     with profiling.profile(lui) as profiler:
         # progress behavior might be changed by extensions
         progress.init()

@@ -190,7 +190,7 @@ class profile:
             s for s in self._ui.configsections() if s.split(":", 1)[0] == "profiling"
         )
         for section in sections:
-            if self._ui.configbool(section, "enabled"):
+            if self._ui.configbool(section, "enabled-python"):
                 self._section = section
                 self.start()
                 break

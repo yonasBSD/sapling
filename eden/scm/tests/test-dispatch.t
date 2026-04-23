@@ -91,8 +91,6 @@ However, we can't prevent it from loading extensions and configs:
 
   $ sl log -b '--config=ui.traceback=yes' 2>&1 | grep '^Traceback'
   Traceback (most recent call last):
-  $ sl log -b '--config=profiling.enabled=yes' 2>&1 | grep '[Ss]ample'
-  Sample count: .*|No samples recorded\. (re)
 
 Early options can't be specified in [aliases] and [defaults] because they are
 applied before the command name is resolved:
