@@ -9,7 +9,8 @@ integration with a native debugger like lldb
 Check https://lldb.llvm.org/python_api.html for APIs.
 
 This file runs standalone by lldb's Python interpreter. It does not have access
-to `bindings` or other Sapling modules. Do not import Sapling modules here.
+to `bindings` or other Sapling modules, except for the `backtrace_all` function.
+Do not import Sapling modules outside `backtrace_all`.
 
 There are 2 ways to use this feature,
 - Use `debugbt` command.
@@ -18,6 +19,7 @@ There are 2 ways to use this feature,
 """
 
 import functools
+import os
 import struct
 import subprocess
 import sys
@@ -28,8 +30,9 @@ def backtrace_all(ui, pid: int):
     Runs inside Sapling Python environment.
     """
     import inspect
-    import os
     import tempfile
+
+    import bindings
 
     python_source = inspect.getsource(sys.modules["sapling.dbgutil"])
 
@@ -51,7 +54,8 @@ def backtrace_all(ui, pid: int):
             "-o",
             f"bta {pid}{out_path and ' ' + out_path}",
         ]
-        subprocess.run(args, stdout=(subprocess.DEVNULL if out_path else None))
+        env = {**os.environ, "OFFSET_SP": str(bindings.backtrace.OFFSET_SP)}
+        subprocess.run(args, stdout=(subprocess.DEVNULL if out_path else None), env=env)
         if out_path:
             with open(out_path, "rb") as f:
                 data = f.read()
@@ -78,11 +82,28 @@ def _lldb_backtrace_all_attach_pid(pid, write):
         process.Detach()
 
 
+def read_offset(name):
+    value_str = os.getenv(name)
+    if not value_str:
+        value_str = subprocess.check_output(
+            [
+                "sl",
+                "debugpython",
+                "-c",
+                f"import bindings; print(bindings.backtrace.{name})",
+            ],
+            encoding="utf8",
+        )
+    return int(value_str)
+
+
 def _lldb_backtrace_all_for_process(target, process, write):
     """Write backtraces for the given lldb target/process.
     Runs inside lldb Python environment, outside Sapling environment.
     """
     import lldb
+
+    offset_sp = read_offset("OFFSET_SP")
 
     if target.addr_size != 8:
         write("non-64-bit (%s) architecture is not yet supported\n" % target.addr_size)
@@ -96,62 +117,10 @@ def _lldb_backtrace_all_for_process(target, process, write):
         """extract python stack info from a frame.
         The frame should be a Sapling_PyEvalFrame function call.
         """
-        # Sapling_PyEvalFrame(PyThreadState* tstate, PyFrameObject* f, int exc)
-        #
-        # x64:
-        #   pushq  %rbp
-        #   movq   %rsp, %rbp        ; FP
-        #   subq   $0x20, %rsp       ; SP = FP - 0x20
-        #   movq   %rdi, -0x8(%rbp)
-        #   movq   %rsi, -0x10(%rbp) ; PyFrame f at FP - 0x10, or SP + 0x10
-        #   movl   %edx, -0x14(%rbp)
-        #   movq   -0x8(%rbp), %rdi
-        #   movq   -0x10(%rbp), %rsi
-        #   movl   -0x14(%rbp), %edx
-        #   callq  0x1034bddee       ; symbol stub for: _PyEval_EvalFrameDefault
-        #   addq   $0x20, %rsp
-        #   popq   %rbp
-        #   retq
-        #
-        # arm64 (x29 is FP):
-        #   sub    sp, sp, #0x30
-        #   stp    x29, x30, [sp, #0x20]
-        #   add    x29, sp, #0x20      ; FP = SP + 0x20
-        #   stur   x0, [x29, #-0x8]    ; x0 is 1st arg (tstate)
-        #   str    x1, [sp, #0x10]     ; x1 is 2nd arg, `f`, at SP + 0x10
-        #   str    w2, [sp, #0xc]
-        #   ldur   x0, [x29, #-0x8]
-        #   ldr    x1, [sp, #0x10]
-        #   ldr    w2, [sp, #0xc]
-        #   bl     0x1046b6140          ; symbol stub for: _PyEval_EvalFrameDefault
-        #   ldp    x29, x30, [sp, #0x20]
-        #   add    sp, sp, #0x30
-        #   ret
-        #
-        # x64 MSVC:
-        #   ; Sapling_PyEvalFrame(PyThreadState* tstate, PyFrame* f, int exc) {
-        #   push        rbp
-        #   sub         rsp,40h
-        #   lea         rbp,[rsp+40h]
-        #   mov         dword ptr [rbp-4],r8d
-        #   mov         qword ptr [rbp-18h],rdx       ; FP - 0x18
-        #   mov         qword ptr [rbp-10h],rcx
-        #   ; return _PyEval_EvalFrameDefault(tstate, f, exc);
-        #   mov         r8d,dword ptr [exc]
-        #   mov         rdx,qword ptr [f]
-        #   mov         rcx,qword ptr [tstate]
-        #   call        qword ptr [__imp__PyEval_EvalFrameDefault (07FF748CDDF40h)]
-        #   nop
-        #   add         rsp,40h
-        #   pop         rbp
-        #   ret
-        fp: int = frame.fp
         sp: int = frame.sp
         ptr_addr = None
-        if fp - sp == 0x40 and sys.platform == "win32":
-            ptr_addr = fp - 0x18
-        elif fp - sp == 0x20:
-            ptr_addr = fp - 0x10
+        if offset_sp is not None:
+            ptr_addr = sp + offset_sp
         if ptr_addr is not None:
             try:
                 python_frame_address = read_u64(ptr_addr)
