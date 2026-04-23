@@ -34,9 +34,6 @@ To learn examples about the APIs, check  cpython/Modules/_testinternalcapi.c.
 #define EXPORT
 #endif
 
-// _PyInterpreterState_SetEvalFrameFunc is new in CPython 3.9.
-#define HAS_SET_EVAL_FRAME_FUNC (PY_VERSION_HEX >= 0x03090000)
-
 #if PY_VERSION_HEX >= 0x030b0000
 // CPython 3.11 changed PyFrameObject* to _PyInterpreterFrame*.
 #define PyFrame struct _PyInterpreterFrame
@@ -44,6 +41,62 @@ To learn examples about the APIs, check  cpython/Modules/_testinternalcapi.c.
 #include <frameobject.h> // @manual=fbsource//third-party/python:python
 #define PyFrame PyFrameObject
 #endif
+
+/**
+ * Extract the code object and line number from a PyFrame.
+ *
+ * Typically, the PyFrame might be dropped later, but the code object is
+ * relatively "stable", until the module gets dropped - rare, but can still
+ * happen.
+ *
+ * Returns a new reference. The callsite might call `Py_XDECREF` on
+ * the return value.
+ *
+ * This fucnction might be called without the GIL (see backtrace-python),
+ * in a signal handler (see sampling-profiler).
+ *
+ * It should not allocate, deallocate anything, or mutate Python objects.
+ * PyFrame_GetCode might do INCREF intentally, which is probably okay.
+ *
+ * SAFETY: The Python thread that keeps the frame objects alive should be
+ * paused at the time of calling this function (e.g. running a signal handler
+ * that calls this function, or paused by a debugger). So the frame and its
+ * referred Python objects should not have refcount drop to 0 even if the
+ * Python interpreter is running in another thread.
+ */
+EXPORT PyCodeObject* sapling_cext_evalframe_extract_code_lineno_from_frame(
+    PyFrame* f,
+    int* pline_no) {
+  if (!f) {
+    return NULL;
+  }
+  // 3.11: f is _PyInterpreterFrame. Need Py_BUILD_CORE_MODULE to access.
+  // See also
+  // https://github.com/python/cpython/issues/91006#issuecomment-1093945542
+  PyCodeObject* code = NULL;
+#if PY_VERSION_HEX >= 0x03090000 && PY_VERSION_HEX < 0x030b0000
+  // 3.9-3.10: f is PyFrameObject* and can be read by PyFrame APIs.
+  if (!PyFrame_Check(f)) {
+    return NULL;
+  }
+  code = PyFrame_GetCode(f);
+  if (code == NULL) {
+    return NULL;
+  }
+  *pline_no = PyFrame_GetLineNumber(f);
+#elif PY_VERSION_HEX >= 0x030c0000
+  // >=3.12: f is _PyInterpreterFrame. Can be accessed via PyUnstable APIs.
+  code = (PyCodeObject*)PyUnstable_InterpreterFrame_GetCode(f);
+  if (code == NULL) {
+    return NULL;
+  }
+  *pline_no = PyUnstable_InterpreterFrame_GetLine(f);
+#endif
+  return code;
+}
+
+// _PyInterpreterState_SetEvalFrameFunc is new in CPython 3.9.
+#define HAS_SET_EVAL_FRAME_FUNC (PY_VERSION_HEX >= 0x03090000)
 
 #if HAS_SET_EVAL_FRAME_FUNC
 
@@ -118,59 +171,6 @@ void sapling_cext_evalframe_set_mode(int mode) {
     }
   }
 #endif
-}
-
-/**
- * Extract the code object and line number from a PyFrame.
- *
- * Typically, the PyFrame might be dropped later, but the code object is
- * relatively "stable", until the module gets dropped - rare, but can still
- * happen.
- *
- * Returns a new reference. The callsite might call `Py_XDECREF` on
- * the return value.
- *
- * This fucnction might be called without the GIL (see backtrace-python),
- * in a signal handler (see sampling-profiler).
- *
- * It should not allocate, deallocate anything, or mutate Python objects.
- * PyFrame_GetCode might do INCREF intentally, which is probably okay.
- *
- * SAFETY: The Python thread that keeps the frame objects alive should be
- * paused at the time of calling this function (e.g. running a signal handler
- * that calls this function, or paused by a debugger). So the frame and its
- * referred Python objects should not have refcount drop to 0 even if the
- * Python interpreter is running in another thread.
- */
-EXPORT PyCodeObject* sapling_cext_evalframe_extract_code_lineno_from_frame(
-    PyFrame* f,
-    int* pline_no) {
-  if (!f) {
-    return NULL;
-  }
-  // 3.11: f is _PyInterpreterFrame. Need Py_BUILD_CORE_MODULE to access.
-  // See also
-  // https://github.com/python/cpython/issues/91006#issuecomment-1093945542
-  PyCodeObject* code = NULL;
-#if PY_VERSION_HEX >= 0x03090000 && PY_VERSION_HEX < 0x030b0000
-  // 3.9-3.10: f is PyFrameObject* and can be read by PyFrame APIs.
-  if (!PyFrame_Check(f)) {
-    return NULL;
-  }
-  code = PyFrame_GetCode(f);
-  if (code == NULL) {
-    return NULL;
-  }
-  *pline_no = PyFrame_GetLineNumber(f);
-#elif PY_VERSION_HEX >= 0x030c0000
-  // >=3.12: f is _PyInterpreterFrame. Can be accessed via PyUnstable APIs.
-  code = (PyCodeObject*)PyUnstable_InterpreterFrame_GetCode(f);
-  if (code == NULL) {
-    return NULL;
-  }
-  *pline_no = PyUnstable_InterpreterFrame_GetLine(f);
-#endif
-  return code;
 }
 
 /**
