@@ -157,46 +157,51 @@ fn is_frame_name_boring(name: &str) -> bool {
 }
 
 fn teardown_profiling(output: Option<String>) {
+    // Note: `Profiler` is `!Send`. It can only be stopped from the same thread
+    // (`setup_profiling` and `teardown_profiling` from the same thread), which
+    // is not the case for Ctrl+C handling.
     PROFILER.with_borrow_mut(|p| {
         let p = p.take();
         if let Some(p) = p {
             // Stop profiling. Wait for backtraces to be collected.
             drop(p);
-
-            let collector = BACKTRACE_COLLECTOR.clone();
-            let summary = collector.read().ascii_summary();
-
-            // Write to specified output.
-            if let Some(output) = output {
-                'write_output: {
-                    let mut out: Box<dyn io::Write> = match output.as_str() {
-                        // stderr
-                        "" => match clidispatch::io::IO::main() {
-                            Ok(io) => Box::new(io.error()) as Box<dyn io::Write>,
-                            Err(_) => Box::new(io::stderr()) as Box<dyn io::Write>,
-                        },
-                        "blackbox" => {
-                            // TODO: write to blackbox
-                            break 'write_output;
-                        }
-                        // file
-                        _ => {
-                            let file = fs::OpenOptions::new()
-                                .append(true)
-                                .create(true)
-                                .open(&output);
-                            match file {
-                                Ok(file) => Box::new(file),
-                                Err(_) => break 'write_output,
-                            }
-                        }
-                    };
-                    let _ = write!(&mut out, "Profiling summary:\n{}", summary);
-                }
-            }
-
-            // Always push to PROFILING_SUMMARIES.
-            PROFILING_SUMMARIES.write().push(summary);
         }
     });
+
+    // Even if we cannot stop the profiler, still generate an ASCII summary.
+    // This works for the Ctrl+C case.
+    let collector = BACKTRACE_COLLECTOR.clone();
+    let summary = collector.read().ascii_summary();
+
+    // Write to specified output.
+    if let Some(output) = output {
+        'write_output: {
+            let mut out: Box<dyn io::Write> = match output.as_str() {
+                // stderr
+                "" => match clidispatch::io::IO::main() {
+                    Ok(io) => Box::new(io.error()) as Box<dyn io::Write>,
+                    Err(_) => Box::new(io::stderr()) as Box<dyn io::Write>,
+                },
+                "blackbox" => {
+                    // TODO: write to blackbox
+                    break 'write_output;
+                }
+                // file
+                _ => {
+                    let file = fs::OpenOptions::new()
+                        .append(true)
+                        .create(true)
+                        .open(&output);
+                    match file {
+                        Ok(file) => Box::new(file),
+                        Err(_) => break 'write_output,
+                    }
+                }
+            };
+            let _ = write!(&mut out, "Profiling summary:\n{}", summary);
+        }
+    }
+
+    // Always push to PROFILING_SUMMARIES.
+    PROFILING_SUMMARIES.write().push(summary);
 }
