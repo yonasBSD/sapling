@@ -53,6 +53,7 @@
 #include "eden/common/telemetry/RequestMetricsScope.h"
 #include "eden/common/telemetry/SessionInfo.h"
 #include "eden/common/telemetry/StructuredLoggerFactory.h"
+#include "eden/common/telemetry/SubprocessScribeLogger.h"
 #include "eden/common/utils/EnumValue.h"
 #include "eden/common/utils/FaultInjector.h"
 #include "eden/common/utils/FileUtils.h"
@@ -89,6 +90,7 @@
 #include "eden/fs/takeover/TakeoverData.h"
 #include "eden/fs/telemetry/EdenStats.h"
 #include "eden/fs/telemetry/EdenStructuredLogger.h"
+#include "eden/fs/telemetry/ErrorLogger.h"
 #include "eden/fs/telemetry/IScribeLogger.h"
 #include "eden/fs/telemetry/LogEvent.h"
 #include "eden/fs/utils/Clock.h"
@@ -326,6 +328,32 @@ std::shared_ptr<folly::Executor> makePrefetchFilesV2Threads(
   return nullptr;
 }
 
+std::shared_ptr<StructuredLogger> makeErrorStructuredLogger(
+    const EdenConfig& edenConfig,
+    SessionInfo sessionInfo,
+    std::shared_ptr<ReloadableConfig> config,
+    EdenStatsPtr edenStats) {
+  auto scribeBinary = edenConfig.scribeLogger.getValue();
+  auto errorCategory = edenConfig.errorScribeCategory.getValue();
+  if (scribeBinary.empty() || errorCategory.empty()) {
+    return std::make_shared<NullStructuredLogger>();
+  }
+  try {
+    return std::make_shared<ErrorLogger>(
+        std::make_shared<SubprocessScribeLogger>(
+            scribeBinary.c_str(), errorCategory),
+        std::move(sessionInfo),
+        std::move(config));
+  } catch (const std::exception& ex) {
+    edenStats->increment(&TelemetryStats::subprocessLoggerFailure, 1);
+    XLOGF(
+        ERR,
+        "Failed to create ErrorLogger: {}. Error logging is disabled.",
+        folly::exceptionStr(ex));
+    return std::make_shared<NullStructuredLogger>();
+  }
+}
+
 } // namespace
 
 namespace facebook::eden {
@@ -525,12 +553,11 @@ EdenServer::EdenServer(
               edenConfig->notificationsScribeCategory.getValue(),
               sessionInfo,
               edenStats.copy())},
-      errorStructuredLogger_{
-          makeDefaultStructuredLogger<EdenStructuredLogger, EdenStatsPtr>(
-              edenConfig->scribeLogger.getValue(),
-              edenConfig->errorScribeCategory.getValue(),
-              sessionInfo,
-              edenStats.copy())},
+      errorStructuredLogger_{makeErrorStructuredLogger(
+          *edenConfig,
+          sessionInfo,
+          config_,
+          edenStats.copy())},
       heartbeatManager_{
           std::make_shared<HeartbeatManager>(edenDir_, structuredLogger_)},
       serverState_{make_shared<ServerState>(

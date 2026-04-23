@@ -20,6 +20,7 @@
 #include "eden/fs/model/git/TopLevelIgnores.h"
 #include "eden/fs/nfs/NfsServer.h"
 #include "eden/fs/telemetry/EdenStats.h"
+#include "eden/fs/telemetry/ErrorLogger.h"
 #include "eden/fs/telemetry/FileAccessStructuredLogger.h"
 #include "eden/fs/telemetry/FsEventLogger.h"
 #include "eden/fs/utils/Clock.h"
@@ -127,6 +128,10 @@ ServerState::ServerState(
 }
 
 ServerState::~ServerState() = default;
+
+ErrorLogger* ServerState::getErrorLogger() const {
+  return dynamic_cast<ErrorLogger*>(errorStructuredLogger_.get());
+}
 
 folly::ReadMostlySharedPtr<const EdenConfig> ServerState::getEdenConfig() {
   return config_->getEdenConfig();

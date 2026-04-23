@@ -26,6 +26,7 @@ namespace facebook::eden {
 class Clock;
 class EdenConfig;
 class EdenStats;
+class ErrorLogger;
 class FaultInjector;
 class FsEventLogger;
 class IScribeLogger;
@@ -177,6 +178,8 @@ class ServerState {
   const std::shared_ptr<StructuredLogger>& getErrorStructuredLogger() const {
     return errorStructuredLogger_;
   }
+
+  ErrorLogger* getErrorLogger() const;
 
   /**
    * Returns a ScribeLogger that can be used to send log events to external

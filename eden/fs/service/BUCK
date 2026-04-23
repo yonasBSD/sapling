@@ -336,6 +336,7 @@ cpp_library(
         "//common/fb303/cpp:thread_pool_executor_counters",  # @manual
         "//common/network:hostname",
         "//eden/common/telemetry:log_info",
+        "//eden/common/telemetry:scribe_logger",
         "//eden/common/telemetry:structured_logger",
         "//eden/common/telemetry:structured_logger_factory",
         "//eden/common/utils:bug",
@@ -371,6 +372,8 @@ cpp_library(
         "//eden/fs/store:store",
         "//eden/fs/store/filter:glob_filter",
         "//eden/fs/store/sl:sapling_backing_store",
+        "//eden/fs/telemetry:error_info",
+        "//eden/fs/telemetry:error_logger",
         "//eden/fs/telemetry:log_info",
         "//eden/fs/telemetry:scribe_logger",
         "//eden/fs/telemetry:structured_logger",

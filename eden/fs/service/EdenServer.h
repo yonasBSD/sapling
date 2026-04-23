@@ -68,6 +68,7 @@ class Dirstate;
 class EdenConfig;
 class EdenMount;
 class EdenServiceHandler;
+class ErrorLogger;
 class HeartbeatManager;
 class SaplingBackingStore;
 class IScribeLogger;
@@ -806,7 +807,9 @@ class EdenServer : private TakeoverHandler {
   std::shared_ptr<StructuredLogger> notificationsStructuredLogger_;
 
   /**
-   * Structured logger for error telemetry. Logs to perfpipe_edenfs_errors.
+   * Structured logger for error telemetry. When scribe binary and
+   * error category are configured, this is an ErrorLogger instance;
+   * otherwise falls back to NullStructuredLogger.
    */
   std::shared_ptr<StructuredLogger> errorStructuredLogger_;
 
