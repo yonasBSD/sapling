@@ -2876,6 +2876,20 @@ class RestartCmd(Subcmd):
             )
             return 3
 
+    def _normalize_eden_dir(self, eden_dir: str) -> Tuple[str, bool]:
+        """Strip the user's home dir prefix from eden_dir for low-cardinality logging."""
+        import pwd
+
+        normalized = eden_dir.rstrip("/")
+        try:
+            home = pwd.getpwuid(os.getuid()).pw_dir.rstrip("/")
+        except KeyError:
+            return normalized, False
+        is_default_config_dir = normalized in (f"{home}/.eden", f"{home}/local/.eden")
+        if normalized.startswith(home + "/"):
+            normalized = normalized[len(home) + 1 :]
+        return normalized, is_default_config_dir
+
     def _graceful_restart(self, instance: EdenInstance) -> int:
         print("Performing a graceful restart...")
 
@@ -2889,6 +2903,12 @@ class RestartCmd(Subcmd):
         with instance.get_telemetry_logger().new_sample(
             "graceful_restart"
         ) as telemetry_sample:
+            eden_dir_normalized, is_default_config_dir = self._normalize_eden_dir(
+                str(instance.state_dir)
+            )
+            telemetry_sample.add_string("eden_dir", eden_dir_normalized)
+            telemetry_sample.add_bool("is_default_config_dir", is_default_config_dir)
+
             # The status here is returned by the exit status of the startup
             # logger. If this is successful, we will ensure the new process
             # itself starts. If this was not successful, we will assume that
