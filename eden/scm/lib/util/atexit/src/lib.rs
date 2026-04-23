@@ -11,12 +11,11 @@
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::sync::LazyLock as Lazy;
 use std::sync::Mutex;
 use std::sync::Weak;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-
-use once_cell::sync::Lazy;
 
 /// Call `drop` on drop if `ignored` is `false`.
 pub struct AtExit(Arc<AtExitInner>);
