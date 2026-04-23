@@ -18,6 +18,7 @@ use crate::types::Repo;
 use crate::types::UnifiedDiff;
 use crate::types::UnifiedDiffOpts;
 use crate::utils::content::DiffFileOpts;
+use crate::utils::content::LoadDiffFileResult;
 use crate::utils::content::load_diff_file;
 use crate::utils::whitespace::strip_horizontal_whitespace;
 
@@ -37,32 +38,40 @@ pub async fn unified(
         omit_content: options.omit_content,
     };
 
-    let (base_file, other_file) = try_join!(
+    let (base_result, other_result) = try_join!(
         async {
             if let Some((base_input, base_repo)) = base_pair {
                 let default_path =
                     to_non_root_path("base_path").context("The hardcoded path was not valid")?;
                 load_diff_file(ctx, base_repo, base_input, default_path, &diff_file_opts).await
             } else {
-                Ok(None)
+                Ok(LoadDiffFileResult {
+                    diff_file: None,
+                    is_binary: false,
+                })
             }
         },
         async {
             if let Some((other_input, other_repo)) = other_pair {
                 let default_path =
-                    to_non_root_path("other_path").expect("The hardcoded path was not valid");
+                    to_non_root_path("other_path").context("The hardcoded path was not valid")?;
                 load_diff_file(ctx, other_repo, other_input, default_path, &diff_file_opts).await
             } else {
-                Ok(None)
+                Ok(LoadDiffFileResult {
+                    diff_file: None,
+                    is_binary: false,
+                })
             }
         }
     )?;
 
+    let is_binary = base_result.is_binary || other_result.is_binary;
+
+    let (base_file, other_file) = (base_result.diff_file, other_result.diff_file);
+
     if base_file.is_none() && other_file.is_none() {
         return Err(DiffError::empty_inputs());
     }
-
-    let is_binary = xdiff::file_is_binary(&base_file) || xdiff::file_is_binary(&other_file);
 
     let (base_file, other_file) = if !is_binary && options.ignore_whitespace {
         (
@@ -206,7 +215,6 @@ mod tests {
         let ctx = CoreContext::test_mock(fb);
         let repo = init_test_repo(&ctx).await?;
 
-        // Create test commits with binary content (contains null bytes)
         let base_cs = CreateCommitContext::new_root(&ctx, &repo)
             .add_file("binary.bin", b"binary\x00content\x01here".as_slice())
             .commit()

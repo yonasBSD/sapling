@@ -36,15 +36,40 @@ use crate::types::DiffSingleInput;
 use crate::types::LfsPointer;
 use crate::types::Repo;
 
+/// Result of content loading — distinguishes between loaded text content
+/// and binary files that were detected via metadata without loading content.
+#[derive(Debug, Clone)]
+pub enum LoadResult {
+    /// File content was loaded into memory.
+    Content(Bytes),
+    /// File is binary (detected from ContentMetadataV2.is_binary).
+    /// Content was NOT loaded — no RSS impact.
+    Binary,
+}
+
+impl LoadResult {
+    /// Extract content bytes, returning `None` for binary files.
+    pub fn into_content(self) -> Option<Bytes> {
+        match self {
+            LoadResult::Content(bytes) => Some(bytes),
+            LoadResult::Binary => None,
+        }
+    }
+}
+
 fn max_diff_file_size_mb() -> Result<u64> {
     justknobs::get_as::<u64>("scm/mononoke:max_diff_file_size_mb", None)
+}
+
+fn is_binary(content: &Bytes) -> bool {
+    content.contains(&0)
 }
 
 pub async fn load_content(
     ctx: &CoreContext,
     repo: &impl Repo,
     input: DiffSingleInput,
-) -> Result<Option<Bytes>, DiffError> {
+) -> Result<Option<LoadResult>, DiffError> {
     let content_id = match input {
         DiffSingleInput::Content(content_input) => Some(content_input.content_id),
         DiffSingleInput::ChangesetPath(changeset_input) => {
@@ -56,8 +81,15 @@ pub async fn load_content(
             )
             .await?
         }
+
         DiffSingleInput::String(string_input) => {
-            return Ok(Some(Bytes::from(string_input.content.into_bytes())));
+            let content = Bytes::from(string_input.content.into_bytes());
+
+            if is_binary(&content) {
+                return Ok(Some(LoadResult::Binary));
+            } else {
+                return Ok(Some(LoadResult::Content(content)));
+            }
         }
     };
 
@@ -82,11 +114,15 @@ pub async fn load_content(
             ));
         }
 
+        if metadata.is_binary {
+            return Ok(Some(LoadResult::Binary));
+        }
+
         // We need to store the full file in memory, so there is no reason
         // to use the streaming version.
         // Use fetch_concat_opt which returns Option<Bytes> to properly handle missing content
         match filestore::fetch_concat_opt(blobstore, ctx, &fetch_key).await {
-            Ok(Some(bytes)) => Ok(Some(bytes)),
+            Ok(Some(bytes)) => Ok(Some(LoadResult::Content(bytes))),
             Ok(None) => {
                 // Content not found - this is a client error
                 Err(DiffError::content_not_found(content_id))
@@ -347,71 +383,212 @@ pub struct DiffFileOpts {
     pub omit_content: bool,
 }
 
+pub struct LoadDiffFileResult {
+    pub diff_file: Option<xdiff::DiffFile<String, Bytes>>,
+    pub is_binary: bool,
+}
+
 pub async fn load_diff_file(
     ctx: &CoreContext,
     repo: &impl Repo,
     input: DiffSingleInput,
     default_path: NonRootMPath,
     options: &DiffFileOpts,
-) -> Result<Option<xdiff::DiffFile<String, Bytes>>, DiffError> {
+) -> Result<LoadDiffFileResult, DiffError> {
     // Handle String input specially since it doesn't have a content_id
     if let DiffSingleInput::String(string_input) = input {
         let bytes = Bytes::from(string_input.content.into_bytes());
-        return Ok(Some(xdiff::DiffFile {
-            path: default_path.to_string(),
-            contents: xdiff::FileContent::Inline(bytes),
-            file_type: options.file_type.into(),
-        }));
+        let binary = is_binary(&bytes);
+        return Ok(LoadDiffFileResult {
+            diff_file: Some(xdiff::DiffFile {
+                path: default_path.to_string(),
+                contents: xdiff::FileContent::Inline(bytes),
+                file_type: options.file_type.into(),
+            }),
+            is_binary: binary,
+        });
     }
 
     let (content_id, _changeset_id, path, lfs_pointer) =
         extract_input_data(ctx, repo, &input, default_path).await?;
 
     if let Some(id) = content_id {
-        let contents = if options.file_type == DiffFileType::GitSubmodule {
-            // Handle Git submodule: load commit hash regardless of omit_content
-            let commit_hash_bytes = load_content(ctx, repo, input).await?.ok_or_else(|| {
-                DiffError::Internal(anyhow::anyhow!(
-                    "Failed to load submodule content for content_id: {:?}",
-                    id
-                ))
-            })?;
+        let (contents, is_binary) = if options.file_type == DiffFileType::GitSubmodule {
+            // Handle Git submodule: load commit hash regardless of omit_content.
+            // Submodule entries are 20-byte SHA1 hashes that may trigger is_binary
+            // (null bytes in raw hash), so bypass the binary check by fetching directly.
+            let commit_hash_bytes = match load_content(ctx, repo, input).await? {
+                Some(LoadResult::Content(bytes)) => bytes,
+                Some(LoadResult::Binary) => {
+                    // Submodule hash is 20 bytes — no OOM risk, fetch directly
+                    let blobstore = repo.repo_blobstore();
+                    filestore::fetch_concat_opt(blobstore, ctx, &FetchKey::Canonical(id))
+                        .await
+                        .map_err(|e| {
+                            DiffError::internal(
+                                e.context("Failed to load submodule content directly"),
+                            )
+                        })?
+                        .ok_or_else(|| {
+                            DiffError::Internal(anyhow::anyhow!(
+                                "Failed to load submodule content for content_id: {:?}",
+                                id
+                            ))
+                        })?
+                }
+                None => {
+                    return Err(DiffError::Internal(anyhow::anyhow!(
+                        "Failed to load submodule content for content_id: {:?}",
+                        id
+                    )));
+                }
+            };
 
             let commit_hash = GitSha1::from_bytes(commit_hash_bytes)
                 .with_context(|| format!("Invalid commit hash for submodule at {}", path))?
                 .to_string();
-            xdiff::FileContent::Submodule { commit_hash }
+            (xdiff::FileContent::Submodule { commit_hash }, false)
         } else if options.omit_content || (!options.inspect_lfs_pointers && lfs_pointer.is_some()) {
             // Omit content if selected, or if there is an LFS pointer that should not be
             // inspected.
-            xdiff::FileContent::Omitted {
-                content_hash: format!("{:?}", id),
-                git_lfs_pointer: lfs_pointer.and_then(|lfs| {
-                    // Parse string sha256 to Sha256 type and convert i64 to u64
-                    let sha256 = mononoke_types::hash::Sha256::from_str(&lfs.sha256).ok()?;
-                    let size = lfs.size as u64;
-                    Some(format_lfs_pointer(sha256, size))
-                }),
-            }
+            (
+                xdiff::FileContent::Omitted {
+                    content_hash: format!("{:?}", id),
+                    git_lfs_pointer: lfs_pointer.and_then(|lfs| {
+                        // Parse string sha256 to Sha256 type and convert i64 to u64
+                        let sha256 = mononoke_types::hash::Sha256::from_str(&lfs.sha256).ok()?;
+                        let size = lfs.size as u64;
+                        Some(format_lfs_pointer(sha256, size))
+                    }),
+                },
+                false,
+            )
         } else {
-            // Otherwise load the full content
-            let bytes = load_content(ctx, repo, input).await?.ok_or_else(|| {
-                DiffError::Internal(anyhow::anyhow!(
-                    "Failed to load content for content_id: {:?}",
-                    id
-                ))
-            })?;
-            xdiff::FileContent::Inline(bytes)
+            match load_content(ctx, repo, input).await? {
+                Some(LoadResult::Content(bytes)) => (xdiff::FileContent::Inline(bytes), false),
+                Some(LoadResult::Binary) => (
+                    xdiff::FileContent::Omitted {
+                        content_hash: format!("{:?}", id),
+                        git_lfs_pointer: None,
+                    },
+                    true,
+                ),
+                None => {
+                    return Err(DiffError::Internal(anyhow::anyhow!(
+                        "Failed to load content for content_id: {:?}",
+                        id
+                    )));
+                }
+            }
         };
 
-        Ok(Some(xdiff::DiffFile {
-            path: path.to_string(),
-            contents,
-            file_type: options.file_type.into(),
-        }))
+        Ok(LoadDiffFileResult {
+            diff_file: Some(xdiff::DiffFile {
+                path: path.to_string(),
+                contents,
+                file_type: options.file_type.into(),
+            }),
+            is_binary,
+        })
     } else {
-        // If there was no contentId that's not necessarily an error, the file may be new, or
-        // deleted
-        Ok(None)
+        Ok(LoadDiffFileResult {
+            diff_file: None,
+            is_binary: false,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use fbinit::FacebookInit;
+    use mononoke_macros::mononoke;
+    use tests_utils::BasicTestRepo;
+    use tests_utils::CreateCommitContext;
+
+    use super::*;
+    use crate::types::DiffInputChangesetPath;
+    use crate::types::DiffInputString;
+
+    async fn init_test_repo(ctx: &CoreContext) -> Result<BasicTestRepo, DiffError> {
+        let repo = test_repo_factory::build_empty(ctx.fb)
+            .await
+            .map_err(DiffError::internal)?;
+        Ok(repo)
+    }
+
+    fn create_non_root_path(path: &str) -> Result<NonRootMPath, DiffError> {
+        let mpath = mononoke_types::MPath::new(path)?;
+        let non_root_mpath = NonRootMPath::try_from(mpath)?;
+        Ok(non_root_mpath)
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_load_content_binary_file(fb: FacebookInit) -> Result<(), DiffError> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo = init_test_repo(&ctx).await?;
+
+        let cs = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("binary.bin", b"binary\x00content".as_slice())
+            .commit()
+            .await
+            .map_err(DiffError::internal)?;
+
+        let input = DiffSingleInput::ChangesetPath(DiffInputChangesetPath {
+            changeset_id: cs,
+            path: create_non_root_path("binary.bin")?,
+            replacement_path: None,
+        });
+
+        let result = load_content(&ctx, &repo, input).await?;
+        assert!(
+            matches!(result, Some(LoadResult::Binary)),
+            "Expected Some(LoadResult::Binary), got {:?}",
+            result
+        );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_load_content_text_file(fb: FacebookInit) -> Result<(), DiffError> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo = init_test_repo(&ctx).await?;
+
+        let cs = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("text.txt", "hello world\n")
+            .commit()
+            .await
+            .map_err(DiffError::internal)?;
+
+        let input = DiffSingleInput::ChangesetPath(DiffInputChangesetPath {
+            changeset_id: cs,
+            path: create_non_root_path("text.txt")?,
+            replacement_path: None,
+        });
+
+        let result = load_content(&ctx, &repo, input).await?;
+        assert!(
+            matches!(&result, Some(LoadResult::Content(bytes)) if bytes.as_ref() == b"hello world\n"),
+            "Expected Some(LoadResult::Content) with text content, got {:?}",
+            result
+        );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_load_content_string_input_binary(fb: FacebookInit) -> Result<(), DiffError> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo = init_test_repo(&ctx).await?;
+
+        let input = DiffSingleInput::String(DiffInputString {
+            content: String::from_utf8_lossy(b"binary\x00content").to_string(),
+        });
+
+        let result = load_content(&ctx, &repo, input).await?;
+        assert!(
+            matches!(result, Some(LoadResult::Binary)),
+            "Expected Some(LoadResult::Binary) for binary string input, got {:?}",
+            result
+        );
+        Ok(())
     }
 }

@@ -14,6 +14,7 @@ use crate::types::DiffSingleInput;
 use crate::types::HeaderlessDiffOpts;
 use crate::types::HeaderlessUnifiedDiff;
 use crate::types::Repo;
+use crate::utils::content::LoadResult;
 use crate::utils::content::load_content;
 use crate::utils::whitespace::strip_horizontal_whitespace;
 
@@ -31,7 +32,7 @@ pub async fn headerless_unified(
 ) -> Result<HeaderlessUnifiedDiff, DiffError> {
     let ignore_whitespace = options.ignore_whitespace;
 
-    let (base_bytes, other_bytes) = try_join!(
+    let (base_result, other_result) = try_join!(
         async {
             if let Some(base_input) = base {
                 load_content(ctx, base_repo, base_input).await
@@ -48,6 +49,23 @@ pub async fn headerless_unified(
         }
     )?;
 
+    // Check if either input is binary from metadata
+    let any_binary = matches!(&base_result, Some(LoadResult::Binary))
+        || matches!(&other_result, Some(LoadResult::Binary));
+
+    if any_binary {
+        return Ok(HeaderlessUnifiedDiff {
+            raw_diff: b"Binary files differ".to_vec(),
+            is_binary: true,
+        });
+    }
+
+    // Extract Bytes from LoadResult::Content (Binary is impossible after the guard above)
+    let (base_bytes, other_bytes) = (
+        base_result.and_then(LoadResult::into_content),
+        other_result.and_then(LoadResult::into_content),
+    );
+
     let (mut base_content, mut other_content) = match (base_bytes, other_bytes) {
         (None, None) => return Err(DiffError::empty_inputs()),
         (Some(base), None) => (base, Bytes::new()),
@@ -55,37 +73,23 @@ pub async fn headerless_unified(
         (Some(base), Some(other)) => (base, other),
     };
 
-    let is_binary = xdiff::file_is_binary(&Some(xdiff::DiffFile {
-        path: "base".to_string(),
-        contents: xdiff::FileContent::Inline(base_content.clone()),
-        file_type: xdiff::FileType::Regular,
-    })) || xdiff::file_is_binary(&Some(xdiff::DiffFile {
-        path: "other".to_string(),
-        contents: xdiff::FileContent::Inline(other_content.clone()),
-        file_type: xdiff::FileType::Regular,
-    }));
-
     // Only strip whitespace if NOT binary and ignore_whitespace is enabled
-    if !is_binary && ignore_whitespace {
+    if !any_binary && ignore_whitespace {
         base_content = strip_horizontal_whitespace(&base_content);
         other_content = strip_horizontal_whitespace(&other_content);
     }
 
     let xdiff_opts = xdiff::HeaderlessDiffOpts::from(options);
 
-    let raw_diff = if is_binary {
-        b"Binary files differ".to_vec()
-    } else {
-        tokio::task::spawn_blocking(move || {
-            xdiff::diff_unified_headerless(&other_content, &base_content, xdiff_opts)
-        })
-        .await
-        .map_err(|e| DiffError::internal(anyhow::anyhow!("spawn_blocking failed: {}", e)))?
-    };
+    let raw_diff = tokio::task::spawn_blocking(move || {
+        xdiff::diff_unified_headerless(&other_content, &base_content, xdiff_opts)
+    })
+    .await
+    .map_err(|e| DiffError::internal(anyhow::anyhow!("spawn_blocking failed: {}", e)))?;
 
     Ok(HeaderlessUnifiedDiff {
         raw_diff,
-        is_binary,
+        is_binary: any_binary,
     })
 }
 

@@ -13,6 +13,7 @@ use crate::error::DiffError;
 use crate::types::DiffSingleInput;
 use crate::types::HunkData;
 use crate::types::Repo;
+use crate::utils::content::LoadResult;
 use crate::utils::content::load_content;
 use crate::utils::whitespace::strip_horizontal_whitespace;
 
@@ -28,7 +29,7 @@ pub async fn hunks(
     other: Option<DiffSingleInput>,
     ignore_whitespace: bool,
 ) -> Result<Vec<HunkData>, DiffError> {
-    let (base_bytes, other_bytes) = try_join!(
+    let (base_result, other_result) = try_join!(
         async {
             if let Some(base_input) = base {
                 load_content(ctx, base_repo, base_input).await
@@ -45,6 +46,20 @@ pub async fn hunks(
         }
     )?;
 
+    // Check if either input is binary from metadata
+    let any_binary = matches!(&base_result, Some(LoadResult::Binary))
+        || matches!(&other_result, Some(LoadResult::Binary));
+
+    if any_binary {
+        return Ok(vec![]);
+    }
+
+    // Extract Bytes from LoadResult::Content (Binary is impossible after the guard above)
+    let (base_bytes, other_bytes) = (
+        base_result.and_then(LoadResult::into_content),
+        other_result.and_then(LoadResult::into_content),
+    );
+
     let (mut base_content, mut other_content) = match (base_bytes, other_bytes) {
         (None, None) => return Err(DiffError::empty_inputs()),
         (Some(base), None) => (base, Bytes::new()),
@@ -52,10 +67,8 @@ pub async fn hunks(
         (Some(base), Some(other)) => (base, other),
     };
 
-    let is_binary = base_content.contains(&0) || other_content.contains(&0);
-
     // Only strip whitespace if NOT binary and ignore_whitespace is enabled
-    if !is_binary && ignore_whitespace {
+    if !any_binary && ignore_whitespace {
         base_content = strip_horizontal_whitespace(&base_content);
         other_content = strip_horizontal_whitespace(&other_content);
     }
@@ -196,9 +209,8 @@ mod tests {
         )
         .await?;
 
-        // Binary files should produce hunks (xdiff operates on byte level)
-        assert!(!result.is_empty());
-        assert!(!result.is_empty());
+        // Binary files detected via metadata should return empty hunks (content not loaded)
+        assert!(result.is_empty());
 
         Ok(())
     }
@@ -701,7 +713,7 @@ mod tests {
 
         use crate::types::DiffInputString;
 
-        // Test that binary files are not affected by whitespace stripping
+        // Binary string inputs are detected early and return empty hunks
         let base_input = DiffSingleInput::String(DiffInputString {
             content: String::from_utf8_lossy(b"binary\x00 content").to_string(),
         });
@@ -709,8 +721,6 @@ mod tests {
             content: String::from_utf8_lossy(b"binary\x00  content").to_string(),
         });
 
-        // Even with ignore_whitespace: true, binary files should still show differences
-        // because whitespace stripping is not applied to binary files
         let result = hunks(
             &ctx,
             &repo,
@@ -721,11 +731,7 @@ mod tests {
         )
         .await?;
 
-        // Binary files should produce hunks
-        assert!(
-            !result.is_empty(),
-            "Binary files should still produce hunks even with ignore_whitespace=true"
-        );
+        assert!(result.is_empty(), "Binary files should return empty hunks");
 
         Ok(())
     }
