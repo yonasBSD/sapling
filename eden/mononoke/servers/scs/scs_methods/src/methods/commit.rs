@@ -882,11 +882,7 @@ impl SourceControlServiceImpl {
         let public = repo_ctx
             .repo()
             .phases()
-            .get_public(
-                &ctx,
-                vec![changeset.id()],
-                false, /* ephemeral_derive */
-            )
+            .get_cached_public(&ctx, vec![changeset.id()])
             .await
             .map_err(|_| scs_errors::internal_error("failed to query commit phase"))?;
 
