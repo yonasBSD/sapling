@@ -1815,281 +1815,285 @@ void FuseChannel::processSession() {
         reinterpret_cast<const uint8_t*>(header + 1),
         arg_size - sizeof(fuse_in_header)};
 
-    XLOGF(
-        DBG7,
-        "fuse request opcode={} {} unique={} len={} nodeid={} uid={} gid={} pid={}",
-        header->opcode,
-        fuseOpcodeName(header->opcode),
-        header->unique,
-        header->len,
-        header->nodeid,
-        header->uid,
-        header->gid,
-        header->pid);
+    dispatchRequest(*header, arg, myPid);
+  }
+}
 
-    // On Linux, if security caps are enabled and the FUSE filesystem implements
-    // xattr support, every FUSE_WRITE opcode is preceded by FUSE_GETXATTR for
-    // "security.capability". Until we discover a way to tell the kernel that
-    // they will always return nothing in an Eden mount, short-circuit that path
-    // as efficiently and as early as possible.
-    //
-    // On some systems, the kernel also frequently requests
-    // POSIX ACL xattrs, so fast track those too, if only to make strace
-    // logs easier to follow.
-    if (header->opcode == FUSE_GETXATTR) {
-      const auto getxattr =
-          reinterpret_cast<const fuse_getxattr_in*>(arg.data());
+void FuseChannel::dispatchRequest(
+    const fuse_in_header& header,
+    ByteRange arg,
+    pid_t myPid) {
+  XLOGF(
+      DBG7,
+      "fuse request opcode={} {} unique={} len={} nodeid={} uid={} gid={} pid={}",
+      header.opcode,
+      fuseOpcodeName(header.opcode),
+      header.unique,
+      header.len,
+      header.nodeid,
+      header.uid,
+      header.gid,
+      header.pid);
 
-      // Evaluate strlen before the comparison loop below.
-      const StringPiece namePiece{reinterpret_cast<const char*>(getxattr + 1)};
-      static constexpr StringPiece kFastTracks[] = {
-          "security.capability",
-          "security.selinux",
-          "system.posix_acl_access",
-          "system.posix_acl_default"};
+  // On Linux, if security caps are enabled and the FUSE filesystem implements
+  // xattr support, every FUSE_WRITE opcode is preceded by FUSE_GETXATTR for
+  // "security.capability". Until we discover a way to tell the kernel that
+  // they will always return nothing in an Eden mount, short-circuit that path
+  // as efficiently and as early as possible.
+  //
+  // On some systems, the kernel also frequently requests
+  // POSIX ACL xattrs, so fast track those too, if only to make strace
+  // logs easier to follow.
+  if (header.opcode == FUSE_GETXATTR) {
+    const auto getxattr = reinterpret_cast<const fuse_getxattr_in*>(arg.data());
 
-      // Unclear whether one strlen and matching compares is better than
-      // strcmps, but it's probably in the noise.
-      bool matched = false;
-      for (auto fastTrack : kFastTracks) {
-        if (namePiece == fastTrack) {
-          replyError(*header, ENODATA);
-          matched = true;
-          break;
-        }
-      }
-      if (matched) {
-        continue;
-      }
-    }
+    // Evaluate strlen before the comparison loop below.
+    const StringPiece namePiece{reinterpret_cast<const char*>(getxattr + 1)};
+    static constexpr StringPiece kFastTracks[] = {
+        "security.capability",
+        "security.selinux",
+        "system.posix_acl_access",
+        "system.posix_acl_default"};
 
-    // Sanity check to ensure that the request wasn't from ourself.
-    //
-    // We should never make requests to ourself via normal filesystem
-    // operations going through the kernel.  Otherwise we risk deadlocks if the
-    // kernel calls us while holding an inode lock, and we then end up making a
-    // filesystem call that need the same inode lock.  We will then not be able
-    // to resolve this deadlock on kernel inode locks without rebooting the
-    // system.
-    if (UNLIKELY(static_cast<pid_t>(header->pid) == myPid)) {
-      replyError(*header, EIO);
-      XLOGF(
-          CRITICAL,
-          "Received FUSE request from our own pid: opcode={} nodeid={} pid={}",
-          header->opcode,
-          header->nodeid,
-          header->pid);
-      continue;
-    }
-
-    auto* handlerEntry = lookupFuseHandlerEntry(header->opcode);
-    processAccessLog_.recordAccess(
-        header->pid,
-        handlerEntry ? handlerEntry->accessType : AccessType::FsChannelOther);
-
-    switch (header->opcode) {
-      case FUSE_INIT:
-        replyError(*header, EPROTO);
-        throw std::runtime_error(
-            "received FUSE_INIT after we have been initialized!?");
-
-      case FUSE_GETLK:
-      case FUSE_SETLK:
-      case FUSE_SETLKW:
-        // Deliberately not handling locking; this causes
-        // the kernel to do it for us
-        XLOG(DBG7, fuseOpcodeName(header->opcode));
-        replyError(*header, ENOSYS);
+    // Unclear whether one strlen and matching compares is better than
+    // strcmps, but it's probably in the noise.
+    bool matched = false;
+    for (auto fastTrack : kFastTracks) {
+      if (namePiece == fastTrack) {
+        replyError(header, ENODATA);
+        matched = true;
         break;
+      }
+    }
+    if (matched) {
+      return;
+    }
+  }
+
+  // Sanity check to ensure that the request wasn't from ourself.
+  //
+  // We should never make requests to ourself via normal filesystem
+  // operations going through the kernel.  Otherwise we risk deadlocks if the
+  // kernel calls us while holding an inode lock, and we then end up making a
+  // filesystem call that need the same inode lock.  We will then not be able
+  // to resolve this deadlock on kernel inode locks without rebooting the
+  // system.
+  if (UNLIKELY(static_cast<pid_t>(header.pid) == myPid)) {
+    replyError(header, EIO);
+    XLOGF(
+        CRITICAL,
+        "Received FUSE request from our own pid: opcode={} nodeid={} pid={}",
+        header.opcode,
+        header.nodeid,
+        header.pid);
+    return;
+  }
+
+  auto* handlerEntry = lookupFuseHandlerEntry(header.opcode);
+  processAccessLog_.recordAccess(
+      header.pid,
+      handlerEntry ? handlerEntry->accessType : AccessType::FsChannelOther);
+
+  switch (header.opcode) {
+    case FUSE_INIT:
+      replyError(header, EPROTO);
+      throw std::runtime_error(
+          "received FUSE_INIT after we have been initialized!?");
+
+    case FUSE_GETLK:
+    case FUSE_SETLK:
+    case FUSE_SETLKW:
+      // Deliberately not handling locking; this causes
+      // the kernel to do it for us
+      XLOG(DBG7, fuseOpcodeName(header.opcode));
+      replyError(header, ENOSYS);
+      break;
 
 #ifdef __linux__
-      case FUSE_LSEEK:
-        // We only support stateless file handles, so lseek() is meaningless
-        // for us.  Returning ENOSYS causes the kernel to implement it for us,
-        // and will cause it to stop sending subsequent FUSE_LSEEK requests.
-        XLOG(DBG7, "FUSE_LSEEK");
-        replyError(*header, ENOSYS);
-        break;
+    case FUSE_LSEEK:
+      // We only support stateless file handles, so lseek() is meaningless
+      // for us.  Returning ENOSYS causes the kernel to implement it for us,
+      // and will cause it to stop sending subsequent FUSE_LSEEK requests.
+      XLOG(DBG7, "FUSE_LSEEK");
+      replyError(header, ENOSYS);
+      break;
 #endif
 
-      case FUSE_POLL:
-        // We do not currently implement FUSE_POLL.
-        XLOG(DBG7, "FUSE_POLL");
-        replyError(*header, ENOSYS);
-        break;
+    case FUSE_POLL:
+      // We do not currently implement FUSE_POLL.
+      XLOG(DBG7, "FUSE_POLL");
+      replyError(header, ENOSYS);
+      break;
 
-      case FUSE_INTERRUPT: {
-        // no reply is required
-        XLOG(DBG7, "FUSE_INTERRUPT");
-        // Ignore it: we don't have a reliable way to guarantee
-        // that interrupting functions correctly.
-        // In addition, the kernel (certainly on macOS) may recycle
-        // ids too quickly for us to safely track by `unique` id.
-        break;
-      }
+    case FUSE_INTERRUPT:
+      // no reply is required
+      XLOG(DBG7, "FUSE_INTERRUPT");
+      // Ignore it: we don't have a reliable way to guarantee
+      // that interrupting functions correctly.
+      // In addition, the kernel (certainly on macOS) may recycle
+      // ids too quickly for us to safely track by `unique` id.
+      break;
 
-      case FUSE_DESTROY:
-        XLOG(DBG7, "FUSE_DESTROY");
-        dispatcher_->destroy();
-        // FUSE on linux doesn't care whether we reply to FUSE_DESTROY
-        // but the macOS implementation blocks the unmount syscall until
-        // we have responded, which in turn blocks our attempt to gracefully
-        // unmount, so we respond here.  It doesn't hurt Linux to respond
-        // so we do it for both platforms.
-        replyError(*header, 0);
-        break;
+    case FUSE_DESTROY:
+      XLOG(DBG7, "FUSE_DESTROY");
+      dispatcher_->destroy();
+      // FUSE on linux doesn't care whether we reply to FUSE_DESTROY
+      // but the macOS implementation blocks the unmount syscall until
+      // we have responded, which in turn blocks our attempt to gracefully
+      // unmount, so we respond here.  It doesn't hurt Linux to respond
+      // so we do it for both platforms.
+      replyError(header, 0);
+      break;
 
-      case FUSE_NOTIFY_REPLY:
-        XLOG(DBG7, "FUSE_NOTIFY_REPLY");
-        // Don't strictly need to do anything here, but may want to
-        // turn the kernel notifications in Futures and use this as
-        // a way to fulfil the promise
-        break;
+    case FUSE_NOTIFY_REPLY:
+      XLOG(DBG7, "FUSE_NOTIFY_REPLY");
+      // Don't strictly need to do anything here, but may want to
+      // turn the kernel notifications in Futures and use this as
+      // a way to fulfil the promise
+      break;
 
-      case FUSE_IOCTL:
-        // Rather than the default ENOSYS, we need to return ENOTTY
-        // to indicate that the requested ioctl is not supported
-        replyError(*header, ENOTTY);
-        break;
+    case FUSE_IOCTL:
+      // Rather than the default ENOSYS, we need to return ENOTTY
+      // to indicate that the requested ioctl is not supported
+      replyError(header, ENOTTY);
+      break;
 
-      default: {
-        if (handlerEntry && handlerEntry->handler) {
-          auto requestId = generateUniqueID();
-          if (handlerEntry->argRenderer &&
-              traceDetailedArguments_->load(std::memory_order_acquire)) {
-            traceBus_->publish(
-                FuseTraceEvent::start(
-                    requestId, *header, handlerEntry->argRenderer(arg)));
-          } else {
-            traceBus_->publish(FuseTraceEvent::start(requestId, *header));
-          }
-
-          // Acquire a RequestPermit before executing the FUSE request. This
-          // function will block if there are too many inflight requests. This
-          // needs to be captured in the ensure block to ensure the permit is
-          // only destroyed after the request has finished
-          auto requestPermit = acquireFsRequestPermit();
-
-          // This is a shared_ptr because, due to timeouts, the internal request
-          // lifetime may not match the FUSE request lifetime, so we capture it
-          // in both. I'm sure this could be improved with some cleverness.
-          auto request = std::make_shared<FuseRequestContext>(this, *header);
-
-          auto now = std::chrono::steady_clock::now();
-          auto should_log = false;
-          {
-            auto state = state_.wlock();
-            ++state->pendingRequests;
-
-            // TODO(helsel): Use the rate limiter to log when the maximum number
-            // of inflight requests are hit instead of keeping track of pending
-            // requests separately.
-            if (maximumInFlightRequests_ > 0 &&
-                state->pendingRequests == maximumInFlightRequests_ &&
-                now >= state->lastHighFuseRequestsLog_ +
-                        highFuseRequestsLogInterval_) {
-              should_log = true;
-              state->lastHighFuseRequestsLog_ = now;
-            }
-          }
-
-          if (should_log) {
-            this->structuredLogger_->logEvent(ManyLiveFsChannelRequests{});
-          }
-
-          auto headerCopy = *header;
-
-          FB_LOG(*straceLogger_, DBG7, ([&]() -> std::string {
-            std::string rendered;
-            if (handlerEntry->argRenderer) {
-              rendered = handlerEntry->argRenderer(arg);
-            }
-            return fmt::format(
-                "{}({}{}{})",
-                handlerEntry->getShortName(),
-                headerCopy.nodeid,
-                rendered.empty() ? "" : ", ",
-                rendered);
-          })());
-
-          request
-              ->catchErrors(
-                  folly::makeFutureWith([&] {
-                    request->startRequest(
-                        dispatcher_->getStats().copy(),
-                        handlerEntry->duration,
-                        *(liveRequestWatches_.get()));
-                    auto fut = (this->*handlerEntry->handler)(
-                        *request, request->getReq(), arg);
-                    if (fut.isReady()) {
-                      // In the case where the handler executed immediately,
-                      // let's avoid an expensive context switch by simply
-                      // extracting the value from the future.
-                      return folly::makeFuture<folly::Unit>(
-                          std::move(fut).get());
-                    } else {
-                      return std::move(fut).semi().via(threadPool_.get());
-                    }
-                  }).ensure([request] {
-                    }).within(requestTimeout_),
-                  notifier_.get(),
-                  dispatcher_->getStats().copy(),
-                  handlerEntry->countSuccessful,
-                  handlerEntry->countFailure)
-              .ensure([this,
-                       request,
-                       requestId,
-                       headerCopy,
-                       requestPermit = std::move(requestPermit)] {
-                traceBus_->publish(
-                    FuseTraceEvent::finish(
-                        requestId, headerCopy, request->getResult()));
-
-                // We may be complete; check to see if all requests are
-                // done and whether there are any threads remaining.
-                auto state = state_.wlock();
-                XCHECK_NE(state->pendingRequests, 0u)
-                    << "pendingRequests double decrement";
-                if (--state->pendingRequests == 0 &&
-                    state->stoppedThreads == numThreads_) {
-                  sessionComplete(std::move(state));
-                }
-
-                // The requestPermit will automatically release the permit when
-                // it's destroyed at the end of this lambda, so we don't need an
-                // explicit releasePermit() call
-              });
-          break;
+    default: {
+      if (handlerEntry && handlerEntry->handler) {
+        auto requestId = generateUniqueID();
+        if (handlerEntry->argRenderer &&
+            traceDetailedArguments_->load(std::memory_order_acquire)) {
+          traceBus_->publish(
+              FuseTraceEvent::start(
+                  requestId, header, handlerEntry->argRenderer(arg)));
+        } else {
+          traceBus_->publish(FuseTraceEvent::start(requestId, header));
         }
 
-        const auto opcode = header->opcode;
-        tryRlockCheckBeforeUpdate<folly::Unit>(
-            unhandledOpcodes_,
-            [&](const auto& unhandledOpcodes) -> std::optional<folly::Unit> {
-              if (unhandledOpcodes.find(opcode) != unhandledOpcodes.end()) {
-                return folly::unit;
+        // Acquire a RequestPermit before executing the FUSE request. This
+        // function will block if there are too many inflight requests. This
+        // needs to be captured in the ensure block to ensure the permit is
+        // only destroyed after the request has finished
+        auto requestPermit = acquireFsRequestPermit();
+
+        // This is a shared_ptr because, due to timeouts, the internal request
+        // lifetime may not match the FUSE request lifetime, so we capture it
+        // in both. I'm sure this could be improved with some cleverness.
+        auto request = std::make_shared<FuseRequestContext>(this, header);
+
+        auto now = std::chrono::steady_clock::now();
+        auto should_log = false;
+        {
+          auto state = state_.wlock();
+          ++state->pendingRequests;
+
+          // TODO(helsel): Use the rate limiter to log when the maximum number
+          // of inflight requests are hit instead of keeping track of pending
+          // requests separately.
+          if (maximumInFlightRequests_ > 0 &&
+              state->pendingRequests == maximumInFlightRequests_ &&
+              now >= state->lastHighFuseRequestsLog_ +
+                      highFuseRequestsLogInterval_) {
+            should_log = true;
+            state->lastHighFuseRequestsLog_ = now;
+          }
+        }
+
+        if (should_log) {
+          this->structuredLogger_->logEvent(ManyLiveFsChannelRequests{});
+        }
+
+        auto headerCopy = header;
+
+        FB_LOG(*straceLogger_, DBG7, ([&]() -> std::string {
+          std::string rendered;
+          if (handlerEntry->argRenderer) {
+            rendered = handlerEntry->argRenderer(arg);
+          }
+          return fmt::format(
+              "{}({}{}{})",
+              handlerEntry->getShortName(),
+              headerCopy.nodeid,
+              rendered.empty() ? "" : ", ",
+              rendered);
+        })());
+
+        request
+            ->catchErrors(
+                folly::makeFutureWith([&] {
+                  request->startRequest(
+                      dispatcher_->getStats().copy(),
+                      handlerEntry->duration,
+                      *(liveRequestWatches_.get()));
+                  auto fut = (this->*handlerEntry->handler)(
+                      *request, request->getReq(), arg);
+                  if (fut.isReady()) {
+                    // In the case where the handler executed immediately,
+                    // let's avoid an expensive context switch by simply
+                    // extracting the value from the future.
+                    return folly::makeFuture<folly::Unit>(std::move(fut).get());
+                  } else {
+                    return std::move(fut).semi().via(threadPool_.get());
+                  }
+                }).ensure([request] {
+                  }).within(requestTimeout_),
+                notifier_.get(),
+                dispatcher_->getStats().copy(),
+                handlerEntry->countSuccessful,
+                handlerEntry->countFailure)
+            .ensure([this,
+                     request,
+                     requestId,
+                     headerCopy,
+                     requestPermit = std::move(requestPermit)] {
+              traceBus_->publish(
+                  FuseTraceEvent::finish(
+                      requestId, headerCopy, request->getResult()));
+
+              // We may be complete; check to see if all requests are
+              // done and whether there are any threads remaining.
+              auto state = state_.wlock();
+              XCHECK_NE(state->pendingRequests, 0u)
+                  << "pendingRequests double decrement";
+              if (--state->pendingRequests == 0 &&
+                  state->stoppedThreads == numThreads_) {
+                sessionComplete(std::move(state));
               }
-              return std::nullopt;
-            },
-            [&](auto& unhandledOpcodes) -> folly::Unit {
-              XLOGF(
-                  WARN,
-                  "unhandled fuse opcode {}({})",
-                  opcode,
-                  fuseOpcodeName(opcode));
-              unhandledOpcodes->insert(opcode);
-              return folly::unit;
-            });
 
-        try {
-          replyError(*header, ENOSYS);
-        } catch (const std::system_error& exc) {
-          XLOGF(ERR, "Failed to write error response to fuse: {}", exc.what());
-          requestSessionExit(StopReason::FUSE_WRITE_ERROR);
-          return;
-        }
+              // The requestPermit will automatically release the permit when
+              // it's destroyed at the end of this lambda, so we don't need an
+              // explicit releasePermit() call
+            });
         break;
       }
+
+      const auto opcode = header.opcode;
+      tryRlockCheckBeforeUpdate<folly::Unit>(
+          unhandledOpcodes_,
+          [&](const auto& unhandledOpcodes) -> std::optional<folly::Unit> {
+            if (unhandledOpcodes.find(opcode) != unhandledOpcodes.end()) {
+              return folly::unit;
+            }
+            return std::nullopt;
+          },
+          [&](auto& unhandledOpcodes) -> folly::Unit {
+            XLOGF(
+                WARN,
+                "unhandled fuse opcode {}({})",
+                opcode,
+                fuseOpcodeName(opcode));
+            unhandledOpcodes->insert(opcode);
+            return folly::unit;
+          });
+
+      try {
+        replyError(header, ENOSYS);
+      } catch (const std::system_error& exc) {
+        XLOGF(ERR, "Failed to write error response to fuse: {}", exc.what());
+        requestSessionExit(StopReason::FUSE_WRITE_ERROR);
+        return;
+      }
+      break;
     }
   }
 }
