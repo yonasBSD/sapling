@@ -1759,6 +1759,10 @@ void FuseChannel::readInitPacket() {
 }
 
 void FuseChannel::processSession() {
+  processDevFuseSession();
+}
+
+void FuseChannel::processDevFuseSession() {
   std::vector<char> buf(bufferSize_);
   // Save this for the sanity check later in the loop to avoid
   // additional syscalls on each loop iteration.

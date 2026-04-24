@@ -865,6 +865,7 @@ class FuseChannel final : public FsChannel {
    * fuse worker threads provided by the MountPoint.
    */
   void processSession();
+  void processDevFuseSession();
   void dispatchRequest(
       const fuse_in_header& header,
       folly::ByteRange arg,
