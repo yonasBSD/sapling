@@ -93,7 +93,6 @@ rust_library(
         "pushredirect/schemas/**/*.sql",
     ]),
     autocargo = {"cargo_toml_dir": "pushredirect"},
-    named_deps = {"bincode": "fbsource//third-party/rust:bincode-2"},
     test_deps = [
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/fbinit:fbinit-tokio",
@@ -102,6 +101,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:bincode",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_derive",
         "//common/rust/shed/facet:facet",

@@ -5,10 +5,10 @@ oncall("scm_server_infra")
 rust_library(
     name = "filenodes",
     srcs = glob(["src/**/*.rs"]),
-    named_deps = {"bincode": "fbsource//third-party/rust:bincode-2"},
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:bincode",
         "fbsource//third-party/rust:quickcheck",
         "//common/rust/shed/facet:facet",
         "//common/rust/shed/quickcheck_arbitrary_derive:quickcheck_arbitrary_derive",

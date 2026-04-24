@@ -48,7 +48,6 @@ rust_library(
 rust_library(
     name = "blobstore",
     srcs = glob(["src/**/*.rs"]),
-    named_deps = {"bincode": "fbsource//third-party/rust:bincode-2"},
     test_deps = [
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/fbinit:fbinit-tokio",
@@ -58,6 +57,7 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:auto_impl",
+        "fbsource//third-party/rust:bincode",
         "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:either",
@@ -580,7 +580,6 @@ rust_library(
         "ephemeral_blobstore/schemas/**/*.sql",
     ]),
     autocargo = {"cargo_toml_dir": "ephemeral_blobstore"},
-    named_deps = {"bincode": "fbsource//third-party/rust:bincode-2"},
     test_deps = [
         "fbsource//third-party/rust:maplit",
         ":memblob",
@@ -596,6 +595,7 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-stream",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:bincode",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:futures",
