@@ -26,6 +26,21 @@ EDENFS_TARGETS = {
     "//eden/fs/service:edenfs_privhelper": "/usr/local/libexec/eden/edenfs_privhelper",
 }
 
+# Targets that have universal (x86_64 + arm64) binary variants for macOS.
+# Maps the default target to its universal binary target in //eden/fs:BUCK.
+# Python targets (edenfsctl PAR, edenfs_restarter, edenfs_config_manager) are
+# Intel-only and not included here.
+UNIVERSAL_BINARY_TARGETS = {
+    "//eden/fs/cli/trace:trace_stream": "//eden/fs:trace_stream_universal",
+    "//eden/fs/cli_rs/edenfsctl:edenfsctl": "//eden/fs:edenfsctl_universal",
+    "//eden/fs/config/facebook/config_manager_rs:edenfs_config_manager_rust": "//eden/fs:edenfs_config_manager_rust_universal",
+    "//eden/fs/facebook:eden-fb303-collector": "//eden/fs:eden-fb303-collector_universal",
+    "//eden/fs/inodes/fscatalog:eden_fsck": "//eden/fs:eden_fsck_universal",
+    "//eden/fs/monitor:edenfs_monitor": "//eden/fs:edenfs_monitor_universal",
+    "//eden/fs/service:edenfs": "//eden/fs:edenfs_universal",
+    "//eden/fs/service:edenfs_privhelper": "//eden/fs:edenfs_privhelper_universal",
+}
+
 SYMLINKS = {
     "/usr/local/bin/edenfsctl": "/usr/local/bin/eden",
 }
@@ -82,13 +97,24 @@ MAC_TARGETS = {
     "//eden/scm/exec/eden_apfs_mount_helper:eden_apfs_mount_helper": "/usr/local/libexec/eden/eden_apfs_mount_helper",
 }
 
+MAC_UNIVERSAL_BINARY_TARGETS = {
+    "//eden/scm/exec/eden_apfs_mount_helper:eden_apfs_mount_helper": "//eden/fs:eden_apfs_mount_helper_universal",
+}
+
 def make_rpm_features():
     features = []
     for target, install_path in EDENFS_TARGETS.items():
-        if target in TARGET_MODES:
-            features.append(rpm.install(src = "fbcode" + target, dst = install_path, mode = TARGET_MODES.get(target)))
+        if target in UNIVERSAL_BINARY_TARGETS:
+            src = select({
+                "DEFAULT": "fbcode" + target,
+                "ovr_config//os:macos": "fbcode" + UNIVERSAL_BINARY_TARGETS[target],
+            })
         else:
-            features.append(rpm.install(src = "fbcode" + target, dst = install_path))
+            src = "fbcode" + target
+        if target in TARGET_MODES:
+            features.append(rpm.install(src = src, dst = install_path, mode = TARGET_MODES.get(target)))
+        else:
+            features.append(rpm.install(src = src, dst = install_path))
         if install_path in SYMLINKS:
             features.append(rpm.file_symlink(link = SYMLINKS.get(install_path), target = install_path))
     for dir in DIRS:
@@ -114,10 +140,14 @@ def make_rpm_features():
     mac_features = []
 
     for target, install_path in MAC_TARGETS.items():
-        if target in TARGET_MODES:
-            mac_features.append(rpm.install(src = "fbcode" + target, dst = install_path, mode = TARGET_MODES.get(target)))
+        if target in MAC_UNIVERSAL_BINARY_TARGETS:
+            src = "fbcode" + MAC_UNIVERSAL_BINARY_TARGETS[target]
         else:
-            mac_features.append(rpm.install(src = "fbcode" + target, dst = install_path))
+            src = "fbcode" + target
+        if target in TARGET_MODES:
+            mac_features.append(rpm.install(src = src, dst = install_path, mode = TARGET_MODES.get(target)))
+        else:
+            mac_features.append(rpm.install(src = src, dst = install_path))
     for mac_feature in mac_features:
         features.append(
             select({
