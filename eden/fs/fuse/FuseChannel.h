@@ -869,6 +869,8 @@ class FuseChannel final : public FsChannel {
       const fuse_in_header& header,
       folly::ByteRange arg,
       pid_t myPid);
+  void replyErrorDevFuse(const fuse_in_header& request, int errorCode) const;
+  void sendRawReplyDevFuse(const iovec iov[], size_t count) const;
 
   /**
    * Requests that the worker threads terminate their processing loop.

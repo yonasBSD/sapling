@@ -766,6 +766,12 @@ FuseChannel::InvalidationEntry::
 }
 
 void FuseChannel::replyError(const fuse_in_header& request, int errorCode) {
+  replyErrorDevFuse(request, errorCode);
+}
+
+void FuseChannel::replyErrorDevFuse(
+    const fuse_in_header& request,
+    int errorCode) const {
   fuse_out_header err;
   err.len = sizeof(err);
   err.error = -errorCode;
@@ -830,6 +836,10 @@ void FuseChannel::sendReply(
 }
 
 void FuseChannel::sendRawReply(const iovec iov[], size_t count) const {
+  sendRawReplyDevFuse(iov, count);
+}
+
+void FuseChannel::sendRawReplyDevFuse(const iovec iov[], size_t count) const {
   // Ensure that the length is set correctly
   XDCHECK_EQ(iov[0].iov_len, sizeof(fuse_out_header));
   const auto header = reinterpret_cast<fuse_out_header*>(iov[0].iov_base);
