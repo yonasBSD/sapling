@@ -320,12 +320,6 @@ async fn try_fetching_repo_acl(
     }
 }
 
-#[cfg(fbcode_build)]
-fn make_full_acl_name_from_repo_name(repo_name: &str) -> String {
-    format!("repos/git/{}", repo_name)
-}
-
-#[cfg(fbcode_build)]
 fn make_top_level_acl_name_from_repo_name(repo_name: &str) -> String {
     let (top_level, _rest) = repo_name.split_once('/').unwrap_or((repo_name, ""));
     format!("repos/git/{}", top_level)
@@ -339,7 +333,7 @@ async fn validate_and_process_custom_acl(
     valid_oncall_names_cache: &mut HashSet<String>,
     valid_hipster_groups_cache: &mut HashSet<String>,
 ) -> Result<(), scs_errors::ServiceError> {
-    let acl_name = make_full_acl_name_from_repo_name(&repo_creation_request.repo_name);
+    let acl_name = make_top_level_acl_name_from_repo_name(&repo_creation_request.repo_name);
 
     if !is_valid_oncall_name(
         ctx.clone(),
@@ -605,7 +599,7 @@ fn make_quick_repo_definition(
         custom_storage_config: None,
         t_shirt_size: to_tshirt_size(request.size_bucket)?,
         sharding_config: QuickRepoDefinitionShardingConfig::BGM_ONLY_REGIONS,
-        custom_acl_name: None,
+        custom_acl_name: Some(make_top_level_acl_name_from_repo_name(&request.repo_name)),
         preloaded_commit_graph_blobstore_key: None,
         git_concurrency: None,
         enable_git_bundle_uri: None,
@@ -737,7 +731,7 @@ fn make_repo_spec(
     Ok(RepoSpec {
         repo_id: repo_id.id(),
         repo_name: request.repo_name.clone(),
-        hipster_acl: make_full_acl_name_from_repo_name(&request.repo_name),
+        hipster_acl: make_top_level_acl_name_from_repo_name(&request.repo_name),
         enabled: true,
         readonly: false,
         default_commit_identity_scheme: RawCommitIdentityScheme::GIT,
@@ -843,7 +837,7 @@ async fn prepare_repo_configs_mutation_nowait(
                         tiers: vec!["gitimport", "gitimport_content", "scs"],
                         is_deep_sharded: true,
                         t_shirt_size,
-                        hipster_acl: make_full_acl_name_from_repo_name(&request.repo_name),
+                        hipster_acl: make_top_level_acl_name_from_repo_name(&request.repo_name),
                         enable_git_bundle_uri: None,
                     },
                 ))
@@ -1488,9 +1482,83 @@ mod tests {
             spec.tier_overrides.is_none(),
             "New repos should have no tier overrides"
         );
-        assert!(
-            !spec.hipster_acl.is_empty(),
-            "hipster_acl should be derived from repo name"
+        assert_eq!(
+            spec.hipster_acl, "repos/git/org",
+            "hipster_acl should be the top-level namespace ACL, not the full repo name"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_repo_spec_uses_top_level_acl_for_aosp_repo() {
+        let repo_id = RepositoryId::new(18279);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "aosp/platform/vendor/meta/prebuilts/assets".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            ..Default::default()
+        };
+
+        let spec =
+            make_repo_spec(&(repo_id, request), None).expect("make_repo_spec should succeed");
+
+        assert_eq!(
+            spec.hipster_acl, "repos/git/aosp",
+            "AOSP repos must use the top-level `repos/git/aosp` ACL, not a non-existent full-path ACL"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_repo_spec_uses_full_name_when_no_slash() {
+        let repo_id = RepositoryId::new(99999);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "simple-repo".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            ..Default::default()
+        };
+
+        let spec =
+            make_repo_spec(&(repo_id, request), None).expect("make_repo_spec should succeed");
+
+        assert_eq!(
+            spec.hipster_acl, "repos/git/simple-repo",
+            "Repos without `/` should use the full name as the ACL"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_quick_repo_definition_sets_top_level_custom_acl_for_namespaced_repo() {
+        let repo_id = RepositoryId::new(18279);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "aosp/platform/vendor/meta/prebuilts/assets".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            ..Default::default()
+        };
+
+        let qrd = make_quick_repo_definition(&(repo_id, request))
+            .expect("make_quick_repo_definition should succeed");
+
+        assert_eq!(
+            qrd.custom_acl_name.as_deref(),
+            Some("repos/git/aosp"),
+            "QRD for AOSP repos must set custom_acl_name to the top-level `repos/git/aosp` ACL so the QRD processor doesn't fall through to the buggy default derivation"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_quick_repo_definition_sets_full_name_custom_acl_for_simple_repo() {
+        let repo_id = RepositoryId::new(99999);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "simple-repo".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            ..Default::default()
+        };
+
+        let qrd = make_quick_repo_definition(&(repo_id, request))
+            .expect("make_quick_repo_definition should succeed");
+
+        assert_eq!(
+            qrd.custom_acl_name.as_deref(),
+            Some("repos/git/simple-repo"),
+            "QRD for simple repos should set custom_acl_name to repos/git/<name>"
         );
     }
 }
