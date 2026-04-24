@@ -89,26 +89,24 @@ impl Hints {
         debug_assert!(default.id_map().is_none());
         let id_map = hints_list
             .iter()
-            .fold(Some(&default), |opt_a, b| {
-                opt_a.and_then(
-                    |a| match a.id_map_version().partial_cmp(&b.id_map_version()) {
-                        None => None, // Incompatible sets
-                        Some(cmp::Ordering::Equal) | Some(cmp::Ordering::Greater) => Some(a),
-                        Some(cmp::Ordering::Less) => Some(b),
-                    },
-                )
+            .try_fold(&default, |a, b| {
+                match a.id_map_version().partial_cmp(&b.id_map_version()) {
+                    None => None, // Incompatible sets
+                    Some(cmp::Ordering::Equal) | Some(cmp::Ordering::Greater) => Some(a),
+                    Some(cmp::Ordering::Less) => Some(*b),
+                }
             })
             .and_then(|a| a.id_map());
         // Find the dag that is compatible with all other dags.
         debug_assert!(default.dag().is_none());
         let dag = hints_list
             .iter()
-            .fold(Some(&default), |opt_a, b| {
-                opt_a.and_then(|a| match a.dag_version().partial_cmp(&b.dag_version()) {
+            .try_fold(&default, |a, b| {
+                match a.dag_version().partial_cmp(&b.dag_version()) {
                     None => None,
                     Some(cmp::Ordering::Equal) | Some(cmp::Ordering::Greater) => Some(a),
-                    Some(cmp::Ordering::Less) => Some(b),
-                })
+                    Some(cmp::Ordering::Less) => Some(*b),
+                }
             })
             .and_then(|a| a.dag());
         Self {
