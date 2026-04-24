@@ -359,9 +359,9 @@ fn read_to_py_object(py: Python, reader: &dyn clidispatch::io::Read) -> PyObject
 
 fn write_to_py_object(py: Python, writer: &dyn clidispatch::io::Write) -> PyObject {
     let any = writer.as_any();
-    if any.downcast_ref::<std::io::Stdout>().is_some() {
-        py.None()
-    } else if any.downcast_ref::<std::io::Stderr>().is_some() {
+    if any.downcast_ref::<std::io::Stdout>().is_some()
+        || any.downcast_ref::<std::io::Stderr>().is_some()
+    {
         py.None()
     } else if let Some(obj) = any.downcast_ref::<WrappedIO>() {
         obj.obj.clone_ref(py)

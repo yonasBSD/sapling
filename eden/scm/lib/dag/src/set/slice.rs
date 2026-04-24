@@ -363,9 +363,9 @@ impl AsyncSetQuery for SliceSet {
         let spans = inner.id_set_try_preserving_order()?;
         if self.skip_count == 0 && spans.count() <= self.take_count.unwrap_or(u64::MAX) {
             can_use_fast_path = true
-        } else if expected_flags.is_empty() {
-            can_use_fast_path = false;
-        } else if (inner.hints().flags() & sensitive_flags) != expected_flags {
+        } else if expected_flags.is_empty()
+            || (inner.hints().flags() & sensitive_flags) != expected_flags
+        {
             can_use_fast_path = false;
         }
         if can_use_fast_path {
