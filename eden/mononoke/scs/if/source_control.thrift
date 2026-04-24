@@ -1801,6 +1801,11 @@ struct CommitFindRestrictedPathsParams {
   /// Paths under which to find all restriction roots and the ACLs needed to access them.
   /// Pass empty set for the entire repository.
   1: set<Path> roots;
+  /// Determines if ACLs should be checked and the `has_access` field should be populated.
+  2: optional bool check_permissions;
+  /// Determines if the stream should be filtered to only restriction roots the caller can access.
+  /// This may trigger internal permission checks even when `check_permissions` is false.
+  3: optional bool return_only_accessible;
 }
 
 struct CommitRestrictedPathsChangesParams {}
@@ -2606,6 +2611,9 @@ struct CommitFindRestrictedPathsStreamItem {
   1: Path path;
   /// ACLs protecting this restriction root
   2: list<PathAcl> acls;
+  /// Whether the caller has authorization to access this restriction root.
+  /// Present only when permission checks were requested.
+  3: optional bool has_access;
 }
 
 struct CommitRestrictedPathsChangesResponse {
