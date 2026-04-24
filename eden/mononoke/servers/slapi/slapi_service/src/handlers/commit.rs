@@ -501,7 +501,7 @@ impl SaplingRemoteApiHandler for HashLookupHandler {
         let repo = ectx.repo();
         use CommitHashLookupRequest::*;
         Ok(stream::iter(request.batch)
-            .then(move |request| {
+            .map(move |request| {
                 let hg_repo_ctx = repo.clone();
                 async move {
                     let changesets = match request {
@@ -514,6 +514,7 @@ impl SaplingRemoteApiHandler for HashLookupHandler {
                     Ok(response)
                 }
             })
+            .buffered(MAX_CONCURRENT_FETCHES_PER_REQUEST)
             .boxed())
     }
 }
