@@ -187,8 +187,15 @@ def _send_sigkill(
         try:
             unit = _get_systemd_unit(instance)
             if _is_systemd_unit_active(unit):
-                subprocess.call(["systemctl", "--user", "kill", "--signal=KILL", unit])
-                subprocess.call(["systemctl", "--user", "stop", unit])
+                systemd_env = get_systemd_user_env()
+                subprocess.run(
+                    ["systemctl", "--user", "kill", "--signal=KILL", unit],
+                    env=systemd_env,
+                )
+                subprocess.run(
+                    ["systemctl", "--user", "stop", unit],
+                    env=systemd_env,
+                )
                 return
         except (RuntimeError, OSError) as ex:
             print_stderr(
@@ -412,7 +419,7 @@ def _is_systemd_unit_active(unit: str) -> bool:
     try:
         result = subprocess.run(
             ["systemctl", "--user", "is-active", "--quiet", unit],
-            check=False,
+            env=get_systemd_user_env(),
         )
         return result.returncode == 0
     except OSError:
@@ -423,8 +430,9 @@ def print_systemd_status_full(instance: "EdenInstance") -> None:
     """Print full systemctl status output for this instance's systemd unit."""
     try:
         unit = _get_systemd_unit(instance)
-        subprocess.call(
+        subprocess.run(
             ["systemctl", "--user", "status", "--no-pager", unit],
+            env=get_systemd_user_env(),
         )
     except (RuntimeError, OSError) as e:
         print_stderr(f"warning: failed to get status of edenfs service unit: {e}")
@@ -498,6 +506,7 @@ def _systemctl_start_or_reload(
         ["systemctl", "--user", action, unit],
         capture_output=True,
         text=True,
+        env=eden_env,
     )
     rc = result.returncode
 

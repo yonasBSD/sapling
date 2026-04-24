@@ -3209,7 +3209,11 @@ class StopCmd(Subcmd):
             print_stderr(f"warning: failed to stop aux processes: {e}")
 
         print(f"Stopping edenfs daemon (pid {pid}) via systemd...")
-        rc = subprocess.call(["systemctl", "--user", "stop", "--no-block", unit])
+        result = subprocess.run(
+            ["systemctl", "--user", "stop", "--no-block", unit],
+            env=daemon.get_systemd_user_env(),
+        )
+        rc = result.returncode
         if rc != 0:
             print_stderr(f"warning: systemctl stop failed with exit code {rc}")
 
