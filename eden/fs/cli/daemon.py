@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from eden.fs.cli.util import (
     EdensparseMigrationStep,
@@ -471,13 +471,32 @@ def _systemctl_start_or_reload(
     startup_log = instance.state_dir / daemon_util.SYSTEMD_STARTUP_LOG_FILENAME
     _rotate_startup_log(startup_log, keep=5)
 
-    rc = subprocess.call(["systemctl", "--user", action, unit])
+    start_time = time.time()
+    result = subprocess.run(
+        ["systemctl", "--user", action, unit],
+        capture_output=True,
+        text=True,
+    )
+    rc = result.returncode
 
     # Display the daemon's startup output captured by systemd (StandardOutput=file:).
+    # Only read if created after we invoked systemctl, to avoid showing stale content
+    # from a previous run if log rotation failed.
     try:
-        sys.stderr.write(startup_log.read_text())
+        if startup_log.exists() and startup_log.stat().st_mtime >= start_time:
+            sys.stderr.write(startup_log.read_text())
     except OSError as e:
         print_stderr(f"warning: failed to read startup log: {e}")
+    if rc != 0 and result.stderr:
+        print_stderr(result.stderr)
+    sample_kwargs: Dict[str, Union[bool, int, str]] = {
+        "action": action,
+        "success": rc == 0,
+        "exit_code": rc,
+    }
+    if result.stderr:
+        sample_kwargs["error"] = result.stderr
+    instance.log_sample("systemctl_action", **sample_kwargs)
     return rc
 
 
