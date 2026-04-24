@@ -3415,7 +3415,6 @@ mod tests {
             "scm/mononoke:pushrebase_dry_run_merge_resolution".to_string() => KnobVal::Bool(false),
             "scm/mononoke:pushrebase_enable_merge_resolution".to_string() => KnobVal::Bool(false),
             "scm/mononoke:pushrebase_merge_resolution_derive_fsnodes".to_string() => KnobVal::Bool(true),
-            "scm/mononoke:per_bookmark_locking".to_string() => KnobVal::Bool(false),
         }));
     }
 
