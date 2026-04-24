@@ -66,6 +66,9 @@ pub async fn make_bookmark_hook(
                 &params.config,
             )?,
         )),
+        "block_dewey_lfs_url_on_new_bookmark" => Some(b(
+            block_dewey_lfs_url::BlockDeweyLfsUrlOnNewBookmarkHook::new(),
+        )),
         "block_new_bookmark_creations_by_name" => Some(b(
             block_new_bookmark_creations_by_name::BlockNewBookmarkCreationsByNameHook::new(
                 &params.config,

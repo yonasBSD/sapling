@@ -15,6 +15,7 @@ use mononoke_types::ChangesetId;
 use mononoke_types::NonRootMPath;
 use repo_blobstore::RepoBlobstoreRef;
 
+use crate::BookmarkHook;
 use crate::ChangesetHook;
 use crate::CrossRepoPushSource;
 use crate::FileHook;
@@ -28,6 +29,33 @@ pub async fn test_changeset_hook(
     ctx: &CoreContext,
     repo: &impl HookRepoLike,
     hook: &impl ChangesetHook,
+    bookmark_name: &str,
+    cs_id: ChangesetId,
+    cross_repo_push_source: CrossRepoPushSource,
+    push_authored_by: PushAuthoredBy,
+) -> Result<HookExecution> {
+    let bcs = cs_id.load(ctx, repo.repo_blobstore()).await?;
+    let bookmark = BookmarkKey::new(bookmark_name)?;
+    let hook_repo = HookRepo::build_from(repo);
+    hook.run(
+        ctx,
+        &hook_repo,
+        &bookmark,
+        &bcs,
+        cross_repo_push_source,
+        push_authored_by,
+    )
+    .await
+}
+
+/// Test a bookmark hook
+///
+/// Runs the hook against a bookmark move to the given changeset and returns
+/// the outcome.
+pub async fn test_bookmark_hook(
+    ctx: &CoreContext,
+    repo: &impl HookRepoLike,
+    hook: &impl BookmarkHook,
     bookmark_name: &str,
     cs_id: ChangesetId,
     cross_repo_push_source: CrossRepoPushSource,

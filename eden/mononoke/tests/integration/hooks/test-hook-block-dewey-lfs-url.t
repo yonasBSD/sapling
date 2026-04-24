@@ -5,8 +5,9 @@
 # directory of this source tree.
 
   $ . "${TEST_FIXTURES}/library.sh"
-  $ hook_test_setup \
-  > block_dewey_lfs_url
+  $ HOOKBOOKMARK_REGEX=".*" hook_test_setup \
+  > block_dewey_lfs_url <(:) \
+  > block_dewey_lfs_url_on_new_bookmark
 
 Commit that does not touch .lfsconfig should pass
 
@@ -93,3 +94,56 @@ Commit with dewey-lfs URL in mixed case should also be rejected
   abort: unexpected EOL, expected netstring digit
   [255]
   $ hg hide -q .
+
+The block_dewey_lfs_url_on_new_bookmark hook (BookmarkHook) blocks creation
+of new bookmarks pointing to a changeset whose .lfsconfig sets lfs.url to
+the dewey-lfs host, even when the changeset itself does not modify
+.lfsconfig (i.e. it inherited the bad URL from an ancestor).
+
+Set up a chain of pre-existing changesets directly via testtool_drawdag.
+BadParent has a .lfsconfig with the dewey-lfs URL. CleanChild is its child
+that adds an unrelated file. An auxiliary publishing bookmark named
+staging points at CleanChild so both changesets are already reachable,
+preventing the per-changeset block_dewey_lfs_url hook from firing when
+the new bookmark is created.
+
+  $ testtool_drawdag -R repo --print-hg-hashes --no-default-files <<EOF
+  > BadParent-CleanChild
+  > # modify: BadParent ".lfsconfig" "[lfs]\n\turl = https://dewey-lfs.vip.facebook.com\n"
+  > # modify: CleanChild "regular_file" "content"
+  > # bookmark: CleanChild staging
+  > EOF
+  BadParent=* (glob)
+  CleanChild=* (glob)
+
+  $ hg pull -q -B staging
+
+Creating a new bookmark pointing to a changeset that inherits the bad
+.lfsconfig from an ancestor must be rejected by the BookmarkHook.
+
+  $ hg push -r $CleanChild --to feature_branch --create
+  pushing rev * to destination mono:repo bookmark feature_branch (glob)
+  searching for changes
+  no changes found
+  remote: Command failed
+  remote:   Error:
+  remote:     hooks failed:
+  remote:     block_dewey_lfs_url_on_new_bookmark for *: The .lfsconfig file sets lfs.url to "https://dewey-lfs.vip.facebook.com". The hardcoded dewey-lfs.vip.facebook.com URL must be removed as part of the Dewey LFS to Mononoke LFS migration tracked in S629462. Hardcoding an lfs.url for the internal LFS server is no longer required at Meta. Please remove the lfs.url setting from .lfsconfig. (glob)
+  abort: unexpected EOL, expected netstring digit
+  [255]
+
+Creating a new bookmark pointing to a clean changeset must succeed.
+
+  $ testtool_drawdag -R repo --print-hg-hashes --no-default-files <<EOF
+  > GoodCommit
+  > # modify: GoodCommit "good_file" "content"
+  > # bookmark: GoodCommit staging_clean
+  > EOF
+  GoodCommit=* (glob)
+
+  $ hg pull -q -B staging_clean
+  $ hg push -r $GoodCommit --to clean_feature_branch --create
+  pushing rev * to destination mono:repo bookmark clean_feature_branch (glob)
+  searching for changes
+  no changes found
+  exporting bookmark clean_feature_branch

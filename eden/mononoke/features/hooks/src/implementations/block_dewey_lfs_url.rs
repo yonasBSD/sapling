@@ -13,9 +13,11 @@ use async_trait::async_trait;
 use bookmarks::BookmarkKey;
 use context::CoreContext;
 use mononoke_types::BonsaiChangeset;
+use mononoke_types::ChangesetId;
 use mononoke_types::MPathElement;
 use mononoke_types::NonRootMPath;
 
+use crate::BookmarkHook;
 use crate::ChangesetHook;
 use crate::CrossRepoPushSource;
 use crate::HookExecution;
@@ -35,6 +37,74 @@ impl BlockDeweyLfsUrlHook {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct BlockDeweyLfsUrlOnNewBookmarkHook {}
+
+impl BlockDeweyLfsUrlOnNewBookmarkHook {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+fn lfsconfig_path() -> Result<NonRootMPath> {
+    Ok(MPathElement::new_from_slice(b".lfsconfig")?.into())
+}
+
+/// Fetch and parse `.lfsconfig` at `cs_id`. Returns `Rejected` if the file
+/// exists, parses, and sets `lfs.url` to the blocked dewey-lfs host.
+/// Returns `Accepted` in all other cases (file missing, malformed,
+/// no `lfs.url` key, or URL pointing somewhere else).
+async fn check_lfsconfig_for_dewey_url(
+    ctx: &CoreContext,
+    hook_repo: &HookRepo,
+    cs_id: ChangesetId,
+) -> Result<HookExecution, Error> {
+    let path = lfsconfig_path()?;
+
+    let content_map: HashMap<NonRootMPath, PathContent> = hook_repo
+        .find_content_by_changeset_id(ctx, cs_id, vec![path.clone()])
+        .await?;
+
+    let content_id = match content_map.get(&path) {
+        Some(PathContent::File(id)) => *id,
+        _ => return Ok(HookExecution::Accepted),
+    };
+
+    let file_bytes = match hook_repo.get_file_text(ctx, content_id).await? {
+        Some(bytes) => bytes,
+        None => return Ok(HookExecution::Accepted),
+    };
+
+    let config = match gix_config::File::from_bytes_no_includes(
+        &file_bytes,
+        gix_config::file::Metadata::from(gix_config::Source::Local),
+        gix_config::file::init::Options::default(),
+    ) {
+        Ok(config) => config,
+        Err(_) => return Ok(HookExecution::Accepted),
+    };
+
+    if let Ok(url) = config.raw_value("lfs.url") {
+        let url_str = String::from_utf8_lossy(url.as_ref());
+        let lower = url_str.to_ascii_lowercase();
+        if lower.contains(BLOCKED_HOST) {
+            return Ok(HookExecution::Rejected(HookRejectionInfo::new_long(
+                "The .lfsconfig file must not set lfs.url to dewey-lfs.vip.facebook.com.",
+                format!(
+                    "The .lfsconfig file sets lfs.url to \"{}\". \
+                     The hardcoded dewey-lfs.vip.facebook.com URL must be removed as part of \
+                     the Dewey LFS to Mononoke LFS migration tracked in S629462. \
+                     Hardcoding an lfs.url for the internal LFS server is no longer required at Meta. \
+                     Please remove the lfs.url setting from .lfsconfig.",
+                    url_str,
+                ),
+            )));
+        }
+    }
+
+    Ok(HookExecution::Accepted)
+}
+
 #[async_trait]
 impl ChangesetHook for BlockDeweyLfsUrlHook {
     async fn run<'this: 'cs, 'ctx: 'this, 'cs, 'repo: 'cs>(
@@ -46,64 +116,35 @@ impl ChangesetHook for BlockDeweyLfsUrlHook {
         _cross_repo_push_source: CrossRepoPushSource,
         _push_authored_by: PushAuthoredBy,
     ) -> Result<HookExecution, Error> {
-        let lfsconfig_path: NonRootMPath = MPathElement::new_from_slice(b".lfsconfig")?.into();
+        let path = lfsconfig_path()?;
 
-        // Check if this changeset touches .lfsconfig
-        let touches_lfsconfig = changeset
-            .file_changes()
-            .any(|(path, _)| *path == lfsconfig_path);
+        let touches_lfsconfig = changeset.file_changes().any(|(p, _)| *p == path);
 
         if !touches_lfsconfig {
             return Ok(HookExecution::Accepted);
         }
 
-        // Fetch the .lfsconfig content at this changeset
-        let content_map: HashMap<NonRootMPath, PathContent> = hook_repo
-            .find_content_by_changeset_id(
-                ctx,
-                changeset.get_changeset_id(),
-                vec![lfsconfig_path.clone()],
-            )
-            .await?;
+        check_lfsconfig_for_dewey_url(ctx, hook_repo, changeset.get_changeset_id()).await
+    }
+}
 
-        let content_id = match content_map.get(&lfsconfig_path) {
-            Some(PathContent::File(id)) => *id,
-            _ => return Ok(HookExecution::Accepted),
-        };
-
-        let file_bytes = match hook_repo.get_file_text(ctx, content_id).await? {
-            Some(bytes) => bytes,
-            None => return Ok(HookExecution::Accepted),
-        };
-
-        let config = match gix_config::File::from_bytes_no_includes(
-            &file_bytes,
-            gix_config::file::Metadata::from(gix_config::Source::Local),
-            gix_config::file::init::Options::default(),
-        ) {
-            Ok(config) => config,
-            Err(_) => return Ok(HookExecution::Accepted),
-        };
-
-        if let Ok(url) = config.raw_value("lfs.url") {
-            let url_str = String::from_utf8_lossy(url.as_ref());
-            let lower = url_str.to_ascii_lowercase();
-            if lower.contains(BLOCKED_HOST) {
-                return Ok(HookExecution::Rejected(HookRejectionInfo::new_long(
-                    "The .lfsconfig file must not set lfs.url to dewey-lfs.vip.facebook.com.",
-                    format!(
-                        "The .lfsconfig file sets lfs.url to \"{}\". \
-                         The hardcoded dewey-lfs.vip.facebook.com URL must be removed as part of \
-                         the Dewey LFS to Mononoke LFS migration tracked in S629462. \
-                         Hardcoding an lfs.url for the internal LFS server is no longer required at Meta. \
-                         Please remove the lfs.url setting from .lfsconfig.",
-                        url_str,
-                    ),
-                )));
-            }
+#[async_trait]
+impl BookmarkHook for BlockDeweyLfsUrlOnNewBookmarkHook {
+    async fn run<'this: 'cs, 'ctx: 'this, 'cs, 'repo: 'cs>(
+        &'this self,
+        ctx: &'ctx CoreContext,
+        hook_repo: &'repo HookRepo,
+        bookmark: &BookmarkKey,
+        to: &'cs BonsaiChangeset,
+        _cross_repo_push_source: CrossRepoPushSource,
+        _push_authored_by: PushAuthoredBy,
+    ) -> Result<HookExecution, Error> {
+        let bookmark_state = hook_repo.get_bookmark_state(ctx, bookmark).await?;
+        if !bookmark_state.is_new() {
+            return Ok(HookExecution::Accepted);
         }
 
-        Ok(HookExecution::Accepted)
+        check_lfsconfig_for_dewey_url(ctx, hook_repo, to.get_changeset_id()).await
     }
 }
 
@@ -117,6 +158,7 @@ mod tests {
     use tests_utils::drawdag::create_from_dag_with_changes;
 
     use super::*;
+    use crate::testlib::test_bookmark_hook;
     use crate::testlib::test_changeset_hook;
 
     #[mononoke::fbinit_test]
@@ -456,6 +498,165 @@ mod tests {
             .await?,
             HookExecution::Accepted,
         );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_bookmark_hook_rejects_new_bookmark_to_dewey(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: HookTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let changesets = create_from_dag_with_changes(
+            &ctx,
+            &repo,
+            r##"
+                Z-A
+            "##,
+            changes! {
+                "A" => |c| c.add_file(
+                    ".lfsconfig",
+                    "[lfs]\n\turl = https://dewey-lfs.vip.facebook.com\n",
+                ),
+            },
+        )
+        .await?;
+        bookmark(&ctx, &repo, "main")
+            .create_publishing(changesets["Z"])
+            .await?;
+
+        let hook = BlockDeweyLfsUrlOnNewBookmarkHook::new();
+        let result = test_bookmark_hook(
+            &ctx,
+            &repo,
+            &hook,
+            "new_branch",
+            changesets["A"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(matches!(result, HookExecution::Rejected(_)));
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_bookmark_hook_accepts_new_bookmark_with_clean_lfsconfig(
+        fb: FacebookInit,
+    ) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: HookTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let changesets = create_from_dag_with_changes(
+            &ctx,
+            &repo,
+            r##"
+                Z-A
+            "##,
+            changes! {
+                "A" => |c| c.add_file(".lfsconfig", "[lfs]\n\turl = https://lfs.example.com\n"),
+            },
+        )
+        .await?;
+        bookmark(&ctx, &repo, "main")
+            .create_publishing(changesets["Z"])
+            .await?;
+
+        let hook = BlockDeweyLfsUrlOnNewBookmarkHook::new();
+        assert_eq!(
+            test_bookmark_hook(
+                &ctx,
+                &repo,
+                &hook,
+                "new_branch",
+                changesets["A"],
+                CrossRepoPushSource::NativeToThisRepo,
+                PushAuthoredBy::User,
+            )
+            .await?,
+            HookExecution::Accepted,
+        );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_bookmark_hook_accepts_existing_bookmark_move(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: HookTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let changesets = create_from_dag_with_changes(
+            &ctx,
+            &repo,
+            r##"
+                Z-A
+            "##,
+            changes! {
+                "A" => |c| c.add_file(
+                    ".lfsconfig",
+                    "[lfs]\n\turl = https://dewey-lfs.vip.facebook.com\n",
+                ),
+            },
+        )
+        .await?;
+        // "main" is an existing bookmark. The bookmark hook only blocks NEW
+        // bookmarks; existing bookmark moves rely on the per-changeset hook.
+        bookmark(&ctx, &repo, "main")
+            .create_publishing(changesets["Z"])
+            .await?;
+
+        let hook = BlockDeweyLfsUrlOnNewBookmarkHook::new();
+        assert_eq!(
+            test_bookmark_hook(
+                &ctx,
+                &repo,
+                &hook,
+                "main",
+                changesets["A"],
+                CrossRepoPushSource::NativeToThisRepo,
+                PushAuthoredBy::User,
+            )
+            .await?,
+            HookExecution::Accepted,
+        );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_bookmark_hook_rejects_when_lfsconfig_inherited(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: HookTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        // Z adds the bad .lfsconfig; A inherits it without modifying it.
+        let changesets = create_from_dag_with_changes(
+            &ctx,
+            &repo,
+            r##"
+                Z-A
+            "##,
+            changes! {
+                "Z" => |c| c.add_file(
+                    ".lfsconfig",
+                    "[lfs]\n\turl = https://dewey-lfs.vip.facebook.com\n",
+                ),
+                "A" => |c| c.add_file("some_file.txt", "hello"),
+            },
+        )
+        .await?;
+        bookmark(&ctx, &repo, "main")
+            .create_publishing(changesets["Z"])
+            .await?;
+
+        let hook = BlockDeweyLfsUrlOnNewBookmarkHook::new();
+        let result = test_bookmark_hook(
+            &ctx,
+            &repo,
+            &hook,
+            "new_branch",
+            changesets["A"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(matches!(result, HookExecution::Rejected(_)));
         Ok(())
     }
 }
