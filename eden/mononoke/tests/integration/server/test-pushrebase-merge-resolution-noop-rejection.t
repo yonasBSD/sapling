@@ -4,19 +4,17 @@
 # GNU General Public License found in the LICENSE file in the root
 # directory of this source tree.
 
-# Demonstrates the no-op merge commit bug: when a client pushes a commit
-# whose file content is identical to what already exists in trunk for a
-# conflicting path, merge resolution trivially succeeds (local == other)
-# and the commit lands as a no-op instead of being rejected.
+# Verify that pushrebase rejects pushes whose every file_change becomes a
+# no-op due to merge resolution.
 #
-# Pre-merge-resolution this push would have been rejected as a path
-# conflict. With merge resolution enabled it silently lands an empty
-# commit.
+# Bug: with merge resolution enabled, a client commit whose file content is
+# identical to what already exists in trunk for a conflicting path
+# (`local_content_id == other_id`) was being landed as a no-op commit
+# instead of being rejected as a path conflict.
 #
-# FIXME: The assertions below describe the current BUGGY behavior — the
-# duplicate-content push succeeds and a no-op commit lands. The follow-up
-# diff (D-TBD) adds detection + a JustKnob-gated rejection that restores
-# the pre-merge-resolution behavior, and flips these assertions.
+# Fix: when `pushrebase_reject_noop_merge_commits` is enabled, detect this
+# case and reject the entire stack with a Conflicts error matching the
+# pre-merge-resolution behavior.
 
   $ . "${TEST_FIXTURES}/library.sh"
   $ setconfig push.edenapi=true
@@ -25,7 +23,8 @@
   > {
   >   "bools": {
   >     "scm/mononoke:pushrebase_enable_merge_resolution": true,
-  >     "scm/mononoke:pushrebase_merge_resolution_derive_fsnodes": true
+  >     "scm/mononoke:pushrebase_merge_resolution_derive_fsnodes": true,
+  >     "scm/mononoke:pushrebase_reject_noop_merge_commits": true
   >   },
   >   "ints": {
   >     "scm/mononoke:pushrebase_max_merge_conflicts": 10,
@@ -60,8 +59,8 @@ Server-side commit: replace line 2 with SHARED_EDIT
   $ hg ci -m "server: edit line 2"
   $ hg push -r . --to master_bookmark -q
 
-Client commit (from pre-server base): IDENTICAL edit to line 2
-This is the bug trigger: client and server both wrote the same content.
+Client commit (from pre-server base): IDENTICAL edit to line 2.
+This triggers the bug: client and server both wrote the same content.
   $ hg up -q .~1
   $ cat > shared.txt << 'EOF'
   > line1
@@ -70,12 +69,8 @@ This is the bug trigger: client and server both wrote the same content.
   > EOF
   $ hg ci -m "client: identical edit to line 2"
 
-# FIXME: With the fix in place, this push will be REJECTED with
-# `abort: Server error: Conflicts while pushrebasing: [PushrebaseConflict ...]`
-# matching the pre-merge-resolution behavior. The current buggy behavior is
-# that the push succeeds and a no-op commit lands. Note the "0 trees for
-# upload" and "0 files updated" lines below — concrete evidence that the
-# rebased commit produces no real change.
+Pushrebase should be REJECTED with a Conflicts error naming shared.txt,
+matching the pre-merge-resolution behavior.
   $ hg push -r . --to master_bookmark
   pushing rev * to destination https://localhost:$LOCAL_PORT/edenapi/ bookmark master_bookmark (glob)
   edenapi: queue 1 commit for upload
@@ -83,20 +78,10 @@ This is the bug trigger: client and server both wrote the same content.
   edenapi: queue 0 trees for upload
   edenapi: uploaded * (glob)
   pushrebasing stack (*, *] (1 commit) to remote bookmark master_bookmark (glob)
-  0 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  updated remote bookmark master_bookmark to * (glob)
+  abort: Server error: Conflicts while pushrebasing: [PushrebaseConflict { left: MPath("shared.txt"), right: MPath("shared.txt") }]
+  [255]
 
-# FIXME: After the fix, master_bookmark stays at "server: edit line 2"
-# because the client's duplicate-content push is rejected. Currently
-# master_bookmark advances to the no-op client commit.
-  $ hg up -q master_bookmark
+Confirm master_bookmark did NOT advance — the duplicate-content push was rejected.
+  $ hg pull -q
   $ hg log -r master_bookmark -T '{desc}\n'
-  client: identical edit to line 2
-
-The file content is unchanged from the server's edit (since the client wrote
-identical content). This is what makes it a no-op commit — the rebased
-changeset writes content that already matches its parent.
-  $ cat shared.txt
-  line1
-  SHARED_EDIT
-  line3
+  server: edit line 2

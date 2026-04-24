@@ -137,6 +137,8 @@ define_stats! {
     conflict_rejections: dynamic_timeseries("{}.conflict_rejections", (reponame: String); Count),
     conflict_files_count: dynamic_timeseries("{}.conflict_files_count", (reponame: String); Average, Sum, Count),
     merge_resolution_lost_on_retry: dynamic_timeseries("{}.merge_resolution_lost_on_retry", (reponame: String); Count),
+    noop_merge_commits_detected: dynamic_timeseries("{}.noop_merge_commits_detected", (reponame: String); Count),
+    noop_merge_commits_rejected: dynamic_timeseries("{}.noop_merge_commits_rejected", (reponame: String); Count),
 }
 
 const MAX_REBASE_ATTEMPTS: usize = 100;
@@ -2824,11 +2826,15 @@ async fn create_rebased_changesets(
 
     let mut remapping = hashmap! { root => (onto, Timestamp::now()) };
     let mut rebased = Vec::new();
+    // Tracks commits whose every file_change resolved to a duplicate of trunk
+    // content via merge resolution — these would land as no-op commits.
+    let mut noop_commits: Vec<(ChangesetId, Vec<NonRootMPath>)> = Vec::new();
     for bcs_old in rebased_set {
         let id_old = bcs_old.get_changeset_id();
 
         // Compute per-commit merge overrides via cascading merge.
         let mut overrides_for_this: Vec<(NonRootMPath, FileChange)> = Vec::new();
+        let mut duplicate_paths: HashSet<NonRootMPath> = HashSet::new();
         for (path, fc) in bcs_old.file_changes_map() {
             if !merge_paths.contains(path) {
                 continue;
@@ -2851,6 +2857,17 @@ async fn create_rebased_changesets(
             // If the new parent has the same content as the old parent,
             // there's nothing to merge — just update tracking.
             if base_id == other_id {
+                old_parent_content.insert(path.clone(), local_content_id);
+                new_parent_content.insert(path.clone(), local_content_id);
+                continue;
+            }
+
+            // Client wrote identical content to what's already on the server.
+            // After rebase, this file_change becomes a no-op (its content
+            // matches the new parent's content at this path). Skip the merge
+            // entirely and record the path so we can classify the commit.
+            if local_content_id == other_id {
+                duplicate_paths.insert(path.clone());
                 old_parent_content.insert(path.clone(), local_content_id);
                 new_parent_content.insert(path.clone(), local_content_id);
                 continue;
@@ -2909,6 +2926,18 @@ async fn create_rebased_changesets(
             }
         }
 
+        // Classify the commit: if every file_change it touches was a duplicate
+        // of trunk content, the rebased commit will land as a no-op. Track for
+        // post-loop logging + optional rejection.
+        let real_change_count = bcs_old
+            .file_changes_map()
+            .keys()
+            .filter(|p| !duplicate_paths.contains(*p))
+            .count();
+        if real_change_count == 0 && !duplicate_paths.is_empty() {
+            noop_commits.push((id_old, duplicate_paths.iter().cloned().collect()));
+        }
+
         let overrides_ref = if overrides_for_this.is_empty() {
             None
         } else {
@@ -2931,6 +2960,48 @@ async fn create_rebased_changesets(
         let timestamp = Timestamp::from(*bcs_new.author_date());
         remapping.insert(id_old, (bcs_new.get_changeset_id(), timestamp));
         rebased.push(bcs_new);
+    }
+
+    // Post-loop: if any commits became no-ops due to merge resolution, log
+    // them to Scuba/ODS and (when JK enabled) reject the entire stack with
+    // a Conflicts error matching the pre-merge-resolution behavior.
+    if !noop_commits.is_empty() {
+        let repo_name = repo.repo_identity().name();
+        let repo_args = (repo_name.to_string(),);
+
+        let reject_noop = justknobs::eval(
+            "scm/mononoke:pushrebase_reject_noop_merge_commits",
+            None,
+            Some(repo_name),
+        )?;
+        let enforcement = if reject_noop { "rejected" } else { "logged" };
+
+        for (cs_id, paths) in &noop_commits {
+            STATS::noop_merge_commits_detected.add_value(1, repo_args.clone());
+
+            let path_strs: Vec<String> = paths.iter().take(10).map(|p| p.to_string()).collect();
+            ctx.scuba()
+                .clone()
+                .add("repo_name", repo_name)
+                .add("noop_changeset_id", cs_id.to_string())
+                .add("noop_duplicate_paths", path_strs.join(", "))
+                .add("noop_duplicate_path_count", paths.len() as i64)
+                .add("noop_enforcement_action", enforcement)
+                .log_with_msg("Pushrebase no-op merge commit detected", None);
+        }
+
+        if reject_noop {
+            STATS::noop_merge_commits_rejected.add_value(noop_commits.len() as i64, repo_args);
+            let conflicts: Vec<PushrebaseConflict> = noop_commits
+                .into_iter()
+                .flat_map(|(_, paths)| paths)
+                .map(|p| PushrebaseConflict {
+                    left: MPath::from(p.clone()),
+                    right: MPath::from(p),
+                })
+                .collect();
+            return Err(PushrebaseError::Conflicts(conflicts));
+        }
     }
 
     Ok((
@@ -6871,6 +6942,429 @@ line 5.1
             "should have client's change"
         );
 
+        Ok(())
+    }
+
+    fn init_just_knobs_for_noop_rejection_test(reject: bool) {
+        override_just_knobs(JustKnobsInMemory::new(hashmap! {
+            "scm/mononoke:pushrebase_dry_run_merge_resolution".to_string() => KnobVal::Bool(false),
+            "scm/mononoke:pushrebase_enable_merge_resolution".to_string() => KnobVal::Bool(true),
+            "scm/mononoke:pushrebase_merge_resolution_derive_fsnodes".to_string() => KnobVal::Bool(true),
+            "scm/mononoke:pushrebase_reject_noop_merge_commits".to_string() => KnobVal::Bool(reject),
+        }));
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_noop_merge_detected_only_when_jk_off(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // JK off: client wrote identical content to server. The commit should
+        // still land as a no-op (current Phase 1 dry-run behavior). Detection
+        // is logged but no rejection happens.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", "line1\nline2\nline3\n")
+            .commit()
+            .await?;
+
+        let shared_content = "line1\nSHARED_EDIT\nline3\n";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", shared_content)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server)).await?;
+
+        // Client wrote IDENTICAL content (same `shared_content`) — duplicate change.
+        let client = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", shared_content)
+            .commit()
+            .await?;
+        let client_bcs = client.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_noop_rejection_test(false);
+
+        // Should succeed (JK off → detection only, no rejection).
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![client_bcs],
+            &[],
+        )
+        .await?;
+
+        assert!(result.rebased_changesets.len() == 1, "one commit rebased");
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_noop_merge_rejected_single_file(fb: FacebookInit) -> Result<(), Error> {
+        // JK on: single-file duplicate-content commit → rejected with Conflicts
+        // on that path, matching pre-merge-resolution behavior.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", "line1\nline2\nline3\n")
+            .commit()
+            .await?;
+
+        let shared_content = "line1\nSHARED_EDIT\nline3\n";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", shared_content)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server)).await?;
+
+        let client = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", shared_content)
+            .commit()
+            .await?;
+        let client_bcs = client.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_noop_rejection_test(true);
+
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![client_bcs],
+            &[],
+        )
+        .await;
+
+        match result {
+            Err(PushrebaseError::Conflicts(conflicts)) => {
+                assert_eq!(
+                    conflicts.len(),
+                    1,
+                    "Should report one conflict for the single duplicate path"
+                );
+                let path_str = format!("{}", conflicts[0].left);
+                assert_eq!(
+                    path_str, "file.txt",
+                    "Conflict should name the duplicate file"
+                );
+            }
+            other => panic!("Expected Conflicts error, got: {:?}", other),
+        }
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_noop_merge_mixed_commit_lands(fb: FacebookInit) -> Result<(), Error> {
+        // NEGATIVE test: commit has both a duplicate-content file AND a
+        // non-conflicting real change. The commit has a real net change so
+        // it must NOT be flagged as no-op — should land normally.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        // Base has only the file that will conflict
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("dup.txt", "line1\nline2\nline3\n")
+            .commit()
+            .await?;
+
+        let shared_content = "line1\nSHARED_EDIT\nline3\n";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("dup.txt", shared_content)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server)).await?;
+
+        // Client: duplicate edit to dup.txt + real new file `new.txt`
+        let client = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("dup.txt", shared_content)
+            .add_file("new.txt", "brand new content\n")
+            .commit()
+            .await?;
+        let client_bcs = client.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_noop_rejection_test(true);
+
+        // Should succeed despite the duplicate file_change because new.txt
+        // is a real change.
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![client_bcs],
+            &[],
+        )
+        .await?;
+
+        assert_eq!(
+            result.rebased_changesets.len(),
+            1,
+            "One commit should be rebased — mixed commit must not be rejected"
+        );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_noop_merge_in_stack_rejects_entire_stack(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // JK on: 2-commit stack where the FIRST commit becomes a no-op (its
+        // only file_change is a duplicate). The entire stack should be
+        // rejected, not just the no-op commit.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("dup.txt", "line1\nline2\nline3\n")
+            .commit()
+            .await?;
+
+        let shared_content = "line1\nSHARED_EDIT\nline3\n";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("dup.txt", shared_content)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server)).await?;
+
+        // Client commit 1: duplicate edit to dup.txt only — would become no-op
+        let c1 = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("dup.txt", shared_content)
+            .commit()
+            .await?;
+        // Client commit 2 (HEAD): real change to a different file
+        let c2 = CreateCommitContext::new(&ctx, &repo, vec![c1])
+            .add_file("other.txt", "real content\n")
+            .commit()
+            .await?;
+        let c1_bcs = c1.load(&ctx, repo.repo_blobstore()).await?;
+        let c2_bcs = c2.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_noop_rejection_test(true);
+
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![c1_bcs, c2_bcs],
+            &[],
+        )
+        .await;
+
+        match result {
+            Err(PushrebaseError::Conflicts(conflicts)) => {
+                let path_strs: HashSet<String> =
+                    conflicts.iter().map(|c| format!("{}", c.left)).collect();
+                assert!(
+                    path_strs.contains("dup.txt"),
+                    "Conflicts should include dup.txt from the no-op c1"
+                );
+            }
+            other => panic!(
+                "Expected Conflicts error rejecting the entire stack, got: {:?}",
+                other
+            ),
+        }
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_noop_merge_rejected_all_files_duplicate(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // JK on: client commit touches two files (A and B); server made the
+        // identical edits to both. Every file_change is a duplicate, so the
+        // commit becomes a no-op and must be rejected with conflicts on both
+        // paths.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("a.txt", "line1\nline2\nline3\n")
+            .add_file("b.txt", "alpha\nbeta\ngamma\n")
+            .commit()
+            .await?;
+
+        let shared_a = "line1\nA_EDIT\nline3\n";
+        let shared_b = "alpha\nB_EDIT\ngamma\n";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("a.txt", shared_a)
+            .add_file("b.txt", shared_b)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server)).await?;
+
+        // Client wrote IDENTICAL content to both files.
+        let client = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("a.txt", shared_a)
+            .add_file("b.txt", shared_b)
+            .commit()
+            .await?;
+        let client_bcs = client.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_noop_rejection_test(true);
+
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![client_bcs],
+            &[],
+        )
+        .await;
+
+        match result {
+            Err(PushrebaseError::Conflicts(conflicts)) => {
+                let path_strs: HashSet<String> =
+                    conflicts.iter().map(|c| format!("{}", c.left)).collect();
+                assert!(
+                    path_strs.contains("a.txt") && path_strs.contains("b.txt"),
+                    "Conflicts must include both duplicate paths, got: {:?}",
+                    path_strs
+                );
+            }
+            other => panic!("Expected Conflicts error, got: {:?}", other),
+        }
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_noop_merge_genuine_merge_not_flagged(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // NEGATIVE test: client and server edited DIFFERENT lines of the same
+        // file. local_content_id != other_id, so our new check is not
+        // triggered. Cascading merge resolves cleanly, override ≠ other, the
+        // commit makes a real net change, and is not classified as no-op even
+        // when the JK is on.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", "line1\nline2\nline3\n")
+            .commit()
+            .await?;
+
+        // Server edits line 3 only.
+        let server_content = "line1\nline2\nSERVER_EDIT\n";
+        let server = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", server_content)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server = repo.derive_hg_changeset(&ctx, server).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server)).await?;
+
+        // Client edits line 1 only — non-overlapping with server.
+        let client_content = "CLIENT_EDIT\nline2\nline3\n";
+        let client = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", client_content)
+            .commit()
+            .await?;
+        let client_bcs = client.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_noop_rejection_test(true);
+
+        // Should succeed — genuine 3-way merge, no duplicate content detected.
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![client_bcs],
+            &[],
+        )
+        .await?;
+
+        assert_eq!(
+            result.rebased_changesets.len(),
+            1,
+            "Genuine merge must land — no duplicate paths detected"
+        );
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn pushrebase_noop_merge_local_equals_base_not_flagged(
+        fb: FacebookInit,
+    ) -> Result<(), Error> {
+        // NEGATIVE test: server edited file.txt away from base then edited it
+        // BACK to the original base content. So path is in merge_paths
+        // (server touched it), but base_id == other_id (server's net change
+        // is zero). Client's edit goes through the existing
+        // `base_id == other_id` short-circuit, NOT our new
+        // `local_content_id == other_id` check, so duplicate_paths stays
+        // empty and the commit is not flagged as no-op.
+        let ctx = CoreContext::test_mock(fb);
+        let repo: PushrebaseTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let base_content = "line1\nline2\nline3\n";
+        let base = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("file.txt", base_content)
+            .commit()
+            .await?;
+
+        // Server commit 1: edit away from base.
+        let server1 = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", "line1\nSERVER_INTERMEDIATE\nline3\n")
+            .commit()
+            .await?;
+
+        // Server commit 2: revert back to base content. base_id == other_id
+        // for this path now (root and current_master agree on content).
+        let server2 = CreateCommitContext::new(&ctx, &repo, vec![server1])
+            .add_file("file.txt", base_content)
+            .commit()
+            .await?;
+
+        let book = BookmarkKey::new("master")?;
+        let hg_server2 = repo.derive_hg_changeset(&ctx, server2).await?;
+        set_bookmark(ctx.clone(), &repo, &book, &format!("{}", hg_server2)).await?;
+
+        // Client edits file.txt to brand-new content.
+        let client = CreateCommitContext::new(&ctx, &repo, vec![base])
+            .add_file("file.txt", "line1\nCLIENT_EDIT\nline3\n")
+            .commit()
+            .await?;
+        let client_bcs = client.load(&ctx, repo.repo_blobstore()).await?;
+
+        init_just_knobs_for_noop_rejection_test(true);
+
+        // Should succeed — base==other path is hit, no duplicate detected.
+        let result = do_pushrebase_bonsai(
+            &ctx,
+            &repo,
+            &Default::default(),
+            &book,
+            &hashset![client_bcs],
+            &[],
+        )
+        .await?;
+
+        assert_eq!(
+            result.rebased_changesets.len(),
+            1,
+            "base==other branch must not trip our duplicate-content detection"
+        );
         Ok(())
     }
 
