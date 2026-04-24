@@ -81,6 +81,13 @@ Test max-files limit skips formatting:
   x
   $ setconfig 'fix.code-format-max-files=200'
 
+Tofix: Test no modified/added files skips formatting:
+  $ sl amend
+  running code formatter: 'sl debugpython $TESTTMP/formatter.py'
+  code formatter completed successfully in 0.00 secs
+  nothing changed
+  [1]
+
 Test max-file-size limit skips formatting:
   $ setconfig 'fix.code-format-max-file-size=10'
   $ echo "this is a long line that exceeds the size limit" > g.txt
