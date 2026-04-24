@@ -73,7 +73,7 @@ def _build_systemd_run_cmd(edenfs_cmd: List[str], eden_dir: str) -> List[str]:
     ] + edenfs_cmd
 
 
-def _try_setup_systemd_cgroup(
+def _try_setup_systemd_env(
     eden_env: Dict[str, str],
     instance: "EdenInstance",
 ) -> bool:
@@ -93,7 +93,7 @@ def _try_setup_systemd_cgroup(
         dbus_socket = f"{xdg_runtime_dir}/bus"
         if not os.path.exists(dbus_socket):
             instance.log_sample(
-                "systemd_cgroup_start",
+                "systemd_setup",
                 success=False,
                 reason=f"dbus_socket_not_found at {dbus_socket}",
             )
@@ -294,7 +294,9 @@ def _start_edenfs_service(
     # prepare_edenfs_privileges for more info.
     cmd, eden_env = prepare_edenfs_privileges(daemon_binary, cmd, eden_env, privhelper)
 
-    if is_systemd_enabled(instance):
+    if should_use_systemd_lifecycle_management(instance) and _try_setup_systemd_env(
+        eden_env, instance
+    ):
         return _systemctl_start_or_reload(instance, cmd, eden_env, takeover)
 
     if (
@@ -302,7 +304,7 @@ def _start_edenfs_service(
         and instance.get_config_bool(
             "experimental.systemd-cgroup-isolation", default=False
         )
-        and _try_setup_systemd_cgroup(eden_env, instance)
+        and _try_setup_systemd_env(eden_env, instance)
     ):
         cmd = _build_systemd_run_cmd(cmd, str(instance.state_dir))
         use_systemd_cgroup = True
@@ -349,13 +351,13 @@ def _get_systemd_unit(instance: EdenInstance) -> str:
     return EDENFS_UNIT_NAME_TEMPLATE.format(escaped_state_dir=escaped)
 
 
-def is_systemd_enabled(instance: EdenInstance) -> bool:
+def should_use_systemd_lifecycle_management(instance: EdenInstance) -> bool:
     """Check whether this EdenFS instance should use systemd for lifecycle management.
 
     Returns True only when all of the following are satisfied:
     1. Running on Linux
     2. The config key experimental.systemd-managed-lifecycle is true
-    3. The systemd unit files (service and slice) are installed on disk
+    3. The systemd unit files are installed on disk
     """
     if sys.platform != "linux":
         return False
@@ -363,6 +365,11 @@ def is_systemd_enabled(instance: EdenInstance) -> bool:
         "experimental.systemd-managed-lifecycle", default=False
     ):
         return False
+    return _systemd_unit_files_installed()
+
+
+def _systemd_unit_files_installed() -> bool:
+    """Check whether the required systemd unit files are installed on disk."""
     missing = [
         str(p)
         for p in (EDENFS_SYSTEMD_SERVICE_UNIT, EDENFS_SYSTEMD_SLICE_UNIT)
