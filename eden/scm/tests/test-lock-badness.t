@@ -4,7 +4,6 @@
 #require unix-permissions no-root no-windows no-eden
 
   $ configure modernclient
-  $ setconfig experimental.run-python-hooks-via-pyhook=true
 
 Prepare
 

@@ -5,7 +5,6 @@ Setup
 
   $ configure dummyssh
   $ enable pushrebase
-  $ setconfig experimental.run-python-hooks-via-pyhook=true
 
   $ cat >> "$TESTTMP/hook.py" << EOF
   > import bindings

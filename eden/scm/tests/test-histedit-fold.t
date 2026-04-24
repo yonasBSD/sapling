@@ -11,8 +11,6 @@ case.
 Initialization
 ---------------
 
-  $ setconfig experimental.run-python-hooks-via-pyhook=true
-
   $ eagerepo
   $ . "$TESTDIR/histedit-helpers.sh"
 
