@@ -30,6 +30,7 @@ use mononoke_types::ChangesetId;
 use repo_blobstore::ArcRepoBlobstore;
 use repo_derived_data::ArcRepoDerivedData;
 use rustc_hash::FxHashSet;
+use weight_observer::WeightedItem;
 
 use crate::OptionalWeightObserver;
 use crate::types::FetchContainer;
@@ -194,7 +195,7 @@ pub(crate) async fn packfile_item_for_delta_manifest_entry(
     base_set: Arc<FxHashSet<ObjectId>>,
     mut entry: Box<dyn GitDeltaManifestEntryOps + Send>,
     weight_observer: OptionalWeightObserver,
-) -> Result<Option<PackfileItem>> {
+) -> Result<Option<WeightedItem<PackfileItem>>> {
     let FetchContainer {
         ctx,
         blobstore,
@@ -217,25 +218,19 @@ pub(crate) async fn packfile_item_for_delta_manifest_entry(
     }
 
     let delta = delta_base(entry.as_ref(), delta_inclusion, filter, chain_breaking_mode);
-    match delta {
+    let item = match delta {
         Some(delta) => {
             let instruction_bytes = delta.instruction_bytes(&ctx, &blobstore.boxed()).await?;
-
-            let packfile_item = PackfileItem::new_delta(
+            PackfileItem::new_delta(
                 entry.full_object_oid(),
                 delta.base_object_oid(),
                 delta.instructions_uncompressed_size(),
                 instruction_bytes,
-            );
-            if let Some(ref observer) = weight_observer {
-                observer.on_weight_added(packfile_item.weight());
-            }
-            Ok(Some(packfile_item))
+            )
         }
         None => {
-            // Use the full object instead
             if let Some(inlined_bytes) = entry.into_full_object_inlined_bytes() {
-                let item = PackfileItem::new_encoded_base(
+                PackfileItem::new_encoded_base(
                     GitPackfileBaseItem::from_encoded_bytes(inlined_bytes)
                         .with_context(|| {
                             format!(
@@ -244,13 +239,9 @@ pub(crate) async fn packfile_item_for_delta_manifest_entry(
                             )
                         })?
                         .try_into()?,
-                );
-                if let Some(ref observer) = weight_observer {
-                    observer.on_weight_added(item.weight());
-                }
-                Ok(Some(item))
+                )
             } else {
-                let item = base_packfile_item(
+                base_packfile_item(
                     ctx.clone(),
                     blobstore.clone(),
                     ObjectIdentifierType::AllObjects(GitIdentifier::Rich(
@@ -258,14 +249,12 @@ pub(crate) async fn packfile_item_for_delta_manifest_entry(
                     )),
                     packfile_item_inclusion,
                 )
-                .await?;
-                if let Some(ref observer) = weight_observer {
-                    observer.on_weight_added(item.weight());
-                }
-                Ok(Some(item))
+                .await?
             }
         }
-    }
+    };
+    let weight = item.weight();
+    Ok(Some(WeightedItem::tracked(item, &weight_observer, weight)))
 }
 
 /// Method for fetching the entire hierarchy of nested tags

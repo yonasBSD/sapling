@@ -294,7 +294,7 @@ async fn create_from_on_disk_repo(path: PathBuf, output_file: tokio::fs::File) -
         object_stream.ok_or_else(|| anyhow::anyhow!("No objects found to write to bundle"))?;
     // Write the encoded Git object content to the Git bundle
     writer
-        .write(object_stream)
+        .write_unweighted(object_stream)
         .await
         .context("Error in writing Git objects to bundle")?;
     // Finish writing the bundle

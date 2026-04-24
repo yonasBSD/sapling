@@ -41,6 +41,7 @@ use scuba_ext::FutureStatsScubaExt;
 use scuba_ext::MononokeScubaSampleBuilder;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
+use weight_observer::WeightedItem;
 
 use crate::OptionalWeightObserver;
 use crate::Repo;
@@ -370,7 +371,7 @@ fn packfile_stream_from_changesets<'a, T: GDMEntryProvider + Send + 'static>(
     base_set: Arc<FxHashSet<ObjectId>>,
     changesets_or_groups: Vec<T>,
     weight_observer: OptionalWeightObserver,
-) -> BoxStream<'a, Result<PackfileItem>> {
+) -> BoxStream<'a, Result<WeightedItem<PackfileItem>>> {
     let FetchContainer {
         ctx,
         blobstore,
@@ -398,7 +399,7 @@ fn packfile_stream_from_changesets<'a, T: GDMEntryProvider + Send + 'static>(
     >(2 * concurrency.trees_and_blobs);
 
     let (packfile_item_sender, packfile_item_receiver) =
-        mpsc::channel::<Result<PackfileItem>>(2 * concurrency.trees_and_blobs);
+        mpsc::channel::<Result<WeightedItem<PackfileItem>>>(2 * concurrency.trees_and_blobs);
 
     mononoke::spawn_task(async move {
         let mut stream = stream::iter(changesets_or_groups)
@@ -512,7 +513,7 @@ async fn tree_and_blob_packfile_stream<'a>(
     base_set: Arc<FxHashSet<ObjectId>>,
     tree_and_blob_shas: Vec<ObjectId>,
     weight_observer: OptionalWeightObserver,
-) -> Result<BoxStream<'a, Result<PackfileItem>>> {
+) -> Result<BoxStream<'a, Result<WeightedItem<PackfileItem>>>> {
     // Get the packfile items corresponding to blob and tree objects in the repo. Where applicable, use delta to represent them
     // efficiently in the packfile/bundle
     let FetchContainer {
@@ -577,10 +578,8 @@ async fn tree_and_blob_packfile_stream<'a>(
         })
         .try_buffered(concurrency.trees_and_blobs)
         .map_ok(move |item| {
-            if let Some(ref observer) = requested_observer {
-                observer.on_weight_added(item.weight());
-            }
-            item
+            let weight = item.weight();
+            WeightedItem::tracked(item, &requested_observer, weight)
         })
         .boxed();
     Ok(boundary_packfile_item_stream
@@ -597,7 +596,7 @@ async fn commit_packfile_stream<'a>(
     repo: &'a impl Repo,
     divided_changesets: CGDMDividedChangesets,
     weight_observer: OptionalWeightObserver,
-) -> Result<(BoxStream<'a, Result<PackfileItem>>, usize)> {
+) -> Result<(BoxStream<'a, Result<WeightedItem<PackfileItem>>>, usize)> {
     let mut commit_count = divided_changesets.individual_cs_ids.len();
     let mut final_commits = divided_changesets.individual_cs_ids;
     let mut cgdm_commits_ids = vec![];
@@ -676,10 +675,8 @@ async fn commit_packfile_stream<'a>(
     let combined = groups_commit_stream
         .chain(commit_stream)
         .map_ok(move |item| {
-            if let Some(ref observer) = weight_observer {
-                observer.on_weight_added(item.weight());
-            }
-            item
+            let weight = item.weight();
+            WeightedItem::tracked(item, &weight_observer, weight)
         })
         .boxed();
     Ok((combined, commit_count))
@@ -690,7 +687,7 @@ fn tag_entries_to_stream<'a>(
     fetch_container: FetchContainer,
     tag_entries: FxHashSet<GitSha1>,
     weight_observer: OptionalWeightObserver,
-) -> BoxStream<'a, Result<PackfileItem>> {
+) -> BoxStream<'a, Result<WeightedItem<PackfileItem>>> {
     let FetchContainer {
         ctx,
         blobstore,
@@ -715,10 +712,8 @@ fn tag_entries_to_stream<'a>(
         })
         .try_buffered(concurrency.tags)
         .map_ok(move |item| {
-            if let Some(ref observer) = weight_observer {
-                observer.on_weight_added(item.weight());
-            }
-            item
+            let weight = item.weight();
+            WeightedItem::tracked(item, &weight_observer, weight)
         })
         .boxed()
 }
@@ -731,7 +726,7 @@ async fn tag_packfile_stream<'a>(
     repo: &'a impl Repo,
     bookmarks: &GitBookmarks,
     weight_observer: OptionalWeightObserver,
-) -> Result<(BoxStream<'a, Result<PackfileItem>>, usize)> {
+) -> Result<(BoxStream<'a, Result<WeightedItem<PackfileItem>>>, usize)> {
     // Since we need the count of items, we would have to consume the stream either for counting or collecting the items.
     // This is fine, since unlike commits, blobs and trees there will only be thousands of tags in the worst case.
     let annotated_tags = stream::iter(bookmarks.entries.keys())
@@ -781,7 +776,7 @@ async fn tags_packfile_stream<'a>(
     requested_tag_names: Arc<FxHashSet<String>>,
     refs_source: RefsSource,
     weight_observer: OptionalWeightObserver,
-) -> Result<(BoxStream<'a, Result<PackfileItem>>, usize)> {
+) -> Result<(BoxStream<'a, Result<WeightedItem<PackfileItem>>>, usize)> {
     let (ctx, filter, blobstore, concurrency) = (
         fetch_container.ctx.clone(),
         fetch_container.filter.clone(),

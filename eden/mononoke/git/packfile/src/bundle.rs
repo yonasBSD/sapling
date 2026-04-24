@@ -9,12 +9,14 @@ use std::fmt::Display;
 
 use anyhow::Result;
 use futures::Stream;
+use futures::TryStreamExt;
 use git_types::PackfileItem;
 use gix_hash::ObjectId;
 use sha1::Digest;
 use sha1::Sha1;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
+use weight_observer::WeightedItem;
 
 use crate::pack::DeltaForm;
 use crate::pack::PackfileWriter;
@@ -130,9 +132,19 @@ impl<T: AsyncWrite + Unpin> BundleWriter<T> {
     /// Write the stream of input items to the bundle
     pub async fn write(
         &mut self,
+        objects_stream: impl Stream<Item = Result<WeightedItem<PackfileItem>>>,
+    ) -> Result<()> {
+        self.pack_writer.write(objects_stream).await
+    }
+
+    /// Write the stream of unweighted items to the bundle
+    pub async fn write_unweighted(
+        &mut self,
         objects_stream: impl Stream<Item = Result<PackfileItem>>,
     ) -> Result<()> {
-        self.pack_writer.write(objects_stream, None).await
+        self.pack_writer
+            .write(objects_stream.map_ok(WeightedItem::untracked))
+            .await
     }
 
     /// Returns the number of bytes written to the underlying writer

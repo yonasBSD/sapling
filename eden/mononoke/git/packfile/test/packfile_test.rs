@@ -380,7 +380,7 @@ async fn validate_basic_bundle_generation() -> anyhow::Result<()> {
     .expect("Expected successful creation of BundleWriter");
     // Validate we are able to successfully write objects to the bundle
     bundle_writer
-        .write(objects_stream)
+        .write_unweighted(objects_stream)
         .await
         .expect("Expected successful write of objects to bundle.");
     // Validate we are able to finish writing to the bundle
@@ -421,7 +421,7 @@ async fn validate_staggered_bundle_generation() -> anyhow::Result<()> {
     }))?;
     // Validate we are able to write the object to the bundle without errors
     bundle_writer
-        .write(stream::iter(vec![PackfileItem::new_base(
+        .write_unweighted(stream::iter(vec![PackfileItem::new_base(
             tag_object.raw().clone(),
         )]))
         .await
@@ -432,7 +432,7 @@ async fn validate_staggered_bundle_generation() -> anyhow::Result<()> {
         }))?;
     // Validate we are able to write the object to the bundle without errors
     bundle_writer
-        .write(stream::iter(vec![PackfileItem::new_base(
+        .write_unweighted(stream::iter(vec![PackfileItem::new_base(
             blob_object.raw().clone(),
         )]))
         .await
@@ -443,7 +443,7 @@ async fn validate_staggered_bundle_generation() -> anyhow::Result<()> {
         }))?;
     // Validate we are able to write the object to the bundle without errors
     bundle_writer
-        .write(stream::iter(vec![PackfileItem::new_base(
+        .write_unweighted(stream::iter(vec![PackfileItem::new_base(
             tree_object.raw().clone(),
         )]))
         .await

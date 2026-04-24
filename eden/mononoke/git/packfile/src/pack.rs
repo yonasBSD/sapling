@@ -7,7 +7,6 @@
 
 use std::collections::HashMap;
 use std::io::Write;
-use std::sync::Arc;
 
 use anyhow::Context;
 use anyhow::Result;
@@ -22,7 +21,7 @@ use rustc_hash::FxBuildHasher;
 use rustc_hash::FxHashMap;
 use sha1_checked::Digest;
 use thiserror::Error;
-use weight_observer::WeightObserver;
+use weight_observer::WeightedItem;
 
 use crate::hash_writer::AsyncHashWriter;
 use crate::owned_async_writer::OwnedAsyncWrite;
@@ -101,33 +100,29 @@ impl<T: OwnedAsyncWrite> PackfileWriter<T> {
         Ok(())
     }
 
-    /// Write the stream of objects to the packfile. If a weight_observer
-    /// is provided, on_weight_removed is called with each item's weight
-    /// after it is fully written out.
+    /// Write the stream of weighted items to the packfile. Each item's
+    /// RAII guard automatically calls `on_weight_removed` when the item
+    /// goes out of scope at the end of each loop iteration.
     pub async fn write(
         &mut self,
-        entries_stream: impl Stream<Item = Result<PackfileItem>>,
-        weight_observer: Option<&Arc<dyn WeightObserver>>,
+        entries_stream: impl Stream<Item = Result<WeightedItem<PackfileItem>>>,
     ) -> Result<()> {
         // Write the packfile header if applicable
         self.write_header().await?;
         let mut entries_stream = Box::pin(entries_stream);
-        while let Some(packfile_item) = entries_stream
+        while let Some(weighted_item) = entries_stream
             .try_next()
             .await
             .context("Failure in fetching Packfile Item from stream")?
         {
-            let tracked_weight = packfile_item.weight();
+            let (packfile_item, _guard) = weighted_item.into_parts();
             let mut entry: Entry = packfile_item
                 .try_into()
                 .context("Failure in converting PackfileItem to Entry")?;
             // TODO(rajshar): Add support for preventing cycles in on-disk bundle for partial repo
             // If the entry is already written to the packfile, skip writing it again
             if self.object_id_with_index.contains_key(&entry.id) {
-                // Remove weight for duplicate entries that won't be written
-                if let Some(observer) = weight_observer {
-                    observer.on_weight_removed(tracked_weight);
-                }
+                // _guard drops here, removing weight for duplicate entries
                 continue;
             }
             self.record_entry(&entry);
@@ -157,10 +152,7 @@ impl<T: OwnedAsyncWrite> PackfileWriter<T> {
             self.size += compressed_data_len;
             // Increment the number of entries written in the packfile
             self.num_entries += 1;
-            // Remove weight after the entry data has been fully written out
-            if let Some(observer) = weight_observer {
-                observer.on_weight_removed(tracked_weight);
-            }
+            // _guard drops here, removing weight after the entry is written
         }
         Ok(())
     }
@@ -170,7 +162,8 @@ impl<T: OwnedAsyncWrite> PackfileWriter<T> {
         &mut self,
         entries_stream: impl Stream<Item = Result<PackfileItem>>,
     ) -> Result<()> {
-        self.write(entries_stream, None).await
+        self.write(entries_stream.map_ok(WeightedItem::untracked))
+            .await
     }
 
     /// Finish the packfile by writing the trailer at the end and returning the checksum
