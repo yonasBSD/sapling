@@ -14,6 +14,7 @@ use clidispatch::ReqCtx;
 use clidispatch::abort;
 use cmdutil::Result;
 use repo::repo::Repo;
+use workingcopy::workingcopy::WorkingCopy;
 use worktree::dissolve_group;
 use worktree::load_registry;
 use worktree::with_registry_lock;
@@ -23,7 +24,7 @@ use crate::CurrentGroup;
 use crate::WorktreeOpts;
 use crate::require_group;
 
-pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
+pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo, _wc: &WorkingCopy) -> Result<u8> {
     let logger = ctx.logger();
     let current_group = require_group(repo)?;
 

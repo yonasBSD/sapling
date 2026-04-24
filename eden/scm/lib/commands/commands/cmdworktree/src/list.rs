@@ -16,6 +16,7 @@ use formatter::StyleWrite;
 use fs_err as fs;
 use repo::repo::Repo;
 use serde::Serialize;
+use workingcopy::workingcopy::WorkingCopy;
 use worktree::dissolve_group;
 use worktree::with_registry_lock;
 
@@ -52,7 +53,7 @@ impl Formattable for ListOutputEntry {
     }
 }
 
-pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
+pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo, _wc: &WorkingCopy) -> Result<u8> {
     let mut formatter = get_formatter(
         repo.config(),
         "worktree",

@@ -20,6 +20,7 @@ use cmdutil::Result;
 use cmdutil::define_flags;
 use fs_err as fs;
 use repo::repo::Repo;
+use workingcopy::workingcopy::WorkingCopy;
 
 define_flags! {
     pub struct WorktreeOpts {
@@ -43,13 +44,13 @@ define_flags! {
     }
 }
 
-pub fn run(ctx: ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
+pub fn run(ctx: ReqCtx<WorktreeOpts>, repo: &Repo, wc: &WorkingCopy) -> Result<u8> {
     if !repo.config().get_or("worktree", "enabled", || false)? {
         abort!("worktree command requires --config worktree.enabled=true");
     }
 
     let subcmd = ctx.opts.args.first().map(|s| s.as_str()).unwrap_or("");
-    let runner: fn(&ReqCtx<WorktreeOpts>, &Repo) -> Result<u8> = match subcmd {
+    let runner: fn(&ReqCtx<WorktreeOpts>, &Repo, &WorkingCopy) -> Result<u8> = match subcmd {
         "list" | "ls" => list::run,
         "add" => add::run,
         "remove" | "rm" => remove::run,
@@ -62,7 +63,7 @@ pub fn run(ctx: ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
         abort!("worktree commands require an EdenFS-backed repository");
     }
 
-    runner(&ctx, repo)
+    runner(&ctx, repo, wc)
 }
 
 pub(crate) struct CurrentGroup {

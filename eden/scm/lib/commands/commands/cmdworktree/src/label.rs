@@ -12,12 +12,13 @@ use clidispatch::abort;
 use cmdutil::Result;
 use fs_err as fs;
 use repo::repo::Repo;
+use workingcopy::workingcopy::WorkingCopy;
 use worktree::with_registry_lock;
 
 use crate::WorktreeOpts;
 use crate::require_group;
 
-pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
+pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo, _wc: &WorkingCopy) -> Result<u8> {
     let logger = ctx.logger();
     let current_group = require_group(repo)?;
     let (target, new_label) = parse_label_args(ctx, repo)?;

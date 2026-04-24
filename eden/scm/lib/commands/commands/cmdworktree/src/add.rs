@@ -22,6 +22,7 @@ use encoding::shell_output_bytes_to_path;
 use fs_err as fs;
 use repo::repo::Repo;
 use spawn_ext::CommandExt;
+use workingcopy::workingcopy::WorkingCopy;
 use worktree::Group;
 use worktree::WorktreeEntry;
 use worktree::check_dest_not_in_repo;
@@ -80,7 +81,7 @@ fn sapling_snapshot_checkout(sl_bin: &OsString, dest: &PathBuf, id: &str) -> any
     Ok(())
 }
 
-pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo) -> Result<u8> {
+pub(crate) fn run(ctx: &ReqCtx<WorktreeOpts>, repo: &Repo, _wc: &WorkingCopy) -> Result<u8> {
     let logger = ctx.logger();
 
     let require_generated: bool = repo
