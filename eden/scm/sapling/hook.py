@@ -113,7 +113,8 @@ def _pythonhook_via_pyhook(ui, repo, htype, hname, funcname, args, throw):
     starttime = util.timer()
     try:
         with util.traced("pythonhook", hookname=hname, cat="blocked"):
-            r = bindings.hook.run_python_hook(repo._rsrepo, funcname, hname, args)
+            rsrepo = repo and repo._rsrepo
+            r = bindings.hook.run_python_hook(rsrepo, funcname, hname, args)
     except Exception as exc:
         if isinstance(exc, error.Abort):
             ui.warn(_("error: %s hook failed: %s\n") % (hname, exc.args[0]))
@@ -252,10 +253,7 @@ def runhooks(ui, repo, htype, hooks, throw: bool = False, **args):
         if callable(cmd):
             r, raised = _pythonhook(ui, repo, htype, hname, cmd, args, throw)
         elif cmd.startswith("python:"):
-            if (
-                ui.configbool("experimental", "run-python-hooks-via-pyhook")
-                and repo is not None
-            ):
+            if ui.configbool("experimental", "run-python-hooks-via-pyhook"):
                 funcname = cmd.split(":", 1)[1]
                 r, raised = _pythonhook_via_pyhook(
                     ui, repo, htype, hname, funcname, args, throw
