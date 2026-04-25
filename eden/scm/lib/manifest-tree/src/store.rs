@@ -71,11 +71,13 @@ impl InnerStore {
         path: &RepoPath,
         entry: Entry,
         parents: Vec<HgId>,
+        acl_children_indices: Option<Vec<u32>>,
     ) -> Result<HgId> {
         tracing::debug_span!("tree::store::insert", path = path.as_str(),).in_scope(|| {
             let opts = crate::InsertOpts {
                 kind: crate::Kind::Tree,
                 parents,
+                acl_children_indices,
                 ..Default::default()
             };
             let id = self.tree_store.insert_data(opts, path, entry.0.into())?;

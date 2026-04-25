@@ -41,3 +41,22 @@ Give a specific message when referencing a restricted file:
   $ hg files -r . restricted/secret.txt
   restricted/secret.txt: restricted path
   [1]
+
+Make sure root tree has acl indices populated in cache
+  $ sl debugscmstore -r $A '' --mode=tree | grep -A 4 acl_children_indices
+                          acl_children_indices: Some(
+                              [
+                                  2,
+                              ],
+                          ),
+
+After committing a change outside the restricted directory, the new root
+tree should still have acl_children_indices for the unchanged restricted directory:
+  $ echo modified > regular/file.txt
+  $ sl commit -m 'modify regular file'
+  $ sl debugscmstore -r . '' --mode=tree | grep -A 4 acl_children_indices
+                          acl_children_indices: Some(
+                              [
+                                  2,
+                              ],
+                          ),

@@ -409,6 +409,7 @@ pub trait TreeStore: KeyStore {
 
     /// Fetch a single tree with full metadata.
     /// Tries local first, falls back to remote via `get_tree_iter`.
+    /// Unary remote fetches are discouraged - prefer `get_tree_iter`.
     fn get_tree(
         &self,
         fctx: FetchContext,
@@ -534,6 +535,10 @@ pub struct InsertOpts {
     #[serde(default)]
     pub read_before_write: bool,
 
+    /// Indices (in manifest blob order) of directory children that have ACL.
+    #[serde(default)]
+    pub acl_children_indices: Option<Vec<u32>>,
+
     /// Require durable storage that won't rotate out. When false, the store
     /// may use non-permanent storage (e.g. a shared cache) that can be
     /// reclaimed. Defaults to true.
@@ -554,6 +559,7 @@ impl Default for InsertOpts {
             hg_flags: 0,
             read_before_write: false,
             permanent: true,
+            acl_children_indices: None,
         }
     }
 }

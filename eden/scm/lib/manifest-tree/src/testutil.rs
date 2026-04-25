@@ -235,6 +235,11 @@ impl KeyStore for TestStore {
         if !opts.parents.is_empty() {
             inner.parents.insert((path.to_owned(), hgid), opts.parents);
         }
+        if let Some(indices) = opts.acl_children_indices {
+            if !indices.is_empty() {
+                inner.acl_children_indices.insert(hgid, indices);
+            }
+        }
         Ok(hgid)
     }
 

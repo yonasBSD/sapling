@@ -989,8 +989,15 @@ impl storemodel::KeyStore for TreeStore {
             historystore.add(&key, &info)?;
         }
 
+        let mut entry = Entry::new(key.hgid, data, Default::default());
+        if let Some(indices) = opts.acl_children_indices {
+            if !indices.is_empty() {
+                entry.set_acl_children_indices(indices);
+            }
+        }
+
         match target_store {
-            Some(store) => store.put_entry(Entry::new(key.hgid, data, Default::default()))?,
+            Some(store) => store.put_entry(entry)?,
             None => bail!("no local or cache store to insert tree data into"),
         }
 
@@ -1401,5 +1408,37 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(read_entry.acl_children_indices(), Some(&[0, 3, 5][..]));
+    }
+
+    #[test]
+    fn test_insert_data_with_acl_children_indices() {
+        let tempdir = TempDir::new().unwrap();
+        let indexedlog = make_data_store(&tempdir);
+
+        let mut store = TreeStore::empty();
+        store.indexedlog_local = Some(indexedlog);
+
+        let child_dir_id = HgId::from_hex(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
+        let child_file_id = HgId::from_hex(b"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap();
+        let tree_data = format!(
+            "dir\0{}t\nfile\0{}\n",
+            child_dir_id.to_hex(),
+            child_file_id.to_hex(),
+        );
+        let tree_bytes: Bytes = Bytes::copy_from_slice(tree_data.as_bytes());
+
+        let path = RepoPathBuf::from_string("root".to_string()).unwrap();
+        let opts = InsertOpts {
+            kind: Kind::Tree,
+            acl_children_indices: Some(vec![0]),
+            ..Default::default()
+        };
+        let id = store.insert_data(opts, &path, tree_bytes.into()).unwrap();
+
+        let tree_entry = store.get_local_tree_direct(id).unwrap().unwrap();
+        let acl = tree_entry.children_with_acls().unwrap();
+        assert_eq!(acl.len(), 1);
+        assert_eq!(acl[0].0.as_str(), "dir");
+        assert_eq!(acl[0].1, child_dir_id);
     }
 }

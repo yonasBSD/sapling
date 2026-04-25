@@ -16,6 +16,7 @@ pub mod testutil;
 mod trait_impls;
 
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::collections::btree_map::Entry;
 use std::fmt;
 use std::sync::Arc;
@@ -416,6 +417,12 @@ trait ParentTreeTracker {
         active: &Self::ActiveParents,
         path: &RepoPath,
     ) -> Result<Self::ActiveParents>;
+
+    /// Get the cached TreeEntry for the p1 parent at the current position.
+    fn p1_tree_entry(
+        &self,
+        active: &Self::ActiveParents,
+    ) -> Option<&Arc<dyn storemodel::TreeEntry>>;
 }
 
 /// No parent tracking — used for content-addressed stores (Git) where a
@@ -438,6 +445,9 @@ impl ParentTreeTracker for NoParents {
     }
     fn for_subdirectory(&mut self, _active: &(), _path: &RepoPath) -> Result<()> {
         Ok(())
+    }
+    fn p1_tree_entry(&self, _active: &()) -> Option<&Arc<dyn storemodel::TreeEntry>> {
+        None
     }
 }
 
@@ -524,6 +534,19 @@ impl<'a> ParentTreeTracker for HgParents<'a> {
         }
         Ok(result)
     }
+
+    fn p1_tree_entry(&self, active: &Vec<usize>) -> Option<&Arc<dyn storemodel::TreeEntry>> {
+        let &first_idx = active.first()?;
+        if first_idx != 0 {
+            return None;
+        }
+        let cursor = &self.cursors[0];
+        if let Durable(entry) = cursor.link().as_ref() {
+            entry.get_tree_entry()
+        } else {
+            None
+        }
+    }
 }
 
 /// Recursive tree-walking logic shared by `finalize()`.
@@ -542,6 +565,7 @@ fn finalize_trees<P: ParentTreeTracker>(
             return Ok((entry.hgid, store::Flag::Directory));
         }
     }
+    let p1_tree_entry = tracker.p1_tree_entry(&active).cloned();
     tracker.advance(&active)?;
     if let Leaf(file_metadata) = link.as_ref() {
         return Ok((
@@ -564,17 +588,66 @@ fn finalize_trees<P: ParentTreeTracker>(
     }
     let entry = store::Entry::from_elements(elements, format);
 
+    let acl_children_indices = migrate_acl_children(p1_tree_entry.as_ref(), &entry);
+
     let cell = OnceCell::new();
     // TODO: remove clone
     cell.set(MaybeLinks::Links(links.clone())).unwrap();
 
-    let hgid = store.insert_entry(path, entry, parent_tree_nodes)?;
+    let hgid = store.insert_entry(path, entry, parent_tree_nodes, acl_children_indices)?;
 
     let durable_entry = DurableEntry::with_links(hgid, cell);
     let inner = Arc::new(durable_entry);
     *link = Link::new(Durable(inner));
 
     Ok((hgid, store::Flag::Directory))
+}
+
+/// Migrate `acl_children_indices` from the old (p1) parent tree to the new tree.
+/// Returns indices of directory children in the new tree whose HgIds match
+/// ACL-flagged children in the old parent. Returns `None` if there is nothing
+/// to migrate (no parent, or parent has no ACL children).
+fn migrate_acl_children(
+    p1_tree_entry: Option<&Arc<dyn storemodel::TreeEntry>>,
+    new_entry: &store::Entry,
+) -> Option<Vec<u32>> {
+    let old_tree = p1_tree_entry?;
+    let old_acl_children = match old_tree.children_with_acls() {
+        Ok(children) => children,
+        Err(err) => {
+            tracing::warn!(?err, "failed to read ACL children from parent tree");
+            return None;
+        }
+    };
+    if old_acl_children.is_empty() {
+        return None;
+    }
+
+    let acl_hgids: HashSet<HgId> = old_acl_children.into_iter().map(|(_, hgid)| hgid).collect();
+
+    let mut indices = Vec::new();
+    for (idx, elem) in new_entry.elements().enumerate() {
+        match elem {
+            Ok(elem) => {
+                if matches!(elem.flag, store::Flag::Directory) && acl_hgids.contains(&elem.hgid) {
+                    indices.push(idx as u32);
+                }
+            }
+            Err(err) => {
+                tracing::warn!(
+                    ?err,
+                    idx,
+                    "failed to parse tree element during ACL migration"
+                );
+            }
+        }
+    }
+
+    if indices.is_empty() {
+        None
+    } else {
+        Some(indices)
+    }
 }
 
 impl TreeManifest {
@@ -2076,5 +2149,99 @@ mod tests {
             store_element("bar", "456", store::Flag::Directory),
         ]);
         assert_eq!(entry.size_hint(), Some(2));
+    }
+
+    fn make_test_tree_entry(
+        store: &TestStore,
+        elements: Vec<store::Element>,
+        acl_indices: Option<Vec<u32>>,
+    ) -> Arc<dyn storemodel::TreeEntry> {
+        let entry = store::Entry::from_elements_hg(elements);
+        let hgid = hgid("fff");
+        store
+            .insert(RepoPath::empty(), hgid, entry.to_bytes())
+            .unwrap();
+        if let Some(indices) = acl_indices {
+            store.set_acl_children_indices(hgid, indices);
+        }
+        store
+            .get_local_tree(RepoPath::empty(), hgid)
+            .unwrap()
+            .unwrap()
+    }
+
+    #[test]
+    fn test_migrate_acl_children_preserves_unchanged() {
+        let store = TestStore::new();
+        let old_tree = make_test_tree_entry(
+            &store,
+            vec![
+                store_element("dir", "aaa", store::Flag::Directory),
+                store_element("file", "bbb", store::Flag::File(FileType::Regular)),
+            ],
+            Some(vec![0]),
+        );
+
+        let new_entry = store::Entry::from_elements_hg(vec![
+            store_element("dir", "aaa", store::Flag::Directory),
+            store_element("file", "bbb", store::Flag::File(FileType::Regular)),
+        ]);
+
+        let result = migrate_acl_children(Some(&old_tree), &new_entry);
+        assert_eq!(result, Some(vec![0]));
+    }
+
+    #[test]
+    fn test_migrate_acl_children_remaps_index() {
+        let store = TestStore::new();
+        // Old tree: [dir @aaa (acl), file @bbb] — "dir" is at index 0.
+        let old_tree = make_test_tree_entry(
+            &store,
+            vec![
+                store_element("dir", "aaa", store::Flag::Directory),
+                store_element("file", "bbb", store::Flag::File(FileType::Regular)),
+            ],
+            Some(vec![0]),
+        );
+
+        // New tree: [aaa_new_file @ccc, dir @aaa, file @bbb] — "dir" shifted to index 1.
+        let new_entry = store::Entry::from_elements_hg(vec![
+            store_element("aaa_new_file", "ccc", store::Flag::File(FileType::Regular)),
+            store_element("dir", "aaa", store::Flag::Directory),
+            store_element("file", "bbb", store::Flag::File(FileType::Regular)),
+        ]);
+
+        let result = migrate_acl_children(Some(&old_tree), &new_entry);
+        assert_eq!(result, Some(vec![1]));
+    }
+
+    #[test]
+    fn test_migrate_acl_children_skips_changed() {
+        let store = TestStore::new();
+        let old_tree = make_test_tree_entry(
+            &store,
+            vec![store_element("dir", "aaa", store::Flag::Directory)],
+            Some(vec![0]),
+        );
+
+        let new_entry = store::Entry::from_elements_hg(vec![store_element(
+            "dir",
+            "ccc",
+            store::Flag::Directory,
+        )]);
+
+        let result = migrate_acl_children(Some(&old_tree), &new_entry);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_migrate_acl_children_no_parent() {
+        let new_entry = store::Entry::from_elements_hg(vec![store_element(
+            "dir",
+            "aaa",
+            store::Flag::Directory,
+        )]);
+        let result = migrate_acl_children(None, &new_entry);
+        assert_eq!(result, None);
     }
 }
