@@ -35,13 +35,25 @@ void assertInodeCounters(
   ASSERT_EQ(unloaded, expectedUnloaded);
 }
 
-TEST(ThriftGlobImplTest, testGlobFilesNotLoadingInode) {
+class ThriftGlobImplTest : public ::testing::TestWithParam<bool> {
+ protected:
+  void SetUp() override {
+    builder_.setFile("foo/bar/dir1/file.txt", "contents");
+    builder_.setFile("foo/bar/dir2/file.txt", "contents");
+    mount_.initialize(builder_);
+
+    if (GetParam()) {
+      enableCoroutinesConfig(mount_);
+    }
+  }
+
+  FakeTreeBuilder builder_;
+  TestMount mount_;
+};
+
+TEST_P(ThriftGlobImplTest, testGlobFilesNotLoadingInode) {
   auto serverState = createTestServerState();
-  FakeTreeBuilder builder;
-  builder.setFile("foo/bar/dir1/file.txt", "contents");
-  builder.setFile("foo/bar/dir2/file.txt", "contents");
-  TestMount mount{builder};
-  auto edenMount = mount.getEdenMount();
+  auto edenMount = mount_.getEdenMount();
   auto* inodeMap = edenMount->getInodeMap();
 
   // We get the loaded number before the thrift call. We always load root tree
@@ -63,8 +75,8 @@ TEST(ThriftGlobImplTest, testGlobFilesNotLoadingInode) {
   assertInodeCounters(inodeMap, loaded, unloaded);
 
   // Then we read these two files, making sure they are loaded
-  auto content1 = mount.readFile("foo/bar/dir1/file.txt");
-  auto content2 = mount.readFile("foo/bar/dir2/file.txt");
+  auto content1 = mount_.readFile("foo/bar/dir1/file.txt");
+  auto content2 = mount_.readFile("foo/bar/dir2/file.txt");
 
   // We should observe the loaded counter to be up by 6. Inodes loaded here are:
   // - foo
@@ -75,4 +87,13 @@ TEST(ThriftGlobImplTest, testGlobFilesNotLoadingInode) {
   // - foo/bar/dir2/file.txt
   assertInodeCounters(inodeMap, loaded + 6, unloaded);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    ThriftGlobImplTestVariants,
+    ThriftGlobImplTest,
+    ::testing::Bool(),
+    [](const ::testing::TestParamInfo<bool>& info) {
+      return info.param ? "Coroutines" : "Futures";
+    });
+
 } // namespace facebook::eden
