@@ -688,178 +688,157 @@ def _exchangesetup():
         markerdate = util.makedate()
         ui = op.repo.ui
 
-        # Patch ctx._fileinfo so it can look into treemanifests. This covers more
-        # code paths (ex. fctx.renamed -> _copied -> ctx.filenode -> ctx._fileinfo
-        # -> "repo.manifestlog[self._changeset.manifest].find(path)")
-        def _fileinfo(orig, self, path):
-            try:
-                return orig(self, path)
-            except LookupError:
-                # Try look up again
-                mf = _getmanifest(op, self)
+        ontoparam = params.get("onto", donotrebasemarker)
+        try:  # guards bundlefile
+            cgversion = params.get("cgversion", "01")
+            bundlefile = _makebundlefile(op, part, cgversion)
+            bundlepath = "bundle:%s+%s" % (op.repo.root, bundlefile)
+            bundle = _createbundlerepo(op, bundlepath)
+
+            ontoctx = resolveonto(op.repo, ontoparam)
+
+            op.repo.volatile_state[pushrebasemarker] = True
+            verbose = ontoctx is not None and ui.configbool("pushrebase", "verbose")
+            usestackpush = ontoctx is not None and ui.configbool(
+                "pushrebase", "trystackpush", True
+            )
+
+            def log(msg, force=False):
+                if verbose or force:
+                    ui.write_err(msg)
+                ui.log("pushrebase", msg)
+
+            if usestackpush:
                 try:
-                    return mf.find(path)
-                except KeyError:
-                    raise error.ManifestLookupError(
-                        self._node, path, _("not found in manifest")
+                    pushrequest = stackpush.pushrequest.fromrevset(bundle, "bundle()")
+                except StackPushUnsupportedError as ex:
+                    # stackpush is unsupported. Fallback to old code path.
+                    if verbose:
+                        ui.write_err(_("not using stackpush: %s\n") % ex)
+
+                    usestackpush = False
+            if usestackpush:
+                # This can happen in the following (rare) case:
+                #
+                # Client:         Server:
+                #
+                #  C
+                #  |
+                #  B               B
+                #  |               |
+                #  A               A master
+                #
+                # Client runs "push -r C --to master". "bundle()" only contains
+                # "C". The non-stackpush code path would fast-forward master to
+                # "C". The stackpush code path will try rebasing "C" to "A".
+                # Prevent that. An alternative fix is to pass "::bundle() % onto"
+                # to pushrequest.fromrevset. But that's more expensive and adds
+                # other complexities.
+                if (
+                    ontoctx.node() != pushrequest.stackparentnode
+                    and op.repo.changelog.isancestor(
+                        ontoctx.node(), pushrequest.stackparentnode
                     )
+                ):
+                    if verbose:
+                        ui.write_err(_("not using stackpush: not rebasing backwards\n"))
+                    usestackpush = False
 
-        with extensions.wrappedfunction(context.basectx, "_fileinfo", _fileinfo):
-            ontoparam = params.get("onto", donotrebasemarker)
-            try:  # guards bundlefile
-                cgversion = params.get("cgversion", "01")
-                bundlefile = _makebundlefile(op, part, cgversion)
-                bundlepath = "bundle:%s+%s" % (op.repo.root, bundlefile)
-                bundle = _createbundlerepo(op, bundlepath)
+            if usestackpush:
+                # stackpush code path - use "pushrequest" instead of "bundlerepo"
 
-                ontoctx = resolveonto(op.repo, ontoparam)
+                # Check conflicts before entering the critical section. This is
+                # optional since there is another check inside the critical
+                # section.
+                log(_("checking conflicts with %s\n") % (ontoctx,))
 
-                op.repo.volatile_state[pushrebasemarker] = True
-                verbose = ontoctx is not None and ui.configbool("pushrebase", "verbose")
-                usestackpush = ontoctx is not None and ui.configbool(
-                    "pushrebase", "trystackpush", True
+                pushrequest.check(ontoctx)
+
+                # Print and log what commits to push.
+                log(
+                    getpushmessage(
+                        pushrequest.pushcommits,
+                        lambda c: "%s  %s"
+                        % (short(c.orignode), c.desc.split("\n", 1)[0][:50]),
+                    ),
+                    force=True,
                 )
 
-                def log(msg, force=False):
-                    if verbose or force:
-                        ui.write_err(msg)
-                    ui.log("pushrebase", msg)
+                # Enter the critical section!
+                tr = op.gettransaction()
+                hookargs = dict(tr.hookargs)
+                op.repo.hook("prechangegroup", throw=True, **hookargs)
 
-                if usestackpush:
-                    try:
-                        pushrequest = stackpush.pushrequest.fromrevset(
-                            bundle, "bundle()"
-                        )
-                    except StackPushUnsupportedError as ex:
-                        # stackpush is unsupported. Fallback to old code path.
-                        if verbose:
-                            ui.write_err(_("not using stackpush: %s\n") % ex)
+                # ontoctx could move. Fetch the new one.
+                # Print rebase source and destination.
+                ontoctx = resolveonto(op.repo, ontoparam)
+                log(
+                    _("rebasing stack from %s onto %s\n")
+                    % (short(pushrequest.stackparentnode), ontoctx)
+                )
+                added, replacements = pushrequest.pushonto(
+                    ontoctx, getcommitdatefn=common.commitdategenerator(op)
+                )
+            else:
+                # Old code path - use a bundlerepo
 
-                        usestackpush = False
-                if usestackpush:
-                    # This can happen in the following (rare) case:
-                    #
-                    # Client:         Server:
-                    #
-                    #  C
-                    #  |
-                    #  B               B
-                    #  |               |
-                    #  A               A master
-                    #
-                    # Client runs "push -r C --to master". "bundle()" only contains
-                    # "C". The non-stackpush code path would fast-forward master to
-                    # "C". The stackpush code path will try rebasing "C" to "A".
-                    # Prevent that. An alternative fix is to pass "::bundle() % onto"
-                    # to pushrequest.fromrevset. But that's more expensive and adds
-                    # other complexities.
-                    if (
-                        ontoctx.node() != pushrequest.stackparentnode
-                        and op.repo.changelog.isancestor(
-                            ontoctx.node(), pushrequest.stackparentnode
-                        )
-                    ):
-                        if verbose:
-                            ui.write_err(
-                                _("not using stackpush: not rebasing backwards\n")
-                            )
-                        usestackpush = False
+                # Create a cache of rename sources while we don't have the lock.
+                renamesrccache = {
+                    bundle[r].node(): _getrenamesrcs(op, bundle[r])
+                    for r in bundle.revs("bundle()")
+                }
 
-                if usestackpush:
-                    # stackpush code path - use "pushrequest" instead of "bundlerepo"
+                # Opening the transaction takes the lock, so do it after prepushrebase
+                # and after we've fetched all the cache information we'll need.
+                tr = op.gettransaction()
+                hookargs = dict(tr.hookargs)
 
-                    # Check conflicts before entering the critical section. This is
-                    # optional since there is another check inside the critical
-                    # section.
-                    log(_("checking conflicts with %s\n") % (ontoctx,))
+                # Recreate the bundle repo, since taking the lock in gettransaction()
+                # may have caused it to become out of date.
+                # (but grab a copy of the cache first)
+                bundle.close()
+                bundle = _createbundlerepo(op, bundlepath)
 
-                    pushrequest.check(ontoctx)
+                onto = getontotarget(op, params, bundle)
 
-                    # Print and log what commits to push.
-                    log(
-                        getpushmessage(
-                            pushrequest.pushcommits,
-                            lambda c: "%s  %s"
-                            % (short(c.orignode), c.desc.split("\n", 1)[0][:50]),
-                        ),
-                        force=True,
-                    )
+                revs, oldonto = _getrevs(op, bundle, onto, renamesrccache)
 
-                    # Enter the critical section!
-                    tr = op.gettransaction()
-                    hookargs = dict(tr.hookargs)
-                    op.repo.hook("prechangegroup", throw=True, **hookargs)
+                op.repo.hook("prechangegroup", throw=True, **hookargs)
 
-                    # ontoctx could move. Fetch the new one.
-                    # Print rebase source and destination.
-                    ontoctx = resolveonto(op.repo, ontoparam)
-                    log(
-                        _("rebasing stack from %s onto %s\n")
-                        % (short(pushrequest.stackparentnode), ontoctx)
-                    )
-                    added, replacements = pushrequest.pushonto(
-                        ontoctx, getcommitdatefn=common.commitdategenerator(op)
-                    )
-                else:
-                    # Old code path - use a bundlerepo
+                log(
+                    getpushmessage(
+                        revs,
+                        lambda r: "%s  %s"
+                        % (r, bundle[r].description().split("\n", 1)[0][:50]),
+                    ),
+                    force=True,
+                )
 
-                    # Create a cache of rename sources while we don't have the lock.
-                    renamesrccache = {
-                        bundle[r].node(): _getrenamesrcs(op, bundle[r])
-                        for r in bundle.revs("bundle()")
-                    }
+                # Prepopulate the revlog _cache with the original onto's fulltext. This
+                # means reading the new onto's manifest will likely have a much shorter
+                # delta chain to traverse.
+                log(_("rebasing onto %s\n") % (short(onto.node()),))
 
-                    # Opening the transaction takes the lock, so do it after prepushrebase
-                    # and after we've fetched all the cache information we'll need.
-                    tr = op.gettransaction()
-                    hookargs = dict(tr.hookargs)
+                # Perform the rebase + commit to the main repo
+                added, replacements = runrebase(op, revs, oldonto, onto)
 
-                    # Recreate the bundle repo, since taking the lock in gettransaction()
-                    # may have caused it to become out of date.
-                    # (but grab a copy of the cache first)
-                    bundle.close()
-                    bundle = _createbundlerepo(op, bundlepath)
+                # revs is modified by runrebase to ensure garbage collection of
+                # manifests, so don't use it from here on.
+                revs = None
 
-                    onto = getontotarget(op, params, bundle)
+            op.repo.pushrebaseaddedchangesets = added
+            op.repo.pushrebasereplacements = replacements
 
-                    revs, oldonto = _getrevs(op, bundle, onto, renamesrccache)
-
-                    op.repo.hook("prechangegroup", throw=True, **hookargs)
-
-                    log(
-                        getpushmessage(
-                            revs,
-                            lambda r: "%s  %s"
-                            % (r, bundle[r].description().split("\n", 1)[0][:50]),
-                        ),
-                        force=True,
-                    )
-
-                    # Prepopulate the revlog _cache with the original onto's fulltext. This
-                    # means reading the new onto's manifest will likely have a much shorter
-                    # delta chain to traverse.
-                    log(_("rebasing onto %s\n") % (short(onto.node()),))
-
-                    # Perform the rebase + commit to the main repo
-                    added, replacements = runrebase(op, revs, oldonto, onto)
-
-                    # revs is modified by runrebase to ensure garbage collection of
-                    # manifests, so don't use it from here on.
-                    revs = None
-
-                op.repo.pushrebaseaddedchangesets = added
-                op.repo.pushrebasereplacements = replacements
-
-                markers = _buildobsolete(replacements, bundle, op.repo, markerdate)
-            finally:
-                try:
-                    if bundlefile:
-                        os.unlink(bundlefile)
-                except OSError as e:
-                    if e.errno != errno.ENOENT:
-                        raise
-                if bundle:
-                    bundle.close()
+            markers = _buildobsolete(replacements, bundle, op.repo, markerdate)
+        finally:
+            try:
+                if bundlefile:
+                    os.unlink(bundlefile)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+            if bundle:
+                bundle.close()
 
         # Move public phase forward
         publishing = op.repo.ui.configbool("phases", "publish")
