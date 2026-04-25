@@ -570,7 +570,7 @@ fn finalize_trees<P: ParentTreeTracker>(
 
     let hgid = store.insert_entry(path, entry, parent_tree_nodes)?;
 
-    let durable_entry = DurableEntry { hgid, links: cell };
+    let durable_entry = DurableEntry::with_links(hgid, cell);
     let inner = Arc::new(durable_entry);
     *link = Link::new(Durable(inner));
 

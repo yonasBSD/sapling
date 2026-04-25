@@ -24,8 +24,8 @@ use types::HgId;
 use types::PathComponentBuf;
 use types::RepoPath;
 use types::RepoPathBuf;
+use types::tree::TreeItemFlag;
 
-use crate::store;
 use crate::store::InnerStore;
 
 // Allows sending link between threads, but disallows general copying.
@@ -88,10 +88,19 @@ pub enum MaybeLinks {
 
 // TODO: Use Vec instead of BTreeMap
 /// The inner structure of a durable link.
-#[derive(Debug)]
 pub struct DurableEntry {
     pub hgid: HgId,
     pub links: OnceCell<MaybeLinks>,
+    tree_entry: OnceCell<Arc<dyn storemodel::TreeEntry>>,
+}
+
+impl std::fmt::Debug for DurableEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DurableEntry")
+            .field("hgid", &self.hgid)
+            .field("links", &self.links)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Link {
@@ -108,7 +117,11 @@ impl Link {
     pub fn durable_permission_denied(hgid: HgId) -> Link {
         let links = OnceCell::new();
         links.set(MaybeLinks::PermissionDenied).unwrap();
-        Link::new(LinkData::Durable(Arc::new(DurableEntry { hgid, links })))
+        Link::new(LinkData::Durable(Arc::new(DurableEntry {
+            hgid,
+            links,
+            tree_entry: OnceCell::new(),
+        })))
     }
 
     pub fn ephemeral() -> Link {
@@ -213,6 +226,15 @@ impl DurableEntry {
         DurableEntry {
             hgid,
             links: OnceCell::new(),
+            tree_entry: OnceCell::new(),
+        }
+    }
+
+    pub fn with_links(hgid: HgId, links: OnceCell<MaybeLinks>) -> Self {
+        DurableEntry {
+            hgid,
+            links,
+            tree_entry: OnceCell::new(),
         }
     }
 
@@ -225,36 +247,42 @@ impl DurableEntry {
         matches!(self.links.get(), Some(MaybeLinks::Links(_)))
     }
 
+    pub fn get_tree_entry(&self) -> Option<&Arc<dyn storemodel::TreeEntry>> {
+        self.tree_entry.get()
+    }
+
     pub fn materialize_links(
         &self,
         store: &InnerStore,
         path: &RepoPath,
     ) -> Result<&BTreeMap<PathComponentBuf, Link>> {
         let maybe = self.links.get_or_try_init(|| -> Result<MaybeLinks> {
-            let entry = store.get_entry(path, self.hgid).with_context(|| {
+            let tree_entry = store.get_tree_entry(path, self.hgid).with_context(|| {
                 format!("failed fetching from store ({}, {})", path, self.hgid)
             })?;
 
             let mut links = BTreeMap::new();
-            for element_result in entry.elements() {
-                let element = element_result.with_context(|| {
+            for item_result in tree_entry.iter()? {
+                let (component, hgid, flag) = item_result.with_context(|| {
                     format!(
-                        "failed to deserialize manifest entry {:?} for ({}, {}) (store: {:?}, format: {:?})",
-                        entry,
+                        "failed to deserialize manifest entry for ({}, {}) (store: {:?}, format: {:?})",
                         path,
                         self.hgid,
                         store.type_name(),
                         store.format(),
                     )
                 })?;
-                let link = match element.flag {
-                    store::Flag::File(file_type) => {
-                        Link::leaf(FileMetadata::new(element.hgid, file_type))
+                let link = match flag {
+                    TreeItemFlag::File(file_type) => {
+                        Link::leaf(FileMetadata::new(hgid, file_type))
                     }
-                    store::Flag::Directory => Link::durable(element.hgid),
+                    TreeItemFlag::Directory => Link::durable(hgid),
                 };
-                links.insert(element.component, link);
+                links.insert(component.to_owned(), link);
             }
+
+            let _ = self.tree_entry.set(tree_entry);
+
             Ok(MaybeLinks::Links(links))
         })?;
         match maybe {

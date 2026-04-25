@@ -51,12 +51,19 @@ impl InnerStore {
         })
     }
 
-    pub(crate) fn get_local_tree_entry(
+    pub fn get_tree_entry(
         &self,
         path: &RepoPath,
         hgid: HgId,
-    ) -> Result<Option<Arc<dyn storemodel::TreeEntry>>> {
-        self.tree_store.get_local_tree(path, hgid)
+    ) -> Result<Arc<dyn storemodel::TreeEntry>> {
+        tracing::debug_span!(
+            "tree::store::get",
+            id = AsRef::<str>::as_ref(&hgid.to_hex())
+        )
+        .in_scope(|| {
+            self.tree_store
+                .get_tree(FetchContext::default(), path, hgid)
+        })
     }
 
     pub(crate) fn insert_entry(

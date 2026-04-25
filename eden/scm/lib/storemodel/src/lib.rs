@@ -407,6 +407,25 @@ pub trait TreeStore: KeyStore {
         Ok(Box::new(iter))
     }
 
+    /// Fetch a single tree with full metadata.
+    /// Tries local first, falls back to remote via `get_tree_iter`.
+    fn get_tree(
+        &self,
+        fctx: FetchContext,
+        path: &RepoPath,
+        id: HgId,
+    ) -> anyhow::Result<Arc<dyn TreeEntry>> {
+        if let Some(tree) = self.get_local_tree(path, id)? {
+            return Ok(tree);
+        }
+        let key = Key::new(path.to_owned(), id);
+        match self.get_tree_iter(fctx, vec![key])?.next() {
+            Some(Ok((_, tree))) => Ok(tree),
+            Some(Err(e)) => Err(e),
+            None => Err(anyhow::format_err!("{}@{}: tree not found", path, id)),
+        }
+    }
+
     /// List metadata of the given trees.
     /// Contact remote server on demand. Might block.
     ///
