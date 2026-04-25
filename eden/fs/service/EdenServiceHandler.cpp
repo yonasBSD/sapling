@@ -4241,6 +4241,12 @@ EdenServiceHandler::semifuture_predictiveGlobFiles(
 
 folly::SemiFuture<std::unique_ptr<Glob>>
 EdenServiceHandler::semifuture_globFiles(std::unique_ptr<GlobParams> params) {
+  return semifuture_globFilesImpl(std::move(params));
+}
+
+folly::SemiFuture<std::unique_ptr<Glob>>
+EdenServiceHandler::semifuture_globFilesImpl(
+    std::unique_ptr<GlobParams> params) {
   TaskTraceBlock block{"EdenServiceHandler::globFiles"};
   auto mountHandle = lookupMount(params->mountPoint());
   if (!params->revisions().value().empty()) {

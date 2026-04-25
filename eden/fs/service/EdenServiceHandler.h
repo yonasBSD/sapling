@@ -271,6 +271,9 @@ class EdenServiceHandler
   folly::SemiFuture<std::unique_ptr<Glob>> semifuture_globFiles(
       std::unique_ptr<GlobParams> params) override;
 
+  folly::SemiFuture<std::unique_ptr<Glob>> semifuture_globFilesImpl(
+      std::unique_ptr<GlobParams> params);
+
   folly::SemiFuture<folly::Unit> semifuture_prefetchFiles(
       std::unique_ptr<PrefetchParams> params) override;
 
