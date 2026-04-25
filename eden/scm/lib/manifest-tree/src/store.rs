@@ -51,6 +51,14 @@ impl InnerStore {
         })
     }
 
+    pub(crate) fn get_local_tree_entry(
+        &self,
+        path: &RepoPath,
+        hgid: HgId,
+    ) -> Result<Option<Arc<dyn storemodel::TreeEntry>>> {
+        self.tree_store.get_local_tree(path, hgid)
+    }
+
     pub(crate) fn insert_entry(
         &self,
         path: &RepoPath,

@@ -1103,6 +1103,10 @@ impl TreeEntry for ScmStoreTreeEntry {
         acl_checker(children_with_acl)
     }
 
+    fn children_with_acls(&self) -> Result<Vec<(PathComponentBuf, HgId)>> {
+        self.tree.children_with_acl()
+    }
+
     fn size_hint(&self) -> Option<usize> {
         match &self.tree {
             LazyTree::IndexedLog(..) => self
@@ -1339,6 +1343,39 @@ mod tests {
         let info = historystore.get_node_info(&key).unwrap().unwrap();
         assert_eq!(info.parents[0].hgid, p1);
         assert_eq!(info.parents[1].hgid, p2);
+    }
+
+    #[test]
+    fn test_get_local_tree_acl_children_roundtrip() {
+        let tempdir = TempDir::new().unwrap();
+        let indexedlog = make_data_store(&tempdir);
+
+        let child_dir_id = HgId::from_hex(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
+        let child_file_id = HgId::from_hex(b"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap();
+
+        // Build an Hg tree blob: "dir\0<hex>t\nfile\0<hex>\n"
+        let tree_data = format!(
+            "dir\0{}t\nfile\0{}\n",
+            child_dir_id.to_hex(),
+            child_file_id.to_hex(),
+        );
+        let tree_bytes = Bytes::copy_from_slice(tree_data.as_bytes());
+
+        let tree_id = HgId::from_hex(b"cccccccccccccccccccccccccccccccccccccccc").unwrap();
+        let mut entry =
+            crate::indexedlogdatastore::Entry::new(tree_id, tree_bytes, Metadata::default());
+        entry.set_acl_children_indices(vec![0]); // index 0 = "dir"
+        indexedlog.put_entry(entry).unwrap();
+        indexedlog.flush_log().unwrap();
+
+        let mut store = TreeStore::empty();
+        store.indexedlog_local = Some(indexedlog);
+        let tree_entry = store.get_local_tree_direct(tree_id).unwrap().unwrap();
+
+        let acl = tree_entry.children_with_acls().unwrap();
+        assert_eq!(acl.len(), 1);
+        assert_eq!(acl[0].0.as_str(), "dir");
+        assert_eq!(acl[0].1, child_dir_id);
     }
 
     #[test]

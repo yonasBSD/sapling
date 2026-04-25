@@ -345,6 +345,12 @@ pub trait TreeEntry: Send + Sync + 'static {
         Ok(Box::new(std::iter::empty()))
     }
 
+    /// Get directory children that have `has_acl` set, without triggering
+    /// permission checks. Returns `(path_component, manifest_id)` pairs.
+    fn children_with_acls(&self) -> anyhow::Result<Vec<(PathComponentBuf, HgId)>> {
+        Ok(Vec::new())
+    }
+
     /// Get number of entries, if available. Useful to pre-allocate vector capacity, etc.
     fn size_hint(&self) -> Option<usize>;
 }
