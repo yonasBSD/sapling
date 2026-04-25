@@ -587,6 +587,7 @@ MixinList = List[Tuple[str, List[Type[Any]]]]
 
 def _replicate_hg_test(
     test_class: Type[EdenHgTestCase],
+    run_coroutines: bool = True,
 ) -> Iterable[Tuple[str, Type[EdenHgTestCase]]]:
     tree_variants: MixinList = [("TreeOnly", [])]
     if eden.config.HAVE_NFS:
@@ -614,6 +615,16 @@ def _replicate_hg_test(
                     f"{tree_label}{overlay_label}{scm_label}",
                     typing.cast(Type[EdenHgTestCase], VariantHgRepoTest),
                 )
+
+    if run_coroutines:
+
+        class CoroutinesVariantHgRepoTest(testcase.CoroutinesTestMixin, test_class):
+            pass
+
+        yield (
+            "Coroutines",
+            typing.cast(Type[EdenHgTestCase], CoroutinesVariantHgRepoTest),
+        )
 
 
 def _replicate_filteredhg_test(

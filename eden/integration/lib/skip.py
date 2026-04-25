@@ -194,7 +194,7 @@ elif sys.platform.startswith("darwin"):
         "test_get_tree_memory",
     ]
 
-    TEST_DISABLED["hg.update_test.UpdateTestTreeOnly"] = [
+    TEST_DISABLED["hg.update_test.UpdateTest"] = [
         # update fails because new file created while checkout operation in progress
         "test_change_casing_with_untracked",
         # TODO(T163970408)
