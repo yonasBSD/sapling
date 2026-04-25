@@ -5,7 +5,7 @@ Subject: [PATCH 2/7] windows: make subprocess work with non-inheritable std
  handles
 
 Summary:
-See https://our.internmc.facebook.com/intern/diff/D13040695/ for
+See https://www.internalfb.com/intern/diff/D13040695/ for
 detailed explanation.
 
 In a nutshell, the problem arises when the Python process has

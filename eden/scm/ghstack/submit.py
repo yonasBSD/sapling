@@ -390,7 +390,7 @@ class Submitter:
                 extra = (
                     "\n\nDifferential Revision: "
                     "[{phabdiff}]"
-                    "(https://our.internmc.facebook.com/intern/diff/{phabdiff})"
+                    "(https://www.internalfb.com/intern/diff/{phabdiff})"
                 ).format(phabdiff=m.group(1))
         commit_body = "".join(commit.summary.splitlines(True)[1:]).lstrip()
         # Don't store ghstack-source-id in the PR body; it will become
