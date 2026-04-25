@@ -4241,6 +4241,36 @@ EdenServiceHandler::semifuture_predictiveGlobFiles(
 
 folly::SemiFuture<std::unique_ptr<Glob>>
 EdenServiceHandler::semifuture_globFiles(std::unique_ptr<GlobParams> params) {
+  auto isBackground = *params->background();
+  if (server_->getServerState()
+          ->getEdenConfig()
+          ->enableCoroutinesPhase3.getValue()) {
+    // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+    auto task = folly::coro::co_invoke(
+        [self = shared_from_this()](std::unique_ptr<GlobParams> p)
+            -> folly::coro::Task<std::unique_ptr<Glob>> {
+          co_return co_await self->co_globFilesImpl(std::move(p));
+        },
+        std::move(params));
+
+    if (server_->usingPrefetchExecutor()) {
+      // Pin the entire coroutine to the prefetch executor so all resumptions
+      // after co_await points stay on that executor, not the Thrift thread.
+      auto pinned = folly::coro::co_withExecutor(
+          folly::getKeepAliveToken(server_->getPrefetchFilesV2Executor().get()),
+          std::move(task));
+      if (isBackground) {
+        folly::futures::detachOn(
+            server_->getPrefetchFilesV2Executor().get(),
+            std::move(pinned).start());
+        return ImmediateFuture<std::unique_ptr<Glob>>(std::make_unique<Glob>())
+            .semi();
+      }
+      return std::move(pinned).start();
+    }
+    return serialDetachIfBackgrounded<Glob>(
+        ImmediateFuture{std::move(task).semi()}, server_, isBackground);
+  }
   return semifuture_globFilesImpl(std::move(params));
 }
 
