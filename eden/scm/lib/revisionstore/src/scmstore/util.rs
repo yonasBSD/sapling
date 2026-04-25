@@ -74,3 +74,28 @@ macro_rules! try_local_content {
 }
 
 pub(crate) use try_local_content;
+
+macro_rules! try_local_entry {
+    ($id:ident, $e:expr, $m:expr) => {
+        if let Some(store) = $e.as_ref() {
+            $m.requests.increment();
+            $m.keys.increment();
+            $m.singles.increment();
+            match store.get_entry($id) {
+                Ok(None) => {
+                    $m.misses.increment();
+                }
+                Ok(Some(entry)) => {
+                    $m.hits.increment();
+                    return Ok(Some(entry));
+                }
+                Err(err) => {
+                    $m.errors.increment();
+                    return Err(err);
+                }
+            }
+        }
+    };
+}
+
+pub(crate) use try_local_entry;

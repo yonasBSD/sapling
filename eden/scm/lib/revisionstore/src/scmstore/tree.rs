@@ -50,6 +50,7 @@ use storemodel::basic_parse_tree;
 use types::AuxData;
 
 use super::util::try_local_content;
+use super::util::try_local_entry;
 use crate::Delta;
 use crate::HgIdHistoryStore;
 use crate::HgIdMutableDeltaStore;
@@ -187,13 +188,10 @@ impl TreeStore {
         Ok(None)
     }
 
-    pub(crate) fn get_indexedlog_caches_content_direct(
-        &self,
-        id: &HgId,
-    ) -> anyhow::Result<Option<Blob>> {
+    pub(crate) fn get_indexedlog_entry_direct(&self, id: &HgId) -> anyhow::Result<Option<Entry>> {
         let m = &TREE_STORE_FETCH_METRICS;
-        try_local_content!(id, self.indexedlog_cache, m.indexedlog.cache);
-        try_local_content!(id, self.indexedlog_local, m.indexedlog.local);
+        try_local_entry!(id, self.indexedlog_cache, m.indexedlog.cache);
+        try_local_entry!(id, self.indexedlog_local, m.indexedlog.local);
         Ok(None)
     }
 
@@ -203,18 +201,13 @@ impl TreeStore {
             return Ok(Some(basic_parse_tree(Bytes::default(), self.format())?));
         }
 
-        match self.get_indexedlog_caches_content_direct(&node)? {
+        match self.get_indexedlog_entry_direct(&node)? {
             None => Ok(None),
-            Some(blob) => {
+            Some(entry) => {
+                let tree_aux = self.get_local_aux_direct(&node)?;
                 let res: Arc<ScmStoreTreeEntry> = Arc::new(
-                    LazyTree::IndexedLog(
-                        TreeEntryWithAux {
-                            entry: Entry::new(node, blob.into_bytes(), Metadata::default()),
-                            tree_aux: self.get_local_aux_direct(&node)?,
-                        },
-                        self.format(),
-                    )
-                    .into(),
+                    LazyTree::IndexedLog(TreeEntryWithAux { entry, tree_aux }, self.format())
+                        .into(),
                 );
                 Ok(Some(res))
             }
@@ -1191,13 +1184,16 @@ mod tests {
     use std::collections::BTreeMap;
     use std::sync::Arc;
 
+    use minibytes::Bytes;
     use storemodel::InsertOpts;
     use storemodel::KeyStore;
     use storemodel::Kind;
     use storemodel::SerializationFormat;
     use tempfile::TempDir;
+    use types::HgId;
     use types::RepoPathBuf;
 
+    use crate::Metadata;
     use crate::StoreType;
     use crate::ToKeys;
     use crate::indexedlogdatastore::IndexedLogHgIdDataStore;
@@ -1343,5 +1339,30 @@ mod tests {
         let info = historystore.get_node_info(&key).unwrap().unwrap();
         assert_eq!(info.parents[0].hgid, p1);
         assert_eq!(info.parents[1].hgid, p2);
+    }
+
+    #[test]
+    fn test_get_indexedlog_entry_preserves_acl_children_indices() {
+        let tempdir = TempDir::new().unwrap();
+        let indexedlog = make_data_store(&tempdir);
+
+        let tree_id = HgId::from_hex(b"cccccccccccccccccccccccccccccccccccccccc").unwrap();
+        let mut entry = crate::indexedlogdatastore::Entry::new(
+            tree_id,
+            Bytes::from_static(b"tree data"),
+            Metadata::default(),
+        );
+        entry.set_acl_children_indices(vec![0, 3, 5]);
+        indexedlog.put_entry(entry).unwrap();
+        indexedlog.flush_log().unwrap();
+
+        let mut store = TreeStore::empty();
+        store.indexedlog_local = Some(indexedlog);
+
+        let read_entry = store
+            .get_indexedlog_entry_direct(&tree_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(read_entry.acl_children_indices(), Some(&[0, 3, 5][..]));
     }
 }
