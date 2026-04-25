@@ -6,11 +6,13 @@
  */
 
 #include "eden/fs/service/UsageService.h"
+#include <folly/coro/safe/NowTask.h>
 #include <folly/logging/xlog.h>
 
 namespace facebook::eden {
 
-folly::SemiFuture<std::vector<std::string>> NullUsageService::getTopUsedDirs(
+folly::coro::now_task<std::vector<std::string>>
+NullUsageService::getTopUsedDirs(
     std::string_view /*user*/,
     std::string_view /*repo*/,
     uint32_t /*numResults*/,
@@ -22,7 +24,7 @@ folly::SemiFuture<std::vector<std::string>> NullUsageService::getTopUsedDirs(
       WARN,
       60000,
       "getTopUsedDirs not supported - returning empty directory list");
-  return std::vector<std::string>{};
+  co_return std::vector<std::string>{};
 }
 
 } // namespace facebook::eden

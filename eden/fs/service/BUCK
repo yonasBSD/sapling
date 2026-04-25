@@ -306,7 +306,7 @@ cpp_library(
         "//folly/logging:logging",
     ],
     exported_deps = [
-        "//folly/futures:core",
+        "//folly/coro/safe:now_task",
     ],
 )
 

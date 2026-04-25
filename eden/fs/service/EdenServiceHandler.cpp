@@ -4241,9 +4241,30 @@ EdenServiceHandler::semifuture_predictiveGlobFiles(
   auto& fetchContext = helper->getPrefetchFetchContext();
 
   auto future =
-      ImmediateFuture{
-          usageService_->getTopUsedDirs(
-              user, repo, numResults, os, startTime, endTime, sandcastleAlias)}
+      ImmediateFuture{// @lint-ignore CLANGTIDY
+                      // facebook-folly-coro-return-captures-local-var
+                      folly::coro::co_invoke(
+                          [](UsageService* svc,
+                             std::string u,
+                             std::string r,
+                             uint32_t n,
+                             std::string o,
+                             std::optional<uint64_t> st,
+                             std::optional<uint64_t> et,
+                             std::optional<std::string> sc)
+                              -> folly::coro::Task<std::vector<std::string>> {
+                            co_return co_await svc->getTopUsedDirs(
+                                u, r, n, o, st, et, std::move(sc));
+                          },
+                          usageService_.get(),
+                          std::string{user},
+                          std::string{repo},
+                          numResults,
+                          std::string{os},
+                          startTime,
+                          endTime,
+                          std::move(sandcastleAlias))
+                          .semi()}
           .thenValue([globber = std::move(globber),
                       mountHandle,
                       serverState,
@@ -4334,11 +4355,8 @@ EdenServiceHandler::co_predictiveGlobFilesImpl(
 
   co_await folly::coro::co_reschedule_on_current_executor;
 
-  auto globs =
-      co_await ImmediateFuture{
-          usageService_->getTopUsedDirs(
-              user, repo, numResults, os, startTime, endTime, sandcastleAlias)}
-          .semi();
+  auto globs = co_await usageService_->getTopUsedDirs(
+      user, repo, numResults, os, startTime, endTime, sandcastleAlias);
 
   auto resultTry = co_await co_awaitTry(globber.co_glob(
       mountHandle.getEdenMountPtr(),

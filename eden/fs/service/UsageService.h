@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <folly/futures/Future.h>
+#include <folly/coro/safe/NowTask.h>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -25,7 +25,7 @@ class UsageService {
    *
    * Used for the predictiveGlobFiles Thrift method.
    */
-  virtual folly::SemiFuture<std::vector<std::string>> getTopUsedDirs(
+  virtual folly::coro::now_task<std::vector<std::string>> getTopUsedDirs(
       std::string_view user,
       std::string_view repo,
       uint32_t numResults,
@@ -37,7 +37,7 @@ class UsageService {
 
 class NullUsageService : public UsageService {
  public:
-  folly::SemiFuture<std::vector<std::string>> getTopUsedDirs(
+  folly::coro::now_task<std::vector<std::string>> getTopUsedDirs(
       std::string_view user,
       std::string_view repo,
       uint32_t numResults,
