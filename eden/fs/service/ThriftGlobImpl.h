@@ -78,4 +78,14 @@ getLocalGlobResults(
     const TreeInodePtr& rootInode,
     const ObjectFetchContextPtr& context);
 
+folly::coro::now_task<std::vector<BackingStore::GetGlobFilesResult>>
+co_getLocalGlobResults(
+    const std::shared_ptr<EdenMount>& edenMount,
+    const std::shared_ptr<ServerState>& serverState,
+    bool includeDotfiles,
+    const std::vector<std::string>& suffixGlobs,
+    const std::vector<std::string>& prefixes,
+    const TreeInodePtr& rootInode,
+    const ObjectFetchContextPtr& context);
+
 } // namespace facebook::eden

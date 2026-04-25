@@ -10,6 +10,7 @@
 #include <folly/coro/Collect.h>
 #include <folly/coro/Invoke.h>
 #include <folly/coro/Task.h>
+#include <folly/coro/safe/NowTask.h>
 #include <folly/logging/LogLevel.h>
 #include <folly/logging/xlog.h>
 #include <memory>
@@ -689,6 +690,57 @@ getLocalGlobResults(
                   filteredRemoteGlobFiles, localGlobFiles};
             });
       });
+}
+
+folly::coro::now_task<std::vector<BackingStore::GetGlobFilesResult>>
+co_getLocalGlobResults(
+    const std::shared_ptr<EdenMount>& edenMount,
+    const std::shared_ptr<ServerState>& serverState,
+    bool includeDotfiles,
+    const std::vector<std::string>& suffixGlobs,
+    const std::vector<std::string>& prefixes,
+    const TreeInodePtr& rootInode,
+    const ObjectFetchContextPtr& context) {
+  XLOG(DBG3, "No commit id in input, using current id");
+  auto rootId = edenMount->getCheckedOutRootId();
+  auto& store = edenMount->getObjectStore();
+
+  auto remoteGlobFiles =
+      co_await store->co_getGlobFiles(rootId, suffixGlobs, prefixes, context);
+
+  auto localFiles = co_await computeLocalFiles(
+                        edenMount,
+                        serverState,
+                        includeDotfiles,
+                        rootId,
+                        rootInode,
+                        suffixGlobs,
+                        context)
+                        .semi();
+
+  BackingStore::GetGlobFilesResult filteredRemoteGlobFiles;
+  filteredRemoteGlobFiles.rootId = remoteGlobFiles.rootId;
+  for (auto& entry : remoteGlobFiles.globFiles) {
+    if (localFiles->removedFiles.contains(entry) ||
+        localFiles->addedFiles.contains(entry) ||
+        localFiles->modifiedFiles.contains(entry)) {
+      continue;
+    }
+    filteredRemoteGlobFiles.globFiles.emplace_back(entry);
+  }
+
+  BackingStore::GetGlobFilesResult localGlobFiles;
+  localGlobFiles.isLocal = true;
+  localGlobFiles.rootId = rootId;
+  for (auto& entry : localFiles->addedFiles) {
+    localGlobFiles.globFiles.emplace_back(entry);
+  }
+  for (auto& entry : localFiles->modifiedFiles) {
+    localGlobFiles.globFiles.emplace_back(entry);
+  }
+
+  co_return std::vector<BackingStore::GetGlobFilesResult>{
+      filteredRemoteGlobFiles, localGlobFiles};
 }
 
 std::string ThriftGlobImpl::logString() {
