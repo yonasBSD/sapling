@@ -1,4 +1,7 @@
-# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This software may be used and distributed according to the terms of the
+# GNU General Public License version 2.
 
 from unittest import TestCase
 
@@ -10,19 +13,20 @@ class UnittestTest(TestCase):
     def test_upper(self) -> None:
         self.assertEqual("foo".upper(), "FOO")
 
-    def test_isupper(self):
+    def test_isupper(self) -> None:
         self.assertTrue("FOO".isupper())
         self.assertFalse("Foo".isupper())
 
-    def test_split(self):
+    def test_split(self) -> None:
         s = "hello world"
         self.assertEqual(s.split(), ["hello", "world"])
         # check that s.split fails when the separator is not a string
         with self.assertRaises(TypeError):
+            # pyre-ignore[6]: Intentionally passing wrong type to test TypeError
             s.split(2)
 
     # Compare two lists in different order
-    def test_count_equal(self):
+    def test_count_equal(self) -> None:
         self.assertNotEqual([1, 2, 2, 3], [3, 2, 2, 1])
         self.assertCountEqual([1, 2, 2, 3], [3, 2, 2, 1])
 
@@ -75,5 +79,5 @@ class UnittestWithParameterizedTest(TestCase):
             (15, 17, 32),
         ]
     )
-    def test_add_parameterized(self, a, b, expected) -> None:
+    def test_add_parameterized(self, a: int, b: int, expected: int) -> None:
         self.assertEqual(add(a, b), expected)
