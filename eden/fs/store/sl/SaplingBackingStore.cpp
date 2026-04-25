@@ -2248,6 +2248,48 @@ SaplingBackingStore::getGlobFiles(
   return GetGlobFilesResult{BackingStore::GetGlobFilesResult{files, id}};
 }
 
+folly::coro::now_task<BackingStore::GetGlobFilesResult>
+SaplingBackingStore::co_getGlobFiles(
+    const RootId& id,
+    const std::vector<std::string>& suffixes,
+    const std::vector<std::string>& prefixes) {
+  folly::stop_watch<std::chrono::milliseconds> watch;
+
+  rust::Vec<rust::String> rust_suffixes;
+  rust::Vec<rust::String> rust_prefixes;
+  std::copy(
+      suffixes.begin(), suffixes.end(), std::back_inserter(rust_suffixes));
+  std::copy(
+      prefixes.begin(), prefixes.end(), std::back_inserter(rust_prefixes));
+
+  auto br = folly::ByteRange(id.value());
+  auto result = sapling_backingstore_get_glob_files(
+      *store_.get(),
+      rust::Slice<const uint8_t>{br.data(), br.size()},
+      rust_suffixes,
+      rust_prefixes);
+
+  if (result.error != nullptr) {
+    stats_->increment(&SaplingBackingStoreStats::fetchGlobFilesFailure);
+    throw std::move(*result.error);
+  }
+
+  XCHECK(
+      result.data.get(),
+      "sapling_backingstore_get_glob_files returned a nullptr as data result, but did not return an error.");
+
+  std::vector<std::string> files;
+  files.reserve(result.data->files.size());
+  for (auto& file : result.data->files) {
+    files.emplace_back(file);
+  }
+  stats_->addDuration(
+      &SaplingBackingStoreStats::fetchGlobFiles, watch.elapsed());
+  stats_->increment(&SaplingBackingStoreStats::fetchGlobFilesSuccess);
+
+  co_return BackingStore::GetGlobFilesResult{std::move(files), id};
+}
+
 void SaplingBackingStore::logBackingStoreFetch(
     const ObjectFetchContext& context,
     folly::Range<SlOidView*> slOids,
