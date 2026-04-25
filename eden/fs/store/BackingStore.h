@@ -309,6 +309,14 @@ class BackingStore : public RootIdCodec, public ObjectIdCodec {
       const std::vector<std::string>& prefixes) = 0;
 
   /**
+   * Coroutine version of getGlobFiles.
+   */
+  virtual folly::coro::now_task<GetGlobFilesResult> co_getGlobFiles(
+      const RootId& id,
+      const std::vector<std::string>& globs,
+      const std::vector<std::string>& prefixes) = 0;
+
+  /**
    * Prefetch all the blobs represented by the HashRange.
    *
    * The caller is responsible for making sure that the HashRange stays valid

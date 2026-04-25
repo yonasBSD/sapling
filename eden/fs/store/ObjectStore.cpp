@@ -803,6 +803,24 @@ ImmediateFuture<BackingStore::GetGlobFilesResult> ObjectStore::getGlobFilesImpl(
   return backingStore_->getGlobFiles(id, globs, prefixes);
 }
 
+folly::coro::now_task<BackingStore::GetGlobFilesResult>
+ObjectStore::co_getGlobFiles(
+    const RootId& id,
+    const std::vector<std::string>& globs,
+    const std::vector<std::string>& prefixes,
+    const ObjectFetchContextPtr& context) const {
+  co_return co_await co_getGlobFilesImpl(id, globs, prefixes, context);
+}
+
+folly::coro::now_task<BackingStore::GetGlobFilesResult>
+ObjectStore::co_getGlobFilesImpl(
+    const RootId& id,
+    const std::vector<std::string>& globs,
+    const std::vector<std::string>& prefixes,
+    const ObjectFetchContextPtr& /*context*/) const {
+  co_return co_await backingStore_->co_getGlobFiles(id, globs, prefixes);
+}
+
 ObjectComparison ObjectStore::compareObjectsById(
     const ObjectId& one,
     const ObjectId& two) const {

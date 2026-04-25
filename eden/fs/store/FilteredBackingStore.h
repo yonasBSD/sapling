@@ -199,6 +199,11 @@ class FilteredBackingStore
       const std::vector<std::string>& globs,
       const std::vector<std::string>& prefixes) override;
 
+  folly::coro::now_task<GetGlobFilesResult> co_getGlobFiles(
+      const RootId& id,
+      const std::vector<std::string>& globs,
+      const std::vector<std::string>& prefixes) override;
+
   /*
    * Does the actual filtering logic for tree and root-tree objects.
    */

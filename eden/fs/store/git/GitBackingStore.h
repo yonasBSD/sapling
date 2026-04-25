@@ -91,7 +91,7 @@ class GitBackingStore final : public BijectiveBackingStore {
   folly::coro::now_task<GetGlobFilesResult> co_getGlobFiles(
       const RootId& id,
       const std::vector<std::string>& globs,
-      const std::vector<std::string>& prefixes);
+      const std::vector<std::string>& prefixes) override;
 
   GetRootTreeResult getRootTreeImpl(const RootId& rootId);
   TreePtr getTreeImpl(const ObjectId& id);

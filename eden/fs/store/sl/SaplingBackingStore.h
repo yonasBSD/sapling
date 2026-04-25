@@ -637,7 +637,7 @@ class SaplingBackingStore final
   folly::coro::now_task<GetGlobFilesResult> co_getGlobFiles(
       const RootId& id,
       const std::vector<std::string>& globs,
-      const std::vector<std::string>& prefixes);
+      const std::vector<std::string>& prefixes) override;
 
   /**
    * The worker runloop function.
