@@ -4142,6 +4142,45 @@ EdenServiceHandler::semifuture_ensureMaterialized(
 folly::SemiFuture<std::unique_ptr<Glob>>
 EdenServiceHandler::semifuture_predictiveGlobFiles(
     std::unique_ptr<GlobParams> params) {
+  auto isBackground = *params->background();
+  if (server_->getServerState()
+          ->getEdenConfig()
+          ->enableCoroutinesPhase3.getValue()) {
+    // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+    auto task = folly::coro::co_invoke(
+        [self = shared_from_this()](std::unique_ptr<GlobParams> p)
+            -> folly::coro::Task<std::unique_ptr<Glob>> {
+          co_return co_await self->co_predictiveGlobFilesImpl(std::move(p));
+        },
+        std::move(params));
+
+    if (server_->usingThriftSerialExecution()) {
+      // Already globally serialized — just handle background detach.
+      if (isBackground) {
+        folly::futures::detachOn(
+            server_->getServerState()->getThreadPool().get(),
+            std::move(task).semi());
+        return ImmediateFuture<std::unique_ptr<Glob>>(std::make_unique<Glob>())
+            .semi();
+      }
+      return std::move(task).semi();
+    }
+
+    // Pin all coroutine resumptions to a SerialExecutor so CPU work
+    // between co_await points is serialized, matching the futures path.
+    // Without co_withExecutor, the coroutine would escape the serial
+    // executor after the first external co_await (e.g. getTopUsedDirs),
+    // allowing concurrent fan-out from multiple requests.
+    folly::Executor::KeepAlive<> serial = folly::SerialExecutor::create(
+        server_->getServer()->getThreadManager().get());
+    auto pinned = folly::coro::co_withExecutor(serial, std::move(task));
+    if (isBackground) {
+      folly::futures::detachOn(serial, std::move(pinned).start());
+      return ImmediateFuture<std::unique_ptr<Glob>>(std::make_unique<Glob>())
+          .semi();
+    }
+    return std::move(pinned).start();
+  }
   auto mountHandle = lookupMount(params->mountPoint());
   if (!params->revisions().value().empty()) {
     params->revisions() =
@@ -4200,7 +4239,6 @@ EdenServiceHandler::semifuture_predictiveGlobFiles(
   }
 
   auto& fetchContext = helper->getPrefetchFetchContext();
-  bool isBackground = *params->background();
 
   auto future =
       ImmediateFuture{
