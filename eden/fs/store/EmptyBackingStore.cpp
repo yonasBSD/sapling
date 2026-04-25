@@ -95,4 +95,12 @@ EmptyBackingStore::getGlobFiles(
       std::domain_error("empty backing store"));
 }
 
+folly::coro::now_task<BackingStore::GetGlobFilesResult>
+EmptyBackingStore::co_getGlobFiles(
+    const RootId& /* id */,
+    const std::vector<std::string>& /* globs */,
+    const std::vector<std::string>& /* prefixes */) {
+  co_yield folly::coro::co_error(std::domain_error("empty backing store"));
+}
+
 } // namespace facebook::eden
