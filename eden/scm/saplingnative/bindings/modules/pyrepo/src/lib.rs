@@ -31,6 +31,7 @@ use pyconfigloader::config;
 use pydag::commits::commits as PyCommits;
 use pyeagerepo::EagerRepoStore as PyEagerRepoStore;
 use pyedenapi::PyClient as PySaplingRemoteApi;
+use pymanifest::treemanifest as PyTreeManifest;
 use pymetalog::metalog as PyMetaLog;
 use pyrevisionstore::filescmstore as PyFileScmStore;
 use pyrevisionstore::treescmstore as PyTreeScmStore;
@@ -302,6 +303,13 @@ py_class!(pub class repo |py| {
         let repo_ref = self.inner(py).write();
         let node = repo_ref.add_commit(commit.0).map_pyerr(py)?;
         Ok(Serde(node))
+    }
+
+    def manifest_by_root_id(&self, root_id: Serde<HgId>) -> PyResult<PyTreeManifest> {
+        let repo = self.inner(py).read();
+        let resolver = repo.tree_resolver().map_pyerr(py)?;
+        let manifest = resolver.get_by_root_id(&root_id.0).map_pyerr(py)?;
+        PyTreeManifest::from_rust(py, manifest)
     }
 });
 

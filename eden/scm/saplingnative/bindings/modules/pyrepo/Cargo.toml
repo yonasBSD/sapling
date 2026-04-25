@@ -12,6 +12,7 @@ pyconfigloader = { version = "0.1.0", path = "../pyconfigloader" }
 pydag = { version = "0.1.0", path = "../pydag" }
 pyeagerepo = { version = "0.1.0", path = "../pyeagerepo" }
 pyedenapi = { version = "0.1.0", path = "../pyedenapi" }
+pymanifest = { version = "0.1.0", path = "../pymanifest" }
 pymetalog = { version = "0.1.0", path = "../pymetalog" }
 pyrevisionstore = { version = "0.1.0", path = "../pyrevisionstore" }
 pyworkingcopy = { version = "0.1.0", path = "../pyworkingcopy" }
