@@ -4239,6 +4239,84 @@ EdenServiceHandler::semifuture_predictiveGlobFiles(
       std::move(future), server_, isBackground);
 }
 
+folly::coro::now_task<std::unique_ptr<Glob>>
+EdenServiceHandler::co_predictiveGlobFilesImpl(
+    std::unique_ptr<GlobParams> params) {
+  auto mountHandle = lookupMount(params->mountPoint());
+  if (!params->revisions().value().empty()) {
+    params->revisions() =
+        resolveRootsWithLastFilter(params->revisions().value(), mountHandle);
+  }
+  ThriftGlobImpl globber{*params};
+  auto requestContext = getRequestContext();
+  auto helper = INSTRUMENT_THRIFT_CALL_WITH_CANCELLATION(
+      DBG3, false, requestContext, *params->mountPoint(), globber.logString());
+
+  /* set predictive glob fetch parameters */
+  auto& serverState = server_->getServerState();
+  auto numResults =
+      serverState->getEdenConfig()->predictivePrefetchProfileSize.getValue();
+  auto user = folly::StringPiece{serverState->getUserInfo().getUsername()};
+  auto backingStore = mountHandle.getObjectStore().getBackingStore();
+  auto repo_optional = backingStore->getRepoName();
+  if (repo_optional == std::nullopt) {
+    auto& r = *backingStore.get();
+    throw std::runtime_error(
+        folly::to<std::string>(
+            "mount must use SaplingBackingStore, type is ", typeid(r).name()));
+  }
+
+  auto repo = repo_optional.value();
+  auto os = getOperatingSystemName();
+
+  std::optional<std::string> sandcastleAlias;
+  std::optional<uint64_t> startTime;
+  std::optional<uint64_t> endTime;
+  auto scAliasEnv = std::getenv("SANDCASTLE_ALIAS");
+  sandcastleAlias = scAliasEnv ? std::make_optional(std::string(scAliasEnv))
+                               : sandcastleAlias;
+
+  const auto& predictiveGlob = params->predictiveGlob().as_const();
+  if (predictiveGlob.has_value()) {
+    numResults = predictiveGlob->numTopDirectories().value_or(numResults);
+    user = predictiveGlob->user().has_value() ? predictiveGlob->user().value()
+                                              : user;
+    repo = predictiveGlob->repo().has_value() ? predictiveGlob->repo().value()
+                                              : repo;
+    os = predictiveGlob->os().has_value() ? predictiveGlob->os().value() : os;
+    startTime = predictiveGlob->startTime().has_value()
+        ? predictiveGlob->startTime().value()
+        : startTime;
+    endTime = predictiveGlob->endTime().has_value()
+        ? predictiveGlob->endTime().value()
+        : endTime;
+  }
+
+  auto& fetchContext = helper->getPrefetchFetchContext();
+
+  co_await folly::coro::co_reschedule_on_current_executor;
+
+  auto globs =
+      co_await ImmediateFuture{
+          usageService_->getTopUsedDirs(
+              user, repo, numResults, os, startTime, endTime, sandcastleAlias)}
+          .semi();
+
+  auto resultTry = co_await co_awaitTry(globber.co_glob(
+      mountHandle.getEdenMountPtr(),
+      serverState,
+      std::move(globs),
+      fetchContext.copy()));
+  if (resultTry.hasException()) {
+    XLOGF(
+        ERR,
+        "Error fetching predictive file globs: {}",
+        folly::exceptionStr(resultTry.exception()));
+    resultTry.exception().throw_exception();
+  }
+  co_return std::move(resultTry.value());
+}
+
 folly::SemiFuture<std::unique_ptr<Glob>>
 EdenServiceHandler::semifuture_globFiles(std::unique_ptr<GlobParams> params) {
   auto isBackground = *params->background();
