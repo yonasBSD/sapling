@@ -421,6 +421,16 @@ class treemanifestlog:
             self._raw_store or self.datastore
         )
 
+    def buildtree(self, node=None):
+        """Create a tree manifest from a root tree node.
+
+        Goes through the Rust tree resolver chain by default.
+        Overridden by bundlemanifestlog to use the Python datastore.
+        """
+        return self._repo._rsrepo.manifest_by_root_id(
+            node if node is not None else nullid
+        )
+
     @util.propertycache
     def _isgit(self):
         """Whether the Git serialization format is used.
@@ -530,7 +540,12 @@ class treemanifestlog:
         return None
 
 
-def _buildtree(manifestlog, node=None):
+def _buildtree_from_store(manifestlog, node=None):
+    """Create a tree manifest from the Python datastore.
+
+    Used by bundlemanifestlog where the datastore has bundle overlays
+    that the Rust store doesn't see.
+    """
     # this code seems to belong in manifestlog but I have no idea how
     # manifestlog objects work
     # XXX: This breaks abstraction. But we want the "native" store, instead of a
@@ -578,7 +593,7 @@ class treemanifestctx:
 
     def read(self):
         if self._tree is None:
-            self._tree = _buildtree(self._manifestlog, self._node)
+            self._tree = self._manifestlog.buildtree(self._node)
         return self._tree
 
     def node(self):
@@ -589,7 +604,7 @@ class treemanifestctx:
             raise RuntimeError(
                 "native tree manifestlog doesn't support subdir creation: '%s'" % dir
             )
-        return _buildtree(self._manifestlog)
+        return self._manifestlog.buildtree()
 
     def copy(self):
         memmf = memtreemanifestctx(self._manifestlog, dir=self._dir)
@@ -617,7 +632,7 @@ class treemanifestctx:
         """
         p1, p2 = self.parents
         mf = self.read()
-        parentmf = _buildtree(self._manifestlog, p1)
+        parentmf = self._manifestlog.buildtree(p1)
 
         if shallow:
             # This appears to only be used for changegroup creation in
@@ -625,7 +640,7 @@ class treemanifestctx:
             # tree exchanges, we shouldn't need to implement this.
             raise NotImplemented("native trees don't support shallow readdelta yet")
         else:
-            md = _buildtree(self._manifestlog)
+            md = self._manifestlog.buildtree()
             for f, ((n1, fl1), (n2, fl2)) in parentmf.diff(mf).items():
                 if n2:
                     md[f] = n2
@@ -644,7 +659,7 @@ class memtreemanifestctx:
     def __init__(self, manifestlog, dir=""):
         self._manifestlog = manifestlog
         self._dir = dir
-        self._treemanifest = _buildtree(manifestlog)
+        self._treemanifest = manifestlog.buildtree()
 
     def new(self, dir=""):
         return memtreemanifestctx(self._manifestlog, dir=dir)
@@ -673,6 +688,9 @@ def getbundlemanifestlog(orig, self):
     wrapmfl = mfl
 
     class bundlemanifestlog(wrapmfl.__class__):
+        def buildtree(self, node=None):
+            return _buildtree_from_store(self, node)
+
         def add(
             self,
             ui,
