@@ -25,18 +25,13 @@ use types::hgid;
 /// Error indicating that a tree was not found.
 /// This is a specific error type that can be checked using `anyhow::Error::is::<TreeNotFoundError>()`.
 /// Union resolvers use this to distinguish "not found" from unexpected errors.
-#[derive(Debug)]
-pub struct TreeNotFoundError {
-    pub commit_id: HgId,
+#[derive(Debug, thiserror::Error)]
+pub enum TreeNotFoundError {
+    #[error("tree not found for commit {commit_id}")]
+    Commit { commit_id: HgId },
+    #[error("tree not found for root {root_id}")]
+    Root { root_id: HgId },
 }
-
-impl std::fmt::Display for TreeNotFoundError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "tree not found for commit {}", self.commit_id)
-    }
-}
-
-impl std::error::Error for TreeNotFoundError {}
 
 /// A tree manifest resolver that fetches commit data from local disk.
 pub struct LocalTreeResolver {
@@ -81,7 +76,7 @@ impl ReadTreeManifest for LocalTreeResolver {
             async_runtime::block_on(commit_store.read_root_tree_ids(vec![commit_id.clone()]))?;
 
         if tree_ids.is_empty() {
-            return Err(TreeNotFoundError {
+            return Err(TreeNotFoundError::Commit {
                 commit_id: commit_id.clone(),
             }
             .into());
@@ -166,7 +161,7 @@ impl ReadTreeManifest for UnionTreeResolver {
             }
         }
         Err(last_err.unwrap_or_else(|| {
-            TreeNotFoundError {
+            TreeNotFoundError::Commit {
                 commit_id: commit_id.clone(),
             }
             .into()
@@ -185,7 +180,7 @@ impl ReadTreeManifest for UnionTreeResolver {
             }
         }
         Err(last_err.unwrap_or_else(|| {
-            TreeNotFoundError {
+            TreeNotFoundError::Commit {
                 commit_id: commit_id.clone(),
             }
             .into()
@@ -202,14 +197,14 @@ mod tests {
 
     impl ReadTreeManifest for NotFoundResolver {
         fn get(&self, commit_id: &HgId) -> Result<TreeManifest> {
-            Err(TreeNotFoundError {
+            Err(TreeNotFoundError::Commit {
                 commit_id: commit_id.clone(),
             }
             .into())
         }
 
         fn get_root_id(&self, commit_id: &HgId) -> Result<HgId> {
-            Err(TreeNotFoundError {
+            Err(TreeNotFoundError::Commit {
                 commit_id: commit_id.clone(),
             }
             .into())
@@ -320,7 +315,7 @@ mod tests {
     #[test]
     fn test_tree_not_found_error_display() {
         let commit_id = HgId::from_hex(b"dddddddddddddddddddddddddddddddddddddddd").unwrap();
-        let err = TreeNotFoundError { commit_id };
+        let err = TreeNotFoundError::Commit { commit_id };
         assert!(
             err.to_string()
                 .contains("dddddddddddddddddddddddddddddddddddddddd")
