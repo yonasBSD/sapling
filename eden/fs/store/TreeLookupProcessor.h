@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <folly/coro/safe/NowTask.h>
+
 #include "eden/common/utils/ImmediateFuture.h"
 #include "eden/common/utils/PathFuncs.h"
 #include "eden/fs/store/ObjectFetchContext.h"
@@ -48,6 +50,13 @@ class TreeLookupProcessor {
  */
 ImmediateFuture<std::variant<std::shared_ptr<const Tree>, TreeEntry>>
 getTreeOrTreeEntry(
+    std::shared_ptr<const Tree> rootTree,
+    RelativePathPiece path,
+    std::shared_ptr<ObjectStore> objectStore,
+    ObjectFetchContextPtr context);
+
+folly::coro::now_task<std::variant<std::shared_ptr<const Tree>, TreeEntry>>
+co_getTreeOrTreeEntry(
     std::shared_ptr<const Tree> rootTree,
     RelativePathPiece path,
     std::shared_ptr<ObjectStore> objectStore,
