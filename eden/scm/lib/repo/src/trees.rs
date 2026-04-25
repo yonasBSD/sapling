@@ -53,15 +53,17 @@ impl LocalTreeResolver {
 
 impl ReadTreeManifest for LocalTreeResolver {
     fn get(&self, commit_id: &HgId) -> Result<TreeManifest> {
-        if commit_id.is_null() {
-            // Null commit represents a working copy with no parents. Avoid
-            // querying the backend since this is not a real commit.
+        self.get_by_root_id(&self.get_root_id(commit_id)?)
+    }
+
+    fn get_by_root_id(&self, root_id: &HgId) -> Result<TreeManifest> {
+        if root_id.is_null() {
             return Ok(TreeManifest::ephemeral(self.tree_store.clone()));
         }
 
         Ok(TreeManifest::durable(
             self.tree_store.clone(),
-            self.get_root_id(commit_id)?,
+            root_id.clone(),
         ))
     }
 
@@ -103,13 +105,17 @@ impl SlapiTreeResolver {
 
 impl ReadTreeManifest for SlapiTreeResolver {
     fn get(&self, commit_id: &HgId) -> Result<TreeManifest> {
-        if commit_id.is_null() {
+        self.get_by_root_id(&self.get_root_id(commit_id)?)
+    }
+
+    fn get_by_root_id(&self, root_id: &HgId) -> Result<TreeManifest> {
+        if root_id.is_null() {
             return Ok(TreeManifest::ephemeral(self.tree_store.clone()));
         }
 
         Ok(TreeManifest::durable(
             self.tree_store.clone(),
-            self.get_root_id(commit_id)?,
+            root_id.clone(),
         ))
     }
 
@@ -149,10 +155,10 @@ impl UnionTreeResolver {
 }
 
 impl ReadTreeManifest for UnionTreeResolver {
-    fn get(&self, commit_id: &HgId) -> Result<TreeManifest> {
+    fn get_by_root_id(&self, root_id: &HgId) -> Result<TreeManifest> {
         let mut last_err = None;
         for resolver in &self.resolvers {
-            match resolver.get(commit_id) {
+            match resolver.get_by_root_id(root_id) {
                 Ok(manifest) => return Ok(manifest),
                 Err(e) if e.is::<TreeNotFoundError>() => {
                     last_err = Some(e);
@@ -161,11 +167,22 @@ impl ReadTreeManifest for UnionTreeResolver {
             }
         }
         Err(last_err.unwrap_or_else(|| {
-            TreeNotFoundError::Commit {
-                commit_id: commit_id.clone(),
+            TreeNotFoundError::Root {
+                root_id: root_id.clone(),
             }
             .into()
         }))
+    }
+
+    fn get(&self, commit_id: &HgId) -> Result<TreeManifest> {
+        match self.get_by_root_id(&self.get_root_id(commit_id)?) {
+            Ok(manifest) => Ok(manifest),
+            Err(e) if e.is::<TreeNotFoundError>() => Err(TreeNotFoundError::Commit {
+                commit_id: commit_id.clone(),
+            }
+            .into()),
+            Err(e) => Err(e),
+        }
     }
 
     fn get_root_id(&self, commit_id: &HgId) -> Result<HgId> {
@@ -209,6 +226,13 @@ mod tests {
             }
             .into())
         }
+
+        fn get_by_root_id(&self, root_id: &HgId) -> Result<TreeManifest> {
+            Err(TreeNotFoundError::Root {
+                root_id: root_id.clone(),
+            }
+            .into())
+        }
     }
 
     /// A mock resolver that returns a specific root ID.
@@ -225,6 +249,10 @@ mod tests {
         fn get_root_id(&self, _commit_id: &HgId) -> Result<HgId> {
             Ok(self.root_id.clone())
         }
+
+        fn get_by_root_id(&self, _root_id: &HgId) -> Result<TreeManifest> {
+            panic!("get_by_root_id() not implemented for SuccessResolver in tests")
+        }
     }
 
     /// A mock resolver that returns an unexpected error.
@@ -238,6 +266,10 @@ mod tests {
         }
 
         fn get_root_id(&self, _commit_id: &HgId) -> Result<HgId> {
+            Err(anyhow::anyhow!("{}", self.message))
+        }
+
+        fn get_by_root_id(&self, _root_id: &HgId) -> Result<TreeManifest> {
             Err(anyhow::anyhow!("{}", self.message))
         }
     }

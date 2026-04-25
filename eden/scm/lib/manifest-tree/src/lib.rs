@@ -902,6 +902,7 @@ impl TreeManifest {
 pub trait ReadTreeManifest: Send + Sync + 'static {
     fn get(&self, commit_id: &HgId) -> Result<TreeManifest>;
     fn get_root_id(&self, commit_id: &HgId) -> Result<HgId>;
+    fn get_by_root_id(&self, root_id: &HgId) -> Result<TreeManifest>;
 }
 
 /// The purpose of this function is to provide compatible behavior with the C++ implementation

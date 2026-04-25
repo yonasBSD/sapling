@@ -973,6 +973,10 @@ mod test {
         fn get_root_id(&self, _commit_id: &HgId) -> anyhow::Result<HgId> {
             unimplemented!()
         }
+
+        fn get_by_root_id(&self, _root_id: &HgId) -> anyhow::Result<TreeManifest> {
+            unimplemented!()
+        }
     }
 
     #[test]
