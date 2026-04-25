@@ -1829,6 +1829,15 @@ class EdenConfig : private ConfigSettingManager {
       false,
       this};
 
+  /**
+   * Controls whether EdenFS uses phase 3 coroutine implementations
+   * (glob, predictiveGlob, and related code paths).
+   */
+  ConfigSetting<bool> enableCoroutinesPhase3{
+      "coroutines:enable-phase3",
+      false,
+      this};
+
   // [blobcache]
 
   /**
