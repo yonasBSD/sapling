@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -16,6 +17,7 @@ use manifest::testutil::*;
 use minibytes::Bytes;
 use parking_lot::RwLock;
 use storemodel::BoxIterator;
+use storemodel::BoxRefIterator;
 use storemodel::FileStore;
 use storemodel::InsertOpts;
 use storemodel::KeyStore;
@@ -25,9 +27,12 @@ use storemodel::TreeEntry;
 use types::FetchContext;
 use types::HgId;
 use types::Key;
+use types::PathComponent;
+use types::PathComponentBuf;
 use types::RepoPath;
 use types::RepoPathBuf;
 use types::testutil::*;
+use types::tree::TreeItemFlag;
 
 use crate::FileMetadata;
 use crate::TreeManifest;
@@ -72,6 +77,8 @@ pub struct TestStoreInner {
     fetch_contexts: Vec<FetchContext>,
     // Parents recorded via insert_data with InsertOpts.parents.
     parents: HashMap<(RepoPathBuf, HgId), Vec<HgId>>,
+    // ACL children indices recorded via insert_data with InsertOpts.acl_children_indices.
+    acl_children_indices: HashMap<HgId, Vec<u32>>,
     format: SerializationFormat,
     key_fetch_count: AtomicU64,
     insert_count: AtomicU64,
@@ -111,6 +118,61 @@ impl TestStore {
             .parents
             .get(&(path.to_owned(), hgid))
             .cloned()
+    }
+
+    pub fn set_acl_children_indices(&self, hgid: HgId, indices: Vec<u32>) {
+        self.inner
+            .write()
+            .acl_children_indices
+            .insert(hgid, indices);
+    }
+
+    pub fn get_acl_children_indices(&self, hgid: HgId) -> Option<Vec<u32>> {
+        self.inner.read().acl_children_indices.get(&hgid).cloned()
+    }
+}
+
+struct TestTreeEntry {
+    entry: crate::store::Entry,
+    acl_indices: Option<Vec<u32>>,
+}
+
+impl TreeEntry for TestTreeEntry {
+    fn iter<'a>(
+        &'a self,
+    ) -> anyhow::Result<BoxRefIterator<'a, anyhow::Result<(&'a PathComponent, HgId, TreeItemFlag)>>>
+    {
+        self.entry.iter()
+    }
+
+    fn iter_owned(
+        &self,
+    ) -> anyhow::Result<BoxIterator<anyhow::Result<(PathComponentBuf, HgId, TreeItemFlag)>>> {
+        self.entry.iter_owned()
+    }
+
+    fn lookup(&self, name: &PathComponent) -> anyhow::Result<Option<(HgId, TreeItemFlag)>> {
+        self.entry.lookup(name)
+    }
+
+    fn children_with_acls(&self) -> anyhow::Result<Vec<(PathComponentBuf, HgId)>> {
+        let indices = match &self.acl_indices {
+            Some(indices) if !indices.is_empty() => indices,
+            _ => return Ok(Vec::new()),
+        };
+        let index_set: HashSet<u32> = indices.iter().copied().collect();
+        let mut result = Vec::with_capacity(indices.len());
+        for (idx, elem) in self.entry.iter_owned()?.enumerate() {
+            let (path, hgid, flag) = elem?;
+            if index_set.contains(&(idx as u32)) && matches!(flag, TreeItemFlag::Directory) {
+                result.push((path, hgid));
+            }
+        }
+        Ok(result)
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        self.entry.size_hint()
     }
 }
 
@@ -223,7 +285,8 @@ impl TreeStore for TestStore {
             Some(data) => {
                 let format = inner.format;
                 let entry = crate::store::Entry(data.clone(), format);
-                Ok(Some(Arc::new(entry)))
+                let acl_indices = inner.acl_children_indices.get(&hgid).cloned();
+                Ok(Some(Arc::new(TestTreeEntry { entry, acl_indices })))
             }
             None => Ok(None),
         }
