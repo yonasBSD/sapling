@@ -502,7 +502,11 @@ macro_rules! impl_typed_hash_loadable {
                 let now = std::time::Instant::now();
                 let blob: Blob<$typed> = Blob::new(id, bytes.into_raw_bytes());
                 let len = blob.len();
-                let ret = <Self::Value as BlobstoreValue>::from_blob(blob).map_err(LoadableError::Error);
+                let ret = tokio::task::spawn_blocking(move || {
+                    <Self::Value as BlobstoreValue>::from_blob(blob).map_err(LoadableError::Error)
+                })
+                .await
+                .map_err(|e| LoadableError::Error(anyhow::anyhow!("spawn_blocking join error: {e}")))?;
                 let diff = now.elapsed().as_millis();
                 if diff > $crate::typed_hash::SLOW_DESERIAZLIZATION_THRESHOLD_MS {
                     $crate::typed_hash::tracing::warn!("Slow load of {} ({} bytes) took {:?}", blobstore_key, len, now.elapsed());
