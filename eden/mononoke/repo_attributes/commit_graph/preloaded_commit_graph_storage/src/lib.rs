@@ -310,7 +310,7 @@ impl Loader<PreloadedEdges> for PreloadedEdgesLoader {
         mononoke::spawn_task({
             cloned!(self.ctx, self.blobstore_without_cache, self.blobstore_key);
             async move {
-                info!("Started preloading commit graph");
+                info!(blobstore_key = %blobstore_key, "Started preloading commit graph");
                 let maybe_bytes = blobstore_without_cache.get(&ctx, &blobstore_key).await?;
                 match maybe_bytes {
                     Some(bytes) => {
@@ -319,6 +319,7 @@ impl Loader<PreloadedEdges> for PreloadedEdgesLoader {
                             tokio::task::spawn_blocking(move || deserialize_preloaded_edges(bytes))
                                 .await??;
                         info!(
+                            blobstore_key = %blobstore_key,
                             "Finished preloading commit graph ({} changesets)",
                             preloaded_edges.cs_id_to_edges.len()
                         );

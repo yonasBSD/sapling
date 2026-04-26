@@ -133,10 +133,24 @@ impl RepoSetupProcess {
             setup_handle: runtime_handle.spawn({
                 let repo_shard = repo_shard.clone();
                 async move {
-                    // Create guard that will decrement counter on drop
                     let _guard = ConcurrentSetupGuard::new(fb);
-
-                    setup_job.setup(&repo_shard).await
+                    let start = time::Instant::now();
+                    let result = setup_job.setup(&repo_shard).await;
+                    let elapsed_s = start.elapsed().as_secs_f64();
+                    match &result {
+                        Ok(_) => info!(
+                            shard = %repo_shard,
+                            elapsed_s,
+                            "Setup for shard completed"
+                        ),
+                        Err(e) => error!(
+                            shard = %repo_shard,
+                            elapsed_s,
+                            error = %format!("{:#}", e),
+                            "Setup for shard failed"
+                        ),
+                    }
+                    result
                 }
             }),
             shard,
