@@ -2860,6 +2860,107 @@ ImmediateFuture<Unit> TreeInode::diff(
   }
 }
 
+folly::coro::now_task<folly::Unit> TreeInode::co_diff(
+    DiffContext* context,
+    RelativePathPiece currentPath,
+    std::vector<shared_ptr<const Tree>> trees,
+    const GitIgnoreStack* parentIgnore,
+    bool isIgnored) {
+  auto self = inodePtrFromThis();
+  if (context->isCancelled()) {
+    XLOGF(
+        DBG7,
+        "diff() on directory {} cancelled due to client request no longer being active",
+        getLogPath());
+    co_return folly::unit;
+  }
+
+  InodePtr inode;
+  auto gitignoreInodeFuture = ImmediateFuture<InodePtr>::makeEmpty();
+  vector<IncompleteInodeLoad> pendingLoads;
+  {
+    auto contents = contents_.wlock();
+
+    XLOGF(
+        DBG7,
+        "diff() on directory {} ({}, {}) vs {}",
+        getLogPath(),
+        getNodeId(),
+        (contents->isMaterialized() ? "materialized"
+                                    : contents->treeId->toLogString()),
+        (trees.size() == 1 ? trees[0]->getObjectId().toLogString()
+                           : "null tree"));
+
+    if (!contents->isMaterialized()) {
+      for (auto& tree : trees) {
+        if (getObjectStore().areObjectsKnownIdentical(
+                contents->treeId.value(), tree->getObjectId())) {
+          co_return folly::unit;
+        }
+      }
+    }
+
+    if (isIgnored) {
+      co_await co_computeDiff(
+          std::move(contents),
+          context,
+          currentPath,
+          std::move(trees),
+          nullptr,
+          isIgnored);
+      co_return folly::unit;
+    }
+
+    DirEntry* gitignoreEntry = nullptr;
+    auto iter = contents->entries.find(kIgnoreFilename);
+    if (iter != contents->entries.end()) {
+      gitignoreEntry = &iter->second;
+      if (gitignoreEntry->isDirectory()) {
+        XLOGF(DBG4, "Ignoring .gitignore directory in {}", getLogPath());
+        gitignoreEntry = nullptr;
+      }
+    }
+
+    if (!gitignoreEntry) {
+      co_await co_computeDiff(
+          std::move(contents),
+          context,
+          currentPath,
+          std::move(trees),
+          make_unique<GitIgnoreStack>(parentIgnore),
+          isIgnored);
+      co_return folly::unit;
+    }
+
+    XLOGF(DBG7, "Loading ignore file for {}", getLogPath());
+    inode = gitignoreEntry->getInodePtr();
+    if (!inode) {
+      gitignoreInodeFuture = loadChildLocked(
+          kIgnoreFilename,
+          *gitignoreEntry,
+          pendingLoads,
+          context->getFetchContext());
+    }
+  }
+
+  for (auto& load : pendingLoads) {
+    load.finish();
+  }
+
+  if (!inode) {
+    inode = co_await std::move(gitignoreInodeFuture).semi();
+  }
+
+  co_await co_loadGitIgnoreThenDiff(
+      std::move(inode),
+      context,
+      currentPath,
+      std::move(trees),
+      parentIgnore,
+      isIgnored);
+  co_return folly::unit;
+}
+
 ImmediateFuture<Unit> TreeInode::loadGitIgnoreThenDiff(
     InodePtr gitignoreInode,
     DiffContext* context,

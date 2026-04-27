@@ -375,6 +375,13 @@ class TreeInode final : public InodeBaseMetadata<DirContents> {
       const GitIgnoreStack* parentIgnore,
       bool isIgnored);
 
+  folly::coro::now_task<folly::Unit> co_diff(
+      DiffContext* context,
+      RelativePathPiece currentPath,
+      std::vector<std::shared_ptr<const Tree>> trees,
+      const GitIgnoreStack* parentIgnore,
+      bool isIgnored);
+
   /**
    * Update this directory so that it matches the specified source control Tree
    * object.
