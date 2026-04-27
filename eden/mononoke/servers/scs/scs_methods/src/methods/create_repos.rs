@@ -321,6 +321,12 @@ async fn try_fetching_repo_acl(
 }
 
 fn make_top_level_acl_name_from_repo_name(repo_name: &str) -> String {
+    // IMPORTANT: this hardcodes "repos/git/" because create_repos only supports GIT today.
+    // Hg repos use "repos/hg/<name>" ACLs (e.g., "repos/hg/aosp"). When adding HG support
+    // to create_repos, this function must branch on identity_scheme — see the
+    // _IDENTITY_SUBDIR mapping in configerator/source/scm/mononoke/repos/generate_repo_index.py.
+    // NOTE for future implementer: any logging added inside add_repo() must use debug! not info!
+    // — info! in add_repo() breaks .t integration tests (project memory).
     let (top_level, _rest) = repo_name.split_once('/').unwrap_or((repo_name, ""));
     format!("repos/git/{}", top_level)
 }
@@ -627,6 +633,10 @@ fn to_repo_spec_tshirt_size(
 /// Must match repo_spec_config_path() in generate_repo_index.py and
 /// repo_spec_relative_path() in migrate_qrd_to_repo_spec.py.
 fn make_repo_spec_config_path(repo_name: &str) -> String {
+    // IMPORTANT: this hardcodes "repos/git/" because create_repos only supports GIT today.
+    // Must match repo_spec_config_path() for GIT in generate_repo_index.py. Hg repos use
+    // "repos/hg/{hash}/{name}" via the same hash-sharding scheme — branch on identity_scheme
+    // when adding HG support.
     let hash = Sha256::digest(repo_name.as_bytes());
     let hash_dir = format!("{:02x}", hash[0]);
     format!(
@@ -639,6 +649,7 @@ fn make_repo_spec_config_path(repo_name: &str) -> String {
 /// Generates the file path for a RepoSpec file.
 /// Path format: source/scm/mononoke/repos/git/{hash_dir}/{repo_name_escaped}.cconf
 fn make_repo_spec_file_path(repo_name: &str) -> String {
+    // IMPORTANT: see make_repo_spec_config_path() above. Path is git-only today.
     format!("source/{}.cconf", make_repo_spec_config_path(repo_name))
 }
 
@@ -1380,6 +1391,8 @@ mod tests {
 
     #[mononoke::test]
     fn test_make_repo_spec_file_path_simple_name() {
+        // Test asserts the git-only path. When adding HG support to create_repos, add a
+        // parallel test for repos/hg/ paths.
         let path = make_repo_spec_file_path("my-repo");
         assert!(
             path.starts_with("source/scm/mononoke/repos/git/"),
