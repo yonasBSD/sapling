@@ -52,6 +52,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
         "SELECT id,
             request_type,
@@ -67,7 +68,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         WHERE id = {id}"
     }
@@ -88,6 +90,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
         "SELECT id,
             request_type,
@@ -103,7 +106,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         WHERE id = {id} AND request_type = {request_type}"
     }
@@ -124,6 +128,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
         mysql("SELECT
            q.id,
@@ -140,7 +145,8 @@ mononoke_queries! {
            q.claimed_by,
            q.num_retries,
            q.failed_at,
-           q.root_request_id
+           q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.repo_id IN {supported_repo_ids}
@@ -170,7 +176,8 @@ mononoke_queries! {
            q.claimed_by,
            q.num_retries,
            q.failed_at,
-           q.root_request_id
+           q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.repo_id IN {supported_repo_ids}
@@ -202,6 +209,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
         mysql("SELECT
            q.id,
@@ -218,7 +226,8 @@ mononoke_queries! {
            q.claimed_by,
            q.num_retries,
            q.failed_at,
-           q.root_request_id
+           q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND (q.repo_id IS NULL OR q.repo_id NOT IN {excluded_repo_ids})
@@ -248,7 +257,8 @@ mononoke_queries! {
            q.claimed_by,
            q.num_retries,
            q.failed_at,
-           q.root_request_id
+           q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND (q.repo_id IS NULL OR q.repo_id NOT IN {excluded_repo_ids})
@@ -280,6 +290,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
         mysql("SELECT
            q.id,
@@ -296,7 +307,8 @@ mononoke_queries! {
            q.claimed_by,
            q.num_retries,
            q.failed_at,
-           q.root_request_id
+           q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND NOT EXISTS (
@@ -325,7 +337,8 @@ mononoke_queries! {
            q.claimed_by,
            q.num_retries,
            q.failed_at,
-           q.root_request_id
+           q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND NOT EXISTS (
@@ -348,10 +361,12 @@ mononoke_queries! {
         RowId, RequestType, Option<RepositoryId>, BlobstoreKey, Option<BlobstoreKey>,
         Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
         RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
+        Option<String>,
     ) {
         mysql("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
-           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.repo_id IN {supported_repo_ids}
@@ -363,7 +378,8 @@ mononoke_queries! {
          ORDER BY q.created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED")
         sqlite("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
-           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.repo_id IN {supported_repo_ids}
@@ -379,10 +395,12 @@ mononoke_queries! {
         RowId, RequestType, Option<RepositoryId>, BlobstoreKey, Option<BlobstoreKey>,
         Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
         RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
+        Option<String>,
     ) {
         mysql("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
-           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND (q.repo_id IS NULL OR q.repo_id NOT IN {excluded_repo_ids})
@@ -394,7 +412,8 @@ mononoke_queries! {
          ORDER BY q.created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED")
         sqlite("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
-           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND (q.repo_id IS NULL OR q.repo_id NOT IN {excluded_repo_ids})
@@ -410,10 +429,12 @@ mononoke_queries! {
         RowId, RequestType, Option<RepositoryId>, BlobstoreKey, Option<BlobstoreKey>,
         Timestamp, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>, Option<Timestamp>,
         RequestStatus, Option<ClaimedBy>, Option<u8>, Option<Timestamp>, Option<RowId>,
+        Option<String>,
     ) {
         mysql("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
-           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.request_type IN {request_types}
@@ -424,7 +445,8 @@ mononoke_queries! {
          ORDER BY q.created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED")
         sqlite("SELECT q.id, q.request_type, q.repo_id, q.args_blobstore_key, q.result_blobstore_key,
            q.created_at, q.started_processing_at, q.inprogress_last_updated_at, q.ready_at,
-           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id
+           q.polled_at, q.status, q.claimed_by, q.num_retries, q.failed_at, q.root_request_id,
+           q.created_by
          FROM long_running_request_queue q
          WHERE q.status = 'new'
            AND q.request_type IN {request_types}
@@ -455,35 +477,35 @@ mononoke_queries! {
            AND request_type IN {request_types}"
     }
 
-    write AddRequestWithRepo(request_type: RequestType, repo_id: RepositoryId, args_blobstore_key: BlobstoreKey, created_at: Timestamp) {
+    write AddRequestWithRepo(request_type: RequestType, repo_id: RepositoryId, args_blobstore_key: BlobstoreKey, created_at: Timestamp, created_by: Option<String>) {
         none,
         "INSERT INTO long_running_request_queue
-         (request_type, repo_id, args_blobstore_key, status, created_at)
-         VALUES ({request_type}, {repo_id}, {args_blobstore_key}, 'new', {created_at})
+         (request_type, repo_id, args_blobstore_key, status, created_at, created_by)
+         VALUES ({request_type}, {repo_id}, {args_blobstore_key}, 'new', {created_at}, {created_by})
         "
     }
 
-    write AddRequest(request_type: RequestType, args_blobstore_key: BlobstoreKey, created_at: Timestamp) {
+    write AddRequest(request_type: RequestType, args_blobstore_key: BlobstoreKey, created_at: Timestamp, created_by: Option<String>) {
         none,
         "INSERT INTO long_running_request_queue
-         (request_type, args_blobstore_key, status, created_at)
-         VALUES ({request_type}, {args_blobstore_key}, 'new', {created_at})
+         (request_type, args_blobstore_key, status, created_at, created_by)
+         VALUES ({request_type}, {args_blobstore_key}, 'new', {created_at}, {created_by})
         "
     }
 
-    write AddRequestWithRepoAndRoot(request_type: RequestType, repo_id: RepositoryId, args_blobstore_key: BlobstoreKey, created_at: Timestamp, root_request_id: RowId) {
+    write AddRequestWithRepoAndRoot(request_type: RequestType, repo_id: RepositoryId, args_blobstore_key: BlobstoreKey, created_at: Timestamp, root_request_id: RowId, created_by: Option<String>) {
         none,
         "INSERT INTO long_running_request_queue
-         (request_type, repo_id, args_blobstore_key, status, created_at, root_request_id)
-         VALUES ({request_type}, {repo_id}, {args_blobstore_key}, 'new', {created_at}, {root_request_id})
+         (request_type, repo_id, args_blobstore_key, status, created_at, root_request_id, created_by)
+         VALUES ({request_type}, {repo_id}, {args_blobstore_key}, 'new', {created_at}, {root_request_id}, {created_by})
         "
     }
 
-    write AddRequestWithRoot(request_type: RequestType, args_blobstore_key: BlobstoreKey, created_at: Timestamp, root_request_id: RowId) {
+    write AddRequestWithRoot(request_type: RequestType, args_blobstore_key: BlobstoreKey, created_at: Timestamp, root_request_id: RowId, created_by: Option<String>) {
         none,
         "INSERT INTO long_running_request_queue
-         (request_type, args_blobstore_key, status, created_at, root_request_id)
-         VALUES ({request_type}, {args_blobstore_key}, 'new', {created_at}, {root_request_id})
+         (request_type, args_blobstore_key, status, created_at, root_request_id, created_by)
+         VALUES ({request_type}, {args_blobstore_key}, 'new', {created_at}, {root_request_id}, {created_by})
         "
     }
 
@@ -625,6 +647,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
        mysql( "SELECT id,
             request_type,
@@ -640,7 +663,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         FORCE INDEX (list_requests_any)
         WHERE (
@@ -661,7 +685,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         WHERE (
             inprogress_last_updated_at > {last_update_newer_than} OR
@@ -685,6 +710,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
         mysql("SELECT id,
             request_type,
@@ -700,7 +726,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         FORCE INDEX (list_requests)
         WHERE repo_id IN {repo_ids} AND (
@@ -721,7 +748,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         WHERE repo_id IN {repo_ids} AND (
             inprogress_last_updated_at > {last_update_newer_than} OR
@@ -745,6 +773,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
         mysql("SELECT id,
             request_type,
@@ -760,7 +789,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         FORCE INDEX (list_requests_any)
         WHERE (repo_id IS NULL OR repo_id NOT IN {excluded_repo_ids}) AND (
@@ -781,7 +811,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         WHERE (repo_id IS NULL OR repo_id NOT IN {excluded_repo_ids}) AND (
             inprogress_last_updated_at > {last_update_newer_than} OR
@@ -998,6 +1029,7 @@ mononoke_queries! {
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ) {
         "SELECT id,
             request_type,
@@ -1013,7 +1045,8 @@ mononoke_queries! {
             claimed_by,
             num_retries,
             failed_at,
-            root_request_id
+            root_request_id,
+            created_by
         FROM long_running_request_queue
         WHERE root_request_id = {root_request_id}"
     }
@@ -1135,6 +1168,7 @@ fn row_to_entry(
         Option<u8>,
         Option<Timestamp>,
         Option<RowId>,
+        Option<String>,
     ),
 ) -> LongRunningRequestEntry {
     let (
@@ -1153,6 +1187,7 @@ fn row_to_entry(
         num_retries,
         failed_at,
         root_request_id,
+        created_by,
     ) = row;
     LongRunningRequestEntry {
         id,
@@ -1170,6 +1205,7 @@ fn row_to_entry(
         num_retries,
         failed_at,
         root_request_id,
+        created_by,
     }
 }
 
@@ -1186,7 +1222,9 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         request_type: &RequestType,
         repo_id: Option<&RepositoryId>,
         args_blobstore_key: &BlobstoreKey,
+        created_by: Option<&str>,
     ) -> Result<RowId> {
+        let created_by_owned = created_by.map(|s| s.to_string());
         let res = match &repo_id {
             Some(repo_id) => {
                 AddRequestWithRepo::query(
@@ -1196,6 +1234,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     repo_id,
                     args_blobstore_key,
                     &Timestamp::now(),
+                    &created_by_owned,
                 )
                 .await?
             }
@@ -1206,6 +1245,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     request_type,
                     args_blobstore_key,
                     &Timestamp::now(),
+                    &created_by_owned,
                 )
                 .await?
             }
@@ -1660,6 +1700,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         repo_id: Option<&RepositoryId>,
         args_blobstore_key: &BlobstoreKey,
         depends_on: &[RowId],
+        created_by: Option<&str>,
     ) -> Result<RowId> {
         let txn = self
             .connections
@@ -1667,6 +1708,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
             .start_transaction(ctx.sql_query_telemetry())
             .await?;
 
+        let created_by_owned = created_by.map(|s| s.to_string());
         let now = Timestamp::now();
         let (mut txn, res) = match &repo_id {
             Some(repo_id) => {
@@ -1676,12 +1718,19 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     repo_id,
                     args_blobstore_key,
                     &now,
+                    &created_by_owned,
                 )
                 .await?
             }
             None => {
-                AddRequest::query_with_transaction(txn, request_type, args_blobstore_key, &now)
-                    .await?
+                AddRequest::query_with_transaction(
+                    txn,
+                    request_type,
+                    args_blobstore_key,
+                    &now,
+                    &created_by_owned,
+                )
+                .await?
             }
         };
 
@@ -1752,7 +1801,9 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         repo_id: Option<&RepositoryId>,
         args_blobstore_key: &BlobstoreKey,
         root_request_id: &RowId,
+        created_by: Option<&str>,
     ) -> Result<RowId> {
+        let created_by_owned = created_by.map(|s| s.to_string());
         let now = Timestamp::now();
         let res = match &repo_id {
             Some(repo_id) => {
@@ -1764,6 +1815,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     args_blobstore_key,
                     &now,
                     root_request_id,
+                    &created_by_owned,
                 )
                 .await?
             }
@@ -1775,6 +1827,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     args_blobstore_key,
                     &now,
                     root_request_id,
+                    &created_by_owned,
                 )
                 .await?
             }
@@ -1794,6 +1847,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         args_blobstore_key: &BlobstoreKey,
         depends_on: &[RowId],
         root_request_id: &RowId,
+        created_by: Option<&str>,
     ) -> Result<RowId> {
         let txn = self
             .connections
@@ -1801,6 +1855,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
             .start_transaction(ctx.sql_query_telemetry())
             .await?;
 
+        let created_by_owned = created_by.map(|s| s.to_string());
         let now = Timestamp::now();
         let (mut txn, res) = match &repo_id {
             Some(repo_id) => {
@@ -1811,6 +1866,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     args_blobstore_key,
                     &now,
                     root_request_id,
+                    &created_by_owned,
                 )
                 .await?
             }
@@ -1821,6 +1877,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
                     args_blobstore_key,
                     &now,
                     root_request_id,
+                    &created_by_owned,
                 )
                 .await?
             }
@@ -2144,6 +2201,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 None,
                 &BlobstoreKey("key".to_string()),
+                None,
             )
             .await?;
 
@@ -2179,6 +2237,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 Some(&RepositoryId::new(0)),
                 &BlobstoreKey("key".to_string()),
+                None,
             )
             .await?;
 
@@ -2226,6 +2285,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 None,
                 &BlobstoreKey("key".to_string()),
+                None,
             )
             .await?;
 
@@ -2274,6 +2334,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
+                None,
             )
             .await?;
 
@@ -2372,6 +2433,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
+                None,
             )
             .await?;
 
@@ -2425,6 +2487,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
+                None,
             )
             .await?;
 
@@ -2496,6 +2559,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("parent_key".to_string()),
+                None,
             )
             .await?;
 
@@ -2507,6 +2571,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("child_key".to_string()),
                 &[parent_id],
+                None,
             )
             .await?;
 
@@ -2581,6 +2646,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("parent_key".to_string()),
+                None,
             )
             .await?;
 
@@ -2592,6 +2658,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("child1_key".to_string()),
                 &[parent_id],
+                None,
             )
             .await?;
 
@@ -2602,6 +2669,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("child2_key".to_string()),
                 &[parent_id],
+                None,
             )
             .await?;
 
@@ -2656,6 +2724,7 @@ mod test {
                 &RequestType("derive_boundaries".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("boundary_key".to_string()),
+                None,
             )
             .await?;
 
@@ -2666,6 +2735,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("slice1_key".to_string()),
                 &[boundary_id],
+                None,
             )
             .await?;
 
@@ -2676,6 +2746,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("slice2_key".to_string()),
                 &[boundary_id, slice1_id],
+                None,
             )
             .await?;
 
@@ -2686,6 +2757,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("slice3_key".to_string()),
                 &[boundary_id, slice2_id],
+                None,
             )
             .await?;
 
@@ -2823,6 +2895,7 @@ mod test {
                 &RequestType("derive_boundaries".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("boundary_key".to_string()),
+                None,
             )
             .await?;
 
@@ -2833,6 +2906,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("slice1_key".to_string()),
                 &[boundary_id],
+                None,
             )
             .await?;
 
@@ -2843,6 +2917,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("slice2_key".to_string()),
                 &[boundary_id, slice1_id],
+                None,
             )
             .await?;
 
@@ -2853,6 +2928,7 @@ mod test {
                 Some(&repo_id),
                 &BlobstoreKey("slice3_key".to_string()),
                 &[boundary_id, slice2_id],
+                None,
             )
             .await?;
 
@@ -2939,6 +3015,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
+                None,
             )
             .await?;
 
@@ -2991,6 +3068,7 @@ mod test {
                 &RequestType("async_ping".to_string()),
                 Some(&repo_id),
                 &BlobstoreKey("key".to_string()),
+                None,
             )
             .await?;
 

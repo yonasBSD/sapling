@@ -202,6 +202,7 @@ impl RepoShardedProcessExecutor for AsyncMethodRequestWorker {
                     dequeued.repo_id,
                     dequeued.params,
                     dequeued.root_request_id,
+                    dequeued.created_by,
                 ))
                 .await
                 {
@@ -382,6 +383,7 @@ impl AsyncMethodRequestWorker {
         repo_id: Option<RepositoryId>,
         params: AsynchronousRequestParams,
         root_request_id: Option<RowId>,
+        created_by: Option<String>,
     ) {
         // Load the repo on-demand if needed
         let is_ondemand = match self.ensure_repo_loaded(repo_id).await {
@@ -406,7 +408,13 @@ impl AsyncMethodRequestWorker {
                 return;
             }
         };
-        let ctx = self.prepare_ctx(&ctx, &req_id, &target, root_request_id);
+        let ctx = self.prepare_ctx(
+            &ctx,
+            &req_id,
+            &target,
+            root_request_id,
+            created_by.as_deref(),
+        );
         log_start(&ctx);
 
         // Check concurrency limit for this request type. If exceeded,
@@ -446,6 +454,7 @@ impl AsyncMethodRequestWorker {
             &req_id.0,
             root_request_id,
             params,
+            created_by,
         )
         .timed();
 

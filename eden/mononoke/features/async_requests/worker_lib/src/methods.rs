@@ -258,6 +258,7 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
     request_row_id: &RowId,
     root_request_id: Option<RowId>,
     params: AsynchronousRequestParams,
+    created_by: Option<String>,
 ) -> Result<AsynchronousRequestResult> {
     match params.into() {
         async_requests_types_thrift::AsynchronousRequestParams::megarepo_add_target_params(params) => {
@@ -362,7 +363,7 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
         async_requests_types_thrift::AsynchronousRequestParams::derive_backfill_params(params) => {
             Ok(AsynchronousRequestResult::from_thrift(
                 ThriftAsynchronousRequestResult::derive_backfill_result(
-                    crate::backfill::compute_derive_backfill(ctx, mononoke, queue, params, request_row_id.clone())
+                    crate::backfill::compute_derive_backfill(ctx, mononoke, queue, params, request_row_id.clone(), created_by.clone())
                         .watched()
                         .with_max_poll(METHOD_MAX_POLL_TIME_MS)
                         .with_label("derive_backfill")
@@ -374,7 +375,7 @@ pub(crate) async fn megarepo_async_request_compute<R: MononokeRepo>(
             let effective_root = root_request_id.unwrap_or_else(|| request_row_id.clone());
             Ok(AsynchronousRequestResult::from_thrift(
                 ThriftAsynchronousRequestResult::derive_backfill_repo_result(
-                    crate::backfill::compute_derive_backfill_repo(ctx, mononoke, queue, params, effective_root)
+                    crate::backfill::compute_derive_backfill_repo(ctx, mononoke, queue, params, effective_root, created_by.clone())
                         .watched()
                         .with_max_poll(METHOD_MAX_POLL_TIME_MS)
                         .with_label("derive_backfill_repo")

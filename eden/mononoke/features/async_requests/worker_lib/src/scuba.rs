@@ -36,6 +36,7 @@ impl AsyncMethodRequestWorker {
         req_id: &RequestId,
         target: &str,
         root_request_id: Option<RowId>,
+        created_by: Option<&str>,
     ) -> CoreContext {
         let ctx = ctx.with_mutated_scuba(|mut scuba| {
             // Legacy columns
@@ -48,6 +49,9 @@ impl AsyncMethodRequestWorker {
 
             if let Some(root_id) = root_request_id {
                 scuba.add("root_request_id", root_id.0);
+            }
+            if let Some(user) = created_by {
+                scuba.add("created_by", user.to_string());
             }
             scuba
         });

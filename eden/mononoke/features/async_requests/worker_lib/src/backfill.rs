@@ -327,6 +327,7 @@ pub(crate) async fn compute_derive_backfill_repo(
     queue: &AsyncMethodRequestQueue,
     params: thrift::DeriveBackfillRepoParams,
     root_request_id: RowId,
+    created_by: Option<String>,
 ) -> Result<thrift::DeriveBackfillRepoResponse, AsyncRequestsError> {
     let repo_id = RepositoryId::new(
         params
@@ -373,6 +374,7 @@ pub(crate) async fn compute_derive_backfill_repo(
         params.config_name.as_deref(),
         &repo_id,
         &root_request_id,
+        created_by.as_deref(),
     )
     .await?;
 
@@ -391,6 +393,7 @@ pub(crate) async fn compute_derive_backfill(
     queue: &AsyncMethodRequestQueue,
     params: thrift::DeriveBackfillParams,
     root_request_id: RowId,
+    created_by: Option<String>,
 ) -> Result<thrift::DeriveBackfillResponse, AsyncRequestsError> {
     if params.repo_entries.is_empty() {
         return Err(AsyncRequestsError::request(anyhow::anyhow!(
@@ -417,6 +420,7 @@ pub(crate) async fn compute_derive_backfill(
             let entry_repo_id = entry.repo_id;
             let cs_ids = entry.cs_ids.clone();
             let root_request_id = root_request_id.clone();
+            let created_by = created_by.clone();
             async move {
                 let repo_id = RepositoryId::new(entry_repo_id.try_into().map_err(|e| {
                     AsyncRequestsError::request(anyhow::anyhow!("Invalid repo_id: {}", e))
@@ -436,7 +440,13 @@ pub(crate) async fn compute_derive_backfill(
                 };
 
                 queue
-                    .enqueue_with_root(&ctx, Some(&repo_id), repo_params, &root_request_id)
+                    .enqueue_with_root(
+                        &ctx,
+                        Some(&repo_id),
+                        repo_params,
+                        &root_request_id,
+                        created_by.as_deref(),
+                    )
                     .await
                     .map_err(AsyncRequestsError::internal)?;
 
@@ -567,6 +577,7 @@ async fn enqueue_boundary_and_slice_requests(
     config_name: Option<&str>,
     repo_id: &RepositoryId,
     root_request_id: &RowId,
+    created_by: Option<&str>,
 ) -> Result<i64, AsyncRequestsError> {
     let serial_slices = requires_serial_slice_processing(derived_data_type);
     let total_boundaries: usize = slices.iter().map(|s| s.boundaries.len()).sum();
@@ -605,7 +616,13 @@ async fn enqueue_boundary_and_slice_requests(
             };
 
             let boundary_token = queue
-                .enqueue_with_root(ctx, Some(repo_id), boundary_params, root_request_id)
+                .enqueue_with_root(
+                    ctx,
+                    Some(repo_id),
+                    boundary_params,
+                    root_request_id,
+                    created_by,
+                )
                 .await
                 .map_err(AsyncRequestsError::internal)?;
 
@@ -681,6 +698,7 @@ async fn enqueue_boundary_and_slice_requests(
                 slice_params,
                 &depends_on,
                 root_request_id,
+                created_by,
             )
             .await
             .map_err(AsyncRequestsError::internal)?;
@@ -722,6 +740,7 @@ async fn process_repo_backfill(
     config_name: Option<&str>,
     repo_id: &RepositoryId,
     root_request_id: &RowId,
+    created_by: Option<&str>,
 ) -> Result<i64, AsyncRequestsError> {
     let inner_repo = repo.repo();
     let manager = resolve_manager(inner_repo.repo_derived_data(), config_name)?;
@@ -765,6 +784,7 @@ async fn process_repo_backfill(
         config_name,
         repo_id,
         root_request_id,
+        created_by,
     )
     .await
 }

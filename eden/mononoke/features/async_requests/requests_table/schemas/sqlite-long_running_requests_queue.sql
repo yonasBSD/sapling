@@ -21,7 +21,8 @@
   `claimed_by` VARCHAR(255) NULL,
   `num_retries` TINYINT UNSIGNED DEFAULT NULL,
   `failed_at` BIGINT(20) DEFAULT NULL,
-  `root_request_id` INTEGER DEFAULT NULL
+  `root_request_id` INTEGER DEFAULT NULL,
+  `created_by` VARCHAR(255) DEFAULT NULL
 );
 
 CREATE INDEX IF NOT EXISTS `long_running_request_queue_request_status` ON `long_running_request_queue` (`status`, `request_type`);

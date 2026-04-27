@@ -87,6 +87,7 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         request_type: &RequestType,
         repo_id: Option<&RepositoryId>,
         args_blobstore_key: &BlobstoreKey,
+        created_by: Option<&str>,
     ) -> Result<RowId>;
 
     /// Claim one of new requests. Mark it as in-progress and return it.
@@ -217,6 +218,7 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         repo_id: Option<&RepositoryId>,
         args_blobstore_key: &BlobstoreKey,
         depends_on: &[RowId],
+        created_by: Option<&str>,
     ) -> Result<RowId>;
 
     /// Get all dependency request IDs for a given request.
@@ -243,6 +245,7 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         repo_id: Option<&RepositoryId>,
         args_blobstore_key: &BlobstoreKey,
         root_request_id: &RowId,
+        created_by: Option<&str>,
     ) -> Result<RowId>;
 
     /// Add a request with dependencies and a root_request_id.
@@ -254,6 +257,7 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         args_blobstore_key: &BlobstoreKey,
         depends_on: &[RowId],
         root_request_id: &RowId,
+        created_by: Option<&str>,
     ) -> Result<RowId>;
 
     /// Get all requests that share a given root_request_id.

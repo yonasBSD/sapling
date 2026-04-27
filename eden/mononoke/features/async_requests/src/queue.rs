@@ -60,6 +60,7 @@ pub struct DequeuedRequest {
     pub repo_id: Option<RepositoryId>,
     pub params: AsynchronousRequestParams,
     pub root_request_id: Option<RowId>,
+    pub created_by: Option<String>,
 }
 
 /// JustKnob for maximum concurrent requests across all workers.
@@ -232,9 +233,10 @@ impl AsyncMethodRequestQueue {
     ) -> Result<<P::R as Request>::Token, Error> {
         let params_object_id = rust_params.store(ctx, &self.blobstore).await?;
         let blobstore_key = BlobstoreKey(params_object_id.blobstore_key());
+        let created_by = ctx.metadata().unix_name();
         let table_id = self
             .table
-            .add_request(ctx, &request_type, repo_id, &blobstore_key)
+            .add_request(ctx, &request_type, repo_id, &blobstore_key, created_by)
             .await?;
         let token = <P::R as Request>::Token::from_db_id(table_id)?;
         Ok(token)
@@ -278,10 +280,18 @@ impl AsyncMethodRequestQueue {
     ) -> Result<<P::R as Request>::Token, Error> {
         let params_object_id = rust_params.store(ctx, &self.blobstore).await?;
         let blobstore_key = BlobstoreKey(params_object_id.blobstore_key());
+        let created_by = ctx.metadata().unix_name();
 
         let table_id = self
             .table
-            .add_request_with_dependencies(ctx, &request_type, repo_id, &blobstore_key, depends_on)
+            .add_request_with_dependencies(
+                ctx,
+                &request_type,
+                repo_id,
+                &blobstore_key,
+                depends_on,
+                created_by,
+            )
             .await?;
 
         let token = <P::R as Request>::Token::from_db_id(table_id)?;
@@ -295,6 +305,7 @@ impl AsyncMethodRequestQueue {
         repo_id: Option<&RepositoryId>,
         thrift_params: P,
         root_request_id: &RowId,
+        created_by: Option<&str>,
     ) -> Result<<P::R as Request>::Token, Error> {
         STATS::enqueue_called.add_value(1);
         let request_type = RequestType(P::R::NAME.to_owned());
@@ -303,7 +314,14 @@ impl AsyncMethodRequestQueue {
         let blobstore_key = BlobstoreKey(params_object_id.blobstore_key());
         let table_id = self
             .table
-            .add_request_with_root(ctx, &request_type, repo_id, &blobstore_key, root_request_id)
+            .add_request_with_root(
+                ctx,
+                &request_type,
+                repo_id,
+                &blobstore_key,
+                root_request_id,
+                created_by,
+            )
             .await?;
         let token = <P::R as Request>::Token::from_db_id(table_id)?;
         STATS::enqueue_success.add_value(1);
@@ -318,6 +336,7 @@ impl AsyncMethodRequestQueue {
         thrift_params: P,
         depends_on: &[RowId],
         root_request_id: &RowId,
+        created_by: Option<&str>,
     ) -> Result<<P::R as Request>::Token, Error> {
         STATS::enqueue_called.add_value(1);
         let request_type = RequestType(P::R::NAME.to_owned());
@@ -333,6 +352,7 @@ impl AsyncMethodRequestQueue {
                 &blobstore_key,
                 depends_on,
                 root_request_id,
+                created_by,
             )
             .await?;
         let token = <P::R as Request>::Token::from_db_id(table_id)?;
@@ -380,12 +400,14 @@ impl AsyncMethodRequestQueue {
             .await?;
             let repo_id = entry.repo_id;
             let root_request_id = entry.root_request_id.clone();
+            let created_by = entry.created_by.clone();
             let req_id = RequestId(entry.id, entry.request_type);
             Ok(Some(DequeuedRequest {
                 id: req_id,
                 repo_id,
                 params: thrift_params,
                 root_request_id,
+                created_by,
             }))
         } else {
             // empty queue
@@ -1255,7 +1277,7 @@ mod tests {
             ..Default::default()
         };
         let child1_token = q
-            .enqueue_with_root(&ctx, Some(&repo_id), child1_params, &root_row_id)
+            .enqueue_with_root(&ctx, Some(&repo_id), child1_params, &root_row_id, None)
             .await?;
         let child1_row_id = child1_token.to_db_id()?;
 
@@ -1271,7 +1293,7 @@ mod tests {
             ..Default::default()
         };
         let child2_token = q
-            .enqueue_with_root(&ctx, Some(&repo_id), child2_params, &root_row_id)
+            .enqueue_with_root(&ctx, Some(&repo_id), child2_params, &root_row_id, None)
             .await?;
         let child2_row_id = child2_token.to_db_id()?;
 
@@ -1287,7 +1309,7 @@ mod tests {
             ..Default::default()
         };
         let child3_token = q
-            .enqueue_with_root(&ctx, Some(&repo_id), child3_params, &root_row_id)
+            .enqueue_with_root(&ctx, Some(&repo_id), child3_params, &root_row_id, None)
             .await?;
         let child3_row_id = child3_token.to_db_id()?;
 
