@@ -13,12 +13,17 @@
 
 #include <re2/re2.h>
 
+#include "eden/common/telemetry/StructuredLogger.h"
 #include "eden/common/utils/PathFuncs.h"
 #include "eden/fs/config/EdenConfig.h"
 #include "eden/fs/inodes/EdenMount.h"
 #include "eden/fs/inodes/InodeMap.h"
 #include "eden/fs/store/ObjectStore.h"
 #include "eden/fs/telemetry/LogEvent.h"
+
+#include "eden/common/telemetry/DynamicEvent.h"
+#include "eden/fs/telemetry/XplatKeys.h"
+#include "eden/fs/telemetry/facebook/XplatLogger.h"
 
 namespace facebook::eden {
 
@@ -29,13 +34,16 @@ constexpr folly::StringPiece kEdenDirectory{".eden"};
 constexpr folly::StringPiece kFbsource{"fbsource"};
 // TODO(helsel): make this configurable in EdenConfig
 const static RE2 kFbsourceFilter("xplat\\/toolchains\\/minimal_xcode");
+
 } // namespace
 
 InodeAccessLogger::InodeAccessLogger(
     std::shared_ptr<ReloadableConfig> reloadableConfig,
-    std::shared_ptr<StructuredLogger> structuredLogger)
+    std::shared_ptr<StructuredLogger> structuredLogger,
+    XplatLogger* xplatLogger)
     : reloadableConfig_{std::move(reloadableConfig)},
-      structuredLogger_{std::move(structuredLogger)} {
+      structuredLogger_{std::move(structuredLogger)},
+      xplatLogger_{xplatLogger} {
   workerThread_ = std::thread{[this] {
     folly::setThreadName("InodeAccessLoggerProcessor");
     processInodeAccessEvents();
@@ -69,6 +77,25 @@ bool InodeAccessLogger::filterDirectory(
   }
 
   return false;
+}
+
+void InodeAccessLogger::logFileAccessViaXplat(
+    folly::StringPiece repo,
+    const std::string& directory,
+    const std::string& filename,
+    const std::string& source,
+    const std::string& sourceDetail) {
+  DynamicEvent event;
+  event.addString(std::string{xplat_keys::kRepo}, repo.str());
+  event.addString(std::string{xplat_keys::kDirectory}, directory);
+  if (!filename.empty()) {
+    event.addString(std::string{xplat_keys::kFilename}, filename);
+  }
+  event.addString(std::string{xplat_keys::kSource}, source);
+  if (!sourceDetail.empty()) {
+    event.addString(std::string{xplat_keys::kSourceDetail}, sourceDetail);
+  }
+  xplatLogger_->logEvent(std::string{xplat_keys::kFileAccessCategory}, event);
 }
 
 void InodeAccessLogger::processInodeAccessEvents() {
@@ -214,13 +241,21 @@ void InodeAccessLogger::processInodeAccessEvents() {
       // task can flush this cache to Scuba. This would make it possible to
       // increase the InodeAccessesPercentage without overwhelming Scribe.
 
-      structuredLogger_->logEvent(
-          FileAccessEvent{
-              repo.str(),
-              std::move(directory),
-              std::move(filename),
-              std::move(source),
-              std::move(sourceDetail)});
+      // Gate on enableXplatLogger config:
+      // true  → XplatLogger Thrift path (Compact Protocol + ScribeD RPC)
+      // false → StructuredLogger/scribe_cat path (existing behavior)
+      if (reloadableConfig_->getEdenConfig()->enableXplatLogger.getValue() &&
+          xplatLogger_ != nullptr) {
+        logFileAccessViaXplat(repo, directory, filename, source, sourceDetail);
+      } else {
+        structuredLogger_->logEvent(
+            FileAccessEvent{
+                repo.str(),
+                std::move(directory),
+                std::move(filename),
+                std::move(source),
+                std::move(sourceDetail)});
+      }
     }
   }
 }

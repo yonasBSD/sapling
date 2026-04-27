@@ -541,6 +541,25 @@ cpp_unittest(
     ],
 )
 
+cpp_unittest(
+    name = "inode_access_logger_dual_write",
+    srcs = ["InodeAccessLoggerDualWriteTest.cpp"],
+    deps = [
+        "//eden/common/telemetry:log_info",
+        "//eden/common/telemetry:structured_logger",
+        "//eden/fs/config:config",
+        "//eden/fs/inodes:inodes",
+        "//eden/fs/telemetry:stats",
+        "//eden/fs/telemetry:xplat_keys",
+        "//eden/fs/telemetry/facebook:eden_telemetry_identity",
+        "//eden/fs/telemetry/facebook:xplat_logger",
+        "//eden/fs/testharness:fake_backing_store_and_tree_builder",
+        "//eden/fs/testharness:test_mount",
+        "//folly/portability:gtest",
+        "//folly/synchronization:saturating_semaphore",
+    ],
+)
+
 cpp_binary(
     name = "make_gold_master_overlay",
     srcs = ["make_gold_master_overlay.cpp"],

@@ -178,6 +178,17 @@ class FakeBackingStore final : public BackingStore {
     return 0;
   }
 
+  void setRepoName(std::string name) {
+    repoName_ = std::move(name);
+  }
+
+  std::optional<folly::StringPiece> getRepoName() override {
+    if (repoName_.has_value()) {
+      return folly::StringPiece{repoName_.value()};
+    }
+    return std::nullopt;
+  }
+
   std::vector<ObjectId> getAuxDataLookups() const {
     return data_.rlock()->auxDataLookups;
   }
@@ -252,6 +263,7 @@ class FakeBackingStore final : public BackingStore {
   std::shared_ptr<ServerState> serverState_;
   folly::Synchronized<Data> data_;
   std::optional<std::string> blake3Key_;
+  std::optional<std::string> repoName_;
 };
 
 enum class FakeBlobType {

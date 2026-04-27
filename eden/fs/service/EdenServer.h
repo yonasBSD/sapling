@@ -29,6 +29,7 @@
 
 #include "eden/common/utils/PathFuncs.h"
 #include "eden/common/utils/PathMap.h"
+#include "eden/fs/eden-config.h"
 #include "eden/fs/inodes/EdenMountHandle.h"
 #include "eden/fs/inodes/InodePtr.h"
 #include "eden/fs/inodes/overlay/OverlayChecker.h"
@@ -83,6 +84,9 @@ class StartupStatusChannel;
 class StructuredLogger;
 class TreeCache;
 class UserInfo;
+#ifdef EDEN_HAVE_LOGGER
+class XplatLogger;
+#endif
 struct CheckoutResult;
 struct INodePopulationReport;
 struct SessionInfo;
@@ -666,6 +670,12 @@ class EdenServer : private TakeoverHandler {
   void registerStats(std::shared_ptr<EdenMount> edenMount);
   void unregisterStats(EdenMount* edenMount);
 
+#ifdef EDEN_HAVE_LOGGER
+  // Central place to register all XplatLogger table transforms.
+  // Must be called before any logging call sites fire.
+  void registerXplatTransforms();
+#endif
+
   // Registers inode population reports callback with the notifier.
   void registerInodePopulationReportsCallback();
   void unregisterInodePopulationReportsCallback();
@@ -817,6 +827,15 @@ class EdenServer : private TakeoverHandler {
    * HeartbeatManager to handle all heartbeat-related operations
    */
   std::shared_ptr<HeartbeatManager> heartbeatManager_;
+
+#ifdef EDEN_HAVE_LOGGER
+  /**
+   * Cross-platform structured logger for file access events.
+   * Owns the EdenTelemetryIdentity used for all log entries.
+   * Must be declared before serverState_ so it outlives InodeAccessLogger.
+   */
+  std::unique_ptr<XplatLogger> xplatLogger_;
+#endif
 
   /**
    * Common state shared by all of the EdenMount objects.

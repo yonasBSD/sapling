@@ -29,6 +29,10 @@
  */
 namespace facebook::eden::xplat_keys {
 
+// --- edenfs_file_accesses category ---
+inline constexpr std::string_view kFileAccessCategory{
+    "perfpipe_edenfs_file_accesses"};
+
 // --- edenfs_file_accesses fields ---
 inline constexpr std::string_view kRepo = "repo";
 inline constexpr std::string_view kDirectory = "directory";

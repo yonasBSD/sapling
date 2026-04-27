@@ -93,6 +93,11 @@
 #include "eden/fs/telemetry/ErrorLogger.h"
 #include "eden/fs/telemetry/IScribeLogger.h"
 #include "eden/fs/telemetry/LogEvent.h"
+#ifdef EDEN_HAVE_LOGGER
+#include "eden/fs/telemetry/facebook/XplatLogger.h" // @manual
+#include "eden/fs/telemetry/facebook/XplatTransforms.h" // @manual
+#endif
+#include "eden/fs/telemetry/XplatKeys.h"
 #include "eden/fs/utils/Clock.h"
 #include "eden/fs/utils/EdenError.h"
 #include "eden/fs/utils/EdenTaskQueue.h"
@@ -560,6 +565,10 @@ EdenServer::EdenServer(
           edenStats.copy())},
       heartbeatManager_{
           std::make_shared<HeartbeatManager>(edenDir_, structuredLogger_)},
+#ifdef EDEN_HAVE_LOGGER
+      xplatLogger_{std::make_unique<XplatLogger>(
+          EdenTelemetryIdentity::fromSessionInfo(sessionInfo))},
+#endif
       serverState_{make_shared<ServerState>(
           std::move(userInfo),
           std::move(edenStats),
@@ -580,7 +589,17 @@ EdenServer::EdenServer(
           *edenConfig,
           mainEventBase_,
           getPlatformNotifier(config_, structuredLogger_, version),
-          FLAGS_enable_fault_injection)},
+          FLAGS_enable_fault_injection,
+          nullptr, // inodeAccessLogger — use default
+#ifdef EDEN_HAVE_LOGGER
+          [this]() {
+            registerXplatTransforms();
+            return xplatLogger_.get();
+          }()
+#else
+          nullptr
+#endif
+              )},
       blobCache_{BlobCache::create(
           serverState_->getReloadableConfig(),
           serverState_->getStats().copy())},
@@ -722,6 +741,21 @@ EdenServer::EdenServer(
   }
 #endif
 }
+
+#ifdef EDEN_HAVE_LOGGER
+void EdenServer::registerXplatTransforms() {
+  if (!xplatLogger_) {
+    return;
+  }
+  // Register XplatLogger transforms for all EdenFS Scuba tables.
+  // This must happen before any logging call sites fire.
+  // Add new registerTransform() calls here as new tables are onboarded.
+  xplatLogger_->registerTransform(
+      std::string{xplat_keys::kFileAccessCategory},
+      "GeneratedEdenfsFileAccessesLoggerConfig",
+      fileAccessTransform);
+}
+#endif
 
 EdenServer::~EdenServer() {
   auto counters = fb303::ServiceData::get()->getDynamicCounters();

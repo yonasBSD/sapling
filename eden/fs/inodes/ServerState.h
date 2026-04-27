@@ -30,6 +30,7 @@ class ErrorLogger;
 class FaultInjector;
 class FsEventLogger;
 class IScribeLogger;
+class XplatLogger;
 class InodeAccessLogger;
 class NfsServer;
 class Notifier;
@@ -59,7 +60,7 @@ class ServerState {
   ServerState(
       UserInfo userInfo,
       EdenStatsPtr edenStats,
-      SessionInfo sessionInfo,
+      SessionInfo sessionInfo, // NOLINT(performance-unnecessary-value-param)
       std::shared_ptr<PrivHelper> privHelper,
       std::shared_ptr<UnboundedQueueExecutor> threadPool,
       std::shared_ptr<folly::Executor> fsChannelThreadPool,
@@ -74,7 +75,8 @@ class ServerState {
       folly::EventBase* mainEventBase,
       std::shared_ptr<Notifier> notifier,
       bool enableFaultInjection = false,
-      std::shared_ptr<InodeAccessLogger> inodeAccessLogger = nullptr);
+      std::shared_ptr<InodeAccessLogger> inodeAccessLogger = nullptr,
+      XplatLogger* xplatLogger = nullptr);
   ~ServerState();
 
   /**

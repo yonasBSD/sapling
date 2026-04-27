@@ -23,6 +23,7 @@
 #include "eden/fs/telemetry/ErrorLogger.h"
 #include "eden/fs/telemetry/FileAccessStructuredLogger.h"
 #include "eden/fs/telemetry/FsEventLogger.h"
+#include "eden/fs/telemetry/facebook/XplatLogger.h"
 #include "eden/fs/utils/Clock.h"
 
 DEFINE_bool(
@@ -47,7 +48,7 @@ constexpr std::chrono::seconds kSystemIgnoreMinPollSeconds{5};
 ServerState::ServerState(
     UserInfo userInfo,
     EdenStatsPtr edenStats,
-    SessionInfo sessionInfo,
+    SessionInfo sessionInfo, // NOLINT(performance-unnecessary-value-param)
     std::shared_ptr<PrivHelper> privHelper,
     std::shared_ptr<UnboundedQueueExecutor> threadPool,
     std::shared_ptr<folly::Executor> fsChannelThreadPool,
@@ -62,7 +63,8 @@ ServerState::ServerState(
     [[maybe_unused]] folly::EventBase* mainEventBase,
     std::shared_ptr<Notifier> notifier,
     bool enableFaultDetection,
-    std::shared_ptr<InodeAccessLogger> inodeAccessLogger)
+    std::shared_ptr<InodeAccessLogger> inodeAccessLogger,
+    XplatLogger* xplatLogger)
     : userInfo_{std::move(userInfo)},
       edenStats_{std::move(edenStats)},
       privHelper_{std::move(privHelper)},
@@ -107,7 +109,8 @@ ServerState::ServerState(
                         config_->getEdenConfig()
                             ->fileAccessScribeCategory.getValue(),
                         std::move(sessionInfo),
-                        edenStats_.copy()))},
+                        edenStats_.copy()),
+                    xplatLogger)},
       fsEventLogger_{
           initialConfig.requestSamplesPerMinute.getValue()
               ? std::make_shared<FsEventLogger>(config_, scribeLogger_)
