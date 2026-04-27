@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
-# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This software may be used and distributed according to the terms of the
+# GNU General Public License version 2.
 
-# pyre-ignore-all-errors
+# pyre-strict
 import os
 import sys
 import time
 import unittest
 
 try:
+    # pyre-fixme[21]: Could not find module
     from eden.mononoke.tests.mock_restricted_path.test_infra.python.simple.more import (
         inverse,
     )
+
+    # pyre-fixme[21]: Could not find module
     from eden.mononoke.tests.mock_restricted_path.test_infra.python.simple.simple import (
         add,
     )
 except ImportError:
+    # pyre-fixme[21]: Could not find module
     from base_module_mapped.more import inverse
 
     # Could be base module mapped. Try that instead.
+    # pyre-fixme[21]: Could not find module
     from base_module_mapped.simple import add
 
 
