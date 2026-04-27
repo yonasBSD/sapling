@@ -44,8 +44,8 @@ class SpyXplatLogger : public XplatLogger {
  public:
   SpyXplatLogger()
       : XplatLogger(
-            EdenTelemetryIdentity{}
-            ) {}
+            EdenTelemetryIdentity{},
+            makeRefPtr<EdenStats>()) {}
 
   std::atomic<int> callCount{0};
   folly::SaturatingSemaphore<> eventLogged;

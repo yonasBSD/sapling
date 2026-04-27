@@ -567,7 +567,8 @@ EdenServer::EdenServer(
           std::make_shared<HeartbeatManager>(edenDir_, structuredLogger_)},
 #ifdef EDEN_HAVE_LOGGER
       xplatLogger_{std::make_unique<XplatLogger>(
-          EdenTelemetryIdentity::fromSessionInfo(sessionInfo))},
+          EdenTelemetryIdentity::fromSessionInfo(sessionInfo),
+          edenStats.copy())},
 #endif
       serverState_{make_shared<ServerState>(
           std::move(userInfo),
