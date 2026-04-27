@@ -5,12 +5,13 @@
  * GNU General Public License version 2.
  */
 
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use bonsai_git_mapping::BonsaiGitMappingArc;
 use bonsai_hg_mapping::BonsaiHgMappingArc;
 use borrowed::borrowed;
-use cloned::cloned;
 use commit_cloud::CommitCloudRef;
 use commit_cloud::Phase;
 use commit_cloud::ctx::CommitCloudContext;
@@ -216,10 +217,14 @@ impl<R: MononokeRepo> RepoContext<R> {
             (Phase::Public, public_commits_ctx),
             (Phase::Draft, draft_commits_ctx),
         ] {
+            let changesets = changesets
+                .into_iter()
+                .flatten()
+                .collect::<Vec<ChangesetContext<R>>>();
+
             let ids = changesets
                 .iter()
-                .flatten()
-                .map(|cs| cs.id())
+                .map(ChangesetContext::id)
                 .collect::<Vec<ChangesetId>>();
 
             let cloud_ids = get_cloud_ids_from_bonsais(
@@ -230,30 +235,67 @@ impl<R: MononokeRepo> RepoContext<R> {
                 repo.bonsai_git_mapping_arc(),
             )
             .await?;
+            let cloud_ids = Arc::new(cloud_ids);
 
-            let changesets = stream::iter(changesets.into_iter().flatten())
+            let mut all_parent_ids = HashSet::new();
+            let mut parents_by_changeset = Vec::with_capacity(changesets.len());
+            for changeset in &changesets {
+                let parent_ids = changeset.parents().await?;
+                all_parent_ids.extend(parent_ids.iter().copied());
+                parents_by_changeset.push((changeset.id(), parent_ids));
+            }
+            let parent_ids = all_parent_ids.into_iter().collect::<Vec<ChangesetId>>();
+
+            let parent_cloud_ids = get_cloud_ids_from_bonsais(
+                ctx,
+                &cc_ctx,
+                parent_ids,
+                repo.bonsai_hg_mapping_arc(),
+                repo.bonsai_git_mapping_arc(),
+            )
+            .await?;
+
+            let parents_by_changeset = parents_by_changeset
+                .into_iter()
+                .map(|(cs_id, parent_ids)| {
+                    let parent_cloud_ids = parent_ids
+                        .into_iter()
+                        .map(|parent_id| {
+                            parent_cloud_ids
+                                .get(&parent_id)
+                                .cloned()
+                                .ok_or(anyhow::anyhow!("no changeset id found for bonsai parent"))
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Ok::<(ChangesetId, Vec<CloudChangesetId>), anyhow::Error>((
+                        cs_id,
+                        parent_cloud_ids,
+                    ))
+                })
+                .collect::<Result<HashMap<ChangesetId, Vec<CloudChangesetId>>, _>>()?;
+            let parents_by_changeset = Arc::new(parents_by_changeset);
+
+            let changesets = stream::iter(changesets.into_iter())
                 .map(|changeset| {
-                    cloned!(rbs, lbs, phase, cloud_ids, cc_ctx);
+                    let rbs = Arc::clone(&rbs);
+                    let lbs = Arc::clone(&lbs);
+                    let cloud_ids = Arc::clone(&cloud_ids);
+                    let parents_by_changeset = Arc::clone(&parents_by_changeset);
+                    let phase = phase.clone();
                     async move {
                         let cloud_id = cloud_ids
                             .get(&changeset.id())
                             .ok_or(anyhow::anyhow!("no changeset id found for bonsai"))?;
-
-                        let parents = changeset.parents().await?;
-                        let parents_c_ids = get_cloud_ids_from_bonsais(
-                            ctx,
-                            &cc_ctx,
-                            parents,
-                            repo.bonsai_hg_mapping_arc(),
-                            repo.bonsai_git_mapping_arc(),
-                        )
-                        .await?
-                        .into_values()
-                        .collect::<Vec<_>>();
+                        let parent_cloud_ids =
+                            parents_by_changeset
+                                .get(&changeset.id())
+                                .ok_or(anyhow::anyhow!(
+                                    "no parent changeset ids found for smartlog node"
+                                ))?;
 
                         self.repo().commit_cloud().make_smartlog_node(
                             cloud_id,
-                            &parents_c_ids,
+                            parent_cloud_ids,
                             &changeset.changeset_info().await?,
                             &lbs.get(cloud_id).cloned(),
                             &rbs.get(cloud_id).cloned(),
