@@ -20,6 +20,7 @@ mod bookmark_log_entry;
 mod commands;
 #[cfg(fbcode_build)]
 mod facebook;
+mod user_ctx;
 
 /// Administrate Mononoke
 #[derive(Parser)]

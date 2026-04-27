@@ -88,6 +88,7 @@ mercurial_derivation = { version = "0.1.0", path = "../../derived_data/mercurial
 mercurial_mutation = { version = "0.1.0", path = "../../mercurial/mutation" }
 mercurial_types = { version = "0.1.0", path = "../../mercurial/types" }
 metaconfig_types = { version = "0.1.0", path = "../../metaconfig/types" }
+metadata = { version = "0.1.0", path = "../../common/metadata" }
 mononoke_api = { version = "0.1.0", path = "../../mononoke_api" }
 mononoke_app = { version = "0.1.0", path = "../../cmdlib/mononoke_app" }
 mononoke_macros = { version = "0.1.0", path = "../../common/mononoke_macros" }
@@ -97,6 +98,7 @@ mutable_blobstore = { version = "0.1.0", path = "../../repo_attributes/mutable_b
 mutable_counters = { version = "0.1.0", path = "../../repo_attributes/mutable_counters" }
 mutable_renames = { version = "0.1.0", path = "../../repo_attributes/mutable_renames" }
 packfile = { version = "0.1.0", path = "../../git/packfile" }
+permission_checker = { version = "0.1.0", path = "../../common/permission_checker" }
 phases = { version = "0.1.0", path = "../../repo_attributes/phases" }
 preloaded_commit_graph_storage = { version = "0.1.0", path = "../../repo_attributes/commit_graph/preloaded_commit_graph_storage" }
 prettytable-rs = "0.10"

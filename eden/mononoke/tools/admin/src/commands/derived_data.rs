@@ -133,7 +133,10 @@ enum DerivedDataSubcommand {
 }
 
 pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
-    let mut ctx = app.new_basic_context();
+    // Use the unixname-aware context so BackfillEnqueue records the invoking
+    // operator in `created_by` on the async request row. Read-only subcommands
+    // don't care about the identity; the extra identity is harmless there.
+    let mut ctx = crate::user_ctx::new_basic_context_with_unixname(&app);
 
     // BackfillStatus doesn't require opening a repo
     if let DerivedDataSubcommand::BackfillStatus(backfill_status_args) = args.subcommand {
