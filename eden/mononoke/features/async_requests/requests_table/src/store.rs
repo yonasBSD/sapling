@@ -1113,14 +1113,15 @@ mononoke_queries! {
         Timestamp,
         RequestStatus,
         i64,
+        Option<String>,
     ) {
-        "SELECT root.id, root.created_at, root.status, COUNT(DISTINCT sub.repo_id) as repo_count
+        "SELECT root.id, root.created_at, root.status, COUNT(DISTINCT sub.repo_id) as repo_count, root.created_by
          FROM long_running_request_queue root
          LEFT JOIN long_running_request_queue sub ON sub.root_request_id = root.id
          WHERE CAST(root.request_type AS CHAR) = 'derive_backfill'
            AND root.root_request_id IS NULL
            AND root.created_at >= {min_created_at}
-         GROUP BY root.id, root.created_at, root.status
+         GROUP BY root.id, root.created_at, root.status, root.created_by
          ORDER BY root.created_at DESC"
     }
 
@@ -1142,8 +1143,9 @@ mononoke_queries! {
         RequestStatus,
         Timestamp,
         BlobstoreKey,
+        Option<String>,
     ) {
-        "SELECT id, request_type, status, created_at, args_blobstore_key
+        "SELECT id, request_type, status, created_at, args_blobstore_key, created_by
          FROM long_running_request_queue
          WHERE id = {id}
            AND CAST(request_type AS CHAR) = 'derive_backfill'
@@ -1994,7 +1996,7 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         &self,
         ctx: &CoreContext,
         min_created_at: &Timestamp,
-    ) -> Result<Vec<(RowId, Timestamp, RequestStatus, i64)>> {
+    ) -> Result<Vec<(RowId, Timestamp, RequestStatus, i64, Option<String>)>> {
         let rows = ListRecentBackfillsWithRepoCount::query(
             &self.connections.read_connection,
             ctx.sql_query_telemetry(),
@@ -2008,7 +2010,16 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         &self,
         ctx: &CoreContext,
         id: &RowId,
-    ) -> Result<Option<(RowId, RequestType, RequestStatus, Timestamp, BlobstoreKey)>> {
+    ) -> Result<
+        Option<(
+            RowId,
+            RequestType,
+            RequestStatus,
+            Timestamp,
+            BlobstoreKey,
+            Option<String>,
+        )>,
+    > {
         let rows = GetBackfillRootEntry::query(
             &self.connections.read_connection,
             ctx.sql_query_telemetry(),

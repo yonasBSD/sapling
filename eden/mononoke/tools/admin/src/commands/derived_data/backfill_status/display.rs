@@ -58,7 +58,9 @@ pub(super) fn format_number(n: usize) -> String {
 }
 
 /// Display a list of recent backfill jobs
-pub(super) fn display_backfill_list(backfills: Vec<(RowId, Timestamp, RequestStatus, i64)>) {
+pub(super) fn display_backfill_list(
+    backfills: Vec<(RowId, Timestamp, RequestStatus, i64, Option<String>)>,
+) {
     println!("\nAvailable Backfill Jobs (recent)");
     println!("{}", "━".repeat(80));
 
@@ -68,14 +70,16 @@ pub(super) fn display_backfill_list(backfills: Vec<(RowId, Timestamp, RequestSta
     table.set_titles(Row::new(vec![
         Cell::new("Request ID"),
         Cell::new("Created At"),
+        Cell::new("Submitted By"),
         Cell::new("Status"),
         Cell::new("Repos"),
     ]));
 
-    for (request_id, created_at, status, repo_count) in backfills {
+    for (request_id, created_at, status, repo_count, created_by) in backfills {
         table.add_row(Row::new(vec![
             Cell::new(&request_id.0.to_string()),
             Cell::new(&format_timestamp(&created_at)),
+            Cell::new(created_by.as_deref().unwrap_or("-")),
             Cell::new(&status.to_string()),
             Cell::new(&repo_count.to_string()),
         ]));
@@ -100,6 +104,10 @@ pub(super) fn display_multi_repo_summary(
     println!("Root Request Details:");
     println!("  Request ID:     {}", data.request_id.0);
     println!("  Created At:     {}", format_timestamp(&data.created_at));
+    println!(
+        "  Submitted By:   {}",
+        data.created_by.as_deref().unwrap_or("-")
+    );
     println!("  Status:         {}", data.status);
     println!("  Request Type:   {}", data.request_type);
     println!();
@@ -259,6 +267,10 @@ pub(super) fn display_single_repo_detail(data: &BackfillDisplayData, repo_id: Op
     println!("Root Request Details:");
     println!("  Request ID:     {}", data.request_id.0);
     println!("  Created At:     {}", format_timestamp(&data.created_at));
+    println!(
+        "  Submitted By:   {}",
+        data.created_by.as_deref().unwrap_or("-")
+    );
     println!("  Status:         {}", data.status);
     if let Some(repo_id) = repo_id {
         println!("  Repo:           {}", repo_id);

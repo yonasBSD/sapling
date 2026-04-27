@@ -303,12 +303,21 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         &self,
         ctx: &CoreContext,
         min_created_at: &Timestamp,
-    ) -> Result<Vec<(RowId, Timestamp, RequestStatus, i64)>>;
+    ) -> Result<Vec<(RowId, Timestamp, RequestStatus, i64, Option<String>)>>;
 
     /// Get the root backfill entry by ID.
     async fn get_backfill_root_entry(
         &self,
         ctx: &CoreContext,
         id: &RowId,
-    ) -> Result<Option<(RowId, RequestType, RequestStatus, Timestamp, BlobstoreKey)>>;
+    ) -> Result<
+        Option<(
+            RowId,
+            RequestType,
+            RequestStatus,
+            Timestamp,
+            BlobstoreKey,
+            Option<String>,
+        )>,
+    >;
 }

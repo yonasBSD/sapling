@@ -112,7 +112,7 @@ async fn show_backfill_detail(
         .await
         .context("fetching backfill root entry")?;
 
-    let (request_id, request_type, status, created_at, _args_key) = match root_entry {
+    let (request_id, request_type, status, created_at, _args_key, created_by) = match root_entry {
         Some(entry) => entry,
         None => bail!(
             "Invalid request ID: {} is not a backfill root request",
@@ -193,6 +193,7 @@ async fn show_backfill_detail(
     let data = BackfillDisplayData {
         request_id,
         created_at,
+        created_by,
         status,
         request_type: request_type.to_string(),
         total_requests,
@@ -310,7 +311,8 @@ async fn show_repo_detail(
         .await
         .context("fetching backfill root entry")?;
 
-    let (request_id, _request_type, _status, _created_at, _args_key) = match root_entry {
+    let (request_id, _request_type, _status, _created_at, _args_key, _created_by) = match root_entry
+    {
         Some(entry) => entry,
         None => bail!(
             "Invalid request ID: {} is not a backfill root request",

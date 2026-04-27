@@ -68,6 +68,7 @@ impl TimingStats {
 pub(super) struct BackfillDisplayData {
     pub request_id: RowId,
     pub created_at: Timestamp,
+    pub created_by: Option<String>,
     pub status: RequestStatus,
     pub request_type: String,
     pub total_requests: usize,
