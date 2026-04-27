@@ -28,6 +28,7 @@ use thiserror::Error;
 
 mod derive;
 pub mod mapping;
+mod pipeline;
 
 pub use mapping::RootUnodeManifestId;
 pub use mapping::format_key;

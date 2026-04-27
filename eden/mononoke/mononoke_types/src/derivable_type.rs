@@ -85,6 +85,7 @@ pub enum DerivableUntopologicallyVariant {
 #[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq)]
 pub enum PipelineDerivableVariant {
     Fsnodes,
+    Unodes,
 }
 
 impl DerivableType {
@@ -242,6 +243,7 @@ impl DerivableType {
     pub fn into_pipeline_derivable_variant(self) -> Result<PipelineDerivableVariant> {
         match self {
             DerivableType::Fsnodes => Ok(PipelineDerivableVariant::Fsnodes),
+            DerivableType::Unodes => Ok(PipelineDerivableVariant::Unodes),
             _ => bail!("{} does not support derivation pipeline", self.name()),
         }
     }
@@ -251,6 +253,7 @@ impl PipelineDerivableVariant {
     pub fn into_derivable_type(self) -> DerivableType {
         match self {
             PipelineDerivableVariant::Fsnodes => DerivableType::Fsnodes,
+            PipelineDerivableVariant::Unodes => DerivableType::Unodes,
         }
     }
 }

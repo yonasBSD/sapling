@@ -50,3 +50,11 @@ struct ManifestUnode {
 // The following were automatically generated and may benefit from renaming.
 @rust.Type{name = "sorted_vector_map::SortedVectorMap"}
 typedef map<path.MPathElement, UnodeEntry> map_MPathElement_UnodeEntry_3251
+
+struct UnodeStageOutputEmpty {}
+
+union UnodeStageOutput {
+  1: id.ManifestUnodeId manifest_unode_id;
+  2: UnodeStageOutputEmpty empty;
+  3: id.FileUnodeId file_unode_id;
+}

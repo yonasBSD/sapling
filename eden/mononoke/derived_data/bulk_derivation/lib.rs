@@ -510,6 +510,10 @@ pub async fn derive_stage_batch(
             ddm.derive_stage_batch::<RootFsnodeId>(ctx, csids, stage_id)
                 .await
         }
+        PipelineDerivableVariant::Unodes => {
+            ddm.derive_stage_batch::<RootUnodeManifestId>(ctx, csids, stage_id)
+                .await
+        }
     }
 }
 
@@ -525,6 +529,10 @@ pub async fn is_stage_derived(
             ddm.is_stage_derived::<RootFsnodeId>(ctx, csid, stage_id)
                 .await
         }
+        PipelineDerivableVariant::Unodes => {
+            ddm.is_stage_derived::<RootUnodeManifestId>(ctx, csid, stage_id)
+                .await
+        }
     }
 }
 
@@ -538,6 +546,10 @@ pub async fn verify_stage_output(
     match variant {
         PipelineDerivableVariant::Fsnodes => {
             ddm.verify_stage_output::<RootFsnodeId>(ctx, csid, stage_id)
+                .await
+        }
+        PipelineDerivableVariant::Unodes => {
+            ddm.verify_stage_output::<RootUnodeManifestId>(ctx, csid, stage_id)
                 .await
         }
     }

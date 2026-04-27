@@ -258,6 +258,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//common/rust/shed/borrowed:borrowed",
         "//common/rust/shed/cloned:cloned",
+        "//common/rust/shed/justknobs_stub:justknobs",
         "//common/rust/shed/sorted_vector_map:sorted_vector_map",
         "//common/rust/shed/stats:stats",
         "//eden/mononoke/blobstore:blobstore",
@@ -268,6 +269,7 @@ rust_library(
         "//eden/mononoke/metaconfig:metaconfig_types",
         "//eden/mononoke/mononoke_types:mononoke_types",
         "//eden/mononoke/servers/slapi/slapi_server/context:context",
+        "//thrift/lib/rust:fbthrift",
     ],
 )
 

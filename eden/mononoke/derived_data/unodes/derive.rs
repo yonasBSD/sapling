@@ -19,6 +19,7 @@ use cloned::cloned;
 use context::CoreContext;
 use derived_data_manager::DerivationContext;
 use futures::future;
+use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use futures::future::try_join_all;
 use futures::stream::TryStreamExt;
@@ -31,6 +32,7 @@ use manifest::PathOrPrefix;
 use manifest::PathTree;
 use manifest::TreeInfo;
 use manifest::derive_manifest;
+use manifest::derive_manifest_with_known_entries;
 use manifest::derive_manifests_for_simple_stack_of_commits;
 use manifest::flatten_subentries;
 use mononoke_types::BlobstoreKey;
@@ -96,46 +98,68 @@ pub(crate) async fn derive_unode_manifest_stack(
     Ok(res.into_iter().collect())
 }
 
-/// Derives unode manifests for bonsai changeset `cs_id` given parent unode manifests.
-/// Note that `derive_manifest()` does a lot of the heavy lifting for us, and this crate has to
-/// provide only functions to create a single unode file or single unode tree (
-/// `create_unode_manifest` and `create_unode_file`).
-pub(crate) async fn derive_unode_manifest_with_subtree_changes(
+/// Derives the raw unode entry for a changeset given parent unodes.
+/// Returns the entry produced by `derive_manifest_with_known_entries`
+/// directly, supporting prefix and known_entries for pipeline derivation.
+pub(crate) async fn derive_unode_entry(
+    ctx: &CoreContext,
+    derivation_ctx: &DerivationContext,
+    cs_id: ChangesetId,
+    parents: Vec<Entry<ManifestUnodeId, FileUnodeId>>,
+    changes: Vec<(NonRootMPath, Option<(ContentId, FileType)>)>,
+    subtree_changes: Vec<ManifestParentReplacement<ManifestUnodeId, FileUnodeId>>,
+    known_entries: HashMap<MPath, Option<Entry<ManifestUnodeId, FileUnodeId>>>,
+    prefix: MPath,
+) -> Result<Option<Entry<ManifestUnodeId, FileUnodeId>>, Error> {
+    let blobstore = derivation_ctx.blobstore();
+
+    let derive_fut = derive_manifest_with_known_entries(
+        ctx.clone(),
+        blobstore.clone(),
+        parents,
+        changes,
+        subtree_changes,
+        known_entries,
+        prefix,
+        {
+            cloned!(ctx, blobstore);
+            move |tree_info| create_unode_manifest(ctx.clone(), cs_id, blobstore.clone(), tree_info)
+        },
+        {
+            cloned!(ctx, blobstore);
+            move |leaf_info| create_unode_file(ctx.clone(), cs_id, blobstore.clone(), leaf_info)
+        },
+    )
+    .boxed();
+    derive_fut.await
+}
+
+/// Process subtree changes for unode derivation, synthesizing file changes
+/// and manifest replacements.
+///
+/// For unodes, subtree copies require synthesizing file changes because
+/// unodes are unique per commit (they can't reuse source entries like
+/// content-addressed manifests can). This is an O(N) operation.
+///
+/// Returns additional file changes and manifest parent replacements.
+pub(crate) async fn get_unode_subtree_changes(
     ctx: &CoreContext,
     derivation_ctx: &DerivationContext,
     known: Option<&HashMap<ChangesetId, RootUnodeManifestId>>,
-    cs_id: ChangesetId,
-    parents: Vec<ManifestUnodeId>,
-    mut changes: Vec<(NonRootMPath, Option<(ContentId, FileType)>)>,
     subtree_changes: &SortedVectorMap<MPath, SubtreeChange>,
-) -> Result<ManifestUnodeId, Error> {
-    let parents: Vec<_> = parents.into_iter().collect();
+    changes: &[(NonRootMPath, Option<(ContentId, FileType)>)],
+) -> Result<
+    (
+        Vec<(NonRootMPath, Option<(ContentId, FileType)>)>,
+        Vec<ManifestParentReplacement<ManifestUnodeId, FileUnodeId>>,
+    ),
+    Error,
+> {
     let blobstore = derivation_ctx.blobstore();
-
     let mut manifest_replacements = Vec::new();
     let mut additional_changes = Vec::new();
     for (to_path, subtree_change) in subtree_changes.iter() {
         if let Some((from_cs_id, from_path)) = subtree_change.copy_source() {
-            // This commit has a subtree copy.  This means the file changes
-            // must be applied based on the subtree copy source, rather than
-            // the parent.
-            //
-            // For unodes, we cannot reuse the unode manifest from
-            // the copy source, as unodes are (by design) unique to
-            // each commit.  We need to build new unodes for the copied
-            // files.  This effectively turns this into an O(N) copy.
-            //
-            // This isn't ideal, but until we implement a history manifest
-            // derived data type that understands subtree operations, it
-            // will have to do.
-            //
-            // To construct the new unodes, we will synthesize bonsai changes
-            // for each of the files that are copied from the copy source.
-            // We exclude:
-            // - The contents of any nested subtree copies
-            // - Any files that are changed or deleted in the current commit
-            // - Any files that are deleted by virtue of a parent directory
-            //   being replaced by a file in the current commit.
             let from_unode = derivation_ctx
                 .fetch_unknown_dependency::<RootUnodeManifestId>(ctx, known, from_cs_id)
                 .await?
@@ -146,9 +170,6 @@ pub(crate) async fn derive_unode_manifest_with_subtree_changes(
                     format!("Failed to fetch subtree copy source {from_cs_id}:{from_path}")
                 })?
                 .ok_or_else(|| format_err!("No subtree copy source {from_cs_id}:{from_path}"))?;
-            // Replace the parent manifest at this path with an empty set
-            // of parents.  This removes all items that were previously at
-            // that location.
             manifest_replacements.push(ManifestParentReplacement {
                 path: to_path.clone(),
                 replacements: Vec::new(),
@@ -156,8 +177,6 @@ pub(crate) async fn derive_unode_manifest_with_subtree_changes(
 
             match from_unode {
                 Entry::Tree(from_unode) => {
-                    // The copy source is a directory.  Find all changes on top of the source
-                    // in this commit.
                     let mut changed_paths = changes
                         .iter()
                         .filter_map(|(change_path, _change)| {
@@ -171,7 +190,6 @@ pub(crate) async fn derive_unode_manifest_with_subtree_changes(
                             }
                         })
                         .collect::<PathTree<_>>();
-                    // Find all nested subtree copies.
                     for (other_to_path, other_subtree_change) in subtree_changes.iter() {
                         if other_to_path != to_path && other_subtree_change.copy_source().is_some()
                         {
@@ -181,8 +199,6 @@ pub(crate) async fn derive_unode_manifest_with_subtree_changes(
                             }
                         }
                     }
-                    // Find all paths from the source, but filter out any paths that are
-                    // covered by either of those two cases.
                     let changed_paths = Arc::new(changed_paths);
                     let filter_changed_paths =
                         move |path: &MPath| changed_paths.get(path).is_none_or(|x| !x);
@@ -226,7 +242,6 @@ pub(crate) async fn derive_unode_manifest_with_subtree_changes(
                         .await?;
                 }
                 Entry::Leaf(from_unode) => {
-                    // The copy source is a file.  The additional change should add that file.
                     if !changes
                         .iter()
                         .any(|(change_path, _change)| to_path == <&MPath>::from(change_path))
@@ -246,6 +261,27 @@ pub(crate) async fn derive_unode_manifest_with_subtree_changes(
             }
         }
     }
+    Ok((additional_changes, manifest_replacements))
+}
+
+/// Derives unode manifests for bonsai changeset `cs_id` given parent unode manifests.
+/// Note that `derive_manifest()` does a lot of the heavy lifting for us, and this crate has to
+/// provide only functions to create a single unode file or single unode tree (
+/// `create_unode_manifest` and `create_unode_file`).
+pub(crate) async fn derive_unode_manifest_with_subtree_changes(
+    ctx: &CoreContext,
+    derivation_ctx: &DerivationContext,
+    known: Option<&HashMap<ChangesetId, RootUnodeManifestId>>,
+    cs_id: ChangesetId,
+    parents: Vec<ManifestUnodeId>,
+    mut changes: Vec<(NonRootMPath, Option<(ContentId, FileType)>)>,
+    subtree_changes: &SortedVectorMap<MPath, SubtreeChange>,
+) -> Result<ManifestUnodeId, Error> {
+    let parents: Vec<_> = parents.into_iter().collect();
+    let blobstore = derivation_ctx.blobstore();
+
+    let (mut additional_changes, manifest_replacements) =
+        get_unode_subtree_changes(ctx, derivation_ctx, known, subtree_changes, &changes).await?;
     changes.append(&mut additional_changes);
 
     let maybe_tree_id = derive_manifest(
@@ -566,6 +602,7 @@ mod tests {
     use fbinit::FacebookInit;
     use filenodes_derivation::FilenodesOnlyPublic;
     use fixtures::Linear;
+    use fixtures::ManyFilesDirs;
     use fixtures::TestRepoFixture;
     use futures::TryStreamExt;
     use manifest::ManifestOps;
@@ -1266,5 +1303,457 @@ mod tests {
         let hg_cs_id = repo.derive_hg_changeset(&ctx, bcs_id).await?;
         let hg_cs = hg_cs_id.load(&ctx, &repo.repo_blobstore).await?;
         Ok(HgFileNodeId::new(hg_cs.manifestid().into_nodehash()))
+    }
+
+    /// Derivation pipeline of independent directories: derive dir1/ and dir2/
+    /// separately, then assemble the root using known_entries. Verifies the
+    /// result matches normal full-tree derivation.
+    #[mononoke::fbinit_test]
+    async fn test_derivation_pipeline_independent_dirs(fb: FacebookInit) {
+        let repo: TestRepo = ManyFilesDirs::get_repo(fb).await;
+        let derivation_ctx = repo.repo_derived_data().manager().derivation_context(None);
+        let ctx = CoreContext::test_mock(fb);
+        let blobstore = repo.repo_blobstore.clone();
+
+        // Derive parent unode (commit A: creates "1")
+        let parent_unode_id = {
+            let parent_hg_cs = "5a28e25f924a5d209b82ce0713d8d83e68982bc8";
+            let (bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, parent_hg_cs)
+                .await
+                .unwrap();
+            derive_unode_manifest(
+                &ctx,
+                &derivation_ctx,
+                bcs_id,
+                vec![],
+                get_file_changes(&bcs),
+            )
+            .await
+            .unwrap()
+        };
+
+        // Commit B adds: "2", "dir1/file_1_in_dir1", "dir1/file_2_in_dir1",
+        // "dir1/subdir1/file_1", "dir2/file_1_in_dir2"
+        let child_hg_cs = "2f866e7e549760934e31bf0420a873f65100ad63";
+        let (bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, child_hg_cs)
+            .await
+            .unwrap();
+        let changes = get_file_changes(&bcs);
+
+        // Normal derivation to get expected result
+        let expected_id = derive_unode_manifest(
+            &ctx,
+            &derivation_ctx,
+            bcs_id,
+            vec![parent_unode_id],
+            changes.clone(),
+        )
+        .await
+        .unwrap();
+
+        // Stage dir1: pass all changes with prefix
+        let dir1_parent = parent_unode_id
+            .find_entry(ctx.clone(), blobstore.clone(), MPath::new("dir1").unwrap())
+            .await
+            .unwrap();
+        let dir1_parents = match dir1_parent {
+            Some(entry) => vec![entry],
+            None => vec![],
+        };
+        let dir1_entry = derive_unode_entry(
+            &ctx,
+            &derivation_ctx,
+            bcs_id,
+            dir1_parents,
+            changes.clone(),
+            Default::default(),
+            HashMap::new(),
+            MPath::new("dir1").unwrap(),
+        )
+        .await
+        .unwrap()
+        .expect("dir1 stage should produce an entry");
+
+        // Stage dir2: pass all changes with prefix
+        let dir2_parent = parent_unode_id
+            .find_entry(ctx.clone(), blobstore.clone(), MPath::new("dir2").unwrap())
+            .await
+            .unwrap();
+        let dir2_parents = match dir2_parent {
+            Some(entry) => vec![entry],
+            None => vec![],
+        };
+        let dir2_entry = derive_unode_entry(
+            &ctx,
+            &derivation_ctx,
+            bcs_id,
+            dir2_parents,
+            changes.clone(),
+            Default::default(),
+            HashMap::new(),
+            MPath::new("dir2").unwrap(),
+        )
+        .await
+        .unwrap()
+        .expect("dir2 stage should produce an entry");
+
+        // Stage root: assemble with known_entries for dir1 and dir2
+        let known_entries: HashMap<MPath, Option<Entry<ManifestUnodeId, FileUnodeId>>> =
+            HashMap::from([
+                (MPath::new("dir1").unwrap(), Some(dir1_entry)),
+                (MPath::new("dir2").unwrap(), Some(dir2_entry)),
+            ]);
+        let root_entry = derive_unode_entry(
+            &ctx,
+            &derivation_ctx,
+            bcs_id,
+            vec![Entry::Tree(parent_unode_id)],
+            changes,
+            Default::default(),
+            known_entries,
+            MPath::ROOT,
+        )
+        .await
+        .unwrap()
+        .expect("root stage should produce an entry");
+
+        let pipeline_id = root_entry.into_tree().expect("root entry should be a tree");
+
+        // Unode IDs should match because both paths use the same cs_id,
+        // so linknodes, parents, and subentries are identical.
+        assert_eq!(pipeline_id, expected_id);
+    }
+
+    /// Derivation pipeline of nested directories: derive dir1/subdir1/ first,
+    /// then dir1/ using known_entries for subdir1, then root using known_entries
+    /// for dir1. Verifies the result matches normal full-tree derivation.
+    #[mononoke::fbinit_test]
+    async fn test_derivation_pipeline_nested_dirs(fb: FacebookInit) {
+        let repo: TestRepo = ManyFilesDirs::get_repo(fb).await;
+        let derivation_ctx = repo.repo_derived_data().manager().derivation_context(None);
+        let ctx = CoreContext::test_mock(fb);
+        let blobstore = repo.repo_blobstore.clone();
+
+        // Derive parent unodes for commits A and B
+        let parent_unode_id = {
+            let hg_cs_a = "5a28e25f924a5d209b82ce0713d8d83e68982bc8";
+            let (bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, hg_cs_a)
+                .await
+                .unwrap();
+            derive_unode_manifest(
+                &ctx,
+                &derivation_ctx,
+                bcs_id,
+                vec![],
+                get_file_changes(&bcs),
+            )
+            .await
+            .unwrap()
+        };
+        let parent_unode_id = {
+            let hg_cs_b = "2f866e7e549760934e31bf0420a873f65100ad63";
+            let (bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, hg_cs_b)
+                .await
+                .unwrap();
+            derive_unode_manifest(
+                &ctx,
+                &derivation_ctx,
+                bcs_id,
+                vec![parent_unode_id],
+                get_file_changes(&bcs),
+            )
+            .await
+            .unwrap()
+        };
+
+        // Commit C modifies: "dir1/subdir1/subsubdir1/file_1",
+        // "dir1/subdir1/subsubdir2/file_1", "dir1/subdir1/subsubdir2/file_2"
+        let child_hg_cs = "d261bc7900818dea7c86935b3fb17a33b2e3a6b4";
+        let (bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, child_hg_cs)
+            .await
+            .unwrap();
+        let changes = get_file_changes(&bcs);
+
+        // Normal derivation to get expected result
+        let expected_id = derive_unode_manifest(
+            &ctx,
+            &derivation_ctx,
+            bcs_id,
+            vec![parent_unode_id],
+            changes.clone(),
+        )
+        .await
+        .unwrap();
+
+        // Stage dir1/subdir1: pass all changes with prefix
+        let subdir1_parent = parent_unode_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir1/subdir1").unwrap(),
+            )
+            .await
+            .unwrap();
+        let subdir1_parents = match subdir1_parent {
+            Some(entry) => vec![entry],
+            None => vec![],
+        };
+        let subdir1_entry = derive_unode_entry(
+            &ctx,
+            &derivation_ctx,
+            bcs_id,
+            subdir1_parents,
+            changes.clone(),
+            Default::default(),
+            HashMap::new(),
+            MPath::new("dir1/subdir1").unwrap(),
+        )
+        .await
+        .unwrap()
+        .expect("dir1/subdir1 stage should produce an entry");
+
+        // Stage dir1: pass all changes with prefix, known_entries for subdir1
+        let dir1_parent = parent_unode_id
+            .find_entry(ctx.clone(), blobstore.clone(), MPath::new("dir1").unwrap())
+            .await
+            .unwrap();
+        let dir1_parents = match dir1_parent {
+            Some(entry) => vec![entry],
+            None => vec![],
+        };
+        let dir1_known_entries: HashMap<MPath, Option<Entry<ManifestUnodeId, FileUnodeId>>> =
+            HashMap::from([(MPath::new("dir1/subdir1").unwrap(), Some(subdir1_entry))]);
+        let dir1_entry = derive_unode_entry(
+            &ctx,
+            &derivation_ctx,
+            bcs_id,
+            dir1_parents,
+            changes.clone(),
+            Default::default(),
+            dir1_known_entries,
+            MPath::new("dir1").unwrap(),
+        )
+        .await
+        .unwrap()
+        .expect("dir1 stage should produce an entry");
+
+        // Stage root: assemble with known_entries for dir1
+        let root_known_entries: HashMap<MPath, Option<Entry<ManifestUnodeId, FileUnodeId>>> =
+            HashMap::from([(MPath::new("dir1").unwrap(), Some(dir1_entry))]);
+        let root_entry = derive_unode_entry(
+            &ctx,
+            &derivation_ctx,
+            bcs_id,
+            vec![Entry::Tree(parent_unode_id)],
+            changes,
+            Default::default(),
+            root_known_entries,
+            MPath::ROOT,
+        )
+        .await
+        .unwrap()
+        .expect("root stage should produce an entry");
+
+        let pipeline_id = root_entry.into_tree().expect("root entry should be a tree");
+
+        assert_eq!(pipeline_id, expected_id);
+    }
+
+    /// Derivation pipeline with subtree copy: construct a SubtreeChange that
+    /// copies dir1 to dir2, then verify that both normal derivation (via
+    /// derive_unode_manifest_with_subtree_changes) and pipeline derivation
+    /// (with prefix + known_entries) produce the same ManifestUnodeId.
+    #[mononoke::fbinit_test]
+    async fn test_derivation_pipeline_with_subtree_copy(fb: FacebookInit) {
+        let repo: TestRepo = ManyFilesDirs::get_repo(fb).await;
+        let derivation_ctx = repo.repo_derived_data().manager().derivation_context(None);
+        let ctx = CoreContext::test_mock(fb);
+        let blobstore = repo.repo_blobstore.clone();
+
+        // Derive parent unodes for commits A and B (same as nested_dirs test).
+        let parent_unode_id = {
+            let hg_cs_a = "5a28e25f924a5d209b82ce0713d8d83e68982bc8";
+            let (bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, hg_cs_a)
+                .await
+                .unwrap();
+            derive_unode_manifest(
+                &ctx,
+                &derivation_ctx,
+                bcs_id,
+                vec![],
+                get_file_changes(&bcs),
+            )
+            .await
+            .unwrap()
+        };
+        let (parent_unode_id, parent_cs_id) = {
+            let hg_cs_b = "2f866e7e549760934e31bf0420a873f65100ad63";
+            let (bcs_id, bcs) = bonsai_changeset_from_hg(&ctx, &repo, hg_cs_b)
+                .await
+                .unwrap();
+            let unode_id = derive_unode_manifest(
+                &ctx,
+                &derivation_ctx,
+                bcs_id,
+                vec![parent_unode_id],
+                get_file_changes(&bcs),
+            )
+            .await
+            .unwrap();
+            (unode_id, bcs_id)
+        };
+
+        let cs_id = parent_cs_id;
+
+        // Build a SubtreeChange that copies dir1 to dir2.
+        let subtree_changes = vec![(
+            MPath::new("dir2").unwrap(),
+            SubtreeChange::copy(MPath::new("dir1").unwrap(), parent_cs_id),
+        )]
+        .into_iter()
+        .collect::<SortedVectorMap<_, _>>();
+
+        // Get (ContentId, FileType) from an existing file in the repo by loading
+        // the FileUnodeId.
+        let file_unode_id = parent_unode_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir1/file_1_in_dir1").unwrap(),
+            )
+            .await
+            .unwrap()
+            .expect("file should exist")
+            .into_leaf()
+            .expect("should be a leaf");
+        let file_unode = file_unode_id.load(&ctx, &blobstore).await.unwrap();
+        let content_id = *file_unode.content_id();
+        let file_type = *file_unode.file_type();
+
+        // Changes applied on top of the subtree copy:
+        // - delete dir2/file_1_in_dir1 (exists in dir1, proving deletions work)
+        // - add dir2/new_file (proving additions work on copied subtree)
+        let changes: Vec<(NonRootMPath, Option<(ContentId, FileType)>)> = vec![
+            (NonRootMPath::new("dir2/file_1_in_dir1").unwrap(), None),
+            (
+                NonRootMPath::new("dir2/new_file").unwrap(),
+                Some((content_id, file_type)),
+            ),
+        ];
+
+        // --- Normal derivation ---
+        let known = HashMap::from([(parent_cs_id, RootUnodeManifestId(parent_unode_id))]);
+        let expected_id = derive_unode_manifest_with_subtree_changes(
+            &ctx,
+            &derivation_ctx,
+            Some(&known),
+            cs_id,
+            vec![parent_unode_id],
+            changes.clone(),
+            &subtree_changes,
+        )
+        .await
+        .unwrap();
+
+        // Verify dir2 has the subtree copy applied with changes on top:
+        // - file_2_in_dir1 exists (from subtree copy, proves it worked)
+        // - file_1_in_dir1 absent (deleted by file change)
+        // - new_file exists (added by file change)
+        let file_2 = expected_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir2/file_2_in_dir1").unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            file_2.is_some(),
+            "dir2/file_2_in_dir1 should exist from subtree copy"
+        );
+        let file_1 = expected_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir2/file_1_in_dir1").unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            file_1.is_none(),
+            "dir2/file_1_in_dir1 should be deleted by file change"
+        );
+        let new_file = expected_id
+            .find_entry(
+                ctx.clone(),
+                blobstore.clone(),
+                MPath::new("dir2/new_file").unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            new_file.is_some(),
+            "dir2/new_file should exist from file change"
+        );
+
+        // --- Pipeline derivation: derive dir2 stage with prefix, then root ---
+
+        // Process subtree changes to get manifest replacements and additional
+        // file changes, same as pipeline.rs does.
+        let (mut additional_changes, manifest_replacements) = get_unode_subtree_changes(
+            &ctx,
+            &derivation_ctx,
+            Some(&known),
+            &subtree_changes,
+            &changes,
+        )
+        .await
+        .unwrap();
+        let mut all_changes = changes;
+        all_changes.append(&mut additional_changes);
+
+        // Stage dir2: derive with the manifest_replacements and prefix "dir2".
+        let dir2_parent = parent_unode_id
+            .find_entry(ctx.clone(), blobstore.clone(), MPath::new("dir2").unwrap())
+            .await
+            .unwrap();
+        let dir2_parents = match dir2_parent {
+            Some(entry) => vec![entry],
+            None => vec![],
+        };
+        let dir2_entry = derive_unode_entry(
+            &ctx,
+            &derivation_ctx,
+            cs_id,
+            dir2_parents,
+            all_changes.clone(),
+            manifest_replacements.clone(),
+            HashMap::new(),
+            MPath::new("dir2").unwrap(),
+        )
+        .await
+        .unwrap()
+        .expect("dir2 stage should produce an entry");
+
+        // Stage root: assemble with known_entries for dir2.
+        let root_known_entries: HashMap<MPath, Option<Entry<ManifestUnodeId, FileUnodeId>>> =
+            HashMap::from([(MPath::new("dir2").unwrap(), Some(dir2_entry))]);
+        let root_entry = derive_unode_entry(
+            &ctx,
+            &derivation_ctx,
+            cs_id,
+            vec![Entry::Tree(parent_unode_id)],
+            all_changes,
+            manifest_replacements,
+            root_known_entries,
+            MPath::ROOT,
+        )
+        .await
+        .unwrap()
+        .expect("root stage should produce an entry");
+
+        let pipeline_id = root_entry.into_tree().expect("root entry should be a tree");
+
+        assert_eq!(pipeline_id, expected_id);
     }
 }
