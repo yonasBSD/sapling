@@ -147,14 +147,16 @@ async fn test_for_fixture<F: TestRepoFixture + Send>(fb: FacebookInit) -> Result
             .await?
             .into_skeleton_manifest_id();
 
-        let test_manifest_leaf_entries = test_manifest
+        let mut test_manifest_leaf_entries: Vec<_> = test_manifest
             .list_leaf_entries(ctx.clone(), blobstore.clone())
-            .try_collect::<Vec<_>>()
+            .try_collect()
             .await?;
-        let skeleton_manifest_leaf_entries = skeleton_manifest
+        let mut skeleton_manifest_leaf_entries: Vec<_> = skeleton_manifest
             .list_leaf_entries(ctx.clone(), blobstore.clone())
-            .try_collect::<Vec<_>>()
+            .try_collect()
             .await?;
+        test_manifest_leaf_entries.sort_by(|a, b| a.0.cmp(&b.0));
+        skeleton_manifest_leaf_entries.sort_by(|a, b| a.0.cmp(&b.0));
         assert_eq!(test_manifest_leaf_entries, skeleton_manifest_leaf_entries);
     }
 
