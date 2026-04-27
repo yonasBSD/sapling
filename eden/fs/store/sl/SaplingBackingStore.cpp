@@ -1304,10 +1304,8 @@ SaplingBackingStore::co_getTreeEnqueue(
     const SlOid& slOid,
     const ObjectFetchContextPtr& context) {
   auto self = shared_from_this();
-  co_await self->faultInjector_
-      .checkAsync(
-          "SaplingBackingStore::co_getTreeEnqueue", slOid.node().toString())
-      .semi();
+  co_await self->faultInjector_.co_checkAsync(
+      "SaplingBackingStore::co_getTreeEnqueue", slOid.node().toString());
   XLOGF(DBG4, "making tree import request for {}", slOid);
   auto requestContext = context.copy();
   auto request =
