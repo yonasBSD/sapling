@@ -849,6 +849,14 @@ class TreeInode final : public InodeBaseMetadata<DirContents> {
       const GitIgnoreStack* parentIgnore,
       bool isIgnored);
 
+  folly::coro::now_task<folly::Unit> co_loadGitIgnoreThenDiff(
+      InodePtr gitignoreInode,
+      DiffContext* context,
+      RelativePathPiece currentPath,
+      std::vector<std::shared_ptr<const Tree>> trees,
+      const GitIgnoreStack* parentIgnore,
+      bool isIgnored);
+
   /**
    * The bulk of the actual implementation of diff()
    *

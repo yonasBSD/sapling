@@ -2915,6 +2915,47 @@ ImmediateFuture<Unit> TreeInode::loadGitIgnoreThenDiff(
           });
 }
 
+folly::coro::now_task<folly::Unit> TreeInode::co_loadGitIgnoreThenDiff(
+    InodePtr gitignoreInode,
+    DiffContext* context,
+    RelativePathPiece currentPath,
+    std::vector<shared_ptr<const Tree>> trees,
+    const GitIgnoreStack* parentIgnore,
+    bool isIgnored) {
+  // prevent destruction across co_await suspension points
+  auto self = inodePtrFromThis();
+  auto loadGitIgnoreThenDiffSpan = context->createSpan("loadGitIgnoreThenDiff");
+  std::string ignoreFileContents;
+  try {
+    auto fileInode = gitignoreInode.asFileOrNull();
+    if (!fileInode) {
+      XLOGF(
+          WARN,
+          "co_loadGitIgnoreThenDiff() invoked with a non-file inode: {}",
+          gitignoreInode->getLogPath());
+      throw InodeError(EISDIR, gitignoreInode);
+    }
+#ifndef _WIN32
+    if (fileInode->getType() == dtype_t::Symlink) {
+      throw InodeError(EMLINK, gitignoreInode);
+    }
+#endif
+    ignoreFileContents =
+        co_await fileInode->co_readAll(context->getFetchContext());
+  } catch (const std::exception& ex) {
+    XLOGF(WARN, "error reading ignore file: {}", folly::exceptionStr(ex));
+  }
+
+  co_await co_computeDiff(
+      contents_.wlock(),
+      context,
+      currentPath,
+      std::move(trees),
+      make_unique<GitIgnoreStack>(parentIgnore, ignoreFileContents),
+      isIgnored);
+  co_return folly::unit;
+}
+
 /*
 This algorithm starts at the root `TreeInode` of the working directory and the
 root source control commit `Tree`, traversing the trees in a level order
