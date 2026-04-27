@@ -51,6 +51,7 @@ cpp_benchmark(
         ["*Benchmark.cpp"],
         exclude = [
             "ActivityBufferBenchmark.cpp",
+            "LoggingBenchmark.cpp",
         ],
     ),
     deps = [
@@ -59,6 +60,32 @@ cpp_benchmark(
         "//eden/common/utils/benchharness:benchharness",
         "//folly/init:init",
         "//folly/synchronization/test:barrier",
+    ],
+)
+
+cpp_benchmark(
+    name = "logging_benchmark",
+    srcs = [
+        "LoggingBenchmark.cpp",
+    ],
+    compatible_with = [
+        "ovr_config//os:linux",
+        "ovr_config//os:macos",
+    ],
+    deps = [
+        "fbsource//third-party/benchmark:benchmark",
+        "//eden/common/telemetry:log_info",
+        "//eden/common/telemetry:scribe_logger",
+        "//eden/common/utils:ref_ptr",
+        "//eden/fs/telemetry:stats",
+        "//eden/fs/telemetry:xplat_keys",
+        "//eden/fs/telemetry/facebook:XplatTransforms",
+        "//eden/fs/telemetry/facebook:eden_telemetry_identity",
+        "//eden/fs/telemetry/facebook:xplat_logger",
+        "//eden/fs/telemetry/facebook/if:edenfs_file_access_entry-cpp2-types",
+        "//folly/init:init",
+        "//folly/json:dynamic",
+        "//scribe/api/producer/structured:compact_message",
     ],
 )
 
