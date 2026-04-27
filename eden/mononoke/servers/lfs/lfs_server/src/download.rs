@@ -9,9 +9,13 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use anyhow::Error;
+use bytes::Bytes;
 use filestore::Alias;
 use filestore::FetchKey;
 use filestore::Range;
+use futures::stream;
+use futures::stream::BoxStream;
+use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gotham::state::FromState;
@@ -34,9 +38,11 @@ use mononoke_types::hash::Sha256;
 use permission_checker::MononokeIdentitySet;
 use redactedblobstore::has_redaction_root_cause;
 use repo_blobstore::RepoBlobstoreRef;
+use repo_identity::RepoIdentityRef;
 use serde::Deserialize;
 use stats::prelude::*;
 
+use crate::compression_sniff;
 use crate::config::ServerConfig;
 use crate::errors::ErrorKind;
 use crate::lfs_server_context::RepositoryRequestContext;
@@ -112,6 +118,71 @@ fn should_disable_compression(
     is_identity_subset(config.disable_compression_identities(), client_idents)
 }
 
+/// JustKnob that gates the runtime behavior of compression sniffing for a
+/// given repo. Per `eden/.llms/rules/rust_unwrap_safety.md`, a bare `?` is the
+/// correct pattern here; defaults belong in `just_knobs.json`.
+const SNIFF_JK: &str = "scm/mononoke:lfs_server_compression_sniff_enabled";
+
+/// Pull the first chunk from `stream`, decide whether to bypass compression
+/// based on its magic bytes, then return a stream that re-emits the consumed
+/// chunk before the rest. Bypass triggers only when:
+///   * the deployment was started with `--enable-compression-sniff`,
+///   * the per-repo JustKnob is on,
+///   * the client did not request a `Range:` (magic bytes only valid at offset 0),
+///   * the desired encoding is `Compressed` (sniffing serves no purpose for `Identity`),
+///   * the first chunk is at least `SNIFF_PREFIX_BYTES` long, and
+///   * the prefix matches a known already-compressed container format.
+async fn maybe_sniff_and_choose_encoding<S>(
+    stream: S,
+    desired: ContentEncoding,
+    range_present: bool,
+    sniff_enabled_cli: bool,
+    repo_name: &str,
+    scuba: &mut Option<&mut ScubaMiddlewareState>,
+) -> (ContentEncoding, BoxStream<'static, Result<Bytes, Error>>)
+where
+    S: Stream<Item = Result<Bytes, Error>> + Send + 'static,
+{
+    let want_sniff = sniff_enabled_cli
+        && !range_present
+        && matches!(desired, ContentEncoding::Compressed(_))
+        && justknobs::eval(SNIFF_JK, None, Some(repo_name)).unwrap_or(false);
+
+    if !want_sniff {
+        return (desired, stream.boxed());
+    }
+
+    let mut stream = stream.boxed();
+    let first = match stream.next().await {
+        Some(Ok(b)) => b,
+        Some(Err(e)) => {
+            // Re-emit the error so the caller's downstream error handling fires.
+            let s = stream::once(async move { Err(e) }).chain(stream).boxed();
+            return (desired, s);
+        }
+        // Empty stream — nothing to compress, encoding is moot.
+        None => return (desired, stream),
+    };
+
+    let sniffed = if first.len() >= compression_sniff::SNIFF_PREFIX_BYTES {
+        compression_sniff::looks_compressed(&first[..compression_sniff::SNIFF_PREFIX_BYTES])
+    } else {
+        None
+    };
+
+    let effective = if let Some(format) = sniffed {
+        // Logged value is the matched format name (e.g., "zip", "gzip", "png")
+        // so we can break down savings per blob type in Scuba.
+        ScubaMiddlewareState::maybe_add(scuba, LfsScubaKey::CompressionBypassReason, format);
+        ContentEncoding::Identity
+    } else {
+        desired
+    };
+
+    let recombined = stream::once(async move { Ok(first) }).chain(stream).boxed();
+    (effective, recombined)
+}
+
 async fn fetch_by_key(
     ctx: RepositoryRequestContext,
     key: FetchKey,
@@ -142,7 +213,17 @@ async fn fetch_by_key(
 
     ScubaMiddlewareState::maybe_add(scuba, LfsScubaKey::DownloadContentSize, size);
 
-    let stream = match content_encoding {
+    let (effective_encoding, stream) = maybe_sniff_and_choose_encoding(
+        stream,
+        content_encoding,
+        range.is_some(),
+        ctx.compression_sniff_enabled(),
+        ctx.repo.repo_identity().name(),
+        scuba,
+    )
+    .await;
+
+    let stream = match effective_encoding {
         ContentEncoding::Identity => ResponseStream::new(stream)
             .set_content_length(size)
             .left_stream(),
@@ -319,6 +400,147 @@ mod test {
 
         config.raw_server_config.disable_compression = true;
         assert!(should_disable_compression(&config, None));
+        Ok(())
+    }
+
+    use bytes::Bytes;
+    use futures::stream;
+    use gotham_ext::content_encoding::ContentCompression;
+
+    fn gz_payload() -> Bytes {
+        // gzip magic + 14 bytes of arbitrary trailing data (>= SNIFF_PREFIX_BYTES total).
+        Bytes::from_static(b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03ABCDEFGH")
+    }
+
+    fn text_payload() -> Bytes {
+        Bytes::from_static(b"plain text content not compressed at all by us")
+    }
+
+    async fn drain(s: BoxStream<'static, Result<Bytes, Error>>) -> Result<Vec<u8>, Error> {
+        let chunks: Vec<Bytes> = s.try_collect().await?;
+        Ok(chunks.into_iter().flatten().collect())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn sniff_disabled_via_cli_returns_desired_encoding() -> Result<(), Error> {
+        let payload = gz_payload();
+        let s = stream::once(async move { Ok(payload.clone()) }).boxed();
+        let (enc, out) = maybe_sniff_and_choose_encoding(
+            s,
+            ContentEncoding::Compressed(ContentCompression::Gzip),
+            false,
+            false, // CLI flag off
+            "test_repo",
+            &mut None,
+        )
+        .await;
+        assert!(matches!(
+            enc,
+            ContentEncoding::Compressed(ContentCompression::Gzip)
+        ));
+        assert_eq!(drain(out).await?, gz_payload().to_vec());
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn sniff_skipped_when_range_present() -> Result<(), Error> {
+        let payload = gz_payload();
+        let s = stream::once(async move { Ok(payload.clone()) }).boxed();
+        let (enc, out) = maybe_sniff_and_choose_encoding(
+            s,
+            ContentEncoding::Compressed(ContentCompression::Gzip),
+            true, // range present
+            true,
+            "test_repo",
+            &mut None,
+        )
+        .await;
+        assert!(matches!(
+            enc,
+            ContentEncoding::Compressed(ContentCompression::Gzip)
+        ));
+        assert_eq!(drain(out).await?, gz_payload().to_vec());
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn sniff_skipped_when_desired_is_identity() -> Result<(), Error> {
+        let payload = gz_payload();
+        let s = stream::once(async move { Ok(payload.clone()) }).boxed();
+        let (enc, out) = maybe_sniff_and_choose_encoding(
+            s,
+            ContentEncoding::Identity,
+            false,
+            true,
+            "test_repo",
+            &mut None,
+        )
+        .await;
+        assert!(matches!(enc, ContentEncoding::Identity));
+        assert_eq!(drain(out).await?, gz_payload().to_vec());
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn sniff_preserves_text_payload_passthrough() -> Result<(), Error> {
+        // CLI flag on, JK off (default in just_knobs.json) → no sniff,
+        // payload is preserved as-is.
+        let payload = text_payload();
+        let s = stream::once(async move { Ok(payload.clone()) }).boxed();
+        let (enc, out) = maybe_sniff_and_choose_encoding(
+            s,
+            ContentEncoding::Compressed(ContentCompression::Gzip),
+            false,
+            true,
+            "test_repo_jk_off",
+            &mut None,
+        )
+        .await;
+        // Default JK is false, so encoding is unchanged.
+        assert!(matches!(
+            enc,
+            ContentEncoding::Compressed(ContentCompression::Gzip)
+        ));
+        assert_eq!(drain(out).await?, text_payload().to_vec());
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn sniff_passes_error_through() -> Result<(), Error> {
+        let s = stream::once(async { Err::<Bytes, Error>(anyhow::anyhow!("boom")) }).boxed();
+        let (_enc, out) = maybe_sniff_and_choose_encoding(
+            s,
+            ContentEncoding::Compressed(ContentCompression::Gzip),
+            false,
+            true,
+            "any",
+            &mut None,
+        )
+        .await;
+        let err = drain(out).await.unwrap_err();
+        assert!(err.to_string().contains("boom"));
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn sniff_handles_empty_stream() -> Result<(), Error> {
+        let s = stream::empty::<Result<Bytes, Error>>().boxed();
+        let (enc, out) = maybe_sniff_and_choose_encoding(
+            s,
+            ContentEncoding::Compressed(ContentCompression::Gzip),
+            false,
+            true,
+            "any",
+            &mut None,
+        )
+        .await;
+        // With an empty stream we keep the desired encoding; the response will
+        // be empty either way.
+        assert!(matches!(
+            enc,
+            ContentEncoding::Compressed(ContentCompression::Gzip)
+        ));
+        assert_eq!(drain(out).await?, Vec::<u8>::new());
         Ok(())
     }
 }

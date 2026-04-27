@@ -71,6 +71,7 @@ use crate::scuba::LfsScubaHandler;
 use crate::service::build_router;
 
 mod batch;
+mod compression_sniff;
 mod config;
 mod download;
 mod errors;
@@ -166,6 +167,15 @@ struct LfsServerArgs {
     /// Headers whose presence (with value "1") forces http scheme in generated hrefs (comma-separated)
     #[clap(long, value_delimiter = ',')]
     force_http_for_header: Vec<String>,
+    /// Enable per-blob magic-byte sniffing on the download path. When on, the
+    /// server pulls the first chunk of each blob, checks for a known
+    /// already-compressed container format (zip/apk/zstd/png/jpeg/mp4/...),
+    /// and bypasses gzip/zstd response compression for matches. Per-request
+    /// behavior is additionally gated by the
+    /// `scm/mononoke:lfs_server_compression_sniff_enabled` JustKnob, so a
+    /// deployment can be built with this flag but kept off in production.
+    #[clap(long)]
+    enable_compression_sniff: bool,
 }
 
 #[derive(Clone)]
@@ -322,6 +332,7 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
                 config_handle.clone(),
                 &args.tls_params,
                 bandwidth,
+                args.enable_compression_sniff,
             )?;
             let enforce_authentication = ctx.get_config().enforce_authentication();
 

@@ -86,6 +86,7 @@ struct LfsServerContextInner {
     config_handle: ConfigHandle<ServerConfig>,
     server_hostname: Arc<String>,
     bandwidth: Option<i64>,
+    compression_sniff_enabled: bool,
 }
 
 #[derive(Clone, StateData)]
@@ -104,6 +105,7 @@ impl LfsServerContext {
         config_handle: ConfigHandle<ServerConfig>,
         tls_args: &Option<TLSArgs>,
         bandwidth: Option<i64>,
+        compression_sniff_enabled: bool,
     ) -> Result<Self, Error> {
         let connector = match tls_args {
             Some(tls_args) => {
@@ -133,6 +135,7 @@ impl LfsServerContext {
             config_handle,
             server_hostname,
             bandwidth,
+            compression_sniff_enabled,
         };
 
         Ok(LfsServerContext {
@@ -158,6 +161,7 @@ impl LfsServerContext {
             config,
             server_hostname,
             bandwidth,
+            compression_sniff_enabled,
         ) = {
             let inner = self.inner.lock().expect("poisoned lock");
 
@@ -171,6 +175,7 @@ impl LfsServerContext {
                     inner.config_handle.get(),
                     inner.server_hostname.clone(),
                     inner.bandwidth,
+                    inner.compression_sniff_enabled,
                 ),
                 None => {
                     return Err(LfsServerContextErrorKind::RepositoryDoesNotExist(
@@ -202,6 +207,7 @@ impl LfsServerContext {
             always_wait_for_upstream,
             max_upload_size,
             bandwidth,
+            compression_sniff_enabled,
         })
     }
 
@@ -278,6 +284,7 @@ pub struct RepositoryRequestContext {
     max_upload_size: Option<u64>,
     client: HttpClient,
     bandwidth: Option<i64>,
+    compression_sniff_enabled: bool,
 }
 
 pub struct HttpClientResponse<S: Stream<Item = Result<Bytes, Error>> + Send + 'static> {
@@ -383,6 +390,13 @@ impl RepositoryRequestContext {
 
     pub fn bandwidth(&self) -> Option<i64> {
         self.bandwidth
+    }
+
+    /// Whether the deployment was started with compression sniffing enabled
+    /// (the `--enable-compression-sniff` CLI flag). Per-request behavior is
+    /// additionally gated by a JustKnob.
+    pub fn compression_sniff_enabled(&self) -> bool {
+        self.compression_sniff_enabled
     }
 
     pub async fn dispatch(
@@ -735,6 +749,7 @@ mod test {
                 max_upload_size: None,
                 client: HttpClient::Disabled,
                 bandwidth: None,
+                compression_sniff_enabled: false,
             })
         }
     }

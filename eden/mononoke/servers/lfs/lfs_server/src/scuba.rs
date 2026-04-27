@@ -70,6 +70,12 @@ pub enum LfsScubaKey {
     FetchCause,
     /// Whether or not the client attempted to fetch from CAS.
     FetchFromCASAttempted,
+    /// Set by the magic-byte sniffer (see `compression_sniff`) when it bypasses
+    /// HTTP-layer compression on a download. Value is the detected container
+    /// format name (e.g., "zip", "gzip", "png", "jpeg", "iso_base_media", ...)
+    /// so Scuba can break savings down by blob type. Absent when no bypass
+    /// happened (sniff disabled, no match, or first chunk too short).
+    CompressionBypassReason,
 }
 
 impl AsRef<str> for LfsScubaKey {
@@ -103,6 +109,7 @@ impl AsRef<str> for LfsScubaKey {
             ClientAtlasEnvId => "client_atlas_env_id",
             FetchCause => "fetch_cause",
             FetchFromCASAttempted => "fetch_from_cas_attempted",
+            CompressionBypassReason => "compression_bypass_reason",
         }
     }
 }
