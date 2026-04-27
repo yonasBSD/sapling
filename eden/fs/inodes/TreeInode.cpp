@@ -2730,6 +2730,31 @@ ImmediateFuture<Unit> TreeInode::diff(
     std::vector<shared_ptr<const Tree>> trees,
     const GitIgnoreStack* parentIgnore,
     bool isIgnored) {
+  if (getMount()->getEdenConfig()->enableCoroutinesPhase3.getValue()) {
+    return ImmediateFuture{
+        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+        folly::coro::co_invoke(
+            [self = inodePtrFromThis()](
+                DiffContext* context,
+                RelativePath currentPath,
+                std::vector<shared_ptr<const Tree>> trees,
+                const GitIgnoreStack* parentIgnore,
+                bool isIgnored) -> folly::coro::Task<Unit> {
+              co_return co_await self->co_diff(
+                  context,
+                  currentPath,
+                  std::move(trees),
+                  parentIgnore,
+                  isIgnored);
+            },
+            context,
+            currentPath.copy(),
+            std::move(trees),
+            parentIgnore,
+            isIgnored)
+            .semi()};
+  }
+
   if (context->isCancelled()) {
     XLOGF(
         DBG7,
