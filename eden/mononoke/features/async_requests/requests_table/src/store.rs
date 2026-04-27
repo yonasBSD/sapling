@@ -1117,7 +1117,7 @@ mononoke_queries! {
         "SELECT root.id, root.created_at, root.status, COUNT(DISTINCT sub.repo_id) as repo_count
          FROM long_running_request_queue root
          LEFT JOIN long_running_request_queue sub ON sub.root_request_id = root.id
-         WHERE root.request_type = 'derive_backfill'
+         WHERE CAST(root.request_type AS CHAR) = 'derive_backfill'
            AND root.root_request_id IS NULL
            AND root.created_at >= {min_created_at}
          GROUP BY root.id, root.created_at, root.status
@@ -1146,7 +1146,7 @@ mononoke_queries! {
         "SELECT id, request_type, status, created_at, args_blobstore_key
          FROM long_running_request_queue
          WHERE id = {id}
-           AND request_type = 'derive_backfill'
+           AND CAST(request_type AS CHAR) = 'derive_backfill'
            AND root_request_id IS NULL"
     }
 }
