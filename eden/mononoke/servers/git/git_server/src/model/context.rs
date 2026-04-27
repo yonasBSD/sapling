@@ -106,10 +106,12 @@ impl GitServerContextInner {
 #[derive(Clone, StateData)]
 pub struct GitServerContext {
     inner: Arc<RwLock<GitServerContextInner>>,
+    fb: fbinit::FacebookInit,
 }
 
 impl GitServerContext {
     pub fn new(
+        fb: fbinit::FacebookInit,
         repos: GitRepos,
         enforce_auth: bool,
         upstream_lfs_server: Option<String>,
@@ -125,7 +127,11 @@ impl GitServerContext {
             acl_provider,
             multi_repo_land_service_address,
         )));
-        Self { inner }
+        Self { inner, fb }
+    }
+
+    pub fn fb(&self) -> fbinit::FacebookInit {
+        self.fb
     }
 
     pub fn acl_provider(&self) -> Arc<dyn AclProvider> {

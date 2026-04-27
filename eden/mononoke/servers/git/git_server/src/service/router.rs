@@ -29,6 +29,7 @@ use http::HeaderMap;
 use slapi_service::handlers::JsonErrorFormatter;
 use slapi_service::handlers::handler::BasicPathExtractor;
 use slapi_service::handlers::handler::PathExtractorWithRepo;
+use stats::prelude::*;
 
 use super::error_formatter::GitErrorFormatter;
 use super::lfs_redirect::lfs_redirect_handler;
@@ -39,6 +40,11 @@ use crate::profiling;
 use crate::read;
 use crate::service::slapi_compat::GitHandlers;
 use crate::write;
+
+define_stats! {
+    prefix = "mononoke.git.server";
+    container_memory: dynamic_singleton_counter("{}", (counter_name: String)),
+}
 
 fn capability_advertisement_handler(mut state: State) -> Pin<Box<HandlerFuture>> {
     async move {
@@ -111,12 +117,25 @@ fn health_handler(state: State) -> Pin<Box<HandlerFuture>> {
             tokio::time::sleep(std::time::Duration::from_secs(wait_time)).await;
         }
 
-        let res = gotham::helpers::http::response::create_response(
+        let mut res = gotham::helpers::http::response::create_response(
             &state,
             http::status::StatusCode::OK,
             mime::TEXT_PLAIN,
             "I_AM_ALIVE\n",
         );
+
+        let fb = GitServerContext::borrow_from(&state).fb();
+        if let Ok(avg_window) =
+            justknobs::get_as::<i64>("scm/mononoke:git_server_healthcheck_load_avg_secs", None)
+        {
+            if avg_window > 0 {
+                let counter = format!("container_memory_usage_percent.avg.{}", avg_window);
+                if let Some(load) = STATS::container_memory.get_value(fb, (counter,)) {
+                    res.headers_mut().insert("X-FB-Load", load.into());
+                }
+            }
+        }
+
         Ok((state, res))
     }
     .boxed()

@@ -365,6 +365,7 @@ fn main(fb: FacebookInit) -> Result<(), Error> {
             // because the certs user passed will be referencing listen_host
             let bound_addr = format!("{}:{}", listen_host, listener.local_addr()?.port());
             let git_server_context = GitServerContext::new(
+                fb,
                 repos,
                 enforce_authorization,
                 args.upstream_lfs_server,
