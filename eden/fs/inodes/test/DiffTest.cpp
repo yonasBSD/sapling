@@ -460,10 +460,10 @@ TEST_P(DiffTestParam, pathOrdering) {
  * materialized, but are nonetheless different than the current commit.
  */
 
-void testResetFileModified(bool loadInodes) {
+void testResetFileModified(bool loadInodes, bool useCoroutines) {
   SCOPED_TRACE(folly::to<string>("loadInodes=", loadInodes));
 
-  DiffTest t;
+  DiffTest t{useCoroutines};
   auto b2 = t.getBuilder().clone();
   b2.replaceFile("src/1.txt", "This file has been updated.\n");
 
@@ -475,16 +475,16 @@ void testResetFileModified(bool loadInodes) {
 }
 
 TEST_P(DiffTestParam, resetFileModified) {
-  testResetFileModified(true);
-  testResetFileModified(false);
+  testResetFileModified(true, GetParam());
+  testResetFileModified(false, GetParam());
 }
 
 // TODO: T66590035
 #ifndef _WIN32
-void testResetFileModeChanged(bool loadInodes) {
+void testResetFileModeChanged(bool loadInodes, bool useCoroutines) {
   SCOPED_TRACE(folly::to<string>("loadInodes=", loadInodes));
 
-  DiffTest t;
+  DiffTest t{useCoroutines};
   auto b2 = t.getBuilder().clone();
   b2.replaceFile("src/1.txt", "This is src/1.txt.\n", true);
 
@@ -496,15 +496,15 @@ void testResetFileModeChanged(bool loadInodes) {
 }
 
 TEST_P(DiffTestParam, resetFileModeChanged) {
-  testResetFileModeChanged(true);
-  testResetFileModeChanged(false);
+  testResetFileModeChanged(true, GetParam());
+  testResetFileModeChanged(false, GetParam());
 }
 #endif
 
-void testResetFileRemoved(bool loadInodes) {
+void testResetFileRemoved(bool loadInodes, bool useCoroutines) {
   SCOPED_TRACE(folly::to<string>("loadInodes=", loadInodes));
 
-  DiffTest t;
+  DiffTest t{useCoroutines};
   // Create a commit with a new file added.
   // When we reset to it (without changing the working directory) it will look
   // like we have removed this file.
@@ -519,14 +519,14 @@ void testResetFileRemoved(bool loadInodes) {
 }
 
 TEST_P(DiffTestParam, resetFileRemoved) {
-  testResetFileRemoved(true);
-  testResetFileRemoved(false);
+  testResetFileRemoved(true, GetParam());
+  testResetFileRemoved(false, GetParam());
 }
 
-void testResetFileAdded(bool loadInodes) {
+void testResetFileAdded(bool loadInodes, bool useCoroutines) {
   SCOPED_TRACE(folly::to<string>("loadInodes=", loadInodes));
 
-  DiffTest t;
+  DiffTest t{useCoroutines};
   // Create a commit with a file removed.
   // When we reset to it (without changing the working directory) it will look
   // like we have added this file.
@@ -540,14 +540,14 @@ void testResetFileAdded(bool loadInodes) {
 }
 
 TEST_P(DiffTestParam, resetFileAdded) {
-  testResetFileAdded(true);
-  testResetFileAdded(false);
+  testResetFileAdded(true, GetParam());
+  testResetFileAdded(false, GetParam());
 }
 
-void testResetDirectoryRemoved(bool loadInodes) {
+void testResetDirectoryRemoved(bool loadInodes, bool useCoroutines) {
   SCOPED_TRACE(folly::to<string>("loadInodes=", loadInodes));
 
-  DiffTest t;
+  DiffTest t{useCoroutines};
   // Create a commit with a new directory added.
   // When we reset to it (without changing the working directory) it will look
   // like we have removed this directory.
@@ -571,14 +571,14 @@ void testResetDirectoryRemoved(bool loadInodes) {
 }
 
 TEST_P(DiffTestParam, resetDirectoryRemoved) {
-  testResetDirectoryRemoved(true);
-  testResetDirectoryRemoved(false);
+  testResetDirectoryRemoved(true, GetParam());
+  testResetDirectoryRemoved(false, GetParam());
 }
 
-void testResetDirectoryAdded(bool loadInodes) {
+void testResetDirectoryAdded(bool loadInodes, bool useCoroutines) {
   SCOPED_TRACE(folly::to<string>("loadInodes=", loadInodes));
 
-  DiffTest t;
+  DiffTest t{useCoroutines};
   // Create a commit with a directory removed.
   // When we reset to it (without changing the working directory) it will look
   // like we have added this directory.
@@ -595,14 +595,14 @@ void testResetDirectoryAdded(bool loadInodes) {
 }
 
 TEST_P(DiffTestParam, resetDirectoryAdded) {
-  testResetDirectoryAdded(true);
-  testResetDirectoryAdded(false);
+  testResetDirectoryAdded(true, GetParam());
+  testResetDirectoryAdded(false, GetParam());
 }
 
-void testResetReplaceDirWithFile(bool loadInodes) {
+void testResetReplaceDirWithFile(bool loadInodes, bool useCoroutines) {
   SCOPED_TRACE(folly::to<string>("loadInodes=", loadInodes));
 
-  DiffTest t;
+  DiffTest t{useCoroutines};
   // Create a commit with 2.txt replaced by a directory added.
   // When we reset to it (without changing the working directory) it will look
   // like we have replaced this directory with the 2.txt file.
@@ -627,14 +627,14 @@ void testResetReplaceDirWithFile(bool loadInodes) {
 }
 
 TEST_P(DiffTestParam, resetReplaceDirWithFile) {
-  testResetReplaceDirWithFile(true);
-  testResetReplaceDirWithFile(false);
+  testResetReplaceDirWithFile(true, GetParam());
+  testResetReplaceDirWithFile(false, GetParam());
 }
 
-void testResetReplaceFileWithDir(bool loadInodes) {
+void testResetReplaceFileWithDir(bool loadInodes, bool useCoroutines) {
   SCOPED_TRACE(folly::to<string>("loadInodes=", loadInodes));
 
-  DiffTest t;
+  DiffTest t{useCoroutines};
   // Create a commit with a directory removed and replaced with a file.
   // When we reset to it (without changing the working directory) it will look
   // like we have removed the file and replaced it with the directory.
@@ -653,8 +653,8 @@ void testResetReplaceFileWithDir(bool loadInodes) {
 }
 
 TEST_P(DiffTestParam, resetReplaceFileWithDir) {
-  testResetReplaceFileWithDir(true);
-  testResetReplaceFileWithDir(false);
+  testResetReplaceFileWithDir(true, GetParam());
+  testResetReplaceFileWithDir(false, GetParam());
 }
 
 // Test with a .gitignore file in the top-level directory
