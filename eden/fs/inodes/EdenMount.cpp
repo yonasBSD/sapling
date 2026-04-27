@@ -2382,16 +2382,12 @@ folly::coro::now_task<std::unique_ptr<ScmStatus>> EdenMount::co_diff(
     auto rootTree = co_await objectStore_->co_getRootTree(
         commitId, ctxPtr->getFetchContext());
     co_await co_waitForPendingWrites();
-    // TreeInode::diff is deep recursive inode infrastructure — bridge via
-    // .semi()
-    co_await rootInode
-        ->diff(
-            ctxPtr,
-            RelativePathPiece{},
-            std::vector{std::move(rootTree.tree)},
-            ctxPtr->getToplevelIgnore(),
-            false)
-        .semi();
+    co_await rootInode->co_diff(
+        ctxPtr,
+        RelativePathPiece{},
+        std::vector{std::move(rootTree.tree)},
+        ctxPtr->getToplevelIgnore(),
+        false);
   };
 
   // Step 4: Caching logic
