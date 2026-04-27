@@ -7,6 +7,7 @@
 
   $ setconfig infinitepush.branchpattern="re:scratch/.*"
   $ setconfig commitcloud.hostname=testhost
+  $ setconfig commitcloud.upload_retry_attempts=1
   $ setconfig visibility.verbose=true
   $ setconfig remotenames.selectivepulldefault=publicbookmark1,publicbookmark2
   $ readconfig <<EOF

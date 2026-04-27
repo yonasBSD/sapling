@@ -4,8 +4,26 @@
 # GNU General Public License version 2.
 
 
-from sapling import edenapi_upload, git, node as nodemod
+import time
+
+from sapling import edenapi_upload, error, git, node as nodemod
 from sapling.i18n import _, _n
+
+
+_TRANSPORT_UPLOAD_EXC = (
+    error.HttpError,
+    error.UncategorizedNativeError,
+    OSError,
+)
+
+
+def _is_retryable_upload_exc(exc):
+    if isinstance(exc, _TRANSPORT_UPLOAD_EXC):
+        return True
+    # edenapi_upload wraps transport errors as Abort; don't retry other Aborts.
+    if isinstance(exc, error.Abort):
+        return isinstance(exc.__context__, _TRANSPORT_UPLOAD_EXC)
+    return False
 
 
 def upload(repo, revs, force=False, localbackupstate=None):
@@ -93,7 +111,7 @@ def upload(repo, revs, force=False, localbackupstate=None):
         # If the only draft nodes are the missing heads then we can skip the
         # known checks, as we know they are all missing.
         skipknowncheck = len(draftnodes) == len(missingheads)
-        newuploaded, failednodes = edenapi_upload.uploadhgchangesets(
+        newuploaded, failednodes = _uploadhgchangesets_with_retry(
             repo, draftnodes, force, skipknowncheck
         )
 
@@ -112,3 +130,57 @@ def upload(repo, revs, force=False, localbackupstate=None):
         localbackupstate.update(uploadedheads)
 
     return uploadedheads, failednodes
+
+
+def _uploadhgchangesets_with_retry(repo, draftnodes, force, skipknowncheck):
+    """uploadhgchangesets with bounded retries; same (newuploaded, failednodes) contract."""
+    ui = repo.ui
+    attempts = max(1, ui.configint("commitcloud", "upload_retry_attempts", 3))
+    base_backoff_ms = ui.configint("commitcloud", "upload_retry_base_backoff_ms", 100)
+    max_backoff_ms = ui.configint("commitcloud", "upload_retry_max_backoff_ms", 500)
+
+    pending = list(draftnodes)
+    newuploaded_total = []
+
+    for attempt_index in range(attempts):
+        if attempt_index > 0:
+            ui.log(
+                "commitcloud_upload_retry",
+                attempt=attempt_index,
+                failed_count=len(pending),
+            )
+            _sleep_backoff(attempt_index - 1, base_backoff_ms, max_backoff_ms)
+
+        is_final = attempt_index == attempts - 1
+        try:
+            newuploaded, failednodes = edenapi_upload.uploadhgchangesets(
+                repo, pending, force, skipknowncheck
+            )
+        except Exception as exc:
+            if not _is_retryable_upload_exc(exc):
+                raise
+            if is_final:
+                raise
+            continue
+
+        newuploaded_total.extend(newuploaded)
+        pending = list(failednodes)
+        if not pending:
+            break
+        skipknowncheck = True
+
+    # Avoid noisy telemetry when retries are disabled via killswitch.
+    if pending and attempts > 1:
+        ui.log(
+            "commitcloud_upload_retry_exhausted",
+            attempts=attempts,
+            remaining_failed=len(pending),
+        )
+
+    return newuploaded_total, pending
+
+
+def _sleep_backoff(attempt_index, base_backoff_ms, max_backoff_ms):
+    backoff_ms = min(base_backoff_ms * (2**attempt_index), max_backoff_ms)
+    if backoff_ms > 0:
+        time.sleep(backoff_ms / 1000.0)

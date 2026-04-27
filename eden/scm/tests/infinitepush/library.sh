@@ -31,6 +31,8 @@ bgssh=$(dummysshcmd) -bgssh
 [remotenames]
 autopullhoistpattern=re:^[a-z0-9A-Z/]*$
 hoist=default
+[commitcloud]
+upload_retry_attempts=1
 EOF
 }
 
