@@ -141,6 +141,81 @@ ImmediateFuture<std::unique_ptr<LocalFiles>> computeLocalFiles(
         return localFiles;
       });
 }
+folly::coro::now_task<std::unique_ptr<LocalFiles>> co_computeLocalFiles(
+    const std::shared_ptr<EdenMount>& edenMount,
+    const std::shared_ptr<ServerState>& serverState,
+    bool includeDotfiles,
+    const RootId& rootId,
+    const TreeInodePtr& rootInode,
+    const std::vector<std::string>& suffixGlobs,
+    const ObjectFetchContextPtr& context) {
+  auto enforceParents = serverState->getReloadableConfig()
+                            ->getEdenConfig()
+                            ->enforceParents.getValue();
+  bool caseSensitive =
+      serverState->getEdenConfig()->globUseMountCaseSensitivity.getValue();
+
+  // EdenMount::diff is inode loading — bridge via .semi()
+  auto status = co_await edenMount
+                    ->diff(
+                        rootInode,
+                        rootId,
+                        folly::CancellationToken(),
+                        context,
+                        /*listIgnored=*/true,
+                        enforceParents)
+                    .semi();
+
+  // Everything below is synchronous processing
+  if (!status->errors_ref().value().empty()) {
+    XLOG(DBG4, "Error getting local changes");
+    throw newEdenError(
+        EINVAL, EdenErrorType::POSIX_ERROR, "unable to look up local files");
+  }
+  std::vector<GlobMatcher> globMatchers{};
+  GlobOptions options =
+      includeDotfiles ? GlobOptions::DEFAULT : GlobOptions::IGNORE_DOTFILES;
+  if (caseSensitive) {
+    if (edenMount->getCheckoutConfig()->getCaseSensitive() ==
+        CaseSensitivity::Insensitive) {
+      options |= GlobOptions::CASE_INSENSITIVE;
+    }
+  }
+  for (auto& glob : suffixGlobs) {
+    XLOGF(DBG4, "Creating glob matcher for glob: {}", glob);
+    auto expectGlobMatcher = GlobMatcher::create("**/*" + glob, options);
+    if (expectGlobMatcher.hasValue()) {
+      XLOGF(DBG4, "Successfully created glob matcher for glob: {}", glob);
+      globMatchers.push_back(expectGlobMatcher.value());
+    } else {
+      XLOGF(ERR, "Invalid glob: {}", glob);
+    }
+  }
+
+  std::unique_ptr<LocalFiles> localFiles = std::make_unique<LocalFiles>();
+  for (auto const& [pathString, scmFileStatus] :
+       status->entries_ref().value()) {
+    if (scmFileStatus == ScmFileStatus::ADDED) {
+      for (auto& matcher : globMatchers) {
+        if (matcher.match(pathString)) {
+          localFiles->addedFiles.insert(pathString);
+        }
+      }
+    } else if (scmFileStatus == ScmFileStatus::REMOVED) {
+      localFiles->removedFiles.insert(pathString);
+    } else if (scmFileStatus == ScmFileStatus::MODIFIED) {
+      for (auto& matcher : globMatchers) {
+        if (matcher.match(pathString)) {
+          localFiles->modifiedFiles.insert(pathString);
+        }
+      }
+    } else if (scmFileStatus == ScmFileStatus::IGNORED) {
+      localFiles->ignoredFiles.insert(pathString);
+    }
+  }
+  co_return localFiles;
+}
+
 } // namespace
 
 ThriftGlobImpl::ThriftGlobImpl(const GlobParams& params)
@@ -708,15 +783,14 @@ co_getLocalGlobResults(
   auto remoteGlobFiles =
       co_await store->co_getGlobFiles(rootId, suffixGlobs, prefixes, context);
 
-  auto localFiles = co_await computeLocalFiles(
-                        edenMount,
-                        serverState,
-                        includeDotfiles,
-                        rootId,
-                        rootInode,
-                        suffixGlobs,
-                        context)
-                        .semi();
+  auto localFiles = co_await co_computeLocalFiles(
+      edenMount,
+      serverState,
+      includeDotfiles,
+      rootId,
+      rootInode,
+      suffixGlobs,
+      context);
 
   BackingStore::GetGlobFilesResult filteredRemoteGlobFiles;
   filteredRemoteGlobFiles.rootId = remoteGlobFiles.rootId;
