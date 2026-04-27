@@ -853,6 +853,14 @@ class EdenMount : public std::enable_shared_from_this<EdenMount> {
       bool listIgnored = false,
       bool enforceCurrentParent = true);
 
+  [[nodiscard]] folly::coro::now_task<std::unique_ptr<ScmStatus>> co_diff(
+      TreeInodePtr rootInode,
+      const RootId& commitId,
+      folly::CancellationToken cancellation,
+      const ObjectFetchContextPtr& fetchContext,
+      bool listIgnored = false,
+      bool enforceCurrentParent = true);
+
   /**
    * This version of diff is primarily intended for testing.
    * Use diff(DiffCallback* callback, bool listIgnored) instead.

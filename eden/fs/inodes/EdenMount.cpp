@@ -2277,6 +2277,24 @@ ImmediateFuture<std::unique_ptr<ScmStatus>> EdenMount::diff(
     const ObjectFetchContextPtr& fetchContext,
     bool listIgnored,
     bool enforceCurrentParent) {
+  if (getEdenConfig()->enableCoroutinesPhase3.getValue()) {
+    return ImmediateFuture{
+        // @lint-ignore CLANGTIDY facebook-folly-coro-return-captures-local-var
+        folly::coro::co_invoke(
+            [self = shared_from_this()](auto&&... args)
+                -> folly::coro::Task<std::unique_ptr<ScmStatus>> {
+              co_return co_await self->co_diff(
+                  std::forward<decltype(args)>(args)...);
+            },
+            std::move(rootInode),
+            commitId,
+            std::move(cancellation),
+            fetchContext.copy(),
+            listIgnored,
+            enforceCurrentParent)
+            .semi()};
+  }
+
   auto callback = std::make_unique<ScmStatusDiffCallback>();
   auto callbackPtr = callback.get();
 
@@ -2292,6 +2310,197 @@ ImmediateFuture<std::unique_ptr<ScmStatus>> EdenMount::diff(
       .thenValue([callback = std::move(callback)](auto&&) {
         return std::make_unique<ScmStatus>(callback->extractStatus());
       });
+}
+
+folly::coro::now_task<std::unique_ptr<ScmStatus>> EdenMount::co_diff(
+    TreeInodePtr rootInode,
+    const RootId& commitId,
+    folly::CancellationToken cancellation,
+    const ObjectFetchContextPtr& fetchContext,
+    bool listIgnored,
+    bool enforceCurrentParent) {
+  // Step 1: Create the callback (from public diff overload)
+  auto callback = std::make_unique<ScmStatusDiffCallback>();
+  auto callbackPtr = callback.get();
+
+  // Step 2: Parent validation (from full diff overload, synchronous)
+  RootId currentWorkingCopyParentRootId;
+  {
+    auto parentInfo = parentState_.rlock();
+    currentWorkingCopyParentRootId = parentInfo->workingCopyParentRootId;
+    if (enforceCurrentParent) {
+      if (std::holds_alternative<ParentCommitState::CheckoutInProgress>(
+              parentInfo->checkoutState)) {
+        throw newEdenError(
+            EdenErrorType::CHECKOUT_IN_PROGRESS,
+            "cannot compute status while a checkout is currently in progress");
+      } else if (
+          auto* interrupted =
+              std::get_if<ParentCommitState::InterruptedCheckout>(
+                  &parentInfo->checkoutState)) {
+        throw newEdenError(
+            EdenErrorType::CHECKOUT_IN_PROGRESS,
+            fmt::format(
+                interruptedCheckoutAdvice,
+                folly::hexlify(
+                    objectStore_->renderRootId(interrupted->toCommit))));
+      }
+
+      if (objectStore_->compareRootsById(
+              currentWorkingCopyParentRootId, commitId) !=
+          ObjectComparison::Identical) {
+        auto renderedParentRootId =
+            objectStore_->renderRootId(currentWorkingCopyParentRootId);
+        auto renderedCommitId = objectStore_->renderRootId(commitId);
+
+        getServerState()->getStructuredLogger()->logEvent(
+            ParentMismatch{
+                commitId.value(), currentWorkingCopyParentRootId.value()});
+        throw newEdenError(
+            EdenErrorType::OUT_OF_DATE_PARENT,
+            "error computing status: requested parent commit is out-of-date: requested ",
+            folly::hexlify(renderedCommitId),
+            ", but current parent commit is ",
+            folly::hexlify(renderedParentRootId),
+            ".\nTry running `eden doctor` to remediate");
+      }
+    }
+  }
+
+  // Step 3: Create DiffContext
+  auto context = createDiffContext(
+      callbackPtr, std::move(cancellation), fetchContext, listIgnored);
+  DiffContext* ctxPtr = context.get();
+
+  // Helper lambda to perform the inner diff as a coroutine
+  auto doInnerDiff = [&]() -> folly::coro::now_task<void> {
+    auto faultTry = serverState_->getFaultInjector().checkTry(
+        "EdenMount::diff", commitId.value());
+    if (faultTry.hasException()) {
+      faultTry.throwUnlessValue();
+    }
+    auto rootTree = co_await objectStore_->co_getRootTree(
+        commitId, ctxPtr->getFetchContext());
+    co_await co_waitForPendingWrites();
+    // TreeInode::diff is deep recursive inode infrastructure — bridge via
+    // .semi()
+    co_await rootInode
+        ->diff(
+            ctxPtr,
+            RelativePathPiece{},
+            std::vector{std::move(rootTree.tree)},
+            ctxPtr->getToplevelIgnore(),
+            false)
+        .semi();
+  };
+
+  // Step 4: Caching logic
+  if (getEdenConfig()->hgEnableCachedResultForStatusRequest.getValue()) {
+    auto latestInfo = getJournal().peekLatest();
+    if (latestInfo.has_value()) {
+      auto key = ScmStatusCache::makeKey(commitId, listIgnored);
+      XLOGF(
+          DBG7,
+          "ScmStatusCache: id={}, listIgnored={}, key={}",
+          commitId.value(),
+          listIgnored,
+          key);
+      auto curSequenceID = latestInfo.value().sequenceID;
+      std::variant<StatusResultFuture, StatusResultPromise> getResult{nullptr};
+      {
+        auto lockedCachePtr = scmStatusCache_.wlock();
+        auto& cache = *lockedCachePtr;
+
+        if (!cache->isCachedWorkingDirValid(currentWorkingCopyParentRootId)) {
+          cache->clear();
+          cache->resetCachedWorkingDir(currentWorkingCopyParentRootId);
+        }
+        getResult = cache->get(key, curSequenceID);
+      }
+
+      if (std::holds_alternative<StatusResultFuture>(getResult)) {
+        auto future = std::move(std::get<StatusResultFuture>(getResult));
+        getStats()->increment(&JournalStats::journalStatusCacheHit);
+        if (future.isReady()) {
+          callback->setStatus(std::move(future).get());
+          co_return std::make_unique<ScmStatus>(callback->extractStatus());
+        }
+        getStats()->increment(&JournalStats::journalStatusCachePend);
+        auto status = co_await std::move(future).semi();
+        callback->setStatus(std::move(status));
+        co_return std::make_unique<ScmStatus>(callback->extractStatus());
+      }
+
+      getStats()->increment(&JournalStats::journalStatusCacheMiss);
+
+      auto promise = std::get<StatusResultPromise>(getResult);
+
+      if (promise.get() != nullptr) {
+        try {
+          co_await doInnerDiff();
+        } catch (...) {
+          promise->setTry(
+              folly::Try<ScmStatus>{
+                  folly::exception_wrapper{std::current_exception()}});
+          {
+            auto lockedCachePtr = scmStatusCache_.wlock();
+            (*lockedCachePtr)->dropPromise(key, curSequenceID);
+          }
+          throw;
+        }
+
+        bool shouldInsert = true;
+
+        ScmStatus newStatus = callbackPtr->peekStatus();
+
+        if (newStatus.errors()->size() > 0) {
+          shouldInsert = false;
+        }
+
+        if (newStatus.entries().value().size() >
+            getEdenConfig()->scmStatusCacheMaxEntriesPerItem.getValue()) {
+          getStats()->increment(&JournalStats::journalStatusCacheSkip);
+          shouldInsert = false;
+        }
+
+        // FaultInjector check point: for testing only
+        serverState_->getFaultInjector().check(
+            "scmStatusCache", "blocking setValue");
+
+        promise->setValue(newStatus);
+
+        // FaultInjector check point: for testing only
+        serverState_->getFaultInjector().check(
+            "scmStatusCache", "blocking insert");
+        {
+          auto lockedCachePtr = scmStatusCache_.wlock();
+          if (shouldInsert) {
+            (*lockedCachePtr)->insert(key, curSequenceID, std::move(newStatus));
+          }
+
+          // FaultInjector check point: for testing only
+          serverState_->getFaultInjector().check(
+              "scmStatusCache", "blocking dropPromise");
+
+          (*lockedCachePtr)->dropPromise(key, curSequenceID);
+        }
+        co_return std::make_unique<ScmStatus>(callback->extractStatus());
+      }
+      XLOGF(
+          ERR,
+          "ScmStatusCache returned nullptr for promise: key={}, commitId={}, listIgnored={}, curSequenceID={}. Falling back to no-cache path for this request",
+          key,
+          commitId,
+          listIgnored,
+          curSequenceID);
+    }
+  }
+
+  // Step 5: No-cache fallback path
+  co_await doInnerDiff();
+
+  // Step 6: Extract and return status
+  co_return std::make_unique<ScmStatus>(callback->extractStatus());
 }
 
 void EdenMount::resetParent(const RootId& parent) {

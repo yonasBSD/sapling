@@ -155,16 +155,13 @@ folly::coro::now_task<std::unique_ptr<LocalFiles>> co_computeLocalFiles(
   bool caseSensitive =
       serverState->getEdenConfig()->globUseMountCaseSensitivity.getValue();
 
-  // EdenMount::diff is inode loading — bridge via .semi()
-  auto status = co_await edenMount
-                    ->diff(
-                        rootInode,
-                        rootId,
-                        folly::CancellationToken(),
-                        context,
-                        /*listIgnored=*/true,
-                        enforceParents)
-                    .semi();
+  auto status = co_await edenMount->co_diff(
+      rootInode,
+      rootId,
+      folly::CancellationToken(),
+      context,
+      /*listIgnored=*/true,
+      enforceParents);
 
   // Everything below is synchronous processing
   if (!status->errors_ref().value().empty()) {
