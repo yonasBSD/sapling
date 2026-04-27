@@ -1516,7 +1516,12 @@ impl RepoFactory {
         }
         #[cfg(fbcode_build)]
         {
-            let zelos_config = repo_config.zelos_config.as_ref().ok_or_else(|| {
+            let zelos_config = if self.env.use_pipeline_zelos_config {
+                repo_config.pipeline_zelos_config.as_ref()
+            } else {
+                repo_config.zelos_config.as_ref()
+            }
+            .ok_or_else(|| {
                 anyhow!("Missing zelos config while trying to construct repo_derivation_queues")
             })?;
             let zelos_client = self.zelos_client(zelos_config).await?;

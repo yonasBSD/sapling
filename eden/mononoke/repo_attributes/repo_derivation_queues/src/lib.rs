@@ -35,6 +35,10 @@ pub struct DerivationQueueArgs {
     /// Namespace for the derivation queue
     #[clap(long, default_value = "/mononoke_derivation")]
     pub derivation_queue_namespace: String,
+
+    /// Use the pipeline-specific Zelos config instead of the default
+    #[clap(long, default_value_t = false)]
+    pub use_pipeline_zelos_config: bool,
 }
 
 pub use crate::dag_items::DagItemDep;

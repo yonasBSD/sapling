@@ -412,6 +412,7 @@ fn build_repo_config(
         metadata_logger_config,
         commit_cloud_config,
         zelos_config,
+        pipeline_zelos_config,
         bookmark_name_for_objects_count,
         default_objects_count,
         override_objects_count,
@@ -517,6 +518,7 @@ fn build_repo_config(
     let deep_sharding_config = deep_sharding_config.convert()?;
     let metadata_logger_config = metadata_logger_config.convert()?.unwrap_or_default();
     let zelos_config = zelos_config.convert()?;
+    let pipeline_zelos_config = pipeline_zelos_config.convert()?;
     let x_repo_sync_source_mapping = x_repo_sync_source_mapping.convert()?;
 
     let raw_git_configs = git_configs.unwrap_or_default();
@@ -583,6 +585,7 @@ fn build_repo_config(
         everstore_local_path,
         metadata_logger_config,
         zelos_config,
+        pipeline_zelos_config,
         bookmark_name_for_objects_count,
         default_objects_count,
         override_objects_count,
@@ -1637,6 +1640,7 @@ mod test {
                     .collect(),
                 }),
                 zelos_config: None,
+                pipeline_zelos_config: None,
                 bookmark_name_for_objects_count: None,
                 default_objects_count: None,
                 override_objects_count: None,
@@ -1738,6 +1742,7 @@ mod test {
                 everstore_local_path: None,
                 metadata_logger_config: MetadataLoggerConfig::default(),
                 zelos_config: None,
+                pipeline_zelos_config: None,
                 bookmark_name_for_objects_count: None,
                 default_objects_count: None,
                 override_objects_count: None,

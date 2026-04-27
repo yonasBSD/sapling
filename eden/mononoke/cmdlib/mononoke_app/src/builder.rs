@@ -421,6 +421,7 @@ impl MononokeAppBuilder {
             commit_graph_options,
             client_entry_point_for_service: self.client_entry_point_for_service,
             derivation_queue_namespace: derivation_queue_args.derivation_queue_namespace,
+            use_pipeline_zelos_config: derivation_queue_args.use_pipeline_zelos_config,
             redaction_disabled: disable_redaction,
         })
     }

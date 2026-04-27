@@ -264,6 +264,8 @@ pub struct RepoConfig {
     pub metadata_logger_config: MetadataLoggerConfig,
     /// Configuration for connecting to Zelos
     pub zelos_config: Option<ZelosConfig>,
+    /// Configuration for connecting to Zelos for the derivation pipeline
+    pub pipeline_zelos_config: Option<ZelosConfig>,
     /// The name of the bookmark used to compute repo size
     pub bookmark_name_for_objects_count: Option<String>,
     /// Default value for the objects count metric if it cannot be determined via TreeInfo.
