@@ -5051,10 +5051,8 @@ EdenServiceHandler::co_globFilesImpl(std::unique_ptr<GlobParams> params) {
                                    ObjectFetchContextPtr fetchCtx)
                                     -> folly::coro::Task<GlobEntry> {
                                   auto childTry = co_await co_awaitTry(
-                                      rootI
-                                          ->getChildRecursive(
-                                              RelativePathPiece{e}, fetchCtx)
-                                          .semi());
+                                      rootI->co_getChildRecursive(
+                                          RelativePathPiece{e}, fetchCtx));
                                   if (childTry.hasException()) {
                                     XLOGF(
                                         ERR,
