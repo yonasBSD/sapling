@@ -26,6 +26,7 @@ namespace facebook::eden {
 class CheckoutAction;
 class CheckoutContext;
 class MiniTracer;
+class DeferredDiffEntry;
 class DiffContext;
 class FuseDirList;
 class NfsDirList;
@@ -860,8 +861,33 @@ class TreeInode final : public InodeBaseMetadata<DirContents> {
       folly::Synchronized<TreeInodeState>::LockedPtr contentsLock,
       DiffContext* context,
       RelativePathPiece currentPath,
+      const std::vector<std::shared_ptr<const Tree>>& trees,
+      std::unique_ptr<GitIgnoreStack> ignore,
+      bool isIgnored);
+
+  folly::coro::now_task<folly::Unit> co_computeDiff(
+      folly::Synchronized<TreeInodeState>::LockedPtr contentsLock,
+      DiffContext* context,
+      RelativePathPiece currentPath,
       std::vector<std::shared_ptr<const Tree>> trees,
       std::unique_ptr<GitIgnoreStack> ignore,
+      bool isIgnored);
+
+  /**
+   * Shared synchronous first pass of computeDiff / co_computeDiff.
+   *
+   * Walks the merge of `trees` and this directory's inode entries under
+   * `contentsLock`, builds the DeferredDiffEntry list, releases the lock, and
+   * finishes any pending inode loads started during the walk. The caller is
+   * responsible for keeping `ignore` alive until the returned deferred entries
+   * have completed.
+   */
+  std::vector<std::unique_ptr<DeferredDiffEntry>> prepareDeferredDiffEntries(
+      folly::Synchronized<TreeInodeState>::LockedPtr contentsLock,
+      DiffContext* context,
+      RelativePathPiece currentPath,
+      const std::vector<std::shared_ptr<const Tree>>& trees,
+      GitIgnoreStack* ignore,
       bool isIgnored);
 
   /**
