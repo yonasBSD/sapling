@@ -29,8 +29,6 @@ def get_meta_agent_instructions(names, topic_key) -> str:
         return ""
 
     agent_advices = meta_agent_instructions.agent_advices
-    # this is a temporary hack to support the old hotfix
-    agent_advices["agent"] = meta_agent_instructions.META_AGENT_INSTRUCTIONS
     if topic_key not in agent_advices:
         raise error.Abort(_("agent instructions for '%s' not found") % " ".join(names))
     return agent_advices[topic_key]

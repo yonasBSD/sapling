@@ -38,8 +38,8 @@ Test custom agent message
 
 With CODING_AGENT_METADATA set, help command should succeed
 
-  $ CODING_AGENT_METADATA=id=test_agent sl help agent | grep "Instructions for code agents using Sapling"
-  Instructions for code agents using Sapling, known as `sl` (preferred) or `hg` at Meta.
+  $ CODING_AGENT_METADATA=id=test_agent sl help agent --config help.agent="Instructions for code agents using Sapling"
+  Instructions for code agents using Sapling (no-eol)
 
 With CODING_AGENT_METADATA and SAPLING_AGENT_ACKNOWLEDGED set, status command should succeed
 
