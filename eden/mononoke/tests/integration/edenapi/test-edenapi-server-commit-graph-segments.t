@@ -10,7 +10,7 @@
   $ configure modern
   $ setconfig devel.segmented-changelog-rev-compat=False
 
-  $ testtool_drawdag -R repo --derive-all --print-hg-hashes <<'EOF'
+  $ testtool_drawdag -R repo --derive-all --print-hg-hashes --log-level ERROR <<'EOF'
   > A-B-C-D-G-M-N-O-P-Q
   >    \   /   / /
   >     E-F-K-L /
@@ -171,7 +171,7 @@ Ensure we can clone the repo using the commit graph segments endpoint
 
 Add some new commits, move the master bookmark and do a pull
 
-  $ testtool_drawdag -R repo --derive-all --print-hg-hashes <<'EOF'
+  $ testtool_drawdag -R repo --derive-all --print-hg-hashes --log-level ERROR <<'EOF'
   > Q-R-S-T-W-X
   >    \   /
   >     U-V
