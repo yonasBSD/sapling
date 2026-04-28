@@ -359,15 +359,11 @@ impl AsyncSetQuery for SliceSet {
         let inner = self.inner.specialized_flatten_id()?.into_owned();
         let sensitive_flags = Flags::ID_DESC | Flags::ID_ASC;
         let expected_flags = self.hints().flags() & sensitive_flags;
-        let mut can_use_fast_path = true;
         let spans = inner.id_set_try_preserving_order()?;
-        if self.skip_count == 0 && spans.count() <= self.take_count.unwrap_or(u64::MAX) {
-            can_use_fast_path = true
-        } else if expected_flags.is_empty()
-            || (inner.hints().flags() & sensitive_flags) != expected_flags
-        {
-            can_use_fast_path = false;
-        }
+        let can_use_fast_path = (self.skip_count == 0
+            && spans.count() <= self.take_count.unwrap_or(u64::MAX))
+            || (!expected_flags.is_empty()
+                && (inner.hints().flags() & sensitive_flags) == expected_flags);
         if can_use_fast_path {
             let result = inner.slice_spans(self.skip_count, self.take_count.unwrap_or(u64::MAX));
             Some(Cow::Owned(result))
