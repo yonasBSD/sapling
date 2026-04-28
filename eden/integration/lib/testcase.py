@@ -891,7 +891,13 @@ def _replicate_eden_repo_test(
             for case_label, case_mixins in case_variants:
 
                 class VariantRepoTest(
-                    *nfs_mixins, *scm_mixins, *case_mixins, test_class
+                    # pyrefly: ignore [invalid-inheritance]
+                    *nfs_mixins,
+                    # pyrefly: ignore [invalid-inheritance]
+                    *scm_mixins,
+                    # pyrefly: ignore [invalid-inheritance]
+                    *case_mixins,
+                    test_class,
                 ):
                     pass
 

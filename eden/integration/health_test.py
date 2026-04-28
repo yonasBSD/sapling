@@ -29,6 +29,7 @@ class HealthTest(testcase.EdenTestCase):
     def test_disconnected_daemon_is_not_healthy(self) -> None:
         # Create a new edenfs instance that is never started, and make sure
         # it is not healthy.
+        # pyrefly: ignore [bad-context-manager]
         with edenclient.EdenFS() as client:
             self.assertFalse(client.is_healthy())
 

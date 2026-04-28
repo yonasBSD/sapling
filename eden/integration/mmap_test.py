@@ -53,12 +53,14 @@ class MmapTest(testcase.EdenRepoTest):
             map_size = (size + 4095) // 4096 * 4096
             self.assertNotEqual(size, map_size)
 
+            # pyrefly: ignore [missing-attribute]
             m = libc.mmap(None, map_size, mmap.PROT_READ, mmap.MAP_PRIVATE, fd, 0)
             try:
                 # assert the additional mapped bytes are null, per `man 2 mmap`
                 for i in range(size, map_size):
                     self.assertEqual(0, m[i])
             finally:
+                # pyrefly: ignore [missing-attribute]
                 libc.munmap(m, map_size)
         finally:
             os.close(fd)
@@ -107,12 +109,14 @@ class MmapTest(testcase.EdenRepoTest):
             map_size = (size + 4095) // 4096 * 4096
             self.assertNotEqual(size, map_size)
 
+            # pyrefly: ignore [missing-attribute]
             m = libc.mmap(None, map_size, mmap.PROT_READ, mmap.MAP_PRIVATE, fd, 0)
             try:
                 # Assert the additional mapped bytes are null, per `man 2 mmap`
                 for i in range(size, map_size):
                     self.assertEqual(0, m[i])
             finally:
+                # pyrefly: ignore [missing-attribute]
                 libc.munmap(m, map_size)
         finally:
             os.close(fd)

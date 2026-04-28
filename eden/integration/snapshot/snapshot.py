@@ -114,6 +114,7 @@ class BaseSnapshot(metaclass=abc.ABCMeta):
         self._emit_metadata()
         self.gen_before_eden_running()
 
+        # pyrefly: ignore [bad-context-manager]
         with self.edenfs() as eden:
             eden.start()
             self.gen_eden_running(eden)
@@ -134,6 +135,7 @@ class BaseSnapshot(metaclass=abc.ABCMeta):
         This is generally invoked by tests to confirm that an unpacked snapshot still
         works properly with the current version of EdenFS.
         """
+        # pyrefly: ignore [bad-context-manager]
         with self.edenfs() as eden:
             eden.start()
             print("Verifying snapshot data:")

@@ -607,7 +607,13 @@ def _replicate_hg_test(
             for scm_label, scm_mixins in scm_variants:
 
                 class VariantHgRepoTest(
-                    *tree_mixins, *overlay_mixins, *scm_mixins, test_class
+                    # pyrefly: ignore [invalid-inheritance]
+                    *tree_mixins,
+                    # pyrefly: ignore [invalid-inheritance]
+                    *overlay_mixins,
+                    # pyrefly: ignore [invalid-inheritance]
+                    *scm_mixins,
+                    test_class,
                 ):
                     pass
 
@@ -635,7 +641,7 @@ def _replicate_filteredhg_test(
         tree_variants.append(("TreeOnlyNFS", [testcase.NFSTestMixin]))
 
     for tree_label, tree_mixins in tree_variants:
-
+        # pyrefly: ignore [invalid-inheritance]
         class VariantHgRepoTest(*tree_mixins, test_class):
             pass
 
@@ -658,7 +664,7 @@ def _replicate_status_cache_enabled_test(
     ]
     for hg_test_label, hg_test_class in _replicate_hg_test(test_class):
         for cache_config_label, cache_config_mixins in cache_config_variants:
-
+            # pyrefly: ignore [invalid-inheritance]
             class VariantHgRepoTest(*cache_config_mixins, hg_test_class):
                 pass
 

@@ -337,8 +337,11 @@ class RestartTest(RestartTestBase, PexpectAssertionMixin):
             "directory will need to cd"
         )
         daemon_env = p.env
+        # pyrefly: ignore [unsupported-operation]
         self.assertEqual(daemon_env["FOO_TEST_VAR"], "foo")
+        # pyrefly: ignore [unsupported-operation]
         self.assertEqual(daemon_env["FOO_TEST_VAR2"], "bar")
+        # pyrefly: ignore [bad-argument-type]
         self.assertNotIn("FOO_TEST_VAR3", daemon_env)
         p.wait()
         self.assertEqual(p.exitstatus, 0)

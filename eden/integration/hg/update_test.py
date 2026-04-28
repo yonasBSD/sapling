@@ -1347,6 +1347,7 @@ class PrjFSStressTornReads(EdenHgTestCase):
                     with path.open("rb") as f:
                         f.read()
                 except Exception as err:
+                    # pyrefly: ignore [bad-assignment]
                     read_exception = err
 
         read_thread = Thread(target=read_file)
@@ -1421,6 +1422,7 @@ class PrjFSStressTornReads(EdenHgTestCase):
                     with path.open("rb") as f:
                         f.read()
                 except Exception as err:
+                    # pyrefly: ignore [bad-assignment]
                     read_exception = err
 
         read_thread = Thread(target=read_file)
@@ -1443,6 +1445,7 @@ class PrjFSStressTornReads(EdenHgTestCase):
         def read_file_without_error() -> Optional[str]:
             try:
                 with path.open("rb") as f:
+                    # pyrefly: ignore [bad-return]
                     return f.read()
             except Exception:
                 return None
@@ -1475,6 +1478,7 @@ class PrjFSStressTornReads(EdenHgTestCase):
                     with path.open("rb") as f:
                         f.read()
                 except Exception as err:
+                    # pyrefly: ignore [bad-assignment]
                     read_exception = err
 
         read_thread = Thread(target=read_file)

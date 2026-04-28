@@ -1444,7 +1444,9 @@ class ReaddirTest(testcase.EdenRepoTest):
                     blake3=blake3_result,
                     digestSize=digest_size_result,
                     digestHash=digest_hash_result,
+                    # pyrefly: ignore [bad-argument-type]
                     mtime=mtime_result,
+                    # pyrefly: ignore [bad-argument-type]
                     mode=mode_result,
                     underAcl=UnderAclOrError(
                         error=EdenError(

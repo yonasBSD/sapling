@@ -346,6 +346,7 @@ class ChangesTestCommon(testBase):
             ]
             self.assertTrue(self.check_changes(changes1.changes, expected_changes1))
 
+            # pyrefly: ignore [missing-attribute]
             self.eden_repo.hg("goto", self.commit0)
             changes2 = await self.getChangesSinceV2(position=changes1.toPosition)
             expected_changes2 = [
@@ -374,6 +375,7 @@ class ChangesTestCommon(testBase):
                 "not_seen_folder/not_seen_file", "missing", add=True
             )
             changes0 = await self.getChangesSinceV2(position=position)
+            # pyrefly: ignore [bad-argument-type]
             self.eden.run_cmd("debug", "flush_journal", self.mount_path)
             position2 = await client.getCurrentJournalPosition(self.mount_path_bytes)
             await self.mkdir_async("test_folder")
@@ -595,6 +597,7 @@ class ChangesTestCommon(testBase):
                 "changes-since",
                 "-p",
                 f"{position.mountGeneration}:{position.sequenceNumber}:{position.snapshotHash.hex()}",
+                # pyrefly: ignore [bad-argument-type]
                 self.mount_path,
                 "--json",
             )
@@ -640,6 +643,7 @@ class ChangesTestCommon(testBase):
                 "changes-since",
                 "-p",
                 f"{position.mountGeneration}:{position.sequenceNumber}:{position.snapshotHash.hex()}",
+                # pyrefly: ignore [bad-argument-type]
                 self.mount_path,
                 "--json",
             )
@@ -691,6 +695,7 @@ class ChangesTestCommon(testBase):
                 "changes-since",
                 "-p",
                 f"{position.mountGeneration}:{position.sequenceNumber}:{position.snapshotHash.hex()}",
+                # pyrefly: ignore [bad-argument-type]
                 self.mount_path,
                 "--json",
             )
@@ -1593,9 +1598,12 @@ class ChangesTestWin(WindowsJournalTestBase):
         # In windows, files that were checked out via checkout cannot be renamed
         self.mkdir("test_folder")
         await self.repo_write_file("test_folder/test_file", "contents", add=True)
+        # pyrefly: ignore [missing-attribute]
         self.eden_repo.hg()
         commit1 = self.eden_repo.commit("commit 1")
+        # pyrefly: ignore [missing-attribute]
         self.eden_repo.hg("goto", self.commit0)
+        # pyrefly: ignore [missing-attribute]
         self.eden_repo.hg("goto", commit1)
 
         with self.assertRaises(OSError):

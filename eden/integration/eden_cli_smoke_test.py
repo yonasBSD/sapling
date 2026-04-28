@@ -110,6 +110,7 @@ class EdenCLISmokeTest(testcase.IntegrationTestCase):
         legitimate reasons (e.g., EdenFS not running), but they should not crash
         due to missing modules or other packaging issues.
         """
+        # pyrefly: ignore [bad-context-manager]
         with edenclient.EdenFS() as client:
             for args, description in COMMANDS_TO_TEST:
                 with self.subTest(command=description):

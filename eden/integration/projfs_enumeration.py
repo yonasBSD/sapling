@@ -43,8 +43,10 @@ class ProjFSEnumeration(testcase.EdenRepoTest):
 
         # Compute the entry size as the base size of the struct plus extra space
         # for one more character, as our entries are two characters long.
+        # pyrefly: ignore [unknown-name]
         self.entry_size = get_directory_entry_size() + 2
 
+        # pyrefly: ignore [unknown-name]
         self.handle = open_directory_handle(str(Path(self.mount) / "somedir"))
 
     def populate_repo(self) -> None:
@@ -60,42 +62,49 @@ class ProjFSEnumeration(testcase.EdenRepoTest):
 
         self.assertEqual(
             ["."],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 16 * 1024, SL_RETURN_SINGLE_ENTRY, None
             ),
         )
         self.assertEqual(
             [".."],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 16 * 1024, SL_RETURN_SINGLE_ENTRY, None
             ),
         )
         self.assertEqual(
             ["1a"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 16 * 1024, SL_RETURN_SINGLE_ENTRY, None
             ),
         )
         self.assertEqual(
             ["1b"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 16 * 1024, SL_RETURN_SINGLE_ENTRY, None
             ),
         )
         self.assertEqual(
             ["2c"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 16 * 1024, SL_RETURN_SINGLE_ENTRY, None
             ),
         )
         self.assertEqual(
             ["2d"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 16 * 1024, SL_RETURN_SINGLE_ENTRY, None
             ),
         )
         self.assertEqual(
             [],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 16 * 1024, SL_RETURN_SINGLE_ENTRY, None
             ),
@@ -109,25 +118,46 @@ class ProjFSEnumeration(testcase.EdenRepoTest):
         """
 
         self.assertEqual(
-            ["."], query_directory_file_ex(self.handle, self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            ["."],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, None),
         )
         self.assertEqual(
-            [".."], query_directory_file_ex(self.handle, self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            [".."],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, None),
         )
         self.assertEqual(
-            ["1a"], query_directory_file_ex(self.handle, self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            ["1a"],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, None),
         )
         self.assertEqual(
-            ["1b"], query_directory_file_ex(self.handle, self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            ["1b"],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, None),
         )
         self.assertEqual(
-            ["2c"], query_directory_file_ex(self.handle, self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            ["2c"],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, None),
         )
         self.assertEqual(
-            ["2d"], query_directory_file_ex(self.handle, self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            ["2d"],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, None),
         )
         self.assertEqual(
-            [], query_directory_file_ex(self.handle, self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            [],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, None),
         )
 
     def test_restart_scan(self):
@@ -135,24 +165,29 @@ class ProjFSEnumeration(testcase.EdenRepoTest):
 
         self.assertEqual(
             [".", ".."],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
         self.assertEqual(
             ["1a", "1b"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
         self.assertEqual(
             [".", ".."],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 2 * self.entry_size, SL_RESTART_SCAN, None
             ),
         )
         self.assertEqual(
             ["1a", "1b"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
         self.assertEqual(
             ["2c", "2d"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
 
@@ -166,6 +201,7 @@ class ProjFSEnumeration(testcase.EdenRepoTest):
 
         ents = []
         while True:
+            # pyrefly: ignore [unknown-name]
             batch = query_directory_file_ex(self.handle, 16 * 1024, 0, "2*")
             if not batch:
                 break
@@ -178,30 +214,45 @@ class ProjFSEnumeration(testcase.EdenRepoTest):
         """Test that FileName only needs to be specified once"""
 
         self.assertEqual(
-            ["2c"], query_directory_file_ex(self.handle, self.entry_size, 0, "2*")
+            # pyrefly: ignore [unknown-name]
+            ["2c"],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, "2*"),
         )
 
         # FileName is taken from the first call to NtQueryDirectoryFileEx, so an
         # unspecified pattern on subsequent calls shouldn't stop the pattern
         # from being applied.
         self.assertEqual(
-            ["2d"], query_directory_file_ex(self.handle, self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            ["2d"],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, None),
         )
 
     def test_filename_pattern_changed(self):
         """Test that changing FileName partway through enumeration is a no-op"""
 
         self.assertEqual(
-            ["2c"], query_directory_file_ex(self.handle, self.entry_size, 0, "2*")
+            # pyrefly: ignore [unknown-name]
+            ["2c"],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, "2*"),
         )
 
         # FileName is taken from the first call to NtQueryDirectoryFileEx, so a
         # changed pattern on subsequent calls shouldn't be applied.
         self.assertEqual(
-            ["2d"], query_directory_file_ex(self.handle, self.entry_size, 0, "1*")
+            # pyrefly: ignore [unknown-name]
+            ["2d"],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, "1*"),
         )
         self.assertEqual(
-            [], query_directory_file_ex(self.handle, self.entry_size, 0, "1*")
+            # pyrefly: ignore [unknown-name]
+            [],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, self.entry_size, 0, "1*"),
         )
 
     def test_filename_pattern_initially_empty(self):
@@ -209,20 +260,26 @@ class ProjFSEnumeration(testcase.EdenRepoTest):
 
         self.assertEqual(
             [".", ".."],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
         # FileName is taken from the first call to NtQueryDirectoryFileEx, so a
         # changed pattern on subsequent calls shouldn't be applied.
         self.assertEqual(
             ["1a", "1b"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, "zz*"),
         )
         self.assertEqual(
             ["2c", "2d"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
         self.assertEqual(
-            [], query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            [],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
 
     def test_filename_pattern_on_restart(self):
@@ -246,22 +303,28 @@ class ProjFSEnumeration(testcase.EdenRepoTest):
         """
         self.assertEqual(
             [".", ".."],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
         self.assertEqual(
             ["1a", "1b"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
 
         # We should apply a new FileName pattern on scan restart.
         self.assertEqual(
             ["2c", "2d"],
+            # pyrefly: ignore [unknown-name]
             query_directory_file_ex(
                 self.handle, 2 * self.entry_size, SL_RESTART_SCAN, "2*"
             ),
         )
         self.assertEqual(
-            [], query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None)
+            # pyrefly: ignore [unknown-name]
+            [],
+            # pyrefly: ignore [unknown-name]
+            query_directory_file_ex(self.handle, 2 * self.entry_size, 0, None),
         )
 
 
@@ -282,6 +345,7 @@ class ProjFSEnumerationInsufficientBuffer(testcase.EdenRepoTest):
 
         super().setUp()
 
+        # pyrefly: ignore [unknown-name]
         self.handle = open_directory_handle(str(Path(self.mount) / "lots"))
 
     def populate_repo(self) -> None:
@@ -290,9 +354,11 @@ class ProjFSEnumerationInsufficientBuffer(testcase.EdenRepoTest):
         self.repo.commit("Initial commit.")
 
     def test_many_directory_entries(self):
+        # pyrefly: ignore [unknown-name]
         handle = open_directory_handle(str(Path(self.mount) / "lots"))
         queried_filenames = []
         while True:
+            # pyrefly: ignore [unknown-name]
             query_result = query_directory_file_ex(handle, 16 * 1024, 0, None)
             if not query_result:
                 break

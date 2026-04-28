@@ -327,6 +327,7 @@ class SnapshotTestBase(
 
     def _verify_contents(self, expected_files: verify_mod.ExpectedFileSet) -> None:
         verifier = verify_mod.SnapshotVerifier()
+        # pyrefly: ignore [bad-context-manager]
         with self.snapshot.edenfs() as eden:
             eden.start()
             verifier.verify_directory(

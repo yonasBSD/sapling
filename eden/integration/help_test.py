@@ -18,6 +18,7 @@ class HelpTest(testcase.IntegrationTestCase):
     """
 
     def test_eden_cli_help_returns_without_error(self) -> None:
+        # pyrefly: ignore [bad-context-manager]
         with edenclient.EdenFS() as client:
             cmd_result = client.run_unchecked("help")
             self.assertEqual(0, cmd_result.returncode)

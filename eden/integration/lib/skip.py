@@ -328,6 +328,7 @@ def _have_ntapi_extension_module() -> bool:
         return False
 
     try:
+        # pyrefly: ignore [missing-import]
         from eden.integration.lib.ntapi import (  # @manual  # noqa: F401
             get_directory_entry_size,
         )
