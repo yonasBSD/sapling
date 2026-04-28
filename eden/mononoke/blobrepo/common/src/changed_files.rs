@@ -12,12 +12,12 @@ use anyhow::Error;
 use blobstore::KeyedBlobstore;
 use context::CoreContext;
 use futures::StreamExt;
-use futures::TryFutureExt;
 use futures::TryStreamExt;
 use futures::future;
 use manifest::Diff;
 use manifest::Entry;
 use manifest::ManifestOps;
+use manifest::find_intersection_of_diffs;
 use mercurial_types::HgFileNodeId;
 use mercurial_types::HgManifestId;
 use mononoke_types::FileType;
@@ -49,22 +49,23 @@ pub async fn compute_changed_files(
             compute_changed_files_pair(ctx, blobstore.clone(), root, manifest).await?
         }
         (Some(p1), Some(p2)) => {
-            let changed = future::try_join(
-                compute_changed_files_pair(ctx.clone(), blobstore.clone(), root, p1),
-                compute_changed_files_pair(ctx.clone(), blobstore.clone(), root, p2),
-            )
-            .map_ok(|(left, right)| left.intersection(&right).cloned().collect::<Vec<_>>());
-
-            // Mercurial always includes removed files, we need to match this behaviour
-            let (ch1, ch2, ch3) = future::try_join3(
-                changed,
+            let (changed, removed_p1, removed_p2) = future::try_join3(
+                find_intersection_of_diffs(ctx.clone(), blobstore.clone(), root, vec![p1, p2])
+                    .try_filter_map(|(path, entry)| async move {
+                        match entry {
+                            Entry::Leaf(_) => Ok(Option::<NonRootMPath>::from(path)),
+                            _ => Ok(None),
+                        }
+                    })
+                    .try_collect::<Vec<_>>(),
                 compute_removed_files(&ctx, blobstore.clone(), root, Some(p1)),
                 compute_removed_files(&ctx, blobstore.clone(), root, Some(p2)),
             )
             .await?;
-            ch1.into_iter()
-                .chain(ch2.into_iter())
-                .chain(ch3.into_iter())
+            changed
+                .into_iter()
+                .chain(removed_p1)
+                .chain(removed_p2)
                 .collect::<HashSet<_>>()
         }
     };
