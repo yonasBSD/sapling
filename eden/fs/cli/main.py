@@ -1996,6 +1996,7 @@ Do you still want to delete {path}?"""
             return 1
         return 0
 
+    # pyrefly: ignore [bad-return]
     def run(self, args: argparse.Namespace) -> int:
         instance = get_eden_instance(args)
 
@@ -2890,6 +2891,7 @@ class RestartCmd(Subcmd):
             normalized = normalized[len(home) + 1 :]
         return normalized, is_default_config_dir
 
+    # pyrefly: ignore [bad-return]
     def _graceful_restart(self, instance: EdenInstance) -> int:
         print("Performing a graceful restart...")
 
@@ -3397,6 +3399,7 @@ Please run "cd / && cd -" to update your shell's working directory."""
         return EX_OSFILE
 
     print(f"Warning: {msg}", file=sys.stderr)
+    # pyrefly: ignore [bad-assignment]
     doctor_mod.working_directory_was_stale = True
     return None
 

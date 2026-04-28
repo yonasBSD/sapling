@@ -329,6 +329,7 @@ class EdenDoctorChecker:
             return
 
         try:
+            # pyrefly: ignore [bad-argument-type]
             process_handle = proc_utils_win.open_process(health_status.pid)
             token_handle = proc_utils_win.open_process_token(process_handle)
             elevated = proc_utils_win.is_token_elevated(token_handle)
@@ -336,6 +337,7 @@ class EdenDoctorChecker:
             self.tracker.add_problem(UnknownElevationProblem(health_status.pid, ex))
             return
 
+        # pyrefly: ignore [unbound-name]
         if elevated:
             self.tracker.add_problem(RunningElevatedProblem(health_status.pid))
 
@@ -368,6 +370,7 @@ class EdenDoctorChecker:
                 self.tracker,
                 list(checkouts.values()),
                 checked_backing_repos,
+                # pyrefly: ignore [bad-argument-type]
                 vscode_extensions_checker=self.vscode_extensions_checker,
                 eden_instance=self.instance,
             )

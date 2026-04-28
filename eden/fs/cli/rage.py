@@ -289,7 +289,11 @@ def get_eden_logs(
             out.write(f"Snippet of rotated log file {str(rotated_log_file)}: ")
             paste_output(
                 lambda sink, log=rotated_log_file: print_log_file(
-                    log, sink, open_fn=gzip.open
+                    # pyrefly: ignore [bad-argument-type]
+                    log,
+                    sink,
+                    # pyrefly: ignore [bad-argument-type]
+                    open_fn=gzip.open,
                 ),
                 processor,
                 out,
@@ -571,6 +575,7 @@ def report_edenfs_bug(instance: EdenInstance, reporter: str) -> None:
     rage_lambda: Callable[[EdenInstance, IO[bytes]], None] = (
         lambda inst, sink: print_diagnostic_info(inst, sink, False)
     )
+    # pyrefly: ignore [bad-argument-type]
     _report_edenfs_bug(rage_lambda, instance, reporter)
 
 
@@ -659,6 +664,7 @@ def print_log_file(
     open_fn: Callable[
         [Path, str],
         BinaryIO,
+        # pyrefly: ignore [bad-function-definition]
     ] = open,
     tail_limit: Optional[int] = 1000000,
 ) -> None:
@@ -754,6 +760,7 @@ def _get_running_eden_process_windows() -> List[Tuple[str, str, str, str, str, s
         lines.append(
             (line[4], line[3], start_time.strftime("%b %d %H:%M"), elapsed, line[1])
         )
+    # pyrefly: ignore [bad-return]
     return lines
 
 

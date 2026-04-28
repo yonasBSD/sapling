@@ -1045,6 +1045,7 @@ Do you want to run `eden mount %s` instead?"""
                 except Exception:
                     return "directory and files ..."
 
+            # pyrefly: ignore [missing-attribute]
             shutil._rmtree_unsafe = util.hook_recursive_with_spinner(
                 # We're gently caressing an internal shutil function
                 # pyre-ignore[16]: Module shutil has no attribute _rmtree_unsafe.
@@ -1080,6 +1081,7 @@ Do you want to run `eden mount %s` instead?"""
                 except Exception:
                     return "directory and files ..."
 
+            # pyrefly: ignore [missing-attribute]
             shutil._rmtree_safe_fd = util.hook_recursive_with_spinner(
                 # We're gently caressing an internal shutil function
                 # pyre-ignore[16]: Module shutil has no attribute _rmtree_safe_fd.
@@ -1093,7 +1095,9 @@ Do you want to run `eden mount %s` instead?"""
             self._remove_path_from_directory_map(path)
 
         # Restore the original rmtree
+        # pyrefly: ignore [missing-attribute]
         shutil._rmtree_unsafe = old_rmtree_unsafe
+        # pyrefly: ignore [missing-attribute]
         shutil._rmtree_safe_fd = old_rmtree_safe_fd
 
     def _cleanup_unix_mount(self, path: Path, preserve_mount_point: bool) -> None:
@@ -1495,6 +1499,7 @@ class EdenCheckout:
 
         if checkout_config.predictive_prefetch_num_dirs:
             config_data["predictive-prefetch"]["predictive-prefetch-num-dirs"] = (
+                # pyrefly: ignore [bad-typed-dict-key]
                 checkout_config.predictive_prefetch_num_dirs
             )
 
@@ -1693,6 +1698,7 @@ class EdenCheckout:
                 repository.get("default-revision") or DEFAULT_REVISION[scm_type]
             ),
             active_prefetch_profiles=prefetch_profiles,
+            # pyrefly: ignore [bad-argument-type]
             predictive_prefetch_profiles_active=predictive_prefetch_active,
             predictive_prefetch_num_dirs=predictive_num_dirs,
             enable_sqlite_overlay=enable_sqlite_overlay,

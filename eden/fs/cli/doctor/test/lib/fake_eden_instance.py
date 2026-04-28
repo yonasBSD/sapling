@@ -314,6 +314,7 @@ class FakeEdenInstance(AbstractEdenInstance):
         return default
 
     def get_config_strs(self, key: str, default: configutil.Strs) -> configutil.Strs:
+        # pyrefly: ignore [bad-return]
         return self._config.get(key, default)
 
     def get_hg_repo(self, path: Path) -> FakeHgRepo:

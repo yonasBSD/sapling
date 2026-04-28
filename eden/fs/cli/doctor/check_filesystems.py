@@ -987,6 +987,7 @@ def check_inode_counts(
         tracker.add_problem(UnknownInodeCountProblem(checkout.path))
         return
 
+    # pyrefly: ignore [bad-argument-type]
     inode_count = total_inode_count(inode_info)
     if inode_count > threshold:
         tracker.add_problem(

@@ -92,6 +92,7 @@ def fmtProblemMessage(
         elif type(errmsg) is str:
             return errmsg
         else:
+            # pyrefly: ignore [missing-attribute]
             decoded = errmsg.decode()
             if len(decoded) == 0:
                 return "None"

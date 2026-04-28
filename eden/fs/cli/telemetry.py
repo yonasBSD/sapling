@@ -288,6 +288,7 @@ class ExternalTelemetryLogger(BaseJsonTelemetryLogger):
                 ),
             }
         try:
+            # pyrefly: ignore [bad-argument-type]
             rc = subprocess.call(cmd, **kwargs)
             if rc != 0:
                 log.warning(f"telemetry log command returned non-zero exit code {rc}")

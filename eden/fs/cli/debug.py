@@ -164,6 +164,7 @@ class BooleanOptionalAction(argparse.Action):
     # pyre-fixme[2]: Parameter must be annotated.
     def __call__(self, parser, namespace, values, option_string=None):
         if option_string in self.option_strings:
+            # pyrefly: ignore [missing-attribute]
             setattr(namespace, self.dest, not option_string.startswith("--no-"))
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -407,6 +408,7 @@ class ProcessFetchCmd(Subcmd):
                 cmd = process.cmd
                 if args.short_cmdline:
                     cmd = cmd.split()[0]
+                # pyrefly: ignore [unsupported-operation]
                 row["PID"] = pid
                 row["FETCH COUNT"] = process.fetch_count
                 row["CMD"] = cmd
