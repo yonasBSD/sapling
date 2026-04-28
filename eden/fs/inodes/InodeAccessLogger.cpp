@@ -22,6 +22,8 @@
 #include "eden/fs/telemetry/LogEvent.h"
 
 #include "eden/common/telemetry/DynamicEvent.h"
+#include "eden/common/telemetry/Stats.h"
+#include "eden/fs/telemetry/EdenStats.h"
 #include "eden/fs/telemetry/XplatKeys.h"
 #include "eden/fs/telemetry/facebook/XplatLogger.h"
 
@@ -40,9 +42,11 @@ const static RE2 kFbsourceFilter("xplat\\/toolchains\\/minimal_xcode");
 InodeAccessLogger::InodeAccessLogger(
     std::shared_ptr<ReloadableConfig> reloadableConfig,
     std::shared_ptr<StructuredLogger> structuredLogger,
+    EdenStatsPtr edenStats,
     XplatLogger* xplatLogger)
     : reloadableConfig_{std::move(reloadableConfig)},
       structuredLogger_{std::move(structuredLogger)},
+      edenStats_{std::move(edenStats)},
       xplatLogger_{xplatLogger} {
   workerThread_ = std::thread{[this] {
     folly::setThreadName("InodeAccessLoggerProcessor");
@@ -246,8 +250,10 @@ void InodeAccessLogger::processInodeAccessEvents() {
       // false → StructuredLogger/scribe_cat path (existing behavior)
       if (reloadableConfig_->getEdenConfig()->enableXplatLogger.getValue() &&
           xplatLogger_ != nullptr) {
+        edenStats_->increment(&TelemetryStats::fileAccessViaXplatLogger);
         logFileAccessViaXplat(repo, directory, filename, source, sourceDetail);
       } else {
+        edenStats_->increment(&TelemetryStats::fileAccessViaStructuredLogger);
         structuredLogger_->logEvent(
             FileAccessEvent{
                 repo.str(),

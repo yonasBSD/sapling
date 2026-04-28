@@ -98,7 +98,10 @@ class InodeAccessLoggerDualWriteTest : public ::testing::Test {
     auto reloadableConfig =
         std::make_shared<ReloadableConfig>(std::move(config));
     return std::make_unique<InodeAccessLogger>(
-        std::move(reloadableConfig), std::move(spyLogger), xplatLogger);
+        std::move(reloadableConfig),
+        std::move(spyLogger),
+        makeRefPtr<EdenStats>(),
+        xplatLogger);
   }
 
   FakeTreeBuilder builder_;

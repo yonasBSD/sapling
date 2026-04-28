@@ -17,7 +17,8 @@ namespace facebook::eden {
  */
 class FakeInodeAccessLogger : public InodeAccessLogger {
  public:
-  FakeInodeAccessLogger() : InodeAccessLogger(nullptr, nullptr) {}
+  FakeInodeAccessLogger()
+      : InodeAccessLogger(nullptr, nullptr, EdenStatsPtr{}) {}
 
   virtual void logInodeAccess(InodeAccess) override {
     ++accessCount_;

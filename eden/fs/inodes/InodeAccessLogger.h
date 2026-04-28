@@ -14,6 +14,7 @@
 #include "eden/fs/config/ReloadableConfig.h"
 #include "eden/fs/inodes/InodeNumber.h"
 #include "eden/fs/store/ObjectFetchContext.h"
+#include "eden/fs/telemetry/EdenStats.h"
 
 namespace facebook::eden {
 
@@ -34,6 +35,7 @@ class InodeAccessLogger {
   InodeAccessLogger(
       std::shared_ptr<ReloadableConfig> reloadableConfig,
       std::shared_ptr<StructuredLogger> structuredLogger,
+      EdenStatsPtr edenStats,
       XplatLogger* xplatLogger = nullptr);
   virtual ~InodeAccessLogger();
 
@@ -43,7 +45,8 @@ class InodeAccessLogger {
   InodeAccessLogger& operator=(InodeAccessLogger&&) = delete;
 
   /**
-   * Puts a InodeAccess event on a worker thread to be processed asynchronously
+   * Puts a InodeAccess event on a worker thread to be processed
+   * asynchronously
    */
   virtual void logInodeAccess(InodeAccess access);
 
@@ -66,7 +69,8 @@ class InodeAccessLogger {
   void processInodeAccessEvents();
 
   /**
-   * Logs a file access event via the XplatLogger Thrift path (Compact Protocol
+   * Logs a file access event via the XplatLogger Thrift path (Compact
+   * Protocol
    * + StructuredProducerService RPC to local ScribeD). Gated by the
    * enableXplatLogger config flag.
    */
@@ -78,18 +82,19 @@ class InodeAccessLogger {
       const std::string& sourceDetail);
 
   folly::Synchronized<State> state_;
-  // We use a LifoSem here due to the fact that it is faster than a std::mutex
-  // condition variable combination. It in general should be used in a case
-  // in which performance is more important than fairness, and since this is
-  // a single threaded worker, we don't care about fairness. See the header
-  // file for this object for more information about its performance benefits.
-  // Also, in general we use a semaphore here so the worker thread is not
-  // spinning while the work queue is empty.
+  // We use a LifoSem here due to the fact that it is faster than a
+  // std::mutex condition variable combination. It in general should be used
+  // in a case in which performance is more important than fairness, and
+  // since this is a single threaded worker, we don't care about fairness.
+  // See the header file for this object for more information about its
+  // performance benefits. Also, in general we use a semaphore here so the
+  // worker thread is not spinning while the work queue is empty.
   folly::LifoSem sem_;
   std::thread workerThread_;
 
   std::shared_ptr<ReloadableConfig> reloadableConfig_;
   std::shared_ptr<StructuredLogger> structuredLogger_;
+  EdenStatsPtr edenStats_;
   XplatLogger* xplatLogger_;
 };
 

@@ -110,6 +110,7 @@ ServerState::ServerState(
                             ->fileAccessScribeCategory.getValue(),
                         std::move(sessionInfo),
                         edenStats_.copy()),
+                    edenStats_.copy(),
                     xplatLogger)},
       fsEventLogger_{
           initialConfig.requestSamplesPerMinute.getValue()
