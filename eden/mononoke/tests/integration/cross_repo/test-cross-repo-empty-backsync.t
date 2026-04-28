@@ -119,7 +119,9 @@ This time pushing empty commit shouldn't fail as there is no pushredirection.
 
   $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) VALUES (0, 'xreposync_from_1', 4)";
   $ quiet_grep processing -- mononoke_x_repo_sync 1 0 tail --catch-up-once
-  * processing log entry #5 (glob)
+  [INFO] processing log entry #6
+  [INFO] processing log entry #9
+  [INFO] processing log entry #10
 
   $ cd "$TESTTMP"/large-hg-client
   $ quiet hg pull

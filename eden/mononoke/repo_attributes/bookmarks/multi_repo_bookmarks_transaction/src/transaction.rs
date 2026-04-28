@@ -769,36 +769,39 @@ mod tests {
         )?;
         assert!(txn.commit().await?.is_success());
 
-        // force_set created log entry 1, multi-repo update created log entry 2
+        // Each repo's log has 2 entries: the force_set then the multi-repo update.
+        // Read all entries (id > 0) — works regardless of whether ids are
+        // allocated per-repo (legacy) or globally (per_bookmark_locking), since
+        // either way the only entries scoped to repo_id_X are these two.
         let log_1: Vec<_> = f
             .bookmarks_1
             .read_next_bookmark_log_entries(
                 f.ctx.clone(),
-                BookmarkUpdateLogId(1),
+                BookmarkUpdateLogId(0),
                 10,
                 Freshness::MostRecent,
             )
             .try_collect()
             .await?;
-        assert_eq!(log_1.len(), 1);
-        assert_eq!(log_1[0].from_changeset_id, Some(ONES_CSID));
-        assert_eq!(log_1[0].to_changeset_id, Some(TWOS_CSID));
-        assert_eq!(log_1[0].repo_id, f.repo_id_1);
+        assert_eq!(log_1.len(), 2);
+        assert_eq!(log_1[1].from_changeset_id, Some(ONES_CSID));
+        assert_eq!(log_1[1].to_changeset_id, Some(TWOS_CSID));
+        assert_eq!(log_1[1].repo_id, f.repo_id_1);
 
         let log_2: Vec<_> = f
             .bookmarks_2
             .read_next_bookmark_log_entries(
                 f.ctx.clone(),
-                BookmarkUpdateLogId(1),
+                BookmarkUpdateLogId(0),
                 10,
                 Freshness::MostRecent,
             )
             .try_collect()
             .await?;
-        assert_eq!(log_2.len(), 1);
-        assert_eq!(log_2[0].from_changeset_id, Some(ONES_CSID));
-        assert_eq!(log_2[0].to_changeset_id, Some(THREES_CSID));
-        assert_eq!(log_2[0].repo_id, f.repo_id_2);
+        assert_eq!(log_2.len(), 2);
+        assert_eq!(log_2[1].from_changeset_id, Some(ONES_CSID));
+        assert_eq!(log_2[1].to_changeset_id, Some(THREES_CSID));
+        assert_eq!(log_2[1].repo_id, f.repo_id_2);
 
         Ok(())
     }

@@ -16,13 +16,16 @@ check the read sql path still works with readonly storage
   $ mononoke_admin --with-readonly-storage=true bookmarks -R repo log master_bookmark
   * (master_bookmark) e32a1e342cdb1e38e88466b4c1a01ae9f410024017aa21dc0a1c5da6b3963bf2 testmove * (glob)
 
-check that sql writes are blocked by readonly storage
-  $ mononoke_admin --with-readonly-storage=true bookmarks -R repo set another_bookmark $B
-  Creating publishing bookmark another_bookmark at f8c75e41a0c4d29281df765f39de47bca1dcadfdc55ada4ccc2f6df567201658
-  * While executing InsertBookmarksImpl query (glob)
-  
-  Caused by:
-      0: attempt to write a readonly database
-      1: Error code 8: Attempt to write a readonly database
-  [1]
+check that sql writes are blocked by readonly storage. The exact failure path
+depends on whether per_bookmark_locking is enabled (it inserts into the
+bookmark_update_locks table before the bookmark insert, so the readonly SQLite
+backend rejects the lock-row insert via "cannot start a transaction within a
+transaction") or disabled (the bookmark insert itself hits SQLite's "attempt
+to write a readonly database"). Either way the bookmark write must not land.
+  $ mononoke_admin --with-readonly-storage=true bookmarks -R repo set another_bookmark $B 2>&1 | grep -qE 'readonly database|cannot start a transaction within a transaction' && echo "Write rejected as expected" || echo "FAIL: unexpected error from readonly write"
+  Write rejected as expected
+
+verify the bookmark was not actually created (defense in depth)
+  $ mononoke_admin bookmarks -R repo get another_bookmark 2>&1 | grep -qE "$B" && echo "FAIL: bookmark was created despite readonly storage" || echo "Bookmark correctly absent"
+  Bookmark correctly absent
 

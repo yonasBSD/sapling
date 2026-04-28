@@ -131,7 +131,7 @@ Config change
     \"SqlReadsMaster\": [1-9]\d*, (re)
     \"backsync_duration_ms\": [1-9]\d*, (re)
     "backsync_previously_done": "false",
-    "backsyncer_bookmark_log_entry_id": 2,
+    \"backsyncer_bookmark_log_entry_id\": [1-9]\d*, (re)
     "from_csid": "*", (glob)
     "log_tag": "Backsyncing",
     \"poll_count\": [1-9]\d*, (re)
@@ -144,7 +144,7 @@ Config change
     \"SqlReadsMaster\": [1-9]\d*, (re)
     \"backsync_duration_ms\": [1-9]\d*, (re)
     "backsync_previously_done": "false",
-    "backsyncer_bookmark_log_entry_id": 3,
+    \"backsyncer_bookmark_log_entry_id\": [1-9]\d*, (re)
     "from_csid": "*", (glob)
     "log_tag": "Backsyncing",
     \"poll_count\": [1-9]\d*, (re)
@@ -157,7 +157,7 @@ Config change
     \"SqlReadsMaster\": [1-9]\d*, (re)
     \"backsync_duration_ms\": [1-9]\d*, (re)
     "backsync_previously_done": "false",
-    "backsyncer_bookmark_log_entry_id": 4,
+    \"backsyncer_bookmark_log_entry_id\": [1-9]\d*, (re)
     "from_csid": "*", (glob)
     "log_tag": "Backsyncing",
     \"poll_count\": [1-9]\d*, (re)
