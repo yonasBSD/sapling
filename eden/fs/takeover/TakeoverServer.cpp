@@ -276,7 +276,7 @@ Future<Unit> TakeoverServer::ConnHandler::pingThenSendTakeoverData(
           auto takeoverPromise = std::move(data.takeoverComplete);
           takeoverPromise.setValue(std::move(data));
 
-          return makeFuture<Unit>(msg.exception());
+          return makeFuture<Unit>(std::move(msg).exception());
         }
         return sendTakeoverData(std::move(data));
       });
@@ -343,7 +343,7 @@ Future<Unit> TakeoverServer::ConnHandler::sendTakeoverDataMessage(
           // Only the first chunk of message has msg.files
           // The rest of the chunks will have empty msg.files
           UnixSocket::Message firstChunkMsgWithFiles{
-              *(msg.data.cloneOne()), std::move(msg.files)};
+              msg.data.cloneOneAsValue(), std::move(msg.files)};
 
           return state.socket.send(std::move(firstChunkMsgWithFiles))
               .thenValue([this, msg = std::move(msg), &state](auto&&) mutable {
