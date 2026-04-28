@@ -290,6 +290,10 @@ Future<Unit> TakeoverServer::ConnHandler::sendTakeoverData(
   takeoverHandler_->closeStorage();
 
   auto& state = state_.get();
+  // Takeover transfers can be tens of MB and include many FDs, so allow a
+  // longer send timeout here. At the time of writing, the default timeout
+  // is 250ms.
+  state.socket.setSendTimeout(std::chrono::seconds{5});
 
   UnixSocket::Message msg;
   try {
