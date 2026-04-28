@@ -25,6 +25,7 @@ from testslide import StrictMock, TestCase
 class UnittestStrictmockTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        # pyrefly: ignore [bad-instantiation]
         self.storage_client_mock = StrictMock(StorageClient)
 
     def test_delete_from_storage(self) -> None:

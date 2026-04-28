@@ -23,6 +23,7 @@ class UnittestStrictMockTest(TestCase):
 
     def test_delete_from_storage(self) -> None:
         # Mock the delete_for_real method of the StorageClient class
+        # pyrefly: ignore [not-callable]
         mock_callable(self.storage_client_mock, "delete_for_real").for_call(
             "file/to/delete"
         ).to_return_value(True).and_assert_called_once()
@@ -38,6 +39,7 @@ class UnittestStrictMockTest(TestCase):
             "StorageClient",
         ).for_call().to_return_value(self.storage_client_mock)
 
+        # pyrefly: ignore [not-callable]
         mock_callable(self.storage_client_mock, "delete_for_real").for_call(
             "file/to/delete"
         ).to_return_value(True).and_assert_called_once()
@@ -59,6 +61,7 @@ class LaterStrictMockTest(LaterTestCase):
 
     def test_delete_from_storage(self) -> None:
         # Mock the delete_for_real method of the StorageClient class
+        # pyrefly: ignore [not-callable]
         mock_callable(self.storage_client_mock, "delete_for_real").for_call(
             "file/to/delete"
         ).to_return_value(True).and_assert_called_once()
@@ -74,6 +77,7 @@ class LaterStrictMockTest(LaterTestCase):
             "StorageClient",
         ).for_call().to_return_value(self.storage_client_mock)
 
+        # pyrefly: ignore [not-callable]
         mock_callable(self.storage_client_mock, "delete_for_real").for_call(
             "file/to/delete"
         ).to_return_value(True).and_assert_called_once()

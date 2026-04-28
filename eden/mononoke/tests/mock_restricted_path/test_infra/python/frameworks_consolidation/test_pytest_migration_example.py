@@ -25,6 +25,7 @@ def test_split():
 def test_split_raises():
     s = "hello world"
     with pytest.raises(TypeError):
+        # pyrefly: ignore [no-matching-overload]
         s.split(2)
 
 
