@@ -87,7 +87,7 @@
   $ hg push -r . --to master_bookmark -q
 
 -- sync fbsource
-  $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) VALUES (0, 'xreposync_from_1', 1)";
+  $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) SELECT 0, 'xreposync_from_1', id FROM bookmarks_update_log WHERE repo_id = 1 ORDER BY id LIMIT 1";
   $ mononoke_x_repo_sync 1 0 tail --catch-up-once |& grep processing
   * processing log entry * (glob)
   * processing log entry * (glob)
@@ -97,7 +97,7 @@
   $ REPOIDLARGE=0 REPOIDSMALL=1 verify_wc $(mononoke_admin bookmarks --repo-id 0 get fbsource/somebook)
 
 -- sync ovrsource
-  $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) VALUES (0, 'xreposync_from_2', 2)"
+  $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) SELECT 0, 'xreposync_from_2', id FROM bookmarks_update_log WHERE repo_id = 2 ORDER BY id LIMIT 1 OFFSET 1"
   $ mononoke_x_repo_sync 2 0 tail --catch-up-once |& grep processing
   * processing log entry * (glob)
   $ REPOIDLARGE=0 REPOIDSMALL=2 verify_wc $(mononoke_admin bookmarks --repo-id 0 get master_bookmark)

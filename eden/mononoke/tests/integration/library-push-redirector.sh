@@ -593,9 +593,9 @@ function start_large_small_repo {
   # Setting XREPOSYNC allows the user of this fn to set x-repo sync mutable counter instead of the backsync one
   # This is useful, if the intention is to use x-repo sync instead of backsync after the setup
   if [[ -v XREPOSYNC ]]; then
-    sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) VALUES ($REPOIDLARGE, 'xreposync_from_$REPOIDSMALL', 1)";
+    sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) SELECT $REPOIDLARGE, 'xreposync_from_$REPOIDSMALL', COALESCE(MAX(id), 0) FROM bookmarks_update_log WHERE repo_id = $REPOIDSMALL";
   else
-    sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) VALUES ($REPOIDSMALL, 'backsync_from_$REPOIDLARGE', 1)";
+    sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) SELECT $REPOIDSMALL, 'backsync_from_$REPOIDLARGE', COALESCE(MAX(id), 0) FROM bookmarks_update_log WHERE repo_id = $REPOIDLARGE";
   fi
 }
 
@@ -672,20 +672,39 @@ function mononoke_x_repo_sync_forever() {
   echo "$XREPOSYNC_PID" >> "$DAEMON_PIDS"
 }
 
-# Wait for xrepo sync (15s at most)
+# Wait for xrepo sync (15s at most). Argument N means "wait for the Nth entry
+# of the source repo's bookmarks_update_log to be successfully synced". Under
+# per_bookmark_locking, log ids are allocated from a global sequence and are
+# no longer contiguous per-repo, so the Nth source-repo entry's id no longer
+# equals N. We look up the actual id and grep for that.
+#
+# Optional second argument: source repo id. Defaults to $REPOIDSMALL (the
+# common cross-repo case). Tests using non-standard repo ids (e.g. submodule
+# expansion) should pass it explicitly, e.g. wait_for_xrepo_sync 2 "$SUBMODULE_REPO_ID".
 function wait_for_xrepo_sync {
-  bookmark_update_log_entry="$1"
+  local nth_entry="$1"
+  local source_repo="${2:-${XREPO_SYNC_SOURCE_REPO:-$REPOIDSMALL}}"
+  local actual_id=""
+  # Wait briefly for the entry to exist in the source repo's log
+  for _ in $(seq 1 30); do
+    actual_id=$(sqlite3 "$TESTTMP/monsql/sqlite_dbs" \
+      "SELECT id FROM bookmarks_update_log WHERE repo_id = $source_repo ORDER BY id LIMIT 1 OFFSET $((nth_entry - 1))" \
+      2>/dev/null)
+    [[ -n "$actual_id" ]] && break
+    sleep 0.1
+  done
+  # Fall back to the literal input if the entry isn't in the DB yet
+  : "${actual_id:=$nth_entry}"
+
   local attempts=150
   for _ in $(seq 1 $attempts); do
-    grep -q "successful sync bookmark update log #$bookmark_update_log_entry" "$TESTTMP/xreposync.out" && break
+    grep -q "successful sync bookmark update log #$actual_id" "$TESTTMP/xreposync.out" && return 0
     sleep 0.1
   done
 
-  if ! grep -q "successful sync bookmark update log #$bookmark_update_log_entry" "$TESTTMP/xreposync.out"; then
-    echo "xrepo sync of bookmark update log entry $1 did not finish" >&2
-    cat "$TESTTMP/xreposync.out"
-    exit 1
-  fi
+  echo "xrepo sync of bookmark update log entry $1 did not finish" >&2
+  cat "$TESTTMP/xreposync.out"
+  exit 1
 }
 
 
