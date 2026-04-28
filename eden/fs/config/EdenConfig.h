@@ -2366,6 +2366,38 @@ class EdenConfig : private ConfigSettingManager {
       RelativePath{".edenfs-notifications-state"},
       this};
 
+  // [xplat-logger]
+
+  ConfigSetting<size_t> xplatLoggerQueueLimitBytes{
+      "xplat-logger:queue-limit-bytes",
+      128 * 1024,
+      this};
+
+  ConfigSetting<size_t> xplatLoggerMaxBatchSize{
+      "xplat-logger:max-batch-size",
+      100,
+      this};
+
+  ConfigSetting<size_t> xplatLoggerMaxConsecutiveFailures{
+      "xplat-logger:max-consecutive-failures",
+      3,
+      this};
+
+  ConfigSetting<std::chrono::nanoseconds> xplatLoggerFlushTimeout{
+      "xplat-logger:flush-timeout",
+      std::chrono::seconds(1),
+      this};
+
+  ConfigSetting<std::chrono::nanoseconds> xplatLoggerConnectTimeout{
+      "xplat-logger:connect-timeout",
+      std::chrono::seconds(1),
+      this};
+
+  ConfigSetting<std::chrono::nanoseconds> xplatLoggerRpcTimeout{
+      "xplat-logger:rpc-timeout",
+      std::chrono::seconds(1),
+      this};
+
 // [facebook]
 // Facebook internal
 

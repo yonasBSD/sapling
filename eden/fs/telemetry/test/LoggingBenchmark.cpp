@@ -192,8 +192,8 @@ static void BM_XplatLogger_Enqueue(benchmark::State& state) {
 
   if (state.thread_index() == 0) {
     teardownCount.store(0, std::memory_order_relaxed);
-    ownedLogger =
-        std::make_unique<XplatLogger>(makeIdentity(), makeRefPtr<EdenStats>());
+    ownedLogger = std::make_unique<XplatLogger>(
+        makeIdentity(), makeRefPtr<EdenStats>(), nullptr);
     ownedLogger->registerTransform(
         "perfpipe_edenfs_file_accesses",
         "GeneratedEdenfsFileAccessesLoggerConfig",
@@ -250,8 +250,8 @@ BENCHMARK(BM_ScribeCat_Throughput)->Arg(100)->Arg(1000)->Arg(10000);
 
 static void BM_XplatLogger_Throughput(benchmark::State& state) {
   const auto burstSize = state.range(0);
-  auto logger =
-      std::make_unique<XplatLogger>(makeIdentity(), makeRefPtr<EdenStats>());
+  auto logger = std::make_unique<XplatLogger>(
+      makeIdentity(), makeRefPtr<EdenStats>(), nullptr);
   logger->registerTransform(
       "perfpipe_edenfs_file_accesses",
       "GeneratedEdenfsFileAccessesLoggerConfig",

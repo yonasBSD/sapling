@@ -568,7 +568,8 @@ EdenServer::EdenServer(
 #ifdef EDEN_HAVE_LOGGER
       xplatLogger_{std::make_unique<XplatLogger>(
           EdenTelemetryIdentity::fromSessionInfo(sessionInfo),
-          edenStats.copy())},
+          edenStats.copy(),
+          config_)},
 #endif
       serverState_{make_shared<ServerState>(
           std::move(userInfo),

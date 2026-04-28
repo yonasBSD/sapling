@@ -40,12 +40,17 @@ class SpyStructuredLogger : public StructuredLogger {
   }
 };
 
+std::shared_ptr<ReloadableConfig> makeTestReloadableConfig() {
+  return std::make_shared<ReloadableConfig>(EdenConfig::createTestEdenConfig());
+}
+
 class SpyXplatLogger : public XplatLogger {
  public:
   SpyXplatLogger()
       : XplatLogger(
             EdenTelemetryIdentity{},
-            makeRefPtr<EdenStats>()) {}
+            makeRefPtr<EdenStats>(),
+          makeTestReloadableConfig()) {}
 
   std::atomic<int> callCount{0};
   folly::SaturatingSemaphore<> eventLogged;

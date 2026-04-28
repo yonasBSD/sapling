@@ -56,10 +56,17 @@ cpp_benchmark(
     ),
     deps = [
         "fbsource//third-party/benchmark:benchmark",
-        "//eden/common/telemetry:telemetry",
-        "//eden/common/utils/benchharness:benchharness",
+        "//eden/common/telemetry:log_info",
+        "//eden/common/telemetry:scribe_logger",
+        "//eden/common/utils:ref_ptr",
+        "//eden/fs/telemetry:stats",
+        "//eden/fs/telemetry:xplat_keys",
+        "//eden/fs/telemetry/facebook:XplatTransforms",
+        "//eden/fs/telemetry/facebook:eden_telemetry_identity",
+        "//eden/fs/telemetry/facebook:xplat_logger",
         "//folly/init:init",
-        "//folly/synchronization/test:barrier",
+        "//folly/json:dynamic",
+        "//scribe/api/producer/structured:compact_message",
     ],
 )
 
