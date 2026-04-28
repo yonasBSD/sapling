@@ -68,8 +68,11 @@ def prepareargsenv(runtestsdir, port=None):
     if hgpath is None:
         hgpath = shutil.which("hg.real")
         # Make sure to keep these in sync with targets.bzl
+        # pyrefly: ignore [unsupported-operation]
         env["HGEXECUTABLEPATH"] = hgpath
+        # pyrefly: ignore [unsupported-operation]
         env["HGTEST_HG"] = hgpath
+        # pyrefly: ignore [unsupported-operation]
         env["HG_REAL_BIN"] = hgpath
     args.append("--with-hg=%s" % hgpath)
     if watchman:
@@ -88,7 +91,9 @@ def prepareargsenv(runtestsdir, port=None):
 
     # Variables needed for mononoke integration
     if os.environ.get("USE_MONONOKE"):
+        # pyrefly: ignore [unsupported-operation]
         env["MONONOKE_SERVER"] = mononoke_server
+        # pyrefly: ignore [unsupported-operation]
         env["GET_FREE_SOCKET"] = get_free_socket
 
     return args, env
@@ -105,6 +110,7 @@ def gettestmethod(name, port):
             p = subprocess.Popen(
                 args + [name], env=env, stderr=subprocess.PIPE, stdout=subprocess.PIPE
             )
+            # pyrefly: ignore [bad-argument-type]
             out, err = p.communicate("")
             message = err + out
             returncode = p.returncode
@@ -119,6 +125,7 @@ def gettestmethod(name, port):
                     reason = match.group(1)
                 else:
                     reason = b"skipped by run-tests.py"
+                # pyrefly: ignore [bad-argument-type]
                 raise unittest.SkipTest(reason)
             elif returncode != 0:
                 decoded_message = message.decode("utf-8", errors="surrogateescape")

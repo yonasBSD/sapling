@@ -93,6 +93,7 @@ if os.environ.get("DUMMYSSH_STABLE_ORDER"):
 
     def readstderr():
         while True:
+            # pyrefly: ignore [missing-attribute]
             ch = p.stderr.read(1)
             if not ch:
                 break

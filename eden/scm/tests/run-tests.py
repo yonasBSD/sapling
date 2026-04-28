@@ -188,6 +188,7 @@ if pygmentspresent:
             ],
         }
 
+    # pyrefly: ignore [unbound-name]
     runnerformatter = formatters.Terminal256Formatter(style=TestRunnerStyle)
     runnerlexer = TestRunnerLexer()
 
@@ -250,6 +251,7 @@ def checkportisavailable(port):
         s.close()
         return True
     except socket.error as exc:
+        # pyrefly: ignore [missing-attribute]
         if os.name == "nt" and exc.errno == errno.WSAEACCES:
             return False
         elif exc.errno in (
@@ -287,10 +289,14 @@ def Popen4(cmd, wd, timeout, env=None):
         stderr=subprocess.STDOUT,
     )
 
+    # pyrefly: ignore [missing-attribute]
     p.fromchild = p.stdout
+    # pyrefly: ignore [missing-attribute]
     p.tochild = p.stdin
+    # pyrefly: ignore [missing-attribute]
     p.childerr = p.stderr
 
+    # pyrefly: ignore [missing-attribute]
     p.timeout = False
     if timeout:
         track(p)
@@ -299,6 +305,7 @@ def Popen4(cmd, wd, timeout, env=None):
             start = time.time()
             while time.time() - start < timeout and p.returncode is None:
                 time.sleep(5)
+            # pyrefly: ignore [missing-attribute]
             p.timeout = True
             if p.returncode is None:
                 terminate(p)
@@ -309,6 +316,7 @@ def Popen4(cmd, wd, timeout, env=None):
 
 
 if buckpath:
+    # pyrefly: ignore [missing-attribute]
     PYTHON = buckpath("//eden/scm:hgpython", buckruletype.SH_BINARY)
 else:
     PYTHON = os.environ.get("PYTHON_SYS_EXECUTABLE", sys.executable)
@@ -663,6 +671,7 @@ def getparser():
     reporting.add_argument("--xunit", help="record xunit results at specified path")
 
     for option, (envvar, default) in defaults.items():
+        # pyrefly: ignore [unsupported-operation]
         defaults[option] = type(default)(os.environ.get(envvar, default))
     parser.set_defaults(**defaults)
 
@@ -675,7 +684,9 @@ def parseargs(args, parser):
 
     # Populate default paths inside buck build or test.
     if buckpath is not None:
+        # pyrefly: ignore [missing-attribute]
         options.with_hg = buckpath("//eden/scm:hg", buckruletype.SH_BINARY)
+        # pyrefly: ignore [missing-attribute]
         options.with_watchman = buckpath("//watchman:watchman", buckruletype.CXX_BINARY)
 
     if options.with_hg:
@@ -946,6 +957,7 @@ def highlightdiff(line, color):
     if not color:
         return line
     assert pygmentspresent
+    # pyrefly: ignore [missing-attribute]
     return pygments.highlight(line, difflexer, terminal256formatter).encode("utf-8")
 
 
@@ -953,6 +965,7 @@ def highlightmsg(msg, color):
     if not color:
         return msg
     assert pygmentspresent
+    # pyrefly: ignore [missing-attribute]
     return pygments.highlight(msg, runnerlexer, runnerformatter)
 
 
@@ -1166,7 +1179,9 @@ class Test(unittest.TestCase):
         # check test output against it.
         if self._debug:
             return None  # to match "out is None"
+        # pyrefly: ignore [missing-attribute]
         elif os.path.exists(self.refpath):
+            # pyrefly: ignore [missing-attribute]
             with open(self.refpath, "rb") as f:
                 return f.read().splitlines(True)
         else:
@@ -1174,6 +1189,7 @@ class Test(unittest.TestCase):
 
     # needed to get base class __repr__ running
     @property
+    # pyrefly: ignore [bad-override]
     def _testMethodName(self):
         return self.name
 
@@ -1229,6 +1245,7 @@ class Test(unittest.TestCase):
             self._edenfsdir = Path(self._threadtmp) / f"{shortname}.edenfs"
             self._edenfsmanager = EdenFsManager(self._edenfsdir)
 
+    # pyrefly: ignore [bad-override]
     def run(self, result):
         """Run this test and report results against a TestResult instance."""
         # This function is extremely similar to unittest.TestCase.run(). Once
@@ -1294,6 +1311,7 @@ class Test(unittest.TestCase):
         self._daemonpids.append(env["DAEMON_PIDS"])
         hgrcpath = env["HGRCPATH"].rsplit(os.pathsep, 1)[-1]
         self._createhgrc(hgrcpath)
+        # pyrefly: ignore [missing-attribute]
         if features and not self._options.nofeatures:
             features.setup(self.name.split()[0], hgrcpath)
 
@@ -1380,6 +1398,7 @@ class Test(unittest.TestCase):
                 % (s(self._gethgrcpath()), s(self._gethgrcpath()))
             )
         else:
+            # pyrefly: ignore [no-matching-overload]
             shutil.rmtree(self._testtmp, True)
             shutil.rmtree(self._threadtmp, True)
 
@@ -1388,6 +1407,7 @@ class Test(unittest.TestCase):
                 self._watchmanproc.stop()
                 if self._keeptmpdir:
                     log(
+                        # pyrefly: ignore [missing-attribute]
                         "Keeping watchman dir: %s\n" % self._watchmandir.decode("utf-8")
                     )
                 else:
@@ -1551,10 +1571,14 @@ class Test(unittest.TestCase):
             if userbase:
                 env["PYTHONUSERBASE"] = sysconfig.get_config_var("userbase")
         env["HGEMITWARNINGS"] = "1"
+        # pyrefly: ignore [unsupported-operation]
         env["TESTTMP"] = self._testtmp
         env["TESTFILE"] = self.path
+        # pyrefly: ignore [unsupported-operation]
         env["HOME"] = self._testtmp  # Unix
+        # pyrefly: ignore [unsupported-operation]
         env["USERPROFILE"] = self._testtmp  # Windows
+        # pyrefly: ignore [unsupported-operation]
         env["APPDATA"] = self._testtmp  # Windows
         if self._usechg:
             env["CHGDISABLE"] = "never"
@@ -1581,6 +1605,7 @@ class Test(unittest.TestCase):
 
         # Reset some environment variables to well-known values so that
         # the tests produce repeatable output.
+        # pyrefly: ignore [missing-attribute]
         env["LANG"] = env["LC_ALL"] = env["LANGUAGE"] = self._options.locale
         env["TZ"] = "GMT"
         env["COLUMNS"] = "80"
@@ -1606,6 +1631,7 @@ class Test(unittest.TestCase):
             + " DUMMYSSH_STABLE_ORDER"
         ).split()
 
+        # pyrefly: ignore [missing-attribute]
         if not self._options.getdeps_build:
             # LD_LIBRARY_PATH is usually set by buck sh_binary wrapper to import
             # Python extensions depending on buck runtime shared objects.
@@ -1625,6 +1651,7 @@ class Test(unittest.TestCase):
             if k.startswith("HG_"):
                 del env[k]
 
+        # pyrefly: ignore [unsupported-operation]
         env["CHGSOCKNAME"] = self._chgsockpath
 
         if self._watchman:
@@ -1655,6 +1682,7 @@ class Test(unittest.TestCase):
                 )
                 hgrc.write("[%s]\n%s\n" % (section, key))
 
+    # pyrefly: ignore [bad-override]
     def fail(self, msg):
         # unittest differentiates between errored and failed.
         # Failed is denoted by AssertionError (by default at least).
@@ -1786,6 +1814,7 @@ class PythonTest(Test):
 
     def _run(self, env):
         debugargs = ""
+        # pyrefly: ignore [missing-attribute]
         if self._options.debug:
             try:
                 pass
@@ -1880,6 +1909,7 @@ class TTest(Test):
                     linenum = int(line.split()[1].decode("utf-8")) + 1
                 except Exception:
                     linenum = "?"
+                # pyrefly: ignore [bad-assignment]
                 self.progress = (saltseen[0], saltcount, linenum)
 
         exitcode, output = self._runcommand(cmd, env, linecallback=linecallback)
@@ -1958,6 +1988,7 @@ class TTest(Test):
         salt = b"SALT%d" % time.time()
         saltcount = [0]
 
+        # pyrefly: ignore [missing-attribute]
         record = self._options.record
 
         def addsalt(line, inpython, linecontent):
@@ -2025,36 +2056,48 @@ class TTest(Test):
             if l.startswith(b"#require"):
                 lsplit = _strpath(l).split()
                 if len(lsplit) < 2 or lsplit[0] != "#require":
+                    # pyrefly: ignore [missing-attribute]
                     after.setdefault(pos, []).append("  !!! invalid #require\n")
                 if not skipping:
                     haveresult, message = self._hghave(lsplit[1:])
                     if not haveresult:
                         script = [b'echo "%s"\nexit 80\n' % _bytespath(message)]
                         break
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
             elif l.startswith(b"#chg-"):
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
             elif l.startswith(b"#if"):
                 lsplit = _strpath(l).split()
                 if len(lsplit) < 2 or lsplit[0] != "#if":
+                    # pyrefly: ignore [missing-attribute]
                     after.setdefault(pos, []).append(b"  !!! invalid #if\n")
                 if skipping is not None:
+                    # pyrefly: ignore [missing-attribute]
                     after.setdefault(pos, []).append(b"  !!! nested #if\n")
                 skipping = not self._iftest(lsplit[1:])
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
             elif l.startswith(b"#else"):
                 if skipping is None:
+                    # pyrefly: ignore [missing-attribute]
                     after.setdefault(pos, []).append(b"  !!! missing #if\n")
                 skipping = not skipping
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
             elif l.startswith(b"#endif"):
                 if skipping is None:
+                    # pyrefly: ignore [missing-attribute]
                     after.setdefault(pos, []).append(b"  !!! missing #if\n")
                 skipping = None
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
             elif skipping:
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
             elif l.startswith(b"  >>> "):  # python inlines
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
                 prepos = pos
                 pos = n
@@ -2081,12 +2124,14 @@ class TTest(Test):
                 addsalt(n, True, l)
                 script.append(l[2:])
             elif l.startswith(b"  ... "):  # python inlines
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(prepos, []).append(l)
                 script.append(l[2:])
             elif l.startswith(b"  $ "):  # commands
                 if inpython:
                     script.append(b"EOF\n")
                     inpython = False
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
                 prepos = pos
                 pos = n
@@ -2097,21 +2142,25 @@ class TTest(Test):
                 script.append(b"export TESTLINE=%d\n" % n)
                 script.append(l[4:])
             elif l.startswith(b"  > "):  # continuations
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(prepos, []).append(l)
                 script.append(l[4:])
             elif l.startswith(b"  "):  # results
                 # Queue up a list of expected results.
+                # pyrefly: ignore [missing-attribute]
                 expected.setdefault(pos, []).append(l[2:])
             else:
                 if inpython:
                     script.append(b"EOF\n")
                     inpython = False
                 # Non-command/result. Queue up for merged output.
+                # pyrefly: ignore [missing-attribute]
                 after.setdefault(pos, []).append(l)
 
         if inpython:
             script.append(b"EOF\n")
         if skipping is not None:
+            # pyrefly: ignore [missing-attribute]
             after.setdefault(pos, []).append("  !!! missing #endif\n")
         addsalt(n + 1, False, "EOF")
 
@@ -2155,12 +2204,14 @@ class TTest(Test):
                         els.pop(i)
                         break
                     if is_optional:
+                        # pyrefly: ignore [unsupported-operation]
                         postout.append(b"  " + el)
                         els.pop(i)
                         break
                     i += 1
 
                 if success:
+                    # pyrefly: ignore [unsupported-operation]
                     postout.append(b"  " + el)
                 elif is_optional:
                     continue
@@ -2246,6 +2297,7 @@ class TTest(Test):
             elif c == b"/" and os.altsep:
                 res += b"[/\\\\]"
             else:
+                # pyrefly: ignore [unsupported-operation]
                 res += re.escape(c)
         return TTest.rematch(res, l)
 
@@ -2529,6 +2581,7 @@ class TestResult(unittest.TextTestResult):
         else:  # 'always', for testing purposes
             self.color = pygmentspresent
 
+    # pyrefly: ignore [bad-param-name-override]
     def addFailure(self, test, reason):
         self.failures.append((test, reason))
 
@@ -2756,6 +2809,7 @@ class TestSuite(unittest.TestSuite):
         self._loadtest = loadtest
         self._showchannels = showchannels
 
+    # pyrefly: ignore [bad-override]
     def run(self, result):
         # We have a number of filters that need to be applied. We do this
         # here instead of inside Test because it makes the running logic for
@@ -2767,24 +2821,31 @@ class TestSuite(unittest.TestSuite):
             def get():
                 num_tests[0] += 1
                 if getattr(test, "should_reload", False):
+                    # pyrefly: ignore [not-callable]
                     return self._loadtest(test, num_tests[0])
                 return test
 
+            # pyrefly: ignore [missing-attribute]
             if not os.path.exists(test.path):
                 result.addSkip(test, "Doesn't exist")
                 continue
 
+            # pyrefly: ignore [missing-attribute]
             if not (self._whitelist and test.basename in self._whitelist):
+                # pyrefly: ignore [missing-attribute]
                 if self._blacklist and test.basename in self._blacklist:
                     result.addSkip(test, "blacklisted")
                     continue
 
+                # pyrefly: ignore [missing-attribute]
                 if self._retest and not os.path.exists(test.errpath):
                     result.addIgnore(test, "not retesting")
                     continue
 
                 if self._keywords:
+                    # pyrefly: ignore [missing-attribute]
                     with open(test.path, "r") as f:
+                        # pyrefly: ignore [missing-attribute]
                         t = f.read().lower() + test.basename.lower()
                     ignored = False
                     for k in self._keywords.lower().split():
@@ -2933,6 +2994,7 @@ class TestSuite(unittest.TestSuite):
                     if self._loop:
                         if getattr(test, "should_reload", False):
                             num_tests[0] += 1
+                            # pyrefly: ignore [not-callable]
                             tests.append(self._loadtest(test, num_tests[0]))
                         else:
                             tests.append(test)
@@ -3073,6 +3135,7 @@ class TextTestRunner(unittest.TextTestRunner):
                 for message in messages:
                     # Normalize "test-foo.t (case bar)" to filename "test-foo.t".
                     names = sorted(
+                        # pyrefly: ignore [missing-attribute]
                         {test.name.split()[0] for test, msg in tests if msg == message}
                     )
                     self.stream.write(
@@ -3115,6 +3178,7 @@ class TextTestRunner(unittest.TextTestRunner):
                 "# Ran %d tests, %d skipped, %d failed."
                 % (result.testsRun, skipped + ignored, failed)
             )
+            # pyrefly: ignore [missing-attribute]
             result.testsSkipped = skipped + ignored
             if failed:
                 self.stream.writeln(
@@ -3152,6 +3216,7 @@ class TextTestRunner(unittest.TextTestRunner):
             p = subprocess.Popen(
                 args, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, env=env
             )
+            # pyrefly: ignore [missing-attribute]
             data = p.stdout.read()
             p.wait()
             return data
@@ -3426,6 +3491,7 @@ class TestRunner:
                 statprof.start()
             result = self._run(testdescs)
             if options.profile_runner:
+                # pyrefly: ignore [unbound-name]
                 statprof.stop()
                 statprof.display()
             return result
@@ -3436,6 +3502,7 @@ class TestRunner:
             os.umask(oldmask)
 
     def _run(self, testdescs):
+        # pyrefly: ignore [missing-attribute]
         if self.options.random:
             random.shuffle(testdescs)
         else:
@@ -3486,10 +3553,12 @@ class TestRunner:
             pathname = os.path.dirname(testdescs[0]["path"])
             if pathname:
                 os.environ["TESTDIR"] = os.path.join(os.environ["TESTDIR"], pathname)
+        # pyrefly: ignore [missing-attribute]
         if self.options.outputdir:
             self._outputdir = canonpath(self.options.outputdir)
         else:
             self._outputdir = self._testdir
+            # pyrefly: ignore [unbound-name]
             if testdescs and pathname:
                 self._outputdir = os.path.join(self._outputdir, pathname)
 
@@ -3498,12 +3567,17 @@ class TestRunner:
             # we do the randomness ourself to know what seed is used
             os.environ["PYTHONHASHSEED"] = str(random.getrandbits(32))
 
+        # pyrefly: ignore [missing-attribute]
         if self.options.record:
+            # pyrefly: ignore [missing-attribute]
             self.options.keep_tmpdir = True
 
+        # pyrefly: ignore [missing-attribute]
         if self.options.tmpdir:
+            # pyrefly: ignore [missing-attribute]
             self.options.keep_tmpdir = True
             tmpdir = self.options.tmpdir
+            # pyrefly: ignore [bad-argument-type]
             if os.path.exists(tmpdir):
                 # Meaning of tmpdir has changed since 1.3: we used to create
                 # HGTMP inside tmpdir; now HGTMP is tmpdir.  So fail if
@@ -3516,6 +3590,7 @@ class TestRunner:
                 # or "--tmpdir=$HOME".
                 # vlog("# Removing temp dir", tmpdir)
                 # shutil.rmtree(tmpdir)
+            # pyrefly: ignore [bad-argument-type]
             os.makedirs(tmpdir)
         else:
             d = None
@@ -3525,15 +3600,19 @@ class TestRunner:
                 d = os.environ.get("TMP", None)
             tmpdir = tempfile.mkdtemp("", "hgtests.", d)
 
+        # pyrefly: ignore [no-matching-overload]
         hgtmp = os.path.realpath(tmpdir)
         self._hgtmp = hgtmp
         os.environ["HGTMP"] = hgtmp
 
+        # pyrefly: ignore [missing-attribute]
         if self.options.with_hg:
             self._installdir = None
             whg = self.options.with_hg
+            # pyrefly: ignore [no-matching-overload]
             self._bindir = os.path.dirname(os.path.realpath(whg))
             # use full path, since _hgcommand will also be used as ui.remotecmd
+            # pyrefly: ignore [no-matching-overload]
             self._hgcommand = os.path.realpath(whg)
             self._tmpbindir = os.path.join(self._hgtmp, "install", "bin")
             os.makedirs(self._tmpbindir)
@@ -3551,7 +3630,9 @@ class TestRunner:
             self._tmpbindir = self._bindir
             self._pythondir = os.path.join(self._installdir, "lib", "python")
 
+        # pyrefly: ignore [missing-attribute]
         if self.options.with_watchman or self.options.watchman:
+            # pyrefly: ignore [missing-attribute]
             self._watchman = self.options.with_watchman or "watchman"
             os.environ["HGFSMONITOR_TESTS"] = "1"
         else:
@@ -3598,6 +3679,7 @@ class TestRunner:
             pypath.append(oldpypath)
         os.environ[IMPL_PATH] = os.pathsep.join(pypath)
 
+        # pyrefly: ignore [missing-attribute]
         if self.options.allow_slow_tests:
             os.environ["HGTEST_SLOW"] = "slow"
         elif "HGTEST_SLOW" in os.environ:
@@ -3605,6 +3687,7 @@ class TestRunner:
 
         self._coveragefile = os.path.join(self._testdir, ".coverage")
 
+        # pyrefly: ignore [missing-attribute]
         if self.options.exceptions:
             exceptionsdir = os.path.join(self._outputdir, "exceptions")
             try:
@@ -3619,7 +3702,9 @@ class TestRunner:
 
             os.environ["HGEXCEPTIONSDIR"] = exceptionsdir
             logexceptions = os.path.join(self._testdir, "logexceptions.py")
+            # pyrefly: ignore [missing-attribute]
             self.options.extra_config_opt.append(
+                # pyrefly: ignore [missing-attribute]
                 "extensions.logexceptions=%s" % logexceptions.decode("utf-8")
             )
 
@@ -3634,12 +3719,14 @@ class TestRunner:
             vlog("# Using watchman", self._watchman)
         vlog("# Writing to directory", self._outputdir)
 
+        # pyrefly: ignore [missing-attribute]
         if not self.options.chg_sock_path:
             # When running many tests. Attempt to use a shared chg server for
             # all tests to reduce chg server start overhead from O(tests) to
             # O(1).
             # `chgsockpath` is inside HGTMP, and will be cleaned up by
             # self._cleanup().
+            # pyrefly: ignore [missing-attribute]
             self.options.chg_sock_path = os.path.join(self._hgtmp, "chgserver")
 
         try:
@@ -3665,6 +3752,7 @@ class TestRunner:
                 return path
 
         if not args:
+            # pyrefly: ignore [missing-attribute]
             if self.options.changed:
                 proc = Popen4(
                     'hg st --rev "%s" -man0 .' % self.options.changed, None, 0
@@ -3722,6 +3810,7 @@ class TestRunner:
         allskipped = False
         errored = False
         try:
+            # pyrefly: ignore [missing-attribute]
             if self.options.restart:
                 orig = list(testdescs)
                 while testdescs:
@@ -3731,6 +3820,7 @@ class TestRunner:
                         errpath = "%s.%s.err" % (desc["path"], desc["case"])
                     else:
                         errpath = "%s.err" % desc["path"]
+                    # pyrefly: ignore [no-matching-overload]
                     errpath = os.path.join(self._outputdir, errpath)
                     if os.path.exists(errpath):
                         break
@@ -3741,36 +3831,50 @@ class TestRunner:
 
             tests = [self._gettest(d, i) for i, d in enumerate(testdescs)]
 
+            # pyrefly: ignore [missing-attribute]
             kws = self.options.keywords
 
+            # pyrefly: ignore [missing-attribute]
             vlog("# Running TestSuite with %d jobs" % self.options.jobs)
+            # pyrefly: ignore [missing-attribute]
             retry = self.options.retry or 0
             attempt = 0
+            # pyrefly: ignore [missing-attribute]
             retest = self.options.retest
             while True:
                 suite = TestSuite(
                     self._testdir,
+                    # pyrefly: ignore [missing-attribute]
                     jobs=self.options.jobs,
+                    # pyrefly: ignore [missing-attribute]
                     whitelist=self.options.whitelisted,
+                    # pyrefly: ignore [missing-attribute]
                     blacklist=self.options.blacklist,
                     retest=retest,
                     keywords=kws,
+                    # pyrefly: ignore [missing-attribute]
                     loop=self.options.loop,
+                    # pyrefly: ignore [missing-attribute]
                     runs_per_test=self.options.runs_per_test,
+                    # pyrefly: ignore [missing-attribute]
                     showchannels=self.options.showchannels,
                     tests=tests,
                     loadtest=_reloadtest,
                 )
                 verbosity = 1
+                # pyrefly: ignore [missing-attribute]
                 if self.options.verbose:
                     verbosity = 2
 
+                # pyrefly: ignore [missing-attribute]
                 if self.options.testpilot:
                     runner = TestpilotTestRunner(self)
                 else:
                     runner = TextTestRunner(self, verbosity=verbosity)
 
+                # pyrefly: ignore [missing-attribute]
                 if self.options.list_tests:
+                    # pyrefly: ignore [missing-attribute]
                     result = runner.listtests(suite)
                 else:
                     if self._installdir:
@@ -3800,6 +3904,7 @@ class TestRunner:
 
                 break
 
+            # pyrefly: ignore [missing-attribute]
             if self.options.anycoverage:
                 self._outputcoverage()
         except KeyboardInterrupt:
@@ -3820,6 +3925,7 @@ class TestRunner:
             # above 100 tries we just give up and let test reports failure
             for tries in range(100):
                 allfree = True
+                # pyrefly: ignore [missing-attribute]
                 port = self.options.port + self._portoffset
                 for idx in range(portneeded):
                     if not checkportisavailable(port + idx):
@@ -3849,7 +3955,9 @@ class TestRunner:
                     testcls = cls
                     break
 
+        # pyrefly: ignore [no-matching-overload]
         refpath = os.path.join(self._testdir, path)
+        # pyrefly: ignore [no-matching-overload]
         tmpdir = os.path.join(self._hgtmp, "child%d" % count)
 
         # extra keyword parameters. 'case' is used by .t tests
@@ -3859,31 +3967,43 @@ class TestRunner:
             refpath,
             self._outputdir,
             tmpdir,
+            # pyrefly: ignore [missing-attribute]
             keeptmpdir=self.options.keep_tmpdir,
+            # pyrefly: ignore [missing-attribute]
             debug=self.options.debug,
+            # pyrefly: ignore [missing-attribute]
             first=self.options.first,
+            # pyrefly: ignore [missing-attribute]
             timeout=self.options.timeout,
             startport=self._getport(count),
+            # pyrefly: ignore [missing-attribute]
             extraconfigopts=self.options.extra_config_opt,
+            # pyrefly: ignore [missing-attribute]
             extrarcpaths=self.options.extra_rcpath,
+            # pyrefly: ignore [missing-attribute]
             shell=self.options.shell,
             hgcommand=self._hgcommand,
+            # pyrefly: ignore [missing-attribute]
             usechg=self.options.chg,
+            # pyrefly: ignore [missing-attribute]
             chgsockpath=self.options.chg_sock_path,
             useipv6=useipv6,
             watchman=self._watchman,
             options=self.options,
             **kwds,
         )
+        # pyrefly: ignore [missing-attribute]
         t.should_reload = True
         return t
 
     def _cleanup(self):
         """Clean up state from this test invocation."""
+        # pyrefly: ignore [missing-attribute]
         if self.options.keep_tmpdir:
             return
 
         vlog("# Cleaning up HGTMP", self._hgtmp)
+        # pyrefly: ignore [no-matching-overload]
         shutil.rmtree(self._hgtmp, True)
         for f in self._createdfiles:
             try:
@@ -3928,6 +4048,7 @@ class TestRunner:
 
     def _usecorrecthg(self):
         """Configure the environment to use the appropriate hg in tests."""
+        # pyrefly: ignore [no-matching-overload]
         if os.path.basename(self._hgcommand) in ("hg", "hg.exe"):
             # No correction is needed
             return
@@ -3936,6 +4057,7 @@ class TestRunner:
             vlog("# Symlink %s to %s" % (self._hgcommand, tmphgpath))
 
             try:
+                # pyrefly: ignore [bad-argument-type]
                 os.symlink(self._hgcommand, tmphgpath)
                 self._createdfiles.append(tmphgpath)
             except OSError as err:
@@ -3951,9 +4073,12 @@ class TestRunner:
         This will also configure hg with the appropriate testing settings.
         """
         vlog("# Performing temporary installation of HG")
+        # pyrefly: ignore [no-matching-overload]
         installerrs = os.path.join(self._hgtmp, "install.err")
         compiler = ""
+        # pyrefly: ignore [missing-attribute]
         if self.options.compiler:
+            # pyrefly: ignore [unsupported-operation]
             compiler = "--compiler " + self.options.compiler
 
         # Run installer in hg root
@@ -3978,6 +4103,7 @@ class TestRunner:
             % {
                 b"exe": exe,
                 b"compiler": compiler,
+                # pyrefly: ignore [no-matching-overload]
                 b"base": os.path.join(self._hgtmp, b"build"),
                 b"prefix": self._installdir,
                 b"libdir": self._pythondir,
@@ -4000,6 +4126,7 @@ class TestRunner:
 
         vlog("# Running", cmd)
         if os.system(cmd) == 0:
+            # pyrefly: ignore [missing-attribute]
             if not self.options.verbose:
                 try:
                     os.remove(installerrs)
@@ -4011,10 +4138,12 @@ class TestRunner:
                 for line in f:
                     sys.stdout.buffer.write(line)
             sys.exit(1)
+        # pyrefly: ignore [bad-argument-type]
         os.chdir(self._testdir)
 
         self._usecorrectpython()
 
+        # pyrefly: ignore [no-matching-overload]
         hgbat = os.path.join(self._bindir, "hg.bat")
         if os.path.isfile(hgbat):
             # hg.bat expects to be put in bin/scripts while run-tests.py
@@ -4030,14 +4159,19 @@ class TestRunner:
             else:
                 print("WARNING: cannot fix hg.bat reference to python.exe")
 
+        # pyrefly: ignore [missing-attribute]
         if self.options.anycoverage:
+            # pyrefly: ignore [no-matching-overload]
             custom = os.path.join(self._testdir, "sitecustomize.py")
+            # pyrefly: ignore [no-matching-overload]
             target = os.path.join(self._pythondir, "sitecustomize.py")
             vlog("# Installing coverage trigger to %s" % target)
             shutil.copyfile(custom, target)
+            # pyrefly: ignore [no-matching-overload]
             rc = os.path.join(self._testdir, ".coveragerc")
             vlog("# Installing coverage rc to %s" % rc)
             os.environ["COVERAGE_PROCESS_START"] = rc
+            # pyrefly: ignore [no-matching-overload]
             covdir = os.path.join(self._installdir, "..", "coverage")
             try:
                 os.mkdir(covdir)
@@ -4054,6 +4188,7 @@ class TestRunner:
             # The pythondir has been inferred from --with-hg flag.
             # We cannot expect anything sensible here.
             return
+        # pyrefly: ignore [no-matching-overload]
         expecthg = os.path.join(self._pythondir, "sapling")
         actualhg = self._gethgpath()
         if os.path.abspath(actualhg) != os.path.abspath(expecthg):
@@ -4080,6 +4215,7 @@ class TestRunner:
 
     def _outputcoverage(self):
         """Produce code coverage output."""
+        # pyrefly: ignore [missing-import]
         import coverage
 
         coverage = coverage.coverage
@@ -4087,7 +4223,9 @@ class TestRunner:
         vlog("# Producing coverage report")
         # chdir is the easiest way to get short, relative paths in the
         # output.
+        # pyrefly: ignore [bad-argument-type]
         os.chdir(self._hgroot)
+        # pyrefly: ignore [no-matching-overload]
         covdir = os.path.join(self._installdir, "..", "coverage")
         cov = coverage(data_file=os.path.join(covdir, "cov"))
 
@@ -4096,13 +4234,18 @@ class TestRunner:
 
         cov.combine()
 
+        # pyrefly: ignore [no-matching-overload]
         omit = [os.path.join(x, "*") for x in [self._bindir, self._testdir]]
         cov.report(ignore_errors=True, omit=omit)
 
+        # pyrefly: ignore [missing-attribute]
         if self.options.htmlcov:
+            # pyrefly: ignore [no-matching-overload]
             htmldir = os.path.join(self._outputdir, "htmlcov")
             cov.html_report(directory=htmldir, omit=omit)
+        # pyrefly: ignore [missing-attribute]
         if self.options.annotate:
+            # pyrefly: ignore [no-matching-overload]
             adir = os.path.join(self._outputdir, "annotated")
             if not os.path.isdir(adir):
                 os.mkdir(adir)
