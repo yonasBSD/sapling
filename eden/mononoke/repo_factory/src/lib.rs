@@ -1016,50 +1016,34 @@ impl RepoFactory {
         repo_identity: &ArcRepoIdentity,
         repo_event_publisher: &ArcRepoEventPublisher,
     ) -> Result<ArcBonsaiTagMapping> {
-        tracing::debug!(repo = %repo_identity.name(), "Facet bonsai_tag_mapping: started");
-        let result: Result<ArcBonsaiTagMapping> = async {
-            let bonsai_tag_mapping = self
-                .open_sql::<SqlBonsaiTagMappingBuilder>(repo_config)
-                .await
-                .context(RepoFactoryError::BonsaiTagMapping)?
-                .build(repo_identity.id(), self.env.rendezvous_options);
-            let repo_name = repo_identity.name();
-            if justknobs::eval(
-                "scm/mononoke:enable_bonsai_tag_mapping_caching",
-                None,
-                Some(repo_name),
-            )? {
-                match repo_event_publisher.subscribe_for_tag_updates(&repo_name.to_string()) {
-                    Ok(update_notification_receiver) => {
-                        let cached_bonsai_tag_mapping = CachedBonsaiTagMapping::new(
-                            &self.ctx(),
-                            Arc::new(bonsai_tag_mapping),
-                            update_notification_receiver,
-                        )
-                        .await?;
-                        Ok(Arc::new(cached_bonsai_tag_mapping) as ArcBonsaiTagMapping)
-                    }
-                    // The scribe configuration does not exist for tag updates for this repo, so use the non-cached
-                    // version of bonsai_tag_mapping
-                    Err(_) => Ok(Arc::new(bonsai_tag_mapping) as ArcBonsaiTagMapping),
+        let bonsai_tag_mapping = self
+            .open_sql::<SqlBonsaiTagMappingBuilder>(repo_config)
+            .await
+            .context(RepoFactoryError::BonsaiTagMapping)?
+            .build(repo_identity.id(), self.env.rendezvous_options);
+        let repo_name = repo_identity.name();
+        if justknobs::eval(
+            "scm/mononoke:enable_bonsai_tag_mapping_caching",
+            None,
+            Some(repo_name),
+        )? {
+            match repo_event_publisher.subscribe_for_tag_updates(&repo_name.to_string()) {
+                Ok(update_notification_receiver) => {
+                    let cached_bonsai_tag_mapping = CachedBonsaiTagMapping::new(
+                        &self.ctx(),
+                        Arc::new(bonsai_tag_mapping),
+                        update_notification_receiver,
+                    )
+                    .await?;
+                    Ok(Arc::new(cached_bonsai_tag_mapping))
                 }
-            } else {
-                Ok(Arc::new(bonsai_tag_mapping) as ArcBonsaiTagMapping)
+                // The scribe configuration does not exist for tag updates for this repo, so use the non-cached
+                // version of bonsai_tag_mapping
+                Err(_) => Ok(Arc::new(bonsai_tag_mapping)),
             }
+        } else {
+            Ok(Arc::new(bonsai_tag_mapping))
         }
-        .await;
-        match &result {
-            Ok(_) => tracing::debug!(
-                repo = %repo_identity.name(),
-                "Facet bonsai_tag_mapping: completed"
-            ),
-            Err(e) => tracing::error!(
-                repo = %repo_identity.name(),
-                error = %e,
-                "Facet bonsai_tag_mapping: failed"
-            ),
-        }
-        result
     }
 
     pub async fn git_ref_content_mapping(
@@ -1068,40 +1052,26 @@ impl RepoFactory {
         repo_identity: &ArcRepoIdentity,
         repo_event_publisher: &ArcRepoEventPublisher,
     ) -> Result<ArcGitRefContentMapping> {
-        tracing::debug!(repo = %repo_identity.name(), "Facet git_ref_content_mapping: started");
-        let result: Result<ArcGitRefContentMapping> = async {
-            let git_ref_content_mapping = self
-                .open_sql::<SqlGitRefContentMappingBuilder>(repo_config)
-                .await
-                .context(RepoFactoryError::GitRefContentMapping)?
-                .build(repo_identity.id());
-            let repo_name = repo_identity.name();
-            match repo_event_publisher.subscribe_for_content_refs_updates(&repo_name.to_string()) {
-                Ok(update_notification_receiver) => {
-                    let cached_git_ref_content_mapping = CachedGitRefContentMapping::new(
-                        &self.ctx(),
-                        Arc::new(git_ref_content_mapping),
-                        update_notification_receiver,
-                    )
-                    .await?;
-                    Ok(Arc::new(cached_git_ref_content_mapping) as ArcGitRefContentMapping)
-                }
-                Err(_) => Ok(Arc::new(git_ref_content_mapping) as ArcGitRefContentMapping),
+        let git_ref_content_mapping = self
+            .open_sql::<SqlGitRefContentMappingBuilder>(repo_config)
+            .await
+            .context(RepoFactoryError::GitRefContentMapping)?
+            .build(repo_identity.id());
+        let repo_name = repo_identity.name();
+        match repo_event_publisher.subscribe_for_content_refs_updates(&repo_name.to_string()) {
+            Ok(update_notification_receiver) => {
+                let cached_git_ref_content_mapping = CachedGitRefContentMapping::new(
+                    &self.ctx(),
+                    Arc::new(git_ref_content_mapping),
+                    update_notification_receiver,
+                )
+                .await?;
+                Ok(Arc::new(cached_git_ref_content_mapping))
             }
+            // The scribe configuration does not exist for content ref updates for this repo, so use the non-cached
+            // version of git_ref_content_mapping
+            Err(_) => Ok(Arc::new(git_ref_content_mapping)),
         }
-        .await;
-        match &result {
-            Ok(_) => tracing::debug!(
-                repo = %repo_identity.name(),
-                "Facet git_ref_content_mapping: completed"
-            ),
-            Err(e) => tracing::error!(
-                repo = %repo_identity.name(),
-                error = %e,
-                "Facet git_ref_content_mapping: failed"
-            ),
-        }
-        result
     }
 
     pub async fn git_bundle_uri(
@@ -1615,82 +1585,69 @@ impl RepoFactory {
         commit_rate_limit: &ArcCommitRateLimit,
     ) -> Result<ArcHookManager> {
         let name = repo_identity.name();
-        tracing::debug!(repo = %name, "Facet hook_manager: started");
 
-        let result: Result<ArcHookManager> = async {
-            let disabled_hooks = self
-                .env
-                .disabled_hooks
-                .get(name)
-                .cloned()
-                .unwrap_or_default();
+        let disabled_hooks = self
+            .env
+            .disabled_hooks
+            .get(name)
+            .cloned()
+            .unwrap_or_default();
 
-            let hooks_scuba_local_path = repo_config.scuba_local_path_hooks.clone();
+        let hooks_scuba_local_path = repo_config.scuba_local_path_hooks.clone();
 
-            let mut hooks_scuba = MononokeScubaSampleBuilder::with_opt_table(
+        let mut hooks_scuba = MononokeScubaSampleBuilder::with_opt_table(
+            self.env.fb,
+            repo_config.scuba_table_hooks.clone(),
+        )?;
+
+        hooks_scuba.add("repo", name);
+
+        if let Some(hooks_scuba_local_path) = hooks_scuba_local_path {
+            hooks_scuba = hooks_scuba.with_log_file(hooks_scuba_local_path)?;
+        }
+
+        let hook_manager = async {
+            let hook_repo = HookRepo {
+                repo_identity: repo_identity.clone(),
+                repo_config: repo_config.clone(),
+                repo_blobstore: repo_blobstore.clone(),
+                repo_derived_data: repo_derived_data.clone(),
+                bookmarks: bookmarks.clone(),
+                bonsai_tag_mapping: bonsai_tag_mapping.clone(),
+                bonsai_git_mapping: bonsai_git_mapping.clone(),
+                repo_cross_repo: repo_cross_repo.clone(),
+                commit_graph: commit_graph.clone(),
+                restricted_paths: restricted_paths.clone(),
+                commit_rate_limit: commit_rate_limit.clone(),
+            };
+
+            let mut hook_manager = HookManager::new(
                 self.env.fb,
-                repo_config.scuba_table_hooks.clone(),
-            )?;
+                self.env.acl_provider.as_ref(),
+                hook_repo,
+                repo_config.hook_manager_params.clone().unwrap_or_default(),
+                permission_checker.clone(),
+                hooks_scuba,
+                name.to_string(),
+            )
+            .await?;
 
-            hooks_scuba.add("repo", name);
+            load_hooks(
+                self.env.fb,
+                self.env.acl_provider.clone(),
+                &mut hook_manager,
+                repo_config,
+                &disabled_hooks,
+            )
+            .await?;
 
-            if let Some(hooks_scuba_local_path) = hooks_scuba_local_path {
-                hooks_scuba = hooks_scuba.with_log_file(hooks_scuba_local_path)?;
-            }
-
-            let hook_manager = async {
-                let hook_repo = HookRepo {
-                    repo_identity: repo_identity.clone(),
-                    repo_config: repo_config.clone(),
-                    repo_blobstore: repo_blobstore.clone(),
-                    repo_derived_data: repo_derived_data.clone(),
-                    bookmarks: bookmarks.clone(),
-                    bonsai_tag_mapping: bonsai_tag_mapping.clone(),
-                    bonsai_git_mapping: bonsai_git_mapping.clone(),
-                    repo_cross_repo: repo_cross_repo.clone(),
-                    commit_graph: commit_graph.clone(),
-                    restricted_paths: restricted_paths.clone(),
-                    commit_rate_limit: commit_rate_limit.clone(),
-                };
-
-                let mut hook_manager = HookManager::new(
-                    self.env.fb,
-                    self.env.acl_provider.as_ref(),
-                    hook_repo,
-                    repo_config.hook_manager_params.clone().unwrap_or_default(),
-                    permission_checker.clone(),
-                    hooks_scuba,
-                    name.to_string(),
-                )
-                .await?;
-
-                load_hooks(
-                    self.env.fb,
-                    self.env.acl_provider.clone(),
-                    &mut hook_manager,
-                    repo_config,
-                    &disabled_hooks,
-                )
-                .await?;
-
-                <Result<_, anyhow::Error>>::Ok(hook_manager)
-            }
-            .watched()
-            .await
-            .context(RepoFactoryError::HookManager)?;
-
-            Ok(Arc::new(hook_manager) as ArcHookManager)
+            <Result<_, anyhow::Error>>::Ok(hook_manager)
         }
-        .await;
-        match &result {
-            Ok(_) => tracing::debug!(repo = %name, "Facet hook_manager: completed"),
-            Err(e) => tracing::error!(
-                repo = %name,
-                error = %e,
-                "Facet hook_manager: failed"
-            ),
-        }
-        result
+        .watched()
+        .await
+        .context(RepoFactoryError::HookManager)?;
+
+        Ok(Arc::new(hook_manager))
     }
 
     pub async fn sparse_profiles(
@@ -2019,67 +1976,49 @@ impl RepoFactory {
         repo_identity: &ArcRepoIdentity,
         repo_config: &ArcRepoConfig,
     ) -> Result<ArcCommitGraph> {
-        tracing::debug!(repo = %repo_identity.name(), "Facet commit_graph: started");
-        let result: Result<ArcCommitGraph> = async {
-            let sql_storage = self
-                .open_sql::<SqlCommitGraphStorageBuilder>(repo_config)
-                .await?
-                .build(self.env.rendezvous_options, repo_identity.clone());
+        let sql_storage = self
+            .open_sql::<SqlCommitGraphStorageBuilder>(repo_config)
+            .await?
+            .build(self.env.rendezvous_options, repo_identity.clone());
 
-            let maybe_cached_storage: Arc<dyn CommitGraphStorage> =
-                if let Some(cache_handler_factory) = self.cache_handler_factory("commit_graph")? {
-                    Arc::new(CachingCommitGraphStorage::new(
-                        Arc::new(sql_storage),
-                        cache_handler_factory,
-                    ))
-                } else {
-                    Arc::new(sql_storage)
-                };
+        let maybe_cached_storage: Arc<dyn CommitGraphStorage> =
+            if let Some(cache_handler_factory) = self.cache_handler_factory("commit_graph")? {
+                Arc::new(CachingCommitGraphStorage::new(
+                    Arc::new(sql_storage),
+                    cache_handler_factory,
+                ))
+            } else {
+                Arc::new(sql_storage)
+            };
 
-            match &repo_config
-                .commit_graph_config
-                .preloaded_commit_graph_blobstore_key
+        match &repo_config
+            .commit_graph_config
+            .preloaded_commit_graph_blobstore_key
+        {
+            Some(preloaded_commit_graph_key)
+                if !self.env.commit_graph_options.skip_preloading_commit_graph =>
             {
-                Some(preloaded_commit_graph_key)
-                    if !self.env.commit_graph_options.skip_preloading_commit_graph =>
-                {
-                    let blobstore_without_cache = self
-                        .mutable_repo_blobstore_from_blobstore(
-                            repo_identity,
-                            &self
-                                .blobstore_no_cache(&repo_config.storage_config.mutable_blobstore)
-                                .await?,
-                        )
-                        .await?;
+                let blobstore_without_cache = self
+                    .mutable_repo_blobstore_from_blobstore(
+                        repo_identity,
+                        &self
+                            .blobstore_no_cache(&repo_config.storage_config.mutable_blobstore)
+                            .await?,
+                    )
+                    .await?;
 
-                    let preloaded_commit_graph_storage =
-                        PreloadedCommitGraphStorage::from_blobstore(
-                            &self.ctx(),
-                            Arc::new(blobstore_without_cache),
-                            preloaded_commit_graph_key.clone(),
-                            maybe_cached_storage,
-                        )
-                        .await?;
+                let preloaded_commit_graph_storage = PreloadedCommitGraphStorage::from_blobstore(
+                    &self.ctx(),
+                    Arc::new(blobstore_without_cache),
+                    preloaded_commit_graph_key.clone(),
+                    maybe_cached_storage,
+                )
+                .await?;
 
-                    Ok(Arc::new(CommitGraph::new(preloaded_commit_graph_storage))
-                        as ArcCommitGraph)
-                }
-                _ => Ok(Arc::new(CommitGraph::new(maybe_cached_storage)) as ArcCommitGraph),
+                Ok(Arc::new(CommitGraph::new(preloaded_commit_graph_storage)))
             }
+            _ => Ok(Arc::new(CommitGraph::new(maybe_cached_storage))),
         }
-        .await;
-        match &result {
-            Ok(_) => tracing::debug!(
-                repo = %repo_identity.name(),
-                "Facet commit_graph: completed"
-            ),
-            Err(e) => tracing::error!(
-                repo = %repo_identity.name(),
-                error = %e,
-                "Facet commit_graph: failed"
-            ),
-        }
-        result
     }
 
     pub async fn cgdm_changeset_divider(
@@ -2087,43 +2026,27 @@ impl RepoFactory {
         repo_identity: &ArcRepoIdentity,
         repo_config: &ArcRepoConfig,
     ) -> Result<ArcCgdmChangesetDivider> {
-        tracing::debug!(repo = %repo_identity.name(), "Facet cgdm_changeset_divider: started");
-        let result: Result<ArcCgdmChangesetDivider> = async {
-            match &repo_config.git_configs.preloaded_cgdm_blobstore_key {
-                Some(preloaded_cgdm_key) => {
-                    let blobstore_without_cache = self
-                        .mutable_repo_blobstore_from_blobstore(
-                            repo_identity,
-                            &self
-                                .blobstore_no_cache(&repo_config.storage_config.blobstore)
-                                .await?,
-                        )
-                        .await?;
-                    Ok(Arc::new(
-                        CGDMComponentsReloader::from_blobstore(
-                            &self.ctx(),
-                            Arc::new(blobstore_without_cache),
-                            preloaded_cgdm_key.to_string(),
-                        )
-                        .await?,
-                    ) as ArcCgdmChangesetDivider)
-                }
-                None => Ok(Arc::new(DummyCgdmChangesetDivider) as ArcCgdmChangesetDivider),
+        match &repo_config.git_configs.preloaded_cgdm_blobstore_key {
+            Some(preloaded_cgdm_key) => {
+                let blobstore_without_cache = self
+                    .mutable_repo_blobstore_from_blobstore(
+                        repo_identity,
+                        &self
+                            .blobstore_no_cache(&repo_config.storage_config.blobstore)
+                            .await?,
+                    )
+                    .await?;
+                Ok(Arc::new(
+                    CGDMComponentsReloader::from_blobstore(
+                        &self.ctx(),
+                        Arc::new(blobstore_without_cache),
+                        preloaded_cgdm_key.to_string(),
+                    )
+                    .await?,
+                ))
             }
+            None => Ok(Arc::new(DummyCgdmChangesetDivider)),
         }
-        .await;
-        match &result {
-            Ok(_) => tracing::debug!(
-                repo = %repo_identity.name(),
-                "Facet cgdm_changeset_divider: completed"
-            ),
-            Err(e) => tracing::error!(
-                repo = %repo_identity.name(),
-                error = %e,
-                "Facet cgdm_changeset_divider: failed"
-            ),
-        }
-        result
     }
 
     pub async fn commit_graph_writer(

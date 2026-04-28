@@ -648,10 +648,6 @@ impl WarmBookmarksCache {
             .create_subscription(ctx, Freshness::MaybeStale)
             .await
             .context("Error creating bookmarks subscription")?;
-        tracing::debug!(
-            repo = %repo_identity.name(),
-            "WBC: bookmarks subscription created successfully"
-        );
 
         let bookmarks_to_watch = init_bookmarks(
             ctx,
@@ -680,11 +676,6 @@ impl WarmBookmarksCache {
             receiver,
             notify_sync_start.clone(),
             notify_sync_complete.clone(),
-        );
-
-        tracing::debug!(
-            repo = %repo_identity.name(),
-            "WBC: Bookmarks Coordinator Spawned"
         );
 
         Ok(Self {
