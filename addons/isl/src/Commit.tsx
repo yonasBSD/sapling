@@ -1043,13 +1043,14 @@ async function maybeWarnAboutRebaseOffWarm(
       return WarningCheckResult.BYPASS;
     }
     if (showRebaseOntoWarm && answer?.action === rebaseOntoWarmLabel) {
-      runOperation(
+      // Awaited so the follow-up goto resolves against the post-rebase dag.
+      await runOperation(
         new RebaseOperation(
           succeedableRevset(stackRootHash ?? dest.hash),
           succeedableRevset(src.hash),
         ),
       );
-      return WarningCheckResult.FAIL;
+      return WarningCheckResult.PASS;
     }
     return WarningCheckResult.FAIL;
   }
