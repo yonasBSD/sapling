@@ -197,6 +197,27 @@ impl From<RequestStatus> for Value {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RequestId(pub RowId, pub RequestType);
 
+/// A row returned by `list_recent_backfills_with_repo_count`.
+///
+/// Includes both the root request's own status and aggregated per-status
+/// counts of its children, so callers can render a user-facing aggregate
+/// status without a follow-up query (the root reaches `Ready` once it
+/// finishes spawning children, even though the children may still be
+/// running).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecentBackfillEntry {
+    pub id: RowId,
+    pub created_at: Timestamp,
+    pub root_status: RequestStatus,
+    pub repo_count: i64,
+    pub created_by: Option<String>,
+    pub args_blobstore_key: BlobstoreKey,
+    pub child_new_count: i64,
+    pub child_inprogress_count: i64,
+    pub child_ready_count: i64,
+    pub child_failed_count: i64,
+}
+
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct QueueStatsEntry {
     pub repo_id: Option<RepositoryId>,

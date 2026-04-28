@@ -10,27 +10,39 @@ mod types;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::bail;
+use async_requests::types::AsynchronousRequestParams;
+use async_requests::types::ThriftAsynchronousRequestParams;
+use blobstore::Blobstore;
 use clap::Args;
 use context::CoreContext;
+use futures::stream;
+use futures::stream::StreamExt;
 use mononoke_types::RepositoryId;
 use mononoke_types::Timestamp;
+use requests_table::BlobstoreKey;
 use requests_table::LongRunningRequestsQueue;
 use requests_table::RequestStatus;
 use requests_table::RowId;
 use requests_table::SqlLongRunningRequestsQueue;
 
+use self::display::BackfillListRow;
 use self::display::display_backfill_list;
 use self::display::display_multi_repo_summary;
 use self::display::display_repo_detail;
 use self::display::display_single_repo_detail;
 use self::types::BackfillDisplayData;
+use self::types::ChildCounts;
 use self::types::RepoDisplayData;
 use self::types::RepoStatus;
+
+/// How many backfills to load params for in parallel for the list view.
+const PARAMS_LOAD_CONCURRENCY: usize = 16;
 
 #[derive(Args)]
 pub(super) struct BackfillStatusArgs {
@@ -51,12 +63,14 @@ pub(super) struct BackfillStatusArgs {
 pub(super) async fn backfill_status(
     ctx: &CoreContext,
     queue: SqlLongRunningRequestsQueue,
+    blobstore: Arc<dyn Blobstore>,
+    repo_names: HashMap<RepositoryId, String>,
     args: BackfillStatusArgs,
 ) -> Result<()> {
     match args.request_id {
         None => {
             // Mode 1: List recent backfills
-            list_backfills(ctx, &queue, args.lookback).await?;
+            list_backfills(ctx, &queue, &blobstore, args.lookback).await?;
         }
         Some(request_id) => {
             // Mode 2: Show detailed progress for a specific backfill
@@ -64,11 +78,12 @@ pub(super) async fn backfill_status(
             match args.repo_id {
                 None => {
                     // Show overall backfill progress
-                    show_backfill_detail(ctx, &queue, &row_id).await?;
+                    show_backfill_detail(ctx, &queue, &blobstore, &repo_names, &row_id).await?;
                 }
                 Some(repo_id) => {
                     // Drill down into a specific repo
-                    show_repo_detail(ctx, &queue, &row_id, repo_id).await?;
+                    show_repo_detail(ctx, &queue, &blobstore, &repo_names, &row_id, repo_id)
+                        .await?;
                 }
             }
         }
@@ -77,9 +92,28 @@ pub(super) async fn backfill_status(
     Ok(())
 }
 
+/// Load `DeriveBackfillParams` from blobstore and extract the derived data type.
+/// Returns `None` if the blob can't be loaded or the params are not a backfill.
+async fn load_derived_data_type(
+    ctx: &CoreContext,
+    blobstore: &Arc<dyn Blobstore>,
+    args_blobstore_key: &BlobstoreKey,
+) -> Option<String> {
+    let params = AsynchronousRequestParams::load_from_key(ctx, blobstore, &args_blobstore_key.0)
+        .await
+        .ok()?;
+    match params.thrift() {
+        ThriftAsynchronousRequestParams::derive_backfill_params(p) => {
+            Some(p.derived_data_type.clone())
+        }
+        _ => None,
+    }
+}
+
 async fn list_backfills(
     ctx: &CoreContext,
     queue: &impl LongRunningRequestsQueue,
+    blobstore: &Arc<dyn Blobstore>,
     lookback_days: i64,
 ) -> Result<()> {
     let now = Timestamp::now();
@@ -96,7 +130,30 @@ async fn list_backfills(
         return Ok(());
     }
 
-    display_backfill_list(backfills);
+    let rows: Vec<BackfillListRow> = stream::iter(backfills.into_iter().map(|entry| async move {
+        let derived_data_type =
+            load_derived_data_type(ctx, blobstore, &entry.args_blobstore_key).await;
+        let children = ChildCounts {
+            new: entry.child_new_count.max(0) as u64,
+            inprogress: entry.child_inprogress_count.max(0) as u64,
+            ready: entry.child_ready_count.max(0) as u64,
+            failed: entry.child_failed_count.max(0) as u64,
+        };
+        let aggregate_status = RepoStatus::from_root_and_children(entry.root_status, children);
+        BackfillListRow {
+            request_id: entry.id,
+            created_at: entry.created_at,
+            created_by: entry.created_by,
+            aggregate_status,
+            repo_count: entry.repo_count,
+            derived_data_type,
+        }
+    }))
+    .buffered(PARAMS_LOAD_CONCURRENCY)
+    .collect()
+    .await;
+
+    display_backfill_list(&rows);
 
     Ok(())
 }
@@ -104,6 +161,8 @@ async fn list_backfills(
 async fn show_backfill_detail(
     ctx: &CoreContext,
     queue: &impl LongRunningRequestsQueue,
+    blobstore: &Arc<dyn Blobstore>,
+    repo_names: &HashMap<RepositoryId, String>,
     row_id: &RowId,
 ) -> Result<()> {
     // Step 1: Verify the backfill exists
@@ -112,13 +171,16 @@ async fn show_backfill_detail(
         .await
         .context("fetching backfill root entry")?;
 
-    let (request_id, request_type, status, created_at, _args_key, created_by) = match root_entry {
-        Some(entry) => entry,
-        None => bail!(
-            "Invalid request ID: {} is not a backfill root request",
-            row_id.0
-        ),
-    };
+    let (request_id, request_type, root_status, created_at, args_blobstore_key, created_by) =
+        match root_entry {
+            Some(entry) => entry,
+            None => bail!(
+                "Invalid request ID: {} is not a backfill root request",
+                row_id.0
+            ),
+        };
+
+    let derived_data_type = load_derived_data_type(ctx, blobstore, &args_blobstore_key).await;
 
     // Step 2: Get aggregated stats
     let stats_by_status = queue
@@ -174,6 +236,9 @@ async fn show_backfill_detail(
         None
     };
 
+    let aggregate_status =
+        RepoStatus::from_root_and_children(root_status, ChildCounts::from_status_map(&status_map));
+
     // Convert status_map to sorted vec
     let mut status_counts: Vec<(RequestStatus, usize)> = status_map.into_iter().collect();
     status_counts.sort_by(|a, b| b.1.cmp(&a.1));
@@ -194,8 +259,9 @@ async fn show_backfill_detail(
         request_id,
         created_at,
         created_by,
-        status,
+        aggregate_status,
         request_type: request_type.to_string(),
+        derived_data_type,
         total_requests,
         status_counts,
         type_breakdown,
@@ -219,7 +285,7 @@ async fn show_backfill_detail(
 
     if is_single_repo {
         let repo_id = unique_repos.iter().next().map(|r| r.id() as i64);
-        display_single_repo_detail(&data, repo_id);
+        display_single_repo_detail(&data, repo_id, repo_names);
     } else {
         // Multi-repo backfill: show condensed view
         let total_repos = unique_repos.len();
@@ -237,7 +303,7 @@ async fn show_backfill_detail(
 
         let mut repos_by_status: HashMap<RepoStatus, Vec<i64>> = HashMap::new();
         for (repo_id, statuses) in &repo_status_map {
-            let repo_status = RepoStatus::from_request_statuses(statuses);
+            let repo_status = RepoStatus::from_child_counts(ChildCounts::from_status_map(statuses));
             repos_by_status
                 .entry(repo_status)
                 .or_insert_with(Vec::new)
@@ -293,7 +359,13 @@ async fn show_backfill_detail(
             })
             .unwrap_or_default();
 
-        display_multi_repo_summary(&data, total_repos, &repos_by_status_counts, &failed_repos);
+        display_multi_repo_summary(
+            &data,
+            total_repos,
+            &repos_by_status_counts,
+            &failed_repos,
+            repo_names,
+        );
     }
 
     Ok(())
@@ -302,6 +374,8 @@ async fn show_backfill_detail(
 async fn show_repo_detail(
     ctx: &CoreContext,
     queue: &impl LongRunningRequestsQueue,
+    blobstore: &Arc<dyn Blobstore>,
+    repo_names: &HashMap<RepositoryId, String>,
     row_id: &RowId,
     repo_id: i64,
 ) -> Result<()> {
@@ -311,14 +385,16 @@ async fn show_repo_detail(
         .await
         .context("fetching backfill root entry")?;
 
-    let (request_id, _request_type, _status, _created_at, _args_key, _created_by) = match root_entry
-    {
-        Some(entry) => entry,
-        None => bail!(
-            "Invalid request ID: {} is not a backfill root request",
-            row_id.0
-        ),
-    };
+    let (request_id, _request_type, _status, _created_at, args_blobstore_key, _created_by) =
+        match root_entry {
+            Some(entry) => entry,
+            None => bail!(
+                "Invalid request ID: {} is not a backfill root request",
+                row_id.0
+            ),
+        };
+
+    let derived_data_type = load_derived_data_type(ctx, blobstore, &args_blobstore_key).await;
 
     // Get stats for this specific repo
     let repo_id_i32 =
@@ -361,19 +437,18 @@ async fn show_repo_detail(
         type_map.into_iter().collect();
     type_breakdown.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // Determine overall repo status
-    let repo_status = RepoStatus::from_request_statuses(&status_map);
-    let overall_status = match repo_status {
-        RepoStatus::Completed => "Completed",
-        RepoStatus::Failed => "Failed",
-        RepoStatus::InProgress => "In Progress",
-        RepoStatus::NotStarted => "Not Started",
-    };
+    let overall_status = RepoStatus::from_child_counts(ChildCounts::from_status_map(&status_map));
+    let repo_name = i32::try_from(repo_id)
+        .ok()
+        .and_then(|id| repo_names.get(&RepositoryId::new(id)))
+        .cloned();
 
     display_repo_detail(&RepoDisplayData {
         request_id,
         repo_id,
-        overall_status: overall_status.to_string(),
+        repo_name,
+        overall_status,
+        derived_data_type,
         total_requests,
         status_counts,
         type_breakdown,

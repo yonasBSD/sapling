@@ -141,7 +141,14 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
     // BackfillStatus doesn't require opening a repo
     if let DerivedDataSubcommand::BackfillStatus(backfill_status_args) = args.subcommand {
         let sql_queue = async_requests_client::open_sql_connection(ctx.fb, &app).await?;
-        return backfill_status(&ctx, sql_queue, backfill_status_args).await;
+        let blobstore = async_requests_client::open_blobstore(ctx.fb, &app).await?;
+        let repo_names = app
+            .repo_configs()
+            .repos
+            .iter()
+            .map(|(name, repo_config)| (repo_config.repoid, name.clone()))
+            .collect();
+        return backfill_status(&ctx, sql_queue, blobstore, repo_names, backfill_status_args).await;
     }
 
     let bypass_redaction = args.bypass_redaction;

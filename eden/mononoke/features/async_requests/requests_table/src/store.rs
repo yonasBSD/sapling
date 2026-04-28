@@ -28,6 +28,7 @@ use crate::LongRunningRequestEntry;
 use crate::LongRunningRequestsQueue;
 use crate::QueueRepoFilter;
 use crate::QueueRequestTypeFilter;
+use crate::RecentBackfillEntry;
 use crate::RequestId;
 use crate::RequestStatus;
 use crate::RequestType;
@@ -1114,15 +1115,49 @@ mononoke_queries! {
         RequestStatus,
         i64,
         Option<String>,
+        BlobstoreKey,
+        i64,
+        i64,
+        i64,
+        i64,
     ) {
-        "SELECT root.id, root.created_at, root.status, COUNT(DISTINCT sub.repo_id) as repo_count, root.created_by
+        // SUM(CASE WHEN ...) returns DECIMAL in MySQL — CAST to SIGNED so the
+        // mysql_async driver decodes it as a long instead of bytes.
+        mysql("SELECT root.id,
+                root.created_at,
+                root.status,
+                COUNT(DISTINCT sub.repo_id) as repo_count,
+                root.created_by,
+                root.args_blobstore_key,
+                CAST(SUM(CASE WHEN sub.status = 'new' THEN 1 ELSE 0 END) AS SIGNED) as child_new_count,
+                CAST(SUM(CASE WHEN sub.status = 'inprogress' THEN 1 ELSE 0 END) AS SIGNED) as child_inprogress_count,
+                CAST(SUM(CASE WHEN sub.status IN ('ready', 'polled') THEN 1 ELSE 0 END) AS SIGNED) as child_ready_count,
+                CAST(SUM(CASE WHEN sub.status = 'failed' THEN 1 ELSE 0 END) AS SIGNED) as child_failed_count
          FROM long_running_request_queue root
          LEFT JOIN long_running_request_queue sub ON sub.root_request_id = root.id
          WHERE CAST(root.request_type AS CHAR) = 'derive_backfill'
            AND root.root_request_id IS NULL
            AND root.created_at >= {min_created_at}
-         GROUP BY root.id, root.created_at, root.status, root.created_by
-         ORDER BY root.created_at DESC"
+         GROUP BY root.id, root.created_at, root.status, root.created_by, root.args_blobstore_key
+         ORDER BY root.created_at DESC")
+
+        sqlite("SELECT root.id,
+                root.created_at,
+                root.status,
+                COUNT(DISTINCT sub.repo_id) as repo_count,
+                root.created_by,
+                root.args_blobstore_key,
+                SUM(CASE WHEN sub.status = 'new' THEN 1 ELSE 0 END) as child_new_count,
+                SUM(CASE WHEN sub.status = 'inprogress' THEN 1 ELSE 0 END) as child_inprogress_count,
+                SUM(CASE WHEN sub.status IN ('ready', 'polled') THEN 1 ELSE 0 END) as child_ready_count,
+                SUM(CASE WHEN sub.status = 'failed' THEN 1 ELSE 0 END) as child_failed_count
+         FROM long_running_request_queue root
+         LEFT JOIN long_running_request_queue sub ON sub.root_request_id = root.id
+         WHERE CAST(root.request_type AS CHAR) = 'derive_backfill'
+           AND root.root_request_id IS NULL
+           AND root.created_at >= {min_created_at}
+         GROUP BY root.id, root.created_at, root.status, root.created_by, root.args_blobstore_key
+         ORDER BY root.created_at DESC")
     }
 
     read GetBackfillRepoStats(root_request_id: RowId, repo_id: RepositoryId) -> (
@@ -1996,14 +2031,42 @@ impl LongRunningRequestsQueue for SqlLongRunningRequestsQueue {
         &self,
         ctx: &CoreContext,
         min_created_at: &Timestamp,
-    ) -> Result<Vec<(RowId, Timestamp, RequestStatus, i64, Option<String>)>> {
+    ) -> Result<Vec<RecentBackfillEntry>> {
         let rows = ListRecentBackfillsWithRepoCount::query(
             &self.connections.read_connection,
             ctx.sql_query_telemetry(),
             min_created_at,
         )
         .await?;
-        Ok(rows)
+        let entries = rows
+            .into_iter()
+            .map(
+                |(
+                    id,
+                    created_at,
+                    root_status,
+                    repo_count,
+                    created_by,
+                    args_blobstore_key,
+                    child_new_count,
+                    child_inprogress_count,
+                    child_ready_count,
+                    child_failed_count,
+                )| RecentBackfillEntry {
+                    id,
+                    created_at,
+                    root_status,
+                    repo_count,
+                    created_by,
+                    args_blobstore_key,
+                    child_new_count,
+                    child_inprogress_count,
+                    child_ready_count,
+                    child_failed_count,
+                },
+            )
+            .collect();
+        Ok(entries)
     }
 
     async fn get_backfill_root_entry(

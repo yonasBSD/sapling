@@ -7,10 +7,12 @@
 
 #![allow(dead_code)]
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use chrono::DateTime;
 use chrono::Utc;
+use mononoke_types::RepositoryId;
 use mononoke_types::Timestamp;
 use prettytable::Cell;
 use prettytable::Row;
@@ -21,6 +23,56 @@ use requests_table::RowId;
 
 use super::types::BackfillDisplayData;
 use super::types::RepoDisplayData;
+use super::types::RepoStatus;
+
+/// A row in the recent-backfills list view.
+pub(super) struct BackfillListRow {
+    pub request_id: RowId,
+    pub created_at: Timestamp,
+    pub created_by: Option<String>,
+    pub aggregate_status: RepoStatus,
+    pub repo_count: i64,
+    pub derived_data_type: Option<String>,
+}
+
+/// Translate a raw `RequestStatus` into a user-facing label for display.
+/// `ready` and `polled` are both rendered as "completed" since the user-facing
+/// notion of "this request finished successfully" is the same.
+fn status_label(status: RequestStatus) -> &'static str {
+    match status {
+        RequestStatus::New => "new",
+        RequestStatus::InProgress => "inprogress",
+        RequestStatus::Ready | RequestStatus::Polled => "completed",
+        RequestStatus::Failed => "failed",
+    }
+}
+
+/// Render a repo as "name (id)" if its name is known, otherwise just the id.
+fn format_repo(repo_id: i64, repo_names: &HashMap<RepositoryId, String>) -> String {
+    let name = i32::try_from(repo_id)
+        .ok()
+        .and_then(|id| repo_names.get(&RepositoryId::new(id)));
+    match name {
+        Some(name) => format!("{} ({})", name, repo_id),
+        None => repo_id.to_string(),
+    }
+}
+
+/// Merge raw `(RequestStatus, count)` pairs by their display label,
+/// preserving input order. Used so Ready and Polled don't render as two
+/// separate "completed" lines.
+fn merge_by_label(status_counts: &[(RequestStatus, usize)]) -> Vec<(&'static str, usize)> {
+    let mut merged: Vec<(&'static str, usize)> = Vec::new();
+    for (status, count) in status_counts {
+        let label = status_label(*status);
+        if let Some(entry) = merged.iter_mut().find(|(l, _)| *l == label) {
+            entry.1 += *count;
+        } else {
+            merged.push((label, *count));
+        }
+    }
+    merged
+}
 
 /// Format a timestamp as a readable UTC datetime string
 pub(super) fn format_timestamp(ts: &Timestamp) -> String {
@@ -58,9 +110,7 @@ pub(super) fn format_number(n: usize) -> String {
 }
 
 /// Display a list of recent backfill jobs
-pub(super) fn display_backfill_list(
-    backfills: Vec<(RowId, Timestamp, RequestStatus, i64, Option<String>)>,
-) {
+pub(super) fn display_backfill_list(backfills: &[BackfillListRow]) {
     println!("\nAvailable Backfill Jobs (recent)");
     println!("{}", "━".repeat(80));
 
@@ -72,16 +122,18 @@ pub(super) fn display_backfill_list(
         Cell::new("Created At"),
         Cell::new("Submitted By"),
         Cell::new("Status"),
+        Cell::new("Type"),
         Cell::new("Repos"),
     ]));
 
-    for (request_id, created_at, status, repo_count, created_by) in backfills {
+    for row in backfills {
         table.add_row(Row::new(vec![
-            Cell::new(&request_id.0.to_string()),
-            Cell::new(&format_timestamp(&created_at)),
-            Cell::new(created_by.as_deref().unwrap_or("-")),
-            Cell::new(&status.to_string()),
-            Cell::new(&repo_count.to_string()),
+            Cell::new(&row.request_id.0.to_string()),
+            Cell::new(&format_timestamp(&row.created_at)),
+            Cell::new(row.created_by.as_deref().unwrap_or("-")),
+            Cell::new(&row.aggregate_status.to_string()),
+            Cell::new(row.derived_data_type.as_deref().unwrap_or("-")),
+            Cell::new(&row.repo_count.to_string()),
         ]));
     }
 
@@ -96,20 +148,28 @@ pub(super) fn display_multi_repo_summary(
     total_repos: usize,
     repos_by_status: &[(String, usize)],
     failed_repos: &[(i64, usize)],
+    repo_names: &HashMap<RepositoryId, String>,
 ) {
     println!("\nBackfill Status for Request ID: {}", data.request_id.0);
     println!("{}", "━".repeat(80));
     println!();
 
     println!("Root Request Details:");
-    println!("  Request ID:     {}", data.request_id.0);
-    println!("  Created At:     {}", format_timestamp(&data.created_at));
+    println!("  Request ID:        {}", data.request_id.0);
     println!(
-        "  Submitted By:   {}",
+        "  Created At:        {}",
+        format_timestamp(&data.created_at)
+    );
+    println!(
+        "  Submitted By:      {}",
         data.created_by.as_deref().unwrap_or("-")
     );
-    println!("  Status:         {}", data.status);
-    println!("  Request Type:   {}", data.request_type);
+    println!("  Status:            {}", data.aggregate_status);
+    println!("  Request Type:      {}", data.request_type);
+    println!(
+        "  Derived Data Type: {}",
+        data.derived_data_type.as_deref().unwrap_or("-")
+    );
     println!();
 
     println!("Overall Progress:");
@@ -118,12 +178,12 @@ pub(super) fn display_multi_repo_summary(
         "  Total Requests:      {}",
         format_number(data.total_requests)
     );
-    for (status, count) in &data.status_counts {
-        let percentage = (*count as f64 / data.total_requests as f64) * 100.0;
+    for (label, count) in merge_by_label(&data.status_counts) {
+        let percentage = (count as f64 / data.total_requests as f64) * 100.0;
         println!(
             "  {:<18} {} ({:.1}%)",
-            format!("{}:", status),
-            format_number(*count),
+            format!("{}:", label),
+            format_number(count),
             percentage
         );
     }
@@ -154,7 +214,11 @@ pub(super) fn display_multi_repo_summary(
         println!();
         println!("Failed Repos ({}):", failed_repos.len());
         for (repo_id, failed_count) in failed_repos {
-            println!("  - Repo {}: {} failed requests", repo_id, failed_count);
+            println!(
+                "  - Repo {}: {} failed requests",
+                format_repo(*repo_id, repo_names),
+                failed_count
+            );
         }
         println!();
         println!(
@@ -166,16 +230,24 @@ pub(super) fn display_multi_repo_summary(
 
 /// Display detailed progress for a specific repo in a multi-repo backfill
 pub(super) fn display_repo_detail(data: &RepoDisplayData) {
+    let repo_label = match &data.repo_name {
+        Some(name) => format!("{} ({})", name, data.repo_id),
+        None => data.repo_id.to_string(),
+    };
     println!(
-        "\nBackfill Status for Request ID: {}, Repo ID: {}",
-        data.request_id.0, data.repo_id
+        "\nBackfill Status for Request ID: {}, Repo: {}",
+        data.request_id.0, repo_label,
     );
     println!("{}", "━".repeat(80));
     println!();
 
     println!("Repo Details:");
-    println!("  Repo ID:        {}", data.repo_id);
-    println!("  Overall Status: {}", data.overall_status);
+    println!("  Repo:              {}", repo_label);
+    println!("  Overall Status:    {}", data.overall_status);
+    println!(
+        "  Derived Data Type: {}",
+        data.derived_data_type.as_deref().unwrap_or("-")
+    );
     println!();
 
     print_progress_section(data.total_requests, &data.status_counts);
@@ -186,12 +258,12 @@ fn print_progress_section(total_requests: usize, status_counts: &[(RequestStatus
     println!("Overall Progress:");
     println!("  Total Requests:      {}", format_number(total_requests));
 
-    for (status, count) in status_counts {
-        let percentage = (*count as f64 / total_requests as f64) * 100.0;
+    for (label, count) in merge_by_label(status_counts) {
+        let percentage = (count as f64 / total_requests as f64) * 100.0;
         println!(
             "  {:<18} {} ({:.1}%)",
-            format!("{}:", status),
-            format_number(*count),
+            format!("{}:", label),
+            format_number(count),
             percentage
         );
     }
@@ -234,21 +306,27 @@ fn print_type_breakdown_table(
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
+    // Use the merged display labels as column ordering — distinct underlying
+    // statuses that share a label (Ready/Polled both → "completed") collapse
+    // into a single column.
+    let header_labels: Vec<&'static str> = merge_by_label(status_counts)
+        .into_iter()
+        .map(|(label, _)| label)
+        .collect();
     let mut header_cells = vec![Cell::new("Request Type")];
-    let all_statuses: Vec<String> = status_counts.iter().map(|(s, _)| s.to_string()).collect();
-    for status in &all_statuses {
-        header_cells.push(Cell::new(status));
+    for label in &header_labels {
+        header_cells.push(Cell::new(label));
     }
     table.set_titles(Row::new(header_cells));
 
     for (request_type, statuses) in type_breakdown {
         let mut row_cells = vec![Cell::new(request_type)];
-        for status_name in &all_statuses {
-            let count = statuses
+        for header_label in &header_labels {
+            let count: usize = statuses
                 .iter()
-                .find(|(s, _)| s.to_string() == *status_name)
+                .filter(|(s, _)| status_label(*s) == *header_label)
                 .map(|(_, c)| *c)
-                .unwrap_or(0);
+                .sum();
             row_cells.push(Cell::new(&format_number(count)));
         }
         table.add_row(Row::new(row_cells));
@@ -259,23 +337,34 @@ fn print_type_breakdown_table(
 }
 
 /// Display detailed progress for a single-repo backfill
-pub(super) fn display_single_repo_detail(data: &BackfillDisplayData, repo_id: Option<i64>) {
+pub(super) fn display_single_repo_detail(
+    data: &BackfillDisplayData,
+    repo_id: Option<i64>,
+    repo_names: &HashMap<RepositoryId, String>,
+) {
     println!("\nBackfill Status for Request ID: {}", data.request_id.0);
     println!("{}", "━".repeat(80));
     println!();
 
     println!("Root Request Details:");
-    println!("  Request ID:     {}", data.request_id.0);
-    println!("  Created At:     {}", format_timestamp(&data.created_at));
+    println!("  Request ID:        {}", data.request_id.0);
     println!(
-        "  Submitted By:   {}",
+        "  Created At:        {}",
+        format_timestamp(&data.created_at)
+    );
+    println!(
+        "  Submitted By:      {}",
         data.created_by.as_deref().unwrap_or("-")
     );
-    println!("  Status:         {}", data.status);
+    println!("  Status:            {}", data.aggregate_status);
     if let Some(repo_id) = repo_id {
-        println!("  Repo:           {}", repo_id);
+        println!("  Repo:              {}", format_repo(repo_id, repo_names));
     }
-    println!("  Request Type:   {}", data.request_type);
+    println!("  Request Type:      {}", data.request_type);
+    println!(
+        "  Derived Data Type: {}",
+        data.derived_data_type.as_deref().unwrap_or("-")
+    );
     println!();
 
     print_progress_section(data.total_requests, &data.status_counts);

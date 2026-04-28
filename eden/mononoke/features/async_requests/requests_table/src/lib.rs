@@ -22,6 +22,7 @@ pub use crate::types::ClaimedBy;
 pub use crate::types::LongRunningRequestEntry;
 pub use crate::types::QueueStats;
 pub use crate::types::QueueStatsEntry;
+pub use crate::types::RecentBackfillEntry;
 pub use crate::types::RequestId;
 pub use crate::types::RequestStatus;
 pub use crate::types::RequestType;
@@ -298,12 +299,12 @@ pub trait LongRunningRequestsQueue: Send + Sync {
         root_request_id: &RowId,
     ) -> Result<(i64, Option<f64>, Option<Timestamp>, Option<Timestamp>)>;
 
-    /// List recent backfill jobs with repo counts.
+    /// List recent backfill jobs with repo counts and aggregated child status counts.
     async fn list_recent_backfills_with_repo_count(
         &self,
         ctx: &CoreContext,
         min_created_at: &Timestamp,
-    ) -> Result<Vec<(RowId, Timestamp, RequestStatus, i64, Option<String>)>>;
+    ) -> Result<Vec<RecentBackfillEntry>>;
 
     /// Get the root backfill entry by ID.
     async fn get_backfill_root_entry(
