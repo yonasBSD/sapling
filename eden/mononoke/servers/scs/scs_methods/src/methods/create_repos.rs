@@ -585,17 +585,39 @@ fn make_repo_definition_file_path(repo_id: &RepositoryId) -> String {
     )
 }
 
+/// Returns the tier list for a new RepoSpec-based repo, as static string slices.
+/// Repos under the `aosp/` prefix are additionally placed in the
+/// `aosp_multi_repo_land` tier so multi_repo_land_service can serve them.
+fn tier_list_for_repo_spec(repo_name: &str) -> Vec<&'static str> {
+    if repo_name.starts_with("aosp/") {
+        vec![
+            "gitimport",
+            "gitimport_content",
+            "scs",
+            "aosp_multi_repo_land",
+        ]
+    } else {
+        vec!["gitimport", "gitimport_content", "scs"]
+    }
+}
+
+/// Returns the tier list for a new repo as owned `String`s
+/// (matches the type used by `QuickRepoDefinition::config_tiers`).
+/// See `tier_list_for_repo_spec` for prefix-based behavior.
+fn tier_list_for_repo(repo_name: &str) -> Vec<String> {
+    tier_list_for_repo_spec(repo_name)
+        .into_iter()
+        .map(str::to_string)
+        .collect()
+}
+
 fn make_quick_repo_definition(
     (repo_id, request): &(RepositoryId, thrift::RepoCreationRequest),
 ) -> Result<QuickRepoDefinition, scs_errors::ServiceError> {
     Ok(QuickRepoDefinition {
         repo_id: repo_id.id(),
         repo_name: request.repo_name.clone(),
-        config_tiers: vec![
-            "gitimport".to_string(),
-            "gitimport_content".to_string(),
-            "scs".to_string(),
-        ],
+        config_tiers: tier_list_for_repo(&request.repo_name),
         enabled: true,
         readonly: false,
         default_commit_identity_scheme: RawCommitIdentityScheme::GIT,
@@ -747,11 +769,7 @@ fn make_repo_spec(
         readonly: false,
         default_commit_identity_scheme: RawCommitIdentityScheme::GIT,
         enable_git_bundle_uri: None,
-        tiers: vec![
-            "gitimport".to_string(),
-            "gitimport_content".to_string(),
-            "scs".to_string(),
-        ],
+        tiers: tier_list_for_repo(&request.repo_name),
         t_shirt_size: to_repo_spec_tshirt_size(request.size_bucket)?,
         sharding_regions: ShardingRegions::BGM_ONLY_REGIONS,
         repo_config: default_repo_config,
@@ -845,7 +863,7 @@ async fn prepare_repo_configs_mutation_nowait(
                     RepoIndexEntry {
                         config_path,
                         repo_id: repo_id.id(),
-                        tiers: vec!["gitimport", "gitimport_content", "scs"],
+                        tiers: tier_list_for_repo_spec(&request.repo_name),
                         is_deep_sharded: true,
                         t_shirt_size,
                         hipster_acl: make_top_level_acl_name_from_repo_name(&request.repo_name),
@@ -1572,6 +1590,130 @@ mod tests {
             qrd.custom_acl_name.as_deref(),
             Some("repos/git/simple-repo"),
             "QRD for simple repos should set custom_acl_name to repos/git/<name>"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_tier_list_for_repo_spec_aosp_prefix_adds_multi_repo_land() {
+        assert_eq!(
+            tier_list_for_repo_spec("aosp/platform/vendor/foo"),
+            vec![
+                "gitimport",
+                "gitimport_content",
+                "scs",
+                "aosp_multi_repo_land",
+            ],
+            "aosp/* repos must include aosp_multi_repo_land tier"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_tier_list_for_repo_spec_non_aosp_unchanged() {
+        assert_eq!(
+            tier_list_for_repo_spec("not_aosp/foo"),
+            vec!["gitimport", "gitimport_content", "scs"],
+            "non-aosp/* repos must NOT include aosp_multi_repo_land tier"
+        );
+        assert_eq!(
+            tier_list_for_repo_spec("simple-repo"),
+            vec!["gitimport", "gitimport_content", "scs"],
+            "simple repos must NOT include aosp_multi_repo_land tier"
+        );
+        // Boundary: a repo literally named "aosp" (no slash) is NOT under the aosp/ prefix.
+        assert_eq!(
+            tier_list_for_repo_spec("aosp"),
+            vec!["gitimport", "gitimport_content", "scs"],
+            "literal name 'aosp' (no trailing /) is NOT an aosp/* repo"
+        );
+        // Boundary: confusingly-named prefix that shares "aosp" but isn't `aosp/`.
+        assert_eq!(
+            tier_list_for_repo_spec("aosp_extras/foo"),
+            vec!["gitimport", "gitimport_content", "scs"],
+            "aosp_extras/* must NOT match the aosp/ prefix"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_tier_list_for_repo_string_variant_matches_repo_spec() {
+        // The String variant must mirror the &'static str variant exactly.
+        let s_aosp = tier_list_for_repo("aosp/platform/vendor/foo");
+        let r_aosp = tier_list_for_repo_spec("aosp/platform/vendor/foo");
+        assert_eq!(
+            s_aosp,
+            r_aosp.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        );
+
+        let s_other = tier_list_for_repo("org/repo");
+        let r_other = tier_list_for_repo_spec("org/repo");
+        assert_eq!(
+            s_other,
+            r_other.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_repo_spec_aosp_repo_includes_multi_repo_land_tier() {
+        let repo_id = RepositoryId::new(18279);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "aosp/platform/vendor/meta/prebuilts/assets".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            ..Default::default()
+        };
+
+        let spec =
+            make_repo_spec(&(repo_id, request), None).expect("make_repo_spec should succeed");
+
+        assert_eq!(
+            spec.tiers,
+            vec![
+                "gitimport".to_string(),
+                "gitimport_content".to_string(),
+                "scs".to_string(),
+                "aosp_multi_repo_land".to_string(),
+            ],
+            "AOSP repos must be added to aosp_multi_repo_land tier so multi_repo_land_service can serve them"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_quick_repo_definition_aosp_repo_includes_multi_repo_land_tier() {
+        let repo_id = RepositoryId::new(18279);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "aosp/platform/vendor/meta/prebuilts/assets".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            ..Default::default()
+        };
+
+        let qrd = make_quick_repo_definition(&(repo_id, request))
+            .expect("make_quick_repo_definition should succeed");
+
+        assert_eq!(
+            qrd.config_tiers,
+            vec![
+                "gitimport".to_string(),
+                "gitimport_content".to_string(),
+                "scs".to_string(),
+                "aosp_multi_repo_land".to_string(),
+            ],
+            "QRD for AOSP repos must include aosp_multi_repo_land tier"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_quick_repo_definition_non_aosp_repo_does_not_include_multi_repo_land_tier() {
+        let repo_id = RepositoryId::new(99999);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "org/my-repo".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            ..Default::default()
+        };
+
+        let qrd = make_quick_repo_definition(&(repo_id, request))
+            .expect("make_quick_repo_definition should succeed");
+
+        assert!(
+            !qrd.config_tiers.iter().any(|t| t == "aosp_multi_repo_land"),
+            "non-AOSP repos must NOT be added to aosp_multi_repo_land tier"
         );
     }
 }
