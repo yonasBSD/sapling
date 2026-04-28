@@ -398,10 +398,11 @@ impl WarmBookmarksCacheBuilder {
                 repo_derived_data.clone(),
                 vec![WarmerTag::Hg, WarmerTag::Git],
             )),
-            DerivableType::FileNodes => {
-                // TODO: add warmer for filenodes
-                None
-            }
+            DerivableType::FileNodes => Some(create_derived_data_warmer::<FilenodesOnlyPublic>(
+                &self.ctx,
+                repo_derived_data.clone(),
+                vec![WarmerTag::Hg],
+            )),
             DerivableType::HgChangesets => Some(create_derived_data_warmer::<MappedHgChangesetId>(
                 &self.ctx,
                 repo_derived_data.clone(),

@@ -289,7 +289,7 @@ mod tests {
         let expected = vec![HgFileHistoryEntry::new(
             file_id,
             HgParents::None,
-            HgChangesetId::new(NULL_HASH),
+            HgChangesetId::from_str("5a28e25f924a5d209b82ce0713d8d83e68982bc8").unwrap(),
             None,
         )];
         assert_eq!(history, expected);
