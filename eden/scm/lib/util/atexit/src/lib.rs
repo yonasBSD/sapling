@@ -86,7 +86,7 @@ impl AtExit {
         let inner = Arc::new(inner);
         {
             let mut stack = AT_EXIT_WEAK.lock().unwrap();
-            clean_up_weak_refs(&mut *stack);
+            clean_up_weak_refs(&mut stack);
             stack.push(Arc::downgrade(&inner));
         }
         Self(inner)
