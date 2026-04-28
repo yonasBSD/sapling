@@ -148,6 +148,7 @@ def main():
             return
         else:
             print_err(
+                # pyrefly: ignore [unsupported-operation]
                 f"source changed {old_source_hash[:8]} -> {source_hash[:8]}, rebuilding {out}"
             )
             os.unlink(out)
