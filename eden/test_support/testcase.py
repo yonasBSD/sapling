@@ -77,14 +77,17 @@ class EdenTestCaseBase(IsolatedAsyncioTestCase):
 
     def _callSetUp(self):
         with no_warnings(self):
+            # pyrefly: ignore [missing-attribute]
             return super()._callSetUp()
 
     def _callTearDown(self):
         with no_warnings(self):
+            # pyrefly: ignore [missing-attribute]
             return super()._callTearDown()
 
     def _callTestMethod(self, testMethod):
         with no_warnings(self):
+            # pyrefly: ignore [missing-attribute]
             return super()._callTestMethod(testMethod)
 
     def setenv(self, name: str, value: Optional[str]) -> None:
