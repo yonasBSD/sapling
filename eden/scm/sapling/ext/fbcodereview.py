@@ -368,6 +368,9 @@ def showphabstatus(repo, ctx, templ, **args):
         landstatus = result.get("land_job_status")
         finalreviewstatus = result.get("needs_final_review_status")
         if landstatus == "LAND_JOB_RUNNING":
+            signalstatus = result.get("signal_status")
+            if signalstatus == "LAND_ON_HOLD":
+                return "Land On Hold"
             return "Landing"
         elif landstatus == "LAND_RECENTLY_SUCCEEDED":
             return "Committing"

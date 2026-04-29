@@ -148,6 +148,20 @@ If the diff land is on hold, show "Land On Hold"
   $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{phabstatus}\n' -r .
   Land On Hold
 
+If land_job_status is LAND_JOB_RUNNING but signal status is LAND_ON_HOLD, show "Land On Hold"
+
+  $ cat > $TESTTMP/mockduit << EOF
+  > [{"data": {"query": [{"results": {"nodes": [
+  >   {"number": 1, "diff_status_name": "Accepted",
+  >    "created_time": 0, "updated_time": 2, "is_landing": true,
+  >    "land_job_status": "LAND_JOB_RUNNING",
+  >    "needs_final_review_status": "NOT_NEEDED",
+  >    "signal_overall_status": {"core_ci_signals_state": "LAND_ON_HOLD"}}
+  > ]}}]}}]
+  > EOF
+  $ HG_ARC_CONDUIT_MOCK=$TESTTMP/mockduit sl log -T '{phabstatus}\n' -r .
+  Land On Hold
+
 If the diff land was cancelled, show "Land Cancelled"
 
   $ cat > $TESTTMP/mockduit << EOF
