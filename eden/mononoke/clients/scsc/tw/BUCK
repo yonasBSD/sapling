@@ -1,6 +1,6 @@
 load("//fbpkg:fbpkg.bzl", "fbpkg")
 
-oncall("scm_server_infra")
+oncall("scm_server_treehugger")
 
 fbpkg.builder(
     name = "scm.scsc",

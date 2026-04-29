@@ -2,7 +2,7 @@ load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
 load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 
-oncall("scm_server_infra")
+oncall("scm_server_treehugger")
 
 cpp_library(
     name = "dummy_lib",
