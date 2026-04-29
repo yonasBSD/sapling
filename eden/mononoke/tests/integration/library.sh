@@ -1516,43 +1516,6 @@ function log_globalrev() {
   hg log -G -T "{desc} [{phase};globalrev={globalrev};{node|short}] {remotenames}" "$@" | sed 's/^[ \t]*$/$/'
 }
 
-# Default setup that many of the test use
-function default_setup_pre_blobimport() {
-  setup_common_config "$@"
-
-  cd "$TESTTMP" || exit 1
-
-  cat >> "$HGRCPATH" <<EOF
-[ui]
-ssh="$DUMMYSSH"
-[extensions]
-amend=
-EOF
-
-hginit_treemanifest repo
-cd repo || exit 1
-drawdag <<EOF
-C
-|
-B
-|
-A
-EOF
-
-  hg bookmark "${MASTER_BOOKMARK:-master_bookmark}" -r tip
-
-  echo "hg repo"
-  log -r ":"
-
-  cd .. || exit 1
-}
-
-function default_setup_blobimport() {
-  default_setup_pre_blobimport "$@"
-  echo "blobimporting"
-  blobimport repo/.hg "$REPONAME"
-}
-
 function default_setup() {
   default_setup_drawdag "$@"
   echo "starting Mononoke"
