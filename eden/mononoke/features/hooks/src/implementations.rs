@@ -16,6 +16,7 @@ mod block_empty_commit;
 mod block_files;
 pub(crate) mod block_invalid_symlinks;
 pub(crate) mod block_merge_commits;
+mod block_mixed_users_changes;
 pub(crate) mod block_new_bookmark_creations_by_name;
 pub(crate) mod block_unannotated_tags;
 pub(crate) mod block_unclean_merge_commits;
