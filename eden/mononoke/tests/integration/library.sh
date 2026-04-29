@@ -397,6 +397,10 @@ function flush_mononoke_bookmarks {
   sslcurl -X POST -fsS "https://localhost:$MONONOKE_SOCKET/control/drop_bookmarks_cache"
 }
 
+function sync_mononoke_warm_bookmarks_cache {
+  sslcurl -X POST -fsS "https://localhost:$MONONOKE_SOCKET/control/sync_warm_bookmarks_cache"
+}
+
 function force_update_configerator {
   sslcurl -X POST -fsS "https://localhost:$MONONOKE_SOCKET/control/force_update_configerator"
 }

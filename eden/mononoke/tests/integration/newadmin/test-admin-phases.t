@@ -29,7 +29,7 @@ Create a repo
   E=3a2426d009267ba6f83945ecb29f63116a21984fb62df772d3bbe0143163b8fd
   F=65174a97145838cb665e879e8cf2be219d324dc498997c1116a1aff67bff4823
 
-  $ sleep 10
+  $ sync_mononoke_warm_bookmarks_cache
 
 Show the phases
 From mononoke_admin, we find that A, B and C are public as expected

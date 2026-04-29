@@ -44,6 +44,7 @@ Run the x-repo with submodules setup
 
   $ cd "$TESTTMP/$LARGE_REPO_NAME"
   $ wait_for_bookmark_move_away_edenapi large_repo master_bookmark $(hg whereami)
+  $ sync_mononoke_warm_bookmarks_cache
   $ hg pull -q
   $ hg co -q master_bookmark
 
@@ -248,6 +249,7 @@ TODO(T174902563): Fix deletion of submodules in EXPAND submodule action.
 -- Test backsyncing (i.e. large to small)
 
   $ cd "$TESTTMP/$LARGE_REPO_NAME" || exit
+  $ sync_mononoke_warm_bookmarks_cache
   $ hg pull -q && hg co -q master_bookmark
   $ hg status
   $ hg co -q .^ # go before the commit that corrupts submodules

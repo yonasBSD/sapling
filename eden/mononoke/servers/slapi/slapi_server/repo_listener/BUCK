@@ -57,6 +57,7 @@ rust_library(
         "//eden/mononoke/mononoke_api:mononoke_api",
         "//eden/mononoke/mononoke_types:mononoke_types",
         "//eden/mononoke/repo_attributes/bookmarks:bookmarks",
+        "//eden/mononoke/repo_attributes/bookmarks/bookmarks_cache:bookmarks_cache",
         "//eden/mononoke/repo_attributes/repo_permission_checker:repo_permission_checker",
         "//eden/mononoke/repo_client:repo_client",
         "//eden/mononoke/servers/slapi/slapi_server/context:context",

@@ -18,6 +18,7 @@ use anyhow::Result;
 use anyhow::anyhow;
 use base64::Engine;
 use bookmarks::BookmarksRef;
+use bookmarks_cache::BookmarksCacheRef;
 use bytes::Bytes;
 #[cfg(fbcode_build)]
 use clientinfo::CLIENT_INFO_HEADER;
@@ -25,6 +26,7 @@ use clientinfo::CLIENT_INFO_HEADER;
 use clientinfo::ClientEntryPoint;
 #[cfg(fbcode_build)]
 use clientinfo::ClientInfo;
+use context::CoreContext;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use gotham_ext::handler::SlapiCommitIdentityScheme;
@@ -388,6 +390,14 @@ where
                 repo.bookmarks().drop_caches();
             }
 
+            return Ok(ok);
+        }
+
+        if path == "/sync_warm_bookmarks_cache" {
+            let ctx = CoreContext::new(self.acceptor().fb);
+            for repo in self.acceptor().mononoke.repos() {
+                repo.bookmarks_cache().sync(&ctx).await;
+            }
             return Ok(ok);
         }
 
