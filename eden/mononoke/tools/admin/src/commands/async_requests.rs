@@ -5,7 +5,7 @@
  * GNU General Public License version 2.
  */
 
-mod abort;
+pub(crate) mod abort;
 mod list;
 mod requeue;
 mod show;

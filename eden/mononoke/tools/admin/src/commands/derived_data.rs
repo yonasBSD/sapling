@@ -5,6 +5,7 @@
  * GNU General Public License version 2.
  */
 
+mod backfill_abort;
 mod backfill_enqueue;
 mod backfill_status;
 mod count_underived;
@@ -39,6 +40,8 @@ use repo_factory::RepoFactory;
 use repo_identity::RepoIdentity;
 use strum::IntoEnumIterator;
 
+use self::backfill_abort::BackfillAbortArgs;
+use self::backfill_abort::backfill_abort;
 use self::backfill_enqueue::BackfillEnqueueArgs;
 use self::backfill_enqueue::backfill_enqueue;
 use self::backfill_status::BackfillStatusArgs;
@@ -108,6 +111,8 @@ pub struct CommandArgs {
 
 #[derive(Subcommand)]
 enum DerivedDataSubcommand {
+    /// Abort a derive_backfill async request and all its in-progress children
+    BackfillAbort(BackfillAbortArgs),
     /// Enqueue derived data backfill work via async requests
     BackfillEnqueue(BackfillEnqueueArgs),
     /// Show status of derive backfill jobs
@@ -151,12 +156,20 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
         return backfill_status(&ctx, sql_queue, blobstore, repo_names, backfill_status_args).await;
     }
 
+    // BackfillAbort doesn't require opening a repo
+    if let DerivedDataSubcommand::BackfillAbort(backfill_abort_args) = args.subcommand {
+        return backfill_abort(ctx, &app, backfill_abort_args).await;
+    }
+
     let bypass_redaction = args.bypass_redaction;
     let config_name_for_enqueue = args.config_name.clone();
 
     let repo: Repo = match &args.subcommand {
         DerivedDataSubcommand::BackfillStatus(_) => {
             unreachable!("BackfillStatus handled above")
+        }
+        DerivedDataSubcommand::BackfillAbort(_) => {
+            unreachable!("BackfillAbort handled above")
         }
         DerivedDataSubcommand::Exists(_)
         | DerivedDataSubcommand::Fetch(_)
@@ -205,6 +218,9 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
     match args.subcommand {
         DerivedDataSubcommand::BackfillStatus(_) => {
             unreachable!("BackfillStatus handled above")
+        }
+        DerivedDataSubcommand::BackfillAbort(_) => {
+            unreachable!("BackfillAbort handled above")
         }
         DerivedDataSubcommand::BackfillEnqueue(args) => {
             let queue = async_requests_client::build(ctx.fb, &app, None)

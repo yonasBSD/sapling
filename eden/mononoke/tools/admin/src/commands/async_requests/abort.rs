@@ -96,47 +96,57 @@ async fn abort_single_request(
     Ok(updated)
 }
 
+pub async fn abort_by_root_id(
+    ctx: &CoreContext,
+    queue: &AsyncMethodRequestQueue,
+    root_id: u64,
+) -> Result<(), Error> {
+    let root_row_id = RowId(root_id);
+
+    // Batch-fail all 'new' requests with this root.
+    let failed_count = queue
+        .fail_new_requests_by_root_id(ctx, &root_row_id)
+        .await
+        .context("batch-failing new requests")?;
+    println!("{} pending requests failed", failed_count);
+
+    // Get remaining requests for this root to abort in-progress ones.
+    let entries = queue
+        .get_requests_by_root_id(ctx, &root_row_id)
+        .await
+        .context("fetching requests by root id")?;
+
+    let mut aborted = 0u64;
+    let mut skipped = 0u64;
+    for (request_id, entry, params, maybe_result) in entries {
+        if maybe_result.is_some() || entry.status != RequestStatus::InProgress {
+            skipped += 1;
+            continue;
+        }
+
+        if abort_single_request(ctx, queue, &request_id, &params).await? {
+            aborted += 1;
+        } else {
+            // Request was completed by a worker between our SELECT and UPDATE.
+            skipped += 1;
+        }
+    }
+
+    println!(
+        "{} in-progress requests aborted, {} already completed (skipped)",
+        aborted, skipped
+    );
+
+    Ok(())
+}
+
 pub async fn abort_request(
     args: AsyncRequestsAbortArgs,
     ctx: CoreContext,
     queue: AsyncMethodRequestQueue,
 ) -> Result<(), Error> {
     if let Some(root_id) = args.root_request_id {
-        let root_row_id = RowId(root_id);
-
-        // Batch-fail all 'new' requests with this root.
-        let failed_count = queue
-            .fail_new_requests_by_root_id(&ctx, &root_row_id)
-            .await
-            .context("batch-failing new requests")?;
-        println!("{} pending requests failed", failed_count);
-
-        // Get remaining requests for this root to abort in-progress ones.
-        let entries = queue
-            .get_requests_by_root_id(&ctx, &root_row_id)
-            .await
-            .context("fetching requests by root id")?;
-
-        let mut aborted = 0u64;
-        let mut skipped = 0u64;
-        for (request_id, entry, params, maybe_result) in entries {
-            if maybe_result.is_some() || entry.status != RequestStatus::InProgress {
-                skipped += 1;
-                continue;
-            }
-
-            if abort_single_request(&ctx, &queue, &request_id, &params).await? {
-                aborted += 1;
-            } else {
-                // Request was completed by a worker between our SELECT and UPDATE.
-                skipped += 1;
-            }
-        }
-
-        println!(
-            "{} in-progress requests aborted, {} already completed (skipped)",
-            aborted, skipped
-        );
+        abort_by_root_id(&ctx, &queue, root_id).await?;
     } else if let Some(row_id) = args.request_id {
         if let Some((request_id, _entry, params, maybe_result)) = queue
             .get_request_by_id(&ctx, &RowId(row_id))
