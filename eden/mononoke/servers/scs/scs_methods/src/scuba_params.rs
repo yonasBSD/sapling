@@ -330,7 +330,11 @@ impl AddScubaParams for thrift::CommitInfoParams {
 
 impl AddScubaParams for thrift::CommitGenerationParams {}
 
-impl AddScubaParams for thrift::CommitFingerprintParams {}
+impl AddScubaParams for thrift::CommitFingerprintParams {
+    fn add_scuba_params(&self, scuba: &mut MononokeScubaSampleBuilder) {
+        scuba.add("fingerprint_version", format!("{:?}", self.version));
+    }
+}
 
 impl AddScubaParams for thrift::CommitIsAncestorOfParams {
     fn add_scuba_params(&self, scuba: &mut MononokeScubaSampleBuilder) {
