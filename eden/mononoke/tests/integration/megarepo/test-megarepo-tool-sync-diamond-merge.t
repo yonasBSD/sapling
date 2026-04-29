@@ -22,40 +22,43 @@ setup configuration
   $ setup_configerator_configs
   $ setconfig remotenames.selectivepulldefault=master_bookmark,with_merge_master,with_merge_pre_big_merge,merge_with_preserved,another_master
 
-  $ cd "$TESTTMP"
-  $ hginit_treemanifest with_merge
-  $ cd with_merge
-  $ echo 1 > somefilebeforemerge
-  $ hg add somefilebeforemerge
-  $ hg ci -m 'first commit in small repo with merge'
-  $ hg book -i -r . with_merge_master
-  $ echo 2 > someotherfilebeforemerge
-  $ hg add someotherfilebeforemerge
-  $ hg ci -m "commit, supposed to be preserved"
-  $ hg book -ir . with_merge_pre_big_merge
-  $ hg up with_merge_master -q
+setup repos using testtool_drawdag
+  $ testtool_drawdag -R with_merge --no-default-files --derive-all <<'EOF'
+  > WM_C1-WM_C2
+  > # modify: WM_C1 "somefilebeforemerge" "1\n"
+  > # message: WM_C1 "first commit in small repo with merge"
+  > # modify: WM_C2 "someotherfilebeforemerge" "2\n"
+  > # message: WM_C2 "commit, supposed to be preserved"
+  > # bookmark: WM_C1 with_merge_master
+  > # bookmark: WM_C2 with_merge_pre_big_merge
+  > EOF
+  WM_C1=* (glob)
+  WM_C2=* (glob)
 
-  $ cd "$TESTTMP"
-  $ hginit_treemanifest another
-  $ cd another
-  $ echo 1 > file.txt
-  $ hg add file.txt
-  $ hg ci -m 'first commit in another small repo'
-  $ hg book -r . another_master
+  $ testtool_drawdag -R another --no-default-files --derive-all <<'EOF'
+  > AN_C1
+  > # modify: AN_C1 "file.txt" "1\n"
+  > # message: AN_C1 "first commit in another small repo"
+  > # bookmark: AN_C1 another_master
+  > EOF
+  AN_C1=* (glob)
 
-Setup client repos
-  $ cd "$TESTTMP"
-  $ hg clone -q mono:with_merge with_merge_hg --noupdate
-  $ hg clone -q mono:another another_hg --noupdate
-  $ hg clone -q mono:with_merge meg_hg --noupdate
-
-blobimport hg servers repos into Mononoke repos
-  $ cd "$TESTTMP"
-  $ REPOID=0 blobimport with_merge/.hg meg
-  $ REPOID=0 blobimport another/.hg meg --no-create
-
-  $ REPOID=1 blobimport with_merge/.hg with_merge
-  $ REPOID=2 blobimport another/.hg another
+  $ testtool_drawdag -R meg --no-default-files --derive-all <<'EOF'
+  > MEG_WM1-MEG_WM2
+  > MEG_AN1
+  > # modify: MEG_WM1 "somefilebeforemerge" "1\n"
+  > # message: MEG_WM1 "first commit in small repo with merge"
+  > # modify: MEG_WM2 "someotherfilebeforemerge" "2\n"
+  > # message: MEG_WM2 "commit, supposed to be preserved"
+  > # modify: MEG_AN1 "file.txt" "1\n"
+  > # message: MEG_AN1 "first commit in another small repo"
+  > # bookmark: MEG_WM1 with_merge_master
+  > # bookmark: MEG_WM2 with_merge_pre_big_merge
+  > # bookmark: MEG_AN1 another_master
+  > EOF
+  MEG_AN1=* (glob)
+  MEG_WM1=* (glob)
+  MEG_WM2=* (glob)
 
   $ export COMMIT_DATE="1985-09-04T00:00:00.00Z"
 move things in small repo with merge
@@ -77,6 +80,13 @@ merge things in both repos
 
 start mononoke server
   $ start_and_wait_for_mononoke_server
+
+Setup client repos
+  $ cd "$TESTTMP"
+  $ hg clone -q mono:with_merge with_merge_hg --noupdate
+  $ hg clone -q mono:another another_hg --noupdate
+  $ hg clone -q mono:meg meg_hg --noupdate
+
 Record current master and the first commit in the preserved stack
   $ WITH_MERGE_PRE_MERGE_PRESERVED=$(mononoke_admin bookmarks --repo-id 1 get with_merge_pre_big_merge)
   $ WITH_MERGE_C1=$(mononoke_admin bookmarks --repo-id 1 get with_merge_master)
@@ -91,7 +101,6 @@ Create marker commits, so that we don't have to add $WITH_MERGE_C1 and $MEGAREPO
   $ WITH_MERGE_MARKER=$(mononoke_admin bookmarks --repo-id 1 get with_merge_master)
 
   $ cd "$TESTTMP/meg_hg"
-  $ setconfig paths.default=mono:meg
   $ hg pull -q
   $ hg up -q master_bookmark
   $ hg ci -m "marker commit" --config ui.allowemptycommit=True
@@ -105,8 +114,8 @@ insert sync mapping entry
   $ add_synced_commit_mapping_entry 1 $WITH_MERGE_MARKER 0 $MEGAREPO_MARKER TEST_VERSION_NAME
 
 Preserve commits from with_merge
-  $ add_synced_commit_mapping_entry 1 $WITH_MERGE_C1 0 $WITH_MERGE_C1 TEST_VERSION_NAME
-  $ add_synced_commit_mapping_entry 1 $WITH_MERGE_PRE_MERGE_PRESERVED 0 $WITH_MERGE_PRE_MERGE_PRESERVED TEST_VERSION_NAME
+  $ add_synced_commit_mapping_entry 1 $WM_C1 0 $MEG_WM1 TEST_VERSION_NAME
+  $ add_synced_commit_mapping_entry 1 $WM_C2 0 $MEG_WM2 TEST_VERSION_NAME
 
 Do a test pull
   $ cd "$TESTTMP"/meg_hg
@@ -130,33 +139,11 @@ Create a branch merge in a small repo
   >   A
   > EOF
   $ hg rebase -s $A -d with_merge_master -q
-
-  $ hg log -r 'sort(all(),topo)' -G -T '{node|short}'
-  o    62dba675d1b3
-  ├─╮
-  │ o  be5140c7bfcc
-  │ │
-  │ o  7a7632995e68
-  │ │
-  o │  23aa3f5a6de2
-  ├─╯
-  o  68360e2c98f0
-  │
-  @  a35acba7f331
-  │
-  │ o  9aaf98d9f7d2
-  ├─╯
-  o  2fa76efd599c
-  
-
-
-  $ hg log -r 68360e2c98f0
-  commit:      68360e2c98f0
-  user:        test
-  date:        Thu Jan 01 00:00:00 1970 +0000
-  summary:     A
-  
-
+  $ REBASED_A=$(hg log -r "desc('re:^A$') and descendants(desc('marker commit'))" -T '{node|short}')
+  $ REBASED_B=$(hg log -r "desc('re:^B$') and descendants(desc('marker commit'))" -T '{node|short}')
+  $ REBASED_C=$(hg log -r "desc('re:^C$') and descendants(desc('marker commit'))" -T '{node|short}')
+  $ REBASED_Y=$(hg log -r "desc('re:^Y$') and descendants(desc('marker commit'))" -T '{node|short}')
+  $ REBASED_D=$(hg log -r "desc('re:^D$') and descendants(desc('marker commit'))" -T '{node|short}')
 
   $ cd "$TESTTMP"/with_merge_hg
   $ hg up -q tip
@@ -169,7 +156,7 @@ Create a branch merge in a small repo
   somefilebeforemerge
 
 Push a single premerge commit and sync it to megarepo
-  $ hg push -r 68360e2c98f0 --to with_merge_master -q
+  $ hg push -r $REBASED_A --to with_merge_master -q
   $ mononoke_x_repo_sync 1 0 once --target-bookmark master_bookmark -B with_merge_master  &> /dev/null
 
 Push a commit from another small repo that modifies existing file
@@ -183,9 +170,9 @@ Push a commit from another small repo that modifies existing file
 
   $ cd "$TESTTMP"/with_merge_hg
 Push and sync commits before a diamond commit
-  $ hg push -r 7a7632995e68 --to with_merge_master -q
+  $ hg push -r $REBASED_B --to with_merge_master -q
   $ mononoke_x_repo_sync 1 0 once --target-bookmark master_bookmark -B with_merge_master  &> /dev/null
-  $ hg push -r be5140c7bfcc --to with_merge_master -q
+  $ hg push -r $REBASED_C --to with_merge_master -q
   $ mononoke_x_repo_sync 1 0 once --target-bookmark master_bookmark -B with_merge_master  &> /dev/null
 
 Push one more commit from another small repo
@@ -199,9 +186,7 @@ Push one more commit from another small repo
 
 Push diamond commit
   $ cd "$TESTTMP"/with_merge_hg
-  $ hg log -r 62dba675d1b3 -T '{p1node|short} {p2node|short}'
-  be5140c7bfcc 23aa3f5a6de2 (no-eol)
-  $ hg push -r 62dba675d1b3 --to with_merge_master -q &> /dev/null
+  $ hg push -r $REBASED_D --to with_merge_master -q &> /dev/null
 
 Try to sync it automatically, it's expected to fail
   $ mononoke_x_repo_sync 1 0 once --target-bookmark master_bookmark -B with_merge_master 2>&1 | grep 'unsupported merge'
@@ -211,15 +196,15 @@ Now sync with the tool
   $ cd "$TESTTMP"
 
   $ mononoke_admin megarepo sync-diamond-merge --bookmark with_merge_master --source-repo-id 1 --target-repo-id 0 --onto-bookmark master_bookmark |& grep -v "using repo"
-  * changeset resolved as: ChangesetId(Blake2(46c0f70c6300f4168cb70321839ac0079c74b6d3295adb81eeb1932be4f80e9d)) (glob)
-  * Preparing to sync a merge commit 46c0f70c6300f4168cb70321839ac0079c74b6d3295adb81eeb1932be4f80e9d... (glob)
+  * changeset resolved as: ChangesetId(Blake2(*)) (glob)
+  * Preparing to sync a merge commit *... (glob)
   * 1 new commits are going to be merged in (glob)
-  * syncing commit from new branch 0feeed653ec98bb533a2ad7fc8940ce07c4105326f07b20fcc68ebac0607abf2 (glob)
-  * uploading merge commit 39f339283c1910b404b40271e69e72e9de2a962e903ce9d4fe9f4488f5896242 (glob)
-  * It is recommended to run 'mononoke_admin cross-repo verify-working-copy' for 39f339283c1910b404b40271e69e72e9de2a962e903ce9d4fe9f4488f5896242! (glob)
+  * syncing commit from new branch * (glob)
+  * uploading merge commit * (glob)
+  * It is recommended to run 'mononoke_admin cross-repo verify-working-copy' for *! (glob)
 -- a mapping should've been created for the synced merge commit
   $ mononoke_admin cross-repo --source-repo-id 0 --target-repo-id 1 map -B master_bookmark |& grep -v "using repo"
-  RewrittenAs([(ChangesetId(Blake2(46c0f70c6300f4168cb70321839ac0079c74b6d3295adb81eeb1932be4f80e9d)), CommitSyncConfigVersion("TEST_VERSION_NAME"))])
+  RewrittenAs([(ChangesetId(Blake2(*)), CommitSyncConfigVersion("TEST_VERSION_NAME"))]) (glob)
   $ flush_mononoke_bookmarks
 
 
@@ -240,20 +225,21 @@ Pull from megarepo
   file.txt
 
 
+
   $ cat arvr-legacy/file.txt
   3
 
 Make sure that we have correct parents
   $ hg log -r 'parents(master_bookmark)' -T '{node} {desc}\n'
-  5d847b3916ac8084ef15846268fb0d9a25d35406 Y
-  5ce263ccda875529fde8209141ceaded95b95e68 second modification of file.txt
+  * Y (glob)
+  * second modification of file.txt (glob)
 
 Merge with preserved ancestors
   $ cd "$TESTTMP"/with_merge_hg
 
 -- check the mapping for p2's parent
   $ mononoke_admin cross-repo --source-repo-id 1 --target-repo-id 0 map -i $(hg log -T "{node}" -r with_merge_pre_big_merge)
-  RewrittenAs([(ChangesetId(Blake2(d27a299389c7bedbe3e4dc01b7d4e7ac2162d935401c5d8462b7e1663dfee0e4)), CommitSyncConfigVersion("TEST_VERSION_NAME"))])
+  RewrittenAs([(ChangesetId(Blake2(*)), CommitSyncConfigVersion("TEST_VERSION_NAME"))]) (glob)
 
 -- create a p2, based on a pre-merge commit
   $ hg up with_merge_pre_big_merge -q
@@ -271,9 +257,9 @@ Merge with preserved ancestors
   $ hg merge pre_merge_p2 -q
   $ hg ci -qm "merge with preserved p2"
   $ hg log -r . -T "{node} {desc}\np1: {p1node}\np2: {p2node}\n"
-  18f03e551cee2ec38449f0960a586adcb869cb7a merge with preserved p2
-  p1: b5bdb045c12bcaf8b2645438285a4512d7cf823d
-  p2: 67d0696c2845433765c450939263a8a128fec229
+  * merge with preserved p2 (glob)
+  p1: * (glob)
+  p2: * (glob)
   $ hg book -r . merge_with_preserved
 
 -- push these folks to the server-side repo
@@ -286,39 +272,37 @@ Merge with preserved ancestors
   * Starting session with id * (glob)
   * Starting up X Repo Sync from small repo with_merge to large repo meg (glob)
   * Syncing 1 commits and all of their unsynced ancestors (glob)
-  * Checking if 87924512f63d088d5b6bb5368bfef8016246e59927fe9d06d8ea657bc94e993d is already synced 1->0 (glob)
-  * 1 unsynced ancestors of 87924512f63d088d5b6bb5368bfef8016246e59927fe9d06d8ea657bc94e993d (glob)
-  * syncing 87924512f63d088d5b6bb5368bfef8016246e59927fe9d06d8ea657bc94e993d via pushrebase for master_bookmark (glob)
-  * changeset 87924512f63d088d5b6bb5368bfef8016246e59927fe9d06d8ea657bc94e993d synced as 321d5cb2cf4c5e1bf7cb2e809b3aaf181a0907aa63bc69ee3575a7e6313b92e7 in * (glob)
+  * Checking if * is already synced 1->0 (glob)
+  * 1 unsynced ancestors of * (glob)
+  * syncing * via pushrebase for master_bookmark (glob)
+  * changeset * synced as * in * (glob)
   * successful sync (glob)
   * X Repo Sync execution finished from small repo with_merge to large repo meg (glob)
-  $ mononoke_admin cross-repo --source-repo-id 1 --target-repo-id 0 map -i 87924512f63d088d5b6bb5368bfef8016246e59927fe9d06d8ea657bc94e993d
-  RewrittenAs([(ChangesetId(Blake2(321d5cb2cf4c5e1bf7cb2e809b3aaf181a0907aa63bc69ee3575a7e6313b92e7)), CommitSyncConfigVersion("TEST_VERSION_NAME"))])
 
 -- sync the merge
   $ cd "$TESTTMP"
   $ mononoke_admin megarepo sync-diamond-merge --bookmark with_merge_master --source-repo-id 1 --target-repo-id 0 --onto-bookmark master_bookmark
   * using repo "with_merge" repoid RepositoryId(1) (glob)
   * using repo "meg" repoid RepositoryId(0) (glob)
-  * changeset resolved as: ChangesetId(Blake2(3f71f093fcfbebcc47c981c847cd80c7d0bf063c5022aba53fab95244e4c4f1c)) (glob)
-  * Preparing to sync a merge commit 3f71f093fcfbebcc47c981c847cd80c7d0bf063c5022aba53fab95244e4c4f1c... (glob)
+  * changeset resolved as: ChangesetId(Blake2(*)) (glob)
+  * Preparing to sync a merge commit *... (glob)
   * 2 new commits are going to be merged in (glob)
-  * syncing commit from new branch d27a299389c7bedbe3e4dc01b7d4e7ac2162d935401c5d8462b7e1663dfee0e4 (glob)
-  * syncing commit from new branch 89c0603366c60ae4bf8d8dca6da7581c741b7e89a6fcc3f49a44fdd248de3b1d (glob)
-  * uploading merge commit 0958bd58a03b8c799664bc0767b095a97003ee41eaa7814343ad9dcc6f90bc16 (glob)
-  * It is recommended to run 'mononoke_admin cross-repo verify-working-copy' for 0958bd58a03b8c799664bc0767b095a97003ee41eaa7814343ad9dcc6f90bc16! (glob)
+  * syncing commit from new branch * (glob)
+  * syncing commit from new branch * (glob)
+  * uploading merge commit * (glob)
+  * It is recommended to run 'mononoke_admin cross-repo verify-working-copy' for *! (glob)
 
 -- check that p2 was synced as preserved (note identical hashes)
   $ mononoke_admin cross-repo --source-repo-id 1 --target-repo-id 0 map -i $(hg log -r pre_merge_p2 -T "{node}" --cwd "$TESTTMP/with_merge_hg")
-  RewrittenAs([(ChangesetId(Blake2(89c0603366c60ae4bf8d8dca6da7581c741b7e89a6fcc3f49a44fdd248de3b1d)), CommitSyncConfigVersion("TEST_VERSION_NAME"))])
+  RewrittenAs([(ChangesetId(Blake2(*)), CommitSyncConfigVersion("TEST_VERSION_NAME"))]) (glob)
 
 -- check that merge was synced
   $ mononoke_admin cross-repo --source-repo-id 1 --target-repo-id 0 map -B with_merge_master
-  RewrittenAs([(ChangesetId(Blake2(0958bd58a03b8c799664bc0767b095a97003ee41eaa7814343ad9dcc6f90bc16)), CommitSyncConfigVersion("TEST_VERSION_NAME"))])
+  RewrittenAs([(ChangesetId(Blake2(*)), CommitSyncConfigVersion("TEST_VERSION_NAME"))]) (glob)
 
 --verify the working copy
   $ mononoke_admin cross-repo --source-repo-name with_merge --target-repo-name meg verify-working-copy $(mononoke_admin bookmarks -R meg get master_bookmark)
-  * target repo cs id: 3f71f093fcfbebcc47c981c847cd80c7d0bf063c5022aba53fab95244e4c4f1c, mapping version: TEST_VERSION_NAME (glob)
+  * target repo cs id: *, mapping version: TEST_VERSION_NAME (glob)
   * ### (glob)
   * ### Checking that all the paths from the repo meg are properly rewritten to with_merge (glob)
   * ### (glob)
