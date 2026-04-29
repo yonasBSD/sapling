@@ -558,39 +558,6 @@ function backfill_mapping {
     "$@"
 }
 
-function blobimport {
-  local always_log=
-  if [[ "$1" == "--log" ]]; then
-    always_log=1
-    shift
-  fi
-  input="$1"
-  output="$2"
-  shift 2
-  #   input (repo in new format)
-  # --debugexportrevlog--> revlog (repo in old format)
-  # --blobimport--> Mononoke repo
-  local revlog="$input/revlog-export"
-  rm -rf "$revlog"
-  hg --cwd "$input" debugexportrevlog revlog-export
-  GLOG_minloglevel=5 $MONONOKE_BLOBIMPORT \
-    "${CACHE_ARGS[@]}" \
-    "${COMMON_ARGS[@]}" \
-     --repo-id $REPOID \
-     --mononoke-config-path "$TESTTMP/mononoke-config" \
-     --tracing-test-format \
-     "$revlog/.hg" \
-     "$@" > "$TESTTMP/blobimport.out" 2>&1
-  BLOBIMPORT_RC="$?"
-  if [[ $BLOBIMPORT_RC -ne 0 ]]; then
-    cat "$TESTTMP/blobimport.out"
-    # set exit code, otherwise previous cat sets it to 0
-    return "$BLOBIMPORT_RC"
-  elif [[ -n "$always_log" ]]; then
-    cat "$TESTTMP/blobimport.out"
-  fi
-}
-
 function bonsai_verify {
   GLOG_minloglevel=5 "$MONONOKE_BONSAI_VERIFY" \
     "${CACHE_ARGS[@]}" \
@@ -1258,46 +1225,6 @@ EOF
   start_and_wait_for_mononoke_server
 
   hg clone -q mono:"$REPONAME" repo2 --noupdate
-
-  cd repo2 || exit 1
-  cat >> .hg/hgrc <<EOF
-[extensions]
-pushrebase=
-amend=
-EOF
-}
-
-function hook_test_setup_deprecated() {
-  HOOKS_SCUBA_LOGGING_PATH="$TESTTMP/hooks-scuba.json" setup_mononoke_config
-
-  register_hooks "$@"
-
-  setup_common_hg_configs
-  cd "$TESTTMP" || exit 1
-
-  cat >> "$HGRCPATH" <<EOF
-[ui]
-ssh="$DUMMYSSH"
-EOF
-
-  hginit_treemanifest "$REPONAME"
-  cd "$REPONAME" || exit 1
-  drawdag <<EOF
-C
-|
-B
-|
-A
-EOF
-
-  hg bookmark "$HOOKBOOKMARK" -r tip
-
-  cd ..
-  blobimport "$REPONAME"/.hg "$REPONAME"
-
-  hg clone -q mono:"$REPONAME" repo2 --noupdate
-
-  start_and_wait_for_mononoke_server
 
   cd repo2 || exit 1
   cat >> .hg/hgrc <<EOF
