@@ -382,7 +382,7 @@ This document tracks long-term engineering improvements and technical debt that 
 
 **Location:** Across 586 `.t` files
 
-**Problem:** Only 25 tests use `default_setup_*` helpers. Most manually initialize repos. Two competing methods (blobimport vs testtool_drawdag). Massive duplication of setup boilerplate.
+**Problem:** Only 25 tests use `default_setup_*` helpers. Most manually initialize repos. Massive duplication of setup boilerplate.
 
 **Improvement:** Expand fixture library using Rust `TestRepoFixture` trait. Encourage fixture use via better documentation. Deprecate manual setup patterns.
 

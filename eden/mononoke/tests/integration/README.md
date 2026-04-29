@@ -46,7 +46,7 @@ If your code changes trigger rebuild of multiple Mononoke binaries there is a wa
 to avoid unnecessary rebuilds: our incremental helper scripts.
 Using them allows you to skip most build steps, and rebuild only what you need to
 re-run your test (e.g. if you're iterating on Mononoke server, then you won't
-need to rebuild blobimport more than once).
+need to rebuild other binaries more than once).
 
 To do this, you should start by building everything once for your integration
 test target:

@@ -12,7 +12,7 @@
 //! 2. Optionally deleting those blobs from a target blobstore directory
 //! 3. Inserting WAL entries for the target blobstore
 //!
-//! This is useful for testing the blobstore healer without using blobimport.
+//! This is useful for testing the blobstore healer.
 
 use std::fs;
 use std::path::Path;

@@ -180,8 +180,7 @@ Sort the output because it may be unpredictable because of the merge
   b0d80666c945 C
 
 Create a new bookmark and try and send it over the wire
-Test commented while we have no bookmark support in blobimport or easy method
-to create a fileblob bookmark
+Test commented while we have no easy method to create a fileblob bookmark
 #  $ cd ../repo
 #  $ hg bookmark test-bookmark
 #  $ hg bookmarks

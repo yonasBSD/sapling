@@ -191,7 +191,6 @@ pub trait SyncedCommitMapping: Send + Sync {
     async fn add(&self, ctx: &CoreContext, entry: SyncedCommitMappingEntry) -> Result<bool, Error>;
 
     /// Bulk insert a set of large, small mappings
-    /// This is meant for blobimport and similar
     async fn add_bulk(
         &self,
         ctx: &CoreContext,

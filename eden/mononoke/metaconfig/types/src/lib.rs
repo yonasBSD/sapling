@@ -1143,7 +1143,7 @@ pub struct PushrebaseParams {
     pub emit_obsmarkers: bool,
     /// Globalrev configuration
     pub globalrev_config: Option<GlobalrevConfig>,
-    /// Whether Git Mapping should be populated from extras (affects also blobimport)
+    /// Whether Git Mapping should be populated from extras
     pub populate_git_mapping: bool,
     /// For the case when one repo is linked to another (a.k.a. megarepo)
     /// there's a special commit extra that allows changing the mapping

@@ -67,7 +67,7 @@ Main protocol servers (Mononoke/SLAPI, SCS, Git, LFS) and internal microservices
 Background maintenance tasks: Walker (graph validation), Blobstore Healer (storage durability), Derivation Worker, Cross-Repo Sync, and Statistics Collector.
 
 **[3.3 - Tools and Utilities](3.3-tools-and-utilities.md)**
-Command-line tools: admin CLI (primary tool), import/export tools (blobimport, gitimport), verification tools (aliasverify), and maintenance utilities (packer, sqlblob_gc).
+Command-line tools: admin CLI (primary tool), import/export tools (gitimport), verification tools (aliasverify), and maintenance utilities (packer, sqlblob_gc).
 
 **[3.4 - Libraries and Frameworks](3.4-libraries-and-frameworks.md)**
 Shared libraries: cmdlib/mononoke_app framework for new binaries, common utilities (async, SQL, logging), core types, and testing utilities.

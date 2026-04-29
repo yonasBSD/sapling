@@ -742,15 +742,14 @@ pub async fn unfold_bookmarks_update_log_entry(
             vec![]
         }
         (None, Some(to_cs_id)) => {
-            // Entry creates a bookmark (or it is a blobimport entry,
-            // or it has been created by the mononoke_admin in the
-            // original repo).
+            // Entry creates a bookmark (or it has been created by the
+            // mononoke_admin in the original repo).
             // In any case, out best bet is to build up all
             // commits since LCA(to_cs_id, master)
 
             if is_master_entry {
-                // A bizarre case, when a master bookmark is either created
-                // or blobiported. I do not think we will ever observe this in
+                // A bizarre case, when a master bookmark is created.
+                // I do not think we will ever observe this in
                 // practice, but for completeness sake, let's just make sure
                 // we verify `to_cs_id` itself. If we decided to just use
                 // the revset from below, it would've excluded `to_cs_id`

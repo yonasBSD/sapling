@@ -7,7 +7,7 @@
 
 //! Mutable counters maintains numeric counters for each Mononoke repository.
 //! These are used to maintain simple state about each repo, for example which
-//! revisions have been blobimported, replayed, etc.
+//! revisions have been replayed, etc.
 //!
 //! The counter values themselves are stored in a table in the metadata
 //! database.
