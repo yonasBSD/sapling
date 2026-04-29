@@ -10,6 +10,7 @@ use std::time::Duration;
 use mononoke_types::typed_hash::RedactionKeyListId;
 use tokio::process::Command;
 
+const EKS_CONFIG_TIMEOUT: Duration = Duration::from_secs(30);
 const POD_DISCOVERY_TIMEOUT: Duration = Duration::from_secs(30);
 const KUBECTL_EXEC_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -53,7 +54,34 @@ fn output_contains_key_list_id(output: &str, expected_id: &RedactionKeyListId) -
     output.contains(&expected_id.to_string())
 }
 
+async fn ensure_eks_kubeconfig() -> Result<(), String> {
+    let output = tokio::time::timeout(
+        EKS_CONFIG_TIMEOUT,
+        Command::new("cloud")
+            .args([
+                "eks",
+                "update-kubeconfig",
+                "mononoke-cloud",
+                "us-west-2",
+                "mononoke-prod",
+            ])
+            .output(),
+    )
+    .await
+    .map_err(|_| "cloud eks update-kubeconfig timed out".to_string())?
+    .map_err(|e| format!("Failed to run cloud CLI: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("cloud eks update-kubeconfig failed: {}", stderr));
+    }
+
+    Ok(())
+}
+
 async fn discover_aws_pod() -> Result<String, String> {
+    ensure_eks_kubeconfig().await?;
+
     let cmd_args = build_discover_cmd();
     let output = tokio::time::timeout(
         POD_DISCOVERY_TIMEOUT,
