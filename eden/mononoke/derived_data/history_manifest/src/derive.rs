@@ -365,9 +365,7 @@ async fn check_all_deleted(
         Either<HistoryManifestEntry, LoadableShardedMapV2Node<HistoryManifestEntry>>,
     )],
 ) -> Result<bool> {
-    let has_entries = !changed_entries.is_empty() || !reused.is_empty();
-
-    if !has_entries {
+    if changed_entries.is_empty() && reused.is_empty() {
         return Ok(false);
     }
 
@@ -376,13 +374,18 @@ async fn check_all_deleted(
         return Ok(false);
     }
 
-    // Check reused entries and subtrees.
+    // A reused partial map may contain zero entries — for example when the
+    // single parent's subtree is itself empty. An empty directory is not
+    // "all deleted", so require at least one observed entry to return true.
+    let mut saw_entry = !changed_entries.is_empty();
+
     for (_, reused_item) in reused {
         match reused_item {
             Either::Left(entry) => {
                 if !is_deleted_entry(entry) {
                     return Ok(false);
                 }
+                saw_entry = true;
             }
             Either::Right(partial_map) => {
                 let node = partial_map.clone().load(ctx, blobstore).await?;
@@ -392,12 +395,13 @@ async fn check_all_deleted(
                     if !is_deleted_entry(&entry) {
                         return Ok(false);
                     }
+                    saw_entry = true;
                 }
             }
         }
     }
 
-    Ok(true)
+    Ok(saw_entry)
 }
 
 /// Unfold: decide what to do at each path and return children to recurse into.
@@ -495,7 +499,10 @@ async fn do_unfold(
     // DeletedNode). If any parent has a directory, we must fall through
     // to Case 5 (directory recursion) so merge_subtrees can combine the
     // contents from all parents.
-    if !has_children && parent_entries.iter().all(|(_, e)| is_not_directory(e)) {
+    if !has_children
+        && !parent_entries.is_empty()
+        && parent_entries.iter().all(|(_, e)| is_not_directory(e))
+    {
         if parent_entries.len() <= 1 {
             return Err(HistoryManifestDerivationError::InconsistentMerge.into());
         }

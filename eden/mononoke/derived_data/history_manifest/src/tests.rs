@@ -2359,3 +2359,41 @@ async fn test_subtree_copy_empty_source_errors(fb: FacebookInit) -> Result<()> {
 
     Ok(())
 }
+
+/// Root commit with no file changes derives to an empty Directory.
+#[mononoke::fbinit_test]
+async fn test_empty_root_commit(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+    let repo: TestRepo = test_repo_factory::build_empty(ctx.fb).await?;
+
+    let cs_id = CreateCommitContext::new_root(&ctx, &repo).commit().await?;
+
+    let root_dir = derive_and_load(&ctx, &repo, cs_id).await?;
+    let entries = collect_entries(&ctx, &repo, &root_dir, MPath::ROOT).await?;
+
+    assert!(entries.is_empty(), "expected no entries, got {entries:?}");
+    assert_eq!(root_dir.linknode, cs_id);
+    assert!(root_dir.parents.is_empty());
+
+    Ok(())
+}
+
+/// Empty commit on top of an empty parent derives to a Directory, not a
+/// DeletedNode. An empty inherited subtree is not "all deleted".
+#[mononoke::fbinit_test]
+async fn test_empty_commit_chain(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+    let repo: TestRepo = test_repo_factory::build_empty(ctx.fb).await?;
+
+    let cs_a = CreateCommitContext::new_root(&ctx, &repo).commit().await?;
+    let cs_b = CreateCommitContext::new(&ctx, &repo, vec![cs_a])
+        .commit()
+        .await?;
+
+    let root_dir = derive_and_load(&ctx, &repo, cs_b).await?;
+    let entries = collect_entries(&ctx, &repo, &root_dir, MPath::ROOT).await?;
+
+    assert!(entries.is_empty(), "expected no entries, got {entries:?}");
+
+    Ok(())
+}
