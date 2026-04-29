@@ -17,6 +17,7 @@
 # one more time.
 
   $ export ENABLE_BOOKMARK_CACHE=1
+  $ export DISABLED_DERIVED_DATA="filenodes"
 
   $ . "${TEST_FIXTURES}/library.sh"
   $ . "${TEST_FIXTURES}/library-push-redirector.sh"
