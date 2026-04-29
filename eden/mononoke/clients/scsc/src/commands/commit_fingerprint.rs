@@ -22,15 +22,20 @@ use crate::render::Render;
 /// Fingerprint algorithm version.
 #[derive(clap::ValueEnum, Clone, Copy, Debug, Serialize)]
 enum FingerprintVersion {
-    /// V1: root ContentManifestId (content-addressed tree hash)
+    /// V1: root FsnodeId blake2 hash (universally available)
     #[clap(name = "1")]
     V1,
+    /// V2: root ContentManifestId blake2 hash (recommended; requires
+    /// derived_data_use_content_manifests enabled for the repo)
+    #[clap(name = "2")]
+    V2,
 }
 
 impl From<FingerprintVersion> for thrift::CommitFingerprintVersion {
     fn from(v: FingerprintVersion) -> Self {
         match v {
             FingerprintVersion::V1 => thrift::CommitFingerprintVersion::V1,
+            FingerprintVersion::V2 => thrift::CommitFingerprintVersion::V2,
         }
     }
 }

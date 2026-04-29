@@ -776,6 +776,7 @@ impl SourceControlServiceImpl {
     ) -> Result<thrift::CommitFingerprintResponse, scs_errors::ServiceError> {
         let version = match params.version {
             thrift::CommitFingerprintVersion::V1 => FingerprintVersion::V1,
+            thrift::CommitFingerprintVersion::V2 => FingerprintVersion::V2,
             other => {
                 return Err(scs_errors::ServiceError::from(
                     MononokeError::InvalidRequest(format!(
