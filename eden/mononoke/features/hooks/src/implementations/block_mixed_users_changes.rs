@@ -16,6 +16,7 @@ use crate::ChangesetHook;
 use crate::CrossRepoPushSource;
 use crate::HookConfig;
 use crate::HookExecution;
+use crate::HookRejectionInfo;
 use crate::HookRepo;
 use crate::PushAuthoredBy;
 
@@ -51,10 +52,35 @@ impl ChangesetHook for BlockMixedUsersChangesHook {
         _ctx: &'ctx CoreContext,
         _hook_repo: &'repo HookRepo,
         _bookmark: &BookmarkKey,
-        _changeset: &'cs BonsaiChangeset,
+        changeset: &'cs BonsaiChangeset,
         _cross_repo_push_source: CrossRepoPushSource,
-        _push_authored_by: PushAuthoredBy,
+        push_authored_by: PushAuthoredBy,
     ) -> Result<HookExecution> {
+        if push_authored_by.service() {
+            return Ok(HookExecution::Accepted);
+        }
+
+        let mut has_users_changes = false;
+        let mut has_non_users_changes = false;
+
+        for (path, _fc) in changeset.file_changes() {
+            if path.to_string().starts_with(&self.config.users_prefix) {
+                has_users_changes = true;
+            } else {
+                has_non_users_changes = true;
+            }
+
+            if has_users_changes && has_non_users_changes {
+                return Ok(HookExecution::Rejected(HookRejectionInfo::new_long(
+                    "Mixed users/ and non-users/ changes",
+                    format!(
+                        "Your commit contains changes in {0} and non-{0}, making this commit unrevertable by anyone but you. This adds friction to incident resolution, so we encourage you to split the {0} changes into a separate diff.",
+                        self.config.users_prefix,
+                    ),
+                )));
+            }
+        }
+
         Ok(HookExecution::Accepted)
     }
 }
@@ -148,8 +174,7 @@ mod test {
 
         let bcs = cs_id.load(ctx, &repo.repo_blobstore).await?;
         let result = run_hook(ctx, repo, &bcs, default_config(), PushAuthoredBy::User).await?;
-        // TODO: should be Rejected once implemented
-        assert_eq!(result, HookExecution::Accepted);
+        assert!(matches!(result, HookExecution::Rejected(_)));
         Ok(())
     }
 
@@ -204,8 +229,7 @@ mod test {
 
         let bcs = cs_id.load(ctx, &repo.repo_blobstore).await?;
         let result = run_hook(ctx, repo, &bcs, default_config(), PushAuthoredBy::User).await?;
-        // TODO: should be Rejected once implemented
-        assert_eq!(result, HookExecution::Accepted);
+        assert!(matches!(result, HookExecution::Rejected(_)));
         Ok(())
     }
 
@@ -227,8 +251,7 @@ mod test {
 
         let bcs = cs_id.load(ctx, &repo.repo_blobstore).await?;
         let result = run_hook(ctx, repo, &bcs, config, PushAuthoredBy::User).await?;
-        // TODO: should be Rejected once implemented
-        assert_eq!(result, HookExecution::Accepted);
+        assert!(matches!(result, HookExecution::Rejected(_)));
         Ok(())
     }
 }

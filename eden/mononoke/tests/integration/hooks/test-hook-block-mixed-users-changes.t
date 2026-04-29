@@ -39,14 +39,16 @@ Only non-users/ changes - should pass
   adding file changes
   updating bookmark master_bookmark
 
-Mixed changes - should pass (hook is still no-op)
+Mixed changes - should be rejected
   $ echo "mixed sandbox" > users/alice/mixed.txt
   $ echo "mixed prod" > mixed_prod.rs
   $ hg ci -Aqm "mixed changes"
   $ hg push -r . --to master_bookmark
   pushing rev * to destination mono:repo bookmark master_bookmark (glob)
   searching for changes
-  adding changesets
-  adding manifests
-  adding file changes
-  updating bookmark master_bookmark
+  remote: Command failed
+  remote:   Error:
+  remote:     hooks failed:
+  remote:     block_mixed_users_changes for *: Your commit contains changes in users/ and non-users/, making this commit unrevertable by anyone but you. This adds friction to incident resolution, so we encourage you to split the users/ changes into a separate diff. (glob)
+  abort: unexpected EOL, expected netstring digit
+  [255]
