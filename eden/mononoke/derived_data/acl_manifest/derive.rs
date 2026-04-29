@@ -148,13 +148,11 @@ pub(crate) async fn derive_from_scratch(
         .acl_file_name()
         .to_string();
 
-    // Derive dependencies.
-    let bssm_v3 = derivation_ctx
-        .fetch_dependency::<RootBssmV3DirectoryId>(ctx, cs_id)
-        .await?;
-    let root_fsnode_id = derivation_ctx
-        .fetch_dependency::<RootFsnodeId>(ctx, cs_id)
-        .await?;
+    // Derive dependencies (fetch both in parallel -- independent blobstore lookups).
+    let (bssm_v3, root_fsnode_id) = futures::try_join!(
+        derivation_ctx.fetch_dependency::<RootBssmV3DirectoryId>(ctx, cs_id),
+        derivation_ctx.fetch_dependency::<RootFsnodeId>(ctx, cs_id),
+    )?;
 
     // Find all ACL files via BSSMV3 and resolve their content IDs via Fsnodes.
     let acl_paths: Vec<NonRootMPath> = bssm_v3
