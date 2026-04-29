@@ -183,7 +183,17 @@ impl MononokeGitScubaHandler {
             scuba.add(MononokeGitScubaKey::Error, format!("{:?}", err));
         }
         scuba.add(MononokeGitScubaKey::ErrorCount, info.error_count());
-        scuba.add("log_tag", "MononokeGit Request Processed");
+
+        let stream_hung = info
+            .stream_stats
+            .as_ref()
+            .is_some_and(|stats| !stats.completed);
+        let log_tag = if stream_hung {
+            "MononokeGit Request Hung"
+        } else {
+            "MononokeGit Request Processed"
+        };
+        scuba.add("log_tag", log_tag);
         scuba.unsampled();
         scuba.log();
     }
