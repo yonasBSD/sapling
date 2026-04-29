@@ -184,7 +184,7 @@ EOF
 
   # Setting up mutable counter for live forward sync
   # NOTE: this might need to be updated/refactored when setting up test for backsyncing
-  sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) VALUES ($LARGE_REPO_ID, 'xreposync_from_$SUBMODULE_REPO_ID', 1)";
+  sqlite3 "$TESTTMP/monsql/sqlite_dbs" "INSERT INTO mutable_counters (repo_id, name, value) SELECT $LARGE_REPO_ID, 'xreposync_from_$SUBMODULE_REPO_ID', COALESCE(MAX(id), 0) FROM bookmarks_update_log WHERE repo_id = $SUBMODULE_REPO_ID";
 
   cd "$TESTTMP" || exit
 }
