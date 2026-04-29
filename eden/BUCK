@@ -30,7 +30,8 @@ fbpkg.builder(
         mode = "opt",
     ),
 
-    # This is doing (almost) the same as eden/fs/facebook/packaging/packman.yml
+    # This is doing (almost) the same as the historical EdenFS packaging config
+    # (https://fburl.com/code/lmpy7mvj).
     # For the config we cannot do with fbpkg.builder (e.g. set mode for a binary) we
     # should rely on Chef or an installation script to config correctly.
     #

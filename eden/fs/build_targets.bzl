@@ -4,7 +4,7 @@
 # GNU General Public License version 2.
 
 # Build targets for EdenFS packaging.
-# Maps build targets to their installation paths from packman.yml
+# Maps build targets to their installation paths in the packaged layout.
 
 # Main EdenFS build targets used in packaging
 # Maps build target -> install path(s)
