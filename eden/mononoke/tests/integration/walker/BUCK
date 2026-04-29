@@ -12,7 +12,6 @@ dott_test(
         "//eden/mononoke:mononoke",
         "//eden/mononoke/jobs/walker:walker",
         "//eden/mononoke/tools/admin:admin",
-        "//eden/mononoke/tools/blobimport:blobimport",
         "//eden/mononoke/tools/packer:packer",
         "//eden/mononoke/tools/testtool:testtool",
     ],

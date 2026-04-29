@@ -7,15 +7,19 @@
   $ . "${TEST_FIXTURES}/library.sh"
 
 setup configuration
-  $ default_setup_blobimport "blob_files"
-  hg repo
-  o  C [draft;rev=2;26805aba1e60]
-  │
-  o  B [draft;rev=1;112478962961]
-  │
-  o  A [draft;rev=0;426bada5c675]
-  $
-  blobimporting
+  $ setup_common_config "blob_files"
+  $ cd "$TESTTMP"
+  $ testtool_drawdag -R repo --derive-all <<EOF
+  > C
+  > |
+  > B
+  > |
+  > A
+  > # bookmark: C master_bookmark
+  > EOF
+  A=* (glob)
+  B=* (glob)
+  C=* (glob)
 
 validate, expecting all valid
   $ mononoke_walker validate -I deep -q -b master_bookmark 2>&1 | grep -vE "(Bytes|Walked)/s"
@@ -28,33 +32,45 @@ validate, expecting all valid
 
 validate, check route is logged on unexpected error (forced by manually deleting a blob)
   $ ls $TESTTMP/blobstore/blobs | grep -e changeset.blake2
-  blob-repo0000.changeset.blake2.459f16ae564c501cb408c1e5b60fc98a1e8b8e97b9409c7520658bfa1577fb66
-  blob-repo0000.changeset.blake2.9feb8ddd3e8eddcfa3a4913b57df7842bedf84b8ea3b7b3fcb14c6424aa81fec
-  blob-repo0000.changeset.blake2.c3384961b16276f2db77df9d7c874bbe981cf0525bd6f84a502f919044f2dabd
+  blob-repo0000.changeset.blake2.* (glob)
+  blob-repo0000.changeset.blake2.* (glob)
+  blob-repo0000.changeset.blake2.* (glob)
 
-  $ rm -f "$TESTTMP/blobstore/blobs/blob-repo0000.changeset.blake2.c3384961b16276f2db77df9d7c874bbe981cf0525bd6f84a502f919044f2dabd"
+  $ rm -f "$TESTTMP/blobstore/blobs/blob-repo0000.changeset.blake2.$C"
 
   $ mononoke_walker --scuba-log-file scuba-error.json validate -q -I deep -b master_bookmark 2>&1 | grep -vE "(Bytes|Walked)/s"
   [INFO] Walking edge types [AliasContentMappingToFileContent, BonsaiHgMappingToHgChangesetViaBonsai, BookmarkToChangeset, ChangesetToBonsaiHgMapping, ChangesetToBonsaiParent, ChangesetToFileContent, FileContentMetadataV2ToGitSha1Alias, FileContentMetadataV2ToSeededBlake3Alias, FileContentMetadataV2ToSha1Alias, FileContentMetadataV2ToSha256Alias, FileContentToFileContentMetadataV2, HgBonsaiMappingToChangeset, HgChangesetToHgManifest, HgChangesetToHgParent, HgChangesetViaBonsaiToHgChangeset, HgFileEnvelopeToFileContent, HgFileNodeToHgCopyfromFileNode, HgFileNodeToHgParentFileNode, HgFileNodeToLinkedHgBonsaiMapping, HgFileNodeToLinkedHgChangeset, HgManifestToChildHgManifest, HgManifestToHgFileEnvelope, HgManifestToHgFileNode]
   [INFO] Walking node types [AliasContentMapping, BonsaiHgMapping, Bookmark, Changeset, FileContent, FileContentMetadataV2, HgBonsaiMapping, HgChangeset, HgChangesetViaBonsai, HgFileEnvelope, HgFileNode, HgManifest]
   [INFO] [walker validate{repo=repo}] Performing check types [HgLinkNodePopulated]
-  [ERROR] Execution error: Could not step to OutgoingEdge { label: BookmarkToChangeset, target: Changeset(ChangesetKey { inner: ChangesetId(Blake2(c3384961b16276f2db77df9d7c874bbe981cf0525bd6f84a502f919044f2dabd)), filenode_known_derived: false }), path: None } via Some(ValidateRoute { src_node: Bookmark(BookmarkKey { name: BookmarkName { bookmark: "master_bookmark" }, category: Branch }), via: [] }) in repo repo
+  [ERROR] Execution error: Could not step to OutgoingEdge { label: BookmarkToChangeset, target: Changeset(ChangesetKey { inner: ChangesetId(Blake2(*)), filenode_known_derived: * }), path: None } via Some(ValidateRoute { src_node: Bookmark(BookmarkKey { name: BookmarkName { bookmark: "master_bookmark" }, category: Branch }), via: [] }) in repo repo (glob)
   
   Caused by:
-      changeset.blake2.c3384961b16276f2db77df9d7c874bbe981cf0525bd6f84a502f919044f2dabd is missing
+      changeset.blake2.* is missing (glob)
   Error: Execution failed
+
 
 Check scuba data is logged for error on step and that it contains message and route info
   $ wc -l < scuba-error.json
   1
   $ jq -r '.int * .normal | [ .check_fail, .check_type, .node_key, .node_type, .repo, .src_node_type, .via_node_type, .walk_type, .error_msg ] | @csv' < scuba-error.json
-  1,"missing","changeset.blake2.c3384961b16276f2db77df9d7c874bbe981cf0525bd6f84a502f919044f2dabd","Changeset","repo","Bookmark",,"validate","Could not step to OutgoingEdge { label: BookmarkToChangeset, target: Changeset(ChangesetKey { inner: ChangesetId(Blake2(c3384961b16276f2db77df9d7c874bbe981cf0525bd6f84a502f919044f2dabd)), filenode_known_derived: false }), path: None }, due to Missing(""changeset.blake2.c3384961b16276f2db77df9d7c874bbe981cf0525bd6f84a502f919044f2dabd""), via Some(ValidateRoute { src_node: Bookmark(BookmarkKey { name: BookmarkName { bookmark: ""master_bookmark"" }, category: Branch }), via: [] })"
+  1,"missing","changeset.blake2.*","Changeset","repo","Bookmark",,"validate","Could not step to OutgoingEdge { label: BookmarkToChangeset, target: Changeset(ChangesetKey { inner: ChangesetId(Blake2(*)), filenode_known_derived: * }), path: None }, due to Missing(""changeset.blake2.*""), via Some(ValidateRoute { src_node: Bookmark(BookmarkKey { name: BookmarkName { bookmark: ""master_bookmark"" }, category: Branch }), via: [] })" (glob)
 
-repair by blobimport.
-  $ blobimport repo/.hg repo
+repair by re-running testtool_drawdag
+  $ testtool_drawdag -R repo --derive-all <<EOF
+  > C
+  > |
+  > B
+  > |
+  > A
+  > # bookmark: C master_bookmark
+  > EOF
+  A=* (glob)
+  B=* (glob)
+  C=* (glob)
 
 Remove all filenodes
-  $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "DELETE FROM filenodes where linknode=x'112478962961147124EDD43549AEDD1A335E44BF'";
+  $ HG_B=$(sqlite3 "$TESTTMP/monsql/sqlite_dbs" "SELECT hex(hg_cs_id) FROM bonsai_hg_mapping WHERE hex(bcs_id) = upper('$B')")
+  $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "DELETE FROM filenodes where linknode=x'$HG_B'";
 
 validate, expecting validation fails
   $ mononoke_walker --scuba-log-file scuba.json validate -q -I deep -b master_bookmark 2>&1 | grep -vE "(Bytes|Walked)/s"
@@ -71,8 +87,8 @@ Check scuba data
   $ jq -r '.int * .normal | [ .check_fail, .check_type, .node_key, .node_path, .node_type, .repo, .src_node_key, .src_node_path, .src_node_type, .via_node_key, .via_node_path, .via_node_type, .walk_type ] | @csv' < scuba.json | sort
   1,"hg_link_node_populated","hgfilenode.sha1.35e7525ce3a48913275d7061dd9a867ffef1e34d","B","HgFileNode","repo","hgmanifest.sha1.*","(none)","HgManifest","hgchangeset.sha1.*",,"HgChangeset","validate" (glob)
 
-repair by blobimport.
-  $ blobimport repo/.hg repo
+repair by re-deriving filenodes
+  $ mononoke_admin derived-data -R repo derive --rederive -T filenodes -B master_bookmark
 
 validate, expecting all valid, this time checking marker types as well
   $ mononoke_walker validate -q -I deep -I marker -b master_bookmark 2>&1 | grep -vE "(Bytes|Walked)/s"
@@ -95,7 +111,8 @@ validate, expect no failures on phase info, as the commits are still public, jus
 
 Remove all filenodes for the last commit, validation should succeed (i.e. filenodes were not derived yet)
   $ cd "$TESTTMP"
-  $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "DELETE FROM filenodes where HEX(linknode) like '26805aba1e600a82e93661149f2313866a221a7b'";
+  $ HG_C=$(sqlite3 "$TESTTMP/monsql/sqlite_dbs" "SELECT hex(hg_cs_id) FROM bonsai_hg_mapping WHERE hex(bcs_id) = upper('$C')")
+  $ sqlite3 "$TESTTMP/monsql/sqlite_dbs" "DELETE FROM filenodes where HEX(linknode) like lower('$HG_C')";
   $ mononoke_walker validate -q -I deep -b master_bookmark 2>&1 | grep -vE "(Bytes|Walked)/s"
   [INFO] Walking edge types [AliasContentMappingToFileContent, BonsaiHgMappingToHgChangesetViaBonsai, BookmarkToChangeset, ChangesetToBonsaiHgMapping, ChangesetToBonsaiParent, ChangesetToFileContent, FileContentMetadataV2ToGitSha1Alias, FileContentMetadataV2ToSeededBlake3Alias, FileContentMetadataV2ToSha1Alias, FileContentMetadataV2ToSha256Alias, FileContentToFileContentMetadataV2, HgBonsaiMappingToChangeset, HgChangesetToHgManifest, HgChangesetToHgParent, HgChangesetViaBonsaiToHgChangeset, HgFileEnvelopeToFileContent, HgFileNodeToHgCopyfromFileNode, HgFileNodeToHgParentFileNode, HgFileNodeToLinkedHgBonsaiMapping, HgFileNodeToLinkedHgChangeset, HgManifestToChildHgManifest, HgManifestToHgFileEnvelope, HgManifestToHgFileNode]
   [INFO] Walking node types [AliasContentMapping, BonsaiHgMapping, Bookmark, Changeset, FileContent, FileContentMetadataV2, HgBonsaiMapping, HgChangeset, HgChangesetViaBonsai, HgFileEnvelope, HgFileNode, HgManifest]
