@@ -23,11 +23,15 @@ setup configuration
   $ cd $TESTTMP
 
 setup repo
-  $ hginit_treemanifest repo
-  $ cd repo
-  $ echo "content0" > file
-  $ hg commit -Aqm base
-  $ hg bookmark master_bookmark -r tip
+  $ testtool_drawdag -R repo --no-default-files --print-hg-hashes --derive-all <<EOF
+  > A
+  > # modify: A "file" "content0\n"
+  > # bookmark: A master_bookmark
+  > EOF
+  A=4a0c0777ac93638e97b447f81d16f7de5afea095
+
+start mononoke
+  $ start_and_wait_for_mononoke_server
 
 setup repo-push and repo-pull
   $ cd $TESTTMP
@@ -41,27 +45,21 @@ setup repo-push and repo-pull
   > [infinitepush]
   > branchpattern = re:scratch/.*
   > EOF
-  >   
   >   # Defeat shared cache between repos.
   >   cat >> repo-$name/.hg/hgrc <<EOF
   > [remotefilelog]
   > cachepath=$TESTTMP/cachepath/$name
   > EOF
   > done
-
-blobimport
-  $ blobimport repo/.hg repo
-
-start mononoke
-  $ start_and_wait_for_mononoke_server
 push an infinitepush commit with new content
   $ cd $TESTTMP/repo-push
   $ hg up master_bookmark
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo "content1" > file
   $ hg commit -q -m branch
+  $ BRANCH_HASH=$(hg log -r . -T '{node}')
   $ hg cloud backup
-  commitcloud: head '60ab8a6c8e65' hasn't been uploaded yet
+  commitcloud: head 'e7bc2b151947' hasn't been uploaded yet
   edenapi: queue 1 commit for upload
   edenapi: queue 1 file for upload
   edenapi: uploaded 1 file
@@ -69,17 +67,18 @@ push an infinitepush commit with new content
   edenapi: uploaded 1 tree
   edenapi: uploaded 1 changeset
   $ hg log -G -T '{node} {desc} ({remotenames})\n' -r "all()"
-  @  60ab8a6c8e652ea968be7ffdb658b49de35d3621 branch ()
+  @  e7bc2b151947e75e509e9a4945158e6d3b408198 branch ()
   │
-  o  d998012a9c34a2423757a3d40f8579c78af1b342 base (remote/master_bookmark)
+  o  4a0c0777ac93638e97b447f81d16f7de5afea095 A (remote/master_bookmark)
   
+
 
 pull the infinitepush commit
   $ cd $TESTTMP/repo-pull1
-  $ hg pull -r 60ab8a6c8e652ea968be7ffdb658b49de35d3621
+  $ hg pull -r $BRANCH_HASH
   pulling from mono:repo
   searching for changes
-  $ hg up 60ab8a6c8e652ea968be7ffdb658b49de35d3621
+  $ hg up $BRANCH_HASH
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ hg debugapi -e history -i '[("file", "b4aa7b980f00bcd3ea58510798c1425dcdc511f3")]'
@@ -96,7 +95,7 @@ pull the infinitepush commit
                               "path": ""},
                              {"node": bin("0000000000000000000000000000000000000000"),
                               "path": ""}],
-                 "linknode": bin("d998012a9c34a2423757a3d40f8579c78af1b342")}}]
+                 "linknode": bin("4a0c0777ac93638e97b447f81d16f7de5afea095")}}]
 
 NOTE: Mononoke gave us a NULL linknode
 
@@ -104,8 +103,8 @@ NOTE: Mononoke gave us a NULL linknode
   $ hg commit -Aqm other
   $ hg log -T '{node} {desc} ({remotenames})\n' -f file
   linkrevfixup: file b4aa7b980f00bcd3ea58510798c1425dcdc511f3
-  60ab8a6c8e652ea968be7ffdb658b49de35d3621 branch ()
-  d998012a9c34a2423757a3d40f8579c78af1b342 base (remote/master_bookmark)
+  e7bc2b151947e75e509e9a4945158e6d3b408198 branch ()
+  4a0c0777ac93638e97b447f81d16f7de5afea095 A (remote/master_bookmark)
 
 NOTE: linkrevfixup was called to fix up the null linkrev
 
@@ -115,8 +114,9 @@ push a master commit with the same content
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ echo "content1" > file
   $ hg commit -q -m master
+  $ MASTER_HASH=$(hg log -r . -T '{node}')
   $ hg push --to master_bookmark
-  pushing rev 6dbc3093b595 to destination mono:repo bookmark master_bookmark
+  pushing rev 4a027d81b6ff to destination mono:repo bookmark master_bookmark
   searching for changes
   updating bookmark master_bookmark
 
@@ -134,10 +134,11 @@ pull only the master branch into another repo
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ hg log -G -T '{node} {desc} ({remotenames})\n' -r "all()"
-  @  6dbc3093b5955d7bb47512155149ec66791c277d master (remote/master_bookmark)
+  @  4a027d81b6ffa3fff7a686acf8e49a65dc84f8b9 master (remote/master_bookmark)
   │
-  o  d998012a9c34a2423757a3d40f8579c78af1b342 base ()
+  o  4a0c0777ac93638e97b447f81d16f7de5afea095 A ()
   
+
 
   $ hg debugapi -e history -i '[("file", "b4aa7b980f00bcd3ea58510798c1425dcdc511f3")]'
   [{"key": {"node": bin("b4aa7b980f00bcd3ea58510798c1425dcdc511f3"),
@@ -146,29 +147,29 @@ pull only the master branch into another repo
                               "path": "file"},
                              {"node": bin("0000000000000000000000000000000000000000"),
                               "path": ""}],
-                 "linknode": bin("6dbc3093b5955d7bb47512155149ec66791c277d")}},
+                 "linknode": bin("4a027d81b6ffa3fff7a686acf8e49a65dc84f8b9")}},
    {"key": {"node": bin("599997c6080f1c12417bbc03894af754eea8dc72"),
             "path": "file"},
     "nodeinfo": {"parents": [{"node": bin("0000000000000000000000000000000000000000"),
                               "path": ""},
                              {"node": bin("0000000000000000000000000000000000000000"),
                               "path": ""}],
-                 "linknode": bin("d998012a9c34a2423757a3d40f8579c78af1b342")}}]
+                 "linknode": bin("4a0c0777ac93638e97b447f81d16f7de5afea095")}}]
 
 NOTE: the linknode is the public commit
 
   $ echo othercontent > file2
   $ hg commit -Aqm other
   $ hg log -T '{node} {desc} ({remotenames})\n' -f file
-  6dbc3093b5955d7bb47512155149ec66791c277d master (remote/master_bookmark)
-  d998012a9c34a2423757a3d40f8579c78af1b342 base ()
+  4a027d81b6ffa3fff7a686acf8e49a65dc84f8b9 master (remote/master_bookmark)
+  4a0c0777ac93638e97b447f81d16f7de5afea095 A ()
 
 NOTE: linkrevfixup was not called
 
 pull the infinitepush commit again in a new repo
   $ cd $TESTTMP/repo-pull3
-  $ hg pull -qr 60ab8a6c8e652ea968be7ffdb658b49de35d3621
-  $ hg up 60ab8a6c8e652ea968be7ffdb658b49de35d3621
+  $ hg pull -qr $BRANCH_HASH
+  $ hg up $BRANCH_HASH
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
   $ hg debugapi -e history -i '[("file", "b4aa7b980f00bcd3ea58510798c1425dcdc511f3")]'
@@ -178,14 +179,14 @@ pull the infinitepush commit again in a new repo
                               "path": "file"},
                              {"node": bin("0000000000000000000000000000000000000000"),
                               "path": ""}],
-                 "linknode": bin("6dbc3093b5955d7bb47512155149ec66791c277d")}},
+                 "linknode": bin("4a027d81b6ffa3fff7a686acf8e49a65dc84f8b9")}},
    {"key": {"node": bin("599997c6080f1c12417bbc03894af754eea8dc72"),
             "path": "file"},
     "nodeinfo": {"parents": [{"node": bin("0000000000000000000000000000000000000000"),
                               "path": ""},
                              {"node": bin("0000000000000000000000000000000000000000"),
                               "path": ""}],
-                 "linknode": bin("d998012a9c34a2423757a3d40f8579c78af1b342")}}]
+                 "linknode": bin("4a0c0777ac93638e97b447f81d16f7de5afea095")}}]
 
 NOTE: Mononoke gave us the public commit as the linknode
 
@@ -193,7 +194,7 @@ NOTE: Mononoke gave us the public commit as the linknode
   $ hg commit -Aqm other
   $ hg log -T '{node} {desc} ({remotenames})\n' -f file
   linkrevfixup: file b4aa7b980f00bcd3ea58510798c1425dcdc511f3
-  60ab8a6c8e652ea968be7ffdb658b49de35d3621 branch ()
-  d998012a9c34a2423757a3d40f8579c78af1b342 base ()
+  e7bc2b151947e75e509e9a4945158e6d3b408198 branch ()
+  4a0c0777ac93638e97b447f81d16f7de5afea095 A ()
 
 NOTE: linkrevfixup was called to fix up the linkrev
