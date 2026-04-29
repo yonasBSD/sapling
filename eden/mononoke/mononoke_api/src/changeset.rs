@@ -110,8 +110,14 @@ mod find_files;
 /// Algorithm version for changeset content fingerprinting.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FingerprintVersion {
-    /// Root ContentManifestId (content-addressed tree hash).
+    /// V1: root FsnodeId blake2 hash. Universally available — every production
+    /// repo derives Fsnodes — but not the long-term recommendation.
     V1,
+    /// V2: root ContentManifestId blake2 hash. Recommended long-term default.
+    /// Requires `scm/mononoke:derived_data_use_content_manifests` enabled for
+    /// the repo; otherwise the request fails with InvalidRequest (no
+    /// auto-fallback, to keep the fingerprint bytes stable for consumers).
+    V2,
 }
 
 #[derive(Clone, Debug)]
@@ -425,6 +431,15 @@ impl<R: RepoDerivedDataArc> ChangesetContext<R> {
     ) -> Result<Vec<u8>, MononokeError> {
         match version {
             FingerprintVersion::V1 => {
+                let root_id = self.derive::<RootFsnodeId>().await?;
+                Ok(root_id.into_fsnode_id().blake2().as_ref().to_vec())
+            }
+            FingerprintVersion::V2 => {
+                // No auto-fallback to fsnode if ContentManifest is not enrolled:
+                // the deterministic-fingerprint guarantee requires V2 bytes to
+                // be derivable only from RootContentManifestId. The
+                // derive::<RootContentManifestId>() call returns InvalidRequest
+                // when the type is not enabled for the repo.
                 let root_id = self.derive::<RootContentManifestId>().await?;
                 Ok(root_id
                     .into_content_manifest_id()
