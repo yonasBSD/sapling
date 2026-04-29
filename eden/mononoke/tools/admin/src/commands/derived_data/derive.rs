@@ -11,6 +11,7 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use bulk_derivation::BulkDerivation;
+use bulk_derivation::derive_stage_batch;
 use clap::Args;
 use context::CoreContext;
 use context::SessionClass;
@@ -42,6 +43,10 @@ pub(super) struct DeriveArgs {
     /// Batch size to use for derivation
     #[clap(long)]
     batch_size: Option<u64>,
+    /// Derive only a single pipeline stage (e.g. "root", "dir1").
+    /// Only supported for types with pipeline derivation (fsnodes, unodes).
+    #[clap(long)]
+    stage: Option<String>,
 }
 
 pub(super) async fn derive(
@@ -74,7 +79,28 @@ pub(super) async fn derive(
         Default::default()
     };
 
-    if args.unsafe_derive_untopologically {
+    if let Some(stage_id) = args.stage {
+        for derived_data_type in &derived_data_types {
+            let variant = derived_data_type.into_pipeline_derivable_variant()?;
+
+            trace!(
+                "about to derive stage {} of {} for {} commits",
+                stage_id,
+                derived_data_type.name(),
+                csids.len()
+            );
+
+            let duration =
+                derive_stage_batch(manager, ctx, csids.to_vec(), &stage_id, variant).await?;
+
+            println!(
+                "Stage {} derivation for {} completed in {}ms",
+                stage_id,
+                derived_data_type.name(),
+                duration.as_millis()
+            );
+        }
+    } else if args.unsafe_derive_untopologically {
         for derived_data_type in derived_data_types {
             for csid in csids {
                 unsafe_derive_untopologically(
