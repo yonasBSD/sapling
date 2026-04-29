@@ -23,7 +23,6 @@ dott_test(
             ],
         ),
     deps = [
-        "//eden/mononoke/tools/blobimport:blobimport",
         "//eden/mononoke:mononoke",
         # TODO: This is required for test-getpackv2-multibyte-filenames.t, as
         # hg can't handle UTF-8 file names correctly. Once that is fixed, this
