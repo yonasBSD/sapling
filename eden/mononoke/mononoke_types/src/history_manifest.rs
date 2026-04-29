@@ -49,8 +49,7 @@ impl ShardedMapV2Value for HistoryManifestEntry {
     type Context = ShardedMapV2NodeHistoryManifestContext;
     type RollupData = ();
 
-    // TODO: Work out what the best weight is here before backfilling.
-    const WEIGHT_LIMIT: usize = 2000;
+    const WEIGHT_LIMIT: usize = 1100;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
