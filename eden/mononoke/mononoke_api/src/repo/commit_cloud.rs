@@ -35,7 +35,6 @@ use commit_graph::CommitGraphRef;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use futures::stream;
-use futures_util::future::try_join_all;
 use metaconfig_types::CommitIdentityScheme;
 use metaconfig_types::RepoConfigRef;
 use mononoke_types::ChangesetId;
@@ -200,12 +199,11 @@ impl<R: MononokeRepo> RepoContext<R> {
             .await?;
 
         let public_commits_ctx = if !flags.contains(&SmartlogFlag::SkipPublicCommitsMetadata) {
-            try_join_all(
-                public_frontier
-                    .into_iter()
-                    .map(|cs_id| self.changeset(ChangesetSpecifier::Bonsai(cs_id))),
-            )
-            .await?
+            stream::iter(public_frontier)
+                .map(|cs_id| self.changeset(ChangesetSpecifier::Bonsai(cs_id)))
+                .buffer_unordered(100)
+                .try_collect::<Vec<Option<ChangesetContext<R>>>>()
+                .await?
         } else {
             Vec::new()
         };
