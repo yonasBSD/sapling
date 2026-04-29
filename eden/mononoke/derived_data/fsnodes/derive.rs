@@ -133,7 +133,13 @@ pub(crate) async fn derive_fsnode_entry(
     let restricted_paths = derivation_ctx.restricted_paths();
     let content_ids = changes
         .iter()
-        .filter_map(|(_mpath, content_id_and_file_type)| {
+        .filter(|(mpath, _)| {
+            prefix.is_prefix_of(mpath)
+                && !known_entries
+                    .keys()
+                    .any(|known_path| known_path.is_prefix_of(mpath))
+        })
+        .filter_map(|(_, content_id_and_file_type)| {
             content_id_and_file_type.map(|(content_id, _file_type)| content_id)
         })
         .collect::<HashSet<_>>();
