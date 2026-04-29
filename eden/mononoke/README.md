@@ -27,7 +27,7 @@ Check GitHub Actions for the latest build/test status. Linux is Mononoke's prima
 
 ## Subsystem Docs
 
-Most of our documentation is in internal systems, however a few subsystems have in-repo markdown docs available:
+Most of our  documentation is in internal systems, however a few subsystems have in-repo markdown docs available:
 
 * [Integration Tests](tests/integration/README.md)
 * [Packblob Storage](blobstore/packblob/README.md) how Mononoke compressed store works
