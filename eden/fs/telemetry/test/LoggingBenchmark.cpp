@@ -97,18 +97,18 @@ EdenTelemetryIdentity makeIdentity() {
 telemetry::EdenfsFileAccessEntry makeThriftEntry(
     const EdenTelemetryIdentity& identity) {
   telemetry::EdenfsFileAccessEntry entry;
-  entry.username_ref() = identity.username;
-  entry.hostname_ref() = identity.hostname;
-  entry.os_ref() = identity.os;
-  entry.osver_ref() = identity.osVersion;
-  entry.edenver_ref() = identity.appVersion;
-  entry.logged_by_ref() = "edenfs";
-  entry.repo_ref() = std::string{kRepo};
-  entry.directory_ref() = std::string{kDirectory};
-  entry.filename_ref() = std::string{kFilename};
-  entry.source_ref() = std::string{kSource};
-  entry.source_detail_ref() = std::string{kSourceDetail};
-  entry.session_id_ref() = static_cast<int64_t>(identity.sessionId);
+  entry.username() = identity.username;
+  entry.hostname() = identity.hostname;
+  entry.os() = identity.os;
+  entry.osver() = identity.osVersion;
+  entry.edenver() = identity.appVersion;
+  entry.logged_by() = "edenfs";
+  entry.repo() = std::string{kRepo};
+  entry.directory() = std::string{kDirectory};
+  entry.filename() = std::string{kFilename};
+  entry.source() = std::string{kSource};
+  entry.source_detail() = std::string{kSourceDetail};
+  entry.session_id() = static_cast<int64_t>(identity.sessionId);
   return entry;
 }
 
