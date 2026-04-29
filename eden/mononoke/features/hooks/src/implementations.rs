@@ -116,6 +116,9 @@ pub async fn make_changeset_hook(
             block_commit_message_pattern::BlockCommitMessagePatternHook::new(&params.config)?,
         )),
         "block_empty_commit" => Some(b(block_empty_commit::BlockEmptyCommit::new())),
+        "block_mixed_users_changes" => Some(b(
+            block_mixed_users_changes::BlockMixedUsersChangesHook::new(&params.config)?,
+        )),
         "limit_commit_message_length" => {
             let hook =
                 limit_commit_message_length::LimitCommitMessageLengthHook::new(&params.config)?;
