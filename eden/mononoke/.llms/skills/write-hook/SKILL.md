@@ -1,0 +1,15 @@
+---
+description: Create a Mononoke server-side hook with 3-diff split (tests, wiring, implementation), unit tests, and integration tests
+oncalls: ['scm_server_infra']
+apply_to_user_prompt: '.*(write|create|add|new|implement).*(mononoke\s+)?hook.*'
+apply_to_regex: 'eden/mononoke/features/hooks/src/implementations/.*\.rs$'
+---
+
+# Write a Mononoke Hook
+
+Create a server-side Mononoke hook based on the user's request.
+
+- When creating a new hook, read [references/implementation-guide.md](references/implementation-guide.md)
+- When writing hook logic that touches manifests or derived data, read [references/performance-constraints.md](references/performance-constraints.md)
+- When writing unit or integration tests, read [references/testing-patterns.md](references/testing-patterns.md)
+- Before submitting, read [references/common-mistakes.md](references/common-mistakes.md)
