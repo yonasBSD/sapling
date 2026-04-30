@@ -53,7 +53,6 @@
   commitcloud: synchronizing 'testrepo' with 'user/test/default'
   visibility: read 0 heads: 
   commitcloud: nothing to upload
-  visibility: read 0 heads: 
   commitcloud_sync: synced to workspace user/test/default version 1: 0 heads (0 omitted), 0 bookmarks (0 omitted), 0 remote bookmarks (0 omitted)
   commitcloud: commits synchronized
   finished in 0.00 sec
@@ -70,7 +69,6 @@
   commitcloud: synchronizing 'testrepo' with 'user/test/default'
   visibility: read 0 heads: 
   commitcloud: nothing to upload
-  visibility: read 0 heads: 
   commitcloud_sync: synced to workspace user/test/default version 1: 0 heads (0 omitted), 0 bookmarks (0 omitted), 0 remote bookmarks (0 omitted)
   commitcloud: commits synchronized
   finished in 0.00 sec
@@ -91,7 +89,6 @@
   edenapi: queue 1 tree for upload
   edenapi: uploaded 1 tree
   edenapi: uploaded 1 changeset
-  visibility: read 1 heads: 79089e97b9e7
   commitcloud_sync: synced to workspace user/test/default version 2: 1 heads (0 omitted), 0 bookmarks (0 omitted), 0 remote bookmarks (0 omitted)
   commitcloud: commits synchronized
   finished in 0.00 sec
@@ -131,7 +128,6 @@ Let the background sync we started earlier continue, and start a concurrent clou
   edenapi: queue 1 tree for upload
   edenapi: uploaded 1 tree
   edenapi: uploaded 1 changeset
-  visibility: read 1 heads: 1292cc1f1c17
   visibility: removed 0 heads []; added 1 heads [79089e97b9e7] (?)
   visibility: wrote 2 heads: 79089e97b9e7, 1292cc1f1c17 (?)
   pulling 79089e97b9e7 from ssh://user@dummy/server
@@ -158,7 +154,6 @@ Wait for the background backup to finish and check its output.
   commitcloud: synchronizing 'testrepo' with 'user/test/default'
   visibility: read 0 heads: 
   commitcloud: nothing to upload
-  visibility: read 1 heads: 1292cc1f1c17
   abort: commitcloud: failed to synchronize commits: 'repo changed while backing up'
   (please retry 'sl cloud sync')
   (please contact the Source Control Team if this error persists)

@@ -104,7 +104,11 @@ class BackupState:
             )
         )
 
-        if tr is not None:
+        # addfilegenerator (non-metalog files) does not work with lockfree
+        # transaction. backedupheads.remote file affects smartlog rendering,
+        # it's not critical if it loses track due to aborted transaction,
+        # or does not match the main cloud sync state.
+        if tr is not None and not tr.lockfree:
             tr.addfilegenerator(
                 "commitcloudbackedupheads",
                 (self.filename,),

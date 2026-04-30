@@ -228,12 +228,13 @@ def _sync(
             clientinfo=service.makeclientinfo(repo, lastsyncstate),
         )
 
+    lockfree = repo.config.get.as_bool("experimental", "lock-free-cloud-sync2", True)
     with (
         repo.ui.configoverride(
             {("treemanifest", "prefetchdraftparents"): False}, "cloudsync"
         ),
-        repo.wlock(wait=not besteffort),
-        repo.lock(wait=not besteffort),
+        repo.wlock(wait=not besteffort, lockfree=lockfree),
+        repo.lock(wait=not besteffort, lockfree=lockfree),
     ):
         synced = False
         attempt = 0
@@ -245,7 +246,7 @@ def _sync(
             attempt += 1
 
             repo.invalidatemetalog()
-            with repo.transaction("cloudsync download") as tr:
+            with repo.transaction("cloudsync download", lockfree=lockfree) as tr:
                 if besteffort and _hashrepostate(repo) != origrepostate:
                     # Another transaction changed the repository while we were backing
                     # up commits. This may have introduced new commits that also need
@@ -282,7 +283,7 @@ def _sync(
 
             # We committed the transaction so that data downloaded from the cloud is
             # committed.  Start a new transaction for uploading the local changes.
-            with repo.transaction("cloudsync upload") as tr:
+            with repo.transaction("cloudsync upload", lockfree=lockfree) as tr:
                 # Send updates to the cloud.  If this fails then we have lost the race
                 # to update the server and must start again.
                 synced, cloudrefs = _submitlocalchanges(
@@ -1028,7 +1029,12 @@ def _checkomissions(repo, lastsyncstate, tr, maxage):
             newomittedremotebookmarks=list(omittedremotebookmarks),
         )
     if changes or remotechanges:
-        with repo.wlock(), repo.lock(), repo.transaction("cloudsync") as tr:
+        lockfree = tr.lockfree
+        with (
+            repo.wlock(lockfree=lockfree),
+            repo.lock(lockfree=lockfree),
+            repo.transaction("cloudsync", lockfree=lockfree) as tr,
+        ):
             if changes:
                 repo._bookmarks.applychanges(repo, tr, changes)
             if remotechanges:
