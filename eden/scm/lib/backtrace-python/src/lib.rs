@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#![allow(unexpected_cfgs)]
+
 //! `backtrace-ext` extension to support resolving Python frames.
 //!
 //! Call `init()` after Python initialization to attempt to enable Python frame
@@ -19,6 +21,13 @@ use backtrace_ext::SupplementalFrameResolver;
 use backtrace_ext::SupplementalInfo;
 
 mod libpython_filter;
+
+#[cfg(offsets_codegen_by_cargo)]
+pub mod offsets {
+    include!(concat!(env!("OUT_DIR"), "/offsets.rs"));
+}
+
+#[cfg(not(offsets_codegen_by_cargo))]
 pub mod offsets;
 
 /// Setup backtrace-ext to resolve Python frames on supported platforms.
