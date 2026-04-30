@@ -1302,11 +1302,11 @@ class localrepository:
     # _phasesets depend on changelog. what we need is to call
     # _phasecache.invalidate() if '00changelog.i' was changed, but it
     # can't be easily expressed in filecache mechanism.
-    @storecache("phaseroots", "00changelog.i", "remotenames", "visibleheads")
+    @storecache()
     def _phasecache(self):
         return phases.phasecache(self, self._phasedefaults)
 
-    @storecache("00changelog.i", "visibleheads", "remotenames")
+    @storecache()
     def changelog(self):
         # Trigger loading of the metalog, before loading changelog.
         # This avoids potential races such as metalog refers to
@@ -1349,7 +1349,7 @@ class localrepository:
         # manifestlog. It allows bundlerepo to intercept the manifest creation.
         return manifest.manifestrevlog(self.svfs)
 
-    @storecache("00manifest.i", "00manifesttree.i")
+    @storecache()
     def manifestlog(self):
         return manifest.manifestlog(self.svfs, self)
 
