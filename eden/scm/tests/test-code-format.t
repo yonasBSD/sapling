@@ -95,13 +95,29 @@ Test max-file-size limit skips formatting:
   this is a long line that exceeds the size limit
   $ setconfig 'fix.code-format-max-file-size=500KB'
 
+Test mode=on skips formatting in automation (HGPLAIN):
+  $ HGPLAIN=1 sl amend
+  nothing changed
+  [1]
+
+Test mode=all runs formatting even in automation (HGPLAIN):
+  $ setconfig 'fix.code-format-mode=all'
+  $ echo "automated" > j.txt
+  $ sl add j.txt
+  $ HGPLAIN=1 sl amend
+  running code formatter: '*' (glob)
+  code formatter completed successfully in * secs (glob)
+  $ cat j.txt
+  ===formatted===
+  automated
+
 Test invalid code-format-mode config:
   $ setconfig 'fix.code-format-mode=invalid'
   $ echo "i" > i.txt
   $ sl add i.txt
   $ sl amend
-  error: pre-amend.sl_code_format hook failed: invalid value for fix.code-format-mode: invalid. Valid values are 'off', 'agent', 'on'.
-  abort: invalid value for fix.code-format-mode: invalid. Valid values are 'off', 'agent', 'on'.
+  error: pre-amend.sl_code_format hook failed: invalid fix.code-format-mode: invalid (valid: off, agent, on (non-automation), all)
+  abort: invalid fix.code-format-mode: invalid (valid: off, agent, on (non-automation), all)
   [255]
 
 Re-enable for subsequent tests:
