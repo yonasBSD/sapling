@@ -31,6 +31,7 @@ rust_binary(
         "//common/rust/shed/panichandler:panichandler",
         "//common/rust/srserver:load_monitor_module",
         "//common/rust/srserver:srserver",
+        "//common/rust/srserver:srserver-service-framework-light",
         "//eden/mononoke/cmdlib:cmdlib_logging",
         "//eden/mononoke/cmdlib:environment",
         "//eden/mononoke/cmdlib/mononoke_app:mononoke_app",
