@@ -794,6 +794,7 @@ def push(repo, dest, pushnode_to_pairs, force=False):
     """
     url, remote = urlremote(repo.ui, dest)
     refspecs = []
+    refname_to_node_pairs = []
     for pushnode, to in pushnode_to_pairs:
         if pushnode is None:
             fromspec = ""
@@ -802,6 +803,7 @@ def push(repo, dest, pushnode_to_pairs, force=False):
         else:
             fromspec = "%s" % hex(pushnode)
         refname = RefName(name=to)
+        refname_to_node_pairs.append((refname, pushnode))
         refspec = "%s:%s" % (fromspec, refname)
         refspecs.append(refspec)
     if not refspecs:
@@ -822,15 +824,16 @@ def push(repo, dest, pushnode_to_pairs, force=False):
         )
         # update remotenames
         if ret == 0:
-            name = refname.withremote(remote).remotename
             metalog = repo.metalog()
-            namenodes = bookmod.decoderemotenames(metalog["remotenames"])
-            if pushnode is None:
-                namenodes.pop(name, None)
-            else:
-                if not to.startswith(COMMIT_CLOUD_UPLOAD_REF):
-                    namenodes[name] = pushnode
-            metalog["remotenames"] = bookmod.encoderemotenames(namenodes)
+            namenodes = metalog.get_remotenames()
+            for refname, pushnode in refname_to_node_pairs:
+                name = refname.withremote(remote).remotename
+                if pushnode is None:
+                    namenodes.pop(name, None)
+                else:
+                    if not str(refname).startswith(COMMIT_CLOUD_UPLOAD_REF):
+                        namenodes[name] = pushnode
+            metalog.set_remotenames(namenodes)
     return ret
 
 
