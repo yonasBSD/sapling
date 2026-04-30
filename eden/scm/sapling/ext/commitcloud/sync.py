@@ -106,9 +106,10 @@ def _iscleanrepo(repo):
 @perftrace.tracefunc("Cloud Sync")
 def sync(repo, *args, **kwargs):
     besteffort = kwargs.get("besteffort", False)
+    lockfree = repo.config.get.as_bool("experimental", "lock-free-cloud-sync1", True)
     try:
         with backuplock.trylock(repo) if besteffort else backuplock.lock(repo):
-            if besteffort:
+            if besteffort or lockfree:
                 rc, synced = _sync(repo, *args, **kwargs)
             else:
                 with (
