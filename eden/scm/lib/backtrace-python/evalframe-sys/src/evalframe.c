@@ -118,9 +118,11 @@ EXPORT PyCodeObject* sapling_cext_evalframe_extract_code_lineno_from_frame(
 #pragma optimize("", off)
 #endif
 
-// Only used by codegen (offset-probe, D92185212) in a controlled way.
-// Not used by regular runs.
+// Only used by codegen (offset-probe) in a controlled way.
+// Not used by regular runs. Set by Sapling_PyEvalFrameProbe.
 static size_t last_frame = 0;
+static size_t last_code = 0;
+static volatile ssize_t last_line_no = 0;
 
 // Runtime evalframe: minimal overhead, does not track last_frame.
 EXPORT PyObject* NO_OPT
@@ -141,13 +143,15 @@ Sapling_PyEvalFrame(PyThreadState* tstate, PyFrame* f, int exc) {
   return _PyEval_EvalFrameDefault(tstate, f, exc);
 }
 
-// Probe evalframe: tracks last_frame for offset detection at build time.
+// Probe evalframe: write values to last* for offset detection at build time.
 // Calls Sapling_PyEvalFrame so offsets computed during probing are valid
 // for runtime use.
 EXPORT PyObject* NO_OPT
 
 Sapling_PyEvalFrameProbe(PyThreadState* tstate, PyFrame* f, int exc) {
   last_frame = (size_t)f;
+  last_code = (size_t)sapling_cext_evalframe_extract_code_lineno_from_frame(
+      f, &last_line_no);
   return Sapling_PyEvalFrame(tstate, f, exc);
 }
 
@@ -164,7 +168,7 @@ Sapling_PyEvalFrameProbe(PyThreadState* tstate, PyFrame* f, int exc) {
  * mode:
  *   0 = disabled (use default Python eval)
  *   1 = enabled (use Sapling_PyEvalFrame - minimal overhead, no tracking)
- *   2 = probe (use Sapling_PyEvalFrameProbe - tracks last_frame for offset
+ *   2 = probe (use Sapling_PyEvalFrameProbe - tracks last* for offset
  * detection)
  *
  * Note: calling this function when the Python interpreter is not initialized
@@ -292,8 +296,17 @@ EXPORT int sapling_cext_evalframe_resolve_frame_is_supported() {
 
 /**
  * Report the last `PyFrame` value.
- * Useful to probe the `PyFrame` variable on the `Sapling_PyEvalFrame` stack.
+ * Useful to probe the `PyFrame` variable on the `Sapling_PyEvalFrameInner`
+ * stack.
  */
 EXPORT size_t sapling_cext_evalframe_get_last_frame() {
   return last_frame;
+}
+
+EXPORT size_t sapling_cext_evalframe_get_last_code() {
+  return last_code;
+}
+
+EXPORT ssize_t sapling_cext_evalframe_get_last_line_no() {
+  return last_line_no;
 }
