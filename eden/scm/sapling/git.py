@@ -775,11 +775,12 @@ def pullrefspecs(repo, url, refspecs):
     if _supportwritefetchhead(repo):
         args.append("--no-write-fetch-head")
     args += [url] + refspecs
-    with repo.lock():
+    lockfree = repo.config.get.as_bool("experimental", "lock-free-git-fetch")
+    with repo.lock(lockfree=lockfree):
         ret = rungit(repo, args)
         if ret == 0:
             refnames = [s.split(":", 1)[1] for s in refspecs if ":" in s]
-            with repo.transaction("pull"):
+            with repo.transaction("pull", lockfree=lockfree):
                 _syncfromgit(repo, refnames)
     return ret
 

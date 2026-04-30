@@ -66,6 +66,7 @@ local-committemplate=true
 run-python-hooks-via-pyhook=true
 
 lock-free-pull=true
+lock-free-git-fetch=true
 lock-free-git-push=true
 
 [zsh]
