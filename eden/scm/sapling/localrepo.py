@@ -2447,7 +2447,6 @@ class localrepository:
         if self._is_within_lockfree_transaction():
             raise errormod.ProgrammingError(
                 "wlock inside lockfree transaction is not currently allowed",
-                stacklevel=1,
             )
         l = self._wlockref and self._wlockref()
         if l is not None and l.held:
