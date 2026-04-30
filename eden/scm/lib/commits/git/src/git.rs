@@ -492,11 +492,17 @@ impl GitSegmentedCommits {
         Ok(())
     }
 
-    /// Update git references to match metalog changes.
+    /// Update git references to match metalog *changes*.
     /// - remotenames, bookmarks: changes will be applied to Git references.
     /// - visibleheads: current state will replace refs/visibleheads/ namespace.
     ///
-    /// The reverse of `git_references_to_metalog`, used at the end of a transaction.
+    /// The changes are decided:
+    /// - If the metalog is dirty, then the dirty part is considered changed.
+    /// - If the metalog is clean, then the difference between the metalog and
+    ///   its parent is considered changed.
+    ///
+    /// The reverse of `git_references_to_metalog`, typically used at the end of
+    /// a transaction, when the metalog is committed.
     fn export_to_git(&self, metalog: &MetaLog) -> Result<()> {
         tracing::info!("updating git refs from metalog");
         if tracing::enabled!(tracing::Level::TRACE) {

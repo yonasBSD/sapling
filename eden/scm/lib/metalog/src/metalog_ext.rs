@@ -123,10 +123,18 @@ impl MetaLog {
         Ok(())
     }
 
-    /// Checkout the "parent" metalog. Not all entries have "parent".
-    /// The "parent" is defined by "Parent: HASH" in the message,
-    /// written by the transaction layer.
+    /// Checkout the "parent" metalog.
+    ///
+    /// If the current metalog state is dirty (modified in memory), then the
+    /// parent is the unchanged, original metalog entry on disk.
+    ///
+    /// If the current metalog state is clean, then the parent is based on the
+    /// "Parent: HASH" message in the metalog. Not all metalog entries have the
+    /// "Parent" tracked. The callsite should handle `None` case gracefully.
     pub fn parent(&self) -> Result<Option<Self>> {
+        if self.is_dirty() {
+            return Ok(Some(self.checkout(self.orig_root_id)?));
+        }
         let parent_id = self.message().lines().find_map(|l| {
             let rest = l.strip_prefix("Parent: ")?;
             Id20::from_hex(rest.as_bytes()).ok()
