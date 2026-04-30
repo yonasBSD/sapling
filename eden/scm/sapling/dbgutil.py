@@ -54,7 +54,7 @@ def backtrace_all(ui, pid: int):
             "-o",
             f"bta {pid}{out_path and ' ' + out_path}",
         ]
-        env = {**os.environ, "OFFSET_SP": str(bindings.backtrace.OFFSET_SP)}
+        env = {**os.environ, "OFFSET_SP_FRAME": str(bindings.backtrace.OFFSET_SP_FRAME)}
         subprocess.run(args, stdout=(subprocess.DEVNULL if out_path else None), env=env)
         if out_path:
             with open(out_path, "rb") as f:
@@ -103,7 +103,7 @@ def _lldb_backtrace_all_for_process(target, process, write):
     """
     import lldb
 
-    offset_sp = read_offset("OFFSET_SP")
+    offset_sp = read_offset("OFFSET_SP_FRAME")
 
     if target.addr_size != 8:
         write("non-64-bit (%s) architecture is not yet supported\n" % target.addr_size)

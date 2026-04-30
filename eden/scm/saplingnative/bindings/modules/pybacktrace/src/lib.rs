@@ -22,7 +22,21 @@ pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
 
     m.add(py, "SUPPORTED_INFO", info_mod)?;
     m.add(py, "OFFSET_IP", backtrace_python::offsets::OFFSET_IP)?;
-    m.add(py, "OFFSET_SP", backtrace_python::offsets::OFFSET_SP)?;
+    m.add(
+        py,
+        "OFFSET_SP_FRAME",
+        backtrace_python::offsets::OFFSET_SP_FRAME,
+    )?;
+    m.add(
+        py,
+        "OFFSET_SP_CODE",
+        backtrace_python::offsets::OFFSET_SP_CODE,
+    )?;
+    m.add(
+        py,
+        "OFFSET_SP_LINE_NO",
+        backtrace_python::offsets::OFFSET_SP_LINE_NO,
+    )?;
 
     Ok(m)
 }

@@ -71,7 +71,9 @@ impl SupportedInfo {
 
     fn new() -> Self {
         Self {
-            os_arch: offsets::OFFSET_IP.is_some() && offsets::OFFSET_SP.is_some(),
+            os_arch: offsets::OFFSET_IP.is_some()
+                && offsets::OFFSET_SP_CODE.is_some()
+                && offsets::OFFSET_SP_LINE_NO.is_some(),
             c_evalframe: evalframe_sys::resolve_frame_is_supported(),
         }
     }
@@ -84,17 +86,25 @@ struct PythonSupplementalFrameResolver;
 
 impl SupplementalFrameResolver for PythonSupplementalFrameResolver {
     fn maybe_extract_supplemental_info(&self, ip: usize, sp: usize) -> FrameDecision {
-        let Some(offset) = offsets::OFFSET_IP else {
+        let start = evalframe_sys::sapling_py_eval_frame_addr();
+        let Some(offset_ip) = offsets::OFFSET_IP else {
+            // Offsets not provided (e.g. unsupported arch or python)
             return FrameDecision::Keep;
         };
-        if ip != (evalframe_sys::sapling_py_eval_frame_addr() + offset) {
+        if ip != start + offset_ip {
             // Skip native python frames to reduce noise.
             return if libpython_filter::is_python_frame(ip) {
                 FrameDecision::Skip
             } else {
+                // Skip other places of Sapling_PyEvalFrameInner native frame
+                if ip >= start && ip <= start + offset_ip {
+                    return FrameDecision::Skip;
+                }
                 FrameDecision::Keep
             };
         }
+
+        // Read stack of Sapling_PyEvalFrameInner
         match extract_python_supplemental_info(sp) {
             Some(info) => FrameDecision::Replace(info),
             None => FrameDecision::Keep,
@@ -127,17 +137,17 @@ fn extract_python_supplemental_info(sp: usize) -> Option<SupplementalInfo> {
     if sp == 0 {
         return None;
     }
-    // Read the `f` variable on stack. See sapling/dbgutil.py, D55728746
-    let offset = offsets::OFFSET_SP?;
-    let addr = sp.checked_add(offset)?;
-    unsafe {
-        let frame_ptr: *const *mut libc::c_void = addr as *const _;
-        let frame: *mut libc::c_void = *frame_ptr;
-        let mut line_no: isize = 0;
-        let code = evalframe_sys::extract_code_lineno_from_frame(frame, &mut line_no);
-        if !code.is_null() {
-            return Some([code as usize, line_no as usize]);
+
+    let read_stack = |offset: usize| -> Option<usize> {
+        let addr = sp.checked_add(offset)?;
+        unsafe {
+            let stack_ptr: *const *mut libc::c_void = addr as *const _;
+            Some(*stack_ptr as usize)
         }
-    }
-    None
+    };
+
+    let code_obj = read_stack(offsets::OFFSET_SP_CODE?)?;
+    let line_no = read_stack(offsets::OFFSET_SP_LINE_NO?)?;
+
+    Some([code_obj, line_no])
 }
