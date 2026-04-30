@@ -813,6 +813,10 @@ def push(repo, dest, pushnode_to_pairs, force=False):
         lockfree and util.nullcontextmanager() or repo.lock(),
         repo.transaction("push", lockfree=lockfree),
     ):
+        # Loading changelog can trigger git refs -> metalog sync.
+        # Ensure that we don't trigger it during updatereferences below.
+        repo.changelog
+
         configs = None
         # file:// protocol doesn't support push negotiation. Disable it to
         # avoid noisy warnings when push.negotiate is enabled globally.
@@ -824,6 +828,15 @@ def push(repo, dest, pushnode_to_pairs, force=False):
         )
         # update remotenames
         if ret == 0:
+            # The above `git push` uses url, not name like "origin".
+            # It does update git references.
+            #
+            # Here, we first update metalog remote, then sync metalog
+            # changes back to git.
+            #
+            # Note: in dotsl mode, the metalog is expected to be the
+            # source of truth. In dotgit mode, git refs are source
+            # of truth, but we still need this code path to update it.
             metalog = repo.metalog()
             namenodes = metalog.get_remotenames()
             for refname, pushnode in refname_to_node_pairs:
@@ -834,6 +847,14 @@ def push(repo, dest, pushnode_to_pairs, force=False):
                     if not str(refname).startswith(COMMIT_CLOUD_UPLOAD_REF):
                         namenodes[name] = pushnode
             metalog.set_remotenames(namenodes)
+            # Sync metalog changes back to git references from metalog.
+            # This is also called at the end of a transaction, but that
+            # might happen too late and is risky - if something
+            # invalidates changelog, and the next changelog initialization
+            # could trigger git refs -> metalog sync that overrides the
+            # above metalog changes. So we explicitly call metalog ->
+            # git refs sync here.
+            repo.changelog.inner.updatereferences(metalog)
     return ret
 
 
