@@ -393,10 +393,18 @@ impl GitSegmentedCommits {
                     fn [<update_ $field>](&mut self, metalog: &MetaLog, name: RefName, value: Option<HgId>) -> Result<()> {
                         let map = load!(self, $field, metalog);
                         match value {
-                            None => { map.remove(&name); }
+                            None => {
+                                let removed = map.remove(&name);
+                                if removed.is_some() {
+                                    tracing::trace!(target: "commits_git::git::import", kind=stringify!($field), ?name, "delete because git ref is gone");
+                                }
+                            }
                             Some(id) => {
-                                let orig_id = map.insert(name, id);
-                                if orig_id != Some(id) { self.mark_add_head(id); }
+                                let orig_id = map.insert(name.clone(), id);
+                                if orig_id != Some(id) {
+                                    tracing::trace!(target: "commits_git::git::import", kind=stringify!($field), ?name, ?value, "updated because git ref is changed");
+                                    self.mark_add_head(id);
+                                }
                             }
                         }
                         Ok(())
