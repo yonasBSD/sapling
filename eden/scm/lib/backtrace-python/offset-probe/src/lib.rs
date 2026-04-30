@@ -18,6 +18,32 @@ static OFFSET_IP: AtomicUsize = AtomicUsize::new(0);
 /// SP Offset to get the Python frame object.
 static OFFSET_SP: AtomicUsize = AtomicUsize::new(0);
 
+pub fn get_offsets_code() -> String {
+    let (ip, sp) = match get_offsets() {
+        Some((ip, sp)) => (Some(ip), Some(sp)),
+        None => (None, None),
+    };
+
+    format!(
+        r#"/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+// @{}enerated by offset-codegen. Do not edit.
+
+/// IP offset within Sapling_PyEvalFrame where the PyFrame can be read.
+pub const OFFSET_IP: Option<usize> = {:?};
+
+/// SP offset within Sapling_PyEvalFrame to read the PyFrame pointer.
+pub const OFFSET_SP: Option<usize> = {:?};
+"#,
+        "g", ip, sp,
+    )
+}
+
 /// Attempt to get the IP and SP offsets.
 pub fn get_offsets() -> Option<(usize, usize)> {
     // Unsupported Python version (Python C API)?
