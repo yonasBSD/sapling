@@ -58,7 +58,7 @@ fn examine_backtrace(_py: Python) -> PyResult<Option<bool>> {
         let ip = frame.ip() as usize;
         let start = evalframe_sys::sapling_py_eval_frame_addr();
         // How many bytes the `Sapling_PyEvalFrame` function has at most?
-        const CODE_SIZE_THRESHOLD: usize = 64;
+        const CODE_SIZE_THRESHOLD: usize = 256;
         // How many bytes the `Sapling_PyEvalFrame` stack might be at most?
         const STACK_SIZE_THRESHOLD: usize = 48;
         if ip >= start && ip <= start + CODE_SIZE_THRESHOLD {

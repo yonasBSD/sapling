@@ -122,6 +122,7 @@ unsafe extern "C" {
 
     fn sapling_cext_evalframe_get_last_frame() -> usize;
 
-    // The pass-through eval frame function. We only need its address.
+    // The pass-through eval frame function. We use its address and scans its stack.
+    // It's not called directly.
     fn Sapling_PyEvalFrame(tstate: usize, f: usize, exc: libc::c_int);
 }

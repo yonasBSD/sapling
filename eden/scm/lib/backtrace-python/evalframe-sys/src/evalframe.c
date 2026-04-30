@@ -126,6 +126,18 @@ static size_t last_frame = 0;
 EXPORT PyObject* NO_OPT
 
 Sapling_PyEvalFrame(PyThreadState* tstate, PyFrame* f, int exc) {
+  // `f` might be de-allocated by `_PyEval_EvalFrameDefault`.
+  // Extract the `code` and `line_no` out here so stack scanners
+  // (e.g. sampling-profiler) can read them.
+  volatile ssize_t line_no = 0;
+  volatile PyCodeObject* code =
+      sapling_cext_evalframe_extract_code_lineno_from_frame(f, &line_no);
+  // Mark variables as used, and keep them on stack explicitly.
+  // NO_OPT can still be useful to keep the frame pointer.
+#if !defined(_MSC_VER)
+  __asm__ __volatile__("" : : "m"(code));
+  __asm__ __volatile__("" : : "m"(line_no));
+#endif
   return _PyEval_EvalFrameDefault(tstate, f, exc);
 }
 
