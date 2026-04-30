@@ -30,6 +30,10 @@ python_fn setup_environment_variables
 # where it would be picked up by "hg commit -Am" and break test expectations.
 export LLVM_PROFILE_FILE="$TESTTMP/default_%p.profraw"
 
+# Suppress diagnostic info logs from repo initialization facets that would
+# otherwise appear in test output and break .t file expectations.
+export RUST_LOG="${RUST_LOG:-info,repo_factory=WARN,dbbookmarks=WARN,warm_bookmarks_cache=WARN}"
+
 function urlencode {
   python_fn urlencode "$@"
 }
@@ -938,7 +942,7 @@ function start_and_wait_for_mock_rl_land_service {
 
 function _megarepo_async_worker_cmd {
   GLOG_minloglevel=5 \
-    RUST_LOG="warm_bookmarks_cache=WARN" \
+    RUST_LOG="warm_bookmarks_cache=WARN,dbbookmarks=WARN" \
     "$ASYNC_REQUESTS_WORKER" "$@" \
     --log-level INFO \
     --mononoke-config-path "$TESTTMP/mononoke-config" \
@@ -960,7 +964,7 @@ function megarepo_async_worker_foreground {
 
 function backfill_worker {
   GLOG_minloglevel=5 \
-    RUST_LOG="warm_bookmarks_cache=WARN" \
+    RUST_LOG="warm_bookmarks_cache=WARN,dbbookmarks=WARN" \
     "$BACKFILL_WORKER" "$@" \
     --log-level INFO \
     --mononoke-config-path "$TESTTMP/mononoke-config" \

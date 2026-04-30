@@ -58,10 +58,19 @@ impl SqlBookmarksSubscription {
         // bookmarks updated prior to this log id in the second query.
 
         let conn = sql_bookmarks.connection(ctx, freshness);
+        tracing::info!(
+            repo_id = %sql_bookmarks.repo_id,
+            ?freshness,
+            "WBC subscription: starting transaction"
+        );
         let txn = conn
             .start_transaction(ctx.sql_query_telemetry())
             .await
             .context("Failed to start bookmarks read transaction")?;
+        tracing::info!(
+            repo_id = %sql_bookmarks.repo_id,
+            "WBC subscription: transaction started, querying largest log id"
+        );
 
         let (txn, log_id_rows) =
             GetLargestLogId::query_with_transaction(txn, &sql_bookmarks.repo_id)
@@ -76,6 +85,11 @@ impl SqlBookmarksSubscription {
             .flatten()
             .unwrap_or(0);
 
+        tracing::info!(
+            repo_id = %sql_bookmarks.repo_id,
+            log_id,
+            "WBC subscription: got log id, querying all bookmarks"
+        );
         let tok: i32 = rand::random();
         let (txn, bookmarks) = SelectAllUnordered::query_with_transaction(
             txn,
@@ -87,11 +101,20 @@ impl SqlBookmarksSubscription {
         )
         .await
         .context("Failed to query bookmarks")?;
+        tracing::info!(
+            repo_id = %sql_bookmarks.repo_id,
+            bookmark_count = bookmarks.len(),
+            "WBC subscription: got bookmarks, rolling back transaction"
+        );
 
         // Cleanly close this transaction. No need to commit: we're not making any changes here.
         txn.rollback()
             .await
             .context("Failed to close transaction")?;
+        tracing::info!(
+            repo_id = %sql_bookmarks.repo_id,
+            "WBC subscription: transaction closed"
+        );
 
         let bookmarks = bookmarks
             .into_iter()

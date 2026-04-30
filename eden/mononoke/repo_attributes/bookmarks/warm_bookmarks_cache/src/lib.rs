@@ -645,10 +645,18 @@ impl WarmBookmarksCache {
             warmers = %warmer_names,
             "Starting warm bookmark cache updater"
         );
+        tracing::info!(
+            repo = %repo_identity.name(),
+            "WBC: creating bookmarks subscription"
+        );
         let sub = bookmarks
             .create_subscription(ctx, Freshness::MaybeStale)
             .await
             .context("Error creating bookmarks subscription")?;
+        tracing::info!(
+            repo = %repo_identity.name(),
+            "WBC: bookmarks subscription created, starting init_bookmarks"
+        );
 
         let bookmarks_to_watch = init_bookmarks(
             ctx,
@@ -660,6 +668,11 @@ impl WarmBookmarksCache {
         )
         .instrument(tracing::info_span!("init bookmarks", repo = %repo_identity.name()))
         .await?;
+        tracing::info!(
+            repo = %repo_identity.name(),
+            bookmark_count = bookmarks_to_watch.len(),
+            "WBC: init_bookmarks completed, spawning coordinator"
+        );
 
         let bookmarks_to_watch = Arc::new(RwLock::new(bookmarks_to_watch));
 
@@ -677,6 +690,10 @@ impl WarmBookmarksCache {
             receiver,
             notify_sync_start.clone(),
             notify_sync_complete.clone(),
+        );
+        tracing::info!(
+            repo = %repo_identity.name(),
+            "WBC: coordinator spawned, warm bookmarks cache ready"
         );
 
         Ok(Self {
