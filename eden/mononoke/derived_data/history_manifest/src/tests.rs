@@ -893,6 +893,42 @@ async fn test_empty_commit(fb: FacebookInit) -> Result<()> {
     Ok(())
 }
 
+/// Deleting every file in the repo leaves a commit whose root tree is empty.
+/// The root must still derive as a `Directory` (matching the unode manifest's
+/// behavior of synthesizing an empty root) — never a `DeletedNode`, even
+/// though every subentry is deleted.
+#[mononoke::fbinit_test]
+async fn test_root_all_files_deleted(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+    let repo: TestRepo = test_repo_factory::build_empty(ctx.fb).await?;
+
+    let cs_a = CreateCommitContext::new_root(&ctx, &repo)
+        .add_file("only.txt", "content")
+        .commit()
+        .await?;
+
+    let cs_b = CreateCommitContext::new(&ctx, &repo, vec![cs_a])
+        .delete_file("only.txt")
+        .commit()
+        .await?;
+
+    let root_dir = derive_and_load(&ctx, &repo, cs_b).await?;
+    assert_eq!(root_dir.linknode, cs_b);
+
+    let entries = collect_entries(&ctx, &repo, &root_dir, MPath::ROOT).await?;
+    assert_eq!(file_paths(&entries), Vec::<&str>::new());
+    assert_eq!(deleted_file_paths(&entries), vec!["only.txt"]);
+
+    let entry = find_entry(&entries, "only.txt").unwrap();
+    assert!(
+        matches!(entry, EntryInfo::DeletedNode { linknode, num_parents } if *linknode == cs_b && *num_parents == 1),
+        "only.txt should be a DeletedNode with linknode cs_b: {:?}",
+        entry,
+    );
+
+    Ok(())
+}
+
 /// Directory with mixed live/deleted children stays a Directory.
 /// Directory with all deleted children becomes a DeletedNode.
 #[mononoke::fbinit_test]

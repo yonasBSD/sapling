@@ -731,7 +731,12 @@ async fn do_fold(
             let subentries =
                 ShardedMapV2Node::from_entries_and_partial_maps(ctx, blobstore, trie_map).await?;
 
-            if is_deleted {
+            // The root of a history manifest must always be a Directory, even
+            // when every entry under it is deleted (e.g., a commit that
+            // removes the only remaining file). This mirrors the unode
+            // manifest, which synthesizes an empty root manifest in the same
+            // situation.
+            if is_deleted && !path.is_root() {
                 let node = HistoryManifestDeletedNode {
                     parents,
                     subentries,
