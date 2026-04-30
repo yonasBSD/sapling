@@ -18,8 +18,8 @@
   >    if cc is not None:
   >        extensions.wrapfunction(cc.sync, "_hashrepostate", delayhash)
   > 
-  > def delayhash(orig, repo, besteffort):
-  >    ret = orig(repo, besteffort)
+  > def delayhash(orig, repo):
+  >    ret = orig(repo)
   >    filename = os.environ.get("CCWAITFILE")
   >    if filename:
   >         while os.path.exists(filename):

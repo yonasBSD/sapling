@@ -128,7 +128,7 @@ def sync(repo, *args, **kwargs):
     return rc
 
 
-def _hashrepostate(repo, besteffort=False) -> bytes:
+def _hashrepostate(repo) -> bytes:
     """hash repo states that affect commit cloud sync
 
     Those states are bookmarks, remotenames, visibleheads, as they are synced
@@ -137,16 +137,14 @@ def _hashrepostate(repo, besteffort=False) -> bytes:
     do not trigger a cloud sync.
 
     The hash is used to detect repo changes.
+
+    The callsite might want to call `invalidatemetalog` to force a reload of
+    the latest repo state before calling this function.
     """
     buf = []
-    with (
-        repo.wlock(wait=not besteffort),
-        repo.lock(wait=not besteffort),
-        repo.transaction("cloudsyncmetalog"),
-    ):
-        ml = repo.metalog()
+    ml = repo.metalog()
     for key in ["bookmarks", "remotenames", "visibleheads"]:
-        buf.append(ml.get(key) or b"")
+        buf.append(ml.get_hash(key) or b"")
     return hashlib.sha1(b"".join(buf)).digest()
 
 
@@ -201,7 +199,7 @@ def _sync(
     # Connect to the commit cloud service.
     serv = service.get(ui, repo)
 
-    origrepostate = _hashrepostate(repo, besteffort)
+    origrepostate = _hashrepostate(repo)
 
     remotepath = ccutil.getremotepath(ui)
 
@@ -246,8 +244,9 @@ def _sync(
                 )
             attempt += 1
 
+            repo.invalidatemetalog()
             with repo.transaction("cloudsync download") as tr:
-                if besteffort and _hashrepostate(repo, besteffort) != origrepostate:
+                if besteffort and _hashrepostate(repo) != origrepostate:
                     # Another transaction changed the repository while we were backing
                     # up commits. This may have introduced new commits that also need
                     # backing up.  That transaction should have started its own sync
