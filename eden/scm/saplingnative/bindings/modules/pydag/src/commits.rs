@@ -239,9 +239,9 @@ py_class!(pub class commits |py| {
 
     /// updatereferences(metalog)
     ///
-    /// Update commit references to match metalog. Useful when metalog is not the
-    /// source of truth of commit references (ex. using git references as source
-    /// of truth).
+    /// Update (git) commit references to match metalog. Useful when metalog is the
+    /// source of truth of commit references (ex. git references should be changed
+    /// to match metalog).
     def updatereferences(&self, metalog: PyMetaLog) -> PyResult<PyNone> {
         let meta = metalog.metalog_rwlock(py);
         let mut inner = self.inner(py).write();
