@@ -47,6 +47,7 @@ use mutable_counters::MutableCountersArc;
 use repo_blobstore::RepoBlobstore;
 use repo_derived_data::RepoDerivedData;
 use repo_identity::RepoIdentity;
+use restricted_paths::RestrictedPaths;
 use scuba_ext::MononokeScubaSampleBuilder;
 use tracing::error;
 use tracing::info;
@@ -95,6 +96,9 @@ pub struct Repo {
 
     #[facet]
     pub repo_config: RepoConfig,
+
+    #[facet]
+    pub restricted_paths: RestrictedPaths,
 
     #[facet]
     pub bookmark_update_log: dyn BookmarkUpdateLog,

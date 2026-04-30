@@ -36,11 +36,13 @@ use mercurial_types::HgChangesetId;
 use mercurial_types::HgManifestId;
 use mononoke_types::ChangesetId;
 use mononoke_types::MPath;
+use mononoke_types::NonRootMPath;
 use repo_blobstore::RepoBlobstoreArc;
 use scm_client::ScmCasClient;
 use scm_client::UploadOutcome;
 use stats::prelude::*;
 use tracing::debug;
+use tracing::info;
 
 const MAX_CONCURRENT_MANIFESTS: usize = 50;
 const MAX_CONCURRENT_MANIFESTS_TREES_ONLY: usize = 500;
@@ -257,6 +259,7 @@ where
         changeset_id: &ChangesetId,
         upload_policy: UploadPolicy,
         prior_lookup_policy: PriorLookupPolicy,
+        restricted_path_roots: &[NonRootMPath],
     ) -> Result<UploadStats, CasChangesetUploaderErrorKind> {
         let hg_cs_id = repo
             .bonsai_hg_mapping()
@@ -295,9 +298,9 @@ where
                     .manifestid()
                     .diff(ctx.clone(), repo.repo_blobstore_arc(), hg_cs.manifestid())
                     .map_ok(move |diff| match diff {
-                        Diff::Added(_, entry) => Some(entry),
+                        Diff::Added(path, entry) => Some((path, entry)),
                         Diff::Removed(..) => None,
-                        Diff::Changed(_, _, entry) => Some(entry),
+                        Diff::Changed(path, _, entry) => Some((path, entry)),
                     })
                     .try_filter_map(future::ok)
                     .map_err(CasChangesetUploaderErrorKind::DiffChangesetFailed)
@@ -312,7 +315,6 @@ where
                 hg_cs
                     .manifestid()
                     .list_all_entries(ctx.clone(), repo.repo_blobstore_arc())
-                    .map_ok(move |(_, entry)| entry)
                     .map_err(CasChangesetUploaderErrorKind::DiffChangesetFailed)
                     .boxed()
             }
@@ -321,9 +323,32 @@ where
         .watched()
         .await?;
 
+        let total_before_filter = diff_stream.len();
+        let diff_stream: Vec<_> = if restricted_path_roots.is_empty() {
+            diff_stream
+        } else {
+            diff_stream
+                .into_iter()
+                .filter(|(path, _)| {
+                    !restricted_path_roots
+                        .iter()
+                        .any(|root| root.is_prefix_of(path))
+                })
+                .collect()
+        };
+
+        if diff_stream.len() < total_before_filter {
+            info!(
+                "Filtered out {} of {} entries under restricted paths for changeset {}",
+                total_before_filter - diff_stream.len(),
+                total_before_filter,
+                changeset_id,
+            );
+        }
+
         let manifests_list = diff_stream
             .iter()
-            .filter_map(|elem| {
+            .filter_map(|(_, elem)| {
                 if let Entry::Tree(treeid) = elem {
                     Some(treeid)
                 } else {
@@ -335,7 +360,7 @@ where
 
         let files_list = diff_stream
             .iter()
-            .filter_map(|elem| {
+            .filter_map(|(_, elem)| {
                 if let Entry::Leaf(leaf) = elem {
                     Some(leaf.1)
                 } else {
