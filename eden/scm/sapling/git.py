@@ -806,7 +806,11 @@ def push(repo, dest, pushnode_to_pairs, force=False):
         refspecs.append(refspec)
     if not refspecs:
         return 0
-    with repo.lock(), repo.transaction("push"):
+    lockfree = repo.config.get.as_bool("experimental", "lock-free-git-push")
+    with (
+        lockfree and util.nullcontextmanager() or repo.lock(),
+        repo.transaction("push", lockfree=lockfree),
+    ):
         configs = None
         # file:// protocol doesn't support push negotiation. Disable it to
         # avoid noisy warnings when push.negotiate is enabled globally.
