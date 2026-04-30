@@ -3,15 +3,15 @@ load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 oncall("sapling")
 
 rust_library(
-    name = "gitrepocompat",
+    name = "grepocompat",
     srcs = glob(["src/**/*.rs"]),
     autocargo = {"cargo_toml_config": {
-        "lib": {"name": "gitrepocompat"},
+        "lib": {"name": "grepocompat"},
         "package": {
             "authors": ["Meta Source Control Team <sourcecontrol-dev@meta.com>"],
             "homepage": "https://sapling-scm.com/",
             "license": "MIT",
-            "name": "sapling-gitrepocompat",
+            "name": "sapling-grepocompat",
             "repository": "https://github.com/facebook/sapling",
         },
     }},

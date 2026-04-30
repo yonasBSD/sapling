@@ -27,5 +27,5 @@ pub enum FileSystemType {
     Watchman,
     Eden,
     DotGit,
-    DotRepo, // Dummy type to support .repo/
+    Grepo, // Dummy type to support .repo/
 }

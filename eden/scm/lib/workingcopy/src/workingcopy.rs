@@ -152,8 +152,8 @@ impl WorkingCopy {
             FileSystemType::Eden
         } else if has_requirement("dotgit") {
             FileSystemType::DotGit
-        } else if has_requirement("dotrepo") {
-            FileSystemType::DotRepo
+        } else if has_requirement("grepo") {
+            FileSystemType::Grepo
         } else {
             let fsmonitor_ext = config.get("extensions", "fsmonitor");
             let fsmonitor_mode = config.get_nonempty("fsmonitor", "mode");
@@ -358,7 +358,7 @@ impl WorkingCopy {
                     &config,
                 )?)
             }
-            FileSystemType::DotRepo => {
+            FileSystemType::Grepo => {
                 let git_dir = vfs.root().join(".repo/manifests/.git");
                 Box::new(DotGitFileSystem::new(
                     vfs.clone(),

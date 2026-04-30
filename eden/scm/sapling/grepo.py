@@ -13,4 +13,4 @@ References:
 """
 
 # Whether to be compatible with `.repo/`.
-DOTREPO_REQUIREMENT = "dotrepo"
+GREPO_REQUIREMENT = "grepo"

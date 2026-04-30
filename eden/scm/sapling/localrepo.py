@@ -45,7 +45,7 @@ from . import (
     extensions,
     filelog,
     git,
-    gitrepo,
+    grepo,
     hook,
     identity,
     lock as lockmod,
@@ -1362,14 +1362,14 @@ class localrepository:
         if (
             edenfs.requirement in self.requirements
             or git.DOTGIT_REQUIREMENT in self.requirements
-            or gitrepo.DOTREPO_REQUIREMENT in self.requirements
+            or grepo.GREPO_REQUIREMENT in self.requirements
         ):
             return self._eden_dirstate
 
         if (
             not "treestate" in self.requirements
             and git.DOTGIT_REQUIREMENT not in self.requirements
-            and gitrepo.DOTREPO_REQUIREMENT not in self.requirements
+            and grepo.GREPO_REQUIREMENT not in self.requirements
         ):
             raise errormod.RequirementError(
                 f"legacy dirstate implementations are no longer supported (path={self.path}, requirements={self.requirements})"
@@ -2215,7 +2215,7 @@ class localrepository:
         if (
             edenfs.requirement in self.requirements
             or git.DOTGIT_REQUIREMENT in self.requirements
-            or gitrepo.DOTREPO_REQUIREMENT in self.requirements
+            or grepo.GREPO_REQUIREMENT in self.requirements
         ):
             self.dirstate.invalidate()
             return

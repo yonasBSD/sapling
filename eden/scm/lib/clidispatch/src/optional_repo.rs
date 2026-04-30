@@ -12,7 +12,7 @@ use anyhow::Result;
 use configloader::hg::RepoInfo;
 use configmodel::Config;
 use gitcompat::init::maybe_init_inside_dotgit;
-use gitrepocompat::init::maybe_init_inside_dotrepo;
+use grepocompat::init::maybe_init_inside_grepo;
 use repo::CoreRepo;
 use repo::SlapiRepo;
 use repo::errors;
@@ -39,7 +39,7 @@ impl OptionalRepo {
     fn from_cwd(opts: &HgGlobalOpts, cwd: impl AsRef<Path>) -> Result<OptionalRepo> {
         if let Some((path, ident)) = identity::sniff_root(&util::path::absolute(cwd)?)? {
             maybe_init_inside_dotgit(&path, ident)?;
-            maybe_init_inside_dotrepo(&path, ident)?;
+            maybe_init_inside_grepo(&path, ident)?;
             let repo = Repo::load(path, &pinned_configs(opts))?;
             Ok(OptionalRepo::CoreRepo(repo.into()))
         } else {
@@ -70,7 +70,7 @@ impl OptionalRepo {
         if let Ok(path) = util::path::absolute(full_repository_path) {
             if let Some(ident) = identity::sniff_dir(&path)? {
                 maybe_init_inside_dotgit(&path, ident)?;
-                maybe_init_inside_dotrepo(&path, ident)?;
+                maybe_init_inside_grepo(&path, ident)?;
                 let repo = Repo::load(path, &pinned_configs(opts))?;
                 return Ok(OptionalRepo::CoreRepo(repo.into()));
             } else if path.is_file() {
