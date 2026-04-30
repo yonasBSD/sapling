@@ -837,7 +837,6 @@ export type PlatformSpecificClientToServerMessages =
     }
   | {
       type: 'platform/resolveAllConflictsWithAI';
-      conflicts: MergeConflicts;
       userContext?: string;
     }
   | {
