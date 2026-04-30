@@ -1050,8 +1050,8 @@ class localrepository:
 
         with (
             self.conn(source) as conn,
-            lockfree and util.nullcontextmanager() or self.wlock(),
-            lockfree and util.nullcontextmanager() or self.lock(),
+            self.wlock(lockfree=lockfree),
+            self.lock(lockfree=lockfree),
             self.transaction("pull", lockfree=lockfree),
             self.ui.configoverride(configoverride),
         ):
@@ -2369,7 +2369,7 @@ class localrepository:
         else:  # no lock have been found.
             callback()
 
-    def lock(self, wait=True):
+    def lock(self, wait=True, lockfree=False):
         """Lock the repository store (.hg/store) and return a weak reference
         to the lock. Use this before modifying the store (e.g. committing or
         stripping). If you are opening a transaction, get a lock as well.)
@@ -2379,7 +2379,12 @@ class localrepository:
 
         Returns 'nullcontextmanager' without reading or writing on-disk locks,
         if the current active transaction is marked as lockfree.
+
+        If lockfree is True, returns util.nullcontextmanager() without waiting.
         """
+        if lockfree:
+            return util.nullcontextmanager()
+
         if self._is_within_lockfree_transaction():
             return util.nullcontextmanager()
 
@@ -2425,7 +2430,7 @@ class localrepository:
         self._lockref = weakref.ref(l)
         return l
 
-    def wlock(self, wait=True):
+    def wlock(self, wait=True, lockfree=False):
         """Lock the non-store parts of the repository (everything under
         .hg except .hg/store) and return a weak reference to the lock.
 
@@ -2433,7 +2438,12 @@ class localrepository:
 
         If both 'lock' and 'wlock' must be acquired, ensure you always acquires
         'wlock' first to avoid a dead-lock hazard.
+
+        If lockfree is True, returns util.nullcontextmanager() without waiting.
         """
+        if lockfree:
+            return util.nullcontextmanager()
+
         if self._is_within_lockfree_transaction():
             raise errormod.ProgrammingError(
                 "wlock inside lockfree transaction is not currently allowed",

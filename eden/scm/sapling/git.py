@@ -810,7 +810,7 @@ def push(repo, dest, pushnode_to_pairs, force=False):
         return 0
     lockfree = repo.config.get.as_bool("experimental", "lock-free-git-push")
     with (
-        lockfree and util.nullcontextmanager() or repo.lock(),
+        repo.lock(lockfree=lockfree),
         repo.transaction("push", lockfree=lockfree),
     ):
         # Loading changelog can trigger git refs -> metalog sync.
