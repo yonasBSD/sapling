@@ -850,6 +850,50 @@ pub async fn test_ancestors_difference_segment_slices(
     )
     .await?;
 
+    // No common ancestors → no external parents.
+    assert_ancestors_difference_segment_slices_with_external_parents(
+        &graph,
+        &ctx,
+        &["K"],
+        &[],
+        3,
+        &[
+            &["A", "B", "C"],
+            &["D"],
+            &["E", "F"],
+            &["G", "H", "I"],
+            &["J", "K"],
+        ],
+        &[],
+    )
+    .await?;
+
+    // With common ancestors → external parents are segment parents
+    // that fall outside all segments (i.e. in the common set).
+    // DAG: G has parents D and F, so with common=["D"], both B
+    // (parent of E) and D (parent of G) are external parents.
+    assert_ancestors_difference_segment_slices_with_external_parents(
+        &graph,
+        &ctx,
+        &["K"],
+        &["D"],
+        3,
+        &[&["E", "F"], &["G"], &["H", "I"], &["J"], &["K"]],
+        &["B", "D"],
+    )
+    .await?;
+
+    assert_ancestors_difference_segment_slices_with_external_parents(
+        &graph,
+        &ctx,
+        &["K"],
+        &["H"],
+        3,
+        &[&["I"], &["J", "K"]],
+        &["H"],
+    )
+    .await?;
+
     Ok(())
 }
 

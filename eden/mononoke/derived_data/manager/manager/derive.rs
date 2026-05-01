@@ -206,54 +206,101 @@ impl DerivedDataManager {
                 .context("failed to derive dependent types")?;
 
                 let derivation_ctx = self.derivation_context(rederivation);
-
-                let last_derived = self
-                    .commit_graph()
-                    .ancestors_frontier_with(&ctx, heads.clone(), |csid| {
-                        borrowed!(ctx, derivation_ctx);
-                        async move {
-                            Ok(derivation_ctx
-                                .fetch_derived::<Derivable>(ctx, csid)
-                                .await?
-                                .is_some())
-                        }
-                    })
-                    .await
-                    .map_err(Into::<DerivationError>::into)?;
                 let batch_size =
                     override_batch_size.unwrap_or(derivation_ctx.batch_size::<Derivable>());
-                let count = self
-                    .commit_graph()
-                    .ancestors_difference_segments(&ctx, heads.to_vec(), last_derived.clone())
-                    .await?
-                    .into_iter()
-                    .map(|segment| segment.length)
-                    .sum();
                 let rederivation = derivation_ctx.rederivation.clone();
-                self.commit_graph()
-                    .ancestors_difference_segment_slices(
-                        &ctx,
-                        heads.to_vec(),
-                        last_derived,
-                        batch_size,
-                    )
-                    .await
-                    .map_err(Into::<DerivationError>::into)?
-                    .try_for_each(|batch| {
-                        borrowed!(ctx, self as ddm);
-                        cloned!(rederivation);
-                        async move {
-                            ddm.derive_exactly_batch::<Derivable>(
-                                ctx,
-                                batch.to_vec(),
-                                rederivation,
+
+                let mut gap_slices: Vec<Vec<ChangesetId>> = Vec::new();
+                let mut count: u64 = 0;
+                let mut current_heads = heads;
+
+                loop {
+                    let last_derived = self
+                        .commit_graph()
+                        .ancestors_frontier_with(&ctx, current_heads.clone(), |csid| {
+                            borrowed!(ctx, derivation_ctx);
+                            async move {
+                                Ok(derivation_ctx
+                                    .fetch_derived::<Derivable>(ctx, csid)
+                                    .await?
+                                    .is_some())
+                            }
+                        })
+                        .await
+                        .map_err(Into::<DerivationError>::into)?;
+
+                    let (slices_stream, external_parents) = self
+                        .commit_graph()
+                        .ancestors_difference_segment_slices_with_external_parents(
+                            &ctx,
+                            current_heads,
+                            last_derived,
+                            batch_size,
+                        )
+                        .await
+                        .map_err(Into::<DerivationError>::into)?;
+
+                    // Check for gaps: external parents that should be
+                    // derived but aren't (monotonicity violation).
+                    let gap_parents: Vec<_> = stream::iter(external_parents)
+                        .map(|cs_id| {
+                            borrowed!(ctx, derivation_ctx);
+                            async move {
+                                let derived = derivation_ctx
+                                    .fetch_derived::<Derivable>(ctx, cs_id)
+                                    .await?
+                                    .is_some();
+                                anyhow::Ok((cs_id, derived))
+                            }
+                        })
+                        .buffered(100)
+                        .try_filter_map(|(cs_id, derived)| async move {
+                            Ok(if derived { None } else { Some(cs_id) })
+                        })
+                        .try_collect()
+                        .await?;
+
+                    if gap_parents.is_empty() {
+                        // No gaps — stream current slices (which fill the
+                        // deepest gap), then process accumulated slices
+                        // from earlier iterations in reverse order.
+                        let mut slices_stream = std::pin::pin!(slices_stream);
+                        while let Some(batch) = slices_stream.try_next().await? {
+                            count += batch.len() as u64;
+                            self.derive_exactly_batch::<Derivable>(
+                                &ctx,
+                                batch,
+                                rederivation.clone(),
                             )
                             .await?;
-                            Ok(())
                         }
-                    })
-                    .await
-                    .map_err(Into::<DerivationError>::into)?;
+                        gap_slices.reverse();
+                        for batch in gap_slices {
+                            count += batch.len() as u64;
+                            self.derive_exactly_batch::<Derivable>(
+                                &ctx,
+                                batch,
+                                rederivation.clone(),
+                            )
+                            .await?;
+                        }
+                        break;
+                    }
+
+                    // Gaps found — collect and defer these slices.
+                    let mut slices: Vec<Vec<ChangesetId>> = slices_stream.try_collect().await?;
+                    slices.reverse();
+                    gap_slices.extend(slices);
+
+                    tracing::warn!(
+                        "Derivation of {} found {} gap parent(s) not derived \
+                         due to broken monotonicity, filling gaps",
+                        Derivable::NAME,
+                        gap_parents.len(),
+                    );
+                    current_heads = gap_parents;
+                }
+
                 Ok(count)
             }
         }

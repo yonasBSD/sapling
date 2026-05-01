@@ -775,15 +775,10 @@ mod tests {
             .derive::<FilenodesOnlyPublic>(&ctx, a, None, DerivationPriority::LOW)
             .await?;
 
-        // Deriving target fails: boundary parent c is assumed derived
-        // (it's in ancestors(merge) which is in the frontier) but isn't.
-        let result = manager
+        // Gap-filling detects the underived boundary parent and fills it.
+        manager
             .derive::<FilenodesOnlyPublic>(&ctx, target, None, DerivationPriority::LOW)
-            .await;
-        assert!(
-            result.is_err(),
-            "should fail: monotonicity violation from shared manifest"
-        );
+            .await?;
 
         Ok(())
     }

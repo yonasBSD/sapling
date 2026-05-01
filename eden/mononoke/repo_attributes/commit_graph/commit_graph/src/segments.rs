@@ -526,11 +526,32 @@ impl<E: EdgeType> CommitGraphOps<E> {
         common: Vec<ChangesetId>,
         slice_size: u64,
     ) -> Result<BoxStream<'static, Result<Vec<ChangesetId>>>> {
-        cloned!(self as graph, ctx);
-        let slices_with_boundaries = graph
-            .segmented_slice_ancestors(&ctx, heads, common, slice_size)
+        let (slices, _external_parents) = self
+            .ancestors_difference_segment_slices_with_external_parents(
+                ctx, heads, common, slice_size,
+            )
             .await?;
-        Ok(stream::iter(
+        Ok(slices)
+    }
+
+    /// Like `ancestors_difference_segment_slices`, but also returns the external
+    /// parents: segment parents outside all segments (i.e. in the `common` frontier).
+    /// Callers can use these to detect monotonicity violations.
+    pub async fn ancestors_difference_segment_slices_with_external_parents(
+        &self,
+        ctx: &CoreContext,
+        heads: Vec<ChangesetId>,
+        common: Vec<ChangesetId>,
+        slice_size: u64,
+    ) -> Result<(
+        BoxStream<'static, Result<Vec<ChangesetId>>>,
+        Vec<ChangesetId>,
+    )> {
+        cloned!(self as graph, ctx);
+        let (slices_with_boundaries, external_parents) = graph
+            .segmented_slice_ancestors_with_external_parents(&ctx, heads, common, slice_size)
+            .await?;
+        let slices = stream::iter(
             slices_with_boundaries
                 .into_iter()
                 .flat_map(|s| s.slice.segments),
@@ -545,7 +566,8 @@ impl<E: EdgeType> CommitGraphOps<E> {
                     .await)
             }
         })
-        .boxed())
+        .boxed();
+        Ok((slices, external_parents))
     }
 
     /// Returns a list of segments representing all ancestors of heads, excluding

@@ -923,6 +923,22 @@ impl<E: EdgeType> CommitGraphOps<E> {
         common: Vec<ChangesetId>,
         slice_size: u64,
     ) -> Result<Vec<SegmentedSliceWithBoundaries>> {
+        let (slices, _) = self
+            .segmented_slice_ancestors_with_external_parents(ctx, heads, common, slice_size)
+            .await?;
+        Ok(slices)
+    }
+
+    /// Like `segmented_slice_ancestors`, but also returns the external parents:
+    /// segment parents outside all segments (with `location: None`). These are
+    /// parents in the `common` frontier that the caller assumed are derived.
+    pub async fn segmented_slice_ancestors_with_external_parents(
+        &self,
+        ctx: &CoreContext,
+        heads: Vec<ChangesetId>,
+        common: Vec<ChangesetId>,
+        slice_size: u64,
+    ) -> Result<(Vec<SegmentedSliceWithBoundaries>, Vec<ChangesetId>)> {
         let segments = self
             .ancestors_difference_segments(ctx, heads, common)
             .await?;
@@ -937,6 +953,7 @@ impl<E: EdgeType> CommitGraphOps<E> {
         // part to the current slice and continue from the second part.
 
         let mut slices = vec![];
+        let mut external_parents = HashSet::new();
 
         let mut current_segments = vec![];
         let mut current_slice_heads: BTreeMap<ChangesetId, u64> = Default::default();
@@ -960,8 +977,9 @@ impl<E: EdgeType> CommitGraphOps<E> {
                 // Go through all parents of the current segment and check if they are
                 // contained in another slice. If so, add them to boundary changesets.
                 for parent in segment.parents {
-                    // Check that the parent has a location. Otherwise it's part of
-                    // ancestors of `common` and shouldn't be added to boundary changesets.
+                    if parent.location.is_none() {
+                        external_parents.insert(parent.cs_id);
+                    }
                     if let Some(location) = parent.location {
                         // Parent is part of another slice if its location is either relative
                         // to a head of a segment belonging to another slice or to a segment
@@ -1049,7 +1067,7 @@ impl<E: EdgeType> CommitGraphOps<E> {
             });
         }
 
-        Ok(slices)
+        Ok((slices, external_parents.into_iter().collect()))
     }
 
     /// Runs the given `process` closure on all of the given changesets in local topological

@@ -839,7 +839,7 @@ async fn test_derive_incremental_is_cheaper_than_from_scratch(fb: FacebookInit) 
     assert_eq!(cost_b.puts, 4, "cost_b.puts doesn't match expectation");
     assert_eq!(cost_a.puts, 14, "cost_a.puts doesn't match expectation");
 
-    assert_eq!(cost_b.gets, 12, "cost_b.gets doesn't match expectation");
+    assert_eq!(cost_b.gets, 13, "cost_b.gets doesn't match expectation");
     assert_eq!(cost_a.gets, 25, "cost_a.gets doesn't match expectation");
 
     Ok(())

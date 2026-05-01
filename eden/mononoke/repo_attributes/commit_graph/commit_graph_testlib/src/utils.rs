@@ -356,6 +356,47 @@ pub async fn assert_ancestors_difference_segment_slices(
     Ok(())
 }
 
+pub async fn assert_ancestors_difference_segment_slices_with_external_parents(
+    graph: &CommitGraph,
+    ctx: &CoreContext,
+    heads: &[&str],
+    common: &[&str],
+    slice_size: u64,
+    expected_slices: &[&[&str]],
+    expected_external_parents: &[&str],
+) -> Result<()> {
+    let heads = heads.iter().copied().map(name_cs_id).collect();
+    let common = common.iter().copied().map(name_cs_id).collect();
+
+    let (slices_stream, external_parents) = graph
+        .ancestors_difference_segment_slices_with_external_parents(ctx, heads, common, slice_size)
+        .await?;
+
+    assert_eq!(
+        slices_stream
+            .try_collect::<Vec<_>>()
+            .await?
+            .into_iter()
+            .map(|slice| { slice.into_iter().map(cs_id_name).collect::<Vec<_>>() })
+            .collect::<Vec<_>>(),
+        expected_slices
+            .iter()
+            .map(|slice| { slice.iter().map(|s| s.to_string()).collect::<Vec<_>>() })
+            .collect::<Vec<_>>()
+    );
+
+    let mut actual_parents: Vec<_> = external_parents.into_iter().map(cs_id_name).collect();
+    actual_parents.sort();
+    let mut expected_parents: Vec<_> = expected_external_parents
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    expected_parents.sort();
+    assert_eq!(actual_parents, expected_parents);
+
+    Ok(())
+}
+
 pub async fn assert_topological_order(
     graph: &CommitGraph,
     ctx: &CoreContext,
