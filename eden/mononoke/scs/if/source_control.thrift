@@ -2918,6 +2918,11 @@ struct CloudWorkspaceSmartlogParams {
   1: WorkspaceSpecifier workspace;
   /// Options about what info to include in the response
   2: list<CloudWorkspaceSmartlogFlags> flags;
+  /// Optional maximum age in days for workspace heads. If set, heads
+  /// with author dates older than (now - max_age_days) are excluded
+  /// before the graph traversal, avoiding expensive ancestry computation
+  /// for stale heads.
+  3: optional i32 max_age_days;
 }
 
 struct CloudWorkspaceSmartlogResponse {
