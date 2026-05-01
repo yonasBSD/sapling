@@ -10,7 +10,6 @@ pub mod cache;
 use std::time::Duration;
 
 use anyhow::Result;
-use anyhow::anyhow;
 use metaconfig_types::CommitRateLimitConfig;
 use mononoke_types::BonsaiChangeset;
 use serde::Deserialize;
@@ -290,9 +289,8 @@ impl RateLimit {
 /// prefix. When `allow_bare_unixname` is true (JK-gated), also accepts bare
 /// unixnames as a fallback for non-standard commit authors (e.g. Sandcastle).
 ///
-/// Returns `Ok(Some(username))` on success, `Ok(None)` when the format is
-/// non-standard and bare unixnames are not allowed, or `Err` when bare
-/// unixnames are allowed but the author string is invalid.
+/// Returns `Ok(Some(username))` on success, or `Ok(None)` when the author
+/// format is non-standard (unrecognized authors fall to the global bucket).
 pub fn parse_author_username(author: &str, allow_bare_unixname: bool) -> Result<Option<&str>> {
     // Try standard format: "Name <user@host>"
     if let Some(lt) = author.find('<') {
@@ -327,12 +325,9 @@ pub fn parse_author_username(author: &str, allow_bare_unixname: bool) -> Result<
         return Ok(Some(author));
     }
 
-    Err(anyhow!(
-        "Could not parse author '{}'. Accepted formats: \
-         'Name <user@host>', 'user@host', or a bare unixname \
-         (lowercase alphanumeric, dots, underscores, hyphens only)",
-        author,
-    ))
+    // Author doesn't match any known format. Return None so the caller
+    // falls back to the global (non-per-user) bucket instead of rejecting.
+    Ok(None)
 }
 
 pub fn is_eligible_for_rate_limit(
@@ -555,32 +550,49 @@ mod tests {
         );
     }
     #[mononoke::test]
-    fn test_parse_bare_email_invalid_prefix_jk_on_rejected() {
-        // Bare email with invalid prefix (uppercase) should be rejected
-        assert!(parse_author_username("BadUser@hostname", true).is_err());
+    fn test_parse_bare_email_invalid_prefix_jk_on_falls_to_global() {
+        // Bare email with invalid prefix (uppercase) falls to global bucket
+        assert_eq!(
+            parse_author_username("BadUser@hostname", true).unwrap(),
+            None
+        );
     }
     #[mononoke::test]
-    fn test_parse_uppercase_jk_on_rejected() {
-        assert!(parse_author_username("UPPERCASE", true).is_err());
+    fn test_parse_uppercase_jk_on_falls_to_global() {
+        assert_eq!(parse_author_username("UPPERCASE", true).unwrap(), None);
     }
     #[mononoke::test]
-    fn test_parse_mixed_case_jk_on_rejected() {
-        assert!(parse_author_username("UserName", true).is_err());
+    fn test_parse_mixed_case_jk_on_falls_to_global() {
+        assert_eq!(parse_author_username("UserName", true).unwrap(), None);
     }
     #[mononoke::test]
-    fn test_parse_spaces_jk_on_rejected() {
-        assert!(parse_author_username("has spaces", true).is_err());
+    fn test_parse_spaces_jk_on_falls_to_global() {
+        assert_eq!(parse_author_username("has spaces", true).unwrap(), None);
     }
     #[mononoke::test]
-    fn test_parse_slash_jk_on_rejected() {
-        assert!(parse_author_username("path/user", true).is_err());
+    fn test_parse_slash_jk_on_falls_to_global() {
+        assert_eq!(parse_author_username("path/user", true).unwrap(), None);
     }
     #[mononoke::test]
     fn test_parse_empty_jk_off() {
         assert_eq!(parse_author_username("", false).unwrap(), None);
     }
     #[mononoke::test]
-    fn test_parse_empty_jk_on_rejected() {
-        assert!(parse_author_username("", true).is_err());
+    fn test_parse_empty_jk_on_falls_to_global() {
+        assert_eq!(parse_author_username("", true).unwrap(), None);
+    }
+    // Regression tests for S649254 failure patterns
+    #[mononoke::test]
+    fn test_parse_name_space_email_no_brackets_falls_to_global() {
+        // Pattern 1: "Name email@domain" (no angle brackets) — 3,164 rejections
+        assert_eq!(
+            parse_author_username("Larry Shan larryshan@meta.com", true).unwrap(),
+            None,
+        );
+    }
+    #[mononoke::test]
+    fn test_parse_name_only_with_spaces_falls_to_global() {
+        // Pattern 2: "Name" only (uppercase/spaces) — 1,206 rejections
+        assert_eq!(parse_author_username("Service User", true).unwrap(), None,);
     }
 }
