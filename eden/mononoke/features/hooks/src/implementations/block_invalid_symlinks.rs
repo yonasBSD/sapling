@@ -5,6 +5,12 @@
  * GNU General Public License version 2.
  */
 
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Component;
+use std::path::Path;
+use std::path::PathBuf;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use context::CoreContext;
@@ -57,6 +63,21 @@ pub struct BlockInvalidSymlinksConfig {
     /// testing the hook's behavior before fully enabling it.
     #[serde(default)]
     block_absolute_symlinks_dry_run: bool,
+
+    /// Block relative symlinks whose target -- after being resolved against
+    /// the symlink's parent directory -- falls outside one of these path
+    /// prefixes. The first prefix that the symlink path is under is enforced.
+    /// e.g. `["www/"]` rejects any symlink under `www/` whose resolved target
+    /// does not also stay under `www/`. Useful for repos where build hosts
+    /// only check out a subtree and cross-subtree symlinks become dangling on
+    /// the build host.
+    #[serde(default)]
+    block_escaping_relative_symlinks: Vec<String>,
+
+    /// Dry run mode for block_escaping_relative_symlinks. When enabled,
+    /// escaping relative symlinks will be logged to Scuba but not rejected.
+    #[serde(default)]
+    block_escaping_relative_symlinks_dry_run: bool,
 }
 
 /// Hook to block commits with invalid symlinks.
@@ -91,6 +112,42 @@ fn is_absolute_symlink(target: &[u8]) -> bool {
         [b'\\', b'\\', ..] => true,
         _ => false,
     }
+}
+
+/// Resolve `target` as a relative symlink stored at `file_path` and report
+/// whether the resolved path falls outside `root_path`. Resolution is purely
+/// syntactic: `.` is dropped, `..` pops the previous component, and an extra
+/// `..` past the start of the path is treated as an escape.
+///
+/// Caller is expected to filter absolute targets via `is_absolute_symlink`
+/// first; any unexpected absolute or prefix component encountered here is
+/// also treated as an escape (conservative).
+fn relative_target_escapes_root(target: &[u8], file_path: &str, root_path: &str) -> bool {
+    let parent = Path::new(file_path).parent().unwrap_or(Path::new(""));
+    let target_path = Path::new(OsStr::from_bytes(target));
+
+    let mut normalized = PathBuf::new();
+    let mut poppable: usize = 0;
+    for component in parent.join(target_path).components() {
+        match component {
+            Component::Normal(c) => {
+                normalized.push(c);
+                poppable += 1;
+            }
+            Component::ParentDir => {
+                if poppable > 0 {
+                    normalized.pop();
+                    poppable -= 1;
+                } else {
+                    return true;
+                }
+            }
+            Component::CurDir => {}
+            Component::RootDir | Component::Prefix(_) => return true,
+        }
+    }
+
+    !normalized.starts_with(root_path)
 }
 
 #[async_trait]
@@ -184,6 +241,43 @@ impl FileHook for BlockInvalidSymlinksHook {
                             )));
                         }
                     }
+
+                    // Check whether a relative symlink resolves outside its
+                    // configured root subtree. Skip if the target is absolute
+                    // (already handled above) or if the symlink path is not
+                    // under any configured root.
+                    if !is_absolute_symlink(&text) {
+                        let escape_root = self
+                            .config
+                            .block_escaping_relative_symlinks
+                            .iter()
+                            .find(|root| Path::new(&path).starts_with(root.as_str()));
+
+                        if let Some(root) = escape_root {
+                            if relative_target_escapes_root(&text, &path, root) {
+                                let target_str = String::from_utf8_lossy(&text);
+                                let message = format!(
+                                    "symlink '{}' resolves to a target outside '{}' which will \
+                                     break builds on hosts that only check out '{}'. \
+                                     Symlink target was '{}'.",
+                                    path, root, root, target_str,
+                                );
+                                if self.config.block_escaping_relative_symlinks_dry_run {
+                                    ctx.scuba().clone().log_with_msg(
+                                        "block_escaping_relative_symlinks dry run: would reject",
+                                        message,
+                                    );
+                                } else {
+                                    return Ok(HookExecution::Rejected(
+                                        HookRejectionInfo::new_long(
+                                            "symlink escapes containment root",
+                                            message,
+                                        ),
+                                    ));
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Ok(HookExecution::Accepted)
@@ -237,6 +331,8 @@ mod tests {
             allow_empty: false,
             block_absolute_symlinks_dry_run: false,
             block_absolute_symlinks_path_regexes: vec![],
+            block_escaping_relative_symlinks: vec![],
+            block_escaping_relative_symlinks_dry_run: false,
         })?;
 
         // Hooks with each setting toggled separately.
@@ -610,6 +706,298 @@ mod tests {
         assert!(
             results.contains(&("fbcode/link".try_into()?, HookExecution::Accepted)),
             "absolute symlink outside www/ should be accepted with path regex, got: {:?}",
+            results
+        );
+
+        Ok(())
+    }
+
+    #[mononoke::test]
+    fn test_relative_target_escapes_root() {
+        // Stays inside the same directory.
+        assert!(!relative_target_escapes_root(
+            b"sibling.py",
+            "www/foo/bar/link",
+            "www/",
+        ));
+
+        // Walks up but stays inside www/.
+        assert!(!relative_target_escapes_root(
+            b"../sibling.py",
+            "www/foo/bar/link",
+            "www/",
+        ));
+        assert!(!relative_target_escapes_root(
+            b"../../sibling.py",
+            "www/foo/bar/link",
+            "www/",
+        ));
+
+        // Walks up just past www/ -- escapes.
+        assert!(relative_target_escapes_root(
+            b"../../../other/x.py",
+            "www/foo/bar/link",
+            "www/",
+        ));
+
+        // Mixed `..` then back into a sibling root -- still escapes www/.
+        assert!(relative_target_escapes_root(
+            b"../../../../other/y.py",
+            "www/foo/bar/link",
+            "www/",
+        ));
+
+        // `..` past the repo root -- escape.
+        assert!(relative_target_escapes_root(
+            b"../../../../../etc/passwd",
+            "www/foo/bar/link",
+            "www/",
+        ));
+
+        // `.` segments and `//` collapses are no-ops.
+        assert!(!relative_target_escapes_root(
+            b"./subdir/.//target.py",
+            "www/foo/bar/link",
+            "www/",
+        ));
+
+        // Symlink at the very top of www/ pointing to a sibling at the top.
+        assert!(!relative_target_escapes_root(
+            b"sibling", "www/link", "www/",
+        ));
+
+        // Symlink directly under www/ pointing one level up -- escapes.
+        assert!(relative_target_escapes_root(
+            b"../sibling",
+            "www/link",
+            "www/",
+        ));
+
+        // A round trip through `..` and back: www/foo/bar/link -> ../bar/x
+        // resolves to www/foo/bar/x which stays within www/.
+        assert!(!relative_target_escapes_root(
+            b"../bar/x",
+            "www/foo/bar/link",
+            "www/",
+        ));
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_block_escaping_relative_symlinks(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: HookTestRepo = test_repo_factory::build_empty(fb).await?;
+
+        let changesets = create_from_dag_with_changes(
+            &ctx,
+            &repo,
+            r##"
+                A-B-C-D-E-F-G
+            "##,
+            changes! {
+                // Relative symlink whose target resolves outside the
+                // configured root subtree.
+                "A" => |c| c.add_file_with_type(
+                    "www/a/b/c/link.py",
+                    "../../../../other/x.py",
+                    FileType::Symlink,
+                ),
+                // Relative symlink that stays inside www/.
+                "B" => |c| c.add_file_with_type(
+                    "www/a/b/link",
+                    "../c/target.py",
+                    FileType::Symlink,
+                ),
+                // Symlink outside www/ -- no rule applies.
+                "C" => |c| c.add_file_with_type(
+                    "other/foo/link",
+                    "../../www/x.py",
+                    FileType::Symlink,
+                ),
+                // Symlink under an ignored path.
+                "D" => |c| c.add_file_with_type(
+                    "www/ignored/link",
+                    "../../other/x.py",
+                    FileType::Symlink,
+                ),
+                // Absolute symlink -- handled by the absolute check, not this one.
+                "E" => |c| c.add_file_with_type(
+                    "www/abs/link",
+                    "/absolute/target",
+                    FileType::Symlink,
+                ),
+                // `..` past the repo root.
+                "F" => |c| c.add_file_with_type(
+                    "www/x/link",
+                    "../../../../../etc/passwd",
+                    FileType::Symlink,
+                ),
+                // Same-directory relative symlink.
+                "G" => |c| c.add_file_with_type(
+                    "www/safe/link",
+                    "sibling.py",
+                    FileType::Symlink,
+                ),
+            },
+        )
+        .await?;
+        bookmark(&ctx, &repo, "main")
+            .create_publishing(changesets["G"])
+            .await?;
+
+        // Hook that rejects www/ symlinks escaping www/.
+        let hook = BlockInvalidSymlinksHook::with_config(BlockInvalidSymlinksConfig {
+            block_escaping_relative_symlinks: vec!["www/".to_string()],
+            ..Default::default()
+        })?;
+
+        // Hook with ignore_path_regexes for an escape hatch.
+        let hook_with_ignore = BlockInvalidSymlinksHook::with_config(BlockInvalidSymlinksConfig {
+            block_escaping_relative_symlinks: vec!["www/".to_string()],
+            ignore_path_regexes: vec![Regex::new(r"^www/ignored/")?],
+            ..Default::default()
+        })?;
+
+        // Hook in dry-run mode -- escaping symlinks must still be accepted.
+        let dry_run_hook = BlockInvalidSymlinksHook::with_config(BlockInvalidSymlinksConfig {
+            block_escaping_relative_symlinks: vec!["www/".to_string()],
+            block_escaping_relative_symlinks_dry_run: true,
+            ..Default::default()
+        })?;
+
+        // Escaping relative symlink should be rejected.
+        let results = test_file_hook(
+            &ctx,
+            &repo,
+            &hook,
+            changesets["A"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(
+            results.iter().any(|(p, e)| p.to_string() == "www/a/b/c/link.py"
+                && matches!(
+                    e,
+                    HookExecution::Rejected(info) if info.description == "symlink escapes containment root"
+                )),
+            "escaping relative symlink should be rejected, got: {:?}",
+            results
+        );
+
+        // Relative symlink that stays inside www/ -- accepted.
+        let results = test_file_hook(
+            &ctx,
+            &repo,
+            &hook,
+            changesets["B"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(
+            results.contains(&("www/a/b/link".try_into()?, HookExecution::Accepted)),
+            "in-tree relative symlink should be accepted, got: {:?}",
+            results
+        );
+
+        // Symlink outside www/ doesn't match the rule -- accepted.
+        let results = test_file_hook(
+            &ctx,
+            &repo,
+            &hook,
+            changesets["C"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(
+            results.contains(&("other/foo/link".try_into()?, HookExecution::Accepted)),
+            "non-matching path should be accepted, got: {:?}",
+            results
+        );
+
+        // ignore_path_regexes provides an escape hatch.
+        let results = test_file_hook(
+            &ctx,
+            &repo,
+            &hook_with_ignore,
+            changesets["D"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(
+            results.contains(&("www/ignored/link".try_into()?, HookExecution::Accepted)),
+            "ignored path should be accepted, got: {:?}",
+            results
+        );
+
+        // Absolute symlinks fall through this check -- accepted because no
+        // absolute-symlink rule is configured here.
+        let results = test_file_hook(
+            &ctx,
+            &repo,
+            &hook,
+            changesets["E"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(
+            results.contains(&("www/abs/link".try_into()?, HookExecution::Accepted)),
+            "absolute symlink should fall through this check, got: {:?}",
+            results
+        );
+
+        // `..` past the repo root -- rejected.
+        let results = test_file_hook(
+            &ctx,
+            &repo,
+            &hook,
+            changesets["F"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(
+            results.iter().any(|(p, e)| p.to_string() == "www/x/link"
+                && matches!(
+                    e,
+                    HookExecution::Rejected(info) if info.description == "symlink escapes containment root"
+                )),
+            "symlink escaping above repo root should be rejected, got: {:?}",
+            results
+        );
+
+        // Same-directory symlink -- accepted.
+        let results = test_file_hook(
+            &ctx,
+            &repo,
+            &hook,
+            changesets["G"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(
+            results.contains(&("www/safe/link".try_into()?, HookExecution::Accepted)),
+            "same-directory symlink should be accepted, got: {:?}",
+            results
+        );
+
+        // Dry run mode -- escaping symlink is accepted instead of rejected.
+        let results = test_file_hook(
+            &ctx,
+            &repo,
+            &dry_run_hook,
+            changesets["A"],
+            CrossRepoPushSource::NativeToThisRepo,
+            PushAuthoredBy::User,
+        )
+        .await?;
+        assert!(
+            results.contains(&("www/a/b/c/link.py".try_into()?, HookExecution::Accepted,)),
+            "dry-run mode should accept escaping symlink, got: {:?}",
             results
         );
 
