@@ -44,10 +44,14 @@ pub async fn locking_status(app: &MononokeApp, args: LockingStatusArgs) -> Resul
     let repos = args.repo.ids_or_names()?;
 
     let repo_ids = if repos.is_empty() {
-        app.repo_configs()
-            .repos
-            .values()
-            .filter_map(|config| {
+        // Enumerate via `load_all_repo_configs` so split-loaded repos
+        // (only present in the per-tier RepoSpec manifest) are included
+        // — the legacy `repo_configs.repos.values()` would silently omit
+        // them.
+        app.configs()
+            .load_all_repo_configs()?
+            .into_iter()
+            .filter_map(|(_name, config)| {
                 (config.readonly == RepoReadOnly::ReadWrite).then_some(config.repoid)
             })
             .collect()
