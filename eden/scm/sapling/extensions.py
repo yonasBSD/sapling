@@ -856,7 +856,10 @@ def _disabledpaths(strip_init=False):
     removes /__init__.py from packages if strip_init is True"""
     from sapling import ext
 
-    extpath = os.path.dirname(os.path.abspath(ext.__file__))
+    extfile = ext.__file__
+    if extfile.startswith("static:"):
+        return {}
+    extpath = os.path.dirname(os.path.abspath(extfile))
     try:  # might not be a filesystem path
         files = os.listdir(extpath)
     except OSError:
