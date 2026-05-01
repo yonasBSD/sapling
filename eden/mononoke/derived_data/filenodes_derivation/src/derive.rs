@@ -723,4 +723,68 @@ mod tests {
             .await?;
         Ok(())
     }
+
+    /// Filenodes use a content-addressed root filenode as derivation marker.
+    /// For merges with no file changes, create_hg_manifest reuses P1's manifest,
+    /// so merge and P1 share the same marker. Deriving filenodes for P1 makes
+    /// the merge falsely appear "derived," breaking the monotonicity assumption
+    /// in ancestors_frontier_with and causing derivation failures for descendants.
+    #[mononoke::fbinit_test]
+    async fn derive_filenodes_shared_root_manifest(fb: FacebookInit) -> Result<()> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: TestRepo = test_repo_factory::build_empty(ctx.fb).await?;
+
+        //    target (parents: merge, c, adds target_file)
+        //   /      \
+        //  merge    |
+        //  |    \   |
+        //  a     c -+
+        //        |
+        //        b
+        //
+        // merge(a, c) has no file changes → HG manifest reuses a's.
+        // Deriving filenodes for a makes merge appear "derived."
+        // Deriving target fails: boundary parent c is in ancestors(merge)
+        // (assumed derived) but is NOT actually derived.
+        let b = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("dir/f", "v")
+            .commit()
+            .await?;
+        let c = CreateCommitContext::new(&ctx, &repo, vec![b])
+            .delete_file("dir/f")
+            .commit()
+            .await?;
+        let a = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("dir/f", "v")
+            .commit()
+            .await?;
+        let merge = CreateCommitContext::new(&ctx, &repo, vec![a, c])
+            .commit()
+            .await?;
+        let target = CreateCommitContext::new(&ctx, &repo, vec![merge, c])
+            .add_file("target_file", "v")
+            .commit()
+            .await?;
+
+        let manager = repo.repo_derived_data().manager();
+
+        // Only derive filenodes for a. This makes merge falsely appear
+        // "derived" via the shared root manifest, while b and c remain
+        // underived.
+        manager
+            .derive::<FilenodesOnlyPublic>(&ctx, a, None, DerivationPriority::LOW)
+            .await?;
+
+        // Deriving target fails: boundary parent c is assumed derived
+        // (it's in ancestors(merge) which is in the frontier) but isn't.
+        let result = manager
+            .derive::<FilenodesOnlyPublic>(&ctx, target, None, DerivationPriority::LOW)
+            .await;
+        assert!(
+            result.is_err(),
+            "should fail: monotonicity violation from shared manifest"
+        );
+
+        Ok(())
+    }
 }
