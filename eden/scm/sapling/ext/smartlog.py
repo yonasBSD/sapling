@@ -331,13 +331,17 @@ def smartlognodes(repo, headnodes, masternodes):
     return nodes
 
 
+def _ignorebookmarks(repo):
+    return re.compile(repo.ui.config("smartlog", "ignorebookmarks", "!"))
+
+
 @revsetpredicate("interestingbookmarks()")
 def interestingheads(repo, subset, x):
     """Set of interesting bookmarks (local and remote)"""
     rev = repo.changelog.rev
     heads = set()
     books = bookmarks.bmstore(repo)
-    ignore = re.compile(repo.ui.config("smartlog", "ignorebookmarks", "!"))
+    ignore = _ignorebookmarks(repo)
     for b in books:
         if not ignore.match(b):
             heads.add(rev(books[b]))
@@ -346,6 +350,8 @@ def interestingheads(repo, subset, x):
     if hasattr(repo, "names") and "remotebookmarks" in repo.names:
         ns = repo.names["remotebookmarks"]
         for name in _reposnames(repo):
+            if ignore.match(name):
+                continue
             nodes = ns.namemap(repo, name)
             if nodes:
                 heads.add(rev(nodes[0]))
@@ -357,11 +363,14 @@ def interestingheads(repo, subset, x):
 def interestingmaster(repo, subset, x):
     """Interesting 'master' commit"""
 
+    ignore = _ignorebookmarks(repo)
     names = set(bookmarks.bmstore(repo).keys())
     if hasattr(repo, "names") and "remotebookmarks" in repo.names:
         names.update(set(repo.names["remotebookmarks"].listnames(repo)))
 
     for name in _reposnames(repo):
+        if ignore.match(name):
+            continue
         if name in names:
             revs = repo.revs("%s", name)
             break
