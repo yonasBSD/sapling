@@ -1095,6 +1095,13 @@ export class Repository {
       return;
     }
 
+    // Recommended bookmarks (e.g., fbcode/warm_opt) are specific to fbsource.
+    // Skip for other repos to avoid pulling bookmarks that don't exist on the remote.
+    if (!this.info.repoRoot.includes('fbsource')) {
+      onFetched?.([]);
+      return;
+    }
+
     try {
       const bookmarks = await Internal.getRecommendedBookmarks(this.initialConnectionContext);
       onFetched?.((this.recommendedBookmarks = bookmarks.map((b: string) => `remote/${b}`)));
