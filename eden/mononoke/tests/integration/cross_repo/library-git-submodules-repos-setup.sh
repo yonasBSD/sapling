@@ -186,6 +186,7 @@ function merge_repo_a_to_large_repo {
 
 
   sleep 2;
+  sync_mononoke_warm_bookmarks_cache 2>/dev/null || true
   print_section "Deriving all data types"
   mononoke_admin derived-data -R "$LARGE_REPO_NAME" \
     derive -i "$SYNCED_HEAD" --all-types
