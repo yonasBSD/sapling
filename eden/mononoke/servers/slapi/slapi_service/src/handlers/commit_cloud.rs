@@ -341,6 +341,7 @@ async fn get_smartlog<R: MononokeRepo>(
             &request.workspace,
             strip_git_suffix(&request.reponame),
             &flags,
+            None,
         )
         .await;
     let res = match cc_res {

@@ -90,7 +90,12 @@ impl SourceControlServiceImpl {
             .collect::<Result<Vec<_>>>()
             .map_err(|e| ServiceError::Request(invalid_request(e.to_string())))?;
         let smartlog = repo
-            .cloud_smartlog(&params.workspace.name, &params.workspace.repo.name, &flags)
+            .cloud_smartlog(
+                &params.workspace.name,
+                &params.workspace.repo.name,
+                &flags,
+                params.max_age_days,
+            )
             .await?;
 
         let nodes = smartlog

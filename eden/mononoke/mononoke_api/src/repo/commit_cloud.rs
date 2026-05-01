@@ -12,6 +12,7 @@ use std::sync::Arc;
 use bonsai_git_mapping::BonsaiGitMappingArc;
 use bonsai_hg_mapping::BonsaiHgMappingArc;
 use borrowed::borrowed;
+use chrono::Utc;
 use commit_cloud::CommitCloudRef;
 use commit_cloud::Phase;
 use commit_cloud::ctx::CommitCloudContext;
@@ -116,6 +117,7 @@ impl<R: MononokeRepo> RepoContext<R> {
         workspace: &str,
         reponame: &str,
         flags: &[SmartlogFlag],
+        max_age_days: Option<i32>,
     ) -> Result<SmartlogData, MononokeError> {
         let mut cc_ctx = self.commit_cloud_context_with_scheme(workspace, reponame)?;
         let authz = self.authorization_context();
@@ -137,6 +139,7 @@ impl<R: MononokeRepo> RepoContext<R> {
                 raw_data.local_bookmarks,
                 raw_data.remote_bookmarks,
                 flags,
+                max_age_days,
             )
             .await?;
 
@@ -154,6 +157,7 @@ impl<R: MononokeRepo> RepoContext<R> {
         local_bookmarks: LocalBookmarksMap,
         remote_bookmarks: RemoteBookmarksMap,
         flags: &[SmartlogFlag],
+        max_age_days: Option<i32>,
     ) -> anyhow::Result<Vec<SmartlogNode>> {
         let ctx = self.ctx();
         let repo = self.repo();
@@ -166,6 +170,37 @@ impl<R: MononokeRepo> RepoContext<R> {
             c_ids,
         )
         .await?;
+
+        let cl_ids_mapping = if let Some(max_age_days) = max_age_days {
+            let cutoff = Utc::now().timestamp() - i64::from(max_age_days) * 86400;
+            let dated: Vec<_> = stream::iter(cl_ids_mapping.into_iter())
+                .map(|(cloud_id, cs_id)| async move {
+                    let cs_ctx = self
+                        .changeset(ChangesetSpecifier::Bonsai(cs_id))
+                        .await?
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("changeset not found for bonsai id {}", cs_id)
+                        })?;
+                    let date = cs_ctx
+                        .changeset_info()
+                        .await?
+                        .author_date()
+                        .as_chrono()
+                        .timestamp();
+                    Ok::<_, anyhow::Error>((cloud_id, cs_id, date))
+                })
+                .buffer_unordered(100)
+                .try_collect()
+                .await?;
+
+            dated
+                .into_iter()
+                .filter(|(_, _, date)| *date >= cutoff)
+                .map(|(cloud_id, cs_id, _)| (cloud_id, cs_id))
+                .collect::<Vec<_>>()
+        } else {
+            cl_ids_mapping
+        };
 
         let cs_ids = cl_ids_mapping
             .iter()
@@ -389,7 +424,7 @@ impl<R: MononokeRepo> RepoContext<R> {
         let hg_ids = history.collapse_into_vec(&rbs, &lbs, flags);
 
         let nodes = self
-            .form_smartlog_with_info(cc_ctx, hg_ids, lbs, rbs, flags)
+            .form_smartlog_with_info(cc_ctx, hg_ids, lbs, rbs, flags, None)
             .await?;
 
         Ok(SmartlogData {
