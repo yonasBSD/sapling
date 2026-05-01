@@ -169,14 +169,18 @@ impl GitServerContext {
                     inner.repos.repo_configs(),
                 )),
                 None => {
-                    // Check if the repo exists in the global configuration
+                    // Check if the repo exists in the global configuration.
+                    // Route through `get_or_load_repo_config` so split-loaded
+                    // repos (only present in the per-tier RepoSpec manifest)
+                    // are recognized — otherwise we'd return `Err(None)`
+                    // ("repo does not exist") instead of falling through to
+                    // the on-demand load path.
                     let repo_exists_in_config = inner
                         .repos
                         .repo_mgr
                         .configs()
-                        .repo_configs()
-                        .repos
-                        .contains_key(&method_info.repo);
+                        .get_or_load_repo_config(&method_info.repo)
+                        .is_ok();
                     if repo_exists_in_config {
                         // Repo exists but is not loaded, we'll need to add it
                         Err(Some(inner.repos.repo_mgr.clone()))
