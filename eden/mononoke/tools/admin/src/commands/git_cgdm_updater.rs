@@ -481,15 +481,22 @@ async fn update_all_repos(
     rebuild: bool,
     all_repos_args: AllReposModeArgs,
 ) -> Result<()> {
-    let repo_configs = app.repo_configs();
-    let applicable_repo_names =
-        Vec::from_iter(repo_configs.repos.iter().filter_map(|(name, repo_config)| {
+    // Enumerate via `load_all_repo_configs` so split-loaded repos
+    // (only present in the per-tier RepoSpec manifest) are included
+    // — iterating `repo_configs.repos` would silently skip them, and
+    // their CGDM would never get refreshed.
+    let applicable_repo_names = app
+        .configs()
+        .load_all_repo_configs()?
+        .into_iter()
+        .filter_map(|(name, repo_config)| {
             repo_config
                 .git_configs
                 .preloaded_cgdm_blobstore_key
                 .as_ref()
-                .map(|_| name.to_string())
-        }));
+                .map(|_| name)
+        })
+        .collect::<Vec<_>>();
 
     if applicable_repo_names.is_empty() {
         println!("No repos found with preloaded_cgdm_blobstore_key configured");
