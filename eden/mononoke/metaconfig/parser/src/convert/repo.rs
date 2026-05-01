@@ -14,6 +14,7 @@ use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
 use bookmarks_types::BookmarkKey;
+use metaconfig_types::AclManifestMode;
 use metaconfig_types::Address;
 use metaconfig_types::BlameVersion;
 use metaconfig_types::BookmarkOrRegex;
@@ -1372,6 +1373,19 @@ impl Convert for RawSoftRestrictedPathConfig {
     }
 }
 
+fn parse_acl_manifest_mode(s: Option<&str>) -> Result<AclManifestMode> {
+    match s {
+        None | Some("Disabled") => Ok(AclManifestMode::Disabled),
+        Some("Shadow") => Ok(AclManifestMode::Shadow),
+        Some("Both") => Ok(AclManifestMode::Both),
+        Some("Authoritative") => Ok(AclManifestMode::Authoritative),
+        Some(other) => Err(anyhow!(
+            "invalid acl_manifest_mode value '{}': expected one of Disabled, Shadow, Both, Authoritative",
+            other
+        )),
+    }
+}
+
 impl Convert for RawRestrictedPathsConfig {
     type Output = RestrictedPathsConfig;
 
@@ -1426,25 +1440,19 @@ impl Convert for RawRestrictedPathsConfig {
             .unwrap_or_default()
             .into_iter()
             .map(|raw| {
-                let restriction_roots = raw
-                    .restriction_roots
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|s| {
-                        NonRootMPath::new(s.as_bytes()).with_context(|| {
-                            format!(
-                                "Invalid restriction root path in enforcement condition set: {}",
-                                s
-                            )
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-
-                Ok(EnforcementConditionSet {
+                Ok::<_, anyhow::Error>(EnforcementConditionSet {
                     always_enabled: raw.always_enabled.unwrap_or(false),
                     entry_points: raw.entry_points.unwrap_or_default(),
-                    restriction_roots,
                     require_client_request_flag: raw.require_client_request_flag.unwrap_or(false),
+                    restriction_acls: raw
+                        .restriction_acls
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|s| {
+                            MononokeIdentity::from_str(&s)
+                                .with_context(|| format!("parsing restriction_acl `{s}`"))
+                        })
+                        .collect::<Result<Vec<_>>>()?,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
@@ -1461,6 +1469,72 @@ impl Convert for RawRestrictedPathsConfig {
                 .acl_file_name
                 .unwrap_or(RestrictedPathsConfig::default().acl_file_name.to_string()),
             enforcement_condition_sets,
+            enforcement_enabled: self.enforcement_enabled.unwrap_or(false),
+            acl_manifest_mode: parse_acl_manifest_mode(self.acl_manifest_mode.as_deref())?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mononoke_macros::mononoke;
+    use repos::RawEnforcementConditionSet;
+
+    use super::*;
+
+    fn empty_raw_restricted_paths_config() -> RawRestrictedPathsConfig {
+        RawRestrictedPathsConfig {
+            path_acls: Default::default(),
+            ..Default::default()
+        }
+    }
+
+    #[mononoke::test]
+    fn test_parse_acl_manifest_mode_absent_defaults_to_disabled() {
+        assert_eq!(
+            parse_acl_manifest_mode(None).unwrap(),
+            AclManifestMode::Disabled
+        );
+    }
+
+    #[mononoke::test]
+    fn test_parse_enforcement_enabled_absent_defaults_to_false() {
+        let cfg: RestrictedPathsConfig = empty_raw_restricted_paths_config().convert().unwrap();
+        assert!(!cfg.enforcement_enabled);
+    }
+
+    #[mononoke::test]
+    fn test_parse_restriction_acls_passthrough() {
+        let raw_set = RawEnforcementConditionSet {
+            restriction_acls: Some(vec![
+                "USER:test_user".to_string(),
+                "GROUP:test_group".to_string(),
+            ]),
+            ..Default::default()
+        };
+        let mut raw = empty_raw_restricted_paths_config();
+        raw.enforcement_condition_sets = Some(vec![raw_set]);
+        let cfg: RestrictedPathsConfig = raw.convert().unwrap();
+        assert_eq!(cfg.enforcement_condition_sets.len(), 1);
+        assert_eq!(cfg.enforcement_condition_sets[0].restriction_acls.len(), 2);
+    }
+
+    #[mononoke::test]
+    fn test_parse_restriction_acls_invalid_value_errors_with_value_in_message() {
+        let raw_set = RawEnforcementConditionSet {
+            restriction_acls: Some(vec!["bogus".to_string()]),
+            ..Default::default()
+        };
+        let mut raw = empty_raw_restricted_paths_config();
+        raw.enforcement_condition_sets = Some(vec![raw_set]);
+
+        let result: Result<RestrictedPathsConfig> = raw.convert();
+        let err = result.unwrap_err();
+        let msg = format!("{:#}", err);
+        assert!(
+            msg.contains("restriction_acl `bogus`"),
+            "error should contain offending value: {}",
+            msg
+        );
     }
 }

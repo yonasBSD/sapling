@@ -984,9 +984,11 @@ mod tests {
             soft_path_acls: Vec::new(),
             conditional_enforcement_acls: Vec::new(),
             enforcement_condition_sets: Vec::new(),
+            enforcement_enabled: RestrictedPathsConfig::default().enforcement_enabled,
             tooling_allowlist_group: None,
             rollout_allowlist_group: None,
             acl_file_name: RestrictedPathsConfig::default().acl_file_name,
+            acl_manifest_mode: RestrictedPathsConfig::default().acl_manifest_mode,
         };
 
         let repo_restricted_paths = build_test_restricted_paths(fb, config).await?;
@@ -1008,9 +1010,11 @@ mod tests {
             soft_path_acls: Vec::new(),
             conditional_enforcement_acls: Vec::new(),
             enforcement_condition_sets: Vec::new(),
+            enforcement_enabled: RestrictedPathsConfig::default().enforcement_enabled,
             tooling_allowlist_group: None,
             rollout_allowlist_group: None,
             acl_file_name: RestrictedPathsConfig::default().acl_file_name,
+            acl_manifest_mode: RestrictedPathsConfig::default().acl_manifest_mode,
         };
 
         let repo_restricted_paths = build_test_restricted_paths(fb, config).await?;

@@ -2430,25 +2430,58 @@ pub struct SoftRestrictedPathConfig {
     pub max_copied_files_limit: u64,
 }
 
+/// 4-stage rollout state for AclManifest as the source of truth for
+/// restricted-path enforcement.
+///
+/// Drives the dispatch in `spawn_enforce_restricted_*_access`:
+/// - `Disabled`: only the path-acls config source runs.
+/// - `Shadow`: both run, only config is authoritative; AclManifest is logged for comparison.
+/// - `Both`: both run, deny-if-either combination.
+/// - `Authoritative`: only AclManifest runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AclManifestMode {
+    /// Only the path-acls config source runs.
+    #[default]
+    Disabled,
+    /// Both run, only config is authoritative; AclManifest is logged for comparison.
+    Shadow,
+    /// Both run, deny-if-either combination.
+    Both,
+    /// Only AclManifest runs.
+    Authoritative,
+}
+
+impl AclManifestMode {
+    /// Returns true when the AclManifest source is fully disabled.
+    pub fn is_disabled(self) -> bool {
+        matches!(self, Self::Disabled)
+    }
+
+    /// Returns true when path lookup should still use the manifest-id-store-backed config source.
+    pub fn uses_manifest_id_store_for_path_lookup(self) -> bool {
+        matches!(self, Self::Disabled | Self::Shadow)
+    }
+}
+
 /// A single enforcement condition set. All non-empty fields must match (AND).
 /// Multiple sets are evaluated with OR semantics.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnforcementConditionSet {
-    /// If true, this set always matches — skips entry_points, restriction_roots,
-    /// and require_client_request_flag checks. Only the enable_server_side_path_acls
-    /// JK can disable enforcement for this set.
+    /// If true, this set always matches — skips entry_points and
+    /// require_client_request_flag checks.
     pub always_enabled: bool,
     /// Client entry points that trigger enforcement (e.g. "ScsServer", "EdenApi").
     /// Empty = match all entry points.
     pub entry_points: Vec<String>,
-    /// Restriction root paths for enforcement (path-component prefix match).
-    /// Empty = match all restriction roots.
-    pub restriction_roots: Vec<NonRootMPath>,
     /// Temporary: if true, client must send server_side_tenting=true in metadata.
     /// Used during the initial rollout stage so clients can opt in to enforcement
     /// and disable it if it causes issues. Should be removed once rollout is complete.
     // TODO(T248658346): Remove this field once path ACL enforcement is fully rolled out.
     pub require_client_request_flag: bool,
+    /// ACL-identity scoping. Empty = match any restricted access (no scoping).
+    /// Non-empty = match only when the access result's `restriction_acls`
+    /// overlaps this list.
+    pub restriction_acls: Vec<MononokeIdentity>,
 }
 
 /// Configuration for restricted paths and their associated ACLs
@@ -2477,6 +2510,11 @@ pub struct RestrictedPathsConfig {
     /// Condition sets for conditional enforcement. OR across sets, AND within.
     /// Replaces conditional_enforcement_acls.
     pub enforcement_condition_sets: Vec<EnforcementConditionSet>,
+    /// Master kill switch for path ACL enforcement.
+    /// Defaults to `false` so a repo with no explicit value gets no enforcement.
+    pub enforcement_enabled: bool,
+    /// 4-stage rollout state for AclManifest. Defaults to `Disabled`.
+    pub acl_manifest_mode: AclManifestMode,
 }
 
 const DEFAULT_ACL_FILE_NAME: &str = ".slacl";
@@ -2493,6 +2531,8 @@ impl Default for RestrictedPathsConfig {
             rollout_allowlist_group: None,
             acl_file_name: DEFAULT_ACL_FILE_NAME.to_string(),
             enforcement_condition_sets: Vec::new(),
+            enforcement_enabled: false,
+            acl_manifest_mode: AclManifestMode::Disabled,
         }
     }
 }
@@ -2728,5 +2768,10 @@ mod tests {
             "Expected 'Cycle detected' error, got: {}",
             err
         );
+    }
+
+    #[mononoke::test]
+    fn test_acl_manifest_mode_default_is_disabled() {
+        assert_eq!(AclManifestMode::default(), AclManifestMode::Disabled);
     }
 }
