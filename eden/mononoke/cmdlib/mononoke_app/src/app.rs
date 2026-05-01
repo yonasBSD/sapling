@@ -495,14 +495,16 @@ impl MononokeApp {
     where
         Repo: for<'builder> AsyncBuildable<'builder, RepoFactoryBuilder<'builder>>,
     {
-        let repo_configs = self.repo_configs();
-        let (repo_name, repo_config) = repo_configs
-            .get_repo_config(repo_id)
-            .ok_or_else(|| anyhow!("unknown repoid: {:?}", repo_id))?;
+        // Route through `get_or_load_repo_config_by_id` so split-loaded repos
+        // (only present in the per-tier RepoSpec manifest) resolve correctly.
+        let (repo_name, repo_config) = self
+            .configs
+            .get_or_load_repo_config_by_id(repo_id.id())
+            .with_context(|| format!("unknown repoid: {:?}", repo_id))?;
         let common_config = self.repo_configs().common.clone();
         let repo = self
             .repo_factory
-            .build(repo_name.clone(), repo_config.clone(), common_config)
+            .build(repo_name, repo_config, common_config)
             .await?;
         Ok(repo)
     }
@@ -886,27 +888,25 @@ impl MononokeApp {
         &self,
         repo_blobstore_args: &RepoBlobstoreArgs,
     ) -> Result<Arc<dyn KeyedBlobstore>> {
-        let repo_configs = self.repo_configs();
+        // Route through MononokeConfigs::get_or_load_repo_config* so split-loaded
+        // repos (only present in the per-tier RepoSpec manifest) resolve correctly.
         let (repo_id, mut redaction, storage_config) =
             if let Some(repo_id) = repo_blobstore_args.repo_id {
                 let repo_id = RepositoryId::new(repo_id);
-                let (_repo_name, repo_config) = repo_configs
-                    .get_repo_config(repo_id)
-                    .ok_or_else(|| anyhow!("unknown repoid: {:?}", repo_id))?;
-                (
-                    repo_id,
-                    repo_config.redaction,
-                    repo_config.storage_config.clone(),
-                )
+                let (_repo_name, repo_config) = self
+                    .configs
+                    .get_or_load_repo_config_by_id(repo_id.id())
+                    .with_context(|| format!("unknown repoid: {:?}", repo_id))?;
+                (repo_id, repo_config.redaction, repo_config.storage_config)
             } else if let Some(repo_name) = &repo_blobstore_args.repo_name {
-                let repo_config = repo_configs
-                    .repos
-                    .get(repo_name)
-                    .ok_or_else(|| anyhow!("unknown reponame: {:?}", repo_name))?;
+                let repo_config = self
+                    .configs
+                    .get_or_load_repo_config(repo_name)
+                    .with_context(|| format!("unknown reponame: {:?}", repo_name))?;
                 (
                     repo_config.repoid,
                     repo_config.redaction,
-                    repo_config.storage_config.clone(),
+                    repo_config.storage_config,
                 )
             } else {
                 return Err(anyhow!("Expected either repo_id or repo_name"));
