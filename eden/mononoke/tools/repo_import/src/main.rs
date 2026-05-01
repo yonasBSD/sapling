@@ -864,13 +864,14 @@ where
 }
 
 fn get_config_by_repoid(
-    configs: &RepoConfigs,
+    app: &MononokeApp,
     repo_id: RepositoryId,
 ) -> Result<(String, RepoConfig), Error> {
-    configs
-        .get_repo_config(repo_id)
-        .ok_or_else(|| format_err!("unknown repoid {:?}", repo_id))
-        .map(|(name, config)| (name.clone(), config.clone()))
+    // Route through `get_or_load_repo_config_by_id` so split-loaded repos
+    // (only present in the per-tier RepoSpec manifest) resolve correctly.
+    app.configs()
+        .get_or_load_repo_config_by_id(repo_id.id())
+        .with_context(|| format!("unknown repoid {:?}", repo_id))
 }
 
 async fn get_pushredirected_vars(
@@ -1411,7 +1412,7 @@ async fn check_additional_setup_steps(
         dest_bookmark,
     };
 
-    let (_, repo_config) = get_config_by_repoid(configs, repo.repo_id())?;
+    let (_, repo_config) = get_config_by_repoid(app, repo.repo_id())?;
 
     let call_sign = repo_config.phabricator_callsign;
     let phab_check_disabled = check_additional_setup_steps_args.disable_phabricator_check;
