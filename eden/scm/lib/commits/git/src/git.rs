@@ -177,7 +177,7 @@ impl GitSegmentedCommits {
 
     /// Rewrite metalog bookmarks, remotenames to match git references.
     /// Import related commits to segments.
-    /// This is the reverse of `metalog_to_git_references`.
+    /// This is the reverse of `export_to_git`.
     /// Intended to be used at "open" time and at the start of a transaction.
     ///
     /// If `self.is_dotgit` is true, then the sync rules are a bit different:
