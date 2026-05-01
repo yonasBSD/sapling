@@ -47,6 +47,7 @@ use whence_logged::WhenceScribeLogged;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CommitInfo {
     changeset_id: ChangesetId,
+    changeset_author: String,
     bubble_id: Option<NonZeroU64>,
     diff_id: Option<String>,
     changed_files_info: ChangedFilesInfo,
@@ -56,6 +57,7 @@ impl CommitInfo {
     pub fn new(bcs: &BonsaiChangeset, bubble_id: Option<BubbleId>) -> Self {
         CommitInfo {
             changeset_id: bcs.get_changeset_id(),
+            changeset_author: bcs.author().to_string(),
             bubble_id: bubble_id.map(Into::into),
             diff_id: extract_differential_revision(bcs.message()).map(ToString::to_string),
             changed_files_info: ChangedFilesInfo::new(bcs),
@@ -125,6 +127,7 @@ struct PlainCommitInfo {
     repo_name: String,
     is_public: bool,
     changeset_id: ChangesetId,
+    author: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     bubble_id: Option<NonZeroU64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -163,6 +166,7 @@ impl PlainCommitInfo {
     ) -> Result<PlainCommitInfo> {
         let CommitInfo {
             changeset_id,
+            changeset_author,
             bubble_id,
             diff_id,
             changed_files_info:
@@ -217,6 +221,7 @@ impl PlainCommitInfo {
             repo_name,
             is_public,
             changeset_id,
+            author: changeset_author,
             bubble_id,
             diff_id,
             changed_files_count,
@@ -252,6 +257,7 @@ impl Loggable for PlainCommitInfo {
             .set_repo_name(self.repo_name.clone())
             .set_is_public(self.is_public)
             .set_changeset_id(self.changeset_id.to_string())
+            .set_author(self.author.clone())
             .set_parents(self.parents.iter().map(ToString::to_string).collect())
             .set_generation(self.generation.value() as i64)
             .set_changed_files_count(self.changed_files_count as i64)
@@ -416,6 +422,7 @@ mod test {
     use repo_blobstore::RepoBlobstore;
     use repo_derived_data::RepoDerivedData;
     use repo_identity::RepoIdentity;
+    use tests_utils::CreateCommitContext;
     use tests_utils::bookmark;
     use tests_utils::drawdag::create_from_dag;
 
@@ -544,6 +551,28 @@ mod test {
                 *mapping.get("D").unwrap(),
             }
         );
+
+        Ok(())
+    }
+
+    #[mononoke::fbinit_test]
+    async fn test_commit_info_preserves_changeset_author(fb: FacebookInit) -> Result<(), Error> {
+        let ctx = CoreContext::test_mock(fb);
+        let repo: Repo = test_repo_factory::build_empty(fb).await?;
+        let author = "Test User <test@meta.com>";
+        let cs_id = CreateCommitContext::new_root(&ctx, &repo)
+            .add_file("README", "init")
+            .set_author(author)
+            .commit()
+            .await?;
+        let bcs = cs_id.load(&ctx, &repo.repo_blobstore).await?;
+
+        let commit_info = CommitInfo::new(&bcs, None);
+        assert_eq!(commit_info.changeset_author, author);
+
+        let plain_commit_info =
+            PlainCommitInfo::new(&ctx, &repo, Utc::now(), None, commit_info).await?;
+        assert_eq!(plain_commit_info.author, author);
 
         Ok(())
     }
