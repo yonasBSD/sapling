@@ -19,6 +19,7 @@ use MononokeAppStats_ods3_types::MononokeAppStats;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
+use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use facet::AsyncBuildable;
 use futures::stream;
@@ -41,6 +42,7 @@ use mononoke_repos::MononokeRepos;
 use repo_factory::RepoFactory;
 use repo_factory::RepoFactoryBuilder;
 use stats::prelude::*;
+use tracing::debug;
 use tracing::info;
 use tracing::warn;
 
@@ -68,6 +70,11 @@ pub struct MononokeReposManager<Repo> {
     configs: Arc<MononokeConfigs>,
     repo_factory: Arc<RepoFactory>,
     redaction_disabled: bool,
+    // Tracks the RepoConfig last applied to each managed repo. Used to skip
+    // redundant per-repo reloads when a tier-manifest content change does not
+    // change a given repo's config (the common case when a sibling repo is
+    // added or modified).
+    applied_configs: Arc<ArcSwap<HashMap<String, RepoConfig>>>,
 }
 
 impl<Repo> MononokeReposManager<Repo> {
@@ -109,11 +116,13 @@ impl<Repo> MononokeReposManager<Repo> {
             + 'static,
     {
         let repos = Arc::new(MononokeRepos::new());
+        let applied_configs = Arc::new(ArcSwap::from_pointee(HashMap::new()));
         let mgr = MononokeReposManager {
             repos,
             configs,
             repo_factory,
             redaction_disabled,
+            applied_configs: applied_configs.clone(),
         };
         mgr.populate_repos(repo_names).await?;
         let update_receiver = MononokeConfigUpdateReceiver::new(
@@ -121,6 +130,7 @@ impl<Repo> MononokeReposManager<Repo> {
             mgr.repo_factory.clone(),
             service_name,
             mgr.configs.clone(),
+            applied_configs,
         );
         mgr.configs
             .register_for_update(Arc::new(update_receiver) as Arc<dyn ConfigUpdateReceiver>);
@@ -157,14 +167,29 @@ impl<Repo> MononokeReposManager<Repo> {
         let repo_config = self.repo_config(repo_name)?;
         let repo_id = repo_config.repoid.id();
         let common_config = self.configs.repo_configs().common.clone();
+        let tracked_config = repo_config.clone();
         let repo = self
             .repo_factory
             .build(repo_name.to_string(), repo_config, common_config)
             .await?;
         self.repos.add(repo_name, repo_id, repo);
+        self.record_applied_configs(std::iter::once((repo_name.to_string(), tracked_config)));
         self.repos
             .get_by_name(repo_name)
             .ok_or_else(|| anyhow!("Couldn't retrieve added repo {}", repo_name))
+    }
+
+    /// Merge the given (repo_name, RepoConfig) entries into the applied-config
+    /// cache. This is the source of truth for "which config is currently active
+    /// in MononokeRepos for each repo" and drives per-repo reload dedup in
+    /// MononokeConfigUpdateReceiver.
+    fn record_applied_configs<I>(&self, entries: I)
+    where
+        I: IntoIterator<Item = (String, RepoConfig)>,
+    {
+        let mut new_applied = (**self.applied_configs.load()).clone();
+        new_applied.extend(entries);
+        self.applied_configs.store(Arc::new(new_applied));
     }
 
     /// Remove a repo from the managed repo collection.
@@ -189,6 +214,10 @@ impl<Repo> MononokeReposManager<Repo> {
             })
             .collect::<Result<Vec<_>>>()?;
         let total = repo_configs.len();
+        let tracked_configs: Vec<(String, RepoConfig)> = repo_configs
+            .iter()
+            .map(|(name, config)| (name.clone(), config.clone()))
+            .collect();
         let completed = Arc::new(AtomicUsize::new(0));
         let repos_input = stream::iter(repo_configs)
             .map(|(repo_name, repo_config)| {
@@ -229,6 +258,7 @@ impl<Repo> MononokeReposManager<Repo> {
             .try_collect::<Vec<_>>()
             .await?;
         self.repos.populate(repos_input);
+        self.record_applied_configs(tracked_configs);
         Ok(())
     }
 
@@ -264,6 +294,8 @@ pub struct MononokeConfigUpdateReceiver<Repo> {
     repo_factory: Arc<RepoFactory>,
     service_name: Option<ShardedService>,
     mononoke_configs: Arc<MononokeConfigs>,
+    // Shared with the owning MononokeReposManager. See MononokeReposManager.
+    applied_configs: Arc<ArcSwap<HashMap<String, RepoConfig>>>,
 }
 
 /// Determines which repos should be loaded/reloaded based on config.
@@ -318,19 +350,52 @@ where
     repos_to_load
 }
 
+/// Filter a list of reload candidates down to only those whose `RepoConfig`
+/// actually differs from the previously-applied config. A candidate not present
+/// in `applied` is treated as never-loaded and passed through.
+///
+/// This avoids the cost of rebuilding repos whose config did not change — the
+/// common case when a tier manifest content-hash bumps due to an unrelated repo
+/// being added or modified.
+fn filter_repos_with_changed_config(
+    candidates: Vec<(String, RepoConfig)>,
+    applied: &HashMap<String, RepoConfig>,
+) -> Vec<(String, RepoConfig)> {
+    candidates
+        .into_iter()
+        .filter(|(name, new_config)| match applied.get(name) {
+            Some(existing) => existing != new_config,
+            None => true,
+        })
+        .collect()
+}
+
 impl<Repo> MononokeConfigUpdateReceiver<Repo> {
     fn new(
         repos: Arc<MononokeRepos<Repo>>,
         repo_factory: Arc<RepoFactory>,
         service_name: Option<ShardedService>,
         mononoke_configs: Arc<MononokeConfigs>,
+        applied_configs: Arc<ArcSwap<HashMap<String, RepoConfig>>>,
     ) -> Self {
         Self {
             repos,
             repo_factory,
             service_name,
             mononoke_configs,
+            applied_configs,
         }
+    }
+
+    /// Merge the given (repo_name, RepoConfig) entries into the applied-config
+    /// cache after a successful reload.
+    fn record_applied_configs<I>(&self, entries: I)
+    where
+        I: IntoIterator<Item = (String, RepoConfig)>,
+    {
+        let mut new_applied = (**self.applied_configs.load()).clone();
+        new_applied.extend(entries);
+        self.applied_configs.store(Arc::new(new_applied));
     }
 
     /// Method for determining the set of repos to be reloaded with the new config
@@ -391,7 +456,26 @@ where
         repo_configs: Arc<RepoConfigs>,
         _: Arc<StorageConfigs>,
     ) -> Result<()> {
-        let repos_to_load = self.reloadable_repo(repo_configs.clone());
+        let candidates = self.reloadable_repo(repo_configs.clone());
+        let candidate_count = candidates.len();
+        let applied_snapshot = self.applied_configs.load_full();
+        let repos_to_load = filter_repos_with_changed_config(candidates, &applied_snapshot);
+        let suppressed = candidate_count - repos_to_load.len();
+        if suppressed > 0 {
+            info!(
+                "Skipping reload of {} repos with unchanged config (reloading {})",
+                suppressed,
+                repos_to_load.len(),
+            );
+        }
+        if repos_to_load.is_empty() {
+            return Ok(());
+        }
+        let tracked_configs: Vec<(String, RepoConfig)> = repos_to_load
+            .iter()
+            .map(|(name, config)| (name.clone(), config.clone()))
+            .collect();
+
         let total = repos_to_load.len();
         let completed = Arc::new(AtomicUsize::new(0));
 
@@ -432,6 +516,7 @@ where
             .await?;
         // Ensure that we only add or replace repos and NEVER remove them
         self.repos.reload(repos_input);
+        self.record_applied_configs(tracked_configs);
         Ok(())
     }
 
@@ -439,6 +524,17 @@ where
         // Skip disabled or non-reloadable repos
         if !repo_config.enabled {
             return Ok(());
+        }
+
+        // Skip if the config has not actually changed since the last apply.
+        if let Some(existing) = self.applied_configs.load().get(repo_name) {
+            if existing == repo_config {
+                debug!(
+                    "Skipping single-repo reload for {} (config unchanged)",
+                    repo_name,
+                );
+                return Ok(());
+            }
         }
 
         // Get the common config from the current repo_configs
@@ -466,6 +562,10 @@ where
         info!("Reloaded single repo: {}", repo_name);
         self.repos
             .reload(vec![(repo_id, repo_name.to_string(), repo)]);
+        self.record_applied_configs(std::iter::once((
+            repo_name.to_string(),
+            repo_config.clone(),
+        )));
         Ok(())
     }
 }
@@ -483,6 +583,7 @@ mod test {
     use mononoke_macros::mononoke;
 
     use super::compute_reloadable_repos;
+    use super::filter_repos_with_changed_config;
 
     /// Helper to create a RepoConfig with the specified enabled state and sharding config
     fn make_repo_config(
@@ -693,5 +794,69 @@ mod test {
         // Should NOT include: new disabled repos, new deep-sharded repos
         assert!(!names.contains(&"new_disabled"));
         assert!(!names.contains(&"new_deep_sharded"));
+    }
+
+    #[mononoke::test]
+    fn test_filter_skips_repo_with_unchanged_config() {
+        // Repos whose RepoConfig is byte-identical to the applied config should be
+        // filtered out — no reload needed.
+        let config = make_repo_config(true, None);
+        let candidates = vec![("repo".to_string(), config.clone())];
+        let mut applied = HashMap::new();
+        applied.insert("repo".to_string(), config);
+
+        let result = filter_repos_with_changed_config(candidates, &applied);
+        assert!(
+            result.is_empty(),
+            "Repo with unchanged config should not be reloaded, got {:?}",
+            get_repo_names(&result),
+        );
+    }
+
+    #[mononoke::test]
+    fn test_filter_keeps_repo_with_changed_config() {
+        // Repo whose RepoConfig differs from the applied config must be reloaded.
+        let old_config = make_repo_config(true, None);
+        let new_config = make_repo_config(false, None);
+        let candidates = vec![("repo".to_string(), new_config)];
+        let mut applied = HashMap::new();
+        applied.insert("repo".to_string(), old_config);
+
+        let result = filter_repos_with_changed_config(candidates, &applied);
+        assert_eq!(get_repo_names(&result), vec!["repo"]);
+    }
+
+    #[mononoke::test]
+    fn test_filter_keeps_repo_not_in_applied_map() {
+        // A repo absent from the applied map (e.g., never loaded before) must be
+        // passed through so it gets loaded.
+        let config = make_repo_config(true, None);
+        let candidates = vec![("new_repo".to_string(), config)];
+        let applied = HashMap::new();
+
+        let result = filter_repos_with_changed_config(candidates, &applied);
+        assert_eq!(get_repo_names(&result), vec!["new_repo"]);
+    }
+
+    #[mononoke::test]
+    fn test_filter_mixed_candidates() {
+        // Mix of unchanged, changed, and brand-new repos.
+        let config_a = make_repo_config(true, None);
+        let config_b = make_repo_config(false, None);
+
+        let candidates = vec![
+            ("unchanged".to_string(), config_a.clone()),
+            ("changed".to_string(), config_b.clone()),
+            ("brand_new".to_string(), config_a.clone()),
+        ];
+        let mut applied = HashMap::new();
+        applied.insert("unchanged".to_string(), config_a);
+        applied.insert("changed".to_string(), make_repo_config(true, None));
+
+        let result = filter_repos_with_changed_config(candidates, &applied);
+        let names = get_repo_names(&result);
+        assert!(!names.contains(&"unchanged"));
+        assert!(names.contains(&"changed"));
+        assert!(names.contains(&"brand_new"));
     }
 }
