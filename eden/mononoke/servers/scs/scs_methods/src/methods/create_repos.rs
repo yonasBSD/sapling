@@ -320,6 +320,10 @@ async fn try_fetching_repo_acl(
     }
 }
 
+fn make_full_acl_name_from_repo_name(repo_name: &str) -> String {
+    format!("repos/git/{}", repo_name)
+}
+
 fn make_top_level_acl_name_from_repo_name(repo_name: &str) -> String {
     // IMPORTANT: this hardcodes "repos/git/" because create_repos only supports GIT today.
     // Hg repos use "repos/hg/<name>" ACLs (e.g., "repos/hg/aosp"). When adding HG support
@@ -339,7 +343,7 @@ async fn validate_and_process_custom_acl(
     valid_oncall_names_cache: &mut HashSet<String>,
     valid_hipster_groups_cache: &mut HashSet<String>,
 ) -> Result<(), scs_errors::ServiceError> {
-    let acl_name = make_top_level_acl_name_from_repo_name(&repo_creation_request.repo_name);
+    let acl_name = make_full_acl_name_from_repo_name(&repo_creation_request.repo_name);
 
     if !is_valid_oncall_name(
         ctx.clone(),
@@ -627,7 +631,11 @@ fn make_quick_repo_definition(
         custom_storage_config: None,
         t_shirt_size: to_tshirt_size(request.size_bucket)?,
         sharding_config: QuickRepoDefinitionShardingConfig::BGM_ONLY_REGIONS,
-        custom_acl_name: Some(make_top_level_acl_name_from_repo_name(&request.repo_name)),
+        custom_acl_name: Some(if request.custom_acl.is_some() {
+            make_full_acl_name_from_repo_name(&request.repo_name)
+        } else {
+            make_top_level_acl_name_from_repo_name(&request.repo_name)
+        }),
         preloaded_commit_graph_blobstore_key: None,
         git_concurrency: None,
         enable_git_bundle_uri: None,
@@ -764,7 +772,11 @@ fn make_repo_spec(
     Ok(RepoSpec {
         repo_id: repo_id.id(),
         repo_name: request.repo_name.clone(),
-        hipster_acl: make_top_level_acl_name_from_repo_name(&request.repo_name),
+        hipster_acl: if request.custom_acl.is_some() {
+            make_full_acl_name_from_repo_name(&request.repo_name)
+        } else {
+            make_top_level_acl_name_from_repo_name(&request.repo_name)
+        },
         enabled: true,
         readonly: false,
         default_commit_identity_scheme: RawCommitIdentityScheme::GIT,
@@ -866,7 +878,11 @@ async fn prepare_repo_configs_mutation_nowait(
                         tiers: tier_list_for_repo_spec(&request.repo_name),
                         is_deep_sharded: true,
                         t_shirt_size,
-                        hipster_acl: make_top_level_acl_name_from_repo_name(&request.repo_name),
+                        hipster_acl: if request.custom_acl.is_some() {
+                            make_full_acl_name_from_repo_name(&request.repo_name)
+                        } else {
+                            make_top_level_acl_name_from_repo_name(&request.repo_name)
+                        },
                         enable_git_bundle_uri: None,
                     },
                 ))
@@ -1714,6 +1730,51 @@ mod tests {
         assert!(
             !qrd.config_tiers.iter().any(|t| t == "aosp_multi_repo_land"),
             "non-AOSP repos must NOT be added to aosp_multi_repo_land tier"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_repo_spec_uses_full_acl_when_custom_acl_set() {
+        let repo_id = RepositoryId::new(55555);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "fairinternal/occhi".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            custom_acl: Some(thrift::CustomAclParams {
+                hipster_group: "oncall_onevision".to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let spec =
+            make_repo_spec(&(repo_id, request), None).expect("make_repo_spec should succeed");
+
+        assert_eq!(
+            spec.hipster_acl, "repos/git/fairinternal/occhi",
+            "Repos with custom_acl should use the full-path ACL"
+        );
+    }
+
+    #[mononoke::test]
+    fn test_make_quick_repo_definition_uses_full_acl_when_custom_acl_set() {
+        let repo_id = RepositoryId::new(55555);
+        let request = thrift::RepoCreationRequest {
+            repo_name: "fairinternal/occhi".to_string(),
+            size_bucket: RepoSizeBucket::SMALL,
+            custom_acl: Some(thrift::CustomAclParams {
+                hipster_group: "oncall_onevision".to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let qrd = make_quick_repo_definition(&(repo_id, request))
+            .expect("make_quick_repo_definition should succeed");
+
+        assert_eq!(
+            qrd.custom_acl_name.as_deref(),
+            Some("repos/git/fairinternal/occhi"),
+            "QRD with custom_acl should use the full-path ACL"
         );
     }
 }
