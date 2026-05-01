@@ -153,12 +153,14 @@ pub async fn run(app: MononokeApp, args: CommandArgs) -> Result<()> {
 
         // Legacy approach: Use target_blobstore_id directly as multiplex_id
         (None, Some(target_blobstore_id)) => {
-            // Get repo config and extract blobstore config directly
-            let repo_configs = app.repo_configs();
-            let (_repo_name, repo_config) = repo_configs
-                .get_repo_config(repo.repo_identity().id())
-                .ok_or_else(|| {
-                    anyhow!(
+            // Get repo config and extract blobstore config directly.
+            // Route through `get_or_load_repo_config_by_id` so split-loaded
+            // repos (only present in the per-tier RepoSpec manifest) resolve.
+            let (_repo_name, repo_config) = app
+                .configs()
+                .get_or_load_repo_config_by_id(repo.repo_identity().id().id())
+                .with_context(|| {
+                    format!(
                         "Repo config not found for repo_id: {:?}",
                         repo.repo_identity().id()
                     )
