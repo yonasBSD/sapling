@@ -165,7 +165,7 @@ pub async fn check_all_commit_rate_limits(
         .collect();
 
     let rule_results: Vec<RuleCheckResult> = stream::iter(futures)
-        .buffer_unordered(rules.len().min(20))
+        .buffer_unordered(20)
         .try_collect()
         .await?;
 

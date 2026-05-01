@@ -14,6 +14,7 @@ use bonsai_hg_mapping::BonsaiHgMapping;
 use borrowed::borrowed;
 use commit_graph::CommitGraph;
 use commit_graph::CommitGraphWriter;
+use commit_rate_limit_config::CommitRateLimit;
 use commit_rate_limit_config::CommitRateLimitCacheConfig;
 use commit_rate_limit_config::CommitRateLimitRule;
 use commit_rate_limit_config::EligibilityCheck;
@@ -72,6 +73,9 @@ struct TestRepo {
 
     #[facet]
     filestore_config: FilestoreConfig,
+
+    #[facet]
+    commit_rate_limit: CommitRateLimit,
 }
 
 // =========================================================================
@@ -892,6 +896,32 @@ async fn test_new_bookmark_no_ancestors(fb: FacebookInit) -> Result<()> {
     Ok(())
 }
 
+#[mononoke::fbinit_test]
+async fn test_check_all_commit_rate_limits_with_no_rules(fb: FacebookInit) -> Result<()> {
+    let ctx = CoreContext::test_mock(fb);
+    let repo: TestRepo = test_repo_factory::build_empty(ctx.fb).await?;
+    borrowed!(ctx, repo);
+
+    let bm = BookmarkKey::new("main")?;
+    let cs_id = CreateCommitContext::new_root(ctx, repo)
+        .add_file("users/alice/first.txt", "first")
+        .set_message(format!("first commit {}", ELIGIBLE_TAG))
+        .set_author(ALICE)
+        .set_author_date(recent_date())
+        .commit()
+        .await?;
+
+    let bonsai = cs_id.load(ctx, repo.repo_blobstore()).await?;
+    let result = check_all_commit_rate_limits(ctx, repo, &bonsai, cs_id, &bm).await?;
+
+    assert!(result.passed, "Empty commit rate limit config should pass");
+    assert!(
+        result.rule_results.is_empty(),
+        "Empty commit rate limit config should return no rule results",
+    );
+    Ok(())
+}
+
 /// When creating a new bookmark (one that doesn't exist yet), draft ancestor
 /// counting should treat the draft count as 0 — there is no existing bookmark
 /// position to diff against. With max_commits=1, only the commit itself is
@@ -1043,10 +1073,7 @@ async fn test_non_standard_author_jk_on_tracked(fb: FacebookInit) -> Result<()> 
             &bm,
             &bcs,
             &per_user,
-            parse_author_username(bcs.author(), true)
-                .ok()
-                .flatten()
-                .as_deref(),
+            parse_author_username(bcs.author(), true).ok().flatten(),
             true,
         )
         .await?,
