@@ -61,11 +61,12 @@ impl SourceControlServiceImpl {
         _params: thrift::RepoInfoParams,
     ) -> Result<thrift::RepoInfo, scs_errors::ServiceError> {
         let authz = AuthorizationContext::new_bypass_access_control();
-        let repo_configs = self.configs.repo_configs();
-        let repo_config = repo_configs
-            .repos
-            .get(repo.name.as_str())
-            .ok_or_else(|| scs_errors::repo_not_found(repo.description()))?;
+        // Route through `get_or_load_repo_config` so split-loaded repos
+        // (only present in the per-tier RepoSpec manifest) resolve correctly.
+        let repo_config = self
+            .configs
+            .get_or_load_repo_config(repo.name.as_str())
+            .map_err(|_| scs_errors::repo_not_found(repo.description()))?;
         let repo_name = repo.name.to_string();
         let default_commit_identity_scheme_conf = &repo_config.default_commit_identity_scheme;
 
