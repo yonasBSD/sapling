@@ -872,7 +872,7 @@ void EdenServer::ProgressManager::markFailed(size_t progressIndex) {
 }
 
 void EdenServer::ProgressManager::printProgresses(
-    std::shared_ptr<StartupLogger> logger,
+    const std::shared_ptr<StartupLogger>& logger,
     std::optional<std::string_view> errorMessage) {
   std::string prepare;
   std::string content;
@@ -926,7 +926,7 @@ void EdenServer::ProgressManager::printProgresses(
 }
 
 void EdenServer::ProgressManager::manageProgress(
-    std::shared_ptr<StartupLogger> logger,
+    const std::shared_ptr<StartupLogger>& logger,
     size_t progressIndex,
     uint16_t percent) {
   updateProgressState(progressIndex, percent);
@@ -1922,7 +1922,7 @@ Future<Unit> EdenServer::performTakeoverStart(
     [[maybe_unused]] std::shared_ptr<EdenMount> edenMount,
     [[maybe_unused]] TakeoverData::MountInfo&& info) {
 #ifndef _WIN32
-  auto mountPath = info.mountPath;
+  auto mountPath = std::move(info.mountPath);
 
   auto future = completeTakeoverStart(edenMount, std::move(info));
   return std::move(future).thenValue(

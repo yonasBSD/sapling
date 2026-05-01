@@ -585,6 +585,8 @@ class EdenServer : private TakeoverHandler {
   // Forbidden copy constructor and assignment operator
   EdenServer(EdenServer const&) = delete;
   EdenServer& operator=(EdenServer const&) = delete;
+  EdenServer(EdenServer&&) = delete;
+  EdenServer& operator=(EdenServer&&) = delete;
 
   void startPeriodicTasks();
   void updatePeriodicTaskIntervals(const EdenConfig& config);
@@ -935,7 +937,7 @@ class EdenServer : private TakeoverHandler {
      * status updates.
      */
     void printProgresses(
-        std::shared_ptr<StartupLogger>,
+        const std::shared_ptr<StartupLogger>&,
         std::optional<std::string_view> errorMessage = std::nullopt);
 
     /**
@@ -944,7 +946,7 @@ class EdenServer : private TakeoverHandler {
      * OverlayChecker calls back
      */
     void manageProgress(
-        std::shared_ptr<StartupLogger> logger,
+        const std::shared_ptr<StartupLogger>& logger,
         size_t processIndex,
         uint16_t percent);
 
