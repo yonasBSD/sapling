@@ -12,6 +12,9 @@
 
 mod access_log;
 
+#[cfg(test)]
+mod test_utils;
+
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
@@ -896,54 +899,14 @@ pub async fn spawn_enforce_restricted_manifest_access<'a>(
 mod tests {
     use std::collections::HashMap;
     use std::str::FromStr;
-    use std::sync::Arc;
 
     use anyhow::Result;
     use fbinit::FacebookInit;
     use mononoke_macros::mononoke;
     use mononoke_types::NonRootMPath;
-    use mononoke_types::RepositoryId;
-    use permission_checker::dummy::DummyAclProvider;
-    use repo_derived_data::RepoDerivedDataArc;
-    use sql_construct::SqlConstruct;
 
     use super::*;
-    use crate::SqlRestrictedPathsManifestIdStoreBuilder;
-
-    #[facet::container]
-    struct MinimalTestRepo(
-        repo_derived_data::RepoDerivedData,
-        restricted_paths_common::RestrictedPathsConfigBased,
-    );
-
-    /// Build a config-based `RestrictedPaths` for tests.
-    async fn build_test_restricted_paths(
-        fb: FacebookInit,
-        config: metaconfig_types::RestrictedPathsConfig,
-    ) -> Result<RestrictedPaths> {
-        let acl_provider = DummyAclProvider::new(fb)?;
-        let test_repo: MinimalTestRepo = test_repo_factory::build_empty(fb).await?;
-        let repo_derived_data = test_repo.repo_derived_data_arc();
-        let repo_id = RepositoryId::new(0);
-        let manifest_id_store = Arc::new(
-            SqlRestrictedPathsManifestIdStoreBuilder::with_sqlite_in_memory()?
-                .with_repo_id(repo_id),
-        );
-        let scuba = MononokeScubaSampleBuilder::with_discard();
-        let config_based = Arc::new(RestrictedPathsConfigBased::new(
-            config,
-            manifest_id_store,
-            None,
-        ));
-
-        RestrictedPaths::new(
-            config_based,
-            acl_provider,
-            scuba,
-            false, // use_acl_manifest
-            repo_derived_data,
-        )
-    }
+    use crate::test_utils::build_test_restricted_paths_with_dummy_acl_provider as build_test_restricted_paths;
 
     #[mononoke::fbinit_test]
     async fn test_empty_config(fb: FacebookInit) -> Result<()> {
