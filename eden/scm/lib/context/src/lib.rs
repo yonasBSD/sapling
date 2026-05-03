@@ -5,12 +5,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 use configmodel::Config;
 use configmodel::ConfigExt;
 use io::IO;
+use parking_lot::Mutex;
 use termlogger::TermLogger;
+use types::HgId;
+use types::RepoPathBuf;
+
+pub type PermissionDeniedPaths = Arc<Mutex<VecDeque<(RepoPathBuf, HgId)>>>;
 
 /// Context is a container for common facilities intended to be
 /// passed into upper level library code.
@@ -20,6 +26,7 @@ pub struct CoreContext {
     pub io: IO,
     pub logger: TermLogger,
     pub raw_args: Vec<String>,
+    pub permission_denied_paths: PermissionDeniedPaths,
 }
 
 impl CoreContext {
@@ -32,6 +39,7 @@ impl CoreContext {
             io,
             logger,
             raw_args,
+            permission_denied_paths: Default::default(),
         }
     }
 
