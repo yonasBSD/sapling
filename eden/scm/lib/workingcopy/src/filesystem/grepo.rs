@@ -5,36 +5,66 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
 use configmodel::Config;
 use context::CoreContext;
+use grepomanifest::parse::parse_manifest;
+use grepomanifest::schema::Project;
+use manifest::FileType;
+use manifest::Manifest;
 use manifest_tree::ReadTreeManifest;
 use manifest_tree::TreeManifest;
 use parking_lot::Mutex;
 use pathmatcher::DynMatcher;
 use treestate::treestate::TreeState;
 use types::HgId;
+use types::RepoPath;
 use vfs::VFS;
 
+use crate::WorkingCopy;
 use crate::client::WorkingCopyClient;
+use crate::fast_path_wdir_parents;
 use crate::filesystem::DotGitFileSystem;
 use crate::filesystem::FileSystem;
 use crate::filesystem::PendingChange;
 
 pub struct GrepoFileSystem {
     inner: DotGitFileSystem,
+    vfs: VFS,
+    tree_resolver: Arc<dyn ReadTreeManifest>,
 }
 
 impl GrepoFileSystem {
     pub fn new(
         inner: DotGitFileSystem,
-        _vfs: VFS,
-        _tree_resolver: Arc<dyn ReadTreeManifest>,
+        vfs: VFS,
+        tree_resolver: Arc<dyn ReadTreeManifest>,
     ) -> Self {
-        GrepoFileSystem { inner }
+        GrepoFileSystem {
+            inner,
+            vfs,
+            tree_resolver,
+        }
+    }
+
+    /// Parse the `.repo/manifests` from the working copy.
+    fn parse_grepo_projects(&self) -> Result<BTreeMap<PathBuf, Project>> {
+        let manifest_path = self
+            .vfs
+            .join(".repo/manifests/static/static.xml".try_into()?);
+        let projects = if manifest_path.exists() {
+            let parsed = parse_manifest(&fs_err::read(&manifest_path)?)?;
+            parsed.projects
+        } else {
+            tracing::debug!(target: "workingcopy::repo_tool", "manifest file does not exist");
+            BTreeMap::new()
+        };
+
+        Ok(projects)
     }
 }
 
@@ -42,12 +72,65 @@ impl FileSystem for GrepoFileSystem {
     fn pending_changes(
         &self,
         _context: &CoreContext,
-        _matcher: DynMatcher,
+        matcher: DynMatcher,
         _ignore_matcher: DynMatcher,
         _ignore_dirs: Vec<PathBuf>,
         _include_ignored: bool,
     ) -> Result<Box<dyn Iterator<Item = Result<PendingChange>>>> {
-        unimplemented!()
+        let mut changes = Vec::new();
+        if let Some(parent_tree) =
+            WorkingCopy::current_manifests(&self.get_treestate()?.lock(), &self.tree_resolver)?
+                .into_iter()
+                .next()
+        {
+            for (path, _proj) in self.parse_grepo_projects()?.iter() {
+                let path_str = path.to_str().unwrap();
+                let repo_path = RepoPath::from_str(path_str)?;
+
+                if !matcher.matches_file(repo_path)? {
+                    continue;
+                }
+
+                let parent_node =
+                    parent_tree
+                        .get_file(repo_path)?
+                        .and_then(|f| match f.file_type {
+                            FileType::GitSubmodule => Some(f.hgid),
+                            // TODO: support linkfile and copyfile
+                            _ => {
+                                tracing::warn!(
+                                    "unexpected file type for .repo identity at {:?}",
+                                    &repo_path
+                                );
+                                None
+                            }
+                        });
+
+                let abs_path = self.vfs.root().join(path_str);
+                let curr_node = match identity::sniff_dir(&abs_path)? {
+                    Some(id) => fast_path_wdir_parents(&abs_path, id)?.p1().copied(),
+                    None => {
+                        tracing::warn!("Project {:?} is not a recognized repo", abs_path);
+                        None
+                    }
+                };
+
+                if parent_node != curr_node {
+                    let path = repo_path.to_owned();
+                    let change = match (parent_node, curr_node) {
+                        (None, Some(_)) => Some(PendingChange::Changed(path)),
+                        (Some(_), None) => Some(PendingChange::Deleted(path)),
+                        (Some(_), Some(_)) => Some(PendingChange::Changed(path)),
+                        (None, None) => None,
+                    };
+                    if let Some(change) = change {
+                        changes.push(Ok(change));
+                    }
+                }
+            }
+        }
+
+        Ok(Box::new(changes.into_iter()))
     }
 
     fn wait_for_potential_change(&self, config: &dyn Config) -> Result<()> {
