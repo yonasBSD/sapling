@@ -63,9 +63,23 @@ impl std::fmt::Display for Abort {
 /// Print an error suitable for end-user consumption.
 ///
 /// This function adds `hg:` or `abort:` to error messages.
-pub fn print_error(err: &anyhow::Error, io: &crate::io::IO, traceback: bool) {
+pub fn print_error(
+    err: &anyhow::Error,
+    io: &crate::io::IO,
+    config: Option<&dyn configmodel::Config>,
+    traceback: bool,
+) {
     use cliparser::parser::ParseError;
     let cli_name = identity::cli_name();
+    if let Some(e) = err.downcast_ref::<types::errors::PermissionDenied>() {
+        if let Some(config) = config {
+            let msg = crate::acl::format_permission_denied_error(e, config);
+            let _ = io.write_err(format!("abort: {}\n", msg));
+        } else {
+            let _ = io.write_err(format!("abort: {}\n", e));
+        }
+        return;
+    }
     if err.downcast_ref::<configloader::Error>().is_some() {
         let _ = io.write_err(format!("{cli_name}: parse error: {err:?}\n"));
     } else if err.downcast_ref::<configloader::Errors>().is_some() {
@@ -200,7 +214,7 @@ mod tests {
         let io = crate::io::IO::new(tin, tout, Some(terr));
 
         // Call print_error with error and in-memory IO stream
-        print_error(&error, &io, false);
+        print_error(&error, &io, None, false);
 
         // Make sure error message is formatted correctly.
         io.with_error(|e| {

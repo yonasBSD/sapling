@@ -193,6 +193,7 @@ pub fn run_command(args: Vec<String>, io: &IO) -> i32 {
                 errors::print_error(
                     &err,
                     io,
+                    None,
                     global_opts.as_ref().is_none_or(|opts| opts.traceback),
                 );
                 255
@@ -340,7 +341,12 @@ fn dispatch_command(
                     std::thread::sleep(Duration::from_secs(5));
                 }
 
-                errors::print_error(&err, io, dispatcher.global_opts().traceback);
+                errors::print_error(
+                    &err,
+                    io,
+                    Some(dispatcher.config().as_ref()),
+                    dispatcher.global_opts().traceback,
+                );
                 errors::upload_traceback(&err, start_time.epoch_ms());
                 255
             }
@@ -349,7 +355,12 @@ fn dispatch_command(
 
     if !fell_back {
         if let Err(err) = io.wait_pager().context("error flushing command output") {
-            errors::print_error(&err, io, dispatcher.global_opts().traceback);
+            errors::print_error(
+                &err,
+                io,
+                Some(dispatcher.config().as_ref()),
+                dispatcher.global_opts().traceback,
+            );
             return 255;
         }
     }

@@ -64,8 +64,6 @@ Rebase: commit modifies a file that is restricted in destination
   pulling '3af88752c97bb3f6651d0a57a3d16a696f28de48' from 'test:server3'
   rebasing c416137c0b61 "B"
   abort: path 'dir' is restricted by ACL 'some-acl'
-  warning: results may be incomplete due to path ACLs
-    'dir' is restricted by ACL 'some-acl'
   [255]
 
 Rebase: commit adds a file under a path that is restricted in destination
@@ -85,8 +83,6 @@ Rebase: commit adds a file under a path that is restricted in destination
   $ sl go -q $B
   $ sl rebase -q -r $B -d $C
   abort: path 'restricted' is restricted by ACL 'some-acl'
-  warning: results may be incomplete due to path ACLs
-    'restricted' is restricted by ACL 'some-acl'
   [255]
 
 Rebase: two commits where only the second touches a restricted path
@@ -113,6 +109,4 @@ Rebase: two commits where only the second touches a restricted path
   rebasing 01f209e23a69 "B"
   rebasing 5f76ba0bb512 "C"
   abort: path 'dir' is restricted by ACL 'some-acl'
-  warning: results may be incomplete due to path ACLs
-    'dir' is restricted by ACL 'some-acl'
   [255]

@@ -70,6 +70,7 @@ class request:
         self.ui = ui
         self.repo = repo
         self.skipprehooks = skipprehooks
+        self._permission_denied_handled = False
 
         # The repo, if any, that ends up being used for command execution.
         self.cmdrepo = None
@@ -288,6 +289,9 @@ def _formatargs(args):
 
 def _check_permission_denied_paths(req, ret):
     """Warn about permission-denied paths and optionally change exit code."""
+    if req._permission_denied_handled:
+        return ret
+
     rctx = getattr(getattr(req.ui, "_uiconfig", None), "_rctx", None)
     if rctx is None:
         return ret

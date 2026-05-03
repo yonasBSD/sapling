@@ -444,22 +444,27 @@ impl Dispatcher {
             }
 
             let mut res = res;
-            match crate::acl::check_permission_denied_paths(&permission_denied_paths, self.config())
-            {
-                Ok(acl_result) => {
-                    for warning in &acl_result.warnings {
-                        let _ = io.write_err(warning);
-                    }
-                    if acl_result.exit_nonzero {
-                        if let Ok(code) = &mut res {
-                            if *code == 0 {
-                                *code = 1;
+            let skip_warning = matches!(&res, Err(e) if e.is::<types::errors::PermissionDenied>());
+            if !skip_warning {
+                match crate::acl::check_permission_denied_paths(
+                    &permission_denied_paths,
+                    self.config(),
+                ) {
+                    Ok(acl_result) => {
+                        for warning in &acl_result.warnings {
+                            let _ = io.write_err(warning);
+                        }
+                        if acl_result.exit_nonzero {
+                            if let Ok(code) = &mut res {
+                                if *code == 0 {
+                                    *code = 1;
+                                }
                             }
                         }
                     }
-                }
-                Err(err) => {
-                    tracing::error!(?err, "error checking permission denied paths");
+                    Err(err) => {
+                        tracing::error!(?err, "error checking permission denied paths");
+                    }
                 }
             }
 

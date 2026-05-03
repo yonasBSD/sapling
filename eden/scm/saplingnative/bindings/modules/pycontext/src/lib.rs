@@ -31,6 +31,24 @@ pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
         let result = acl::check_permission_denied_paths(&ctx.permission_denied_paths, &ctx.config).map_pyerr(py)?;
         Ok((result.warnings, result.exit_nonzero))
     }))?;
+    m.add(
+        py,
+        "format_permission_denied",
+        py_fn!(py, format_permission_denied(
+            ctx: ImplInto<CoreContext>,
+            path: String,
+            hgid: String,
+            request_acl: String
+        ) -> PyResult<String> {
+            let ctx: CoreContext = ctx.into();
+            let err = types::errors::PermissionDenied {
+                path: path.try_into().map_pyerr(py)?,
+                hgid: hgid.parse().map_pyerr(py)?,
+                request_acl,
+            };
+            Ok(acl::format_permission_denied_error(&err, ctx.config.as_ref()))
+        }),
+    )?;
 
     impl_into::register(py);
 

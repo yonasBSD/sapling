@@ -238,9 +238,17 @@ def callcatch(ui, req, func):
         else:
             ui.warn("\n%r\n" % util.ellipsis(inst.args[1]))
     except error.PermissionDeniedError as inst:
-        path, _hgid, request_acl = inst.args
-        msg = "path '%s' is restricted by ACL '%s'" % (path, request_acl)
+        path, hgid, request_acl = inst.args
+        rctx = getattr(getattr(ui, "_uiconfig", None), "_rctx", None)
+        if rctx:
+            msg = bindings.context.format_permission_denied(
+                rctx, path, hgid, request_acl
+            )
+        else:
+            msg = "path '%s' is restricted by ACL '%s'" % (path, request_acl)
         ui.warn("%s\n" % msg, error=_("abort"))
+        if req:
+            req._permission_denied_handled = True
     except error.CensoredNodeError as inst:
         ui.warn(_("file censored %s!\n") % inst, error=_("abort"))
     except error.CommitLookupError as inst:
