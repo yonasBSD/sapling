@@ -111,8 +111,12 @@ modified outer project is reported by status
 Diff shows subproject commit change for the outer project:
 
   $ sl diff
-  abort: Is a directory: $TESTTMP/repodir/vendor/a
-  [255]
+  diff -r * vendor/a (glob)
+  --- a/vendor/a	* (glob)
+  +++ b/vendor/a	* (glob)
+  @@ -1,1 +1,1 @@
+  -Subproject commit ac4ea71567e4779db728eebfc962382b53064bdb
+  +Subproject commit 8b78e5ec15214e009eb98624ee4dda34520d9720
 
 Modified nested (overlapping) project is reported by status:
 
@@ -127,8 +131,12 @@ Modified nested (overlapping) project is reported by status:
 Exact-path diff also works for the nested overlapping project:
 
   $ sl diff vendor/a/sub/c
-  abort: Is a directory: $TESTTMP/repodir/vendor/a/sub/c
-  [255]
+  diff -r * vendor/a/sub/c (glob)
+  --- a/vendor/a/sub/c	* (glob)
+  +++ b/vendor/a/sub/c	* (glob)
+  @@ -1,1 +1,1 @@
+  -Subproject commit 30c3ba4e8b4dced473cce4f5d10ced2eecbd2515
+  +Subproject commit 9f2c189e3840b5857f220136620130d40f5e71ce
 
 Modified non-overlapping project is reported by status:
 
@@ -144,5 +152,9 @@ Modified non-overlapping project is reported by status:
 Exact-path diff also works for the non-overlapping project:
 
   $ sl diff frameworks/b
-  abort: Is a directory: $TESTTMP/repodir/frameworks/b
-  [255]
+  diff -r * frameworks/b (glob)
+  --- a/frameworks/b	* (glob)
+  +++ b/frameworks/b	* (glob)
+  @@ -1,1 +1,1 @@
+  -Subproject commit 6a9d13442cc0deb7f2b531a00ac679f62d09edf3
+  +Subproject commit 96287d65976c48a2d3046495e3089baeb388a671

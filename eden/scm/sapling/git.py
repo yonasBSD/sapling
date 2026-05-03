@@ -884,6 +884,10 @@ def parsesubmodules(ctx):
         repo.ui.note(_("submodules are disabled via git.submodules\n"))
         return {}
     if ".gitmodules" not in ctx:
+        from . import grepo
+
+        if grepo.GREPO_REQUIREMENT in repo.requirements:
+            return grepo.getgreposubmodules(ctx, repo)
         return {}
 
     data = ctx[".gitmodules"].data()
@@ -1198,9 +1202,12 @@ class Submodule:
         repopath = self.parentrepo.wvfs.join(self.path)
         dotgit_path = os.path.join(repopath, ".git")
 
-        if DOTGIT_REQUIREMENT in self.parentrepo.requirements and os.path.exists(
-            dotgit_path
-        ):
+        from .grepo import GREPO_REQUIREMENT
+
+        if (
+            DOTGIT_REQUIREMENT in self.parentrepo.requirements
+            or GREPO_REQUIREMENT in self.parentrepo.requirements
+        ) and os.path.exists(dotgit_path):
             # dotgit repo, .git/sl not yet initialized.
             # read git HEAD directly.
             git = bindings.gitcompat.BareGit(dotgit_path, self.parentrepo.ui._rcfg)
