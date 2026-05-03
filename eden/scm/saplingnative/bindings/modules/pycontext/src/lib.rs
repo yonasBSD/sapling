@@ -12,8 +12,10 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use ::context::CoreContext;
+use clidispatch::acl;
 use configset::ConfigSet;
 use cpython::*;
+use cpython_ext::convert::ImplInto;
 use cpython_ext::error::ResultPyErrExt;
 use io::IO;
 
@@ -24,6 +26,11 @@ pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
     let m = PyModule::new(py, &name)?;
 
     m.add_class::<context>(py)?;
+    m.add(py, "check_permission_denied", py_fn!(py, check_permission_denied(ctx: ImplInto<CoreContext>) -> PyResult<(Vec<String>, bool)> {
+        let ctx: CoreContext = ctx.into();
+        let result = acl::check_permission_denied_paths(&ctx.permission_denied_paths, &ctx.config).map_pyerr(py)?;
+        Ok((result.warnings, result.exit_nonzero))
+    }))?;
 
     impl_into::register(py);
 

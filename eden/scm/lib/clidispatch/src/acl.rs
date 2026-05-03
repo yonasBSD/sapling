@@ -11,40 +11,43 @@ use std::sync::Arc;
 use configmodel::Config;
 use configmodel::ConfigExt;
 
-use crate::io::IO;
+pub struct PermissionDeniedResult {
+    pub warnings: Vec<String>,
+    pub exit_nonzero: bool,
+}
 
 pub fn check_permission_denied_paths(
     paths: &context::PermissionDeniedPaths,
     config: &Arc<dyn Config>,
-    io: &IO,
-    res: &mut anyhow::Result<u8>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<PermissionDeniedResult> {
     let denied = paths.lock();
     if denied.is_empty() {
-        return Ok(());
+        return Ok(PermissionDeniedResult {
+            warnings: Vec::new(),
+            exit_nonzero: false,
+        });
     }
 
     let mode = config.get_or("slacl", "on-permission-denied", || "error".to_string())?;
     if mode == "ignore" {
-        return Ok(());
+        return Ok(PermissionDeniedResult {
+            warnings: Vec::new(),
+            exit_nonzero: false,
+        });
     }
 
+    let mut warnings = Vec::new();
     let mut seen = HashSet::new();
     for (path, _hgid) in denied.iter() {
         if seen.insert(path) {
-            let _ = io.write_err(format!(
+            warnings.push(format!(
                 "warning: results may be incomplete, path '{path}' is restricted\n",
             ));
         }
     }
 
-    if mode == "error" {
-        if let Ok(code) = res {
-            if *code == 0 {
-                *code = 1;
-            }
-        }
-    }
-
-    Ok(())
+    Ok(PermissionDeniedResult {
+        exit_nonzero: mode == "error",
+        warnings,
+    })
 }

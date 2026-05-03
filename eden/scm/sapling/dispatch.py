@@ -288,25 +288,15 @@ def _formatargs(args):
 
 def _check_permission_denied_paths(req, ret):
     """Warn about permission-denied paths and optionally change exit code."""
-    ui = req.ui
-    rctx = getattr(getattr(ui, "_uiconfig", None), "_rctx", None)
+    rctx = getattr(getattr(req.ui, "_uiconfig", None), "_rctx", None)
     if rctx is None:
         return ret
 
-    paths = rctx.permission_denied_paths()
-    if not paths:
-        return ret
+    warnings, exit_nonzero = bindings.context.check_permission_denied(rctx)
+    for warning in warnings:
+        req.ui.warn(warning)
 
-    mode = ui.config("slacl", "on-permission-denied", "error")
-    if mode == "ignore":
-        return ret
-
-    for path in paths:
-        ui.warn(
-            _("warning: results may be incomplete, path '%s' is restricted\n") % path
-        )
-
-    if mode == "error":
+    if exit_nonzero:
         return ret if ret else 1
 
     return ret
