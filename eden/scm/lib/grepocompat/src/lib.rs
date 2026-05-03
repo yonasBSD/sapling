@@ -11,3 +11,4 @@
 //! [repo tool](https://gerrit.googlesource.com/git-repo) with `.repo/` identity.
 
 pub mod init;
+pub mod trees;

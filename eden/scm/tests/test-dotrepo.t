@@ -61,7 +61,6 @@ Sapling recognizes .repo identity
   $ sl root
   $TESTTMP/repodir
 
-(bad: sl smartlog does not work correctly in .repo)
   $ sl smartlog -T '{desc}'
   @  add manifest
 
@@ -69,9 +68,9 @@ Sapling recognizes .repo identity
 (not running to avoid noises)
 $ sl status
 
-(bad: sl log does not work correctly in .repo. Projects should show up.)
   $ sl log -r . -T "desc:\n  {desc}\nfiles:\n{files % '  {file}\n'}"
   desc:
     add manifest
   files:
-    static/static.xml
+    frameworks/b
+    vendor/a

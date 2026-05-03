@@ -52,6 +52,7 @@ rust_library(
         "//eden/scm/lib/eagerepo:eagerepo",
         "//eden/scm/lib/edenapi:edenapi",
         "//eden/scm/lib/filters:filters",
+        "//eden/scm/lib/grepocompat:grepocompat",
         "//eden/scm/lib/identity:identity",
         "//eden/scm/lib/manifest-tree:manifest-tree",
         "//eden/scm/lib/metalog:metalog",

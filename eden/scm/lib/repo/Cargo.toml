@@ -30,6 +30,7 @@ sapling-edenapi = { version = "0.1.0", path = "../edenapi" }
 sapling-factory = { version = "0.1.0", path = "../util/factory" }
 sapling-filters = { version = "0.1.0", path = "../filters" }
 sapling-format-util = { version = "0.1.0", path = "../util/format-util" }
+sapling-grepocompat = { version = "0.1.0", path = "../grepocompat" }
 sapling-identity = { version = "0.1.0", path = "../identity" }
 sapling-manifest-tree = { version = "0.1.0", path = "../manifest-tree" }
 sapling-metalog = { version = "0.1.0", path = "../metalog" }

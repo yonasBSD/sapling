@@ -21,6 +21,11 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:fs-err",
         "//eden/scm/lib/gitcompat:gitcompat",
+        "//eden/scm/lib/grepomanifest:grepomanifest",
         "//eden/scm/lib/identity:identity",
+        "//eden/scm/lib/manifest:manifest",
+        "//eden/scm/lib/manifest-tree:manifest-tree",
+        "//eden/scm/lib/storemodel:storemodel",
+        "//eden/scm/lib/types:types",
     ],
 )
