@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use anyhow::Result;
 use async_runtime::block_on;
 use commits_trait::DagCommits;
@@ -202,6 +203,45 @@ impl ReadTreeManifest for UnionTreeResolver {
             }
             .into()
         }))
+    }
+}
+
+/// A resolver wrapper which synthesizes virtual TreeManifest based off
+/// the commit content. Useful for trees which are not directly available
+/// in store but can be derived from the commit content (e.g. projects in .repo/manifests).
+pub struct GrepoTreeResolver {
+    inner_resolver: Arc<dyn ReadTreeManifest>,
+    synthesize_fn: Arc<dyn Fn(&TreeManifest) -> Result<TreeManifest> + Send + Sync>,
+}
+
+impl GrepoTreeResolver {
+    pub fn new(
+        inner_resolver: Arc<dyn ReadTreeManifest>,
+        synthesize_fn: Arc<dyn Fn(&TreeManifest) -> Result<TreeManifest> + Send + Sync>,
+    ) -> Self {
+        GrepoTreeResolver {
+            inner_resolver,
+            synthesize_fn,
+        }
+    }
+}
+
+impl ReadTreeManifest for GrepoTreeResolver {
+    fn get(&self, commit_id: &HgId) -> Result<TreeManifest> {
+        self.get_by_root_id(&self.get_root_id(commit_id)?)
+    }
+
+    fn get_root_id(&self, commit_id: &HgId) -> Result<HgId> {
+        self.inner_resolver.get_root_id(commit_id)
+    }
+
+    fn get_by_root_id(&self, root_id: &HgId) -> Result<TreeManifest> {
+        let manifest = self.inner_resolver.get_by_root_id(root_id)?;
+        if !root_id.is_null() {
+            return (self.synthesize_fn)(&manifest)
+                .with_context(|| format!("synthesizing tree for root {}", root_id.to_hex()));
+        }
+        Ok(manifest)
     }
 }
 
