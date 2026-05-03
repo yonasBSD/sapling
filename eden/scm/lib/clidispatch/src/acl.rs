@@ -5,7 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::collections::HashSet;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use configmodel::Config;
@@ -36,32 +37,148 @@ pub fn check_permission_denied_paths(
         });
     }
 
-    let request_access_url_template = config
+    let url_template = config
         .get_or("slacl", "request-access-url-template", String::new)
         .unwrap_or_default();
 
-    let mut warnings = Vec::new();
-    let mut seen = HashSet::new();
+    // Group unique paths by ACL name.
+    let mut by_acl: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for err in denied.iter() {
-        let path = &err.path;
-        if seen.insert(path) {
-            let mut msg =
-                format!("warning: results may be incomplete, path '{path}' is restricted");
-            if !err.request_acl.is_empty() {
-                if !request_access_url_template.is_empty() {
-                    let url = request_access_url_template.replace("{acl}", &err.request_acl);
-                    msg.push_str(&format!(" (request access: {})", url));
-                } else {
-                    msg.push_str(&format!(" (ACL: {})", err.request_acl));
-                }
-            }
-            msg.push('\n');
-            warnings.push(msg);
-        }
+        let acl = if err.request_acl.is_empty() {
+            "(unknown)".to_string()
+        } else {
+            err.request_acl.clone()
+        };
+        by_acl.entry(acl).or_default().insert(err.path.to_string());
     }
+
+    let warnings = format_warnings(&by_acl, &url_template);
 
     Ok(PermissionDeniedResult {
         exit_nonzero: mode == "error",
         warnings,
     })
+}
+
+fn format_warnings(by_acl: &BTreeMap<String, BTreeSet<String>>, url_template: &str) -> Vec<String> {
+    let mut lines = vec!["warning: results may be incomplete due to path ACLs\n".to_string()];
+
+    for (acl, paths) in by_acl {
+        let mut paths_iter = paths.iter();
+        let first = match paths_iter.next() {
+            Some(p) => p,
+            None => continue,
+        };
+
+        let mut line = format!("  '{}'", first);
+        let remaining = paths.len() - 1;
+        if remaining > 0 {
+            line.push_str(&format!(" [and {} more]", remaining));
+        }
+
+        if remaining > 0 {
+            line.push_str(" are restricted");
+        } else {
+            line.push_str(" is restricted");
+        }
+
+        if !url_template.is_empty() {
+            let url = url_template.replace("{acl}", acl);
+            line.push_str(&format!(" by ACL '{}' - request access at {}", acl, url));
+        } else {
+            line.push_str(&format!(" by ACL '{}'", acl));
+        }
+
+        line.push('\n');
+        lines.push(line);
+    }
+
+    lines
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+    use std::collections::BTreeSet;
+
+    use super::*;
+
+    fn make_by_acl(entries: &[(&str, &[&str])]) -> BTreeMap<String, BTreeSet<String>> {
+        let mut by_acl = BTreeMap::new();
+        for (acl, paths) in entries {
+            let set: BTreeSet<String> = paths.iter().map(|p| p.to_string()).collect();
+            by_acl.insert(acl.to_string(), set);
+        }
+        by_acl
+    }
+
+    #[test]
+    fn test_single_path_single_acl() {
+        let by_acl = make_by_acl(&[("my-acl", &["secret/dir"])]);
+        let warnings = format_warnings(&by_acl, "");
+        assert_eq!(
+            warnings,
+            vec![
+                "warning: results may be incomplete due to path ACLs\n",
+                "  'secret/dir' is restricted by ACL 'my-acl'\n",
+            ]
+        );
+    }
+
+    #[test]
+    fn test_multiple_paths_single_acl() {
+        let by_acl = make_by_acl(&[("my-acl", &["a/dir", "b/dir", "c/dir"])]);
+        let warnings = format_warnings(&by_acl, "");
+        assert_eq!(
+            warnings,
+            vec![
+                "warning: results may be incomplete due to path ACLs\n",
+                "  'a/dir' [and 2 more] are restricted by ACL 'my-acl'\n",
+            ]
+        );
+    }
+
+    #[test]
+    fn test_multiple_acls() {
+        let by_acl = make_by_acl(&[("acl-a", &["dir1"]), ("acl-b", &["dir2", "dir3"])]);
+        let warnings = format_warnings(&by_acl, "");
+        assert_eq!(
+            warnings,
+            vec![
+                "warning: results may be incomplete due to path ACLs\n",
+                "  'dir1' is restricted by ACL 'acl-a'\n",
+                "  'dir2' [and 1 more] are restricted by ACL 'acl-b'\n",
+            ]
+        );
+    }
+
+    #[test]
+    fn test_with_url_template() {
+        let by_acl = make_by_acl(&[("my-acl", &["secret"])]);
+        let warnings = format_warnings(&by_acl, "https://access.example.com/request?acl={acl}");
+        assert_eq!(
+            warnings,
+            vec![
+                "warning: results may be incomplete due to path ACLs\n",
+                "  'secret' is restricted by ACL 'my-acl' - request access at https://access.example.com/request?acl=my-acl\n",
+            ]
+        );
+    }
+
+    #[test]
+    fn test_dedup_paths() {
+        let mut by_acl = BTreeMap::new();
+        let mut paths = BTreeSet::new();
+        paths.insert("same/dir".to_string());
+        paths.insert("same/dir".to_string()); // BTreeSet deduplicates
+        by_acl.insert("acl".to_string(), paths);
+        let warnings = format_warnings(&by_acl, "");
+        assert_eq!(
+            warnings,
+            vec![
+                "warning: results may be incomplete due to path ACLs\n",
+                "  'same/dir' is restricted by ACL 'acl'\n",
+            ]
+        );
+    }
 }
