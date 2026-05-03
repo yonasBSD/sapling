@@ -923,6 +923,25 @@ pub trait PathTranslator: Send + Sync + fmt::Debug {
     fn decode_file(&self, path: &RepoPath) -> Result<RepoPathBuf>;
 }
 
+/// Matcher adapter that decodes encoded file paths before matching
+/// against the user's original pattern. Directory paths pass through
+/// unchanged.
+struct TranslatingMatcher<M> {
+    inner: M,
+    translator: Arc<dyn PathTranslator>,
+}
+
+impl<M: Matcher> Matcher for TranslatingMatcher<M> {
+    fn matches_file(&self, path: &RepoPath) -> Result<bool> {
+        let maybe_decoded = self.translator.decode_file(path)?;
+        self.inner.matches_file(&maybe_decoded)
+    }
+
+    fn matches_directory(&self, path: &RepoPath) -> Result<pathmatcher::DirectoryMatch> {
+        self.inner.matches_directory(path)
+    }
+}
+
 pub trait ReadTreeManifest: Send + Sync + 'static {
     fn get(&self, commit_id: &HgId) -> Result<TreeManifest>;
     fn get_root_id(&self, commit_id: &HgId) -> Result<HgId>;
@@ -1057,6 +1076,7 @@ mod tests {
     use manifest::FileType;
     use manifest::testutil::*;
     use pathmatcher::AlwaysMatcher;
+    use pathmatcher::TreeMatcher;
     use store::Element;
     use storemodel::InsertOpts;
     use storemodel::Kind;
@@ -2294,5 +2314,25 @@ mod tests {
         assert_eq!(decoded.as_str(), "foo/a");
         // Non-encoded path passes through decode unchanged
         assert_eq!(t.decode_file(repo_path("plain")).unwrap().as_str(), "plain");
+    }
+
+    #[test]
+    fn test_translating_matcher() {
+        use pathmatcher::DirectoryMatch;
+
+        let t = Arc::new(TestTranslator) as Arc<dyn PathTranslator>;
+        let inner = TreeMatcher::from_rules(["foo/a"].iter(), true).unwrap();
+        let m = TranslatingMatcher {
+            inner,
+            translator: t,
+        };
+        // Encoded file path decoded before matching
+        assert!(m.matches_file(repo_path("foo/a?")).unwrap());
+        assert!(!m.matches_file(repo_path("foo/b?")).unwrap());
+        // Directory paths pass through unchanged
+        assert_ne!(
+            m.matches_directory(repo_path("foo")).unwrap(),
+            DirectoryMatch::Nothing
+        );
     }
 }
