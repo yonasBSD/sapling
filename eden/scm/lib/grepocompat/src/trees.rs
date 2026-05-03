@@ -21,7 +21,9 @@ use types::HgId;
 use types::RepoPath;
 use types::RepoPathBuf;
 
-/// Parse .repo manifest xml files and synthesizes repo projects as trees
+use crate::path::GrepoPathTranslator;
+
+/// Parse .repo manifest xml files and synthesizes repo projects as trees.
 /// TODO: linkfile and copyfile support
 pub fn synthesize_grepo_projects(
     tree_store: &Arc<dyn TreeStore>,
@@ -39,6 +41,11 @@ pub fn synthesize_grepo_projects(
     let projects = parse_manifest(&xml_data)?.projects;
 
     let mut new_manifest = TreeManifest::ephemeral(tree_store.clone());
+    // Project paths are stored with suffix encoding so a path can be both
+    // a file (GitSubmodule entry) and a directory (containing nested projects).
+    // The returned manifest has a `PathTranslator` set so consumers see
+    // decoded paths transparently.
+    new_manifest.set_path_translator(Arc::new(GrepoPathTranslator));
 
     for (path, project) in projects {
         if let Some(revision) = &project.revision {

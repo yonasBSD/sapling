@@ -91,16 +91,14 @@ Sapling recognizes .repo identity
 
 clean status
   $ sl status
-  abort: synthesizing tree for root *: failure inserting 'vendor/a/sub/c' in manifest: 'vendor/a' is already a file (glob)
-  [255]
 
   $ sl log -r . -T "desc:\n  {desc}\nfiles:\n{files % '  {file}\n'}"
-  abort: synthesizing tree for root * (glob)
-  
-  Caused by:
-      0: failure inserting 'vendor/a/sub/c' in manifest
-      1: 'vendor/a' is already a file
-  [255]
+  desc:
+    add manifest
+  files:
+    frameworks/b
+    vendor/a
+    vendor/a/sub/c
 
 modified outer project is reported by status
   $ cd vendor/a
@@ -108,17 +106,12 @@ modified outer project is reported by status
   $ git add README && git commit -qm 'add README'
   $ cd ../..
   $ sl status
-  abort: synthesizing tree for root *: failure inserting 'vendor/a/sub/c' in manifest: 'vendor/a' is already a file (glob)
-  [255]
+  M vendor/a
 
 Diff shows subproject commit change for the outer project:
 
-  $ sl diff 
-  abort: synthesizing tree for root * (glob)
-  
-  Caused by:
-      0: failure inserting 'vendor/a/sub/c' in manifest
-      1: 'vendor/a' is already a file
+  $ sl diff
+  abort: Is a directory: $TESTTMP/repodir/vendor/a
   [255]
 
 Modified nested (overlapping) project is reported by status:
@@ -128,17 +121,13 @@ Modified nested (overlapping) project is reported by status:
   $ git add README && git commit -qm 'modify c'
   $ cd ../../../..
   $ sl status
-  abort: synthesizing tree for root *: failure inserting 'vendor/a/sub/c' in manifest: 'vendor/a' is already a file (glob)
-  [255]
+  M vendor/a
+  M vendor/a/sub/c
 
 Exact-path diff also works for the nested overlapping project:
 
   $ sl diff vendor/a/sub/c
-  abort: synthesizing tree for root * (glob)
-  
-  Caused by:
-      0: failure inserting 'vendor/a/sub/c' in manifest
-      1: 'vendor/a' is already a file
+  abort: Is a directory: $TESTTMP/repodir/vendor/a/sub/c
   [255]
 
 Modified non-overlapping project is reported by status:
@@ -148,15 +137,12 @@ Modified non-overlapping project is reported by status:
   $ git add README && git commit -qm 'modify b'
   $ cd ../..
   $ sl status
-  abort: synthesizing tree for root *: failure inserting 'vendor/a/sub/c' in manifest: 'vendor/a' is already a file (glob)
-  [255]
+  M frameworks/b
+  M vendor/a
+  M vendor/a/sub/c
 
 Exact-path diff also works for the non-overlapping project:
 
   $ sl diff frameworks/b
-  abort: synthesizing tree for root * (glob)
-  
-  Caused by:
-      0: failure inserting 'vendor/a/sub/c' in manifest
-      1: 'vendor/a' is already a file
+  abort: Is a directory: $TESTTMP/repodir/frameworks/b
   [255]
