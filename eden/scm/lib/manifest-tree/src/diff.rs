@@ -313,6 +313,9 @@ fn diff_single(
 ) -> Result<()> {
     if dir.is_permission_denied() {
         tracing::debug!(path = %dir.path, "skipping permission-denied tree in diff_single");
+        if let Some(hgid) = dir.hgid() {
+            store.record_permission_denied(&dir.path, hgid);
+        }
         return Ok(());
     }
 
@@ -361,18 +364,31 @@ fn diff_dirs(
     work: &mut Vec<DiffWork>,
     result: &ResultSender,
 ) -> Result<()> {
-    let left_denied = left.is_permission_denied();
-    let right_denied = right.is_permission_denied();
+    let left_denied = if left.is_permission_denied() {
+        tracing::debug!(path = %left.path, "skipping permission-denied left tree in diff_dirs");
+        if let Some(hgid) = left.hgid() {
+            store.record_permission_denied(&left.path, hgid);
+        }
+        true
+    } else {
+        false
+    };
+    let right_denied = if right.is_permission_denied() {
+        tracing::debug!(path = %right.path, "skipping permission-denied right tree in diff_dirs");
+        if let Some(hgid) = right.hgid() {
+            store.record_permission_denied(&right.path, hgid);
+        }
+        true
+    } else {
+        false
+    };
     if left_denied && right_denied {
-        tracing::debug!(path = %left.path, "skipping permission-denied trees on both sides in diff_dirs");
         return Ok(());
     }
     if left_denied {
-        tracing::debug!(path = %left.path, "skipping permission-denied left tree in diff_dirs");
         return diff_single(right, Side::Right, false, store, matcher, work, result);
     }
     if right_denied {
-        tracing::debug!(path = %right.path, "skipping permission-denied right tree in diff_dirs");
         return diff_single(left, Side::Left, false, store, matcher, work, result);
     }
 

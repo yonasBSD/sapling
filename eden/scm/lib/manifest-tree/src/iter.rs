@@ -121,6 +121,7 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
                 Durable(entry) => {
                     if entry.is_permission_denied() {
                         tracing::debug!(path = %path, hgid = %entry.hgid, "skipping permission-denied tree in bfs_iter");
+                        ctx.store.record_permission_denied(&path, entry.hgid);
                         continue;
                     }
                     match entry.materialize_links(&ctx.store, &path) {
@@ -304,6 +305,8 @@ impl<'a> DfsCursor<'a> {
                         Durable(durable_entry) => {
                             if durable_entry.is_permission_denied() {
                                 tracing::debug!(path = %self.path, hgid = %durable_entry.hgid, "skipping permission-denied tree in DfsCursor");
+                                self.store
+                                    .record_permission_denied(&self.path, durable_entry.hgid);
                                 self.state = State::Pop;
                             } else {
                                 match durable_entry.materialize_links(self.store, &self.path) {

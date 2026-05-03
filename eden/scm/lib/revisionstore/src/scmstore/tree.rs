@@ -7,6 +7,7 @@
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -21,6 +22,7 @@ use ::types::Parents;
 use ::types::PathComponent;
 use ::types::PathComponentBuf;
 use ::types::RepoPath;
+use ::types::RepoPathBuf;
 use ::types::fetch_mode::FetchMode;
 use ::types::hgid::NULL_ID;
 use ::types::tree::TreeItemFlag;
@@ -166,6 +168,9 @@ pub struct TreeStore {
     pub(crate) verify_hash: bool,
 
     pub restricted_tree_mode: RestrictedTreeMode,
+
+    pub(crate) permission_denied_paths:
+        Option<Arc<parking_lot::Mutex<VecDeque<(RepoPathBuf, HgId)>>>>,
 }
 
 impl Drop for TreeStore {
@@ -621,6 +626,7 @@ impl TreeStore {
             unbounded_queue: false,
             verify_hash: true,
             restricted_tree_mode: RestrictedTreeMode::Disabled,
+            permission_denied_paths: Default::default(),
         }
     }
 
@@ -700,6 +706,7 @@ impl TreeStore {
             unbounded_queue: self.unbounded_queue,
             verify_hash: self.verify_hash,
             restricted_tree_mode: self.restricted_tree_mode,
+            permission_denied_paths: self.permission_denied_paths.clone(),
         }
     }
 
@@ -1187,6 +1194,16 @@ impl storemodel::TreeStore for TreeStore {
         id: HgId,
     ) -> anyhow::Result<Option<TreeAuxData>> {
         self.get_local_aux_direct(&id)
+    }
+
+    fn record_permission_denied(&self, path: &RepoPath, hgid: HgId) {
+        if let Some(paths) = &self.permission_denied_paths {
+            let mut denied = paths.lock();
+            if denied.len() >= 1000 {
+                denied.pop_front();
+            }
+            denied.push_back((path.to_owned(), hgid));
+        }
     }
 }
 

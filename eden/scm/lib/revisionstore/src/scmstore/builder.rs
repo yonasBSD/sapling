@@ -20,6 +20,8 @@ use hgtime::HgTime;
 use parking_lot::Mutex;
 use progress_model::AggregatingProgressBar;
 use storemodel::SerializationFormat;
+use types::HgId;
+use types::RepoPathBuf;
 
 use crate::IndexedLogHgIdHistoryStore;
 use crate::SaplingRemoteApiFileStore;
@@ -371,6 +373,7 @@ pub struct TreeStoreBuilder<'a> {
     tree_aux_store: Option<Arc<TreeAuxStore>>,
     filestore: Option<Arc<FileStore>>,
     format: Option<SerializationFormat>,
+    permission_denied_paths: Option<Arc<Mutex<std::collections::VecDeque<(RepoPathBuf, HgId)>>>>,
 }
 
 impl<'a> TreeStoreBuilder<'a> {
@@ -386,7 +389,16 @@ impl<'a> TreeStoreBuilder<'a> {
             tree_aux_store: None,
             filestore: None,
             format: None,
+            permission_denied_paths: None,
         }
+    }
+
+    pub fn permission_denied_paths(
+        mut self,
+        paths: Arc<Mutex<std::collections::VecDeque<(RepoPathBuf, HgId)>>>,
+    ) -> Self {
+        self.permission_denied_paths = Some(paths);
+        self
     }
 
     pub fn local_path(mut self, path: impl AsRef<Path>) -> Self {
@@ -689,6 +701,7 @@ impl<'a> TreeStoreBuilder<'a> {
                 .get_or_default("experimental", "unbounded-scmstore-queue")?,
             verify_hash,
             restricted_tree_mode,
+            permission_denied_paths: self.permission_denied_paths,
         })
     }
 }

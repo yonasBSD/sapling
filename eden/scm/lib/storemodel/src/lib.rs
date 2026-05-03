@@ -503,6 +503,9 @@ pub trait TreeStore: KeyStore {
         KeyStore::insert_data(self, opts, path, data.into())
     }
 
+    /// Record that a permission-denied tree was encountered at the given path.
+    fn record_permission_denied(&self, _path: &RepoPath, _hgid: HgId) {}
+
     /// Obtains a snapshot of the store state.
     /// Usually it is just `Arc::clone` under the hood.
     /// Used to relax lifetime requirements for various `BoxIterator` outputs.
