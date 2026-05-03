@@ -64,9 +64,8 @@ Sapling recognizes .repo identity
   $ sl smartlog -T '{desc}'
   @  add manifest
 
-(bad: sl status does not work in .repo)
-(not running to avoid noises)
-$ sl status
+clean status
+  $ sl status
 
   $ sl log -r . -T "desc:\n  {desc}\nfiles:\n{files % '  {file}\n'}"
   desc:
@@ -74,3 +73,11 @@ $ sl status
   files:
     frameworks/b
     vendor/a
+
+modified project is reported by status
+  $ cd vendor/a
+  $ echo "project vendor/a" > README
+  $ git add README && git commit -qm 'add README'
+  $ cd ../..
+  $ sl status
+  M vendor/a

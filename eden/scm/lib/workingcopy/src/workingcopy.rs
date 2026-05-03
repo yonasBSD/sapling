@@ -64,6 +64,7 @@ use crate::filesystem::DotGitFileSystem;
 use crate::filesystem::EdenFileSystem;
 use crate::filesystem::FileSystem;
 use crate::filesystem::FileSystemType;
+use crate::filesystem::GrepoFileSystem;
 use crate::filesystem::PendingChange;
 use crate::filesystem::PhysicalFileSystem;
 use crate::filesystem::WatchmanFileSystem;
@@ -360,13 +361,13 @@ impl WorkingCopy {
             }
             FileSystemType::Grepo => {
                 let git_dir = vfs.root().join(".repo/manifests/.git");
-                Box::new(DotGitFileSystem::new(
+                let inner =
+                    DotGitFileSystem::new(vfs.clone(), dot_dir, &git_dir, store.clone(), &config)?;
+                Box::new(GrepoFileSystem::new(
+                    inner,
                     vfs.clone(),
-                    dot_dir,
-                    &git_dir,
-                    store.clone(),
-                    &config,
-                )?)
+                    tree_resolver.clone(),
+                ))
             }
         })
     }
