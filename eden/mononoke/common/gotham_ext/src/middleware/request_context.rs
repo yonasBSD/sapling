@@ -15,12 +15,15 @@ use gotham::state::FromState;
 use gotham::state::State;
 use gotham_derive::StateData;
 use http::Response;
+use http::header::HeaderMap;
 use metadata::Metadata;
 use rate_limiting::RateLimitEnvironment;
 use scuba_ext::MononokeScubaSampleBuilder;
 
 use crate::middleware::MetadataState;
 use crate::middleware::Middleware;
+
+const ENFORCE_PATH_ACLS_HEADER: &str = "X-Enforce-Path-Acls";
 
 #[derive(StateData, Clone)]
 pub struct RequestContext {
@@ -66,10 +69,16 @@ impl Middleware for RequestContextMiddleware {
             Metadata::default()
         };
 
+        let enforce_path_acls = HeaderMap::try_borrow_from(state)
+            .and_then(|headers| headers.get(ENFORCE_PATH_ACLS_HEADER))
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v == "true" || v == "1");
+
         let session = SessionContainer::builder(self.fb)
             .metadata(Arc::new(metadata))
             .readonly(self.readonly)
             .rate_limiter(self.rate_limiter.as_ref().map(|r| r.get_rate_limiter()))
+            .server_side_tenting(enforce_path_acls)
             .build();
 
         let scuba = (*self.scuba).clone().with_seq("seq");
