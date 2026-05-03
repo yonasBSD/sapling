@@ -63,7 +63,7 @@ Rebase: commit modifies a file that is restricted in destination
   $ sl rebase -r $B -d $C
   pulling '3af88752c97bb3f6651d0a57a3d16a696f28de48' from 'test:server3'
   rebasing c416137c0b61 "B"
-  abort: permission denied: path 'dir' (tree 63e911d35758a90c0f460a98ab3f2e984ff09f51) is restricted (request access via ACL 'some-acl')
+  abort: path 'dir' is restricted by ACL 'some-acl'
   warning: results may be incomplete due to path ACLs
     'dir' is restricted by ACL 'some-acl'
   [255]
@@ -84,7 +84,7 @@ Rebase: commit adds a file under a path that is restricted in destination
   $ newclientrepo client4 server4
   $ sl go -q $B
   $ sl rebase -q -r $B -d $C
-  abort: permission denied: path 'restricted' (tree 2be0b549bc67aeb9d8e067963147609e86d48c43) is restricted (request access via ACL 'some-acl')
+  abort: path 'restricted' is restricted by ACL 'some-acl'
   warning: results may be incomplete due to path ACLs
     'restricted' is restricted by ACL 'some-acl'
   [255]
@@ -112,7 +112,7 @@ Rebase: two commits where only the second touches a restricted path
   pulling '16e6c5ae0beee858c20c00828646da495a094d26' from 'test:server5'
   rebasing 01f209e23a69 "B"
   rebasing 5f76ba0bb512 "C"
-  abort: permission denied: path 'dir' (tree cd93f6e9e5b39a28a04324b714f8403124647ef5) is restricted (request access via ACL 'some-acl')
+  abort: path 'dir' is restricted by ACL 'some-acl'
   warning: results may be incomplete due to path ACLs
     'dir' is restricted by ACL 'some-acl'
   [255]

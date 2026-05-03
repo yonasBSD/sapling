@@ -23,6 +23,7 @@ py_exception!(error, NonUTF8Path);
 py_exception!(error, PathMatcherError);
 py_exception!(error, WorkingCopyError);
 py_exception!(error, RepoInitError);
+py_exception!(error, PermissionDeniedError);
 py_exception!(error, UncategorizedNativeError);
 py_exception!(error, TlsError);
 
@@ -49,6 +50,11 @@ pub fn init_module(py: Python, package: &str) -> PyResult<PyModule> {
     m.add(py, "MetaLogError", py.get_type::<MetaLogError>())?;
     m.add(py, "NeedSlowPathError", py.get_type::<NeedSlowPathError>())?;
     m.add(py, "PathMatcherError", py.get_type::<PathMatcherError>())?;
+    m.add(
+        py,
+        "PermissionDeniedError",
+        py.get_type::<PermissionDeniedError>(),
+    )?;
     m.add(
         py,
         "UncategorizedNativeError",
@@ -185,6 +191,15 @@ fn register_error_handlers() {
             // HttpError which will trigger the network doctor.
             specific_error_handler(py, &e.0)
                 .or_else(|| Some(PyErr::new::<HttpError, _>(py, e.0.to_string())))
+        } else if let Some(e) = e.downcast_ref::<types::errors::PermissionDenied>() {
+            Some(PyErr::new::<PermissionDeniedError, _>(
+                py,
+                (
+                    e.path.to_string(),
+                    format!("{}", e.hgid),
+                    e.request_acl.clone(),
+                ),
+            ))
         } else if e.is::<pathmatcher::Error>() {
             Some(PyErr::new::<PathMatcherError, _>(py, format!("{}", e)))
         } else if let Some(e) = e.downcast_ref::<checkout::CheckoutConflictsError>() {

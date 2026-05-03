@@ -237,6 +237,10 @@ def callcatch(ui, req, func):
             ui.warn(_(" empty string\n"))
         else:
             ui.warn("\n%r\n" % util.ellipsis(inst.args[1]))
+    except error.PermissionDeniedError as inst:
+        path, _hgid, request_acl = inst.args
+        msg = "path '%s' is restricted by ACL '%s'" % (path, request_acl)
+        ui.warn("%s\n" % msg, error=_("abort"))
     except error.CensoredNodeError as inst:
         ui.warn(_("file censored %s!\n") % inst, error=_("abort"))
     except error.CommitLookupError as inst:
