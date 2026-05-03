@@ -16,6 +16,7 @@ mod store;
 pub mod testutil;
 mod trait_impls;
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::collections::btree_map::Entry;
@@ -145,6 +146,35 @@ impl TreeManifest {
     }
 }
 
+impl TreeManifest {
+    fn maybe_encode_path<'a>(&self, path: &'a RepoPath) -> Result<Cow<'a, RepoPath>> {
+        match &self.path_translator {
+            Some(t) => Ok(Cow::Owned(t.encode_file(path)?)),
+            None => Ok(Cow::Borrowed(path)),
+        }
+    }
+
+    fn maybe_wrap_matcher<M: 'static + Matcher + Sync + Send>(
+        &self,
+        matcher: M,
+    ) -> Arc<dyn Matcher + Sync + Send> {
+        match &self.path_translator {
+            Some(t) => Arc::new(TranslatingMatcher {
+                inner: matcher,
+                translator: t.clone(),
+            }),
+            None => Arc::new(matcher),
+        }
+    }
+
+    fn maybe_decode_path(&self, path: RepoPathBuf) -> Result<RepoPathBuf> {
+        match &self.path_translator {
+            Some(t) => t.decode_file(&path),
+            None => Ok(path),
+        }
+    }
+}
+
 impl Manifest for TreeManifest {
     fn get(&self, path: &RepoPath) -> Result<Option<FsNodeMetadata>> {
         let result = self.get_link(path)?.map(|link| link.to_fs_node());
@@ -153,6 +183,15 @@ impl Manifest for TreeManifest {
 
     fn get_ignore_case(&self, path: &RepoPath) -> Result<Option<FsNodeMetadata>> {
         let result = self.get_link(path)?.map(|link| link.to_fs_node());
+        Ok(result)
+    }
+
+    fn get_file(&self, file_path: &RepoPath) -> Result<Option<FileMetadata>> {
+        let path = self.maybe_encode_path(file_path)?;
+        let result = self.get(&path)?.and_then(|fs_hgid| match fs_hgid {
+            FsNodeMetadata::File(file_metadata) => Some(file_metadata),
+            FsNodeMetadata::Directory(_) => None,
+        });
         Ok(result)
     }
 
@@ -175,12 +214,13 @@ impl Manifest for TreeManifest {
     }
 
     fn insert(&mut self, path: RepoPathBuf, file_metadata: FileMetadata) -> Result<()> {
+        let path = self.maybe_encode_path(&path)?;
         let mut cursor = &self.root;
         let mut must_insert = false;
         for (parent, component) in path.parents().zip(path.components()) {
             let child = match cursor.as_ref() {
                 Leaf(_) => Err(InsertError::new(
-                    path.clone(), // TODO: get rid of clone (it is borrowed)
+                    (*path).to_owned(), // TODO: get rid of clone (it is borrowed)
                     file_metadata,
                     InsertErrorCause::ParentFileExists(parent.to_owned()),
                 ))?,
@@ -206,7 +246,7 @@ impl Manifest for TreeManifest {
                     }
                 }
                 Ephemeral(_) | Durable(_) => Err(InsertError::new(
-                    path.clone(), // TODO: get rid of clone (it is borrowed later)
+                    (*path).to_owned(), // TODO: get rid of clone (it is borrowed later)
                     file_metadata,
                     InsertErrorCause::DirectoryExistsForPath,
                 ))?,
@@ -270,11 +310,12 @@ impl Manifest for TreeManifest {
                 }
             }
         }
+        let encoded = self.maybe_encode_path(path)?;
         if let Some(file_metadata) = self.get_file(path)? {
             do_remove(
                 &self.store,
                 &mut self.root,
-                &mut path.parents().zip(path.components()),
+                &mut encoded.parents().zip(encoded.components()),
             )?;
             Ok(Some(file_metadata))
         } else {
@@ -297,12 +338,15 @@ impl Manifest for TreeManifest {
         &'a self,
         matcher: M,
     ) -> Box<dyn Iterator<Item = Result<File>> + 'a> {
+        let matcher = self.maybe_wrap_matcher(matcher);
         let iter = iter::bfs_iter(self.store.clone(), &[&self.root], matcher);
         let files = iter
             .into_iter()
             .flatten()
-            .filter_map(|result| match result {
-                Ok((path, FsNodeMetadata::File(metadata))) => Some(Ok(File::new(path, metadata))),
+            .filter_map(move |result| match result {
+                Ok((path, FsNodeMetadata::File(metadata))) => {
+                    Some(self.maybe_decode_path(path).map(|p| File::new(p, metadata)))
+                }
                 Ok(_) => None,
                 Err(err) => Some(Err(err)),
             });
@@ -353,7 +397,19 @@ impl Manifest for TreeManifest {
         other: &'a Self,
         matcher: M,
     ) -> Result<Box<dyn Iterator<Item = Result<DiffEntry>> + 'a>> {
-        Ok(diff::diff(self, other, Arc::new(matcher)))
+        match self.path_translator {
+            None => Ok(diff::diff(self, other, Arc::new(matcher))),
+            Some(_) => {
+                let matcher = self.maybe_wrap_matcher(matcher);
+                let iter = diff::diff(self, other, matcher);
+                Ok(Box::new(iter.map(move |result: Result<DiffEntry>| {
+                    result.and_then(|entry| {
+                        let path = self.maybe_decode_path(entry.path)?;
+                        Ok(DiffEntry::new(path, entry.diff_type))
+                    })
+                })))
+            }
+        }
     }
 
     fn modified_dirs<'a, M: 'static + Matcher + Sync + Send>(
@@ -1073,6 +1129,7 @@ dev_logger::init!();
 
 #[cfg(test)]
 mod tests {
+    use manifest::DiffType;
     use manifest::FileType;
     use manifest::testutil::*;
     use pathmatcher::AlwaysMatcher;
@@ -2304,6 +2361,25 @@ mod tests {
         }
     }
 
+    fn make_grepo_tree(store: Arc<TestStore>) -> TreeManifest {
+        let mut tree = TreeManifest::ephemeral(store);
+        tree.set_path_translator(Arc::new(TestTranslator));
+
+        tree.insert(
+            repo_path_buf("foo/a"),
+            FileMetadata::new(hgid("10"), FileType::GitSubmodule),
+        )
+        .unwrap();
+        tree.insert(
+            repo_path_buf("foo/a/sub/c"),
+            FileMetadata::new(hgid("20"), FileType::GitSubmodule),
+        )
+        .unwrap();
+        tree.insert(repo_path_buf("regular_file"), make_meta("30"))
+            .unwrap();
+        tree
+    }
+
     #[test]
     fn test_translator_encode_decode_roundtrip() {
         let t = TestTranslator;
@@ -2334,5 +2410,122 @@ mod tests {
             m.matches_directory(repo_path("foo")).unwrap(),
             DirectoryMatch::Nothing
         );
+    }
+
+    #[test]
+    fn test_get_file_with_translator() {
+        let tree = make_grepo_tree(Arc::new(TestStore::new()));
+        let result = tree.get_file(repo_path("foo/a")).unwrap();
+        assert_eq!(
+            result,
+            Some(FileMetadata::new(hgid("10"), FileType::GitSubmodule))
+        );
+        assert_eq!(tree.get_file(repo_path("foo/a/sub")).unwrap(), None);
+        assert_eq!(tree.get_file(repo_path("nonexistent")).unwrap(), None);
+    }
+
+    #[test]
+    fn test_get_with_translator() {
+        let tree = make_grepo_tree(Arc::new(TestStore::new()));
+        // "foo/a" is a directory in storage (contains sub/c?)
+        assert!(tree.get(repo_path("foo/a")).unwrap().is_some());
+        assert!(matches!(
+            tree.get(repo_path("foo/a")).unwrap(),
+            Some(FsNodeMetadata::Directory(_))
+        ));
+        // "foo/a/sub" is also a directory
+        assert!(matches!(
+            tree.get(repo_path("foo/a/sub")).unwrap(),
+            Some(FsNodeMetadata::Directory(_))
+        ));
+    }
+
+    #[test]
+    fn test_files_with_translator() {
+        let tree = make_grepo_tree(Arc::new(TestStore::new()));
+        let mut files: Vec<String> = tree
+            .files(AlwaysMatcher::new())
+            .map(|f| Ok(f?.path.into_string()))
+            .collect::<anyhow::Result<Vec<_>>>()
+            .unwrap();
+        files.sort();
+        // Output paths should be decoded (no suffix)
+        assert_eq!(files, vec!["foo/a", "foo/a/sub/c", "regular_file"]);
+
+        // with matcher
+        let matcher = TreeMatcher::from_rules(["foo/a"].iter(), true).unwrap();
+        let files: Vec<String> = tree
+            .files(matcher)
+            .map(|f| Ok(f?.path.into_string()))
+            .collect::<anyhow::Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(files, vec!["foo/a"]);
+    }
+
+    #[test]
+    fn test_diff_with_translator() {
+        let store = Arc::new(TestStore::new());
+        let left = make_grepo_tree(store.clone());
+
+        let mut right = TreeManifest::ephemeral(store);
+        right.set_path_translator(Arc::new(TestTranslator));
+        right
+            .insert(
+                repo_path_buf("foo/a"),
+                FileMetadata::new(hgid("11"), FileType::GitSubmodule),
+            )
+            .unwrap();
+        right
+            .insert(
+                repo_path_buf("foo/a/sub/c"),
+                FileMetadata::new(hgid("22"), FileType::GitSubmodule),
+            )
+            .unwrap();
+        right
+            .insert(repo_path_buf("regular_file"), make_meta("33"))
+            .unwrap();
+
+        let mut entries: Vec<_> = left
+            .diff(&right, AlwaysMatcher::new())
+            .unwrap()
+            .collect::<anyhow::Result<Vec<_>>>()
+            .unwrap();
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
+
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].path.as_str(), "foo/a");
+        assert_eq!(entries[1].path.as_str(), "foo/a/sub/c");
+        assert_eq!(entries[2].path.as_str(), "regular_file");
+        assert_eq!(
+            entries[0].diff_type,
+            DiffType::Changed(
+                FileMetadata::new(hgid("10"), FileType::GitSubmodule),
+                FileMetadata::new(hgid("11"), FileType::GitSubmodule),
+            )
+        );
+        assert_eq!(
+            entries[1].diff_type,
+            DiffType::Changed(
+                FileMetadata::new(hgid("20"), FileType::GitSubmodule),
+                FileMetadata::new(hgid("22"), FileType::GitSubmodule),
+            )
+        );
+        assert_eq!(
+            entries[2].diff_type,
+            DiffType::Changed(
+                FileMetadata::new(hgid("30"), FileType::Regular),
+                FileMetadata::new(hgid("33"), FileType::Regular),
+            )
+        );
+
+        // Matcher on decoded path "foo/a/sub/c" should match encoded "foo/a/sub/c?"
+        let matcher = TreeMatcher::from_rules(["foo/a/sub/c"].iter(), true).unwrap();
+        let entries: Vec<_> = left
+            .diff(&right, matcher)
+            .unwrap()
+            .collect::<anyhow::Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].path.as_str(), "foo/a/sub/c");
     }
 }
