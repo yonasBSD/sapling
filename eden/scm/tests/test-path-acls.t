@@ -64,3 +64,7 @@ tree should still have acl_children_indices for the unchanged restricted directo
                                   2,
                               ],
                           ),
+
+FIXME: Rust commands should warn and exit non-zero like Python commands
+  $ sl grep --config grep.use-rust=true -r $A 'content'
+  regular/file.txt:regular content
