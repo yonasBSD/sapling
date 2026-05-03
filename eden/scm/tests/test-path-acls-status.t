@@ -18,13 +18,13 @@ Status across a commit with both ACL'd and non-ACL'd files:
   $ setconfig scmstore.tree-metadata-mode=always
   $ newclientrepo client1 server1
   $ sl go -q $B
-  warning: results may be incomplete, path 'restricted' is restricted
+  warning: results may be incomplete, path 'restricted' is restricted (ACL: some-acl)
   [1]
 
   $ sl status --change $B
   A B
   A regular/file.txt
-  warning: results may be incomplete, path 'restricted' is restricted
+  warning: results may be incomplete, path 'restricted' is restricted (ACL: some-acl)
   [1]
 
 Status across a commit with only ACL'd files:
@@ -43,12 +43,12 @@ Status across a commit with only ACL'd files:
   $ setconfig scmstore.tree-metadata-mode=always
   $ newclientrepo client2 server2
   $ sl go -q $B
-  warning: results may be incomplete, path 'restricted' is restricted
+  warning: results may be incomplete, path 'restricted' is restricted (ACL: some-acl)
   [1]
 
   $ sl status --change $B
   A B
-  warning: results may be incomplete, path 'restricted' is restricted
+  warning: results may be incomplete, path 'restricted' is restricted (ACL: some-acl)
   [1]
 
 Status across a commit that adds an ACL to an existing directory:
@@ -66,12 +66,12 @@ Status across a commit that adds an ACL to an existing directory:
   $ setconfig scmstore.tree-metadata-mode=always
   $ newclientrepo client3 server3
   $ sl go -q $B
-  warning: results may be incomplete, path 'dir' is restricted
+  warning: results may be incomplete, path 'dir' is restricted (ACL: some-acl)
   [1]
 
   $ sl status --change $B
   A B
-  warning: results may be incomplete, path 'dir' is restricted
+  warning: results may be incomplete, path 'dir' is restricted (ACL: some-acl)
   [1]
 
 Status across a commit that removes an ACL from a directory:
@@ -89,7 +89,7 @@ Status across a commit that removes an ACL from a directory:
   $ setconfig scmstore.tree-metadata-mode=always
   $ newclientrepo client4 server4
   $ sl go -q $B
-  warning: results may be incomplete, path 'dir' is restricted
+  warning: results may be incomplete, path 'dir' is restricted (ACL: some-acl)
   [1]
 
   $ sl status --change $B

@@ -22,7 +22,6 @@ use ::types::Parents;
 use ::types::PathComponent;
 use ::types::PathComponentBuf;
 use ::types::RepoPath;
-use ::types::RepoPathBuf;
 use ::types::fetch_mode::FetchMode;
 use ::types::hgid::NULL_ID;
 use ::types::tree::TreeItemFlag;
@@ -170,7 +169,7 @@ pub struct TreeStore {
     pub restricted_tree_mode: RestrictedTreeMode,
 
     pub(crate) permission_denied_paths:
-        Option<Arc<parking_lot::Mutex<VecDeque<(RepoPathBuf, HgId)>>>>,
+        Option<Arc<parking_lot::Mutex<VecDeque<::types::errors::PermissionDenied>>>>,
 }
 
 impl Drop for TreeStore {
@@ -1196,13 +1195,13 @@ impl storemodel::TreeStore for TreeStore {
         self.get_local_aux_direct(&id)
     }
 
-    fn record_permission_denied(&self, path: &RepoPath, hgid: HgId) {
+    fn record_permission_denied(&self, err: ::types::errors::PermissionDenied) {
         if let Some(paths) = &self.permission_denied_paths {
             let mut denied = paths.lock();
             if denied.len() >= 1000 {
                 denied.pop_front();
             }
-            denied.push_back((path.to_owned(), hgid));
+            denied.push_back(err);
         }
     }
 }

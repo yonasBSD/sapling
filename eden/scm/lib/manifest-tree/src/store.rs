@@ -34,8 +34,8 @@ impl InnerStore {
         InnerStore { tree_store }
     }
 
-    pub fn record_permission_denied(&self, path: &RepoPath, hgid: HgId) {
-        self.tree_store.record_permission_denied(path, hgid);
+    pub fn record_permission_denied(&self, err: types::errors::PermissionDenied) {
+        self.tree_store.record_permission_denied(err);
     }
 
     pub fn format(&self) -> SerializationFormat {

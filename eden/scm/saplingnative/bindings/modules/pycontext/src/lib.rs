@@ -71,8 +71,8 @@ py_class!(pub class context |py| {
         let mut seen = HashSet::new();
         Ok(paths
             .iter()
-            .filter_map(|(path, _hgid)| {
-                let s = path.to_string();
+            .filter_map(|err| {
+                let s = err.path.to_string();
                 if seen.insert(s.clone()) { Some(s) } else { None }
             })
             .collect())

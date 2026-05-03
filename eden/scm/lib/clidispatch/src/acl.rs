@@ -36,13 +36,27 @@ pub fn check_permission_denied_paths(
         });
     }
 
+    let request_access_url_template = config
+        .get_or("slacl", "request-access-url-template", String::new)
+        .unwrap_or_default();
+
     let mut warnings = Vec::new();
     let mut seen = HashSet::new();
-    for (path, _hgid) in denied.iter() {
+    for err in denied.iter() {
+        let path = &err.path;
         if seen.insert(path) {
-            warnings.push(format!(
-                "warning: results may be incomplete, path '{path}' is restricted\n",
-            ));
+            let mut msg =
+                format!("warning: results may be incomplete, path '{path}' is restricted");
+            if !err.request_acl.is_empty() {
+                if !request_access_url_template.is_empty() {
+                    let url = request_access_url_template.replace("{acl}", &err.request_acl);
+                    msg.push_str(&format!(" (request access: {})", url));
+                } else {
+                    msg.push_str(&format!(" (ACL: {})", err.request_acl));
+                }
+            }
+            msg.push('\n');
+            warnings.push(msg);
         }
     }
 

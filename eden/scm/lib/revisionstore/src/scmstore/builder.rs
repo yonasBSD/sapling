@@ -20,8 +20,6 @@ use hgtime::HgTime;
 use parking_lot::Mutex;
 use progress_model::AggregatingProgressBar;
 use storemodel::SerializationFormat;
-use types::HgId;
-use types::RepoPathBuf;
 
 use crate::IndexedLogHgIdHistoryStore;
 use crate::SaplingRemoteApiFileStore;
@@ -373,7 +371,8 @@ pub struct TreeStoreBuilder<'a> {
     tree_aux_store: Option<Arc<TreeAuxStore>>,
     filestore: Option<Arc<FileStore>>,
     format: Option<SerializationFormat>,
-    permission_denied_paths: Option<Arc<Mutex<std::collections::VecDeque<(RepoPathBuf, HgId)>>>>,
+    permission_denied_paths:
+        Option<Arc<Mutex<std::collections::VecDeque<types::errors::PermissionDenied>>>>,
 }
 
 impl<'a> TreeStoreBuilder<'a> {
@@ -395,7 +394,7 @@ impl<'a> TreeStoreBuilder<'a> {
 
     pub fn permission_denied_paths(
         mut self,
-        paths: Arc<Mutex<std::collections::VecDeque<(RepoPathBuf, HgId)>>>,
+        paths: Arc<Mutex<std::collections::VecDeque<types::errors::PermissionDenied>>>,
     ) -> Self {
         self.permission_denied_paths = Some(paths);
         self

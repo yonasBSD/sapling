@@ -504,7 +504,7 @@ pub trait TreeStore: KeyStore {
     }
 
     /// Record that a permission-denied tree was encountered at the given path.
-    fn record_permission_denied(&self, _path: &RepoPath, _hgid: HgId) {}
+    fn record_permission_denied(&self, _err: types::errors::PermissionDenied) {}
 
     /// Obtains a snapshot of the store state.
     /// Usually it is just `Arc::clone` under the hood.

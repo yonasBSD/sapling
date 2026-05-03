@@ -119,9 +119,11 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
                 Leaf(_) => unreachable!(),
                 Ephemeral(children) => children,
                 Durable(entry) => {
-                    if entry.is_permission_denied() {
+                    if let Some(err) = entry.permission_denied_error() {
                         tracing::debug!(path = %path, hgid = %entry.hgid, "skipping permission-denied tree in bfs_iter");
-                        ctx.store.record_permission_denied(&path, entry.hgid);
+                        let mut err = err.clone();
+                        err.path = path.clone();
+                        ctx.store.record_permission_denied(err);
                         continue;
                     }
                     match entry.materialize_links(&ctx.store, &path) {
@@ -303,10 +305,11 @@ impl<'a> DfsCursor<'a> {
                             self.state = State::Next;
                         }
                         Durable(durable_entry) => {
-                            if durable_entry.is_permission_denied() {
+                            if let Some(err) = durable_entry.permission_denied_error() {
                                 tracing::debug!(path = %self.path, hgid = %durable_entry.hgid, "skipping permission-denied tree in DfsCursor");
-                                self.store
-                                    .record_permission_denied(&self.path, durable_entry.hgid);
+                                let mut err = err.clone();
+                                err.path = self.path.clone();
+                                self.store.record_permission_denied(err);
                                 self.state = State::Pop;
                             } else {
                                 match durable_entry.materialize_links(self.store, &self.path) {

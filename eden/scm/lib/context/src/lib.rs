@@ -13,10 +13,8 @@ use configmodel::ConfigExt;
 use io::IO;
 use parking_lot::Mutex;
 use termlogger::TermLogger;
-use types::HgId;
-use types::RepoPathBuf;
 
-pub type PermissionDeniedPaths = Arc<Mutex<VecDeque<(RepoPathBuf, HgId)>>>;
+pub type PermissionDeniedPaths = Arc<Mutex<VecDeque<types::errors::PermissionDenied>>>;
 
 /// Context is a container for common facilities intended to be
 /// passed into upper level library code.

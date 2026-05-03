@@ -311,11 +311,11 @@ fn diff_single(
     work: &mut Vec<DiffWork>,
     result: &ResultSender,
 ) -> Result<()> {
-    if dir.is_permission_denied() {
+    if let Some(err) = dir.permission_denied_error() {
         tracing::debug!(path = %dir.path, "skipping permission-denied tree in diff_single");
-        if let Some(hgid) = dir.hgid() {
-            store.record_permission_denied(&dir.path, hgid);
-        }
+        let mut err = err.clone();
+        err.path = dir.path.clone();
+        store.record_permission_denied(err);
         return Ok(());
     }
 
@@ -364,20 +364,20 @@ fn diff_dirs(
     work: &mut Vec<DiffWork>,
     result: &ResultSender,
 ) -> Result<()> {
-    let left_denied = if left.is_permission_denied() {
+    let left_denied = if let Some(err) = left.permission_denied_error() {
         tracing::debug!(path = %left.path, "skipping permission-denied left tree in diff_dirs");
-        if let Some(hgid) = left.hgid() {
-            store.record_permission_denied(&left.path, hgid);
-        }
+        let mut err = err.clone();
+        err.path = left.path.clone();
+        store.record_permission_denied(err);
         true
     } else {
         false
     };
-    let right_denied = if right.is_permission_denied() {
+    let right_denied = if let Some(err) = right.permission_denied_error() {
         tracing::debug!(path = %right.path, "skipping permission-denied right tree in diff_dirs");
-        if let Some(hgid) = right.hgid() {
-            store.record_permission_denied(&right.path, hgid);
-        }
+        let mut err = err.clone();
+        err.path = right.path.clone();
+        store.record_permission_denied(err);
         true
     } else {
         false

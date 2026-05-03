@@ -7,7 +7,6 @@
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -93,8 +92,9 @@ where
 }
 
 fn tree_entry_to_links(
+    parent_path: &types::RepoPath,
     entry: Arc<dyn TreeEntry>,
-    denied_hgids: &HashSet<HgId>,
+    denied_hgids: &HashMap<HgId, String>,
 ) -> Result<BTreeMap<PathComponentBuf, Link>> {
     let mut links = BTreeMap::new();
     for item in entry.iter_owned()? {
@@ -102,8 +102,14 @@ fn tree_entry_to_links(
         let link = match flag {
             store::Flag::File(file_type) => Link::leaf(FileMetadata::new(hgid, file_type)),
             store::Flag::Directory => {
-                if denied_hgids.contains(&hgid) {
-                    Link::durable_permission_denied(hgid)
+                if let Some(request_acl) = denied_hgids.get(&hgid) {
+                    let mut path = parent_path.to_owned();
+                    path.push(component.as_path_component());
+                    Link::durable_permission_denied(types::errors::PermissionDenied {
+                        path,
+                        hgid,
+                        request_acl: request_acl.clone(),
+                    })
                 } else {
                     Link::durable(hgid)
                 }
@@ -148,14 +154,14 @@ pub(crate) fn prefetch_trees<'a>(
     for res in store.get_tree_iter(FetchContext::default(), keys)? {
         match res {
             Ok((key, tree_entry)) => {
-                let mut denied_hgids = HashSet::new();
+                let mut denied_hgids = HashMap::new();
                 match tree_entry.permission_denied_children() {
                     Ok(iter) => {
                         for item in iter {
                             match item {
                                 Ok((_component, hgid, reason)) => {
                                     tracing::debug!(%hgid, reason, "marking child tree as permission denied");
-                                    denied_hgids.insert(hgid);
+                                    denied_hgids.insert(hgid, reason);
                                 }
                                 Err(err) => {
                                     tracing::debug!(
@@ -171,7 +177,7 @@ pub(crate) fn prefetch_trees<'a>(
                     }
                 }
 
-                let links = tree_entry_to_links(tree_entry, &denied_hgids)?;
+                let links = tree_entry_to_links(&key.path, tree_entry, &denied_hgids)?;
                 if let Some(entries) = by_hgid.get(&key.hgid) {
                     for entry in entries {
                         entry.links.get_or_init(|| MaybeLinks::Links(links.clone()));
@@ -179,12 +185,21 @@ pub(crate) fn prefetch_trees<'a>(
                 }
             }
             Err(ref err) if is_permission_denied(err) => {
-                if let Some(SaplingRemoteApiServerErrorKind::PermissionDenied { tree_id, .. }) =
-                    find_permission_denied(err).map(|e| &e.err)
+                if let Some(SaplingRemoteApiServerErrorKind::PermissionDenied {
+                    tree_id,
+                    request_acl,
+                }) = find_permission_denied(err).map(|e| &e.err)
                 {
                     if let Some(entries) = by_hgid.get(tree_id) {
+                        let perm_err = types::errors::PermissionDenied {
+                            path: types::RepoPathBuf::new(),
+                            hgid: *tree_id,
+                            request_acl: request_acl.clone(),
+                        };
                         for entry in entries {
-                            entry.links.get_or_init(|| MaybeLinks::PermissionDenied);
+                            entry
+                                .links
+                                .get_or_init(|| MaybeLinks::PermissionDenied(perm_err.clone()));
                         }
                     }
                 }

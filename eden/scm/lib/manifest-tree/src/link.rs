@@ -83,7 +83,7 @@ pub enum MaybeLinks {
     /// The tree was fetched successfully.
     Links(BTreeMap<PathComponentBuf, Link>),
     /// Access to this tree was denied by a path ACL.
-    PermissionDenied,
+    PermissionDenied(types::errors::PermissionDenied),
 }
 
 // TODO: Use Vec instead of BTreeMap
@@ -114,9 +114,10 @@ impl Link {
         Link::new(LinkData::Durable(Arc::new(DurableEntry::new(hgid))))
     }
 
-    pub fn durable_permission_denied(hgid: HgId) -> Link {
+    pub fn durable_permission_denied(err: types::errors::PermissionDenied) -> Link {
+        let hgid = err.hgid;
         let links = OnceCell::new();
-        links.set(MaybeLinks::PermissionDenied).unwrap();
+        links.set(MaybeLinks::PermissionDenied(err)).unwrap();
         Link::new(LinkData::Durable(Arc::new(DurableEntry {
             hgid,
             links,
@@ -239,7 +240,14 @@ impl DurableEntry {
     }
 
     pub fn is_permission_denied(&self) -> bool {
-        matches!(self.links.get(), Some(MaybeLinks::PermissionDenied))
+        matches!(self.links.get(), Some(MaybeLinks::PermissionDenied(_)))
+    }
+
+    pub fn permission_denied_error(&self) -> Option<&types::errors::PermissionDenied> {
+        match self.links.get() {
+            Some(MaybeLinks::PermissionDenied(err)) => Some(err),
+            _ => None,
+        }
     }
 
     /// Returns true if links have already been materialized.
@@ -287,14 +295,11 @@ impl DurableEntry {
         })?;
         match maybe {
             MaybeLinks::Links(links) => Ok(links),
-            MaybeLinks::PermissionDenied => Err(edenapi_types::SaplingRemoteApiServerError {
-                err: edenapi_types::SaplingRemoteApiServerErrorKind::PermissionDenied {
-                    tree_id: self.hgid,
-                    request_acl: String::new(),
-                },
-                key: None,
+            MaybeLinks::PermissionDenied(err) => {
+                let mut err = err.clone();
+                err.path = path.to_owned();
+                Err(err.into())
             }
-            .into()),
         }
     }
 }
@@ -402,6 +407,13 @@ impl DirLink {
         match self.link.as_ref() {
             Durable(entry) => entry.is_permission_denied(),
             _ => false,
+        }
+    }
+
+    pub fn permission_denied_error(&self) -> Option<&types::errors::PermissionDenied> {
+        match self.link.as_ref() {
+            Durable(entry) => entry.permission_denied_error(),
+            _ => None,
         }
     }
 }
