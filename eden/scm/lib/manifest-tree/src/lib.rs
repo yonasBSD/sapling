@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+mod acl_metrics;
 mod bfs;
 mod diff;
 mod factory_impls;

@@ -25,6 +25,7 @@ use types::Key;
 use types::PathComponentBuf;
 use types::RepoPathBuf;
 
+use crate::acl_metrics;
 use crate::link::DurableEntry;
 use crate::link::Link;
 use crate::link::MaybeLinks;
@@ -161,6 +162,7 @@ pub(crate) fn prefetch_trees<'a>(
                             match item {
                                 Ok((_component, hgid, reason)) => {
                                     tracing::debug!(%hgid, reason, "marking child tree as permission denied");
+                                    acl_metrics::ACL_AVOIDED.increment();
                                     denied_hgids.insert(hgid, reason);
                                 }
                                 Err(err) => {
@@ -190,6 +192,7 @@ pub(crate) fn prefetch_trees<'a>(
                     request_acl,
                 }) = find_permission_denied(err).map(|e| &e.err)
                 {
+                    acl_metrics::ACL_DENIED.increment();
                     if let Some(entries) = by_hgid.get(tree_id) {
                         let perm_err = types::errors::PermissionDenied {
                             path: types::RepoPathBuf::new(),

@@ -99,6 +99,7 @@ fn convert_permission_denied(err: anyhow::Error, path: &RepoPath) -> anyhow::Err
             request_acl,
         } = &slapi_err.err
         {
+            crate::acl_metrics::ACL_DENIED.increment();
             return types::errors::PermissionDenied {
                 path: path.to_owned(),
                 hgid: *tree_id,
