@@ -286,6 +286,32 @@ def _formatargs(args):
     return " ".join(util.shellquote(a) for a in args)
 
 
+def _check_permission_denied_paths(req, ret):
+    """Warn about permission-denied paths and optionally change exit code."""
+    ui = req.ui
+    rctx = getattr(getattr(ui, "_uiconfig", None), "_rctx", None)
+    if rctx is None:
+        return ret
+
+    paths = rctx.permission_denied_paths()
+    if not paths:
+        return ret
+
+    mode = ui.config("slacl", "on-permission-denied", "error")
+    if mode == "ignore":
+        return ret
+
+    for path in paths:
+        ui.warn(
+            _("warning: results may be incomplete, path '%s' is restricted\n") % path
+        )
+
+    if mode == "error":
+        return ret if ret else 1
+
+    return ret
+
+
 def dispatch(req):
     "run the command specified in req.args"
     if req.ferr:
@@ -340,6 +366,7 @@ def dispatch(req):
 
     try:
         ret = _runcatch(req)
+        ret = _check_permission_denied_paths(req, ret)
     except error.ProgrammingError as inst:
         req.ui.warn(_("** ProgrammingError: %s\n") % inst)
         if inst.hint:

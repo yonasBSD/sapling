@@ -18,6 +18,8 @@
   19d1f9c4aa6e6b299fa6a863b253889df872ae0f restricted
   7336b5d3a2867d97ff2b64af2b848b76ac7e7f39 regular
   7ebc6a0e1746ead2f3778301c440cde7eec58620 /
+  warning: results may be incomplete, path 'restricted' is restricted
+  [1]
 
 Don't attempt to fetch 19d1f9c4 - it is restricted
   $ LOG=tree_fetches=trace hg go -q $A
@@ -32,6 +34,7 @@ Don't attempt to fetch 19d1f9c4 - it is restricted
 Give a specific message when referencing a restricted file:
   $ hg cat restricted/secret.txt
   restricted/secret.txt: restricted path
+  warning: results may be incomplete, path 'restricted' is restricted
   [1]
 
   $ hg files restricted/secret.txt
@@ -40,6 +43,7 @@ Give a specific message when referencing a restricted file:
 
   $ hg files -r . restricted/secret.txt
   restricted/secret.txt: restricted path
+  warning: results may be incomplete, path 'restricted' is restricted
   [1]
 
 Make sure root tree has acl indices populated in cache
