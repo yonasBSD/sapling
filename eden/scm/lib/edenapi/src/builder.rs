@@ -211,6 +211,13 @@ impl HttpClientBuilder {
             headers.insert(cats_constants::X_AUTH_CATS_HEADER.to_string(), auth_cats);
         }
 
+        if config
+            .get_or_default::<bool>("slacl", "server-enforcement")
+            .unwrap_or(false)
+        {
+            headers.insert("X-Enforce-Path-Acls".to_string(), "true".to_string());
+        }
+
         // edenapi.maxrequests is old name supported for transition to new name - can delete in future
         let max_requests = get_config(config, "edenapi", "max-concurrent-requests")?
             .or(get_config(config, "edenapi", "maxrequests")?);
