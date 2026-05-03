@@ -43,6 +43,9 @@ sapling-workingcopy = { version = "0.1.0", path = "../workingcopy" }
 thiserror = "2.0.18"
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 
+[dev-dependencies]
+sapling-configset = { version = "0.1.0", path = "../config/set" }
+
 [features]
 eden = ["sapling-thrift-types", "sapling-workingcopy/eden"]
 sl_oss = ["sapling-identity/sl_oss"]

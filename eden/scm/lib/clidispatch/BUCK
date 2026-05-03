@@ -30,6 +30,9 @@ rust_library(
     features = [
         "eden",
     ],
+    test_deps = [
+        "//eden/scm/lib/config/set:configset",
+    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:erased-serde",

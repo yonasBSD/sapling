@@ -96,6 +96,31 @@ fn format_warnings(by_acl: &BTreeMap<String, BTreeSet<String>>, url_template: &s
     lines
 }
 
+/// Format a single PermissionDenied error for user-facing display.
+/// Used both for "direct" errors (command aborts) and "indirect" warnings.
+pub fn format_permission_denied_error(
+    err: &types::errors::PermissionDenied,
+    config: &dyn Config,
+) -> String {
+    let url_template = config
+        .get_or("slacl", "request-access-url-template", String::new)
+        .unwrap_or_default();
+
+    let mut msg = format!("path '{}' is restricted", err.path);
+    if !err.request_acl.is_empty() {
+        if !url_template.is_empty() {
+            let url = url_template.replace("{acl}", &err.request_acl);
+            msg.push_str(&format!(
+                " by ACL '{}' - request access at {}",
+                err.request_acl, url
+            ));
+        } else {
+            msg.push_str(&format!(" by ACL '{}'", err.request_acl));
+        }
+    }
+    msg
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
@@ -179,6 +204,51 @@ mod tests {
                 "warning: results may be incomplete due to path ACLs\n",
                 "  'same/dir' is restricted by ACL 'acl'\n",
             ]
+        );
+    }
+
+    #[test]
+    fn test_format_permission_denied_error_basic() {
+        let err = types::errors::PermissionDenied {
+            path: "secret/dir".to_string().try_into().unwrap(),
+            hgid: types::HgId::null_id().clone(),
+            request_acl: "my-acl".to_string(),
+        };
+        let config = configset::ConfigSet::new();
+        let msg = format_permission_denied_error(&err, &config);
+        assert_eq!(msg, "path 'secret/dir' is restricted by ACL 'my-acl'");
+    }
+
+    #[test]
+    fn test_format_permission_denied_error_empty_acl() {
+        let err = types::errors::PermissionDenied {
+            path: "secret/dir".to_string().try_into().unwrap(),
+            hgid: types::HgId::null_id().clone(),
+            request_acl: String::new(),
+        };
+        let config = configset::ConfigSet::new();
+        let msg = format_permission_denied_error(&err, &config);
+        assert_eq!(msg, "path 'secret/dir' is restricted");
+    }
+
+    #[test]
+    fn test_format_permission_denied_error_with_url() {
+        let err = types::errors::PermissionDenied {
+            path: "secret/dir".to_string().try_into().unwrap(),
+            hgid: types::HgId::null_id().clone(),
+            request_acl: "my-acl".to_string(),
+        };
+        let mut config = configset::ConfigSet::new();
+        config.set(
+            "slacl",
+            "request-access-url-template",
+            Some("https://access.example.com/?acl={acl}"),
+            &Default::default(),
+        );
+        let msg = format_permission_denied_error(&err, &config);
+        assert_eq!(
+            msg,
+            "path 'secret/dir' is restricted by ACL 'my-acl' - request access at https://access.example.com/?acl=my-acl"
         );
     }
 }
