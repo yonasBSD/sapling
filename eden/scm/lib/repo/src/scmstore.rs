@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use anyhow::Result;
+use context;
 use revisionstore::SaplingRemoteApiFileStore;
 use revisionstore::SaplingRemoteApiTreeStore;
 use revisionstore::scmstore;
@@ -47,9 +48,14 @@ pub fn build_scm_file_store(info: &dyn StoreInfo) -> Result<Arc<scmstore::FileSt
 pub fn build_scm_tree_store(
     info: &dyn StoreInfo,
     file_store: Option<Arc<scmstore::FileStore>>,
+    permission_denied_paths: Option<context::PermissionDeniedPaths>,
 ) -> Result<Arc<scmstore::TreeStore>> {
     tracing::trace!(target: "repo::tree_store", "building treestore");
     let mut tree_builder = TreeStoreBuilder::new(info.config()).suffix("manifests");
+
+    if let Some(paths) = permission_denied_paths {
+        tree_builder = tree_builder.permission_denied_paths(paths);
+    }
 
     if let Some(store_path) = info.store_path() {
         tree_builder = tree_builder.local_path(store_path);

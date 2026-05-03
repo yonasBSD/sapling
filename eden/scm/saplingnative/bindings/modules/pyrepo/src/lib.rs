@@ -74,10 +74,12 @@ py_class!(pub class repo |py| {
         Ok(PyNone)
     }
 
-    def __new__(_cls, path: PyPathBuf, config: &config) -> PyResult<Self> {
-        let config = config.get_cfg(py);
+    def __new__(_cls, path: PyPathBuf, ctx: ImplInto<CoreContext>) -> PyResult<Self> {
+        let ctx: CoreContext = ctx.into();
+        let config = configset::ConfigSet::wrap(ctx.config.clone());
         let abs_path = util::path::absolute(path.as_path()).map_pyerr(py)?;
-        let repo = Repo::load_with_config(abs_path, config).map_pyerr(py)?;
+        let mut repo = Repo::load_with_config(abs_path, config).map_pyerr(py)?;
+        repo.set_permission_denied_paths(ctx.permission_denied_paths.clone());
         Self::create_instance(py, RwLock::new(repo), RefCell::new(None), PyDict::new(py))
     }
 

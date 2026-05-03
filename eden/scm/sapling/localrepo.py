@@ -429,7 +429,7 @@ class localrepository:
         self.ui = baseui.copy()
         self.ui.loadrepoconfig(self.root)
 
-        self._rsrepo = bindings.repo.repo(self.root, self.ui._rcfg)
+        self._rsrepo = bindings.repo.repo(self.root, self.ui.rustcontext())
 
         # sharedvfs: the local vfs of the primary shared repo for shared repos.
         # for non-shared repos this is the same as localvfs.

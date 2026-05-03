@@ -121,7 +121,7 @@ impl SlapiRepo {
                 .downcast_ref::<ArcFileStore>()
                 .map(|fs| fs.0.clone())
         });
-        let ts = build_scm_tree_store(self, fs)?;
+        let ts = build_scm_tree_store(self, fs, None)?;
         let ts: Arc<dyn TreeStore> = ts;
         let _ = self.tree_store.set(ts.clone());
 

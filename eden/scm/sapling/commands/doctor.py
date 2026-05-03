@@ -608,7 +608,7 @@ class ChangelogRepo:
         self.ui = ui
         self.svfs = svfs
         self.storerequirements = scmutil.readrequires(svfs)
-        self._rsrepo = rsrepo.repo(root, self.ui._rcfg)
+        self._rsrepo = rsrepo.repo(root, self.ui.rustcontext())
 
     @property
     def edenapi(self):

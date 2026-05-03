@@ -80,6 +80,7 @@ pub struct Repo {
     eager_store: Option<EagerRepoStore>,
     locker: Arc<RepoLocker>,
     tree_resolver: OnceCell<Arc<dyn ReadTreeManifest>>,
+    permission_denied_paths: Option<context::PermissionDeniedPaths>,
     // Working copy p1 at repo load time. This is normally what "." revset should resolve
     // to (i.e. we don't want to lazily load p1 since it can be changing).
     // `None` means we couldn't read it. Null p1 is `Some(NULL_ID)`.
@@ -191,6 +192,7 @@ impl Repo {
             working_copy: Default::default(),
             eager_store: None,
             tree_resolver: Default::default(),
+            permission_denied_paths: None,
             locker,
             p1_at_load_time: p1,
         })
@@ -390,11 +392,19 @@ impl Repo {
         // Trigger construction of file store.
         let _ = self.file_store();
 
-        let ts = build_scm_tree_store(self, self.file_scm_store())?;
+        let ts = build_scm_tree_store(
+            self,
+            self.file_scm_store(),
+            self.permission_denied_paths.clone(),
+        )?;
         let _ = self.tree_scm_store.set(ts.clone());
         let _ = self.tree_store.set(ts.clone());
 
         Ok(ts)
+    }
+
+    pub fn set_permission_denied_paths(&mut self, paths: context::PermissionDeniedPaths) {
+        self.permission_denied_paths = Some(paths);
     }
 
     // This should only be used to share stores with Python.
