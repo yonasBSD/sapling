@@ -35,9 +35,9 @@ Don't attempt to fetch 19d1f9c4 - it is restricted
 
 Give a specific message when referencing a restricted file:
   $ hg cat restricted/secret.txt
-  abort: permission denied: path 'restricted' (tree 19d1f9c4aa6e6b299fa6a863b253889df872ae0f) is restricted (request access via ACL 'some-acl')
+  restricted/secret.txt: restricted path
   warning: results may be incomplete, path 'restricted' is restricted (ACL: some-acl)
-  [255]
+  [1]
 
 Doesn't having warning since it uses dirstate to walk.
   $ hg files restricted/secret.txt
@@ -45,9 +45,9 @@ Doesn't having warning since it uses dirstate to walk.
   [1]
 
   $ hg files -r . restricted/secret.txt
-  abort: permission denied: path 'restricted' (tree 19d1f9c4aa6e6b299fa6a863b253889df872ae0f) is restricted (request access via ACL 'some-acl')
+  restricted/secret.txt: restricted path
   warning: results may be incomplete, path 'restricted' is restricted (ACL: some-acl)
-  [255]
+  [1]
 
 Make sure root tree has acl indices populated in cache
   $ sl debugscmstore -r $A '' --mode=tree | grep -A 4 acl_children_indices

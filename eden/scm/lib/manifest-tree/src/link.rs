@@ -265,9 +265,18 @@ impl DurableEntry {
         path: &RepoPath,
     ) -> Result<&BTreeMap<PathComponentBuf, Link>> {
         let maybe = self.links.get_or_try_init(|| -> Result<MaybeLinks> {
-            let tree_entry = store.get_tree_entry(path, self.hgid).with_context(|| {
-                format!("failed fetching from store ({}, {})", path, self.hgid)
-            })?;
+            let tree_entry = match store.get_tree_entry(path, self.hgid) {
+                Ok(entry) => entry,
+                Err(err) => match err.downcast::<types::errors::PermissionDenied>() {
+                    Ok(perm_denied) => return Ok(MaybeLinks::PermissionDenied(perm_denied)),
+                    Err(err) => {
+                        return Err(err.context(format!(
+                            "failed fetching from store ({}, {})",
+                            path, self.hgid
+                        )))
+                    }
+                },
+            };
 
             let mut links = BTreeMap::new();
             for item_result in tree_entry.iter()? {

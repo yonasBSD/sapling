@@ -11,7 +11,6 @@ cpython = { version = "0.7.2", features = ["python3-sys"], default-features = fa
 parking_lot = { version = "0.12.1", features = ["arc_lock", "send_guard"] }
 pypathmatcher = { version = "0.1.0", path = "../pypathmatcher" }
 sapling-cpython-ext = { version = "0.1.0", path = "../../../../lib/cpython-ext" }
-sapling-edenapi_types = { version = "0.1.0", path = "../../../../lib/edenapi/types" }
 sapling-manifest = { version = "0.1.0", path = "../../../../lib/manifest" }
 sapling-manifest-tree = { version = "0.1.0", path = "../../../../lib/manifest-tree" }
 sapling-pathmatcher = { version = "0.1.0", path = "../../../../lib/pathmatcher" }

@@ -50,7 +50,8 @@ impl InnerStore {
         .in_scope(|| {
             let blob = self
                 .tree_store
-                .get_content(FetchContext::default(), path, hgid)?;
+                .get_content(FetchContext::default(), path, hgid)
+                .map_err(|err| convert_permission_denied(err, path))?;
             Ok(Entry(blob.into_bytes(), self.tree_store.format()))
         })
     }
@@ -67,6 +68,7 @@ impl InnerStore {
         .in_scope(|| {
             self.tree_store
                 .get_tree(FetchContext::default(), path, hgid)
+                .map_err(|err| convert_permission_denied(err, path))
         })
     }
 
@@ -88,6 +90,24 @@ impl InnerStore {
             Ok(id)
         })
     }
+}
+
+fn convert_permission_denied(err: anyhow::Error, path: &RepoPath) -> anyhow::Error {
+    if let Some(slapi_err) = edenapi_types::errors::find_permission_denied(&err) {
+        if let edenapi_types::SaplingRemoteApiServerErrorKind::PermissionDenied {
+            tree_id,
+            request_acl,
+        } = &slapi_err.err
+        {
+            return types::errors::PermissionDenied {
+                path: path.to_owned(),
+                hgid: *tree_id,
+                request_acl: request_acl.clone(),
+            }
+            .into();
+        }
+    }
+    err
 }
 
 impl Deref for InnerStore {

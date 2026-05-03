@@ -175,7 +175,7 @@ py_class!(pub class treemanifest |py| {
         let tree = self.underlying(py).read();
         match tree.get(repo_path) {
             Ok(entry) => Ok(Some(entry.is_some())),
-            Err(err) if edenapi_types::errors::is_permission_denied(&err) => Ok(None),
+            Err(err) if err.is::<types::errors::PermissionDenied>() => Ok(None),
             Err(err) => Err(err).map_pyerr(py),
         }
     }
