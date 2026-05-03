@@ -415,6 +415,13 @@ impl Dispatcher {
 
             hooks.run_pre(self.repo(), &self.args[1..])?;
 
+            let permission_denied_paths: context::PermissionDeniedPaths = Default::default();
+
+            // Set permission denied paths on repo so tree store can record them.
+            if let Some(repo) = self.repo_mut_optional() {
+                repo.set_permission_denied_paths(permission_denied_paths.clone());
+            }
+
             let res = match handler.func() {
                 CommandFunc::Repo(f) => f(parsed, io, self.repo_mut()?),
                 CommandFunc::OptionalRepo(f) => f(parsed, io, &self.optional_repo),
@@ -436,10 +443,27 @@ impl Dispatcher {
                 Err(_) => hooks.run_fail(self.repo(), &self.args[1..])?,
             }
 
+            let mut res = res;
+            if let Err(err) = crate::acl::check_permission_denied_paths(
+                &permission_denied_paths,
+                self.config(),
+                io,
+                &mut res,
+            ) {
+                tracing::error!(?err, "error checking permission denied paths");
+            }
+
             res
         }();
 
         (Some(handler), res)
+    }
+
+    fn repo_mut_optional(&mut self) -> Option<&mut Repo> {
+        match &mut self.optional_repo {
+            OptionalRepo::CoreRepo(CoreRepo::Disk(repo)) => Some(repo),
+            _ => None,
+        }
     }
 
     fn repo_mut(&mut self) -> Result<&mut Repo> {

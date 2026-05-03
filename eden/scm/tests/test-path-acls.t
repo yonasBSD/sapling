@@ -25,6 +25,8 @@ Don't attempt to fetch 19d1f9c4 - it is restricted
   $ LOG=tree_fetches=trace hg go -q $A
   TRACE tree_fetches: attrs=["content"] keys=["@7ebc6a0e"]
   TRACE tree_fetches: attrs=["content"] keys=["@7336b5d3"]
+  warning: results may be incomplete, path 'restricted' is restricted
+  [1]
 
   $ find .
   A
@@ -65,6 +67,8 @@ tree should still have acl_children_indices for the unchanged restricted directo
                               ],
                           ),
 
-FIXME: Rust commands should warn and exit non-zero like Python commands
+Rust commands also warn about restricted paths:
   $ sl grep --config grep.use-rust=true -r $A 'content'
   regular/file.txt:regular content
+  warning: results may be incomplete, path 'restricted' is restricted
+  [1]
