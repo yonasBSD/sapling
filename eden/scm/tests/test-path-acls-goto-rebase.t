@@ -1,0 +1,118 @@
+#require no-eden
+
+  $ setconfig scmstore.fetch-tree-aux-data=true
+  $ setconfig scmstore.tree-metadata-mode=always
+
+  $ enable rebase
+
+Goto: check out a commit where a previously-unrestricted file becomes restricted
+
+  $ newserver server1
+  $ drawdag << 'EOS'
+  > B  # B/dir/.slacl = acl config
+  >    # B/dir/file.txt = content v2
+  > |
+  > A  # A/dir/file.txt = content v1
+  > EOS
+
+  $ cd
+  $ newclientrepo client1 server1
+  $ sl go -q $A
+  $ sl go -q $B
+  warning: results may be incomplete due to path ACLs
+    'dir' is restricted by ACL 'some-acl'
+  [1]
+
+Goto: local modifications to a file that becomes restricted
+
+  $ newserver server2
+  $ drawdag << 'EOS'
+  > B  # B/dir/.slacl = acl config
+  >    # B/dir/file.txt = content v2
+  > |
+  > A  # A/dir/file.txt = content v1
+  > EOS
+
+  $ cd
+  $ newclientrepo client2 server2
+  $ sl go -q $A
+  $ echo 'local change' > dir/file.txt
+  $ sl go -q $B
+  abort: 1 conflicting file changes:
+   dir/file.txt
+  (commit, shelve, goto --clean to discard all your changes, or goto --merge to merge them)
+  warning: results may be incomplete due to path ACLs
+    'dir' is restricted by ACL 'some-acl'
+  [255]
+
+Rebase: commit modifies a file that is restricted in destination
+
+  $ newserver server3
+  $ drawdag << 'EOS'
+  > C  # C/dir/.slacl = acl config
+  >    # C/dir/file.txt = content v2
+  > |
+  > | B  # B/dir/file.txt = modified by user
+  > |/
+  > A  # A/dir/file.txt = content v1
+  > EOS
+
+  $ cd
+  $ newclientrepo client3 server3
+  $ sl go -q $B
+  $ sl rebase -r $B -d $C
+  pulling '3af88752c97bb3f6651d0a57a3d16a696f28de48' from 'test:server3'
+  rebasing c416137c0b61 "B"
+  abort: permission denied: path 'dir' (tree 63e911d35758a90c0f460a98ab3f2e984ff09f51) is restricted (request access via ACL 'some-acl')
+  warning: results may be incomplete due to path ACLs
+    'dir' is restricted by ACL 'some-acl'
+  [255]
+
+Rebase: commit adds a file under a path that is restricted in destination
+
+  $ newserver server4
+  $ drawdag << 'EOS'
+  > C  # C/restricted/.slacl = acl config
+  >    # C/restricted/existing.txt = existing
+  > |
+  > | B  # B/restricted/new.txt = new file
+  > |/
+  > A  # A/dummy = dummy
+  > EOS
+
+  $ cd
+  $ newclientrepo client4 server4
+  $ sl go -q $B
+  $ sl rebase -q -r $B -d $C
+  abort: permission denied: path 'restricted' (tree 2be0b549bc67aeb9d8e067963147609e86d48c43) is restricted (request access via ACL 'some-acl')
+  warning: results may be incomplete due to path ACLs
+    'restricted' is restricted by ACL 'some-acl'
+  [255]
+
+Rebase: two commits where only the second touches a restricted path
+
+  $ newserver server5
+  $ drawdag << 'EOS'
+  > D  # D/dir/.slacl = acl config
+  >    # D/dir/file.txt = dest content
+  >    # D/other.txt = original
+  > |
+  > | C  # C/dir/file.txt = restricted change
+  > | |
+  > | B  # B/other.txt = safe change
+  > |/
+  > A  # A/dir/file.txt = original
+  >    # A/other.txt = original
+  > EOS
+
+  $ cd
+  $ newclientrepo client5 server5
+  $ sl go -q $C
+  $ sl rebase -r $B::$C -d $D
+  pulling '16e6c5ae0beee858c20c00828646da495a094d26' from 'test:server5'
+  rebasing 01f209e23a69 "B"
+  rebasing 5f76ba0bb512 "C"
+  abort: permission denied: path 'dir' (tree cd93f6e9e5b39a28a04324b714f8403124647ef5) is restricted (request access via ACL 'some-acl')
+  warning: results may be incomplete due to path ACLs
+    'dir' is restricted by ACL 'some-acl'
+  [255]
