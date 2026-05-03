@@ -24,6 +24,17 @@ impl KeyError {
 #[error("{0}: {1:#}")]
 pub struct KeyedError(pub Key, #[source] pub Error);
 
+/// Error indicating that access to a tree was denied by a path ACL.
+#[derive(Debug, Clone, PartialEq, Error)]
+#[error(
+    "permission denied: path '{path}' (tree {hgid}) is restricted (request access via ACL '{request_acl}')"
+)]
+pub struct PermissionDenied {
+    pub path: crate::RepoPathBuf,
+    pub hgid: crate::HgId,
+    pub request_acl: String,
+}
+
 /// NetworkError is a wrapper/tagging error meant for libraries to use
 /// to mark errors that may imply a network problem.
 pub struct NetworkError(pub Error);
