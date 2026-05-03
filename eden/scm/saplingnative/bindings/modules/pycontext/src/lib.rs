@@ -8,6 +8,7 @@
 #![allow(non_camel_case_types)]
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use ::context::CoreContext;
@@ -42,15 +43,32 @@ py_class!(pub class context |py| {
 
     def withconfig(&self, config: &pyconfigloader::config) -> PyResult<Self> {
         let ctx = self.ctx(py);
-        Self::create_instance(py, CoreContext::new(
+        let mut new_ctx = CoreContext::new(
             Arc::new(config.get_cfg(py)),
             ctx.io.clone(),
             ctx.raw_args.clone(),
-        ))
+        );
+        new_ctx.permission_denied_paths = ctx.permission_denied_paths.clone();
+        Self::create_instance(py, new_ctx)
     }
 
     def config(&self) -> PyResult<pyconfigloader::config> {
-        pyconfigloader::config::create_instance(py, RefCell::new(ConfigSet::wrap(self.ctx(py).config.clone())))
+        pyconfigloader::config::create_instance(py, RefCell::new(
+            ConfigSet::wrap(self.ctx(py).config.clone())
+        ))
+    }
+
+    def permission_denied_paths(&self) -> PyResult<Vec<String>> {
+        let ctx = self.ctx(py);
+        let paths = ctx.permission_denied_paths.lock();
+        let mut seen = HashSet::new();
+        Ok(paths
+            .iter()
+            .filter_map(|(path, _hgid)| {
+                let s = path.to_string();
+                if seen.insert(s.clone()) { Some(s) } else { None }
+            })
+            .collect())
     }
 });
 
