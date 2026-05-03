@@ -72,6 +72,12 @@ pub struct TreeManifest {
 
     // List of from->to grafts to perform before diff operation.
     diff_grafts: Vec<(RepoPathBuf, RepoPathBuf)>,
+
+    // Should ONLY be set for grepo as a workaround for overlapping project paths.
+    // See examples in test-grepo.t.
+    //
+    // When set, Manifest methods transparently encode input paths and decode output paths.
+    path_translator: Option<Arc<dyn PathTranslator>>,
 }
 
 #[derive(Error, Debug)]
@@ -107,6 +113,7 @@ impl TreeManifest {
             store: InnerStore::new(store),
             root: Link::durable(hgid),
             diff_grafts: Vec::new(),
+            path_translator: None,
         }
     }
 
@@ -116,7 +123,12 @@ impl TreeManifest {
             store: InnerStore::new(store),
             root: Link::ephemeral(),
             diff_grafts: Vec::new(),
+            path_translator: None,
         }
+    }
+
+    pub fn set_path_translator(&mut self, translator: Arc<dyn PathTranslator>) {
+        self.path_translator = Some(translator);
     }
 
     fn root_cursor<'a>(&'a self) -> DfsCursor<'a> {
@@ -736,6 +748,7 @@ impl TreeManifest {
                 store: self.store.clone(),
                 root: self.root.thread_copy(),
                 diff_grafts: Vec::new(),
+                path_translator: self.path_translator.clone(),
             });
         }
 
@@ -743,6 +756,7 @@ impl TreeManifest {
             store: self.store.clone(),
             root: Link::ephemeral(),
             diff_grafts: Vec::new(),
+            path_translator: self.path_translator.clone(),
         };
 
         if self.diff_grafts.is_empty() {
@@ -898,6 +912,15 @@ impl TreeManifest {
         }
         Ok(Some(cursor))
     }
+}
+
+/// Translates between user-facing paths and manifest storage paths.
+/// The trait should ONLY be used by grepo and tests.
+pub trait PathTranslator: Send + Sync + fmt::Debug {
+    /// Encode a user-facing file path to the storage path.
+    fn encode_file(&self, path: &RepoPath) -> Result<RepoPathBuf>;
+    /// Decode a storage file path to the user-facing path.
+    fn decode_file(&self, path: &RepoPath) -> Result<RepoPathBuf>;
 }
 
 pub trait ReadTreeManifest: Send + Sync + 'static {
@@ -2245,5 +2268,31 @@ mod tests {
         )]);
         let result = migrate_acl_children(None, &new_entry);
         assert_eq!(result, None);
+    }
+
+    #[derive(Debug)]
+    struct TestTranslator;
+
+    impl PathTranslator for TestTranslator {
+        fn encode_file(&self, path: &RepoPath) -> anyhow::Result<RepoPathBuf> {
+            Ok(RepoPathBuf::from_string(format!("{}?", path.as_str()))?)
+        }
+        fn decode_file(&self, path: &RepoPath) -> anyhow::Result<RepoPathBuf> {
+            let s = path.as_str();
+            let decoded = s.strip_suffix('?').unwrap_or(s);
+            Ok(RepoPathBuf::from_string(decoded.to_string())?)
+        }
+    }
+
+    #[test]
+    fn test_translator_encode_decode_roundtrip() {
+        let t = TestTranslator;
+        let path = repo_path("foo/a");
+        let encoded = t.encode_file(path).unwrap();
+        assert_eq!(encoded.as_str(), "foo/a?");
+        let decoded = t.decode_file(&encoded).unwrap();
+        assert_eq!(decoded.as_str(), "foo/a");
+        // Non-encoded path passes through decode unchanged
+        assert_eq!(t.decode_file(repo_path("plain")).unwrap().as_str(), "plain");
     }
 }
