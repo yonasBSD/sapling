@@ -56,6 +56,9 @@ sapling-minibench = { version = "0.1.0", path = "../../minibench" }
 sapling-testutil = { version = "0.1.0", path = "../../util/testutil" }
 tempfile = "3.27.0"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2.183"
+
 [features]
 default = []
 fb = ["filetime", "regex", "sapling-config-remote-loader/fb", "sapling-hgtime", "sapling-http-client", "sapling-identity/fb", "sapling-types", "serde", "serde_json", "serde_urlencoded"]

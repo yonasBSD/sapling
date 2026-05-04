@@ -91,7 +91,12 @@ rust_library(
         "//eden/scm/lib/types:types",
         "//eden/scm/lib/util:util",
         "//eden/scm/lib/version:rust_version",
-    ]) + select({
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:libc",
+        ],
+    })) + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [
             "//devinfra/lib/rust/platform_cats_reader:platform_cats_reader",
