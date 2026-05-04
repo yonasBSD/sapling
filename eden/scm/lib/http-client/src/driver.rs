@@ -105,6 +105,26 @@ impl<'a> MultiDriver<'a> {
     where
         F: FnMut(Result<Easy2H, (Easy2H, curl::Error)>) -> Result<(), Abort>,
     {
+        self.perform_with(&mut callback, || Ok(()))
+    }
+
+    /// Drive all of the Easy2 handles in the Multi stack to completion, while
+    /// also giving the caller a chance to enqueue more transfers between wait
+    /// iterations.
+    ///
+    /// The completion callback has the same semantics as [`Self::perform`].
+    /// The poll callback is called once per loop iteration after waiting for
+    /// socket activity, and may add new handles to the driver before the next
+    /// call to `Multi::perform`.
+    pub(crate) fn perform_with<F, P>(
+        &self,
+        mut callback: F,
+        mut poll: P,
+    ) -> Result<Stats, HttpClientError>
+    where
+        F: FnMut(Result<Easy2H, (Easy2H, curl::Error)>) -> Result<(), Abort>,
+        P: FnMut() -> Result<(), HttpClientError>,
+    {
         let mut total = self.num_transfers();
         let mut in_progress = total;
         tracing::debug!("Performing {total} transfer(s)");
@@ -142,24 +162,23 @@ impl<'a> MultiDriver<'a> {
                 let token = c.token;
                 callback(c.into_result())?;
                 tracing::trace!("Successfully handled transfer: {}", token);
-
-                // Notice if the callback added new handles and adjust `in_progress`
-                // accordingly so we continue looping.
-                let num_transfers = self.num_transfers();
-                if num_transfers > total {
-                    let added = num_transfers - total;
-                    tracing::trace!("Perform callback added {added} new handles");
-                    in_progress += added;
-                    total += added;
-                }
+                self.account_for_added_transfers("Perform callback", &mut total, &mut in_progress);
             }
 
             // If any transfers reported progress, notify the user.
             self.progress.report_if_updated();
 
             if in_progress == 0 {
-                tracing::trace!("All transfers finished successfully");
-                break;
+                poll()?;
+                self.account_for_added_transfers(
+                    "Zero-transfer poll",
+                    &mut total,
+                    &mut in_progress,
+                );
+                if in_progress == 0 {
+                    tracing::trace!("All transfers finished successfully");
+                    break;
+                }
             }
 
             let has_paused_transfer = self
@@ -181,6 +200,9 @@ impl<'a> MultiDriver<'a> {
             if active_sockets == 0 {
                 tracing::trace!("Timed out waiting for activity");
             }
+
+            poll()?;
+            self.account_for_added_transfers("Poll callback", &mut total, &mut in_progress);
 
             // Check for paused transfers that can be resumed.
             for easy in self.handles.borrow_mut().iter_mut() {
@@ -217,6 +239,21 @@ impl<'a> MultiDriver<'a> {
         }
 
         Ok(stats)
+    }
+
+    fn account_for_added_transfers(
+        &self,
+        source: &str,
+        total: &mut usize,
+        in_progress: &mut usize,
+    ) {
+        let num_transfers = self.num_transfers();
+        if num_transfers > *total {
+            let added = num_transfers - *total;
+            tracing::trace!("{source} added {added} new handles");
+            *in_progress += added;
+            *total += added;
+        }
     }
 
     /// Handle a message emitted by the Multi session for any of the
@@ -274,5 +311,32 @@ impl<'a> MultiDriver<'a> {
 impl<'a> Drop for MultiDriver<'a> {
     fn drop(&mut self) {
         self.drop_all();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+
+    use super::*;
+
+    #[test]
+    fn perform_with_polls_before_exiting_with_zero_initial_transfers() {
+        let multi = Multi::new();
+        let driver = MultiDriver::new(&multi, false);
+        let poll_count = Cell::new(0usize);
+
+        let stats = driver
+            .perform_with(
+                |_| Ok(()),
+                || {
+                    poll_count.set(poll_count.get() + 1);
+                    Ok(())
+                },
+            )
+            .unwrap();
+
+        assert_eq!(poll_count.get(), 1);
+        assert_eq!(stats.requests, 0);
     }
 }
