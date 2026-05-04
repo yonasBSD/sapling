@@ -9,6 +9,7 @@
 mod biggrep;
 
 use std::borrow::Cow;
+use std::cell::OnceCell;
 use std::io;
 use std::io::BufWriter;
 use std::io::Write;
@@ -278,6 +279,28 @@ pub(crate) struct GrepFileMatch<'a> {
     pub path: &'a str,
 }
 
+struct RelativizeOnce<'a> {
+    relativizer: &'a RepoPathRelativizer,
+    path: &'a RepoPathBuf,
+    display: OnceCell<String>,
+}
+
+impl<'a> RelativizeOnce<'a> {
+    fn new(relativizer: &'a RepoPathRelativizer, path: &'a RepoPathBuf) -> Self {
+        Self {
+            relativizer,
+            path,
+            display: OnceCell::new(),
+        }
+    }
+
+    fn as_str(&self) -> &str {
+        self.display
+            .get_or_init(|| self.relativizer.relativize(self.path))
+            .as_str()
+    }
+}
+
 /// A grepper that searches file contents for matches using the plain text printer.
 pub(crate) struct Grepper<'a, W: Write> {
     regex_matcher: RegexMatcher,
@@ -322,13 +345,13 @@ impl<'a, W: Write> Grepper<'a, W> {
 
     /// Grep a file's contents for matches.
     pub(crate) fn grep_file(&mut self, path: &RepoPathBuf, data: &Blob) -> io::Result<()> {
-        let display_path = self.relativizer.relativize(path);
+        let display_path = RelativizeOnce::new(self.relativizer, path);
 
         data.each_chunk(|chunk| {
             let mut sink = StandardLineSink::new(
                 &self.regex_matcher,
                 &mut self.writer,
-                display_path.as_str(),
+                &display_path,
                 self.invert_match,
             );
             self.searcher
@@ -373,14 +396,14 @@ impl<'a, W: Write> SummaryGrepper<'a, W> {
 
     /// Grep a file's contents for matches.
     pub(crate) fn grep_file(&mut self, path: &RepoPathBuf, data: &Blob) -> io::Result<()> {
-        let display_path = self.relativizer.relativize(path);
+        let display_path = RelativizeOnce::new(self.relativizer, path);
         let mut file_has_match = false;
 
         data.each_chunk(|chunk| {
             if file_has_match {
                 return Ok(());
             }
-            let mut sink = FileMatchLineSink::new(&mut self.writer, display_path.as_str());
+            let mut sink = FileMatchLineSink::new(&mut self.writer, &display_path);
             self.searcher
                 .search_slice(&self.regex_matcher, chunk, &mut sink)
                 .map_err(|e| io::Error::other(e.to_string()))?;
@@ -406,7 +429,7 @@ impl<'a, W: Write> SummaryGrepper<'a, W> {
 struct StandardLineSink<'a, 'w, W: Write> {
     regex_matcher: &'a RegexMatcher,
     writer: &'w mut PlainTextWriter<W>,
-    path: &'a str,
+    path: &'a RelativizeOnce<'a>,
     invert_match: bool,
     match_count: u64,
     match_positions: Vec<Match>,
@@ -417,7 +440,7 @@ impl<'a, 'w, W: Write> StandardLineSink<'a, 'w, W> {
     fn new(
         regex_matcher: &'a RegexMatcher,
         writer: &'w mut PlainTextWriter<W>,
-        path: &'a str,
+        path: &'a RelativizeOnce<'a>,
         invert_match: bool,
     ) -> Self {
         Self {
@@ -438,10 +461,11 @@ impl<W: Write> Sink for StandardLineSink<'_, '_, W> {
     fn matched(&mut self, _searcher: &Searcher, mat: &SinkMatch<'_>) -> Result<bool, Self::Error> {
         let line_number = mat.line_number();
         let line = mat.bytes();
+        let path = self.path.as_str();
 
         if self.invert_match || self.writer.match_style.is_empty() {
             self.writer
-                .write_plain_match_line(self.path, line_number, line)?;
+                .write_plain_match_line(path, line_number, line)?;
         } else {
             let line = self.writer.trim_line_terminator(line);
             self.match_positions.clear();
@@ -452,7 +476,7 @@ impl<W: Write> Sink for StandardLineSink<'_, '_, W> {
                 })
                 .map_err(|e| io::Error::other(e.to_string()))?;
             self.writer
-                .write_match_line(self.path, line_number, line, &self.match_positions)?;
+                .write_match_line(path, line_number, line, &self.match_positions)?;
         }
 
         self.match_count += 1;
@@ -464,8 +488,11 @@ impl<W: Write> Sink for StandardLineSink<'_, '_, W> {
         _searcher: &Searcher,
         context: &SinkContext<'_>,
     ) -> Result<bool, Self::Error> {
-        self.writer
-            .write_context_line(self.path, context.line_number(), context.bytes())?;
+        self.writer.write_context_line(
+            self.path.as_str(),
+            context.line_number(),
+            context.bytes(),
+        )?;
         Ok(true)
     }
 
@@ -491,8 +518,11 @@ impl<W: Write> Sink for StandardLineSink<'_, '_, W> {
             self.binary_byte_offset,
             searcher.binary_detection().quit_byte(),
         ) {
-            self.writer
-                .write_binary_quit_warning(self.path, quit_byte, binary_byte_offset)?;
+            self.writer.write_binary_quit_warning(
+                self.path.as_str(),
+                quit_byte,
+                binary_byte_offset,
+            )?;
         }
         Ok(())
     }
@@ -500,12 +530,12 @@ impl<W: Write> Sink for StandardLineSink<'_, '_, W> {
 
 struct FileMatchLineSink<'a, 'w, W: Write> {
     writer: &'w mut PlainTextWriter<W>,
-    path: &'a str,
+    path: &'a RelativizeOnce<'a>,
     has_match: bool,
 }
 
 impl<'a, 'w, W: Write> FileMatchLineSink<'a, 'w, W> {
-    fn new(writer: &'w mut PlainTextWriter<W>, path: &'a str) -> Self {
+    fn new(writer: &'w mut PlainTextWriter<W>, path: &'a RelativizeOnce<'a>) -> Self {
         Self {
             writer,
             path,
@@ -518,7 +548,7 @@ impl<W: Write> Sink for FileMatchLineSink<'_, '_, W> {
     type Error = io::Error;
 
     fn matched(&mut self, _searcher: &Searcher, _mat: &SinkMatch<'_>) -> Result<bool, Self::Error> {
-        self.writer.write_file_match(self.path)?;
+        self.writer.write_file_match(self.path.as_str())?;
         self.has_match = true;
         Ok(false)
     }
@@ -1115,7 +1145,7 @@ pub(crate) fn grep_files_json(
         }
 
         for file_result in file_batch {
-            let display_path = relativizer.relativize(&file_result.path);
+            let display_path = RelativizeOnce::new(relativizer, &file_result.path);
 
             if files_only {
                 // In files_only mode, just check if file has any match
@@ -1134,7 +1164,7 @@ pub(crate) fn grep_files_json(
                 }
                 if file_has_match {
                     json_out.write(&GrepFileMatch {
-                        path: &display_path,
+                        path: display_path.as_str(),
                     })?;
                     match_count += 1;
                 }
@@ -1167,14 +1197,14 @@ pub(crate) fn grep_files_json(
 }
 
 /// A sink that writes grep matches directly to JSON output.
-pub(crate) struct JsonWriteSink<'a> {
-    pub path: &'a str,
+pub(crate) struct JsonWriteSink<'a, 'p> {
+    pub path: &'a RelativizeOnce<'p>,
     pub include_line_number: bool,
     pub json_out: &'a mut JsonOutput,
     pub match_count: &'a mut u64,
 }
 
-impl Sink for JsonWriteSink<'_> {
+impl Sink for JsonWriteSink<'_, '_> {
     type Error = io::Error;
 
     fn matched(&mut self, _searcher: &Searcher, mat: &SinkMatch<'_>) -> Result<bool, Self::Error> {
@@ -1189,7 +1219,7 @@ impl Sink for JsonWriteSink<'_> {
         let text = text.trim_end_matches('\n');
 
         self.json_out.write(&GrepMatch {
-            path: self.path,
+            path: self.path.as_str(),
             line_number,
             text,
         })?;
