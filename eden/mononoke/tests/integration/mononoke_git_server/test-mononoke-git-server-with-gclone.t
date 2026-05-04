@@ -191,5 +191,5 @@
 -- Test --require-cached fails when not cached --
 
   $ cd "$TESTTMP"
-  $ RUST_LOG=off "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" should_fail -b nonexistent-branch --require-cached
+  $ EXPECTED_RC=1 quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" should_fail -b nonexistent-branch --require-cached
   [1]
