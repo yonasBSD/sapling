@@ -946,6 +946,7 @@ export const allConfigNames = [
   'extensions.commitcloud',
   'isl.show-authored-diffs',
   'isl.auto-detect-commit-schema',
+  'isl.focus-dot-on-repo-change',
 ] as const;
 
 /** sl configs read by ISL */
@@ -1368,6 +1369,7 @@ export type ServerToClientMessage =
   | {
       type: 'changeActiveRepo';
       cwd: string;
+      focusDotCommit?: boolean;
     };
 
 export type Disposable = {

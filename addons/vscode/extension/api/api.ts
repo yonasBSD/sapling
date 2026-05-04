@@ -31,7 +31,7 @@ export function makeExtensionApi(
       return reposList.repoForPath(path);
     },
     setActiveRepoForCwd(path: string): void {
-      postMessageToISLWebview({type: 'changeActiveRepo', cwd: path});
+      postMessageToISLWebview({type: 'changeActiveRepo', cwd: path, focusDotCommit: true});
     },
   };
 }

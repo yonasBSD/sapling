@@ -36,7 +36,7 @@ import css from './CwdSelector.module.css';
 import {DropdownField, DropdownFields} from './DropdownFields';
 import {T, t} from './i18n';
 import {useCommandEvent} from './ISLShortcuts';
-import {writeAtom} from './jotaiUtils';
+import {configBackedAtom, readAtom, writeAtom} from './jotaiUtils';
 import platform from './platform';
 import {serverCwd} from './repositoryData';
 import {repositoryInfo, submodulesByRoot} from './serverAPIState';
@@ -120,10 +120,74 @@ registerDisposable(
   import.meta.hot,
 );
 
+/**
+ * When true, switching repos via `setActiveRepoForCwd` (e.g. from the
+ * HyperClaude ISL bridge) also scrolls the smartlog to the dot commit
+ * after the new repo's commits arrive.
+ */
+const focusDotOnRepoChangeConfig = configBackedAtom<boolean>(
+  'isl.focus-dot-on-repo-change',
+  true,
+  true,
+);
+
+// Holds the cwd we're waiting to scroll the dot commit for, or null if
+// no scroll is pending. Storing the cwd (rather than a boolean) lets us
+// drop stale smartlogCommits results that arrive from the previous repo
+// before serverCwd has caught up.
+const pendingFocusDotCwd = atom<string | null>(null);
+
 registerDisposable(
   availableCwds,
   serverAPI.onMessageOfType('changeActiveRepo', event => {
+    if (event.focusDotCommit && readAtom(focusDotOnRepoChangeConfig)) {
+      writeAtom(pendingFocusDotCwd, event.cwd);
+    }
     changeCwd(event.cwd);
+  }),
+  import.meta.hot,
+);
+
+registerDisposable(
+  pendingFocusDotCwd,
+  serverAPI.onMessageOfType('subscriptionResult', event => {
+    if (event.kind !== 'smartlogCommits') {
+      return;
+    }
+    const targetCwd = readAtom(pendingFocusDotCwd);
+    if (targetCwd == null || readAtom(serverCwd) !== targetCwd) {
+      // Either no scroll is pending, or this result is from a previous
+      // repo whose response raced ahead of the cwd switch. Wait for the
+      // next smartlogCommits result that matches the target cwd.
+      return;
+    }
+    const result = event.data.commits;
+    const commits = result.value;
+    if (commits == null) {
+      // Wait for the next successful fetch (this one errored).
+      return;
+    }
+    const dotHash = commits.find(c => c.isDot)?.hash;
+    if (dotHash == null) {
+      // No dot commit (e.g. detached repo); nothing to scroll to.
+      writeAtom(pendingFocusDotCwd, null);
+      return;
+    }
+    writeAtom(pendingFocusDotCwd, null);
+    // React renders asynchronously after the message arrives; retry across
+    // frames until the commit row for the new dot hash appears in the DOM.
+    let attempts = 60; // ~1s at 60fps
+    const tryScroll = () => {
+      const node = document.querySelector(`[data-commit-hash="${dotHash}"]`);
+      if (node != null) {
+        node.scrollIntoView({block: 'center', behavior: 'smooth'});
+        return;
+      }
+      if (--attempts > 0) {
+        requestAnimationFrame(tryScroll);
+      }
+    };
+    requestAnimationFrame(tryScroll);
   }),
   import.meta.hot,
 );
