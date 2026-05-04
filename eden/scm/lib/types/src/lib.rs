@@ -36,6 +36,7 @@ pub use crate::cas::CasDigest;
 pub use crate::cas::CasDigestType;
 pub use crate::fetch_cause::FetchCause;
 pub use crate::fetch_context::FetchContext;
+pub use crate::fetch_context::FetchSyncMode;
 pub use crate::format::SerializationFormat;
 pub use crate::hgid::HgId;
 pub use crate::key::Key;

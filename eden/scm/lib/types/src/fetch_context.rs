@@ -13,6 +13,28 @@ use std::sync::atomic::Ordering;
 use crate::fetch_cause::FetchCause;
 use crate::fetch_mode::FetchMode;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Controls whether a fetch runs in the current thread or spawns a thread.
+pub enum FetchSyncMode {
+    /// Run the fetch in the current thread.
+    Sync,
+    /// Run the fetch by spawning a thread.
+    Async,
+    /// Let the implementation choose between sync and async behavior.
+    #[default]
+    Auto,
+}
+
+impl FetchSyncMode {
+    pub fn should_spawn(self, key_count: usize) -> bool {
+        match self {
+            Self::Sync => false,
+            Self::Async => true,
+            Self::Auto => key_count > 1000,
+        }
+    }
+}
+
 /// A context for a fetch operation.
 /// The structure is extendable to support more context in the future
 /// (e.g. cause of the fetch, etc.)
@@ -20,6 +42,7 @@ use crate::fetch_mode::FetchMode;
 pub struct FetchContext {
     mode: FetchMode,
     cause: FetchCause,
+    sync_mode: FetchSyncMode,
 
     local_fetch_count: Arc<AtomicU64>,
     remote_fetch_count: Arc<AtomicU64>,
@@ -56,6 +79,7 @@ impl FetchContext {
         Self {
             mode,
             cause,
+            sync_mode: FetchSyncMode::Auto,
             local_fetch_count: Default::default(),
             remote_fetch_count: Default::default(),
             fetch_from_cas_attempted: Default::default(),
@@ -69,6 +93,10 @@ impl FetchContext {
 
     pub fn cause(&self) -> FetchCause {
         self.cause
+    }
+
+    pub fn sync_mode(&self) -> FetchSyncMode {
+        self.sync_mode
     }
 
     pub fn inc_local(&self, count: u64) {
@@ -98,6 +126,11 @@ impl FetchContext {
 
     pub fn with_skip_lfs(mut self, skip_lfs: bool) -> Self {
         self.skip_lfs = skip_lfs;
+        self
+    }
+
+    pub fn with_sync_mode(mut self, sync_mode: FetchSyncMode) -> Self {
+        self.sync_mode = sync_mode;
         self
     }
 
@@ -140,5 +173,17 @@ mod tests {
         let fctx = FetchContext::default().with_skip_lfs(true);
         let cloned = fctx.clone();
         assert!(cloned.skip_lfs());
+    }
+
+    #[test]
+    fn test_sync_mode_defaults_to_auto() {
+        let fctx = FetchContext::default();
+        assert_eq!(fctx.sync_mode(), FetchSyncMode::Auto);
+    }
+
+    #[test]
+    fn test_sync_mode_with_builder() {
+        let fctx = FetchContext::default().with_sync_mode(FetchSyncMode::Sync);
+        assert_eq!(fctx.sync_mode(), FetchSyncMode::Sync);
     }
 }

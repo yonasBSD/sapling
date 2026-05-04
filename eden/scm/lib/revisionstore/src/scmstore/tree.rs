@@ -377,6 +377,7 @@ impl TreeStore {
 
         let fetch_local = fctx.mode().contains(FetchMode::LOCAL);
         let fetch_remote = fctx.mode().contains(FetchMode::REMOTE);
+        let sync_mode = fctx.sync_mode();
 
         tracing::debug!(
             ?fctx,
@@ -583,7 +584,7 @@ impl TreeStore {
         };
 
         // Only kick off a thread if there's a substantial amount of work.
-        if keys_len > 1000 {
+        if sync_mode.should_spawn(keys_len) {
             let active_bar = Registry::main().get_active_progress_bar();
             std::thread::spawn(move || {
                 // Propagate parent progress bar into the thread so things nest well.
@@ -893,7 +894,8 @@ impl storemodel::KeyStore for TreeStore {
 
             // Don't need to check local anymore, so remove from fetch mode.
             fctx =
-                FetchContext::new_with_mode_and_cause(fctx.mode() - FetchMode::LOCAL, fctx.cause());
+                FetchContext::new_with_mode_and_cause(fctx.mode() - FetchMode::LOCAL, fctx.cause())
+                    .with_sync_mode(fctx.sync_mode());
         }
 
         let key = Key::new(path.to_owned(), node);

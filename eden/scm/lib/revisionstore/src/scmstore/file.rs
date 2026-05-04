@@ -251,6 +251,7 @@ impl FileStore {
 
         let fetch_local = fctx.mode().contains(FetchMode::LOCAL);
         let fetch_remote = fctx.mode().contains(FetchMode::REMOTE);
+        let sync_mode = fctx.sync_mode();
 
         let lfs_buffer_in_memory = self.lfs_buffer_in_memory;
 
@@ -363,7 +364,7 @@ impl FileStore {
         // NB: callers such as backingstore::prefetch assume asynchronous behavior when fetching
         // more than 1k keys. If you change how this works, consider callers' expectations
         // carefully.
-        if keys_len > 1000 {
+        if sync_mode.should_spawn(keys_len) {
             let active_bar = Registry::main().get_active_progress_bar();
             std::thread::spawn(move || {
                 // Propagate parent progress bar into the thread so things nest well.
