@@ -154,13 +154,7 @@ from eden.fs.cli.util import (
     is_apple_silicon,
     wait_for_instance_healthy,
 )
-from eden.fs.service.eden.thrift_types import (
-    ChangeOwnershipRequest,
-    EdenError,
-    MountInfo,
-    MountState,
-    SendNotificationRequest,
-)
+from eden.fs.service.eden.thrift_types import EdenError
 from eden.thrift.client import EdenNotRunningError
 from fb303_core.thrift_types import fb303_status
 from thrift.python.exceptions import (
@@ -1224,8 +1218,7 @@ class HealthReportCmd(Subcmd):
                             title=error_code.summary(),
                             description=error_code.remediation(),
                         )
-                        # pyre-ignore[6]: Legacy client expects py-deprecated types
-                        client.sendNotification(request._to_py_deprecated())
+                        client.sendNotification(request)
                 except TransportError as e:
                     print_stderr(f"warning: edenfs daemon is not responding: {e}")
                 except EdenNotRunningError:
@@ -2444,8 +2437,7 @@ class StartCmd(Subcmd):
                         title="EdenFS ready for use",
                         description=f"EdenFS started with pid: {edenfs_pid}",
                     )
-                # pyre-ignore[6]: Legacy client expects py-deprecated types
-                client.sendNotification(request._to_py_deprecated())
+                client.sendNotification(request)
         except (
             TransportError,
             EdenNotRunningError,
