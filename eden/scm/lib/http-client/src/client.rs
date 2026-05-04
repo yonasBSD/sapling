@@ -18,6 +18,7 @@ use url::Url;
 use crate::Easy2H;
 use crate::claimer::RequestClaimer;
 use crate::dispatcher::AsyncRequestDispatcher;
+use crate::dispatcher::multi_worker_dispatcher;
 use crate::dispatcher::spawn_blocking_dispatcher;
 use crate::driver::MultiDriver;
 use crate::errors::Abort;
@@ -59,10 +60,10 @@ pub struct HttpClient {
 
 #[derive(Clone)]
 pub(crate) struct WorkerClient {
-    pool: Pool,
-    event_listeners: HttpClientEventListeners,
-    config: Config,
-    claimer: RequestClaimer,
+    pub(crate) pool: Pool,
+    pub(crate) event_listeners: HttpClientEventListeners,
+    pub(crate) config: Config,
+    pub(crate) claimer: RequestClaimer,
 }
 
 #[derive(Clone, Debug)]
@@ -104,6 +105,7 @@ pub struct Config {
 
     pub http_proxy_host: Option<String>,
     pub http_no_proxy: Option<String>,
+    pub http_worker_threads: usize,
 }
 
 impl Default for Config {
@@ -141,6 +143,7 @@ impl Default for Config {
 
             http_proxy_host: None,
             http_no_proxy: None,
+            http_worker_threads: 4,
         }
     }
 }
@@ -152,13 +155,18 @@ impl HttpClient {
 
     pub fn from_config(config: Config) -> Self {
         let claimer = RequestClaimer::new(config.limit_requests, config.max_concurrent_requests);
+        let dispatcher = if config.http_worker_threads == 0 {
+            spawn_blocking_dispatcher()
+        } else {
+            multi_worker_dispatcher(config.http_worker_threads)
+        };
 
         Self {
             config,
             claimer,
             pool: Pool::new(),
             event_listeners: Default::default(),
-            dispatcher: spawn_blocking_dispatcher(),
+            dispatcher,
         }
     }
 
@@ -488,7 +496,7 @@ impl WorkerClient {
     /// Callback for `MultiDriver::perform` when working with
     /// a `Streaming` handler. Reports the result of the
     /// completed request to the handler's `Receiver`.
-    fn report_result_and_drop_receiver(
+    pub(crate) fn report_result_and_drop_receiver(
         &self,
         res: Result<Easy2H, (Easy2H, curl::Error)>,
     ) -> Result<(), Abort> {
@@ -529,15 +537,68 @@ impl WorkerClient {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::net::TcpStream;
+    use std::sync::Mutex;
+    use std::time::Duration;
 
     use anyhow::Result;
+    use futures::future;
     use http::StatusCode;
+    use tokio::time::sleep;
     use url::Url;
 
     use super::*;
     use crate::Method;
     use crate::RequestContext;
+    use crate::dispatcher::AsyncRequestDispatcher;
     use crate::receiver::testutil::TestReceiver;
+
+    fn dispatcher_client(worker_threads: usize) -> HttpClient {
+        HttpClient::from_config(Config {
+            http_worker_threads: worker_threads,
+            ..Default::default()
+        })
+    }
+
+    fn closed_proxy_url() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local test port");
+        let addr = listener.local_addr().expect("get local test port");
+        drop(listener);
+        format!("http://{}", addr)
+    }
+
+    fn read_request(stream: &mut TcpStream) {
+        let mut buf = [0u8; 4096];
+        let mut request = Vec::new();
+        loop {
+            let n = stream.read(&mut buf).expect("read request");
+            assert!(n > 0, "client closed before sending full request");
+            request.extend_from_slice(&buf[..n]);
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
+        }
+    }
+
+    struct RecordingDispatcher {
+        seen: Arc<Mutex<Vec<(Option<usize>, bool)>>>,
+    }
+
+    impl AsyncRequestDispatcher for RecordingDispatcher {
+        fn dispatch(
+            &self,
+            client: WorkerClient,
+            _requests: Vec<StreamRequest>,
+        ) -> Result<StatsFuture, HttpClientError> {
+            self.seen.lock().unwrap().push((
+                client.config.max_concurrent_requests,
+                client.config.verbose_stats,
+            ));
+            Ok(future::ready(Ok(Stats::default())).boxed())
+        }
+    }
 
     #[test]
     fn test_client() -> Result<()> {
@@ -734,6 +795,236 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_async_dispatcher_mixed_success_and_failure() -> Result<()> {
+        let mut server = mockito::Server::new_async().await;
+        let body = b"body";
+
+        let mock = server
+            .mock("GET", "/test")
+            .with_status(201)
+            .with_body(body)
+            .create();
+
+        let server_url = Url::parse(&server.url())?;
+        let client = dispatcher_client(2);
+
+        let success = client.get(server_url.join("test")?);
+
+        let mut failure = client.get(server_url.join("test")?);
+        failure
+            .set_http_proxy_host(Some(closed_proxy_url()))
+            .set_http_no_proxy(Some(String::new()));
+
+        let (responses, stats) = client.send_async(vec![success, failure])?;
+        assert_eq!(responses.len(), 2);
+        let mut responses = responses.into_iter();
+        let success = responses.next().unwrap();
+        let failure = responses.next().unwrap();
+
+        let success = success.await?;
+        assert_eq!(success.head.status, StatusCode::CREATED);
+        assert_eq!(success.into_body().raw().try_concat().await?, body);
+
+        assert!(failure.await.is_err());
+
+        let stats = stats.await?;
+        assert_eq!(stats.requests, 2);
+
+        mock.assert();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_dispatcher_waits_for_request_slots() -> Result<()> {
+        let mut server = mockito::Server::new_async().await;
+        let body = b"body";
+
+        let _mock = server
+            .mock("GET", "/test")
+            .with_status(201)
+            .with_body(body)
+            .create();
+
+        let server_url = Url::parse(&server.url())?;
+        let client = dispatcher_client(1).max_concurrent_requests(Some(1));
+
+        let held_claim = client.claimer.claim_request();
+
+        let request = client.get(server_url.join("test")?);
+        let (responses, stats) = client.send_async(vec![request])?;
+        let response = responses.into_iter().next().unwrap();
+
+        sleep(Duration::from_millis(20)).await;
+        drop(held_claim);
+
+        let response = response.await?;
+        assert_eq!(response.head.status, StatusCode::CREATED);
+        assert_eq!(response.into_body().raw().try_concat().await?, body);
+
+        let stats = stats.await?;
+        assert_eq!(stats.requests, 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_dispatcher_waits_for_multiple_queued_batches() -> Result<()> {
+        let mut server = mockito::Server::new_async().await;
+        let body1 = b"body1";
+        let body2 = b"body2";
+
+        let mock1 = server
+            .mock("GET", "/test1")
+            .with_status(201)
+            .with_body(body1)
+            .create();
+        let mock2 = server
+            .mock("GET", "/test2")
+            .with_status(201)
+            .with_body(body2)
+            .create();
+
+        let server_url = Url::parse(&server.url())?;
+        let client = dispatcher_client(1).max_concurrent_requests(Some(1));
+
+        let held_claim = client.claimer.claim_request();
+
+        let (responses1, stats1) =
+            client.send_async(vec![client.get(server_url.join("test1")?)])?;
+        let (responses2, stats2) =
+            client.send_async(vec![client.get(server_url.join("test2")?)])?;
+
+        sleep(Duration::from_millis(20)).await;
+        drop(held_claim);
+
+        let response1 = responses1.into_iter().next().unwrap().await?;
+        assert_eq!(response1.head.status, StatusCode::CREATED);
+        assert_eq!(response1.into_body().raw().try_concat().await?, body1);
+
+        let response2 = responses2.into_iter().next().unwrap().await?;
+        assert_eq!(response2.head.status, StatusCode::CREATED);
+        assert_eq!(response2.into_body().raw().try_concat().await?, body2);
+
+        assert_eq!(stats1.await?.requests, 1);
+        assert_eq!(stats2.await?.requests, 1);
+
+        mock1.assert();
+        mock2.assert();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_dispatcher_waiting_batch_preserves_real_error() -> Result<()> {
+        let mut server = mockito::Server::new_async().await;
+        let body = b"body";
+
+        let mock = server
+            .mock("GET", "/test")
+            .with_status(201)
+            .with_body(body)
+            .create();
+
+        let server_url = Url::parse(&server.url())?;
+        let client = dispatcher_client(1).max_concurrent_requests(Some(1));
+
+        let held_claim = client.claimer.claim_request();
+
+        let success = client.get(server_url.join("test")?);
+        let mut failure = client.get(server_url.join("test")?);
+        failure
+            .set_http_proxy_host(Some(closed_proxy_url()))
+            .set_http_no_proxy(Some(String::new()));
+
+        let (responses, stats) = client.send_async(vec![success, failure])?;
+        let mut responses = responses.into_iter();
+        let success = responses.next().unwrap();
+        let failure = responses.next().unwrap();
+
+        sleep(Duration::from_millis(20)).await;
+        drop(held_claim);
+
+        let success = success.await?;
+        assert_eq!(success.head.status, StatusCode::CREATED);
+        assert_eq!(success.into_body().raw().try_concat().await?, body);
+
+        let err = match failure.await {
+            Ok(_) => panic!("expected queued failure request to fail"),
+            Err(err) => err.to_string(),
+        };
+        assert!(
+            !err.contains("dropped before it could complete"),
+            "expected the queued request to surface its real error, got: {err}"
+        );
+
+        assert_eq!(stats.await?.requests, 2);
+
+        mock.assert();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_dispatcher_dropped_response_does_not_poison_siblings() -> Result<()> {
+        let mut server = mockito::Server::new_async().await;
+        let body1 = b"body1";
+        let body2 = b"body2";
+
+        let mock1 = server
+            .mock("GET", "/test1")
+            .with_status(201)
+            .with_body(body1)
+            .create();
+        let mock2 = server
+            .mock("GET", "/test2")
+            .with_status(201)
+            .with_body(body2)
+            .create();
+
+        let server_url = Url::parse(&server.url())?;
+        let client = dispatcher_client(2);
+
+        let (responses, stats) = client.send_async(vec![
+            client.get(server_url.join("test1")?),
+            client.get(server_url.join("test2")?),
+        ])?;
+        let mut responses = responses.into_iter();
+        drop(responses.next().unwrap());
+        let survivor = responses.next().unwrap();
+
+        let survivor = survivor.await?;
+        assert_eq!(survivor.head.status, StatusCode::CREATED);
+        assert_eq!(survivor.into_body().raw().try_concat().await?, body2);
+
+        assert_eq!(stats.await?.requests, 2);
+
+        mock1.assert();
+        mock2.assert();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_dispatcher_uses_builder_updated_multi_limits() -> Result<()> {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let client = HttpClient::from_config(Config {
+            http_worker_threads: 1,
+            limit_requests: false,
+            ..Default::default()
+        })
+        .max_concurrent_requests(Some(1))
+        .verbose_stats(true);
+        let client = HttpClient {
+            dispatcher: Arc::new(RecordingDispatcher { seen: seen.clone() }),
+            ..client
+        };
+
+        let req = client.get(Url::parse("http://example.com/test")?);
+        let (_responses, stats) = client.send_async(vec![req])?;
+        assert_eq!(stats.await?, Stats::default());
+        assert_eq!(*seen.lock().unwrap(), vec![(Some(1), true)]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_event_listeners() -> Result<()> {
         let mut server = mockito::Server::new_async().await;
         let server_url = Url::parse(&server.url())?;
@@ -854,6 +1145,76 @@ mod tests {
 
         // All msg_tx should be dropped. recv() should not be blocking.
         msg_rx.recv().unwrap_err();
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_dispatcher_event_listeners_on_failure() -> Result<()> {
+        let mut server = mockito::Server::new_async().await;
+        let server_url = Url::parse(&server.url())?;
+
+        let _mock = server
+            .mock("GET", "/test")
+            .with_status(201)
+            .with_body("body")
+            .create();
+
+        let (stats_tx, stats_rx) = crossbeam::channel::unbounded();
+        let (msg_tx, msg_rx) = crossbeam::channel::unbounded();
+        let client = dispatcher_client(2).with_event_listeners(|l| {
+            l.on_stats(move |stats| {
+                stats_tx
+                    .send(stats.clone())
+                    .expect("send stats over channel")
+            });
+            l.on_new_request({
+                let msg_tx = msg_tx.clone();
+                move |_r| {
+                    msg_tx.send("new").unwrap();
+                }
+            });
+            l.on_succeeded_request({
+                let msg_tx = msg_tx.clone();
+                move |_r| {
+                    msg_tx.send("success").unwrap();
+                }
+            });
+            l.on_failed_request({
+                let msg_tx = msg_tx.clone();
+                move |_r| {
+                    msg_tx.send("failure").unwrap();
+                }
+            });
+        });
+
+        let success = client.get(server_url.join("test")?);
+        let mut failure = client.get(server_url.join("test")?);
+        failure
+            .set_http_proxy_host(Some(closed_proxy_url()))
+            .set_http_no_proxy(Some(String::new()));
+
+        let (responses, stats) = client.send_async(vec![success, failure])?;
+        assert_eq!(responses.len(), 2);
+        let mut responses = responses.into_iter();
+        let success = responses.next().unwrap();
+        let failure = responses.next().unwrap();
+
+        success.await?;
+        assert!(failure.await.is_err());
+
+        let stats = stats.await?;
+        assert_eq!(stats, stats_rx.recv()?);
+        assert_eq!(stats.requests, 2);
+
+        let mut messages = vec![
+            msg_rx.recv()?,
+            msg_rx.recv()?,
+            msg_rx.recv()?,
+            msg_rx.recv()?,
+        ];
+        messages.sort_unstable();
+        assert_eq!(messages, vec!["failure", "new", "new", "success"]);
 
         Ok(())
     }

@@ -25,9 +25,9 @@
 //
 // Other types:
 // - `HttpClient`: Configured HTTP client. Uses at least one libcurl
-//   `Multi` to handle multiple requests in a single loop/thread. However,
-//   the `send_async` uses `spawn_blocking` which defeats the benefit
-//   of O(1) thread provided by `Multi`.
+//   `Multi` to handle multiple requests in a single loop/thread. Async
+//   requests use a small pool of long-lived dispatcher threads by
+//   default, with a config escape hatch back to `spawn_blocking`.
 // - `Request` / `StreamRequest`: Similar but duplicated implementation
 //   to send requests.
 // - `CborStream`: Turn a stream of bytes into a stream of CBOR decoded

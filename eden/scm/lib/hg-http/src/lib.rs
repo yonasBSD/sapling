@@ -122,6 +122,13 @@ pub fn http_config(
         hc.follow_redirects = follow;
     }
 
+    if let Some(threads) = config
+        .get_opt("http", "dispatcher-threads")
+        .unwrap_or_default()
+    {
+        hc.http_worker_threads = threads;
+    }
+
     let using_auth_proxy = hc.unix_socket_path.is_some()
         && url_for_auth
             .domain()
