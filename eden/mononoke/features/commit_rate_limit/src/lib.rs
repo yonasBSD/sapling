@@ -133,7 +133,8 @@ pub async fn check_all_commit_rate_limits(
     let rules = repo.commit_rate_limit().rules();
     let futures: Vec<_> = rules
         .iter()
-        .map(|rule| {
+        .enumerate()
+        .map(|(idx, rule)| {
             let user_filter = if rule.per_user() {
                 parse_author_username(bonsai.author(), allow_bare_unixname)
                     .ok()
@@ -154,20 +155,25 @@ pub async fn check_all_commit_rate_limits(
                     allow_bare_unixname,
                 )
                 .await?;
-                anyhow::Ok(RuleCheckResult {
-                    rule_name: rule.name().to_string(),
-                    outcome,
-                    user_filter,
-                    directories,
-                })
+                anyhow::Ok((
+                    idx,
+                    RuleCheckResult {
+                        rule_name: rule.name().to_string(),
+                        outcome,
+                        user_filter,
+                        directories,
+                    },
+                ))
             }
         })
         .collect();
 
-    let rule_results: Vec<RuleCheckResult> = stream::iter(futures)
+    let mut indexed_results: Vec<(usize, RuleCheckResult)> = stream::iter(futures)
         .buffer_unordered(20)
         .try_collect()
         .await?;
+    indexed_results.sort_by_key(|(idx, _)| *idx);
+    let rule_results: Vec<RuleCheckResult> = indexed_results.into_iter().map(|(_, r)| r).collect();
 
     let passed = rule_results.iter().all(|r| r.outcome.is_allowed());
     Ok(CommitRateLimitCheckResult {

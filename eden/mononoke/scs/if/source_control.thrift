@@ -1664,6 +1664,12 @@ struct CommitRateLimitRuleResult {
   1: string rule_name;
   /// Whether the rule was exceeded or not.
   2: CommitRateLimitRuleOutcome outcome;
+  /// Username the rule was scoped to, if the rule applies per-user.
+  /// Unset for global (non-per-user) rules.
+  3: optional string user_filter;
+  /// Directories the rule was scoped to, if the rule restricts to a
+  /// directory prefix set. Unset for rules with no directory scope.
+  4: optional list<string> directories;
 }
 
 /// Response for a commit rate limit check.

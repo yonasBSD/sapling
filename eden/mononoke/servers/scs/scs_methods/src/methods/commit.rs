@@ -1641,9 +1641,16 @@ impl SourceControlServiceImpl {
                         },
                     ),
                 };
+                let directories = if r.directories.is_empty() {
+                    None
+                } else {
+                    Some(r.directories)
+                };
                 thrift::CommitRateLimitRuleResult {
                     rule_name: r.rule_name,
                     outcome,
+                    user_filter: r.user_filter,
+                    directories,
                     ..Default::default()
                 }
             })

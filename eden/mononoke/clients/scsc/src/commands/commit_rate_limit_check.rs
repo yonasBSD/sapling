@@ -49,6 +49,10 @@ enum RuleOutcome {
 struct RuleResult {
     rule_name: String,
     outcome: RuleOutcome,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_filter: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    directories: Option<Vec<String>>,
 }
 
 #[derive(Serialize)]
@@ -78,7 +82,16 @@ impl Render for RateLimitCheckOutput {
             if self.passed { "PASSED" } else { "FAILED" }
         )?;
         for rule in &self.rule_results {
-            write!(w, "{} => ", rule.rule_name)?;
+            write!(w, "{}", rule.rule_name)?;
+            if let Some(user) = &rule.user_filter {
+                write!(w, " (user: {})", user)?;
+            }
+            if let Some(dirs) = &rule.directories {
+                if !dirs.is_empty() {
+                    write!(w, " (directories: [{}])", dirs.join(", "))?;
+                }
+            }
+            write!(w, " => ")?;
             match &rule.outcome {
                 RuleOutcome::Allowed => write!(w, "ALLOWED\n")?,
                 RuleOutcome::Exceeded {
@@ -139,6 +152,8 @@ pub(super) async fn run(app: ScscApp, args: CommandArgs) -> Result<()> {
             Ok(RuleResult {
                 rule_name: r.rule_name,
                 outcome,
+                user_filter: r.user_filter,
+                directories: r.directories,
             })
         })
         .collect::<Result<Vec<_>>>()?;
