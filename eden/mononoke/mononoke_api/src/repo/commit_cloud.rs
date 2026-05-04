@@ -270,13 +270,20 @@ impl<R: MononokeRepo> RepoContext<R> {
             .await?;
             let cloud_ids = Arc::new(cloud_ids);
 
-            let mut all_parent_ids = HashSet::new();
-            let mut parents_by_changeset = Vec::with_capacity(changesets.len());
-            for changeset in &changesets {
-                let parent_ids = changeset.parents().await?;
-                all_parent_ids.extend(parent_ids.iter().copied());
-                parents_by_changeset.push((changeset.id(), parent_ids));
-            }
+            let parents_by_changeset: Vec<(ChangesetId, Vec<ChangesetId>)> =
+                stream::iter(changesets.iter().cloned())
+                    .map(|changeset| async move {
+                        let id = changeset.id();
+                        let parent_ids = changeset.parents().await?;
+                        Ok::<_, MononokeError>((id, parent_ids))
+                    })
+                    .buffer_unordered(100)
+                    .try_collect()
+                    .await?;
+            let all_parent_ids: HashSet<ChangesetId> = parents_by_changeset
+                .iter()
+                .flat_map(|(_, parent_ids)| parent_ids.iter().copied())
+                .collect();
             let parent_ids = all_parent_ids.into_iter().collect::<Vec<ChangesetId>>();
 
             let parent_cloud_ids = get_cloud_ids_from_bonsais(
