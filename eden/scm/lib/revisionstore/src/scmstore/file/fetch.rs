@@ -60,6 +60,8 @@ use crate::util;
 
 // How many files we buffer in memory before writing to the file cache.
 const FILE_CACHE_THRESHOLD: usize = 100;
+const EDENAPI_PROCESS_BATCH_SIZE: usize = 32;
+const EDENAPI_PROCESS_CONCURRENCY: usize = 4;
 
 pub struct FetchState {
     common: CommonFetchState<StoreFile>,
@@ -542,51 +544,48 @@ impl FetchState {
         let verify_hash = self.verify_hash;
         let entries = response
             .entries
-            .map(move |res_entry| {
+            .ready_chunks(EDENAPI_PROCESS_BATCH_SIZE)
+            .map(move |entry_batch| {
                 let lfs_cache = lfs_cache.clone();
                 let indexedlog_cache = indexedlog_cache.clone();
                 let aux_cache = aux_cache.clone();
                 spawn_blocking(move || {
-                    res_entry.map(move |entry| {
-                        (
-                            entry.key.clone(),
-                            Self::found_edenapi(
-                                entry,
-                                indexedlog_cache,
-                                lfs_cache,
-                                aux_cache,
-                                format,
-                                verify_hash,
-                            ),
-                        )
-                    })
+                    entry_batch
+                        .into_iter()
+                        .map(|res_entry| {
+                            let indexedlog_cache = indexedlog_cache.clone();
+                            let lfs_cache = lfs_cache.clone();
+                            let aux_cache = aux_cache.clone();
+                            res_entry.map(move |entry| {
+                                (
+                                    entry.key.clone(),
+                                    Self::found_edenapi(
+                                        entry,
+                                        indexedlog_cache,
+                                        lfs_cache,
+                                        aux_cache,
+                                        format,
+                                        verify_hash,
+                                    ),
+                                )
+                            })
+                        })
+                        .collect::<Vec<_>>()
                 })
 
                 // Processing a response may involve compressing the response, which
                 // can be expensive. If we don't process entries fast enough, edenapi
                 // can start queueing up responses which causes forever increasing
                 // memory usage. So let's process responses in parallel to stay ahead
-                // of download speeds.
+                // of download speeds while avoiding one blocking task per file.
             })
-            .buffer_unordered(4);
+            .buffer_unordered(EDENAPI_PROCESS_CONCURRENCY);
 
         // Record found entries
         let mut unknown_error: Option<ClonableError> = None;
-        for res in stream_to_iter(entries) {
-            bar.increase_position(1);
-
-            // TODO(meyer): This outer SaplingRemoteApi error with no key sucks
-            let (key, res) = match res {
-                Ok(result) => match result.map_err(|e| e.tag_network()) {
-                    Ok(result) => result,
-                    Err(err) => {
-                        if unknown_error.is_none() {
-                            unknown_error.replace(ClonableError::new(err));
-                        }
-                        continue;
-                    }
-                },
-                // JoinError
+        for batch in stream_to_iter(entries) {
+            let results = match batch {
+                Ok(results) => results,
                 Err(err) => {
                     if unknown_error.is_none() {
                         unknown_error.replace(ClonableError::new(err.into()));
@@ -595,36 +594,53 @@ impl FetchState {
                 }
             };
 
-            fetching_keys.remove(&key);
-            match res {
-                Ok((mut file, maybe_lfsptr, cache_entry)) => {
-                    if let Some(lfsptr) = maybe_lfsptr {
-                        found_pointers += 1;
-                        self.found_pointer(key.clone(), lfsptr, false);
-                    } else {
-                        found += 1;
+            for res in results {
+                bar.increase_position(1);
 
-                        if self.fctx.mode().ignore_result() {
-                            // If caller doesn't care about content, swap to a stub file to avoid
-                            // needlessly shuffling data around.
-                            file = StoreFile {
-                                content: Some(LazyFile::Raw(Blob::Bytes(minibytes::Bytes::new()))),
-                                aux_data: file.aux_data,
+                // TODO(meyer): This outer SaplingRemoteApi error with no key sucks
+                let (key, res) = match res.map_err(|e| e.tag_network()) {
+                    Ok(result) => result,
+                    Err(err) => {
+                        if unknown_error.is_none() {
+                            unknown_error.replace(ClonableError::new(err));
+                        }
+                        continue;
+                    }
+                };
+
+                fetching_keys.remove(&key);
+                match res {
+                    Ok((mut file, maybe_lfsptr, cache_entry)) => {
+                        if let Some(lfsptr) = maybe_lfsptr {
+                            found_pointers += 1;
+                            self.found_pointer(key.clone(), lfsptr, false);
+                        } else {
+                            found += 1;
+
+                            if self.fctx.mode().ignore_result() {
+                                // If caller doesn't care about content, swap to a stub file to avoid
+                                // needlessly shuffling data around.
+                                file = StoreFile {
+                                    content: Some(LazyFile::Raw(Blob::Bytes(
+                                        minibytes::Bytes::new(),
+                                    ))),
+                                    aux_data: file.aux_data,
+                                }
                             }
                         }
-                    }
-                    if let Some(cache_entry) = cache_entry {
-                        self.cache_entry(cache_entry);
-                    }
+                        if let Some(cache_entry) = cache_entry {
+                            self.cache_entry(cache_entry);
+                        }
 
-                    self.found_attributes(key, file);
-                }
-                Err(err) => {
-                    errors += 1;
-                    if error.is_none() {
-                        error.replace(format!("{}: {}", key, err));
+                        self.found_attributes(key, file);
                     }
-                    self.errors.keyed_error(key, NetworkError::wrap(err))
+                    Err(err) => {
+                        errors += 1;
+                        if error.is_none() {
+                            error.replace(format!("{}: {}", key, err));
+                        }
+                        self.errors.keyed_error(key, NetworkError::wrap(err))
+                    }
                 }
             }
         }
