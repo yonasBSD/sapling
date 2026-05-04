@@ -85,6 +85,25 @@
   $ cat gclone_git_b/file_b.txt
   content B
 
+-- Test gclone git (require cached) --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" gclone_git_a_cached -b master --require-cached
+  $ cat gclone_git_a_cached/file_a.txt
+  content A
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_b.git" gclone_git_b_cached -b master --require-cached
+  $ cat gclone_git_b_cached/file_b.txt
+  content B
+
+-- Test gclone git with --verify-on-download --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" gclone_git_a_verify -b master --verify-on-download=true
+  $ cat gclone_git_a_verify/file_a.txt
+  content A
+
 -- Test gclone grepo (upload) --
 
   $ cd "$TESTTMP"
@@ -103,6 +122,24 @@
   $ cat gclone_repo/b/file_b.txt
   content B
 
+-- Test gclone grepo (require cached) --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" grepo "$MONONOKE_GIT_SERVICE_BASE_URL/manifest.git" gclone_repo_cached -b master --require-cached-repo-url --require-cached
+  $ cat gclone_repo_cached/a/file_a.txt
+  content A
+  $ cat gclone_repo_cached/b/file_b.txt
+  content B
+
+-- Test gclone grepo with --verify-on-download --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" grepo "$MONONOKE_GIT_SERVICE_BASE_URL/manifest.git" gclone_repo_verify -b master --require-cached-repo-url --verify-on-download=true
+  $ cat gclone_repo_verify/a/file_a.txt
+  content A
+  $ cat gclone_repo_verify/b/file_b.txt
+  content B
+
 -- Test gclone git with --refresh-index-stats --
 
   $ cd "$TESTTMP"
@@ -110,6 +147,15 @@
   $ cat gclone_git_a_refresh/file_a.txt
   content A
   $ cd gclone_git_a_refresh && git status --short
+  $ cd "$TESTTMP"
+
+-- Test gclone git with --require-cached --verify-on-download --refresh-index-stats --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" gclone_git_a_full -b master --require-cached --verify-on-download=true --refresh-index-stats
+  $ cat gclone_git_a_full/file_a.txt
+  content A
+  $ cd gclone_git_a_full && git status --short
   $ cd "$TESTTMP"
 
 -- Test gclone grepo with --refresh-index-stats --
@@ -122,3 +168,28 @@
   content B
   $ cd gclone_repo_refresh && .repo/repo/repo forall -c 'git status --short'
   $ cd "$TESTTMP"
+
+-- Test gclone grepo with --require-cached --verify-on-download --refresh-index-stats --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" grepo "$MONONOKE_GIT_SERVICE_BASE_URL/manifest.git" gclone_repo_full -b master --require-cached-repo-url --require-cached --verify-on-download=true --refresh-index-stats
+  $ cat gclone_repo_full/a/file_a.txt
+  content A
+  $ cat gclone_repo_full/b/file_b.txt
+  content B
+  $ cd gclone_repo_full && .repo/repo/repo forall -c 'git status --short'
+  $ cd "$TESTTMP"
+
+-- Test gclone git --ensure-ttl-duration --
+
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" IGNORED -b master --ensure-ttl-duration
+
+-- Test gclone grepo --ensure-ttl-duration --
+
+  $ quiet "$GCLONE" grepo "$MONONOKE_GIT_SERVICE_BASE_URL/manifest.git" IGNORED -b master --require-cached-repo-url --ensure-ttl-duration
+
+-- Test --require-cached fails when not cached --
+
+  $ cd "$TESTTMP"
+  $ RUST_LOG=off "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" should_fail -b nonexistent-branch --require-cached
+  [1]
