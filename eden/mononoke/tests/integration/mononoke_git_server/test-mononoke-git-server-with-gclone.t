@@ -188,10 +188,10 @@
 
   $ quiet "$GCLONE" grepo "$MONONOKE_GIT_SERVICE_BASE_URL/manifest.git" IGNORED -b master --require-cached-repo-url --ensure-ttl-duration
 
--- Test --require-cached fails when not cached --
+-- Test gclone git fails with nonexistent branch --
 
   $ cd "$TESTTMP"
-  $ EXPECTED_RC=1 quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" should_fail -b nonexistent-branch --require-cached
+  $ EXPECTED_RC=1 quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" should_fail -b nonexistent-branch
   [1]
 
 -- Test gclone git with --partial-clone=false (upload) --
