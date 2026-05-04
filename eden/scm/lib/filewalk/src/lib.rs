@@ -29,7 +29,7 @@ use types::Key;
 use types::RepoPathBuf;
 
 const FETCH_BATCH_SIZE: usize = 1000;
-const CONCURRENT_FETCHES: usize = 5;
+const CONCURRENT_FETCHES: usize = 10;
 const RESULT_BATCH_SIZE: usize = 128;
 const RESULT_QUEUE_SIZE: usize = CONCURRENT_FETCHES * 8;
 
