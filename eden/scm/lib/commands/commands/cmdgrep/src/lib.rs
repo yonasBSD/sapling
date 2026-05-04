@@ -1078,7 +1078,7 @@ pub(crate) fn run_summary_grep_with_writer<W: Write>(
 
 /// A writer that outputs JSON in either array format or JSON Lines format.
 pub(crate) struct JsonOutput {
-    writer: Box<dyn Write>,
+    writer: BufWriter<Box<dyn Write>>,
     jsonl: bool,
     first: bool,
 }
@@ -1086,7 +1086,7 @@ pub(crate) struct JsonOutput {
 impl JsonOutput {
     pub fn new(writer: Box<dyn Write>, jsonl: bool) -> Self {
         Self {
-            writer,
+            writer: BufWriter::with_capacity(OUTPUT_BUFFER_CAPACITY, writer),
             jsonl,
             first: true,
         }
@@ -1119,6 +1119,7 @@ impl JsonOutput {
                 writeln!(self.writer, "\n]")?;
             }
         }
+        self.writer.flush()?;
         Ok(())
     }
 }
