@@ -40,6 +40,7 @@
 
 mod claimer;
 mod client;
+mod dispatcher;
 mod driver;
 mod errors;
 mod event_listeners;

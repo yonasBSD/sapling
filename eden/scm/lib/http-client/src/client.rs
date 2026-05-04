@@ -8,6 +8,7 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
 use std::vec::IntoIter;
 
@@ -16,6 +17,8 @@ use url::Url;
 
 use crate::Easy2H;
 use crate::claimer::RequestClaimer;
+use crate::dispatcher::AsyncRequestDispatcher;
+use crate::dispatcher::spawn_blocking_dispatcher;
 use crate::driver::MultiDriver;
 use crate::errors::Abort;
 use crate::errors::HttpClientError;
@@ -47,6 +50,15 @@ pub type StatsFuture =
 /// requests, you may want to use  `Request::send` instead.
 #[derive(Clone)]
 pub struct HttpClient {
+    pool: Pool,
+    event_listeners: HttpClientEventListeners,
+    config: Config,
+    claimer: RequestClaimer,
+    dispatcher: Arc<dyn AsyncRequestDispatcher>,
+}
+
+#[derive(Clone)]
+pub(crate) struct WorkerClient {
     pool: Pool,
     event_listeners: HttpClientEventListeners,
     config: Config,
@@ -146,6 +158,7 @@ impl HttpClient {
             claimer,
             pool: Pool::new(),
             event_listeners: Default::default(),
+            dispatcher: spawn_blocking_dispatcher(),
         }
     }
 
@@ -244,7 +257,7 @@ impl HttpClient {
         &self,
         requests: I,
     ) -> Result<(Vec<ResponseFuture>, StatsFuture), HttpClientError> {
-        let client = self.clone();
+        let client = self.worker_client();
 
         let mut stream_requests = Vec::new();
         let mut responses = Vec::new();
@@ -263,11 +276,29 @@ impl HttpClient {
             responses.push(AsyncResponse::new(streams, request_info).boxed());
         }
 
-        let task = async_runtime::spawn_blocking(move || client.stream(stream_requests));
-
-        let stats = task.err_into::<HttpClientError>().map(|res| res?).boxed();
+        let stats = self.dispatcher.dispatch(client, stream_requests)?;
 
         Ok((responses, stats))
+    }
+
+    fn worker_client(&self) -> WorkerClient {
+        WorkerClient {
+            pool: self.pool.clone(),
+            event_listeners: self.event_listeners.clone(),
+            config: self.config.clone(),
+            claimer: self.claimer.clone(),
+        }
+    }
+
+    /// Obtain the `HttpClientEventListeners` to register callbacks.
+    pub fn event_listeners(&mut self) -> &mut HttpClientEventListeners {
+        &mut self.event_listeners
+    }
+
+    /// Easier way to register event callbacks using the builder pattern.
+    pub fn with_event_listeners(mut self, f: impl FnOnce(&mut HttpClientEventListeners)) -> Self {
+        f(&mut self.event_listeners);
+        self
     }
 
     /// Perform the given requests, but stream the responses to the
@@ -278,6 +309,82 @@ impl HttpClient {
     /// until all of the transfers are complete, and will return
     /// the total stats across all transfers when complete.
     pub fn stream(&self, requests: Vec<StreamRequest>) -> Result<Stats, HttpClientError> {
+        self.worker_client().stream(requests)
+    }
+
+    /// Create a request with this client's config applied.
+    pub fn new_request(&self, url: Url, method: Method) -> Request {
+        self.configure_request(Request::new(
+            url,
+            method,
+            self.claimer.with_limit(self.config.max_concurrent_requests),
+        ))
+    }
+
+    /// Create a GET request with this client's config applied.
+    pub fn get(&self, url: Url) -> Request {
+        self.new_request(url, Method::Get)
+    }
+
+    /// Create a HEAD request with this client's config applied.
+    pub fn head(&self, url: Url) -> Request {
+        self.new_request(url, Method::Head)
+    }
+
+    /// Create a POST request with this client's config applied.
+    pub fn post(&self, url: Url) -> Request {
+        self.new_request(url, Method::Post)
+    }
+
+    /// Create a PUT request with this client's config applied.
+    pub fn put(&self, url: Url) -> Request {
+        self.new_request(url, Method::Put)
+    }
+
+    fn configure_request(&self, mut req: Request) -> Request {
+        req.set_client_info(&self.config.client_info);
+        req.set_convert_cert(self.config.convert_cert);
+        req.set_verbose(self.config.verbose);
+
+        if let Some(domain) = req.ctx().url().domain() {
+            if self.config.unix_socket_domains.contains(domain) {
+                req.set_auth_proxy_socket_path(self.config.unix_socket_path.clone());
+            }
+        }
+
+        if let Some(cert_path) = &self.config.cert_path {
+            req.set_cert(cert_path);
+        }
+
+        if let Some(key_path) = &self.config.key_path {
+            req.set_key(key_path);
+        }
+
+        if let Some(ca_path) = &self.config.ca_path {
+            req.set_cainfo(ca_path);
+        }
+
+        req.set_verify_tls_cert(!self.config.disable_tls_verification);
+        req.set_verify_tls_host(!self.config.disable_tls_verification);
+
+        req.set_limit_response_buffering(self.config.limit_response_buffering);
+
+        req.set_read_buffer_size(self.config.read_buffer_size);
+        req.set_write_buffer_size(self.config.write_buffer_size);
+
+        req
+    }
+}
+
+impl WorkerClient {
+    /// Perform the given requests, but stream the responses to the
+    /// `Receiver` attached to each respective request rather than
+    /// buffering the content of each response.
+    ///
+    /// Note that this function is not asynchronous; it WILL BLOCK
+    /// until all of the transfers are complete, and will return
+    /// the total stats across all transfers when complete.
+    pub(crate) fn stream(&self, requests: Vec<StreamRequest>) -> Result<Stats, HttpClientError> {
         // This is a "local" limit for how many concurrent requests we allow for a single
         // batch of requests. Requests are still subject to the global limit via self.claimer.
         let mut allowed_requests = self
@@ -378,17 +485,6 @@ impl HttpClient {
         Ok(stats)
     }
 
-    /// Obtain the `HttpClientEventListeners` to register callbacks.
-    pub fn event_listeners(&mut self) -> &mut HttpClientEventListeners {
-        &mut self.event_listeners
-    }
-
-    /// Easier way to register event callbacks using the builder pattern.
-    pub fn with_event_listeners(mut self, f: impl FnOnce(&mut HttpClientEventListeners)) -> Self {
-        f(&mut self.event_listeners);
-        self
-    }
-
     /// Callback for `MultiDriver::perform` when working with
     /// a `Streaming` handler. Reports the result of the
     /// completed request to the handler's `Receiver`.
@@ -427,69 +523,6 @@ impl HttpClient {
             tracing::error!("Cannot report status because receiver is missing");
             Ok(())
         }
-    }
-
-    /// Create a request with this client's config applied.
-    pub fn new_request(&self, url: Url, method: Method) -> Request {
-        self.configure_request(Request::new(
-            url,
-            method,
-            self.claimer.with_limit(self.config.max_concurrent_requests),
-        ))
-    }
-
-    /// Create a GET request with this client's config applied.
-    pub fn get(&self, url: Url) -> Request {
-        self.new_request(url, Method::Get)
-    }
-
-    /// Create a HEAD request with this client's config applied.
-    pub fn head(&self, url: Url) -> Request {
-        self.new_request(url, Method::Head)
-    }
-
-    /// Create a POST request with this client's config applied.
-    pub fn post(&self, url: Url) -> Request {
-        self.new_request(url, Method::Post)
-    }
-
-    /// Create a PUT request with this client's config applied.
-    pub fn put(&self, url: Url) -> Request {
-        self.new_request(url, Method::Put)
-    }
-
-    fn configure_request(&self, mut req: Request) -> Request {
-        req.set_client_info(&self.config.client_info);
-        req.set_convert_cert(self.config.convert_cert);
-        req.set_verbose(self.config.verbose);
-
-        if let Some(domain) = req.ctx().url().domain() {
-            if self.config.unix_socket_domains.contains(domain) {
-                req.set_auth_proxy_socket_path(self.config.unix_socket_path.clone());
-            }
-        }
-
-        if let Some(cert_path) = &self.config.cert_path {
-            req.set_cert(cert_path);
-        }
-
-        if let Some(key_path) = &self.config.key_path {
-            req.set_key(key_path);
-        }
-
-        if let Some(ca_path) = &self.config.ca_path {
-            req.set_cainfo(ca_path);
-        }
-
-        req.set_verify_tls_cert(!self.config.disable_tls_verification);
-        req.set_verify_tls_host(!self.config.disable_tls_verification);
-
-        req.set_limit_response_buffering(self.config.limit_response_buffering);
-
-        req.set_read_buffer_size(self.config.read_buffer_size);
-        req.set_write_buffer_size(self.config.write_buffer_size);
-
-        req
     }
 }
 
