@@ -100,11 +100,11 @@ Color seems to work on Windows, but not in the tests.
 
 Test color output (--color=always forces color even without tty):
   $ sl grep --color=always apple path:apple
-  \x1b[0m\x1b[35mapple\x1b[0m:\x1b[0m\x1b[1m\x1b[31mapple\x1b[0m (esc)
+  [35mapple[39m:[0m[1m[31mapple[0m
 
 Test color output with line numbers:
   $ sl grep --color=always -n banana path:banana
-  \x1b[0m\x1b[35mbanana\x1b[0m:\x1b[0m\x1b[32m1\x1b[0m:\x1b[0m\x1b[1m\x1b[31mbanana\x1b[0m (esc)
+  [35mbanana[39m:[32m1[39m:[0m[1m[31mbanana[0m
 
 Test color disabled explicitly:
   $ sl grep --color=off apple path:apple

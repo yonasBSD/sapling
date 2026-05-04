@@ -10,6 +10,7 @@ mod biggrep;
 
 use std::borrow::Cow;
 use std::io;
+use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -25,30 +26,242 @@ use cmdutil::FormatterOpts;
 use cmdutil::Result;
 use cmdutil::WalkOpts;
 use cmdutil::define_flags;
+use configmodel::Config;
+use configmodel::Text;
 use filewalk::walk_and_fetch;
-use grep::printer::ColorSpecs;
-use grep::printer::Standard;
-use grep::printer::StandardBuilder;
-use grep::printer::Summary;
-use grep::printer::SummaryBuilder;
-use grep::printer::SummaryKind;
+use grep::matcher::Match;
+use grep::matcher::Matcher;
 use grep::regex::RegexMatcher;
 use grep::regex::RegexMatcherBuilder;
 use grep::searcher::BinaryDetection;
 use grep::searcher::Searcher;
 use grep::searcher::SearcherBuilder;
 use grep::searcher::Sink;
+use grep::searcher::SinkContext;
+use grep::searcher::SinkFinish;
 use grep::searcher::SinkMatch;
 use pathmatcher::DynMatcher;
 use pathmatcher::IntersectMatcher;
 use repo::CoreRepo;
 use serde::Serialize;
-use termcolor::Ansi;
-use termcolor::NoColor;
-use termcolor::WriteColor;
+use termstyle::Styler;
 use types::RepoPathBuf;
 use types::hgid::WDIR_ID;
 use types::path::RepoPathRelativizer;
+
+const OUTPUT_BUFFER_CAPACITY: usize = 64 * 1024;
+
+#[derive(Clone)]
+pub(crate) struct GrepTextStyles {
+    path: Text,
+    line_number: Text,
+    matched: Text,
+}
+
+impl GrepTextStyles {
+    fn from_config(config: &dyn Config) -> Self {
+        Self {
+            path: config.get("color", "grep.path").unwrap_or_default(),
+            line_number: config.get("color", "grep.line_number").unwrap_or_default(),
+            matched: config.get("color", "grep.match").unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Default)]
+struct RenderedStyle {
+    prefix: Vec<u8>,
+    suffix: Vec<u8>,
+}
+
+impl RenderedStyle {
+    fn render(spec: &str, styler: &mut Styler) -> io::Result<Self> {
+        let Some(rendered) = styler
+            .render_style(spec)
+            .map_err(|e| io::Error::other(e.to_string()))?
+        else {
+            return Ok(Self::default());
+        };
+
+        Ok(Self {
+            prefix: rendered.prefix().to_vec(),
+            suffix: rendered.suffix().to_vec(),
+        })
+    }
+
+    fn is_empty(&self) -> bool {
+        self.prefix.is_empty()
+    }
+}
+
+pub(crate) struct PlainTextWriter<W: Write> {
+    inner: BufWriter<W>,
+    path_style: RenderedStyle,
+    line_number_style: RenderedStyle,
+    match_style: RenderedStyle,
+}
+
+impl<W: Write> PlainTextWriter<W> {
+    fn new(inner: W, use_color: bool, styles: &GrepTextStyles) -> io::Result<Self> {
+        let (path_style, line_number_style, match_style) = if use_color {
+            let mut styler = Styler::new().map_err(|e| io::Error::other(e.to_string()))?;
+            (
+                RenderedStyle::render(&styles.path, &mut styler)?,
+                RenderedStyle::render(&styles.line_number, &mut styler)?,
+                RenderedStyle::render(&styles.matched, &mut styler)?,
+            )
+        } else {
+            Default::default()
+        };
+
+        Ok(Self {
+            inner: BufWriter::with_capacity(OUTPUT_BUFFER_CAPACITY, inner),
+            path_style,
+            line_number_style,
+            match_style,
+        })
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+
+    fn trim_line_terminator<'a>(&self, line: &'a [u8]) -> &'a [u8] {
+        let line = line.strip_suffix(b"\n").unwrap_or(line);
+        line.strip_suffix(b"\r").unwrap_or(line)
+    }
+
+    fn write_styled_bytes(
+        inner: &mut BufWriter<W>,
+        style: &RenderedStyle,
+        bytes: &[u8],
+    ) -> io::Result<()> {
+        inner.write_all(&style.prefix)?;
+        inner.write_all(bytes)?;
+        inner.write_all(&style.suffix)
+    }
+
+    fn write_path(&mut self, path: &str) -> io::Result<()> {
+        Self::write_styled_bytes(&mut self.inner, &self.path_style, path.as_bytes())
+    }
+
+    fn write_line_number(&mut self, line_number: u64) -> io::Result<()> {
+        let line_number = line_number.to_string();
+        Self::write_styled_bytes(
+            &mut self.inner,
+            &self.line_number_style,
+            line_number.as_bytes(),
+        )
+    }
+
+    fn write_prefix(&mut self, path: &str, line_number: Option<u64>, sep: u8) -> io::Result<()> {
+        self.write_path(path)?;
+        self.inner.write_all(&[sep])?;
+        if let Some(line_number) = line_number {
+            self.write_line_number(line_number)?;
+            self.inner.write_all(&[sep])?;
+        }
+        Ok(())
+    }
+
+    fn write_matches(&mut self, line: &[u8], matches: &[Match]) -> io::Result<()> {
+        let mut written = 0;
+        for matched in matches
+            .iter()
+            .copied()
+            .filter(|matched| !matched.is_empty())
+        {
+            if matched.start() > written {
+                self.inner.write_all(&line[written..matched.start()])?;
+            }
+            Self::write_styled_bytes(&mut self.inner, &self.match_style, &line[matched])?;
+            written = matched.end();
+        }
+        if written < line.len() {
+            self.inner.write_all(&line[written..])?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write_match_line(
+        &mut self,
+        path: &str,
+        line_number: Option<u64>,
+        line: &[u8],
+        matches: &[Match],
+    ) -> io::Result<()> {
+        let line = self.trim_line_terminator(line);
+        self.write_prefix(path, line_number, b':')?;
+        if matches.is_empty() {
+            self.inner.write_all(line)?;
+        } else {
+            self.write_matches(line, matches)?;
+        }
+        self.inner.write_all(b"\n")
+    }
+
+    pub(crate) fn write_plain_match_line(
+        &mut self,
+        path: &str,
+        line_number: Option<u64>,
+        line: &[u8],
+    ) -> io::Result<()> {
+        let line = self.trim_line_terminator(line);
+        self.write_prefix(path, line_number, b':')?;
+        self.inner.write_all(line)?;
+        self.inner.write_all(b"\n")
+    }
+
+    pub(crate) fn write_context_line(
+        &mut self,
+        path: &str,
+        line_number: Option<u64>,
+        line: &[u8],
+    ) -> io::Result<()> {
+        let line = self.trim_line_terminator(line);
+        self.write_prefix(path, line_number, b'-')?;
+        self.inner.write_all(line)?;
+        self.inner.write_all(b"\n")
+    }
+
+    pub(crate) fn write_context_break(&mut self) -> io::Result<()> {
+        self.inner.write_all(b"--\n")
+    }
+
+    pub(crate) fn write_raw_line(&mut self, line: &[u8]) -> io::Result<()> {
+        self.inner.write_all(line)?;
+        self.inner.write_all(b"\n")
+    }
+
+    pub(crate) fn write_file_match(&mut self, path: &str) -> io::Result<()> {
+        self.write_path(path)?;
+        self.inner.write_all(b"\n")
+    }
+
+    pub(crate) fn write_binary_match(&mut self, path: &str) -> io::Result<()> {
+        self.inner.write_all(b"Binary file ")?;
+        self.write_path(path)?;
+        self.inner.write_all(b" matches\n")
+    }
+
+    pub(crate) fn write_binary_quit_warning(
+        &mut self,
+        path: &str,
+        quit_byte: u8,
+        offset: u64,
+    ) -> io::Result<()> {
+        self.write_path(path)?;
+        self.inner.write_all(b": ")?;
+        let escaped = std::ascii::escape_default(quit_byte)
+            .map(char::from)
+            .collect::<String>();
+        let remainder = format!(
+            "WARNING: stopped searching binary file after match (found \"{}\" byte around offset {})\n",
+            escaped, offset
+        );
+        self.inner.write_all(remainder.as_bytes())
+    }
+}
 
 /// A grep match entry for JSON output.
 #[derive(Serialize)]
@@ -65,25 +278,26 @@ pub(crate) struct GrepFileMatch<'a> {
     pub path: &'a str,
 }
 
-/// A grepper that searches file contents for matches using the Standard printer.
-pub(crate) struct Grepper<'a, W: WriteColor> {
+/// A grepper that searches file contents for matches using the plain text printer.
+pub(crate) struct Grepper<'a, W: Write> {
     regex_matcher: RegexMatcher,
     searcher: Searcher,
     relativizer: &'a RepoPathRelativizer,
-    printer: Standard<W>,
+    writer: PlainTextWriter<W>,
+    invert_match: bool,
     match_count: u64,
 }
 
-/// A grepper for files_with_matches (-l) mode using the Summary printer.
-pub(crate) struct SummaryGrepper<'a, W: WriteColor> {
+/// A grepper for files_with_matches (-l) mode using the plain text printer.
+pub(crate) struct SummaryGrepper<'a, W: Write> {
     regex_matcher: RegexMatcher,
     searcher: Searcher,
     relativizer: &'a RepoPathRelativizer,
-    printer: Summary<W>,
+    writer: PlainTextWriter<W>,
     match_count: u64,
 }
 
-impl<'a, W: WriteColor> Grepper<'a, W> {
+impl<'a, W: Write> Grepper<'a, W> {
     /// Build a Grepper from GrepOpts, a pattern, relativizer, and output writer.
     pub(crate) fn new(
         opts: &GrepOpts,
@@ -91,23 +305,17 @@ impl<'a, W: WriteColor> Grepper<'a, W> {
         relativizer: &'a RepoPathRelativizer,
         out: W,
         use_color: bool,
+        styles: &GrepTextStyles,
     ) -> Result<Self> {
         let regex_matcher = build_regex_matcher(opts, pattern)?;
         let searcher = build_searcher(opts)?;
-
-        // Build the standard printer
-        let mut builder = StandardBuilder::new();
-        if use_color {
-            builder.color_specs(ColorSpecs::default_with_color());
-        }
-
-        let printer = builder.build(out);
 
         Ok(Self {
             regex_matcher,
             searcher,
             relativizer,
-            printer,
+            writer: PlainTextWriter::new(out, use_color, styles)?,
+            invert_match: opts.invert_match,
             match_count: 0,
         })
     }
@@ -117,13 +325,16 @@ impl<'a, W: WriteColor> Grepper<'a, W> {
         let display_path = self.relativizer.relativize(path);
 
         data.each_chunk(|chunk| {
-            let mut sink = self
-                .printer
-                .sink_with_path(&self.regex_matcher, display_path.as_str());
+            let mut sink = StandardLineSink::new(
+                &self.regex_matcher,
+                &mut self.writer,
+                display_path.as_str(),
+                self.invert_match,
+            );
             self.searcher
                 .search_slice(&self.regex_matcher, chunk, &mut sink)
                 .map_err(|e| io::Error::other(e.to_string()))?;
-            self.match_count += sink.match_count();
+            self.match_count += sink.match_count;
             Ok(())
         })
     }
@@ -132,9 +343,13 @@ impl<'a, W: WriteColor> Grepper<'a, W> {
     pub(crate) fn match_count(&self) -> u64 {
         self.match_count
     }
+
+    pub(crate) fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
+    }
 }
 
-impl<'a, W: WriteColor> SummaryGrepper<'a, W> {
+impl<'a, W: Write> SummaryGrepper<'a, W> {
     /// Build a SummaryGrepper for files_with_matches mode.
     pub(crate) fn new(
         opts: &GrepOpts,
@@ -142,24 +357,16 @@ impl<'a, W: WriteColor> SummaryGrepper<'a, W> {
         relativizer: &'a RepoPathRelativizer,
         out: W,
         use_color: bool,
+        styles: &GrepTextStyles,
     ) -> Result<Self> {
         let regex_matcher = build_regex_matcher(opts, pattern)?;
         let searcher = build_searcher(opts)?;
-
-        // Build the summary printer for PathWithMatch mode
-        let mut builder = SummaryBuilder::new();
-        builder.kind(SummaryKind::PathWithMatch);
-        if use_color {
-            builder.color_specs(ColorSpecs::default_with_color());
-        }
-
-        let printer = builder.build(out);
 
         Ok(Self {
             regex_matcher,
             searcher,
             relativizer,
-            printer,
+            writer: PlainTextWriter::new(out, use_color, styles)?,
             match_count: 0,
         })
     }
@@ -167,24 +374,161 @@ impl<'a, W: WriteColor> SummaryGrepper<'a, W> {
     /// Grep a file's contents for matches.
     pub(crate) fn grep_file(&mut self, path: &RepoPathBuf, data: &Blob) -> io::Result<()> {
         let display_path = self.relativizer.relativize(path);
+        let mut file_has_match = false;
 
         data.each_chunk(|chunk| {
-            let mut sink = self
-                .printer
-                .sink_with_path(&self.regex_matcher, display_path.as_str());
+            if file_has_match {
+                return Ok(());
+            }
+            let mut sink = FileMatchLineSink::new(&mut self.writer, display_path.as_str());
             self.searcher
                 .search_slice(&self.regex_matcher, chunk, &mut sink)
                 .map_err(|e| io::Error::other(e.to_string()))?;
-            if sink.has_match() {
-                self.match_count += 1;
-            }
+            file_has_match = sink.has_match;
             Ok(())
-        })
+        })?;
+        if file_has_match {
+            self.match_count += 1;
+        }
+        Ok(())
     }
 
     /// Get the total number of files with matches.
     pub(crate) fn match_count(&self) -> u64 {
         self.match_count
+    }
+
+    pub(crate) fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
+    }
+}
+
+struct StandardLineSink<'a, 'w, W: Write> {
+    regex_matcher: &'a RegexMatcher,
+    writer: &'w mut PlainTextWriter<W>,
+    path: &'a str,
+    invert_match: bool,
+    match_count: u64,
+    match_positions: Vec<Match>,
+    binary_byte_offset: Option<u64>,
+}
+
+impl<'a, 'w, W: Write> StandardLineSink<'a, 'w, W> {
+    fn new(
+        regex_matcher: &'a RegexMatcher,
+        writer: &'w mut PlainTextWriter<W>,
+        path: &'a str,
+        invert_match: bool,
+    ) -> Self {
+        Self {
+            regex_matcher,
+            writer,
+            path,
+            invert_match,
+            match_count: 0,
+            match_positions: Vec::new(),
+            binary_byte_offset: None,
+        }
+    }
+}
+
+impl<W: Write> Sink for StandardLineSink<'_, '_, W> {
+    type Error = io::Error;
+
+    fn matched(&mut self, _searcher: &Searcher, mat: &SinkMatch<'_>) -> Result<bool, Self::Error> {
+        let line_number = mat.line_number();
+        let line = mat.bytes();
+
+        if self.invert_match || self.writer.match_style.is_empty() {
+            self.writer
+                .write_plain_match_line(self.path, line_number, line)?;
+        } else {
+            let line = self.writer.trim_line_terminator(line);
+            self.match_positions.clear();
+            self.regex_matcher
+                .find_iter(line, |matched| {
+                    self.match_positions.push(matched);
+                    true
+                })
+                .map_err(|e| io::Error::other(e.to_string()))?;
+            self.writer
+                .write_match_line(self.path, line_number, line, &self.match_positions)?;
+        }
+
+        self.match_count += 1;
+        Ok(true)
+    }
+
+    fn context(
+        &mut self,
+        _searcher: &Searcher,
+        context: &SinkContext<'_>,
+    ) -> Result<bool, Self::Error> {
+        self.writer
+            .write_context_line(self.path, context.line_number(), context.bytes())?;
+        Ok(true)
+    }
+
+    fn context_break(&mut self, _searcher: &Searcher) -> Result<bool, Self::Error> {
+        self.writer.write_context_break()?;
+        Ok(true)
+    }
+
+    fn binary_data(
+        &mut self,
+        _searcher: &Searcher,
+        binary_byte_offset: u64,
+    ) -> Result<bool, Self::Error> {
+        self.binary_byte_offset = Some(binary_byte_offset);
+        Ok(true)
+    }
+
+    fn finish(&mut self, searcher: &Searcher, _finish: &SinkFinish) -> Result<(), Self::Error> {
+        if self.match_count == 0 {
+            return Ok(());
+        }
+        if let (Some(binary_byte_offset), Some(quit_byte)) = (
+            self.binary_byte_offset,
+            searcher.binary_detection().quit_byte(),
+        ) {
+            self.writer
+                .write_binary_quit_warning(self.path, quit_byte, binary_byte_offset)?;
+        }
+        Ok(())
+    }
+}
+
+struct FileMatchLineSink<'a, 'w, W: Write> {
+    writer: &'w mut PlainTextWriter<W>,
+    path: &'a str,
+    has_match: bool,
+}
+
+impl<'a, 'w, W: Write> FileMatchLineSink<'a, 'w, W> {
+    fn new(writer: &'w mut PlainTextWriter<W>, path: &'a str) -> Self {
+        Self {
+            writer,
+            path,
+            has_match: false,
+        }
+    }
+}
+
+impl<W: Write> Sink for FileMatchLineSink<'_, '_, W> {
+    type Error = io::Error;
+
+    fn matched(&mut self, _searcher: &Searcher, _mat: &SinkMatch<'_>) -> Result<bool, Self::Error> {
+        self.writer.write_file_match(self.path)?;
+        self.has_match = true;
+        Ok(false)
+    }
+
+    fn binary_data(
+        &mut self,
+        _searcher: &Searcher,
+        _binary_byte_offset: u64,
+    ) -> Result<bool, Self::Error> {
+        Ok(false)
     }
 }
 
@@ -604,34 +948,18 @@ fn run_standard_grep(
     pattern: &str,
     use_color: bool,
 ) -> Result<u64> {
-    let out = ctx.io().output();
-
-    if use_color {
-        let ansi_out = Ansi::new(out);
-        run_standard_grep_with_writer(
-            ctx,
-            relativizer,
-            file_rx,
-            first_error,
-            pattern,
-            ansi_out,
-            true,
-        )
-    } else {
-        let no_color_out = NoColor::new(out);
-        run_standard_grep_with_writer(
-            ctx,
-            relativizer,
-            file_rx,
-            first_error,
-            pattern,
-            no_color_out,
-            false,
-        )
-    }
+    run_standard_grep_with_writer(
+        ctx,
+        relativizer,
+        file_rx,
+        first_error,
+        pattern,
+        ctx.io().output(),
+        use_color,
+    )
 }
 
-fn run_standard_grep_with_writer<W: WriteColor>(
+pub(crate) fn run_standard_grep_with_writer<W: Write>(
     ctx: &ReqCtx<GrepOpts>,
     relativizer: &RepoPathRelativizer,
     file_rx: flume::Receiver<filewalk::FileResult>,
@@ -640,7 +968,8 @@ fn run_standard_grep_with_writer<W: WriteColor>(
     out: W,
     use_color: bool,
 ) -> Result<u64> {
-    let mut grepper = Grepper::new(&ctx.opts, pattern, relativizer, out, use_color)?;
+    let styles = GrepTextStyles::from_config(ctx.config().as_ref());
+    let mut grepper = Grepper::new(&ctx.opts, pattern, relativizer, out, use_color, &styles)?;
 
     for file_result in file_rx {
         if first_error.has_error() {
@@ -653,6 +982,7 @@ fn run_standard_grep_with_writer<W: WriteColor>(
         }
     }
 
+    grepper.flush()?;
     Ok(grepper.match_count())
 }
 
@@ -665,34 +995,18 @@ fn run_summary_grep(
     pattern: &str,
     use_color: bool,
 ) -> Result<u64> {
-    let out = ctx.io().output();
-
-    if use_color {
-        let ansi_out = Ansi::new(out);
-        run_summary_grep_with_writer(
-            ctx,
-            relativizer,
-            file_rx,
-            first_error,
-            pattern,
-            ansi_out,
-            true,
-        )
-    } else {
-        let no_color_out = NoColor::new(out);
-        run_summary_grep_with_writer(
-            ctx,
-            relativizer,
-            file_rx,
-            first_error,
-            pattern,
-            no_color_out,
-            false,
-        )
-    }
+    run_summary_grep_with_writer(
+        ctx,
+        relativizer,
+        file_rx,
+        first_error,
+        pattern,
+        ctx.io().output(),
+        use_color,
+    )
 }
 
-fn run_summary_grep_with_writer<W: WriteColor>(
+pub(crate) fn run_summary_grep_with_writer<W: Write>(
     ctx: &ReqCtx<GrepOpts>,
     relativizer: &RepoPathRelativizer,
     file_rx: flume::Receiver<filewalk::FileResult>,
@@ -701,7 +1015,9 @@ fn run_summary_grep_with_writer<W: WriteColor>(
     out: W,
     use_color: bool,
 ) -> Result<u64> {
-    let mut grepper = SummaryGrepper::new(&ctx.opts, pattern, relativizer, out, use_color)?;
+    let styles = GrepTextStyles::from_config(ctx.config().as_ref());
+    let mut grepper =
+        SummaryGrepper::new(&ctx.opts, pattern, relativizer, out, use_color, &styles)?;
 
     for file_result in file_rx {
         if first_error.has_error() {
@@ -714,6 +1030,7 @@ fn run_summary_grep_with_writer<W: WriteColor>(
         }
     }
 
+    grepper.flush()?;
     Ok(grepper.match_count())
 }
 
@@ -940,4 +1257,62 @@ pub fn doc() -> &'static str {
 
 pub fn synopsis() -> Option<&'static str> {
     Some("[OPTION]... PATTERN [FILE]...")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
+    use configmodel::Text;
+
+    use super::PlainTextWriter;
+    use crate::GrepTextStyles;
+
+    #[derive(Clone, Debug, Default)]
+    struct CountingWriter {
+        writes: Arc<AtomicUsize>,
+        bytes: Arc<AtomicUsize>,
+    }
+
+    impl io::Write for CountingWriter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.writes.fetch_add(1, Ordering::Relaxed);
+            self.bytes.fetch_add(buf.len(), Ordering::Relaxed);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn plain_text_writer_batches_small_writes() -> io::Result<()> {
+        let inner = CountingWriter::default();
+        let writes = inner.writes.clone();
+        let bytes = inner.bytes.clone();
+        let styles = GrepTextStyles {
+            path: Text::from_static(""),
+            line_number: Text::from_static(""),
+            matched: Text::from_static(""),
+        };
+        let mut writer = PlainTextWriter::new(inner, false, &styles)?;
+
+        writer.write_plain_match_line("path", None, b"hello")?;
+        writer.write_plain_match_line("path", Some(2), b"world")?;
+
+        assert_eq!(writes.load(Ordering::Relaxed), 0);
+
+        writer.flush()?;
+
+        assert_eq!(writes.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            bytes.load(Ordering::Relaxed),
+            b"path:hello\npath:2:world\n".len()
+        );
+        Ok(())
+    }
 }
