@@ -193,3 +193,54 @@
   $ cd "$TESTTMP"
   $ EXPECTED_RC=1 quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" should_fail -b nonexistent-branch --require-cached
   [1]
+
+-- Test gclone git with --partial-clone=false (upload) --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" gclone_git_a_full_upload -b master --partial-clone=false --upload
+  $ cat gclone_git_a_full_upload/file_a.txt
+  content A
+
+-- Test gclone git with --partial-clone=false (download) --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" gclone_git_a_nopartial -b master --partial-clone=false
+  $ cat gclone_git_a_nopartial/file_a.txt
+  content A
+
+-- Test gclone git with --partial-clone=false (require cached) --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" gclone_git_a_nopartial_cached -b master --partial-clone=false --require-cached
+  $ cat gclone_git_a_nopartial_cached/file_a.txt
+  content A
+
+-- Test gclone git with --compat-partial-clones --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_a.git" gclone_git_a_compat -b master --upload --compat-partial-clones
+  $ cat gclone_git_a_compat/file_a.txt
+  content A
+
+-- Test gclone git with --verify-on-upload=false --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_b.git" gclone_git_b_no_verify -b master --upload --verify-on-upload=false
+  $ cat gclone_git_b_no_verify/file_b.txt
+  content B
+
+-- Test gclone grepo with --jobs --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" grepo "$MONONOKE_GIT_SERVICE_BASE_URL/manifest.git" gclone_repo_jobs -b master --require-cached-repo-url --jobs=2
+  $ cat gclone_repo_jobs/a/file_a.txt
+  content A
+  $ cat gclone_repo_jobs/b/file_b.txt
+  content B
+
+-- Test gclone git with multiple flags --
+
+  $ cd "$TESTTMP"
+  $ quiet "$GCLONE" git "$MONONOKE_GIT_SERVICE_BASE_URL/repo_b.git" gclone_git_b_multi -b master --partial-clone=false --verify-on-download=true --refresh-index-stats --compat-partial-clones
+  $ cat gclone_git_b_multi/file_b.txt
+  content B
