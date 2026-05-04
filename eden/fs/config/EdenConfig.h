@@ -2370,7 +2370,7 @@ class EdenConfig : private ConfigSettingManager {
 
   ConfigSetting<size_t> xplatLoggerQueueLimitBytes{
       "xplat-logger:queue-limit-bytes",
-      128 * 1024,
+      64 * 1024,
       this};
 
   ConfigSetting<size_t> xplatLoggerMaxBatchSize{

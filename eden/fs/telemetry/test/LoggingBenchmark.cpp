@@ -15,6 +15,8 @@
 #include "eden/common/telemetry/DynamicEvent.h"
 #include "eden/common/telemetry/SubprocessScribeLogger.h"
 #include "eden/common/utils/RefPtr.h"
+#include "eden/fs/config/EdenConfig.h"
+#include "eden/fs/config/ReloadableConfig.h"
 #include "eden/fs/telemetry/EdenStats.h"
 #include "eden/fs/telemetry/XplatKeys.h"
 #include "eden/fs/telemetry/facebook/EdenTelemetryIdentity.h"
@@ -298,6 +300,129 @@ BENCHMARK(BM_XplatLogger_Enqueue)
 BENCHMARK(BM_XplatLogger_Enqueue)
     ->Threads(8)
     ->Name("BM_XplatLogger_Enqueue/threads:8");
+
+// ---------------------------------------------------------------------------
+// Level 5: Parameterized config benchmarks
+// ---------------------------------------------------------------------------
+
+namespace {
+
+std::shared_ptr<ReloadableConfig> makeConfigWithValues(
+    size_t queueLimitBytes,
+    size_t maxBatchSize) {
+  auto config = EdenConfig::createTestEdenConfig();
+  config->xplatLoggerQueueLimitBytes.setValue(
+      queueLimitBytes, ConfigSourceType::CommandLine);
+  config->xplatLoggerMaxBatchSize.setValue(
+      maxBatchSize, ConfigSourceType::CommandLine);
+  return std::make_shared<ReloadableConfig>(std::move(config));
+}
+
+void logBurst(XplatLogger& logger, int64_t burstSize) {
+  for (int64_t i = 0; i < burstSize; ++i) {
+    DynamicEvent event;
+    event.addString(std::string{xplat_keys::kRepo}, std::string{kRepo});
+    event.addString(
+        std::string{xplat_keys::kDirectory}, std::string{kDirectory});
+    event.addString(std::string{xplat_keys::kFilename}, std::string{kFilename});
+    event.addString(std::string{xplat_keys::kSource}, std::string{kSource});
+    event.addString(
+        std::string{xplat_keys::kSourceDetail}, std::string{kSourceDetail});
+    logger.logEvent("perfpipe_edenfs_file_accesses", event);
+  }
+}
+
+} // namespace
+
+// Queue limit bytes: burst throughput with varying queue sizes.
+// Tests how queue size affects drop rate under burst load.
+static void BM_XplatLogger_QueueLimit(benchmark::State& state) {
+  const auto queueLimitBytes = static_cast<size_t>(state.range(0));
+  constexpr int64_t kBurstSize = 10000;
+  auto reloadableConfig =
+      makeConfigWithValues(queueLimitBytes, 100 /* default batch size */);
+  auto logger = std::make_unique<XplatLogger>(
+      makeIdentity(), makeRefPtr<EdenStats>(), reloadableConfig);
+  logger->registerTransform(
+      "perfpipe_edenfs_file_accesses",
+      "GeneratedEdenfsFileAccessesLoggerConfig",
+      fileAccessTransform);
+
+  for (auto _ : state) {
+    logBurst(*logger, kBurstSize);
+  }
+  state.SetItemsProcessed(state.iterations() * kBurstSize);
+}
+BENCHMARK(BM_XplatLogger_QueueLimit)
+    ->Arg(65536)
+    ->Arg(131072)
+    ->Arg(262144)
+    ->Arg(524288)
+    ->Arg(1048576);
+
+// Max batch size: throughput with varying batch sizes.
+// Tests how batch size affects throughput and RPC overhead.
+static void BM_XplatLogger_BatchSize(benchmark::State& state) {
+  const auto maxBatchSize = static_cast<size_t>(state.range(0));
+  constexpr int64_t kBurstSize = 10000;
+  auto reloadableConfig =
+      makeConfigWithValues(131072 /* default queue limit */, maxBatchSize);
+  auto logger = std::make_unique<XplatLogger>(
+      makeIdentity(), makeRefPtr<EdenStats>(), reloadableConfig);
+  logger->registerTransform(
+      "perfpipe_edenfs_file_accesses",
+      "GeneratedEdenfsFileAccessesLoggerConfig",
+      fileAccessTransform);
+
+  for (auto _ : state) {
+    logBurst(*logger, kBurstSize);
+  }
+  state.SetItemsProcessed(state.iterations() * kBurstSize);
+}
+BENCHMARK(BM_XplatLogger_BatchSize)
+    ->Arg(10)
+    ->Arg(50)
+    ->Arg(100)
+    ->Arg(200)
+    ->Arg(500);
+
+// Combined: queue limit x batch size matrix.
+// Tests interesting combinations of queue limit and batch size.
+static void BM_XplatLogger_QueueBatchCombo(benchmark::State& state) {
+  const auto queueLimitBytes = static_cast<size_t>(state.range(0));
+  const auto maxBatchSize = static_cast<size_t>(state.range(1));
+  constexpr int64_t kBurstSize = 10000;
+  auto reloadableConfig = makeConfigWithValues(queueLimitBytes, maxBatchSize);
+  auto logger = std::make_unique<XplatLogger>(
+      makeIdentity(), makeRefPtr<EdenStats>(), reloadableConfig);
+  logger->registerTransform(
+      "perfpipe_edenfs_file_accesses",
+      "GeneratedEdenfsFileAccessesLoggerConfig",
+      fileAccessTransform);
+
+  for (auto _ : state) {
+    logBurst(*logger, kBurstSize);
+  }
+  state.SetItemsProcessed(state.iterations() * kBurstSize);
+}
+BENCHMARK(BM_XplatLogger_QueueBatchCombo)
+    ->Args({32768, 10})
+    ->Args({32768, 25})
+    ->Args({32768, 50})
+    ->Args({65536, 10})
+    ->Args({65536, 25})
+    ->Args({65536, 50})
+    ->Args({65536, 100})
+    ->Args({65536, 200})
+    ->Args({131072, 10})
+    ->Args({131072, 50})
+    ->Args({131072, 100})
+    ->Args({131072, 200})
+    ->Args({262144, 50})
+    ->Args({262144, 100})
+    ->Args({262144, 200})
+    ->Args({524288, 500})
+    ->Args({1048576, 100});
 
 // ---------------------------------------------------------------------------
 
