@@ -943,7 +943,7 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
 fn run_standard_grep(
     ctx: &ReqCtx<GrepOpts>,
     relativizer: &RepoPathRelativizer,
-    file_rx: flume::Receiver<filewalk::FileResult>,
+    file_rx: flume::Receiver<Vec<filewalk::FileResult>>,
     first_error: &filewalk::FirstError,
     pattern: &str,
     use_color: bool,
@@ -962,7 +962,7 @@ fn run_standard_grep(
 pub(crate) fn run_standard_grep_with_writer<W: Write>(
     ctx: &ReqCtx<GrepOpts>,
     relativizer: &RepoPathRelativizer,
-    file_rx: flume::Receiver<filewalk::FileResult>,
+    file_rx: flume::Receiver<Vec<filewalk::FileResult>>,
     first_error: &filewalk::FirstError,
     pattern: &str,
     out: W,
@@ -971,13 +971,19 @@ pub(crate) fn run_standard_grep_with_writer<W: Write>(
     let styles = GrepTextStyles::from_config(ctx.config().as_ref());
     let mut grepper = Grepper::new(&ctx.opts, pattern, relativizer, out, use_color, &styles)?;
 
-    for file_result in file_rx {
+    for file_batch in file_rx {
         if first_error.has_error() {
             break;
         }
 
-        if let Err(e) = grepper.grep_file(&file_result.path, &file_result.data) {
-            first_error.send_error(e.into());
+        for file_result in file_batch {
+            if let Err(e) = grepper.grep_file(&file_result.path, &file_result.data) {
+                first_error.send_error(e.into());
+                break;
+            }
+        }
+
+        if first_error.has_error() {
             break;
         }
     }
@@ -990,7 +996,7 @@ pub(crate) fn run_standard_grep_with_writer<W: Write>(
 fn run_summary_grep(
     ctx: &ReqCtx<GrepOpts>,
     relativizer: &RepoPathRelativizer,
-    file_rx: flume::Receiver<filewalk::FileResult>,
+    file_rx: flume::Receiver<Vec<filewalk::FileResult>>,
     first_error: &filewalk::FirstError,
     pattern: &str,
     use_color: bool,
@@ -1009,7 +1015,7 @@ fn run_summary_grep(
 pub(crate) fn run_summary_grep_with_writer<W: Write>(
     ctx: &ReqCtx<GrepOpts>,
     relativizer: &RepoPathRelativizer,
-    file_rx: flume::Receiver<filewalk::FileResult>,
+    file_rx: flume::Receiver<Vec<filewalk::FileResult>>,
     first_error: &filewalk::FirstError,
     pattern: &str,
     out: W,
@@ -1019,13 +1025,19 @@ pub(crate) fn run_summary_grep_with_writer<W: Write>(
     let mut grepper =
         SummaryGrepper::new(&ctx.opts, pattern, relativizer, out, use_color, &styles)?;
 
-    for file_result in file_rx {
+    for file_batch in file_rx {
         if first_error.has_error() {
             break;
         }
 
-        if let Err(e) = grepper.grep_file(&file_result.path, &file_result.data) {
-            first_error.send_error(e.into());
+        for file_result in file_batch {
+            if let Err(e) = grepper.grep_file(&file_result.path, &file_result.data) {
+                first_error.send_error(e.into());
+                break;
+            }
+        }
+
+        if first_error.has_error() {
             break;
         }
     }
@@ -1086,7 +1098,7 @@ impl JsonOutput {
 pub(crate) fn grep_files_json(
     opts: &GrepOpts,
     pattern: &str,
-    file_rx: flume::Receiver<filewalk::FileResult>,
+    file_rx: flume::Receiver<Vec<filewalk::FileResult>>,
     first_error: &filewalk::FirstError,
     relativizer: &RepoPathRelativizer,
     json_out: &mut JsonOutput,
@@ -1097,51 +1109,57 @@ pub(crate) fn grep_files_json(
     let files_only = opts.files_with_matches;
     let mut match_count: u64 = 0;
 
-    for file_result in file_rx {
+    for file_batch in file_rx {
         if first_error.has_error() {
             break;
         }
 
-        let display_path = relativizer.relativize(&file_result.path);
+        for file_result in file_batch {
+            let display_path = relativizer.relativize(&file_result.path);
 
-        if files_only {
-            // In files_only mode, just check if file has any match
-            let mut file_has_match = false;
-            if let Err(e) = file_result.data.each_chunk(|chunk| {
-                let mut sink = FileMatchSink {
-                    has_match: &mut file_has_match,
-                };
-                searcher
-                    .search_slice(&regex_matcher, chunk, &mut sink)
-                    .map_err(|e| io::Error::other(e.to_string()))?;
-                Ok(())
-            }) {
-                first_error.send_error(e.into());
-                break;
+            if files_only {
+                // In files_only mode, just check if file has any match
+                let mut file_has_match = false;
+                if let Err(e) = file_result.data.each_chunk(|chunk| {
+                    let mut sink = FileMatchSink {
+                        has_match: &mut file_has_match,
+                    };
+                    searcher
+                        .search_slice(&regex_matcher, chunk, &mut sink)
+                        .map_err(|e| io::Error::other(e.to_string()))?;
+                    Ok(())
+                }) {
+                    first_error.send_error(e.into());
+                    break;
+                }
+                if file_has_match {
+                    json_out.write(&GrepFileMatch {
+                        path: &display_path,
+                    })?;
+                    match_count += 1;
+                }
+            } else {
+                // Output matches directly as we find them
+                if let Err(e) = file_result.data.each_chunk(|chunk| {
+                    let mut sink = JsonWriteSink {
+                        path: &display_path,
+                        include_line_number,
+                        json_out,
+                        match_count: &mut match_count,
+                    };
+                    searcher
+                        .search_slice(&regex_matcher, chunk, &mut sink)
+                        .map_err(|e| io::Error::other(e.to_string()))?;
+                    Ok(())
+                }) {
+                    first_error.send_error(e.into());
+                    break;
+                }
             }
-            if file_has_match {
-                json_out.write(&GrepFileMatch {
-                    path: &display_path,
-                })?;
-                match_count += 1;
-            }
-        } else {
-            // Output matches directly as we find them
-            if let Err(e) = file_result.data.each_chunk(|chunk| {
-                let mut sink = JsonWriteSink {
-                    path: &display_path,
-                    include_line_number,
-                    json_out,
-                    match_count: &mut match_count,
-                };
-                searcher
-                    .search_slice(&regex_matcher, chunk, &mut sink)
-                    .map_err(|e| io::Error::other(e.to_string()))?;
-                Ok(())
-            }) {
-                first_error.send_error(e.into());
-                break;
-            }
+        }
+
+        if first_error.has_error() {
+            break;
         }
     }
 

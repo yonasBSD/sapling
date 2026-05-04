@@ -28,8 +28,10 @@ use types::FetchContext;
 use types::Key;
 use types::RepoPathBuf;
 
-const BATCH_SIZE: usize = 1000;
+const FETCH_BATCH_SIZE: usize = 1000;
 const CONCURRENT_FETCHES: usize = 5;
+const RESULT_BATCH_SIZE: usize = 128;
+const RESULT_QUEUE_SIZE: usize = CONCURRENT_FETCHES * 8;
 
 /// A file result containing the path, content blob, and file type.
 pub struct FileResult {
@@ -98,7 +100,8 @@ impl Default for FirstError {
 
 /// Walk the manifest matching the given matcher and fetch file contents in parallel.
 ///
-/// Returns a channel that receives `FileResult` instances (not wrapped in Result/Error)
+/// Returns a channel that receives batches of `FileResult` instances
+/// (not wrapped in Result/Error)
 /// and a `FirstError` handle that can be used to:
 /// - Check for errors with `has_error()`
 /// - Cancel the operation by calling `send_error()`
@@ -109,9 +112,9 @@ pub fn walk_and_fetch<M: 'static + Matcher + Sync + Send>(
     manifest: &TreeManifest,
     matcher: M,
     file_store: &Arc<dyn FileStore>,
-) -> (flume::Receiver<FileResult>, FirstError) {
+) -> (flume::Receiver<Vec<FileResult>>, FirstError) {
     let first_error = FirstError::new();
-    let (result_tx, result_rx) = flume::bounded(CONCURRENT_FETCHES * BATCH_SIZE);
+    let (result_tx, result_rx) = flume::bounded(RESULT_QUEUE_SIZE);
 
     let file_node_rx = manifest.iter(matcher);
 
@@ -142,10 +145,12 @@ pub fn walk_and_fetch<M: 'static + Matcher + Sync + Send>(
                     let iter =
                         file_store.get_content_iter(FetchContext::sapling_default(), keys)?;
 
-                    let file_info = batch
-                        .into_iter()
-                        .map(|(path, meta)| (Key::new(path, meta.hgid), meta.file_type))
-                        .collect::<HashMap<_, _>>();
+                    let mut file_info = HashMap::with_capacity(batch.len());
+                    for (path, meta) in batch {
+                        file_info.insert(Key::new(path, meta.hgid), meta.file_type);
+                    }
+
+                    let mut result_batch = Vec::with_capacity(RESULT_BATCH_SIZE);
 
                     for result in iter {
                         if first_error.has_error() {
@@ -158,17 +163,23 @@ pub fn walk_and_fetch<M: 'static + Matcher + Sync + Send>(
                             .get(&key)
                             .ok_or_else(|| anyhow::anyhow!("missing file info for {}", key.hgid))?;
 
-                        if result_tx
-                            .send(FileResult {
-                                path: key.path,
-                                data,
-                                file_type: *file_type,
-                            })
-                            .is_err()
-                        {
-                            // Receiver dropped, stop processing
-                            return Ok(());
+                        result_batch.push(FileResult {
+                            path: key.path,
+                            data,
+                            file_type: *file_type,
+                        });
+
+                        if result_batch.len() >= RESULT_BATCH_SIZE {
+                            if result_tx.send(std::mem::take(&mut result_batch)).is_err() {
+                                // Receiver dropped, stop processing
+                                return Ok(());
+                            }
                         }
+                    }
+
+                    if !result_batch.is_empty() && result_tx.send(result_batch).is_err() {
+                        // Receiver dropped, stop processing
+                        return Ok(());
                     }
                 }
                 Ok(())
@@ -201,7 +212,7 @@ pub fn walk_and_fetch<M: 'static + Matcher + Sync + Send>(
                             if let FsNodeMetadata::File(file_meta) = metadata {
                                 current_batch.push((path, file_meta));
 
-                                if current_batch.len() >= BATCH_SIZE {
+                                if current_batch.len() >= FETCH_BATCH_SIZE {
                                     if fetch_content_tx
                                         .send(std::mem::take(&mut current_batch))
                                         .is_err()

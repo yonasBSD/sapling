@@ -251,18 +251,24 @@ fn fetch_and_output<M: 'static + pathmatcher::Matcher + Sync + Send>(
         let output_count = output_count.clone();
         handles.push(thread::spawn(move || {
             let run = || -> anyhow::Result<()> {
-                while let Ok(file_result) = file_rx.recv() {
+                while let Ok(file_batch) = file_rx.recv() {
                     if first_error.has_error() {
                         return Ok(());
                     }
 
-                    let FileResult {
-                        path,
-                        data,
-                        file_type,
-                    } = file_result;
-                    outputter.output_file(&path, data, file_type)?;
-                    output_count.fetch_add(1, Ordering::Relaxed);
+                    for file_result in file_batch {
+                        if first_error.has_error() {
+                            return Ok(());
+                        }
+
+                        let FileResult {
+                            path,
+                            data,
+                            file_type,
+                        } = file_result;
+                        outputter.output_file(&path, data, file_type)?;
+                        output_count.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
                 Ok(())
             };
