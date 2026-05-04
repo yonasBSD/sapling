@@ -93,6 +93,21 @@ pub struct Styler {
     renderer: TerminfoRenderer,
 }
 
+pub struct RenderedStyle {
+    prefix: Vec<u8>,
+    suffix: Vec<u8>,
+}
+
+impl RenderedStyle {
+    pub fn prefix(&self) -> &[u8] {
+        &self.prefix
+    }
+
+    pub fn suffix(&self) -> &[u8] {
+        &self.suffix
+    }
+}
+
 fn enable_compat_mode() -> bool {
     std::env::var("SL_DISABLE_TERMINFO_COMPAT").is_err()
 }
@@ -135,6 +150,27 @@ impl Styler {
         Ok(buf)
     }
 
+    pub fn render_style(&mut self, style_specs: &str) -> termwiz::Result<Option<RenderedStyle>> {
+        if style_specs.is_empty() {
+            return Ok(None);
+        }
+
+        let mut prefix = Vec::new();
+        self.render_change(
+            &mut prefix,
+            Change::AllAttributes(eval_style(self.level, style_specs)),
+        )?;
+
+        let mut suffix = Vec::new();
+        self.render_change(&mut suffix, Change::AllAttributes(CellAttributes::blank()))?;
+
+        if prefix.is_empty() && suffix.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(RenderedStyle { prefix, suffix }))
+    }
+
     pub fn render(
         &mut self,
         w: &mut dyn Write,
@@ -170,6 +206,11 @@ impl Styler {
         }
 
         Ok(())
+    }
+
+    fn render_change(&mut self, w: &mut dyn Write, change: Change) -> termwiz::Result<()> {
+        let mut tty = DumbTty { w };
+        self.renderer.render_to(&[change], &mut tty)
     }
 }
 
@@ -353,6 +394,15 @@ mod test {
             styler.render_bytes("red", "hello\nthere\n").unwrap(),
             b"\x1B[31mhello\x1B[39m\n\x1B[31mthere\x1B[39m\n"
         );
+    }
+
+    #[test]
+    fn test_render_style() {
+        let mut styler = Styler::from_level(TwoFiftySix).unwrap();
+        let style = styler.render_style("red").unwrap().unwrap();
+        assert_eq!(style.prefix(), b"\x1B[31m");
+        assert_eq!(style.suffix(), b"\x1B[39m");
+        assert!(styler.render_style("").unwrap().is_none());
     }
 
     fn specs_to_bytes(level: ColorLevel, specs: &str) -> Vec<u8> {
