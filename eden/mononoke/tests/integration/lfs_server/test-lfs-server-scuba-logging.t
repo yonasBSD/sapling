@@ -79,7 +79,7 @@
       "client_atlas_env_id": null,
       "client_correlator": "*", (glob)
       "client_entry_point": "sapling",
-      "client_hostname": "localhost",
+      "client_hostname": "localhost*", (glob)
       "client_ip": "$LOCALIP",
       "client_main_id": "*", (glob)
       "fetch_cause": null,
@@ -146,7 +146,7 @@
       "client_atlas_env_id": null,
       "client_correlator": "*", (glob)
       "client_entry_point": "sapling",
-      "client_hostname": "localhost",
+      "client_hostname": "localhost*", (glob)
       "client_ip": "$LOCALIP",
       "client_main_id": "*", (glob)
       "fetch_cause": null,
@@ -219,7 +219,7 @@
       "client_atlas_env_id": null,
       "client_correlator": "*", (glob)
       "client_entry_point": "sapling",
-      "client_hostname": "localhost",
+      "client_hostname": "localhost*", (glob)
       "client_ip": "$LOCALIP",
       "client_main_id": "*", (glob)
       "fetch_cause": "sl-unknown",
@@ -292,7 +292,7 @@
       "client_atlas_env_id": null,
       "client_correlator": "*", (glob)
       "client_entry_point": "sapling",
-      "client_hostname": "localhost",
+      "client_hostname": "localhost*", (glob)
       "client_ip": "$LOCALIP",
       "client_main_id": "*", (glob)
       "fetch_cause": "sl-unknown",
@@ -354,7 +354,7 @@
       "client_atlas_env_id": null,
       "client_correlator": "*", (glob)
       "client_entry_point": "curl_test",
-      "client_hostname": "localhost",
+      "client_hostname": "localhost*", (glob)
       "client_ip": "$LOCALIP",
       "client_main_id": "*", (glob)
       "fetch_cause": null,

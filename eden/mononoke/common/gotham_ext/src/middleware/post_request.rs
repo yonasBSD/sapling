@@ -20,10 +20,10 @@ use gotham::helpers::http::Body;
 use gotham::state::FromState;
 use gotham::state::State;
 use gotham_derive::StateData;
+use hickory_resolver::TokioResolver;
 use http::Response;
 use mononoke_macros::mononoke;
 use permission_checker::MononokeIdentitySetExt;
-use trust_dns_resolver::TokioAsyncResolver;
 
 use super::MetadataState;
 use super::Middleware;
@@ -229,10 +229,15 @@ pub fn resolve_hostname(
     // its hostname.
     let address = metadata.client_ip().cloned();
     (async move {
-        let resolver = TokioAsyncResolver::tokio_from_system_conf().ok()?;
-        let hosts = resolver.reverse_lookup(address?).await.ok()?;
-        let host = hosts.iter().next()?;
-        Some(host.to_string().trim_end_matches('.').to_string())
+        let resolver = TokioResolver::builder_tokio().ok()?.build().ok()?;
+        let lookup = resolver.reverse_lookup(address?).await.ok()?;
+        lookup.answers().iter().find_map(|record| {
+            if let hickory_resolver::proto::rr::RData::PTR(ptr) = &record.data {
+                Some(ptr.0.to_string().trim_end_matches('.').to_string())
+            } else {
+                None
+            }
+        })
     })
     .right_future()
 }

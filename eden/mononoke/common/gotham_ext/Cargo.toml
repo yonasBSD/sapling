@@ -24,6 +24,7 @@ futures_stats = { version = "0.1.0", git = "https://github.com/facebookexperimen
 gotham = "0.8"
 gotham_derive = "0.8"
 hex = { version = "0.4.3", features = ["alloc"] }
+hickory-resolver = { version = "0.26.1", features = ["system-config", "tokio"] }
 http = "1.4.0"
 http-body = "1.0.1"
 http-body-util = "0.1.0"
@@ -52,5 +53,4 @@ tokio-openssl = "0.6.5"
 tokio-util = { version = "0.7.18", features = ["full"] }
 tower-service = "0.3.3"
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
-trust-dns-resolver = "0.20.4"
 yield_stream = { version = "0.1.0", path = "../yield_stream" }

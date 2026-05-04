@@ -15,12 +15,13 @@ use anyhow::Result;
 use anyhow::anyhow;
 use clientinfo::ClientInfo;
 use clientinfo::ClientRequestInfo;
+use hickory_resolver::TokioResolver;
+use hickory_resolver::proto::rr::RData;
 use permission_checker::MononokeIdentitySet;
 use permission_checker::MononokeIdentitySetExt;
 use session_id::SessionId;
 use session_id::generate_session_id;
 use tokio::time::timeout;
-use trust_dns_resolver::TokioAsyncResolver;
 
 #[derive(Clone, Debug, Default)]
 pub struct Metadata {
@@ -102,13 +103,18 @@ impl Metadata {
         // impact performance much. In case this does lead to performance issues we
         // could start caching this, which for now would be preferred to avoid as this
         // might lead to unexpected behavior if the system configuration changes.
-        let resolver = TokioAsyncResolver::tokio_from_system_conf()?;
-        resolver
-            .reverse_lookup(client_ip)
-            .await?
+        let resolver = TokioResolver::builder_tokio()?.build()?;
+        let lookup = resolver.reverse_lookup(client_ip).await?;
+        lookup
+            .answers()
             .iter()
-            .next()
-            .map(|name| name.to_string().trim_end_matches('.').to_string())
+            .find_map(|record| {
+                if let RData::PTR(ptr) = &record.data {
+                    Some(ptr.0.to_string().trim_end_matches('.').to_string())
+                } else {
+                    None
+                }
+            })
             .ok_or_else(|| anyhow!("failed to do reverse lookup"))
     }
 

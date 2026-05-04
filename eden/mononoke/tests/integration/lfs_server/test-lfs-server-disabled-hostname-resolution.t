@@ -72,4 +72,4 @@
   null
   null
   null
-  "localhost"
+  "localhost*" (glob)
