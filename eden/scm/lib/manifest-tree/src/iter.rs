@@ -19,6 +19,7 @@ use flume::Sender;
 use flume::WeakSender;
 use manifest::FsNodeMetadata;
 use once_cell::sync::Lazy;
+use pathmatcher::DirectoryMatch;
 use pathmatcher::Matcher;
 use types::RepoPathBuf;
 
@@ -31,7 +32,7 @@ use crate::link::Leaf;
 use crate::link::Link;
 use crate::store::InnerStore;
 
-type IterWork = BfsWork<(RepoPathBuf, Link), IterContext>;
+type IterWork = BfsWork<(RepoPathBuf, Link, bool), IterContext>;
 
 static BFS_ITER_SENDER: Lazy<Sender<IterWork>> = Lazy::new(|| bfs::spawn_workers(run_worker));
 
@@ -58,7 +59,7 @@ pub fn bfs_iter<M: 'static + Matcher + Sync + Send>(
         .send(BfsWork {
             work: roots
                 .iter()
-                .map(|root| (RepoPathBuf::new(), root.borrow().thread_copy()))
+                .map(|root| (RepoPathBuf::new(), root.borrow().thread_copy(), false))
                 .collect(),
             ctx,
         })
@@ -89,7 +90,7 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
         // Batch-prefetch uninitialized durable entries.
         if let Err(e) = bfs::prefetch_trees(
             &ctx.store,
-            work.iter().filter_map(|(_, link)| match link.as_ref() {
+            work.iter().filter_map(|(_, link, _)| match link.as_ref() {
                 Durable(entry) if !entry.is_permission_denied() => Some(entry),
                 _ => None,
             }),
@@ -105,8 +106,8 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
         }
 
         let mut results_to_send = Vec::<Result<(RepoPathBuf, FsNodeMetadata)>>::new();
-        let mut work_to_send = Vec::<(RepoPathBuf, Link)>::new();
-        for (path, link) in work {
+        let mut work_to_send = Vec::<(RepoPathBuf, Link, bool)>::new();
+        for (path, link, subtree_matches_everything) in work {
             let hgid = match link.as_ref() {
                 Leaf(_) => continue,
                 Ephemeral(_) => None,
@@ -139,32 +140,60 @@ fn run_worker(work_recv: Receiver<IterWork>, work_send: WeakSender<IterWork>) ->
             for (component, link) in children.iter() {
                 let mut child_path = path.clone();
                 child_path.push(component.as_path_component());
-                match link.matches(&ctx.matcher, &child_path) {
-                    Ok(true) => {
-                        if let Leaf(file_metadata) = link.as_ref() {
+                let directory_match = if subtree_matches_everything {
+                    Some(DirectoryMatch::Everything)
+                } else {
+                    None
+                };
+
+                let should_enqueue = match link.as_ref() {
+                    Leaf(file_metadata) => {
+                        let is_match = if subtree_matches_everything {
+                            true
+                        } else {
+                            ctx.matcher.matches_file(&child_path).with_context(|| {
+                                format!("matches_file in bfs_iter for {}", child_path)
+                            })?
+                        };
+                        if is_match {
                             results_to_send
                                 .push(Ok((child_path, FsNodeMetadata::File(*file_metadata))));
-                            continue;
                         }
-
-                        work_to_send.push((child_path, link.thread_copy()));
-                        if work_to_send.len() >= BATCH_SIZE {
-                            if !bfs::try_send(
-                                &work_send,
-                                BfsWork {
-                                    work: mem::take(&mut work_to_send),
-                                    ctx: ctx.clone(),
-                                },
-                            )? {
-                                continue 'outer;
+                        false
+                    }
+                    Durable(_) | Ephemeral(_) => {
+                        let directory_match =
+                            match directory_match {
+                                Some(directory_match) => directory_match,
+                                None => ctx.matcher.matches_directory(&child_path).with_context(
+                                    || format!("matches_directory in bfs_iter for {}", child_path),
+                                )?,
+                            };
+                        match directory_match {
+                            DirectoryMatch::Nothing => false,
+                            DirectoryMatch::ShouldTraverse => {
+                                work_to_send.push((child_path, link.thread_copy(), false));
+                                true
+                            }
+                            DirectoryMatch::Everything => {
+                                work_to_send.push((child_path, link.thread_copy(), true));
+                                true
                             }
                         }
                     }
-                    Ok(false) => {}
-                    Err(e) => {
-                        results_to_send.push(Err(e).context("matching in bfs_iter"));
-                    }
                 };
+
+                if should_enqueue && work_to_send.len() >= BATCH_SIZE {
+                    if !bfs::try_send(
+                        &work_send,
+                        BfsWork {
+                            work: mem::take(&mut work_to_send),
+                            ctx: ctx.clone(),
+                        },
+                    )? {
+                        continue 'outer;
+                    }
+                }
             }
         }
 
