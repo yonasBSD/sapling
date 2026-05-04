@@ -525,7 +525,7 @@ fn run_local_grep(
 ) -> Result<u64> {
     let file_store = repo.file_store()?;
     let (_, manifest) = repo.resolve_manifest(&ctx.core, rev, matcher.clone())?;
-    let (file_rx, first_error) = filewalk::walk_and_fetch(&manifest, matcher, &file_store);
+    let (file_rx, first_error) = filewalk::walk_and_fetch(manifest, matcher, &file_store);
 
     let use_color = ctx.should_color();
 
@@ -575,7 +575,7 @@ fn run_local_grep_json(
     let (_, manifest) = repo.resolve_manifest(&ctx.core, rev, matcher.clone())?;
 
     // Walk and fetch the files
-    let (file_rx, first_error) = filewalk::walk_and_fetch(&manifest, matcher, &file_store);
+    let (file_rx, first_error) = filewalk::walk_and_fetch(manifest, matcher, &file_store);
 
     let match_count = grep_files_json(
         &ctx.opts,

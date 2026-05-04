@@ -109,14 +109,12 @@ impl Default for FirstError {
 ///
 /// The walk stops early if an error occurs (either from the manifest iteration or file fetching).
 pub fn walk_and_fetch<M: 'static + Matcher + Sync + Send>(
-    manifest: &TreeManifest,
+    manifest: TreeManifest,
     matcher: M,
     file_store: &Arc<dyn FileStore>,
 ) -> (flume::Receiver<Vec<FileResult>>, FirstError) {
     let first_error = FirstError::new();
     let (result_tx, result_rx) = flume::bounded(RESULT_QUEUE_SIZE);
-
-    let file_node_rx = manifest.iter(matcher);
 
     let (fetch_content_tx, fetch_content_rx) =
         flume::bounded::<Vec<(RepoPathBuf, FileMetadata)>>(CONCURRENT_FETCHES);
@@ -198,6 +196,7 @@ pub fn walk_and_fetch<M: 'static + Matcher + Sync + Send>(
     let manifest_first_error = first_error.clone();
     handles.push(thread::spawn(move || {
         let run = || -> anyhow::Result<()> {
+            let file_node_rx = manifest.iter(matcher);
             let mut current_batch = Vec::new();
 
             loop {

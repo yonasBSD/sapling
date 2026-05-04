@@ -924,7 +924,7 @@ pub fn run(ctx: ReqCtx<GrepOpts>, repo: &CoreRepo) -> Result<u8> {
 
     ctx.maybe_start_pager(repo.config())?;
 
-    let (file_rx, first_error) = walk_and_fetch(&manifest, matcher, &file_store);
+    let (file_rx, first_error) = walk_and_fetch(manifest, matcher, &file_store);
 
     // Handle JSON output modes
     if let Some(mut json_out) = json_out {

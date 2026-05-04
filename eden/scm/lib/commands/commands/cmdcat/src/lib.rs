@@ -215,13 +215,13 @@ pub fn run(ctx: ReqCtx<CatOpts>, repo: &CoreRepo) -> Result<u8> {
         Outputter::new_io(ctx.io().clone())
     };
 
-    let count = fetch_and_output(&manifest, matcher, &file_store, outputter)?;
+    let count = fetch_and_output(manifest, matcher, &file_store, outputter)?;
 
     Ok(if count > 0 { 0 } else { 1 })
 }
 
 fn fetch_and_output<M: 'static + pathmatcher::Matcher + Sync + Send>(
-    manifest: &TreeManifest,
+    manifest: TreeManifest,
     matcher: M,
     file_store: &Arc<dyn FileStore>,
     outputter: Outputter,
