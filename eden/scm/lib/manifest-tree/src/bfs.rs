@@ -20,6 +20,7 @@ use flume::WeakSender;
 use manifest::FileMetadata;
 use storemodel::TreeEntry;
 use types::FetchContext;
+use types::FetchSyncMode;
 use types::HgId;
 use types::Key;
 use types::PathComponentBuf;
@@ -152,7 +153,8 @@ pub(crate) fn prefetch_trees<'a>(
     );
     let _entered = span.enter();
 
-    for res in store.get_tree_iter(FetchContext::default(), keys)? {
+    let fctx = FetchContext::default().with_sync_mode(FetchSyncMode::Sync);
+    for res in store.get_tree_iter(fctx, keys)? {
         match res {
             Ok((key, tree_entry)) => {
                 let mut denied_hgids = HashMap::new();
