@@ -23,11 +23,11 @@ use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
+use clap::Parser;
 use eden_apfs::*;
 use once_cell::sync::Lazy;
 #[cfg(target_os = "macos")]
 use serde::*;
-use structopt::StructOpt;
 
 #[cfg(feature = "fb")]
 mod facebook;
@@ -37,61 +37,61 @@ const MAX_ADDVOLUME_RETRY: u64 = 3;
 
 static MOUNT: Lazy<SystemCommandImpl> = Lazy::new(|| SystemCommandImpl(PathBuf::from(MOUNT_PATH)));
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 enum Opt {
     /// List APFS volumes
-    #[structopt(name = "list")]
+    #[command(name = "list")]
     List {
-        #[structopt(long = "all")]
+        #[arg(long = "all")]
         all: bool,
     },
 
     /// List APFS volumes that are not mounted and not used by any of the active checkouts.
     /// The intent is that `all_checkouts` is produced by `edenfsctl list`.
-    #[structopt(name = "list-stale-volumes")]
+    #[command(name = "list-stale-volumes")]
     ListStaleVolumes {
         all_checkouts: Vec<String>,
-        #[structopt(long = "json")]
+        #[arg(long = "json")]
         json: bool,
     },
 
     /// Mount some space at the specified path.
     /// You must be the owner of the path.
-    #[structopt(name = "mount")]
+    #[command(name = "mount")]
     Mount { mount_point: String },
 
     /// Unmount the eden space from a specific path.
     /// This will only allow unmounting volumes that were created
     /// by this utility.
-    #[structopt(name = "unmount")]
+    #[command(name = "unmount")]
     UnMount {
         /// The mounted path that you wish to unmount
         mount_point: String,
         /// Force the unmount, even if files are open and busy
-        #[structopt(long = "force")]
+        #[arg(long = "force")]
         force: bool,
     },
 
     /// Unmount and delete a volume associated with a specific path.
     /// This will only allow deleting volumes that were created
     /// by this utility
-    #[structopt(name = "delete")]
+    #[command(name = "delete")]
     Delete {
         /// The mounted path that you wish to unmount
         mount_point: String,
     },
 
     /// Unmount and delete all APFS volumes created by this utility
-    #[structopt(name = "delete-all")]
+    #[command(name = "delete-all")]
     DeleteAll {
-        #[structopt(long = "kill_dependent_processes")]
+        #[arg(long = "kill_dependent_processes")]
         kill_dependent_processes: bool,
     },
 
     /// Unmount and delete a volume.
     /// This will only allow deleting volumes that were created
     /// by this utility
-    #[structopt(name = "delete-volume")]
+    #[command(name = "delete-volume")]
     DeleteVolume {
         /// The volume that you wish to delete
         volume: String,
@@ -445,7 +445,7 @@ fn disable_trashcan(mount_point: &str) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let opts = Opt::from_args();
+    let opts = Opt::parse();
 
     let apfs_util = ApfsUtil::new(DISKUTIL_PATH, MOUNT_PATH);
 

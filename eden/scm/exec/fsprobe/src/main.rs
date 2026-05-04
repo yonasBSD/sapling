@@ -28,17 +28,17 @@ use std::time::Instant;
 
 use anyhow::Result;
 use anyhow::bail;
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 struct Cli {
     path: PathBuf,
-    #[structopt(short = "p", long = "parallel")]
+    #[arg(short = 'p', long = "parallel")]
     parallel: Option<usize>,
 }
 
 fn main() {
-    let args = Cli::from_args();
+    let args = Cli::parse();
     let plan = ProbePlan::load(&args.path).expect("Failed to load fsprobe plan");
     let stats = Arc::new(Stats::default());
     let start = Instant::now();

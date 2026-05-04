@@ -13,7 +13,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 
-use structopt::StructOpt;
+use clap::Parser;
 use xdiff::CopyInfo;
 use xdiff::DiffFile;
 use xdiff::DiffOpts;
@@ -23,37 +23,35 @@ use xdiff::diff_unified;
 #[cfg(target_family = "unix")]
 const EXEC_BIT: u32 = 0o0000100;
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "diff", about = "A showcase binary for xdiff diff library.")]
+#[derive(Debug, Parser)]
+#[command(name = "diff", about = "A showcase binary for xdiff diff library.")]
 struct Opt {
     /// Input file
-    #[structopt(parse(from_os_str))]
     file_a: PathBuf,
 
     /// Output file, stdout if not present
-    #[structopt(parse(from_os_str))]
     file_b: PathBuf,
 
     /// Treat the <file-b> as a copy of the <file-a>
-    #[structopt(short, long)]
+    #[arg(short, long)]
     copy: bool,
 
     /// Treat the <file-b> as a move of the <file-a>
-    #[structopt(short, long)]
+    #[arg(short, long)]
     move_: bool,
 
     /// Do not follow symlinks - compare them instead (POSIX-only)
-    #[structopt(short, long)]
+    #[arg(short, long)]
     #[cfg_attr(windows, allow(dead_code))]
     symlink: bool,
 
     /// Number of lines of unified context (default: 3)
-    #[structopt(short = "U", long, default_value = "3")]
+    #[arg(short = 'U', long, default_value = "3")]
     unified: usize,
 }
 
 fn main() -> Result<(), std::io::Error> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     #[cfg(target_family = "unix")]
     fn file_mode_and_contents(

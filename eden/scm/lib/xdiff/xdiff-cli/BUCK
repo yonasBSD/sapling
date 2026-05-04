@@ -9,7 +9,7 @@ rust_binary(
     ],
     crate_root = "src/main.rs",
     deps = [
-        "fbsource//third-party/rust:structopt",
+        "fbsource//third-party/rust:clap",
         "//eden/scm/lib/xdiff:xdiff",
     ],
 )
